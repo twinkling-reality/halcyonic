@@ -1,0 +1,46 @@
+data: {"id":"evt_0dfd33441001icsHmMSGCPlrCa","type":"server.connected","data":{}}
+
+: heartbeat
+
+data: {"id":"evt_0dfd33849001A2dsOk57uL6i96","created":1790461556809,"type":"session.created","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","slug":"swift-wolf","version":"2.0.18","projectID":"40d8da933b8dd211c5162323a09edf6fcff83663","location":{"directory":"/workspace/project-a"},"subpath":"","title":"restart-SIGKILL"},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":0,"version":1}}
+
+data: {"id":"evt_0dfd3386d001VWOa5dkcY7DVmp","created":1790461556845,"type":"project.updated","location":{"directory":"/workspace/project-a"},"data":{"id":"40d8da933b8dd211c5162323a09edf6fcff83663","canonical":"/workspace/project-a","vcs":"git","time":{"created":1790460619284,"updated":1790460619284,"active":1790461556845},"sandboxes":[]}}
+
+data: {"id":"evt_0dfd33b65001e7dTdpAdB1TuSD","created":1790461557605,"type":"integration.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b670011VDR63sgz6GEFy","created":1790461557607,"type":"provider.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b6b001uVCzGz5Sn1jz68","created":1790461557611,"type":"model.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b88001SKXjmADWIkkfQt","created":1790461557640,"type":"vcs.branch.updated","location":{"directory":"/workspace/project-a"},"data":{"branch":"main"}}
+
+data: {"id":"evt_0dfd33b89001LbWZN2YP5NyNSS","created":1790461557641,"type":"agent.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b89002bnUzi5Ols6pmCs","created":1790461557641,"type":"command.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b89003Sgpur8Kd5P1w9I","created":1790461557641,"type":"skill.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b8b0013W15H3Hw43eSTz","created":1790461557643,"type":"websearch.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33b8c001eRzcqJom3bTIbW","created":1790461557644,"type":"reference.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33c75001ylZnwL9fcvM7Rm","created":1790461557877,"type":"plugin.updated","location":{"directory":"/workspace/project-a"},"data":{}}
+
+data: {"id":"evt_0dfd33c76001oDJIaZXcB0bX55","created":1790461557878,"type":"session.inbox.enqueued","location":{"directory":"/workspace/project-a"},"data":{"inboxID":"msg_0dfd33aeb001cM1xZ50Ojve42U","sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","item":{"type":"user","payload":{"text":"SLOW turn before a SIGKILL (restart-SIGKILL)"},"delivery":"steer"}},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":1,"version":1}}
+
+data: {"id":"evt_0dfd33c78001KEGFyATOunZvhZ","created":1790461557880,"type":"session.execution.started","data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2"},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":2,"version":1}}
+
+data: {"id":"evt_0dfd33c8400170Xm2vuLTWMWuJ","created":1790461557892,"metadata":{"instructions":{"initial":true}},"type":"session.instructions.updated","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","delta":{"core/environment":"0a007593c4bb0c36798c3482f93983aa8fa28d4e967864ee7b059fe3cac67356","core/date":"ccc05888c7388ecb78c9d5b32915755a9f6614cc67704f84eb9c0dc0bc9a9e2e","core/codemode":"616a7ad8b8e40e8a71eab238dfbbe9eaf0f4a9e6fdad853226d075bfe602e1e6","core/skill-guidance":"8394362d28c82fa4d13c7a9f5568c05680f6687e07db8f426a0e3c92f3027dc9"}},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":3,"version":2}}
+
+data: {"id":"evt_0dfd33c86001gEftncxgphn33k","created":1790461557894,"type":"session.inbox.delivered","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","inboxID":"msg_0dfd33aeb001cM1xZ50Ojve42U"},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":4,"version":1}}
+
+data: {"id":"evt_0dfd33cb4001NjvJqA0W6sVsAN","created":1790461557940,"type":"session.step.started","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","agent":"build","model":{"id":"fake-model","providerID":"fake"},"assistantMessageID":"msg_0dfd33c8b001bt5ZVIhjx7wcIz","snapshot":"209477a4582150b762a76f790b4d9314a6e1f2e8","started":1790461557935},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":5,"version":1}}
+
+data: {"id":"evt_0dfd33cb60017pfIDdGdhPUkKZ","created":1790461557942,"type":"session.text.started","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","assistantMessageID":"msg_0dfd33c8b001bt5ZVIhjx7wcIz","ordinal":0},"durable":{"aggregateID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","seq":6,"version":1}}
+
+data: {"id":"evt_0dfd33d1c001AN5myWODaFOLoH","created":1790461558044,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","assistantMessageID":"msg_0dfd33c8b001bt5ZVIhjx7wcIz","ordinal":0,"delta":"tick 1. "}}
+
+data: {"id":"evt_0dfd34101001EHIiJTUVuR1rm2","created":1790461559041,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","assistantMessageID":"msg_0dfd33c8b001bt5ZVIhjx7wcIz","ordinal":0,"delta":"tick 2. "}}
+
+data: {"id":"evt_0dfd344eb001hkJWMHbKQamIyW","created":1790461560043,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f202cc7d3ffeROenfQZ0A1jwg2","assistantMessageID":"msg_0dfd33c8b001bt5ZVIhjx7wcIz","ordinal":0,"delta":"tick 3. "}}
+
