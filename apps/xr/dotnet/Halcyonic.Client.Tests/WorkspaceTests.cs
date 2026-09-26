@@ -251,13 +251,13 @@ public class EventHistoryTests
     public void RefusesHistoryFromAnotherJournal()
     {
         var history = new PagedHistory(10, journalId: "01a0dcf1-5a80-7000-8000-0000000000ff");
-        Assert.ThrowsAsync<HistoryUnavailableException>(() => history.ReadAllAsync("w1", Samples.JournalId));
+        Assert.ThrowsAsync<ControlPlaneRequestException>(() => history.ReadAllAsync("w1", Samples.JournalId));
     }
 
     [Test]
     public void TheRestAddressFollowsTheRealtimeEndpoint()
     {
-        Assert.That(HttpEventHistory.BaseUriFor(new Uri("ws://127.0.0.1:47800/realtime")), Is.EqualTo(new Uri("http://127.0.0.1:47800/")));
-        Assert.That(HttpEventHistory.BaseUriFor(new Uri("wss://example.test/realtime")), Is.EqualTo(new Uri("https://example.test/")));
+        Assert.That(ControlPlaneApi.BaseUriFor(new Uri("ws://127.0.0.1:47800/realtime")), Is.EqualTo(new Uri("http://127.0.0.1:47800/")));
+        Assert.That(ControlPlaneApi.BaseUriFor(new Uri("wss://example.test/realtime")), Is.EqualTo(new Uri("https://example.test/")));
     }
 }

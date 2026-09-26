@@ -15,6 +15,11 @@ It is not a sandbox against other processes running as the same user; those can 
 as with Salidium. The agent runtimes themselves are not yet integrated, so no provider credential
 exists in Halcyonic.
 
+The one third-party credential it holds is Salidium's consumer credential, which reads Salidium's
+reports and nothing else. It lives in `<data dir>/salidium-credential`, is read on every request,
+is refused when other users can read the file, is sent only after Salidium's discovery file and
+endpoint prove the same instance on loopback, and is never logged or passed to launched agents.
+
 ## Controls
 
 | Control | Implementation |

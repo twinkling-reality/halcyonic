@@ -44,6 +44,25 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:47800/api/events?aft
 Commands are posted as JSON `CommandEnvelope`s to `/api/commands`. The shape is in
 `packages/contracts/schema/halcyonic-contracts.schema.json` under `$defs/CommandEnvelope`.
 
+## Connect Salidium
+
+With a Salidium that serves its consumer contract running, create a credential for Halcyonic and
+store only the token in the data directory, readable only by you. `--json` makes Salidium print the
+token as a field instead of in prose, and `umask 077` creates the file private from the start:
+
+```bash
+(umask 077 && salidium consumer create halcyonic --json | node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>process.stdout.write(JSON.parse(s).token+"\n"))' > ~/.halcyonic/salidium-credential)
+```
+
+`GET /api/executions/:execution_id/understanding` then answers from Salidium for executions on
+runtimes it observes (Claude Code and Codex). Every answer states its availability, so a missing
+credential, a stopped Salidium or an unobserved runtime reads as such rather than as an error.
+Salidium's real-wire tests run against its consumer test daemon from a built Salidium checkout:
+
+```bash
+SALIDIUM_CHECKOUT=/path/to/salidium node --test packages/integrations/salidium/src/live-salidium.test.ts
+```
+
 ## Replay a recorded trace
 
 ```bash

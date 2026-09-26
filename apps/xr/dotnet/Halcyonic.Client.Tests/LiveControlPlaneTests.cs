@@ -135,11 +135,20 @@ public class LiveControlPlaneTests
         Assert.That(workspace.Commands.First().Text, Is.EqualTo("Approval answered"));
 
         // A client that joins now gets current state from the snapshot and the history over REST.
-        using var history = new HttpEventHistory(HttpEventHistory.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
+        using var history = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
         var fromHistory = new ActivityLog();
         fromHistory.Record(await history.ReadAllAsync(workstreamId, session.State.Journal!.JournalId));
         Assert.That(fromHistory.For(executionId).Select(entry => entry.Text), Is.EqualTo(activity.For(executionId).Select(entry => entry.Text)));
         Assert.That(fromHistory.For(executionId).Select(entry => entry.Text), Does.Contain("Approved"));
+
+        // Understanding is read through to Salidium, which never observes the mock runtime.
+        var understanding = await history.GetUnderstandingAsync(executionId);
+        Assert.That(understanding.Result, Is.TypeOf<UnavailableUnderstanding>());
+        Assert.That(((UnavailableUnderstanding)understanding.Result).Reason.Code, Is.EqualTo("runtime_not_observed"));
+        using var raw = new System.Net.Http.HttpClient();
+        raw.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", controlPlane.AccessToken);
+        Json.AssertRoundTrips<UnderstandingResponse>(
+            await raw.GetStringAsync(new Uri(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), "api/executions/" + executionId + "/understanding")));
 
         var position = session.State.Position;
         connections.Last().Abort();

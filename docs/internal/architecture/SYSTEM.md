@@ -16,7 +16,8 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | XR client core: realtime session, client projection, character presentation (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
 | XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Skeleton; not yet opened in Unity |
 | OpenCode, Claude Code and Codex adapters | `packages/integrations/*` | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
-| Salidium and Seorak integration | none | Blocked on contracts; see [INTEGRATIONS.md](INTEGRATIONS.md) |
+| Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
+| Seorak integration | none | Waits for Seorak to publish its correlation endpoint; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
 ## Dependency rules
@@ -88,6 +89,10 @@ Environment variables, all optional:
 | `HALCYONIC_LOG_LEVEL` | `info` | `fatal` to `trace`, or `silent` |
 | `HALCYONIC_COMMAND_TIMEOUT_MS` | `30000` | How long to wait for a runtime to confirm an action |
 | `HALCYONIC_MOCK_SCENARIOS_DIR` | `fixtures/scenarios` | Mock runtime scenarios |
+| `SALIDIUM_HOME` | `~/.salidium` | Where Salidium publishes its discovery file, as Salidium itself resolves it |
+
+Files in the data directory besides the journal and the access token: `salidium-credential`, the
+consumer credential the owner created for Halcyonic (mode 0600; optional).
 
 ## Toolchain
 

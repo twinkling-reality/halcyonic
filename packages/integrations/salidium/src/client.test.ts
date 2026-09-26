@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, type TestContext, test } from 'node:test';
-import { compileValidator } from '@halcyonic/contracts';
+import { compileValidator, UnderstandingResult } from '@halcyonic/contracts';
 import { SalidiumClient, salidiumProviderFor, type UnderstandOptions } from './client.ts';
 import { defaultSalidiumHome } from './connection.ts';
 import { consumerToken, FakeSalidium, fixture } from './testing/fake-salidium.ts';
-import { UnderstandingResult } from './understanding.ts';
 
 const validateResult = compileValidator(UnderstandingResult);
 

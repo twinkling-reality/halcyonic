@@ -3,26 +3,40 @@ import {
   compileValidator,
   EventsQuery,
   type EventsResponse,
+  ExecutionId,
   type HealthResponse,
   ProjectId,
   type ProjectsResponse,
   parseCommandEnvelope,
   type RuntimesResponse,
   type Snapshot,
+  UnderstandingResponse,
+  type UnderstandingResult,
   type WorkstreamsResponse,
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ControlPlane } from '../core/control-plane.ts';
+import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import { errorBody } from './server.ts';
 
 const validateEventsQuery = compileValidator(EventsQuery);
 const validateProjectId = compileValidator(ProjectId);
+const validateExecutionId = compileValidator(ExecutionId);
+const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
+
+export interface RouteSources {
+  readonly understanding: UnderstandingSource;
+}
 
 /**
  * REST is for bootstrap, history and command submission. Live state flows over the WebSocket
  * at /realtime (see docs/internal/architecture/REALTIME.md).
  */
-export function registerRoutes(app: FastifyInstance, controlPlane: ControlPlane): void {
+export function registerRoutes(
+  app: FastifyInstance,
+  controlPlane: ControlPlane,
+  sources: RouteSources,
+): void {
   app.get('/api/health', async (): Promise<HealthResponse> => ({ status: 'ok' }));
 
   app.get('/api/snapshot', async (): Promise<Snapshot> => controlPlane.snapshot());
@@ -78,6 +92,45 @@ export function registerRoutes(app: FastifyInstance, controlPlane: ControlPlane)
       }),
     };
     return body;
+  });
+
+  // Read through to the understanding provider; nothing here is journaled (ADR 0010).
+  app.get('/api/executions/:execution_id/understanding', async (request, reply) => {
+    const executionId = (request.params as { execution_id: string }).execution_id;
+    if (!validateExecutionId(executionId).ok) {
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'execution_id must be an execution identifier.'));
+    }
+    const execution = controlPlane.projection.execution(executionId);
+    if (execution === undefined) {
+      return reply
+        .code(404)
+        .send(errorBody('execution_not_found', `Execution ${executionId} does not exist.`));
+    }
+    const result: UnderstandingResult =
+      execution.native_id === null
+        ? {
+            availability: 'not_found',
+            reason: {
+              code: 'native_id_unknown',
+              message: 'The runtime has not reported its session id yet.',
+            },
+          }
+        : await sources.understanding.understand(execution.runtime.kind, execution.native_id);
+    const body = { execution_id: execution.execution_id, result };
+    if (validateUnderstandingResponse(body).ok) return body;
+    request.log.warn({ execution_id: executionId }, 'understanding does not match the contract');
+    return {
+      execution_id: execution.execution_id,
+      result: {
+        availability: 'incompatible',
+        reason: {
+          code: 'invalid_understanding',
+          message: 'The understanding provider returned data outside the contract.',
+        },
+      },
+    };
   });
 
   app.post('/api/commands', async (request, reply) => {

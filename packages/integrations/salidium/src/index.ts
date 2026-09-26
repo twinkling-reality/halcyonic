@@ -11,4 +11,3 @@ export {
   type SalidiumFeedEvent,
   type SalidiumFeedOptions,
 } from './feed.ts';
-export * from './understanding.ts';

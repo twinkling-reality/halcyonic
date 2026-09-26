@@ -9,6 +9,7 @@ import { registerRoutes } from './http/routes.ts';
 import { loadOrCreateAccessToken } from './http/security.ts';
 import { createHttpServer } from './http/server.ts';
 import { createUuidV7Generator } from './ids.ts';
+import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
 
 async function main(): Promise<void> {
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
     commandTimeoutMs: config.commandTimeoutMs,
   });
   controlPlane.reconcile();
-  registerRoutes(app, controlPlane);
+  registerRoutes(app, controlPlane, { understanding: salidiumUnderstandingFor(config.dataDir) });
   registerRealtime(app, controlPlane);
 
   await app.listen({ host: config.host, port: config.port });

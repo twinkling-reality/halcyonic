@@ -1,4 +1,4 @@
-import type { Understanding } from './understanding.ts';
+import type { Understanding } from '@halcyonic/contracts';
 import type { WireDiscovery, WireReport } from './wire.ts';
 
 type Source = Understanding['source'];

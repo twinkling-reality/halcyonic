@@ -1,8 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { ValidationIssue } from '@halcyonic/contracts';
-import type { UnderstandingFailure } from './understanding.ts';
+import type { UnderstandingFailure, ValidationIssue } from '@halcyonic/contracts';
 import {
   CONSUMER_BASE_PATH,
   CONSUMER_TOKEN_PATTERN,

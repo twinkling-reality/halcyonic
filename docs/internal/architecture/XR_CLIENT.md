@@ -77,7 +77,7 @@ the same definition names, as the JSON Schema document:
   activity.
 - **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
   as a claim. A snapshot carries state but no history, so after a resynchronization the history of
-  the workstream being looked at is read again through **`EventHistory`**
+  the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
   (`GET /api/events`, paged, refused if the journal changed).
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. Whether `ClientWebSocket` works under IL2CPP on Quest is

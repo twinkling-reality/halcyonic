@@ -23,7 +23,7 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Where does a real execution run? Projects have no working directory, and runtime adapters take one as a start option. Letting a client name host paths would let a compromised client point an agent anywhere, so directories probably belong to host-side configuration that clients can only reference. | Starting real work from the XR client | Security design and ADR before XR can start real executions |
 | How is the pinned OpenCode binary installed and updated for users? | The OpenCode adapter runs only a pinned binary ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)) | Packaging decision |
 | How are test runs identified in real runtimes? Only an inferred rule from commands is available. | `verifying` status and verification attention | Adapter design with an `inferred` provenance rule |
-| Salidium: when is its versioned, read-only consumer contract published, and at which version does Halcyonic pin it? | The Understand surface | Decision in the Salidium repository |
+| Salidium: when is its consumer contract v1 published, and at which version does Halcyonic pin it? It is exercised end to end against the release candidate. | The Understand surface | Decision in the Salidium repository |
 | Seorak: how does a Halcyonic execution correlate with a Seorak session? The published API (`@seorak/types` 0.1.0) exposes only opaque session references. | The Evaluate surface | A published correlation endpoint in Seorak |
 
 ## Platform and security

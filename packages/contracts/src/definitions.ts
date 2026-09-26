@@ -6,6 +6,7 @@ import {
   HealthResponse,
   ProjectsResponse,
   RuntimesResponse,
+  UnderstandingResponse,
   ValidationIssueSchema,
   WorkstreamsResponse,
 } from './api.ts';
@@ -40,6 +41,15 @@ import {
   ServerMessage,
 } from './realtime.ts';
 import { RuntimeCapabilities, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import {
+  Understanding,
+  UnderstandingEpistemic,
+  UnderstandingExplanation,
+  UnderstandingResult,
+  UnderstandingSource,
+  UnderstandingStatement,
+  UnderstandingVerificationRun,
+} from './understanding.ts';
 import {
   ApprovalView,
   Attention,
@@ -108,6 +118,24 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   EventsResponse,
   CommandSubmissionResponse,
   ErrorResponse,
+  UnderstandingResponse,
+  UnderstandingResult,
+  Understanding,
+  UnderstandingSource,
+  UnderstandingStatement,
+  UnderstandingVerificationRun,
+  UnderstandingExplanation,
+  UnderstandingEpistemic,
+  UnderstandingChangedFile: Understanding.properties.changes.properties.files.items,
+  UnderstandingReviewGroup: Understanding.properties.review.properties.groups.items,
+  UnderstandingRemainingItem: Understanding.properties.remaining.properties.items.items,
+  UnderstandingChangeKind:
+    Understanding.properties.changes.properties.files.items.properties.kinds.items,
+  UnderstandingCommit: Understanding.properties.changes.properties.commits.items,
+  UnderstandingReviewItem:
+    Understanding.properties.review.properties.groups.items.properties.items.items,
+  UnderstandingExplanationLane:
+    UnderstandingExplanation.properties.content.anyOf[0].properties.why.properties.lanes.items,
   ExecutionStatus,
   WorkstreamStatus,
   AttentionLevel,

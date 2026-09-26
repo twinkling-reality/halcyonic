@@ -5,13 +5,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { describe, type TestContext, test } from 'node:test';
+import type { UnderstandingResult } from '@halcyonic/contracts';
 import { SalidiumClient } from './client.ts';
 import { openSalidiumFeed, type SalidiumFeedEvent } from './feed.ts';
 import { toUnderstanding } from './report.ts';
 import { SseParser } from './sse.ts';
 import { consumerToken, fixture } from './testing/fake-salidium.ts';
 import { until } from './testing/until.ts';
-import type { UnderstandingResult } from './understanding.ts';
 import { readFeedMessage, validateDiscovery, validateReport } from './wire.ts';
 
 /**

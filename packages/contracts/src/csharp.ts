@@ -24,6 +24,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   AttentionReason: { discriminator: 'kind', suffix: 'Reason' },
   CommandResult: { discriminator: 'kind', suffix: 'Result' },
   ApprovalSubject: { discriminator: 'kind', suffix: 'Subject' },
+  UnderstandingResult: { discriminator: 'availability', suffix: 'Understanding' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
@@ -38,6 +39,7 @@ const ROOTS: readonly string[] = [
   'EventsResponse',
   'CommandSubmissionResponse',
   'ErrorResponse',
+  'UnderstandingResponse',
 ];
 
 interface CsType {

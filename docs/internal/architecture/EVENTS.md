@@ -104,6 +104,11 @@ To change a contract:
 - Until there are external users, breaking changes are acceptable when coordinated: migrate
   fixtures, the journal schema, generated bindings and documentation together.
 
+## What is not journaled
+
+Conclusions from Salidium and Seorak are read through on request and never journaled or replayed
+([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)).
+
 ## Traces
 
 A trace is a journal exported as JSON Lines: one envelope per line, in position order.

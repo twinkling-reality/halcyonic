@@ -42,6 +42,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [claude-code-capabilities.md](validation/claude-code-capabilities.md) | Claude Code CLI and Agent SDK |
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
+| [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
 
 ## Private documents

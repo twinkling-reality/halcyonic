@@ -1,14 +1,14 @@
-import { ErrorInfo, Nullable, Timestamp } from '@halcyonic/contracts';
 import Type, { type Static } from 'typebox';
+import { ErrorInfo, Nullable, Timestamp } from './primitives.ts';
 
 /**
  * What an understanding source concluded about one execution's session: the verdict, changed
  * files, verification state, review items, what remains, and the optional generated explanation.
  *
- * This is Halcyonic's shape, not the source's wire format. It depends only on TypeBox and the
- * shared primitives so that it can move into `packages/contracts` unchanged. It is strict, like
- * every Halcyonic contract: the mapping from a source's document is written field by field, so
- * nothing the source adds later reaches Halcyonic clients unannounced.
+ * This is Halcyonic's shape, not the source's wire format. It is strict, like every Halcyonic
+ * contract: the mapping from a source's document is written field by field, so nothing the source
+ * adds later reaches Halcyonic clients unannounced. It is read through from the source on request
+ * and never journaled (ADR 0010).
  *
  * Every claim keeps the source's own epistemic class. Halcyonic displays these conclusions as the
  * source's, with the source named, and never restates them as its own observations. Three kinds of
@@ -75,7 +75,7 @@ export const UnderstandingSource = Type.Object(
   strict,
 );
 
-export const UnderstandingVerification = Type.Object(
+export const UnderstandingVerificationRun = Type.Object(
   {
     method: Type.Union([
       Type.Literal('test'),
@@ -251,7 +251,7 @@ export const Understanding = Type.Object(
       {
         summary: Type.String(),
         /** The latest readable run of each method. */
-        latest_by_method: Type.Array(UnderstandingVerification),
+        latest_by_method: Type.Array(UnderstandingVerificationRun),
         /** Files no passing check covers. Inferred, like every file's coverage. */
         unverified_files: Type.Array(Type.String()),
         /** What the agent said about verification. Reported, not observed. */

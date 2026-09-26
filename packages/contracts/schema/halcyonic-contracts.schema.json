@@ -4883,6 +4883,1169 @@
       },
       "additionalProperties": false
     },
+    "UnderstandingResponse": {
+      "type": "object",
+      "required": [
+        "execution_id",
+        "result"
+      ],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "result": {
+          "$ref": "#/$defs/UnderstandingResult"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "understanding"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "understanding": {
+              "$ref": "#/$defs/Understanding"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "not_found"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "incompatible"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unauthorized"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Understanding": {
+      "type": "object",
+      "required": [
+        "source",
+        "verdict",
+        "latest_statement",
+        "changes",
+        "verification",
+        "review",
+        "remaining",
+        "explanation"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/UnderstandingSource"
+        },
+        "verdict": {
+          "type": "object",
+          "required": [
+            "headline",
+            "tone",
+            "because",
+            "at",
+            "epistemic"
+          ],
+          "properties": {
+            "headline": {
+              "type": "string"
+            },
+            "tone": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "pass"
+                },
+                {
+                  "type": "string",
+                  "const": "fail"
+                },
+                {
+                  "type": "string",
+                  "const": "attention"
+                },
+                {
+                  "type": "string",
+                  "const": "working"
+                },
+                {
+                  "type": "string",
+                  "const": "neutral"
+                }
+              ]
+            },
+            "because": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "epistemic": {
+              "$ref": "#/$defs/UnderstandingEpistemic"
+            }
+          },
+          "additionalProperties": false
+        },
+        "latest_statement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnderstandingStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "changes": {
+          "type": "object",
+          "required": [
+            "summary",
+            "files",
+            "commits"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UnderstandingChangedFile"
+              }
+            },
+            "commits": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UnderstandingCommit"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "verification": {
+          "type": "object",
+          "required": [
+            "summary",
+            "latest_by_method",
+            "unverified_files",
+            "statements"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "latest_by_method": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UnderstandingVerificationRun"
+              }
+            },
+            "unverified_files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "statements": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UnderstandingStatement"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "review": {
+          "type": "object",
+          "required": [
+            "summary",
+            "open",
+            "resolved",
+            "groups"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "open": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resolved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UnderstandingReviewGroup"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "remaining": {
+          "type": "object",
+          "required": [
+            "summary",
+            "items"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UnderstandingRemainingItem"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "explanation": {
+          "$ref": "#/$defs/UnderstandingExplanation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingSource": {
+      "type": "object",
+      "required": [
+        "system",
+        "version",
+        "contract",
+        "instance_id",
+        "generated_at",
+        "evidence_sequence"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "const": "salidium"
+        },
+        "version": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "object",
+          "required": [
+            "name",
+            "major",
+            "minor"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "major": {
+              "type": "integer"
+            },
+            "minor": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "instance_id": {
+          "type": "string"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "evidence_sequence": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingStatement": {
+      "type": "object",
+      "required": [
+        "text",
+        "author",
+        "at",
+        "epistemic"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "author": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "agent"
+                },
+                {
+                  "type": "string",
+                  "const": "subagent"
+                },
+                {
+                  "type": "string",
+                  "const": "user"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epistemic": {
+          "$ref": "#/$defs/UnderstandingEpistemic"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingVerificationRun": {
+      "type": "object",
+      "required": [
+        "method",
+        "runner",
+        "label",
+        "outcome",
+        "at",
+        "scope",
+        "counts",
+        "exit",
+        "caveats",
+        "stale",
+        "later_unreadable",
+        "epistemic"
+      ],
+      "properties": {
+        "method": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "test"
+            },
+            {
+              "type": "string",
+              "const": "typecheck"
+            },
+            {
+              "type": "string",
+              "const": "lint"
+            },
+            {
+              "type": "string",
+              "const": "build"
+            },
+            {
+              "type": "string",
+              "const": "other"
+            }
+          ]
+        },
+        "runner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "pass"
+            },
+            {
+              "type": "string",
+              "const": "fail"
+            },
+            {
+              "type": "string",
+              "const": "partial"
+            },
+            {
+              "type": "string",
+              "const": "unknown"
+            }
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "full"
+            },
+            {
+              "type": "string",
+              "const": "partial"
+            },
+            {
+              "type": "string",
+              "const": "unknown"
+            }
+          ]
+        },
+        "counts": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "passed",
+                "failed",
+                "skipped",
+                "total"
+              ],
+              "properties": {
+                "passed": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "failed": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "skipped": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "total": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exit": {
+          "type": "object",
+          "required": [
+            "code",
+            "observation"
+          ],
+          "properties": {
+            "code": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "observation": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "explicit"
+                },
+                {
+                  "type": "string",
+                  "const": "inferred_success"
+                },
+                {
+                  "type": "string",
+                  "const": "inferred_failure"
+                },
+                {
+                  "type": "string",
+                  "const": "unknown"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "caveats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "later_unreadable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epistemic": {
+          "$ref": "#/$defs/UnderstandingEpistemic"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingExplanation": {
+      "type": "object",
+      "required": [
+        "status",
+        "current",
+        "based_on_sequence",
+        "generated_at",
+        "model",
+        "epistemic",
+        "content"
+      ],
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "generated"
+            },
+            {
+              "type": "string",
+              "const": "generating"
+            },
+            {
+              "type": "string",
+              "const": "disabled"
+            },
+            {
+              "type": "string",
+              "const": "unavailable"
+            },
+            {
+              "type": "string",
+              "const": "failed"
+            },
+            {
+              "type": "string",
+              "const": "none"
+            }
+          ]
+        },
+        "current": {
+          "type": "boolean"
+        },
+        "based_on_sequence": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epistemic": {
+          "type": "string",
+          "const": "explained"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "what",
+                "why",
+                "how",
+                "approach_change"
+              ],
+              "properties": {
+                "what": {
+                  "type": "object",
+                  "required": [
+                    "summary",
+                    "currently"
+                  ],
+                  "properties": {
+                    "summary": {
+                      "type": "string"
+                    },
+                    "currently": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "why": {
+                  "type": "object",
+                  "required": [
+                    "summary",
+                    "lanes",
+                    "chain"
+                  ],
+                  "properties": {
+                    "summary": {
+                      "type": "string"
+                    },
+                    "lanes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/UnderstandingExplanationLane"
+                      }
+                    },
+                    "chain": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "how": {
+                  "type": "object",
+                  "required": [
+                    "summary",
+                    "root",
+                    "steps"
+                  ],
+                  "properties": {
+                    "summary": {
+                      "type": "string"
+                    },
+                    "root": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "approach_change": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "from",
+                        "from_steps",
+                        "why",
+                        "to",
+                        "to_steps"
+                      ],
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "from_steps": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "why": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        },
+                        "to_steps": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingEpistemic": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "observed"
+        },
+        {
+          "type": "string",
+          "const": "reported"
+        },
+        {
+          "type": "string",
+          "const": "inferred"
+        },
+        {
+          "type": "string",
+          "const": "planned"
+        },
+        {
+          "type": "string",
+          "const": "explained"
+        }
+      ]
+    },
+    "UnderstandingChangedFile": {
+      "type": "object",
+      "required": [
+        "path",
+        "change_count",
+        "lines_added",
+        "lines_removed",
+        "kinds",
+        "last_changed_at",
+        "coverage",
+        "reason"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "change_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_added": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_removed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnderstandingChangeKind"
+          }
+        },
+        "last_changed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "coverage": {
+          "type": "object",
+          "required": [
+            "verified_after",
+            "by",
+            "epistemic"
+          ],
+          "properties": {
+            "verified_after": {
+              "type": "boolean"
+            },
+            "by": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "epistemic": {
+              "type": "string",
+              "const": "inferred"
+            }
+          },
+          "additionalProperties": false
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnderstandingStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingReviewGroup": {
+      "type": "object",
+      "required": [
+        "rule",
+        "label",
+        "severity",
+        "occurrences",
+        "latest_at",
+        "items"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "info"
+            },
+            {
+              "type": "string",
+              "const": "low"
+            },
+            {
+              "type": "string",
+              "const": "medium"
+            },
+            {
+              "type": "string",
+              "const": "high"
+            }
+          ]
+        },
+        "occurrences": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "latest_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnderstandingReviewItem"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingRemainingItem": {
+      "type": "object",
+      "required": [
+        "text",
+        "status",
+        "source",
+        "epistemic"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "pending"
+            },
+            {
+              "type": "string",
+              "const": "in_progress"
+            },
+            {
+              "type": "string",
+              "const": "failing"
+            },
+            {
+              "type": "string",
+              "const": "reported"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "plan"
+            },
+            {
+              "type": "string",
+              "const": "verification"
+            },
+            {
+              "type": "string",
+              "const": "agent"
+            }
+          ]
+        },
+        "epistemic": {
+          "$ref": "#/$defs/UnderstandingEpistemic"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingChangeKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "add"
+        },
+        {
+          "type": "string",
+          "const": "update"
+        },
+        {
+          "type": "string",
+          "const": "delete"
+        },
+        {
+          "type": "string",
+          "const": "move"
+        }
+      ]
+    },
+    "UnderstandingCommit": {
+      "type": "object",
+      "required": [
+        "sha",
+        "at"
+      ],
+      "properties": {
+        "sha": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingReviewItem": {
+      "type": "object",
+      "required": [
+        "label",
+        "instance",
+        "created_at",
+        "repeats",
+        "epistemic"
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "instance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "repeats": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epistemic": {
+          "$ref": "#/$defs/UnderstandingEpistemic"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingExplanationLane": {
+      "type": "object",
+      "required": [
+        "title",
+        "steps"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "ExecutionStatus": {
       "anyOf": [
         {

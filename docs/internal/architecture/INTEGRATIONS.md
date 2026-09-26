@@ -62,7 +62,7 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
 | OpenCode | In progress: the v2 API pinned to `@opencode/cli` 2.0.18, on a server Halcyonic launches ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)). Proves provider and local model independence. | How the pinned binary is installed for users |
 | Claude Code | In progress: Agent SDK with streaming input for executions Halcyonic starts; API key authentication only. | Attaching to terminal sessions; model spend for a real smoke test |
 | Codex | Not started. | Experimental app-server versus stable exec without approvals |
-| Salidium | In progress: a client for Salidium's versioned, read-only consumer contract, built against its release candidate. | Salidium publishing the contract |
+| Salidium | Built: a client for Salidium's versioned, read-only consumer contract v1, exercised end to end against its release candidate ([record](../validation/salidium-consumer-contract.md)); served per execution at `GET /api/executions/:execution_id/understanding`. | Salidium publishing the contract |
 | Seorak | No adapter. `/api/v1` is versioned and read-only with scoped credentials; its types are published in `@seorak/types` 0.1.0. | Correlating executions with Seorak sessions: not in the published API |
 
 ## Salidium and Seorak boundary
@@ -78,6 +78,9 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
   their write endpoints.
 - They are optional. When one is absent, paused or incompatible, the relevant surface says
   unavailable.
+- Their conclusions are read through on request and never journaled; they keep the provider's own
+  epistemic classes and never feed status or attention
+  ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)).
 - Both already observe Claude Code and Codex sessions on the machine, including ones Halcyonic
   starts. Link rather than merge: keep each execution's `native_id` so their records can be
   correlated.

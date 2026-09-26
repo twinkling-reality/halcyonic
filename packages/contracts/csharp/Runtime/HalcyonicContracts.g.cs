@@ -1827,4 +1827,619 @@ namespace Halcyonic.Contracts
         [JsonProperty("error", Required = Required.Always)]
         public ErrorBody Error { get; set; } = default!;
     }
+
+    public sealed class UnderstandingSourceContract
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("major", Required = Required.Always)]
+        public long Major { get; set; }
+
+        [JsonProperty("minor", Required = Required.Always)]
+        public long Minor { get; set; }
+    }
+
+    public sealed class UnderstandingSource
+    {
+        [JsonProperty("system", Required = Required.Always)]
+        public string System { get; set; } = "salidium";
+
+        [JsonProperty("version", Required = Required.Always)]
+        public string Version { get; set; } = default!;
+
+        [JsonProperty("contract", Required = Required.Always)]
+        public UnderstandingSourceContract Contract { get; set; } = default!;
+
+        [JsonProperty("instance_id", Required = Required.Always)]
+        public string InstanceId { get; set; } = default!;
+
+        [JsonProperty("generated_at", Required = Required.Always)]
+        public string GeneratedAt { get; set; } = default!;
+
+        [JsonProperty("evidence_sequence", Required = Required.Always)]
+        public long EvidenceSequence { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingVerdictTone
+    {
+        [EnumMember(Value = "pass")] Pass,
+        [EnumMember(Value = "fail")] Fail,
+        [EnumMember(Value = "attention")] Attention,
+        [EnumMember(Value = "working")] Working,
+        [EnumMember(Value = "neutral")] Neutral,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingEpistemic
+    {
+        [EnumMember(Value = "observed")] Observed,
+        [EnumMember(Value = "reported")] Reported,
+        [EnumMember(Value = "inferred")] Inferred,
+        [EnumMember(Value = "planned")] Planned,
+        [EnumMember(Value = "explained")] Explained,
+    }
+
+    public sealed class UnderstandingVerdict
+    {
+        [JsonProperty("headline", Required = Required.Always)]
+        public string Headline { get; set; } = default!;
+
+        [JsonProperty("tone", Required = Required.Always)]
+        public UnderstandingVerdictTone Tone { get; set; }
+
+        [JsonProperty("because", Required = Required.AllowNull)]
+        public string? Because { get; set; }
+
+        [JsonProperty("at", Required = Required.AllowNull)]
+        public string? At { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingStatementAuthor
+    {
+        [EnumMember(Value = "agent")] Agent,
+        [EnumMember(Value = "subagent")] Subagent,
+        [EnumMember(Value = "user")] User,
+    }
+
+    public sealed class UnderstandingStatement
+    {
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("author", Required = Required.AllowNull)]
+        public UnderstandingStatementAuthor? Author { get; set; }
+
+        [JsonProperty("at", Required = Required.AllowNull)]
+        public string? At { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingChangeKind
+    {
+        [EnumMember(Value = "add")] Add,
+        [EnumMember(Value = "update")] Update,
+        [EnumMember(Value = "delete")] Delete,
+        [EnumMember(Value = "move")] Move,
+    }
+
+    public sealed class UnderstandingChangedFileCoverage
+    {
+        [JsonProperty("verified_after", Required = Required.Always)]
+        public bool VerifiedAfter { get; set; }
+
+        [JsonProperty("by", Required = Required.AllowNull)]
+        public string? By { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public string Epistemic { get; set; } = "inferred";
+    }
+
+    public sealed class UnderstandingChangedFile
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("change_count", Required = Required.Always)]
+        public long ChangeCount { get; set; }
+
+        [JsonProperty("lines_added", Required = Required.Always)]
+        public long LinesAdded { get; set; }
+
+        [JsonProperty("lines_removed", Required = Required.Always)]
+        public long LinesRemoved { get; set; }
+
+        [JsonProperty("kinds", Required = Required.Always)]
+        public List<UnderstandingChangeKind> Kinds { get; set; } = new List<UnderstandingChangeKind>();
+
+        [JsonProperty("last_changed_at", Required = Required.Always)]
+        public string LastChangedAt { get; set; } = default!;
+
+        [JsonProperty("coverage", Required = Required.Always)]
+        public UnderstandingChangedFileCoverage Coverage { get; set; } = default!;
+
+        [JsonProperty("reason", Required = Required.AllowNull)]
+        public UnderstandingStatement? Reason { get; set; }
+    }
+
+    public sealed class UnderstandingCommit
+    {
+        [JsonProperty("sha", Required = Required.Always)]
+        public string Sha { get; set; } = default!;
+
+        [JsonProperty("at", Required = Required.Always)]
+        public string At { get; set; } = default!;
+    }
+
+    public sealed class UnderstandingChanges
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("files", Required = Required.Always)]
+        public List<UnderstandingChangedFile> Files { get; set; } = new List<UnderstandingChangedFile>();
+
+        [JsonProperty("commits", Required = Required.Always)]
+        public List<UnderstandingCommit> Commits { get; set; } = new List<UnderstandingCommit>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingVerificationRunMethod
+    {
+        [EnumMember(Value = "test")] Test,
+        [EnumMember(Value = "typecheck")] Typecheck,
+        [EnumMember(Value = "lint")] Lint,
+        [EnumMember(Value = "build")] Build,
+        [EnumMember(Value = "other")] Other,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingVerificationRunOutcome
+    {
+        [EnumMember(Value = "pass")] Pass,
+        [EnumMember(Value = "fail")] Fail,
+        [EnumMember(Value = "partial")] Partial,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingVerificationRunScope
+    {
+        [EnumMember(Value = "full")] Full,
+        [EnumMember(Value = "partial")] Partial,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class UnderstandingVerificationRunCounts
+    {
+        [JsonProperty("passed", Required = Required.AllowNull)]
+        public long? Passed { get; set; }
+
+        [JsonProperty("failed", Required = Required.AllowNull)]
+        public long? Failed { get; set; }
+
+        [JsonProperty("skipped", Required = Required.AllowNull)]
+        public long? Skipped { get; set; }
+
+        [JsonProperty("total", Required = Required.AllowNull)]
+        public long? Total { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingVerificationRunExitObservation
+    {
+        [EnumMember(Value = "explicit")] Explicit,
+        [EnumMember(Value = "inferred_success")] InferredSuccess,
+        [EnumMember(Value = "inferred_failure")] InferredFailure,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class UnderstandingVerificationRunExit
+    {
+        [JsonProperty("code", Required = Required.AllowNull)]
+        public long? Code { get; set; }
+
+        [JsonProperty("observation", Required = Required.Always)]
+        public UnderstandingVerificationRunExitObservation Observation { get; set; }
+    }
+
+    public sealed class UnderstandingVerificationRun
+    {
+        [JsonProperty("method", Required = Required.Always)]
+        public UnderstandingVerificationRunMethod Method { get; set; }
+
+        [JsonProperty("runner", Required = Required.AllowNull)]
+        public string? Runner { get; set; }
+
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("outcome", Required = Required.Always)]
+        public UnderstandingVerificationRunOutcome Outcome { get; set; }
+
+        [JsonProperty("at", Required = Required.Always)]
+        public string At { get; set; } = default!;
+
+        [JsonProperty("scope", Required = Required.Always)]
+        public UnderstandingVerificationRunScope Scope { get; set; }
+
+        [JsonProperty("counts", Required = Required.AllowNull)]
+        public UnderstandingVerificationRunCounts? Counts { get; set; }
+
+        [JsonProperty("exit", Required = Required.Always)]
+        public UnderstandingVerificationRunExit Exit { get; set; } = default!;
+
+        [JsonProperty("caveats", Required = Required.Always)]
+        public List<string> Caveats { get; set; } = new List<string>();
+
+        [JsonProperty("stale", Required = Required.Always)]
+        public bool Stale { get; set; }
+
+        [JsonProperty("later_unreadable", Required = Required.Always)]
+        public long LaterUnreadable { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+    }
+
+    public sealed class UnderstandingVerification
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("latest_by_method", Required = Required.Always)]
+        public List<UnderstandingVerificationRun> LatestByMethod { get; set; } = new List<UnderstandingVerificationRun>();
+
+        [JsonProperty("unverified_files", Required = Required.Always)]
+        public List<string> UnverifiedFiles { get; set; } = new List<string>();
+
+        [JsonProperty("statements", Required = Required.Always)]
+        public List<UnderstandingStatement> Statements { get; set; } = new List<UnderstandingStatement>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingReviewGroupSeverity
+    {
+        [EnumMember(Value = "info")] Info,
+        [EnumMember(Value = "low")] Low,
+        [EnumMember(Value = "medium")] Medium,
+        [EnumMember(Value = "high")] High,
+    }
+
+    public sealed class UnderstandingReviewItem
+    {
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("instance", Required = Required.AllowNull)]
+        public string? Instance { get; set; }
+
+        [JsonProperty("created_at", Required = Required.Always)]
+        public string CreatedAt { get; set; } = default!;
+
+        [JsonProperty("repeats", Required = Required.Always)]
+        public long Repeats { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+    }
+
+    public sealed class UnderstandingReviewGroup
+    {
+        [JsonProperty("rule", Required = Required.Always)]
+        public string Rule { get; set; } = default!;
+
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("severity", Required = Required.Always)]
+        public UnderstandingReviewGroupSeverity Severity { get; set; }
+
+        [JsonProperty("occurrences", Required = Required.Always)]
+        public long Occurrences { get; set; }
+
+        [JsonProperty("latest_at", Required = Required.Always)]
+        public string LatestAt { get; set; } = default!;
+
+        [JsonProperty("items", Required = Required.Always)]
+        public List<UnderstandingReviewItem> Items { get; set; } = new List<UnderstandingReviewItem>();
+    }
+
+    public sealed class UnderstandingReview
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("open", Required = Required.Always)]
+        public long Open { get; set; }
+
+        [JsonProperty("resolved", Required = Required.Always)]
+        public long Resolved { get; set; }
+
+        [JsonProperty("groups", Required = Required.Always)]
+        public List<UnderstandingReviewGroup> Groups { get; set; } = new List<UnderstandingReviewGroup>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingRemainingItemStatus
+    {
+        [EnumMember(Value = "pending")] Pending,
+        [EnumMember(Value = "in_progress")] InProgress,
+        [EnumMember(Value = "failing")] Failing,
+        [EnumMember(Value = "reported")] Reported,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingRemainingItemSource
+    {
+        [EnumMember(Value = "plan")] Plan,
+        [EnumMember(Value = "verification")] Verification,
+        [EnumMember(Value = "agent")] Agent,
+    }
+
+    public sealed class UnderstandingRemainingItem
+    {
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("status", Required = Required.Always)]
+        public UnderstandingRemainingItemStatus Status { get; set; }
+
+        [JsonProperty("source", Required = Required.Always)]
+        public UnderstandingRemainingItemSource Source { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+    }
+
+    public sealed class UnderstandingRemaining
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("items", Required = Required.Always)]
+        public List<UnderstandingRemainingItem> Items { get; set; } = new List<UnderstandingRemainingItem>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingExplanationStatus
+    {
+        [EnumMember(Value = "generated")] Generated,
+        [EnumMember(Value = "generating")] Generating,
+        [EnumMember(Value = "disabled")] Disabled,
+        [EnumMember(Value = "unavailable")] Unavailable,
+        [EnumMember(Value = "failed")] Failed,
+        [EnumMember(Value = "none")] None,
+    }
+
+    public sealed class UnderstandingExplanationContentWhat
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("currently", Required = Required.AllowNull)]
+        public string? Currently { get; set; }
+    }
+
+    public sealed class UnderstandingExplanationLane
+    {
+        [JsonProperty("title", Required = Required.Always)]
+        public string Title { get; set; } = default!;
+
+        [JsonProperty("steps", Required = Required.Always)]
+        public List<string> Steps { get; set; } = new List<string>();
+    }
+
+    public sealed class UnderstandingExplanationContentWhy
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("lanes", Required = Required.Always)]
+        public List<UnderstandingExplanationLane> Lanes { get; set; } = new List<UnderstandingExplanationLane>();
+
+        [JsonProperty("chain", Required = Required.Always)]
+        public List<string> Chain { get; set; } = new List<string>();
+    }
+
+    public sealed class UnderstandingExplanationContentHow
+    {
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("root", Required = Required.AllowNull)]
+        public string? Root { get; set; }
+
+        [JsonProperty("steps", Required = Required.Always)]
+        public List<string> Steps { get; set; } = new List<string>();
+    }
+
+    public sealed class UnderstandingExplanationContentApproachChange
+    {
+        [JsonProperty("from", Required = Required.Always)]
+        public string From { get; set; } = default!;
+
+        [JsonProperty("from_steps", Required = Required.Always)]
+        public List<string> FromSteps { get; set; } = new List<string>();
+
+        [JsonProperty("why", Required = Required.Always)]
+        public string Why { get; set; } = default!;
+
+        [JsonProperty("to", Required = Required.Always)]
+        public string To { get; set; } = default!;
+
+        [JsonProperty("to_steps", Required = Required.Always)]
+        public List<string> ToSteps { get; set; } = new List<string>();
+    }
+
+    public sealed class UnderstandingExplanationContent
+    {
+        [JsonProperty("what", Required = Required.Always)]
+        public UnderstandingExplanationContentWhat What { get; set; } = default!;
+
+        [JsonProperty("why", Required = Required.Always)]
+        public UnderstandingExplanationContentWhy Why { get; set; } = default!;
+
+        [JsonProperty("how", Required = Required.Always)]
+        public UnderstandingExplanationContentHow How { get; set; } = default!;
+
+        [JsonProperty("approach_change", Required = Required.AllowNull)]
+        public UnderstandingExplanationContentApproachChange? ApproachChange { get; set; }
+    }
+
+    public sealed class UnderstandingExplanation
+    {
+        [JsonProperty("status", Required = Required.Always)]
+        public UnderstandingExplanationStatus Status { get; set; }
+
+        [JsonProperty("current", Required = Required.Always)]
+        public bool Current { get; set; }
+
+        [JsonProperty("based_on_sequence", Required = Required.AllowNull)]
+        public long? BasedOnSequence { get; set; }
+
+        [JsonProperty("generated_at", Required = Required.AllowNull)]
+        public string? GeneratedAt { get; set; }
+
+        [JsonProperty("model", Required = Required.AllowNull)]
+        public string? Model { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public string Epistemic { get; set; } = "explained";
+
+        [JsonProperty("content", Required = Required.AllowNull)]
+        public UnderstandingExplanationContent? Content { get; set; }
+    }
+
+    public sealed class Understanding
+    {
+        [JsonProperty("source", Required = Required.Always)]
+        public UnderstandingSource Source { get; set; } = default!;
+
+        [JsonProperty("verdict", Required = Required.Always)]
+        public UnderstandingVerdict Verdict { get; set; } = default!;
+
+        [JsonProperty("latest_statement", Required = Required.AllowNull)]
+        public UnderstandingStatement? LatestStatement { get; set; }
+
+        [JsonProperty("changes", Required = Required.Always)]
+        public UnderstandingChanges Changes { get; set; } = default!;
+
+        [JsonProperty("verification", Required = Required.Always)]
+        public UnderstandingVerification Verification { get; set; } = default!;
+
+        [JsonProperty("review", Required = Required.Always)]
+        public UnderstandingReview Review { get; set; } = default!;
+
+        [JsonProperty("remaining", Required = Required.Always)]
+        public UnderstandingRemaining Remaining { get; set; } = default!;
+
+        [JsonProperty("explanation", Required = Required.Always)]
+        public UnderstandingExplanation Explanation { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(UnderstandingResultConverter))]
+    public abstract class UnderstandingResult
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class UnderstandingResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(UnderstandingResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            UnderstandingResult value = tag switch
+            {
+                "available" => new AvailableUnderstanding(),
+                "not_found" => new NotFoundUnderstanding(),
+                "unavailable" => new UnavailableUnderstanding(),
+                "incompatible" => new IncompatibleUnderstanding(),
+                "unauthorized" => new UnauthorizedUnderstanding(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "UnderstandingResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for UnderstandingResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableUnderstanding : UnderstandingResult
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("understanding", Required = Required.Always)]
+        public Understanding Understanding { get; set; } = default!;
+    }
+
+    public sealed class NotFoundUnderstanding : UnderstandingResult
+    {
+        protected override string Discriminator => "not_found";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnavailableUnderstanding : UnderstandingResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class IncompatibleUnderstanding : UnderstandingResult
+    {
+        protected override string Discriminator => "incompatible";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnauthorizedUnderstanding : UnderstandingResult
+    {
+        protected override string Discriminator => "unauthorized";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnderstandingResponse
+    {
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public UnderstandingResult Result { get; set; } = default!;
+    }
 }

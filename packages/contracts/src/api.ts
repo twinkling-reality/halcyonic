@@ -1,7 +1,8 @@
 import Type, { type Static } from 'typebox';
 import { StoredEvent } from './events.ts';
-import { Position, WorkstreamId } from './primitives.ts';
+import { ExecutionId, Position, WorkstreamId } from './primitives.ts';
 import { RuntimeDescriptor } from './runtime.ts';
+import { UnderstandingResult } from './understanding.ts';
 import { CommandView, JournalInfo, ProjectView, WorkstreamView } from './views.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -56,6 +57,16 @@ export const CommandSubmissionResponse = Type.Object(
   strict,
 );
 export type CommandSubmissionResponse = Static<typeof CommandSubmissionResponse>;
+
+/**
+ * What the understanding source (Salidium) says about one execution, read through on request and
+ * never journaled (ADR 0010).
+ */
+export const UnderstandingResponse = Type.Object(
+  { execution_id: ExecutionId, result: UnderstandingResult },
+  strict,
+);
+export type UnderstandingResponse = Static<typeof UnderstandingResponse>;
 
 export const ValidationIssueSchema = Type.Object(
   { path: Type.String(), message: Type.String() },

@@ -12,6 +12,7 @@ import { registerRoutes } from '../http/routes.ts';
 import { loadOrCreateAccessToken } from '../http/security.ts';
 import { createHttpServer } from '../http/server.ts';
 import { createUuidV7Generator } from '../ids.ts';
+import { salidiumUnderstanding, type UnderstandingSource } from '../intelligence/understanding.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import type { Logger } from '../logger.ts';
@@ -48,6 +49,8 @@ export interface TestControlPlaneOptions {
   readonly adapters?: (time: VirtualTime) => RuntimeAdapter[];
   readonly logger?: Logger;
   readonly commandTimeoutMs?: number;
+  /** Defaults to Salidium at a location where it never runs. */
+  readonly understanding?: UnderstandingSource;
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -85,7 +88,14 @@ export async function startTestServer(options: TestControlPlaneOptions = {}) {
   const { token } = await loadOrCreateAccessToken(dataDir);
   const app: FastifyInstance = await createHttpServer({ logLevel: 'silent', token });
   const harness = createTestControlPlane(options);
-  registerRoutes(app, harness.controlPlane);
+  registerRoutes(app, harness.controlPlane, {
+    understanding:
+      options.understanding ??
+      salidiumUnderstanding({
+        home: join(dataDir, 'salidium'),
+        credentialPath: join(dataDir, 'salidium-credential'),
+      }),
+  });
   registerRealtime(app, harness.controlPlane);
   await app.listen({ host: '127.0.0.1', port: 0 });
   const address = app.server.address();

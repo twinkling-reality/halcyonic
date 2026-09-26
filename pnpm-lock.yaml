@@ -32,6 +32,9 @@ importers:
       '@halcyonic/integration-mock':
         specifier: workspace:*
         version: link:../../packages/integrations/mock
+      '@halcyonic/integration-salidium':
+        specifier: workspace:*
+        version: link:../../packages/integrations/salidium
       '@halcyonic/runtime-core':
         specifier: workspace:*
         version: link:../../packages/runtime-core

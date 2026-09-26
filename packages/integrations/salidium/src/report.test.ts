@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { compileValidator } from '@halcyonic/contracts';
+import { compileValidator, Understanding } from '@halcyonic/contracts';
 import { toUnderstanding } from './report.ts';
 import { fixture } from './testing/fake-salidium.ts';
-import { Understanding } from './understanding.ts';
 import {
   validateDiscovery,
   validateReport,

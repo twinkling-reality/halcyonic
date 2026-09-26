@@ -18,6 +18,7 @@ see [SECURITY.md](SECURITY.md).
 | `GET /api/workstreams?project_id=` | Workstreams, optionally for one project |
 | `GET /api/runtimes` | Runtime descriptors with capabilities; clients show only supported actions |
 | `GET /api/events?after=&limit=&workstream_id=` | Journal history after a position (limit 1 to 1000, default 200) |
+| `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution |
 | `POST /api/commands` | Submits a `CommandEnvelope` (JSON only) |
 
 Command submission answers honestly:

@@ -1,3 +1,4 @@
+import type { UnderstandingResult } from '@halcyonic/contracts';
 import {
   checkCredential,
   connect,
@@ -11,7 +12,6 @@ import {
   type SalidiumOptions,
 } from './connection.ts';
 import { toUnderstanding } from './report.ts';
-import type { UnderstandingResult } from './understanding.ts';
 import {
   CONSUMER_BASE_PATH,
   NATIVE_SESSION_ID_PATTERN,
