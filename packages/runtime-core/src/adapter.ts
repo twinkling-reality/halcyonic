@@ -56,6 +56,17 @@ export type OptionsValidation =
   | { readonly ok: true }
   | { readonly ok: false; readonly message: string };
 
+export type DirectoryDecision =
+  | { readonly ok: true /** The real path to use. */; readonly directory: string }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * Which directories agents may work in, decided by the host that runs the control plane, never
+ * by a client. An adapter that runs agents in a directory accepts one only through this policy and
+ * uses the real path it returns, so a client cannot point an agent anywhere on the machine.
+ */
+export type DirectoryPolicy = (path: string) => DirectoryDecision;
+
 /**
  * The boundary between the control plane and an agent runtime. An adapter maps Halcyonic
  * commands onto the runtime's official control surface and maps native activity back into
