@@ -27,6 +27,12 @@ Workstream, never a vendor session.
   `packages/contracts/schema/` is generated from them; never edit it by hand.
 - XR clients talk only to the control plane, never to runtimes or to Salidium or Seorak.
 
+## Priorities
+
+The roadmap is `docs/private/ROADMAP.md`. It is git-ignored and exists only on the owner's
+machine; if it is present, read it for current priorities and update its status when your work
+lands. Never copy private content into tracked files.
+
 ## Commands
 
 ```bash

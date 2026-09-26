@@ -66,8 +66,8 @@
   `instruct_while_running: false`. The capability model already represents that.
 - The adapter must leave `CODEX_HOME` at the developer's default and never parse rollout files.
   Salidium and Seorak both observe Codex by reading the rollouts under the default `CODEX_HOME`, so
-  an isolated one would hide Halcyonic's Codex sessions from both (Seorak ADR 007, section 4,
-  2026-09-26). Concurrent use of the shared state is the app-server's concern, which is one more
+  an isolated one would hide Halcyonic's Codex sessions from both (confirmed with both projects
+  on 2026-09-26). Concurrent use of the shared state is the app-server's concern, which is one more
   reason to prefer it over separate `exec` processes. (Corrected 2026-09-26: an earlier version of
   this record recommended an isolated `CODEX_HOME`.)
 

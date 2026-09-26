@@ -37,10 +37,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Remote relay provider and design | Remote mode | Later; not needed for the local slice |
 | Scope of camera and environmental context | Privacy and permissions | Product and security design |
 
-## Competition and legal
+## Legal
 
 | Question | Why it matters | Resolved by |
 | --- | --- | --- |
-| New or Adapted division, given Salidium and Seorak predate the competition? | Eligibility | Written organizer ruling |
-| How does a judge operate a build that needs a control plane on a computer? | "Should not require a third-party device" | Product decision (hosted or demonstration mode) |
 | Name, trademark and domain clearance for "Halcyonic" | Branding | Legal review |

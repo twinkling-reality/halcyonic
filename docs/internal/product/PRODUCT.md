@@ -70,10 +70,9 @@ provides was audited on 2026-09-26; see the validation records.
   files, verification state, rewind, and model-written Why and How diagrams. It observes Claude
   Code and Codex; it does not control them. Its local API is private and unversioned, so no
   integration is built yet ([audit](../validation/salidium-integration-audit.md)).
-- **Seorak** tracks the performance of agentic development: usage, cost estimates, reliability,
-  outcomes such as ship rate and line survival, and nudges. It has **no** quality, evaluation or
-  regression scoring, by design. Its versioned `/api/v1` is a usable read contract, but it cannot
-  yet be correlated with a specific Halcyonic execution ([audit](../validation/seorak-integration-audit.md)).
+- **Seorak** tracks the performance of agentic development: usage, cost estimates, reliability
+  and outcomes. It deliberately does not grade quality. Halcyonic reads it through Seorak's
+  versioned integration API, joined to the sessions Halcyonic launched.
 - **Halcyonic** owns spatial representation, workstream navigation, runtime control, the
   compressed and expanded interaction, permissions and connectivity.
 

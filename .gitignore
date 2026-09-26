@@ -18,3 +18,7 @@ coverage/
 # not canonical documentation. Durable conclusions belong in docs/internal instead.
 /.private/
 *.private.md
+
+# Private documents: the roadmap, competition strategy, and records about private repositories.
+# Local only, never pushed (see docs/internal/README.md).
+/docs/private/

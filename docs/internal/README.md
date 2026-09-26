@@ -1,7 +1,8 @@
 # Documentation map
 
-Internal documentation for people and agents building Halcyonic. Content suitable for public
-readers will live in `docs/public/` once there is any.
+Documentation for people and agents building Halcyonic. The repository is public, so everything
+tracked here may be published. Private material lives in `docs/private/`, which git ignores (see
+below).
 
 ## Canonical documents
 
@@ -12,7 +13,6 @@ changes, the matching document changes in the same commit.
 | --- | --- | --- |
 | Product | [product/PRODUCT.md](product/PRODUCT.md) | What Halcyonic is, is not, and must prove |
 | Product | [product/OPEN_QUESTIONS.md](product/OPEN_QUESTIONS.md) | What is unresolved and must not silently become architecture |
-| Product | [product/COMPETITION.md](product/COMPETITION.md) | Verified competition constraints |
 | Architecture | [architecture/SYSTEM.md](architecture/SYSTEM.md) | Components, dependency rules, what is and is not built |
 | Architecture | [architecture/DOMAIN_MODEL.md](architecture/DOMAIN_MODEL.md) | Project, Workstream, Execution, statuses, attention, commands |
 | Architecture | [architecture/EVENTS.md](architecture/EVENTS.md) | Journal, event envelope and catalog, provenance, versioning, traces |
@@ -40,11 +40,22 @@ change, so a validation record states when it was true; re-verify before relying
 | [claude-code-capabilities.md](validation/claude-code-capabilities.md) | Claude Code CLI and Agent SDK |
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
-| [seorak-integration-audit.md](validation/seorak-integration-audit.md) | Seorak repository audit |
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
+
+## Private documents
+
+`docs/private/` is ignored by git: it exists only on the owner's machine, is never pushed, and has
+no git history or backup. It holds:
+
+- `ROADMAP.md`: the plan of record. Milestones with evidence-based exit criteria, work in flight
+  and who owns it, decision gates and risks. Updated in place when work lands.
+- Competition strategy.
+- Records about private repositories, such as the Seorak audit.
+
+Tracked documents may say that a private record exists but must never quote it.
 
 ## What does not belong here
 
-Plans, status reports, TODO lists, debugging diaries, meeting notes and AI scratch output. Keep
-them in issues, pull requests or the git-ignored `/.private/` directory. When temporary work
+Status reports, TODO lists, debugging diaries, meeting notes and AI scratch output. Keep them in
+the roadmap, pull requests or the git-ignored `/.private/` directory. When temporary work
 establishes something durable, write the conclusion into the canonical document it belongs to.
