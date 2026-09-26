@@ -1,0 +1,40 @@
+data: {"id":"evt_0dfcc2ca2001h2tt0QRwHnHUJa","type":"server.connected","data":{}}
+
+: heartbeat
+
+data: {"id":"evt_0dfcc308a0017Z7dUinZFXZenr","created":1790461096074,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 8. "}}
+
+data: {"id":"evt_0dfcc3473001M7OIMqZLPSI3HU","created":1790461097075,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 9. "}}
+
+data: {"id":"evt_0dfcc385c0014UCga3AVXZ8xTt","created":1790461098076,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 10. "}}
+
+data: {"id":"evt_0dfcc3c44001rgjkp7t18pIw8O","created":1790461099076,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 11. "}}
+
+data: {"id":"evt_0dfcc402e001BrRi82ae2guzkJ","created":1790461100078,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 12. "}}
+
+data: {"id":"evt_0dfcc4417001ghJOm5CGk0p7CR","created":1790461101079,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 13. "}}
+
+data: {"id":"evt_0dfcc4801001SKxRe8waCxGiiH","created":1790461102081,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 14. "}}
+
+data: {"id":"evt_0dfcc4be9001i2SMwA39kGJt2W","created":1790461103081,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 15. "}}
+
+data: {"id":"evt_0dfcc4fd3001gaErjyqoJPv1aj","created":1790461104083,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 16. "}}
+
+data: {"id":"evt_0dfcc53bb001vTpmR0YDL0ThyF","created":1790461105083,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 17. "}}
+
+data: {"id":"evt_0dfcc57a5001S3AdENC3pckg0d","created":1790461106085,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 18. "}}
+
+data: {"id":"evt_0dfcc5b8e001ELoGDCabptSvAh","created":1790461107086,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 19. "}}
+
+data: {"id":"evt_0dfcc5f76001tpiL94MSU4cjgm","created":1790461108086,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"delta":"tick 20. "}}
+
+data: {"id":"evt_0dfcc62fc001h06H35jz0h5vtP","created":1790461108988,"type":"session.text.ended","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","ordinal":0,"text":"tick 1. tick 2. tick 3. tick 4. tick 5. tick 6. tick 7. tick 8. tick 9. tick 10. tick 11. tick 12. tick 13. tick 14. tick 15. tick 16. tick 17. tick 18. tick 19. tick 20. "},"durable":{"aggregateID":"ses_f2033eb78ffefXSh5mDR8n1JSK","seq":7,"version":1}}
+
+data: {"id":"evt_0dfcc62fd0017xTwpjUj8fLZYi","created":1790461108989,"type":"session.step.streamed","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq"},"durable":{"aggregateID":"ses_f2033eb78ffefXSh5mDR8n1JSK","seq":8,"version":1}}
+
+data: {"id":"evt_0dfcc630d001zWIDwp5w4qpRJ6","created":1790461109005,"type":"session.step.ended","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","assistantMessageID":"msg_0dfcc14ae001uDvTFXtfqSW1Vq","finish":"stop","rawFinish":"stop","cost":0,"tokens":{"input":12,"output":6,"reasoning":0,"cache":{"read":0,"write":0}},"snapshot":"3cd90dac2d83105309aea25f8a68948bb620560e","files":[]},"durable":{"aggregateID":"ses_f2033eb78ffefXSh5mDR8n1JSK","seq":9,"version":1}}
+
+data: {"id":"evt_0dfcc630e001WQ4Ctqa8lsLpYh","created":1790461109006,"type":"session.usage.updated","data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK","cost":0,"tokens":{"input":12,"output":6,"reasoning":0,"cache":{"read":0,"write":0}}}}
+
+data: {"id":"evt_0dfcc630f001hlWe1YqtCkDPun","created":1790461109007,"type":"session.execution.succeeded","data":{"sessionID":"ses_f2033eb78ffefXSh5mDR8n1JSK"},"durable":{"aggregateID":"ses_f2033eb78ffefXSh5mDR8n1JSK","seq":10,"version":1}}
+

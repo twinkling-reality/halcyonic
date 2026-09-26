@@ -1,0 +1,28 @@
+data: {"id":"evt_0dfce8ec3001VOpJUCBLvLPgsk","type":"server.connected","data":{}}
+
+: heartbeat
+
+data: {"id":"evt_0dfce92ab0027e1tHxlFuUlNG2","created":1790461252267,"type":"session.inbox.enqueued","location":{"directory":"/workspace/project-a"},"data":{"inboxID":"msg_0dfce92ab001dBDNaKbKBpCMNO","sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","item":{"type":"user","payload":{"text":"Follow-up prompt to an idle session (X1)"},"delivery":"steer"}},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":11,"version":1}}
+
+data: {"id":"evt_0dfce92ad0018dRA7dQHo8YXvR","created":1790461252269,"type":"project.updated","location":{"directory":"/workspace/project-a"},"data":{"id":"40d8da933b8dd211c5162323a09edf6fcff83663","canonical":"/workspace/project-a","vcs":"git","time":{"created":1790460619284,"updated":1790460619284,"active":1790461252269},"sandboxes":[]}}
+
+data: {"id":"evt_0dfce92ad002YucWiHdjqco5vp","created":1790461252269,"type":"session.execution.started","data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":12,"version":1}}
+
+data: {"id":"evt_0dfce92b2001m1GesdSYtahs8A","created":1790461252274,"type":"session.inbox.delivered","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","inboxID":"msg_0dfce92ab001dBDNaKbKBpCMNO"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":13,"version":1}}
+
+data: {"id":"evt_0dfce92ce001TIAHozz8KfR4aG","created":1790461252302,"type":"session.step.started","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","agent":"build","model":{"id":"fake-model","providerID":"fake"},"assistantMessageID":"msg_0dfce92b5001NTHWNrgTTnN9s9","snapshot":"3cd90dac2d83105309aea25f8a68948bb620560e","started":1790461252299},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":14,"version":1}}
+
+data: {"id":"evt_0dfce92cf001pb9apQUzY7KkeS","created":1790461252303,"type":"session.text.started","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfce92b5001NTHWNrgTTnN9s9","ordinal":0},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":15,"version":1}}
+
+data: {"id":"evt_0dfce92d0001I6vVA361h303jn","created":1790461252304,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfce92b5001NTHWNrgTTnN9s9","ordinal":0,"delta":"Fake reply #48: acknowledged."}}
+
+data: {"id":"evt_0dfce92d0002W8PFhD0OZZNTit","created":1790461252304,"type":"session.text.ended","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfce92b5001NTHWNrgTTnN9s9","ordinal":0,"text":"Fake reply #48: acknowledged."},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":16,"version":1}}
+
+data: {"id":"evt_0dfce92d2001SjLd7ZnB3Ji3aE","created":1790461252306,"type":"session.step.streamed","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfce92b5001NTHWNrgTTnN9s9"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":17,"version":1}}
+
+data: {"id":"evt_0dfce92e3001zrmzOsVAHecOX6","created":1790461252323,"type":"session.step.ended","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfce92b5001NTHWNrgTTnN9s9","finish":"stop","rawFinish":"stop","cost":0,"tokens":{"input":12,"output":6,"reasoning":0,"cache":{"read":0,"write":0}},"snapshot":"3cd90dac2d83105309aea25f8a68948bb620560e","files":[]},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":18,"version":1}}
+
+data: {"id":"evt_0dfce92e4001V6Q7o2XDNZnLv2","created":1790461252324,"type":"session.usage.updated","data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","cost":0,"tokens":{"input":24,"output":12,"reasoning":0,"cache":{"read":0,"write":0}}}}
+
+data: {"id":"evt_0dfce92e400217lShjN3KrxYcB","created":1790461252324,"type":"session.execution.succeeded","data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":19,"version":1}}
+

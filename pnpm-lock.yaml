@@ -67,6 +67,15 @@ importers:
         specifier: ^1.3.34
         version: 1.3.34
 
+  packages/integrations/opencode:
+    dependencies:
+      '@halcyonic/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@halcyonic/runtime-core':
+        specifier: workspace:*
+        version: link:../../runtime-core
+
   packages/runtime-core:
     dependencies:
       '@halcyonic/contracts':

@@ -1,0 +1,30 @@
+data: {"id":"evt_0dfc5b5c20011PuupANcdqROV4","type":"server.connected","data":{}}
+
+: heartbeat
+
+data: {"id":"evt_0dfc5bbb8001iU2X5wY4Slm3JJ","created":1790460672952,"type":"session.created","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","slug":"kind-meadow","version":"2.0.18","projectID":"40d8da933b8dd211c5162323a09edf6fcff83663","location":{"directory":"/workspace/project-a"},"subpath":"","title":"C simple turn"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":0,"version":1}}
+
+data: {"id":"evt_0dfc5bcee001nEVXLuTTBumhgg","created":1790460673262,"type":"session.inbox.enqueued","location":{"directory":"/workspace/project-a"},"data":{"inboxID":"msg_0dfc5bced001JgM70uz3kwWkVu","sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","item":{"type":"user","payload":{"text":"Hello from the Halcyonic smoke test (C)"},"delivery":"steer"}},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":1,"version":1}}
+
+data: {"id":"evt_0dfc5bcf3001XJABWimzZNEp6V","created":1790460673267,"type":"session.execution.started","data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":2,"version":1}}
+
+data: {"id":"evt_0dfc5bcf6001t6i8pQAyP55l1y","created":1790460673270,"metadata":{"instructions":{"initial":true}},"type":"session.instructions.updated","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","delta":{"core/environment":"65a3d2b5cb3cf2f524568c096c1b1fd57274458af7b4d265bc4fc9820b511735","core/date":"ccc05888c7388ecb78c9d5b32915755a9f6614cc67704f84eb9c0dc0bc9a9e2e","core/codemode":"616a7ad8b8e40e8a71eab238dfbbe9eaf0f4a9e6fdad853226d075bfe602e1e6","core/skill-guidance":"8394362d28c82fa4d13c7a9f5568c05680f6687e07db8f426a0e3c92f3027dc9"}},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":3,"version":2}}
+
+data: {"id":"evt_0dfc5bcf7001JQs2fkVtFBPXRJ","created":1790460673271,"type":"session.inbox.delivered","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","inboxID":"msg_0dfc5bced001JgM70uz3kwWkVu"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":4,"version":1}}
+
+data: {"id":"evt_0dfc5bd10001d5QVMkOxbBRU17","created":1790460673296,"type":"session.step.started","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","agent":"build","model":{"id":"fake-model","providerID":"fake"},"assistantMessageID":"msg_0dfc5bcf9001IFRdz2q2omzWdY","snapshot":"3cd90dac2d83105309aea25f8a68948bb620560e","started":1790460673294},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":5,"version":1}}
+
+data: {"id":"evt_0dfc5bd11001ADBP7iu8FtvTP0","created":1790460673297,"type":"session.text.started","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfc5bcf9001IFRdz2q2omzWdY","ordinal":0},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":6,"version":1}}
+
+data: {"id":"evt_0dfc5bd11002ZEJ7P7mf8rVsKk","created":1790460673297,"type":"session.text.delta","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfc5bcf9001IFRdz2q2omzWdY","ordinal":0,"delta":"Fake reply #25: acknowledged."}}
+
+data: {"id":"evt_0dfc5bd12001dohKUE1zvaQuDO","created":1790460673298,"type":"session.text.ended","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfc5bcf9001IFRdz2q2omzWdY","ordinal":0,"text":"Fake reply #25: acknowledged."},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":7,"version":1}}
+
+data: {"id":"evt_0dfc5bd12002Fcw8mvAQy6q8S9","created":1790460673298,"type":"session.step.streamed","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfc5bcf9001IFRdz2q2omzWdY"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":8,"version":1}}
+
+data: {"id":"evt_0dfc5bd200014Hb2owed4clBvJ","created":1790460673312,"type":"session.step.ended","location":{"directory":"/workspace/project-a"},"data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","assistantMessageID":"msg_0dfc5bcf9001IFRdz2q2omzWdY","finish":"stop","rawFinish":"stop","cost":0,"tokens":{"input":12,"output":6,"reasoning":0,"cache":{"read":0,"write":0}},"snapshot":"3cd90dac2d83105309aea25f8a68948bb620560e","files":[]},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":9,"version":1}}
+
+data: {"id":"evt_0dfc5bd210010PScsaHZBba5bo","created":1790460673313,"type":"session.usage.updated","data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC","cost":0,"tokens":{"input":12,"output":6,"reasoning":0,"cache":{"read":0,"write":0}}}}
+
+data: {"id":"evt_0dfc5bd21002GO1kOSRbKhLsg5","created":1790460673313,"type":"session.execution.succeeded","data":{"sessionID":"ses_f203a445fffeuXBorlhS7f2ATC"},"durable":{"aggregateID":"ses_f203a445fffeuXBorlhS7f2ATC","seq":10,"version":1}}
+
