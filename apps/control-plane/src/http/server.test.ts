@@ -152,6 +152,22 @@ describe('realtime protocol', () => {
     await client.close();
   });
 
+  test('the welcome tells the client which commands need a deliberate confirmation', async () => {
+    const client = await RealtimeClient.connect(server.wsUrl, server.token);
+    client.hello(TEST_CLIENT);
+    const welcome = await client.waitFor((message) => message.type === 'welcome');
+    await client.close();
+    assert.equal(welcome.type, 'welcome');
+    if (welcome.type !== 'welcome') return;
+    const policies = new Map(
+      welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
+    );
+    assert.equal(policies.size, 6);
+    assert.equal(policies.get('execution.respond_to_approval'), 'review_required');
+    assert.equal(policies.get('execution.interrupt'), 'review_required');
+    assert.equal(policies.get('execution.send_instruction'), 'low_consequence');
+  });
+
   test('a client with a current cursor resumes without a snapshot; a stale one gets a snapshot', async () => {
     assert.equal((await post(server.commands.createProject('Resume'))).status, 202);
     const first = await RealtimeClient.connect(server.wsUrl, server.token);

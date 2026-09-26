@@ -39,15 +39,19 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class WorkspacePresentation
     {
+        private readonly IReadOnlyCollection<WorkspaceAction> confirm;
+
         public WorkspacePresentation(
             CharacterPresentation character,
             string? objective,
             ExecutionView? execution,
             RuntimeDescriptor? runtime,
             IReadOnlyCollection<WorkspaceAction> actions,
+            IReadOnlyCollection<WorkspaceAction> confirm,
             IReadOnlyList<CommandFeedback> commands,
             IReadOnlyList<ActivityEntry> activity)
         {
+            this.confirm = confirm;
             Character = character;
             Objective = objective;
             Execution = execution;
@@ -74,6 +78,9 @@ namespace Halcyonic.Client
         public IReadOnlyList<CommandFeedback> Commands { get; }
 
         public IReadOnlyList<ActivityEntry> Activity { get; }
+
+        /// <summary>The action needs an explicit, deliberate gesture, per the control plane's command policy.</summary>
+        public bool RequiresConfirmation(WorkspaceAction action) => confirm.Contains(action);
     }
 
     public static class WorkspacePresenter
@@ -95,12 +102,14 @@ namespace Halcyonic.Client
                     .Take(RecentCommands)
                     .Select(Feedback)
                     .ToList();
+            var confirm = actions.Where(action => state.RequiresConfirmation(CommandTypeOf(action))).ToList();
             return new WorkspacePresentation(
                 CharacterPresenter.Present(workstream, state, live),
                 workstream.Objective,
                 execution,
                 runtime,
                 actions,
+                confirm,
                 commands,
                 execution == null ? new ActivityEntry[0] : activity.For(execution.ExecutionId));
         }
@@ -135,6 +144,14 @@ namespace Halcyonic.Client
             }
             return actions;
         }
+
+        public static CommandType CommandTypeOf(WorkspaceAction action) => action switch
+        {
+            WorkspaceAction.Approve => CommandType.ExecutionRespondToApproval,
+            WorkspaceAction.Deny => CommandType.ExecutionRespondToApproval,
+            WorkspaceAction.Interrupt => CommandType.ExecutionInterrupt,
+            _ => CommandType.ExecutionSendInstruction,
+        };
 
         public static CommandFeedback Feedback(CommandView command)
         {

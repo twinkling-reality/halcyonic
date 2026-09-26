@@ -1,6 +1,6 @@
 import Type, { type Static } from 'typebox';
 import { ValidationIssueSchema } from './api.ts';
-import { CommandEnvelope } from './commands.ts';
+import { CommandEnvelope, CommandType, PolicyCategory } from './commands.ts';
 import { EventEnvelope } from './events.ts';
 import { ClientInfo, CommandId, JournalId, Nullable, Position, Timestamp } from './primitives.ts';
 import { REALTIME_PROTOCOL_VERSION } from './versions.ts';
@@ -40,6 +40,16 @@ export type ClientMessage = Static<typeof ClientMessage>;
 
 // Server to client ---------------------------------------------------------------------------
 
+/**
+ * The consequence category of a command type for this client. Clients require an explicit,
+ * deliberate action before sending `review_required` and `high_consequence` commands.
+ */
+export const CommandPolicy = Type.Object(
+  { command_type: CommandType, policy: PolicyCategory },
+  strict,
+);
+export type CommandPolicy = Static<typeof CommandPolicy>;
+
 export const WelcomeMessage = Type.Object(
   {
     type: Type.Literal('welcome'),
@@ -49,6 +59,8 @@ export const WelcomeMessage = Type.Object(
     /** True when the client's cursor was current, so no snapshot follows. */
     resumed: Type.Boolean(),
     server_time: Timestamp,
+    /** One entry per command type. */
+    command_policies: Type.Array(CommandPolicy),
   },
   strict,
 );

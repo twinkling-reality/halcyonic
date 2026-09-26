@@ -63,6 +63,8 @@ public class RealtimeSessionTests
         connection.Send(Samples.Welcome(resumed: false, head: 3));
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.Synchronizing, "the session is synchronizing");
         Assert.That(session.State.Journal, Is.Null);
+        Assert.That(session.State.RequiresConfirmation(CommandType.ExecutionInterrupt), Is.True);
+        Assert.That(session.State.RequiresConfirmation(CommandType.ExecutionSendInstruction), Is.False);
 
         connection.Send(new SnapshotMessage { Snapshot = Samples.Snapshot(3, new[] { Samples.Workstream("w1") }) });
         await Pumping.Until(session, s => s.Status.IsLive, "the session is live");

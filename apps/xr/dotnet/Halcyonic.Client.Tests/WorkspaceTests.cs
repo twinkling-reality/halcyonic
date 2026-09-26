@@ -171,6 +171,24 @@ public class WorkspacePresenterTests
     }
 
     [Test]
+    public void ReviewRequiredActionsNeedADeliberateConfirmation()
+    {
+        var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
+        var state = new ClientProjection();
+        state.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { Execution(ExecutionStatus.WaitingForHuman, pendingApproval: true) }), new StateChanges());
+
+        var beforeWelcome = WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true);
+        Assert.That(beforeWelcome.RequiresConfirmation(WorkspaceAction.Approve), Is.True, "unknown policies count as needing one");
+
+        state.ApplyWelcome(Samples.Welcome(resumed: false, head: 1));
+        var workspace = WorkspacePresenter.Present(workstream, state, new ActivityLog(), live: true);
+        Assert.That(workspace.RequiresConfirmation(WorkspaceAction.Approve), Is.True);
+        Assert.That(workspace.RequiresConfirmation(WorkspaceAction.Deny), Is.True);
+        Assert.That(workspace.RequiresConfirmation(WorkspaceAction.Interrupt), Is.True);
+        Assert.That(state.RequiresConfirmation(CommandType.ExecutionSendInstruction), Is.False);
+    }
+
+    [Test]
     public void CommandFeedbackSaysWhereEachRequestStands()
     {
         CommandView Command(CommandStatus status) => new()

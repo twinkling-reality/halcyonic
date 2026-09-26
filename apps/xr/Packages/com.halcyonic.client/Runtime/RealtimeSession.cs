@@ -131,6 +131,9 @@ namespace Halcyonic.Client
                         Status = status;
                         changes.ConnectionChanged = true;
                         break;
+                    case WelcomeMessage welcome:
+                        State.ApplyWelcome(welcome);
+                        break;
                     case SnapshotMessage snapshot:
                         State.ApplySnapshot(snapshot.Snapshot, changes);
                         break;
@@ -266,6 +269,7 @@ namespace Halcyonic.Client
                             {
                                 commandChannel = transport;
                             }
+                            Enqueue(welcome);
                             live = welcome.Resumed;
                             Publish(new ConnectionStatus(live ? ConnectionPhase.Live : ConnectionPhase.Synchronizing));
                             break;

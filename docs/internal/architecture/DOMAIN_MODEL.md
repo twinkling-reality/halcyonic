@@ -74,8 +74,8 @@ and attention only; clients decide presentation (animation, material, sound, pla
 | `execution.respond_to_approval` | review required | the approval is pending, the execution is `waiting_for_human`, and the runtime has `respond_to_approval` |
 | `execution.interrupt` | review required | a turn is running and the runtime has `interrupt` |
 
-Policy categories are recorded with every accepted command. Clients must require a deliberate,
-explicit action for `review_required` commands. Authorization is currently a single local
+Policy categories are recorded with every accepted command and sent to realtime clients in
+`welcome`. Clients must require a deliberate, explicit action for `review_required` commands. Authorization is currently a single local
 principal, so categories do not yet restrict who may act ([SECURITY.md](SECURITY.md)).
 
 ## Command lifecycle

@@ -40,7 +40,8 @@ JSON text messages, protocol version 1.
 ```text
 client                                   server
   │ hello {protocol, client, resume}  ──>  │
-  │ <── welcome {journal, head, resumed}   │
+  │ <── welcome {journal, head, resumed,   │
+  │              command_policies}         │
   │ <── snapshot {snapshot}                │  unless resumed
   │ <── event {position, event, changes}   │  for every journaled event, in order
   │ command {command}                 ──>  │
@@ -52,6 +53,10 @@ client                                   server
 
 - **hello first.** Anything else before `hello` is a fatal protocol error. A `hello` with another
   protocol version gets `unsupported_protocol` and the connection closes.
+- **Command policies.** `welcome` lists the consequence category of every command type. Clients
+  require an explicit, deliberate action before sending a `review_required` or
+  `high_consequence` command, and treat a missing entry as requiring one. Every client gets the
+  same policies until per-device authorization exists.
 - **Snapshot and subscription are atomic.** The server takes the snapshot and subscribes in one
   synchronous step, so no event can fall between them.
 - **Resume.** If the client's cursor names this journal and the current head, the server answers

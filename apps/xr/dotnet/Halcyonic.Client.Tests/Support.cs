@@ -196,5 +196,17 @@ internal static class Samples
         };
 
     public static WelcomeMessage Welcome(bool resumed, long head, string journalId = JournalId) =>
-        new() { Journal = Journal(journalId), Head = head, Resumed = resumed, ServerTime = Time };
+        new()
+        {
+            Journal = Journal(journalId),
+            Head = head,
+            Resumed = resumed,
+            ServerTime = Time,
+            CommandPolicies = new List<CommandPolicy>
+            {
+                new() { CommandType = CommandType.ExecutionRespondToApproval, Policy = PolicyCategory.ReviewRequired },
+                new() { CommandType = CommandType.ExecutionInterrupt, Policy = PolicyCategory.ReviewRequired },
+                new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence },
+            },
+        };
 }

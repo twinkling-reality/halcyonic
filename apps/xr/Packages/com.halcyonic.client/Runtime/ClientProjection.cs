@@ -16,6 +16,7 @@ namespace Halcyonic.Client
         private readonly Dictionary<string, ExecutionView> executions = new Dictionary<string, ExecutionView>();
         private readonly Dictionary<string, CommandView> commands = new Dictionary<string, CommandView>();
         private readonly List<RuntimeDescriptor> runtimes = new List<RuntimeDescriptor>();
+        private readonly Dictionary<CommandType, PolicyCategory> policies = new Dictionary<CommandType, PolicyCategory>();
 
         /// <summary>The journal the state comes from, or null before the first snapshot.</summary>
         public JournalInfo? Journal { get; private set; }
@@ -33,6 +34,23 @@ namespace Halcyonic.Client
         public IReadOnlyDictionary<string, CommandView> Commands => commands;
 
         public IReadOnlyList<RuntimeDescriptor> Runtimes => runtimes;
+
+        /// <summary>The consequence category of each command type, from the control plane's welcome.</summary>
+        public IReadOnlyDictionary<CommandType, PolicyCategory> CommandPolicies => policies;
+
+        /// <summary>
+        /// Whether sending this command type needs an explicit, deliberate action. Unknown policies
+        /// count as needing one.
+        /// </summary>
+        public bool RequiresConfirmation(CommandType commandType) =>
+            !policies.TryGetValue(commandType, out var policy) || policy != PolicyCategory.LowConsequence;
+
+        /// <summary>Records what the control plane said when this connection was established.</summary>
+        public void ApplyWelcome(WelcomeMessage welcome)
+        {
+            policies.Clear();
+            foreach (var entry in welcome.CommandPolicies) policies[entry.CommandType] = entry.Policy;
+        }
 
         /// <summary>The execution a workstream reports, if it has one.</summary>
         public ExecutionView? CurrentExecution(WorkstreamView workstream)

@@ -67,6 +67,34 @@ namespace Halcyonic.Contracts
         public JournalOrigin Origin { get; set; }
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CommandType
+    {
+        [EnumMember(Value = "project.create")] ProjectCreate,
+        [EnumMember(Value = "workstream.create")] WorkstreamCreate,
+        [EnumMember(Value = "execution.start")] ExecutionStart,
+        [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
+        [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
+        [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum PolicyCategory
+    {
+        [EnumMember(Value = "low_consequence")] LowConsequence,
+        [EnumMember(Value = "review_required")] ReviewRequired,
+        [EnumMember(Value = "high_consequence")] HighConsequence,
+    }
+
+    public sealed class CommandPolicy
+    {
+        [JsonProperty("command_type", Required = Required.Always)]
+        public CommandType CommandType { get; set; }
+
+        [JsonProperty("policy", Required = Required.Always)]
+        public PolicyCategory Policy { get; set; }
+    }
+
     public sealed class ProjectView
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -428,17 +456,6 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("updated_at", Required = Required.Always)]
         public string UpdatedAt { get; set; } = default!;
-    }
-
-    [JsonConverter(typeof(StringEnumConverter))]
-    public enum CommandType
-    {
-        [EnumMember(Value = "project.create")] ProjectCreate,
-        [EnumMember(Value = "workstream.create")] WorkstreamCreate,
-        [EnumMember(Value = "execution.start")] ExecutionStart,
-        [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
-        [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
-        [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -1020,14 +1037,6 @@ namespace Halcyonic.Contracts
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
-    public enum PolicyCategory
-    {
-        [EnumMember(Value = "low_consequence")] LowConsequence,
-        [EnumMember(Value = "review_required")] ReviewRequired,
-        [EnumMember(Value = "high_consequence")] HighConsequence,
-    }
-
-    [JsonConverter(typeof(StringEnumConverter))]
     public enum ReceivedVia
     {
         [EnumMember(Value = "http")] Http,
@@ -1594,6 +1603,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("server_time", Required = Required.Always)]
         public string ServerTime { get; set; } = default!;
+
+        [JsonProperty("command_policies", Required = Required.Always)]
+        public List<CommandPolicy> CommandPolicies { get; set; } = new List<CommandPolicy>();
     }
 
     public sealed class SnapshotMessage : ServerMessage

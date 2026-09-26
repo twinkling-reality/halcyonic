@@ -1,10 +1,13 @@
 import {
   type CommandEnvelope,
+  type CommandPolicy,
+  type CommandType,
   parseClientMessage,
   REALTIME_PROTOCOL_VERSION,
   type ServerMessage,
   type ValidationIssue,
 } from '@halcyonic/contracts';
+import { COMMAND_POLICY } from '@halcyonic/domain';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import type { ControlPlane } from '../core/control-plane.ts';
@@ -151,6 +154,7 @@ class RealtimeConnection {
       head,
       resumed,
       server_time: this.#controlPlane.clock.now().toISOString(),
+      command_policies: COMMAND_POLICIES,
     });
     if (!resumed) this.#send({ type: 'snapshot', snapshot: this.#controlPlane.snapshot() });
     // Subscribing in the same synchronous step as the snapshot means no event can fall between them.
@@ -203,6 +207,11 @@ class RealtimeConnection {
     this.#heartbeat = null;
   }
 }
+
+/** Every client gets the same policies until per-device authorization exists (SECURITY.md). */
+const COMMAND_POLICIES: CommandPolicy[] = Object.entries(COMMAND_POLICY).map(
+  ([commandType, policy]) => ({ command_type: commandType as CommandType, policy }),
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

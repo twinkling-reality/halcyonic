@@ -122,9 +122,9 @@ public class LiveControlPlaneTests
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.Synthetic, Is.True);
         Assert.That(character.AttentionNotes.Single(), Does.StartWith("Approval needed to use bash"));
-        Assert.That(
-            WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true).Actions,
-            Is.EqualTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
+        var waiting = WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true);
+        Assert.That(waiting.Actions, Is.EqualTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
+        Assert.That(waiting.Actions.All(waiting.RequiresConfirmation), Is.True, "approving and interrupting are review_required");
 
         var approval = session.State.Executions[executionId].PendingApprovals.Single();
         await RunAsync(commands.RespondToApproval(executionId, approval.ApprovalId, ApprovalDecision.Approve));

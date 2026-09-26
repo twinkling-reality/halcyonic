@@ -32,7 +32,13 @@ import {
   StoredEvent,
 } from './events.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
-import { ClientMessage, CommandAckMessage, ResumeCursor, ServerMessage } from './realtime.ts';
+import {
+  ClientMessage,
+  CommandAckMessage,
+  CommandPolicy,
+  ResumeCursor,
+  ServerMessage,
+} from './realtime.ts';
 import { RuntimeCapabilities, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
 import {
   ApprovalView,
@@ -90,6 +96,7 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   EntityChanges,
   Snapshot,
   ResumeCursor,
+  CommandPolicy,
   ClientMessage,
   ServerMessage,
   ValidationIssue: ValidationIssueSchema,

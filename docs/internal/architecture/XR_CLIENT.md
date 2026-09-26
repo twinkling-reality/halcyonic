@@ -72,7 +72,9 @@ the same definition names, as the JSON Schema document:
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
-  runtime is gone), feedback on recent commands in words, and the activity.
+  runtime is gone), which of those actions need a deliberate confirmation (from the command
+  policies in `welcome`; unknown counts as needed), feedback on recent commands in words, and the
+  activity.
 - **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
   as a claim. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`**
