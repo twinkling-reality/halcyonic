@@ -18,6 +18,7 @@ namespace Halcyonic.Client.Tests;
 public class LiveControlPlaneTests
 {
     private readonly List<RecordingTransport> connections = new();
+    private readonly ActivityLog activity = new();
     private readonly List<ControlPlaneProcess> processes = new();
     private string dataDir = null!;
     private RealtimeSession? session;
@@ -62,8 +63,14 @@ public class LiveControlPlaneTests
         return session;
     }
 
-    private Task<StateChanges> Until(Func<RealtimeSession, bool> condition, string description, int seconds = 15) =>
-        Pumping.Until(session!, condition, description, TimeSpan.FromSeconds(seconds), () => string.Join("\n", processes.Select(p => p.Output)));
+    /// <summary>Pumps until the condition holds, keeping the activity log current as a client would.</summary>
+    private async Task<StateChanges> Until(Func<RealtimeSession, bool> condition, string description, int seconds = 15)
+    {
+        var changes = await Pumping.Until(
+            session!, condition, description, TimeSpan.FromSeconds(seconds), () => string.Join("\n", processes.Select(p => p.Output)));
+        activity.Record(changes.Events);
+        return changes;
+    }
 
     /// <summary>Submits a command, requires it to be accepted, and waits for its result.</summary>
     private async Task<CommandResult> RunAsync(CommandEnvelope command)
@@ -115,11 +122,24 @@ public class LiveControlPlaneTests
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.Synthetic, Is.True);
         Assert.That(character.AttentionNotes.Single(), Does.StartWith("Approval needed to use bash"));
+        Assert.That(
+            WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true).Actions,
+            Is.EqualTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
 
         var approval = session.State.Executions[executionId].PendingApprovals.Single();
         await RunAsync(commands.RespondToApproval(executionId, approval.ApprovalId, ApprovalDecision.Approve));
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes", seconds: 20);
         Assert.That(session.State.Workstreams[workstreamId].Attention.Level, Is.EqualTo(AttentionLevel.None));
+        var workspace = WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true);
+        Assert.That(workspace.Actions, Is.EqualTo(new[] { WorkspaceAction.Instruct }));
+        Assert.That(workspace.Commands.First().Text, Is.EqualTo("Approval answered"));
+
+        // A client that joins now gets current state from the snapshot and the history over REST.
+        using var history = new HttpEventHistory(HttpEventHistory.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
+        var fromHistory = new ActivityLog();
+        fromHistory.Record(await history.ReadAllAsync(workstreamId, session.State.Journal!.JournalId));
+        Assert.That(fromHistory.For(executionId).Select(entry => entry.Text), Is.EqualTo(activity.For(executionId).Select(entry => entry.Text)));
+        Assert.That(fromHistory.For(executionId).Select(entry => entry.Text), Does.Contain("Approved"));
 
         var position = session.State.Position;
         connections.Last().Abort();

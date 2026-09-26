@@ -95,7 +95,7 @@ namespace Halcyonic.Client
                 commands[command.CommandId] = command;
                 changes.Commands.Add(command.CommandId);
             }
-            changes.Events.Add(message.Event);
+            changes.Events.Add(new StoredEvent { Position = message.Position, Event = message.Event });
             return true;
         }
 
@@ -123,8 +123,8 @@ namespace Halcyonic.Client
 
         public ISet<string> Commands { get; } = new HashSet<string>();
 
-        /// <summary>The events applied, in journal order.</summary>
-        public IList<EventEnvelope> Events { get; } = new List<EventEnvelope>();
+        /// <summary>The events applied, with their journal positions, in order.</summary>
+        public IList<StoredEvent> Events { get; } = new List<StoredEvent>();
 
         /// <summary>Errors the control plane reported about messages this client sent.</summary>
         public IList<ErrorBody> ServerErrors { get; } = new List<ErrorBody>();

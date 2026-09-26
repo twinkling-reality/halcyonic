@@ -10,7 +10,8 @@ Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard
         │
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
-        │                             CharacterPresenter, CommandFactory
+        │                             CharacterPresenter, WorkspacePresenter,
+        │                             ActivityLog, EventHistory, CommandFactory
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -68,6 +69,14 @@ the same definition names, as the JSON Schema document:
   label for every status (never color alone), the attention level with one explanation per reason,
   and flags for simulated work, recorded fixture data, and a stale state while the session is not
   live. A completed turn reads "Turn finished", because completion says nothing about correctness.
+- **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
+  character's cues plus the objective, the execution and its runtime, the actions the control plane
+  would admit now (from declared capabilities and status; nothing while not live or when the
+  runtime is gone), feedback on recent commands in words, and the activity.
+- **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
+  as a claim. A snapshot carries state but no history, so after a resynchronization the history of
+  the workstream being looked at is read again through **`EventHistory`**
+  (`GET /api/events`, paged, refused if the journal changed).
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. Whether `ClientWebSocket` works under IL2CPP on Quest is
   unverified ([meta-xr-platform.md](../validation/meta-xr-platform.md)); the interface is the seam
@@ -83,9 +92,13 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the session against an in-memory server: handshake, resume, journal change, acknowledgements,
   outcome-unknown cases, refusal, idle detection, backoff, malformed input, backlog
   resynchronization;
+- activity descriptions from both recorded traces, workspace actions for every status and
+  capability combination, command feedback, and history paging;
 - the session against a real control plane process with the mock runtime: an approval round trip
-  to a finished turn, resuming after a dropped connection without a snapshot, and an execution in
-  flight shown as stale during a control plane crash and as `unknown` after the restart.
+  to a finished turn with the workspace offering exactly the admissible actions, history over REST
+  matching what arrived live, resuming after a dropped connection without a snapshot, and an
+  execution in flight shown as stale during a control plane crash and as `unknown` after the
+  restart.
 
 Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 
