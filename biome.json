@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/node_modules", "!fixtures/traces", "!packages/contracts/schema"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!fixtures/traces",
+      "!packages/contracts/schema",
+      "!apps/xr/Packages/packages-lock.json",
+      "!apps/xr/ProjectSettings"
+    ]
   },
   "formatter": {
     "enabled": true,

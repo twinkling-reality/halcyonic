@@ -14,7 +14,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Scenarios and recorded traces | `fixtures/` | Built |
 | Architecture boundary tests | `tooling/` | Built |
 | XR client core: realtime session, client projection, character presentation (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
-| XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Not started |
+| XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Skeleton; not yet opened in Unity |
 | OpenCode, Claude Code and Codex adapters | `packages/integrations/*` | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Salidium and Seorak integration | none | Blocked on contracts; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |

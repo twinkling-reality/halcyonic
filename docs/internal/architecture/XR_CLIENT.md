@@ -6,7 +6,7 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ## Layers
 
 ```text
-Unity layer (apps/xr/Assets)          MonoBehaviours: rig, characters, focus, input    not built
+Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard      skeleton, not yet compiled by Unity
         │
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
@@ -89,9 +89,26 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 
 Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 
+## Unity layer
+
+`apps/xr` is a Unity 6000.3.25f1 project whose manifest pins OpenXR 1.18.0, the Meta XR Core and
+Interaction SDKs 207.0.0, XR Hands 1.9.0 and Newtonsoft.Json 3.2.2. Its scripts use only long-stable
+core Unity APIs:
+
+- `HalcyonicBootstrap` adds the stage to any scene that lacks one, so no scene file carries it.
+- `ControlPlaneConnection` owns the session, pumps it every frame, stops it when the application
+  pauses and resumes it from the last position afterwards.
+- `CharacterStage` places one placeholder character per workstream in an arc, and says above them
+  whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
+  motion follows the activity, with the title, status and attention notes written out.
+- `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
+
+Unity is not installed on the development machine yet, so none of this has been compiled or run
+by Unity. Project settings, `.meta` files and the lock file are generated on first open and then
+committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
+
 ## Not built yet
 
-The Unity project settings, scene, rig and characters; focus handling (VRC.Quest.Input.4); hand
-input; the expanded workspace; token provisioning on a headset; `wss://`. On a Quest, the
-loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there
-is no LAN serving yet ([SECURITY.md](SECURITY.md)).
+Hand interaction with characters; the expanded workspace; real character art; token provisioning
+on a headset; `wss://`. On a Quest, the loopback-only control plane is reachable over USB with
+`adb reverse tcp:47800 tcp:47800`; there is no LAN serving yet ([SECURITY.md](SECURITY.md)).

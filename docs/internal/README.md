@@ -21,6 +21,7 @@ changes, the matching document changes in the same commit.
 | Architecture | [architecture/INTEGRATIONS.md](architecture/INTEGRATIONS.md) | Runtime adapter contract, capabilities, integration boundaries |
 | Architecture | [architecture/XR_CLIENT.md](architecture/XR_CLIENT.md) | The Unity client's layers, C# contracts, session, threading and verification |
 | Operations | [runbooks/LOCAL_DEVELOPMENT.md](runbooks/LOCAL_DEVELOPMENT.md) | Running, replaying, recording, resetting |
+| Operations | [runbooks/XR_DEVELOPMENT.md](runbooks/XR_DEVELOPMENT.md) | Installing Unity, opening the XR project, running it against the control plane |
 
 ## Decision records
 
