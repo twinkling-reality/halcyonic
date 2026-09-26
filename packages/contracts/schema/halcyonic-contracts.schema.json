@@ -112,17 +112,7 @@
               "const": "project.created"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -244,17 +234,7 @@
               "const": "workstream.created"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -391,17 +371,7 @@
               "const": "execution.created"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -528,17 +498,7 @@
               "const": "execution.start_failed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -658,17 +618,7 @@
               "const": "execution.state_unknown"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -678,16 +628,7 @@
               ],
               "properties": {
                 "code": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "control_plane_restarted"
-                    },
-                    {
-                      "type": "string",
-                      "const": "start_outcome_unknown"
-                    }
-                  ]
+                  "$ref": "#/$defs/StateUnknownCode"
                 },
                 "message": {
                   "type": "string",
@@ -825,17 +766,7 @@
               "const": "command.accepted"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -849,36 +780,10 @@
                   "$ref": "#/$defs/CommandEnvelope"
                 },
                 "policy": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "low_consequence"
-                    },
-                    {
-                      "type": "string",
-                      "const": "review_required"
-                    },
-                    {
-                      "type": "string",
-                      "const": "high_consequence"
-                    }
-                  ]
+                  "$ref": "#/$defs/PolicyCategory"
                 },
                 "received_via": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "http"
-                    },
-                    {
-                      "type": "string",
-                      "const": "websocket"
-                    },
-                    {
-                      "type": "string",
-                      "const": "internal"
-                    }
-                  ]
+                  "$ref": "#/$defs/ReceivedVia"
                 }
               },
               "additionalProperties": false
@@ -1010,17 +915,7 @@
               "const": "command.rejected"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -1037,20 +932,7 @@
                   "$ref": "#/$defs/CommandRejection"
                 },
                 "received_via": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "http"
-                    },
-                    {
-                      "type": "string",
-                      "const": "websocket"
-                    },
-                    {
-                      "type": "string",
-                      "const": "internal"
-                    }
-                  ]
+                  "$ref": "#/$defs/ReceivedVia"
                 }
               },
               "additionalProperties": false
@@ -1182,17 +1064,7 @@
               "const": "command.completed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -1207,32 +1079,7 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                 },
                 "command_type": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "project.create"
-                    },
-                    {
-                      "type": "string",
-                      "const": "workstream.create"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.start"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.send_instruction"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.respond_to_approval"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.interrupt"
-                    }
-                  ]
+                  "$ref": "#/$defs/CommandType"
                 },
                 "result": {
                   "anyOf": [
@@ -1374,17 +1221,7 @@
               "const": "command.failed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "control_plane"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ControlPlaneSource"
             },
             "payload": {
               "type": "object",
@@ -1399,32 +1236,7 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
                 },
                 "command_type": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "project.create"
-                    },
-                    {
-                      "type": "string",
-                      "const": "workstream.create"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.start"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.send_instruction"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.respond_to_approval"
-                    },
-                    {
-                      "type": "string",
-                      "const": "execution.interrupt"
-                    }
-                  ]
+                  "$ref": "#/$defs/CommandType"
                 },
                 "failure": {
                   "$ref": "#/$defs/CommandFailure"
@@ -1538,22 +1350,7 @@
               "const": "runtime.execution.started"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -1682,22 +1479,7 @@
               "const": "runtime.turn.started"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -1826,22 +1608,7 @@
               "const": "runtime.turn.completed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -1970,22 +1737,7 @@
               "const": "runtime.turn.failed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -2118,22 +1870,7 @@
               "const": "runtime.turn.interrupted"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -2262,22 +1999,7 @@
               "const": "runtime.approval.requested"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -2292,35 +2014,7 @@
                   "maxLength": 512
                 },
                 "subject": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "required": [
-                        "kind",
-                        "tool_name",
-                        "summary"
-                      ],
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "tool_use"
-                        },
-                        "tool_name": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 128,
-                          "pattern": "\\S"
-                        },
-                        "summary": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 2000,
-                          "pattern": "\\S"
-                        }
-                      },
-                      "additionalProperties": false
-                    }
-                  ]
+                  "$ref": "#/$defs/ApprovalSubject"
                 }
               },
               "additionalProperties": false
@@ -2431,22 +2125,7 @@
               "const": "runtime.approval.resolved"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -2461,16 +2140,7 @@
                   "maxLength": 512
                 },
                 "decision": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "approved"
-                    },
-                    {
-                      "type": "string",
-                      "const": "denied"
-                    }
-                  ]
+                  "$ref": "#/$defs/ApprovalResolution"
                 }
               },
               "additionalProperties": false
@@ -2581,22 +2251,7 @@
               "const": "runtime.tool.started"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -2739,22 +2394,7 @@
               "const": "runtime.tool.completed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -2769,16 +2409,7 @@
                   "maxLength": 512
                 },
                 "outcome": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "succeeded"
-                    },
-                    {
-                      "type": "string",
-                      "const": "failed"
-                    }
-                  ]
+                  "$ref": "#/$defs/ToolOutcome"
                 }
               },
               "additionalProperties": false
@@ -2889,22 +2520,7 @@
               "const": "runtime.agent_message"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -3027,22 +2643,7 @@
               "const": "runtime.test_run.started"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -3178,22 +2779,7 @@
               "const": "runtime.test_run.completed"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -3209,20 +2795,7 @@
                   "maxLength": 512
                 },
                 "outcome": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "passed"
-                    },
-                    {
-                      "type": "string",
-                      "const": "failed"
-                    },
-                    {
-                      "type": "string",
-                      "const": "errored"
-                    }
-                  ]
+                  "$ref": "#/$defs/TestOutcome"
                 },
                 "summary": {
                   "anyOf": [
@@ -3346,22 +2919,7 @@
               "const": "runtime.connection.lost"
             },
             "source": {
-              "type": "object",
-              "required": [
-                "kind",
-                "runtime_id"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "runtime"
-                },
-                "runtime_id": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/RuntimeSource"
             },
             "payload": {
               "type": "object",
@@ -3403,37 +2961,43 @@
     "EventSource": {
       "anyOf": [
         {
-          "type": "object",
-          "required": [
-            "kind"
-          ],
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "control_plane"
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/ControlPlaneSource"
         },
         {
-          "type": "object",
-          "required": [
-            "kind",
-            "runtime_id"
-          ],
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "runtime"
-            },
-            "runtime_id": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9-]{0,62}$"
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/RuntimeSource"
         }
       ]
+    },
+    "ControlPlaneSource": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "control_plane"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RuntimeSource": {
+      "type": "object",
+      "required": [
+        "kind",
+        "runtime_id"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "runtime"
+        },
+        "runtime_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "additionalProperties": false
     },
     "Provenance": {
       "anyOf": [
@@ -3516,6 +3080,37 @@
             "rule": {
               "type": "string",
               "pattern": "^[a-z][a-z0-9_.-]{0,127}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ApprovalSubject": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "tool_name",
+            "summary"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "tool_use"
+            },
+            "tool_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "\\S"
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "pattern": "\\S"
             }
           },
           "additionalProperties": false
@@ -3812,16 +3407,7 @@
                   "maxLength": 512
                 },
                 "decision": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "approve"
-                    },
-                    {
-                      "type": "string",
-                      "const": "deny"
-                    }
-                  ]
+                  "$ref": "#/$defs/ApprovalDecision"
                 },
                 "message": {
                   "anyOf": [
@@ -3899,40 +3485,7 @@
       ],
       "properties": {
         "code": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "project_not_found"
-            },
-            {
-              "type": "string",
-              "const": "workstream_not_found"
-            },
-            {
-              "type": "string",
-              "const": "execution_not_found"
-            },
-            {
-              "type": "string",
-              "const": "runtime_not_found"
-            },
-            {
-              "type": "string",
-              "const": "approval_not_found"
-            },
-            {
-              "type": "string",
-              "const": "capability_unsupported"
-            },
-            {
-              "type": "string",
-              "const": "invalid_state"
-            },
-            {
-              "type": "string",
-              "const": "invalid_runtime_options"
-            }
-          ]
+          "$ref": "#/$defs/RejectionCode"
         },
         "message": {
           "type": "string",
@@ -3962,16 +3515,7 @@
           "pattern": "\\S"
         },
         "effect": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "none"
-            },
-            {
-              "type": "string",
-              "const": "unknown"
-            }
-          ]
+          "$ref": "#/$defs/FailureEffect"
         }
       },
       "additionalProperties": false
@@ -4193,16 +3737,7 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "origin": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "live"
-            },
-            {
-              "type": "string",
-              "const": "fixture"
-            }
-          ]
+          "$ref": "#/$defs/JournalOrigin"
         }
       },
       "additionalProperties": false
@@ -4215,114 +3750,104 @@
       ],
       "properties": {
         "level": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "none"
-            },
-            {
-              "type": "string",
-              "const": "notice"
-            },
-            {
-              "type": "string",
-              "const": "action_required"
-            }
-          ]
+          "$ref": "#/$defs/AttentionLevel"
         },
         "reasons": {
           "type": "array",
           "items": {
-            "anyOf": [
-              {
-                "type": "object",
-                "required": [
-                  "kind",
-                  "execution_id",
-                  "approval_id"
-                ],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "const": "approval_pending"
-                  },
-                  "execution_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  },
-                  "approval_id": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 512
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "required": [
-                  "kind",
-                  "execution_id"
-                ],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "const": "execution_failed"
-                  },
-                  "execution_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "required": [
-                  "kind",
-                  "execution_id"
-                ],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "const": "execution_state_unknown"
-                  },
-                  "execution_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  }
-                },
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "required": [
-                  "kind",
-                  "execution_id",
-                  "test_run_id"
-                ],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "const": "verification_failed"
-                  },
-                  "execution_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                  },
-                  "test_run_id": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 512
-                  }
-                },
-                "additionalProperties": false
-              }
-            ]
+            "$ref": "#/$defs/AttentionReason"
           }
         }
       },
       "additionalProperties": false
+    },
+    "AttentionReason": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "execution_id",
+            "approval_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "approval_pending"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "approval_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "execution_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "execution_failed"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "execution_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "execution_state_unknown"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "execution_id",
+            "test_run_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "verification_failed"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "test_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "ApprovalView": {
       "type": "object",
@@ -4338,35 +3863,7 @@
           "maxLength": 512
         },
         "subject": {
-          "anyOf": [
-            {
-              "type": "object",
-              "required": [
-                "kind",
-                "tool_name",
-                "summary"
-              ],
-              "properties": {
-                "kind": {
-                  "type": "string",
-                  "const": "tool_use"
-                },
-                "tool_name": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128,
-                  "pattern": "\\S"
-                },
-                "summary": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 2000,
-                  "pattern": "\\S"
-                }
-              },
-              "additionalProperties": false
-            }
-          ]
+          "$ref": "#/$defs/ApprovalSubject"
         },
         "requested_at": {
           "type": "string",
@@ -4480,20 +3977,7 @@
           ]
         },
         "outcome": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "passed"
-            },
-            {
-              "type": "string",
-              "const": "failed"
-            },
-            {
-              "type": "string",
-              "const": "errored"
-            }
-          ]
+          "$ref": "#/$defs/TestOutcome"
         },
         "summary": {
           "anyOf": [
@@ -4591,44 +4075,7 @@
           ]
         },
         "status": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "created"
-            },
-            {
-              "type": "string",
-              "const": "starting"
-            },
-            {
-              "type": "string",
-              "const": "running"
-            },
-            {
-              "type": "string",
-              "const": "verifying"
-            },
-            {
-              "type": "string",
-              "const": "waiting_for_human"
-            },
-            {
-              "type": "string",
-              "const": "completed"
-            },
-            {
-              "type": "string",
-              "const": "failed"
-            },
-            {
-              "type": "string",
-              "const": "interrupted"
-            },
-            {
-              "type": "string",
-              "const": "unknown"
-            }
-          ]
+          "$ref": "#/$defs/WorkstreamStatus"
         },
         "attention": {
           "$ref": "#/$defs/Attention"
@@ -4719,40 +4166,7 @@
           "pattern": "\\S"
         },
         "status": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "starting"
-            },
-            {
-              "type": "string",
-              "const": "running"
-            },
-            {
-              "type": "string",
-              "const": "verifying"
-            },
-            {
-              "type": "string",
-              "const": "waiting_for_human"
-            },
-            {
-              "type": "string",
-              "const": "completed"
-            },
-            {
-              "type": "string",
-              "const": "failed"
-            },
-            {
-              "type": "string",
-              "const": "interrupted"
-            },
-            {
-              "type": "string",
-              "const": "unknown"
-            }
-          ]
+          "$ref": "#/$defs/ExecutionStatus"
         },
         "status_reason": {
           "anyOf": [
@@ -4846,52 +4260,10 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         },
         "command_type": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "project.create"
-            },
-            {
-              "type": "string",
-              "const": "workstream.create"
-            },
-            {
-              "type": "string",
-              "const": "execution.start"
-            },
-            {
-              "type": "string",
-              "const": "execution.send_instruction"
-            },
-            {
-              "type": "string",
-              "const": "execution.respond_to_approval"
-            },
-            {
-              "type": "string",
-              "const": "execution.interrupt"
-            }
-          ]
+          "$ref": "#/$defs/CommandType"
         },
         "status": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "accepted"
-            },
-            {
-              "type": "string",
-              "const": "rejected"
-            },
-            {
-              "type": "string",
-              "const": "completed"
-            },
-            {
-              "type": "string",
-              "const": "failed"
-            }
-          ]
+          "$ref": "#/$defs/CommandStatus"
         },
         "project_id": {
           "anyOf": [
@@ -5057,6 +4429,24 @@
       },
       "additionalProperties": false
     },
+    "ResumeCursor": {
+      "type": "object",
+      "required": [
+        "journal_id",
+        "position"
+      ],
+      "properties": {
+        "journal_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
     "ClientMessage": {
       "anyOf": [
         {
@@ -5082,22 +4472,7 @@
             "resume": {
               "anyOf": [
                 {
-                  "type": "object",
-                  "required": [
-                    "journal_id",
-                    "position"
-                  ],
-                  "properties": {
-                    "journal_id": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-                    },
-                    "position": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/$defs/ResumeCursor"
                 },
                 {
                   "type": "null"
@@ -5252,24 +4627,7 @@
               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
             },
             "disposition": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "const": "accepted"
-                },
-                {
-                  "type": "string",
-                  "const": "rejected"
-                },
-                {
-                  "type": "string",
-                  "const": "duplicate"
-                },
-                {
-                  "type": "string",
-                  "const": "conflict"
-                }
-              ]
+              "$ref": "#/$defs/CommandAckDisposition"
             },
             "command": {
               "anyOf": [
@@ -5323,29 +4681,7 @@
               "const": "error"
             },
             "error": {
-              "type": "object",
-              "required": [
-                "code",
-                "message",
-                "issues"
-              ],
-              "properties": {
-                "code": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
-                },
-                "message": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "issues": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/$defs/ValidationIssue"
-                  }
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/ErrorBody"
             },
             "fatal": {
               "type": "boolean"
@@ -5367,6 +4703,31 @@
         },
         "message": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ErrorBody": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "issues"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          }
         }
       },
       "additionalProperties": false
@@ -5479,20 +4840,7 @@
       ],
       "properties": {
         "disposition": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "accepted"
-            },
-            {
-              "type": "string",
-              "const": "rejected"
-            },
-            {
-              "type": "string",
-              "const": "duplicate"
-            }
-          ]
+          "$ref": "#/$defs/SubmissionDisposition"
         },
         "command": {
           "$ref": "#/$defs/CommandView"
@@ -5507,32 +4855,342 @@
       ],
       "properties": {
         "error": {
-          "type": "object",
-          "required": [
-            "code",
-            "message",
-            "issues"
-          ],
-          "properties": {
-            "code": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,63}$"
-            },
-            "message": {
-              "type": "string",
-              "minLength": 1
-            },
-            "issues": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/ValidationIssue"
-              }
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/ErrorBody"
         }
       },
       "additionalProperties": false
+    },
+    "ExecutionStatus": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "starting"
+        },
+        {
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "type": "string",
+          "const": "verifying"
+        },
+        {
+          "type": "string",
+          "const": "waiting_for_human"
+        },
+        {
+          "type": "string",
+          "const": "completed"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "type": "string",
+          "const": "interrupted"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "WorkstreamStatus": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "created"
+        },
+        {
+          "type": "string",
+          "const": "starting"
+        },
+        {
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "type": "string",
+          "const": "verifying"
+        },
+        {
+          "type": "string",
+          "const": "waiting_for_human"
+        },
+        {
+          "type": "string",
+          "const": "completed"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "type": "string",
+          "const": "interrupted"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "AttentionLevel": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "type": "string",
+          "const": "notice"
+        },
+        {
+          "type": "string",
+          "const": "action_required"
+        }
+      ]
+    },
+    "CommandStatus": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "accepted"
+        },
+        {
+          "type": "string",
+          "const": "rejected"
+        },
+        {
+          "type": "string",
+          "const": "completed"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        }
+      ]
+    },
+    "CommandType": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "project.create"
+        },
+        {
+          "type": "string",
+          "const": "workstream.create"
+        },
+        {
+          "type": "string",
+          "const": "execution.start"
+        },
+        {
+          "type": "string",
+          "const": "execution.send_instruction"
+        },
+        {
+          "type": "string",
+          "const": "execution.respond_to_approval"
+        },
+        {
+          "type": "string",
+          "const": "execution.interrupt"
+        }
+      ]
+    },
+    "PolicyCategory": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "low_consequence"
+        },
+        {
+          "type": "string",
+          "const": "review_required"
+        },
+        {
+          "type": "string",
+          "const": "high_consequence"
+        }
+      ]
+    },
+    "RejectionCode": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "project_not_found"
+        },
+        {
+          "type": "string",
+          "const": "workstream_not_found"
+        },
+        {
+          "type": "string",
+          "const": "execution_not_found"
+        },
+        {
+          "type": "string",
+          "const": "runtime_not_found"
+        },
+        {
+          "type": "string",
+          "const": "approval_not_found"
+        },
+        {
+          "type": "string",
+          "const": "capability_unsupported"
+        },
+        {
+          "type": "string",
+          "const": "invalid_state"
+        },
+        {
+          "type": "string",
+          "const": "invalid_runtime_options"
+        }
+      ]
+    },
+    "ReceivedVia": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "http"
+        },
+        {
+          "type": "string",
+          "const": "websocket"
+        },
+        {
+          "type": "string",
+          "const": "internal"
+        }
+      ]
+    },
+    "ApprovalDecision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "approve"
+        },
+        {
+          "type": "string",
+          "const": "deny"
+        }
+      ]
+    },
+    "JournalOrigin": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "live"
+        },
+        {
+          "type": "string",
+          "const": "fixture"
+        }
+      ]
+    },
+    "TestOutcome": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "passed"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "type": "string",
+          "const": "errored"
+        }
+      ]
+    },
+    "ToolOutcome": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "succeeded"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        }
+      ]
+    },
+    "ApprovalResolution": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "approved"
+        },
+        {
+          "type": "string",
+          "const": "denied"
+        }
+      ]
+    },
+    "FailureEffect": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "StateUnknownCode": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "control_plane_restarted"
+        },
+        {
+          "type": "string",
+          "const": "start_outcome_unknown"
+        }
+      ]
+    },
+    "CommandAckDisposition": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "accepted"
+        },
+        {
+          "type": "string",
+          "const": "rejected"
+        },
+        {
+          "type": "string",
+          "const": "duplicate"
+        },
+        {
+          "type": "string",
+          "const": "conflict"
+        }
+      ]
+    },
+    "SubmissionDisposition": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "accepted"
+        },
+        {
+          "type": "string",
+          "const": "rejected"
+        },
+        {
+          "type": "string",
+          "const": "duplicate"
+        }
+      ]
     }
   }
 }

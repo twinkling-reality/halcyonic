@@ -22,3 +22,23 @@ coverage/
 # Private documents: the roadmap, competition strategy, and records about private repositories.
 # Local only, never pushed (see docs/internal/README.md).
 /docs/private/
+
+# .NET build output for the C# verification projects.
+/apps/xr/dotnet/**/bin/
+/apps/xr/dotnet/**/obj/
+/apps/xr/dotnet/TestResults/
+
+# Unity: generated and per-user folders, and the solution and project files the editor writes.
+/apps/xr/[Ll]ibrary/
+/apps/xr/[Tt]emp/
+/apps/xr/[Oo]bj/
+/apps/xr/[Ll]ogs/
+/apps/xr/[Bb]uild/
+/apps/xr/[Bb]uilds/
+/apps/xr/[Uu]ser[Ss]ettings/
+/apps/xr/[Mm]emoryCaptures/
+/apps/xr/*.csproj
+/apps/xr/*.sln
+/apps/xr/*.slnx
+/apps/xr/.vs/
+/apps/xr/.idea/

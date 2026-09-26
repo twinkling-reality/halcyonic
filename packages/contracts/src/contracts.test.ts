@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import Schema from 'typebox/schema';
+import { renderCSharpContracts } from './csharp.ts';
 import {
   buildSchemaDocument,
+  COMMAND_VARIANTS,
   EVENT_VARIANTS,
   parseClientMessage,
   parseCommandEnvelope,
@@ -158,5 +160,29 @@ describe('the language-neutral schema document', () => {
     const text = renderSchemaDocument();
     assert.ok(text.includes('"$ref": "#/$defs/CommandEnvelope"'));
     assert.ok(text.length < 400_000, `document is ${text.length} bytes`);
+  });
+});
+
+describe('the C# bindings', () => {
+  const generated = renderCSharpContracts();
+
+  test('the committed bindings are current', () => {
+    const committed = readFileSync(
+      new URL('../csharp/Runtime/HalcyonicContracts.g.cs', import.meta.url),
+      'utf8',
+    );
+    assert.equal(committed, generated, 'run pnpm contracts:emit and commit the result');
+  });
+
+  test('every event and command type has a class the converters can create', () => {
+    const tags = [
+      ...EVENT_VARIANTS.map(
+        (variant) => (variant.properties.event_type as { const: string }).const,
+      ),
+      ...COMMAND_VARIANTS.map(
+        (variant) => (variant.properties.command_type as { const: string }).const,
+      ),
+    ];
+    for (const tag of tags) assert.ok(generated.includes(`"${tag}" => new `), tag);
   });
 });

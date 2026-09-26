@@ -5,6 +5,9 @@
 - Node.js 24.15 or newer: `node --version`.
 - pnpm 10 or newer. It switches to the pinned version (see `packageManager` in `package.json`).
 - `pnpm install` from the repository root.
+- For C# work only: the .NET 10 SDK. A user-local install works:
+  `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0`, then
+  `export PATH="$HOME/.dotnet:$PATH"`.
 
 ## Run the control plane
 
@@ -56,11 +59,22 @@ first or set `HALCYONIC_PORT`.
 
 | After changing | Run | Then |
 | --- | --- | --- |
-| A contract in `packages/contracts` | `pnpm contracts:emit` | Review the schema diff |
+| A contract in `packages/contracts` | `pnpm contracts:emit` | Review the schema and C# diffs, then `pnpm test:csharp` |
 | Contracts, the pipeline, the mock runtime or a scenario | `pnpm fixtures:record` | Review the trace diff |
 
-`pnpm check` fails when either generated file is stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
+`pnpm check` fails when any generated file is stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
 checks the trace alone.
+
+## Test the C# client
+
+```bash
+pnpm test:csharp
+```
+
+This builds the generated contracts and the XR client core the way Unity constrains them (.NET
+Standard 2.1, C# 9, warnings as errors) and runs their NUnit tests on .NET 10. Two tests start real
+control plane processes with Node.js on free ports and temporary data directories. Filter them out
+with `dotnet test apps/xr/dotnet/Halcyonic.Client.Tests --filter "TestCategory!=ControlPlane"`.
 
 ## Inspect the journal
 

@@ -1,0 +1,50 @@
+#nullable enable
+using System;
+
+namespace Halcyonic.Client
+{
+    public enum ConnectionPhase
+    {
+        /// <summary>Not started, or stopped by the application.</summary>
+        Stopped,
+
+        Connecting,
+
+        /// <summary>Connected and waiting for a snapshot; the local state may be out of date.</summary>
+        Synchronizing,
+
+        /// <summary>Connected and current; events arrive as the control plane journals them.</summary>
+        Live,
+
+        /// <summary>The last connection failed or ended; the next attempt starts after a delay.</summary>
+        WaitingToRetry,
+
+        /// <summary>The control plane will not serve this client, for example an unsupported protocol version.</summary>
+        Refused,
+    }
+
+    public sealed class ConnectionStatus
+    {
+        public static readonly ConnectionStatus Stopped = new ConnectionStatus(ConnectionPhase.Stopped);
+
+        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null)
+        {
+            Phase = phase;
+            Detail = detail;
+            RetryIn = retryIn;
+        }
+
+        public ConnectionPhase Phase { get; }
+
+        /// <summary>Why the last connection ended or was refused, for display.</summary>
+        public string? Detail { get; }
+
+        /// <summary>How long until the next attempt, while waiting to retry.</summary>
+        public TimeSpan? RetryIn { get; }
+
+        /// <summary>Only a live session's state is current; anything else shows the last known state.</summary>
+        public bool IsLive => Phase == ConnectionPhase.Live;
+
+        public override string ToString() => Detail == null ? Phase.ToString() : Phase + ": " + Detail;
+    }
+}

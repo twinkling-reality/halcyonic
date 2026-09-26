@@ -24,8 +24,10 @@ Workstream, never a vendor session.
 - Never fabricate certainty: use `unknown`, `effect: 'unknown'`, `unavailable`. Agent text is
   `reported`, never `observed`.
 - Contracts are defined once, in `packages/contracts` (TypeBox). The JSON Schema in
-  `packages/contracts/schema/` is generated from them; never edit it by hand.
-- XR clients talk only to the control plane, never to runtimes or to Salidium or Seorak.
+  `packages/contracts/schema/` and the C# bindings in `packages/contracts/csharp/` are generated
+  from them; never edit either by hand.
+- XR clients talk only to the control plane, never to runtimes or to Salidium or Seorak. The C#
+  client core and contracts never reference `UnityEngine`; only the Unity layer does.
 
 ## Priorities
 
@@ -42,7 +44,8 @@ pnpm typecheck        # TypeScript 7, type checking only (Node runs the .ts sour
 pnpm lint             # Biome
 pnpm format           # Biome, writes changes
 pnpm test             # node:test across all packages
-pnpm contracts:emit   # regenerate the JSON Schema after any contract change
+pnpm contracts:emit   # regenerate the JSON Schema and C# bindings after any contract change
+pnpm test:csharp      # C# contracts and XR client core on .NET 10, including a real control plane
 pnpm fixtures:record  # regenerate fixture traces after contract, pipeline or scenario changes
 pnpm dev              # run the control plane (loopback only, data in ~/.halcyonic)
 pnpm demo             # drive the running control plane through the realtime protocol

@@ -7,6 +7,7 @@
    (`packageManager`) on first use. The pin is pnpm 11: pnpm 12 ships as a native binary that
    pnpm 10's version switching cannot install (see ADR 0004).
 3. `pnpm install`
+4. For C# work (contracts or `apps/xr`): the .NET 10 SDK on `PATH`.
 
 There is no build step. Node runs the TypeScript sources directly using type stripping, and
 `pnpm typecheck` runs the TypeScript compiler for checking only. Code must therefore use only
@@ -18,7 +19,8 @@ erasable TypeScript syntax: no `enum`, `namespace` or constructor parameter prop
 1. Read [AGENTS.md](AGENTS.md) and the canonical documents for the area you are changing.
 2. Make a focused change with tests.
 3. Update the canonical documentation in the same change when behavior or architecture changes.
-4. Run `pnpm check`. It must pass.
+4. Run `pnpm check`. It must pass. After changing a contract or anything in `apps/xr`, run
+   `pnpm test:csharp` as well.
 
 ## Where things go
 
@@ -32,6 +34,8 @@ erasable TypeScript syntax: no `enum`, `namespace` or constructor parameter prop
 | Mock runtime scenarios | `fixtures/scenarios` |
 | Recorded traces | `fixtures/traces`, via `pnpm fixtures:record` |
 | Repository-wide structural tests | `tooling` |
+| The XR client core (C#, no engine references) | `apps/xr/Packages/com.halcyonic.client` |
+| Its .NET build and tests | `apps/xr/dotnet` |
 
 Changing a contract usually means: edit the TypeBox schema, update the projection or adapters,
 run `pnpm contracts:emit` and `pnpm fixtures:record`, review both diffs, and update

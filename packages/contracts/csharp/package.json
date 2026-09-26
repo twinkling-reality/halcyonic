@@ -1,0 +1,11 @@
+{
+  "name": "com.halcyonic.contracts",
+  "version": "0.1.0",
+  "displayName": "Halcyonic Contracts",
+  "description": "C# bindings for the Halcyonic control plane contracts, generated from packages/contracts by pnpm contracts:emit.",
+  "unity": "6000.0",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  }
+}

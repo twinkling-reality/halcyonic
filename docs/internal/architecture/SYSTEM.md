@@ -6,14 +6,15 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 
 | Component | Location | Status |
 | --- | --- | --- |
-| Contracts: wire schemas, validators, generated JSON Schema | `packages/contracts` | Built |
+| Contracts: wire schemas, validators, generated JSON Schema and C# bindings | `packages/contracts` | Built |
 | Domain: projection, status and attention rules, command admission | `packages/domain` | Built |
 | Runtime port: adapter interface, capability checks, clocks | `packages/runtime-core` | Built |
 | Mock runtime: scripted scenarios, synthetic | `packages/integrations/mock` | Built |
 | Control plane: journal, commands, REST, WebSocket, CLIs | `apps/control-plane` | Built, loopback only |
 | Scenarios and recorded traces | `fixtures/` | Built |
 | Architecture boundary tests | `tooling/` | Built |
-| XR client (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Not started |
+| XR client core: realtime session, client projection, character presentation (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
+| XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Not started |
 | OpenCode, Claude Code and Codex adapters | `packages/integrations/*` | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Salidium and Seorak integration | none | Blocked on contracts; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
@@ -39,6 +40,10 @@ apps/control-plane ──> integrations/mock ──> runtime-core ──> contra
 pnpm's isolated `node_modules` makes an undeclared import fail at runtime, and
 `tooling/architecture.test.ts` fails the build if a core package declares or imports anything
 outside its allowlist.
+
+The C# side mirrors this: the Unity layer depends on the client core, which depends on the
+generated contracts, which depend only on Newtonsoft.Json. Neither C# package may reference
+`UnityEngine` (`noEngineReferences`), and XR clients reach only the control plane.
 
 ## Data flow
 
@@ -89,7 +94,8 @@ Environment variables, all optional:
 Node.js 24.15 or newer runs the TypeScript sources directly (type stripping is stable in Node 24;
 `node:sqlite` is a release candidate from 24.15). TypeScript 7 type-checks only. Tests use
 `node:test`; lint and format use Biome; pnpm 11 manages the workspace. Reasons and evidence:
-[ADR 0004](../decisions/0004-control-plane-stack.md).
+[ADR 0004](../decisions/0004-control-plane-stack.md). The C# packages are compiled and tested
+outside Unity with the .NET 10 SDK ([ADR 0008](../decisions/0008-engine-independent-csharp-client-core.md)).
 
 ## Not built, and deliberately so
 

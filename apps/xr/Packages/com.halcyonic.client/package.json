@@ -1,0 +1,12 @@
+{
+  "name": "com.halcyonic.client",
+  "version": "0.1.0",
+  "displayName": "Halcyonic Client",
+  "description": "Engine-independent client core: the realtime session, the client projection and character presentation.",
+  "unity": "6000.0",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "com.halcyonic.contracts": "0.1.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  }
+}

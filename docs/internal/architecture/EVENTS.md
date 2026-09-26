@@ -82,14 +82,16 @@ declared itself), through which transport, under which policy, and with what out
 The schemas are TypeBox definitions in `packages/contracts`. TypeBox schemas are JSON Schema, so
 the TypeScript types are inferred from them and `pnpm contracts:emit` serializes them, with shared
 definitions referenced by name, into `packages/contracts/schema/halcyonic-contracts.schema.json`
-for other languages. A test fails if the committed document is stale or if it validates anything
-differently from the TypeScript validators. See [ADR 0005](../decisions/0005-typebox-contracts-as-single-source.md).
+for other languages. The same command generates the C# bindings for the Unity client
+([XR_CLIENT.md](XR_CLIENT.md)). A test fails if either is stale, or if the document validates
+anything differently from the TypeScript validators. See [ADR 0005](../decisions/0005-typebox-contracts-as-single-source.md).
 
 To change a contract:
 
 1. Edit the schema in `packages/contracts`.
 2. Update the projection, adapters and clients that use it.
-3. Run `pnpm contracts:emit` and `pnpm fixtures:record` and review both diffs.
+3. Run `pnpm contracts:emit` and `pnpm fixtures:record`, review the diffs, and run
+   `pnpm test:csharp`.
 4. For an incompatible change, bump the relevant version in `versions.ts` and add a journal
    migration if stored events are affected.
 5. Update this document.
