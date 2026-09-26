@@ -92,4 +92,10 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
 4. Declare only verified capabilities. Map native states to normalized events only where the
    mapping is defensible; otherwise emit nothing and let the status be `unknown`.
 5. Keep native ids as opaque references; never expose vendor objects through Halcyonic APIs.
-6. Record fixtures from real runs, sanitized, for contract tests.
+   Prefer choosing the native id at launch where the runtime allows it (Claude Code's
+   `--session-id`), so the execution can be correlated before the runtime reports anything.
+6. Launch agents with an explicitly built environment. Leave the runtime's home and
+   configuration directories at the developer's defaults so Salidium and Seorak can observe the
+   sessions, and never pass `SALIDIUM_INTERNAL` to a launched agent: it makes Salidium drop the
+   session's hooks.
+7. Record fixtures from real runs, sanitized, for contract tests.
