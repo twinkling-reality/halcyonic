@@ -107,10 +107,16 @@ To change a contract:
 ## Traces
 
 A trace is a journal exported as JSON Lines: one envelope per line, in position order.
-`fixtures/traces/multiple_workstreams.jsonl` is recorded by `pnpm fixtures:record`, which drives
-the real control plane and the mock runtime under virtual time with seeded identifiers. The same
-code therefore always produces the same file, and a test fails when the committed trace no longer
-matches. Replaying a trace goes through the normal write path, so replayed events are validated,
+`pnpm fixtures:record` records each plan in `apps/control-plane/src/demo-plan.ts` by driving the
+real control plane and the mock runtime under virtual time with seeded identifiers, including a
+scripted operator who approves, denies, instructs or interrupts. The same code therefore always
+produces the same files, and a test fails when a committed trace no longer matches.
+
+| Trace | Shows |
+| --- | --- |
+| `fixtures/traces/multiple_workstreams.jsonl` | The demo: a finished feature, a turn whose tests failed, an approval granted |
+| `fixtures/traces/failure_modes.jsonl` | A failed turn, a runtime that became unreachable (`unknown`), an interrupted turn with a refused mid-turn instruction, a denied approval |
+ Replaying a trace goes through the normal write path, so replayed events are validated,
 projected and streamed exactly like live ones, and replaying twice changes nothing.
 
 Traces are development fixtures. They must never contain credentials or private repository

@@ -1,29 +1,32 @@
 /**
- * Regenerates fixtures/traces/multiple_workstreams.jsonl from the demo plan. Run it after any
- * change to the contracts, the pipeline or the scenarios, and review the diff.
- * `--check` exits non-zero when the committed trace is stale instead of rewriting it.
+ * Regenerates the traces in fixtures/traces from their plans. Run it after any change to the
+ * contracts, the pipeline or the scenarios, and review the diff.
+ * `--check` exits non-zero when a committed trace is stale instead of rewriting it.
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../config.ts';
-import { recordDemoTrace } from '../fixtures/record.ts';
+import { TRACE_PLANS } from '../demo-plan.ts';
+import { recordTrace } from '../fixtures/record.ts';
 
-export const DEMO_TRACE_PATH = fileURLToPath(
-  new URL('../../../../fixtures/traces/multiple_workstreams.jsonl', import.meta.url),
-);
+const TRACES_DIR = new URL('../../../../fixtures/traces/', import.meta.url);
 
 async function main(): Promise<void> {
-  const trace = await recordDemoTrace(loadConfig().scenariosDir);
-  if (process.argv.includes('--check')) {
-    const committed = await readFile(DEMO_TRACE_PATH, 'utf8').catch(() => '');
-    if (committed !== trace) {
-      process.stderr.write(`${DEMO_TRACE_PATH} is stale; run pnpm fixtures:record\n`);
-      process.exitCode = 1;
+  const check = process.argv.includes('--check');
+  for (const plan of TRACE_PLANS) {
+    const path = fileURLToPath(new URL(plan.file, TRACES_DIR));
+    const trace = await recordTrace(plan, loadConfig().scenariosDir);
+    if (check) {
+      const committed = await readFile(path, 'utf8').catch(() => '');
+      if (committed !== trace) {
+        process.stderr.write(`${path} is stale; run pnpm fixtures:record\n`);
+        process.exitCode = 1;
+      }
+      continue;
     }
-    return;
+    await writeFile(path, trace);
+    process.stdout.write(`wrote ${trace.split('\n').length - 1} events to ${path}\n`);
   }
-  await writeFile(DEMO_TRACE_PATH, trace);
-  process.stdout.write(`wrote ${trace.split('\n').length - 1} events to ${DEMO_TRACE_PATH}\n`);
 }
 
 main().catch((error: unknown) => {

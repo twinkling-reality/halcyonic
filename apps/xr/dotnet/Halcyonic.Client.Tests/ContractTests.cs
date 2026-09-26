@@ -19,10 +19,11 @@ public class ContractTests
     }
 
     [Test]
-    public void EveryEventInTheRecordedTraceRoundTrips()
+    public void EveryEventInTheRecordedTracesRoundTrips()
     {
-        Assert.That(Trace, Is.Not.Empty);
-        foreach (var line in Trace)
+        var events = Repository.AllTraces();
+        Assert.That(events, Has.Length.GreaterThan(Trace.Length), "all traces, not only the demo");
+        foreach (var line in events)
         {
             var envelope = Json.AssertRoundTrips<EventEnvelope>(line);
             Assert.That(envelope.EventType, Is.EqualTo((string?)Json.Parse(line)["event_type"]));

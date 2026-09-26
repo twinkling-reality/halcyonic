@@ -60,6 +60,8 @@ the characters says whether the state is live.
 
 To see recorded data instead, stop `pnpm dev` and run
 `pnpm replay fixtures/traces/multiple_workstreams.jsonl`; the stage labels it as recorded.
+`fixtures/traces/failure_modes.jsonl` shows a failed, an unknown, an interrupted and a finished
+workstream.
 
 ## Milestone 2 checks in the Simulator
 
@@ -67,7 +69,8 @@ To see recorded data instead, stop `pnpm dev` and run
   status.
 - The approval workstream shows "Needs you" with the approval explained, and rises toward the eye
   line; after the demo approves it, it returns to working and then "Turn finished".
-- The replayed trace shows the same states, labeled as recorded.
+- The replayed traces show the same states, labeled as recorded, including the failure trace's
+  failed, unknown and interrupted characters, each with its reason written out.
 - Stopping the control plane shows "Disconnected, showing the last known state"; restarting it
   reconnects without restarting Play mode.
 - Everything works with hands only; no controller is needed.

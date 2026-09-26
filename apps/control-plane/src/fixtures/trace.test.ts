@@ -4,17 +4,16 @@ import { describe, test } from 'node:test';
 import type { ExecutionId } from '@halcyonic/contracts';
 import { createVirtualTime } from '@halcyonic/runtime-core';
 import { ControlPlane } from '../core/control-plane.ts';
+import { TRACE_PLANS } from '../demo-plan.ts';
 import { createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { capturingLogger, SCENARIOS_DIR, TEST_CLIENT } from '../testing/harness.ts';
-import { recordDemoTrace } from './record.ts';
+import { recordTrace } from './record.ts';
 import { parseTrace, replayTrace, TraceError } from './trace.ts';
 
-const TRACE_PATH = new URL(
-  '../../../../fixtures/traces/multiple_workstreams.jsonl',
-  import.meta.url,
-);
-const TRACE_TEXT = readFileSync(TRACE_PATH, 'utf8');
+const TRACES_DIR = new URL('../../../../fixtures/traces/', import.meta.url);
+const readTrace = (file: string) => readFileSync(new URL(file, TRACES_DIR), 'utf8');
+const TRACE_TEXT = readTrace('multiple_workstreams.jsonl');
 
 function fixtureControlPlane() {
   const time = createVirtualTime(new Date('2026-09-27T00:00:00.000Z'));
@@ -34,9 +33,15 @@ function fixtureControlPlane() {
 }
 
 describe('recorded traces', () => {
-  test('the committed trace is exactly what the current code records', async () => {
-    assert.equal(await recordDemoTrace(SCENARIOS_DIR), TRACE_TEXT, 'run pnpm fixtures:record');
-  });
+  for (const plan of TRACE_PLANS) {
+    test(`the committed ${plan.file} is exactly what the current code records`, async () => {
+      assert.equal(
+        await recordTrace(plan, SCENARIOS_DIR),
+        readTrace(plan.file),
+        'run pnpm fixtures:record',
+      );
+    });
+  }
 
   test('replaying the trace reconstructs the recorded outcome through the normal write path', async () => {
     const { time, controlPlane } = fixtureControlPlane();
@@ -59,6 +64,39 @@ describe('recorded traces', () => {
       [['Fix flaky checkout tests', ['verification_failed']]],
     );
     assert.ok(snapshot.commands.every((command) => command.status === 'completed'));
+    await controlPlane.close();
+  });
+
+  test('the failure trace holds every state a client must present when work goes wrong', async () => {
+    const { time, controlPlane } = fixtureControlPlane();
+    await replayTrace(
+      controlPlane.recorder,
+      parseTrace(readTrace('failure_modes.jsonl'), 'trace'),
+      {
+        pace: 'instant',
+        maxGapMs: 0,
+        scheduler: time,
+      },
+    );
+    const snapshot = controlPlane.snapshot();
+    assert.deepEqual(
+      snapshot.workstreams.map((workstream) => [
+        workstream.title,
+        workstream.status,
+        workstream.attention.reasons.map((reason) => reason.kind),
+      ]),
+      [
+        ['Speed up the dashboard render', 'failed', ['execution_failed']],
+        ['Run the integration suite', 'unknown', ['execution_state_unknown']],
+        ['Refactor the session store', 'interrupted', []],
+        ['Drop the legacy sessions table', 'completed', []],
+      ],
+    );
+    const rejected = snapshot.commands.filter((command) => command.status === 'rejected');
+    assert.deepEqual(
+      rejected.map((command) => [command.command_type, command.rejection?.code]),
+      [['execution.send_instruction', 'capability_unsupported']],
+    );
     await controlPlane.close();
   });
 

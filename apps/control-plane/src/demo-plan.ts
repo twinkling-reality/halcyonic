@@ -100,5 +100,100 @@ export function createCommandFactory(ids: IdGenerator, clock: Clock, client: Cli
         message: null,
       },
     }),
+    deny: (
+      executionId: ExecutionId,
+      approvalId: string,
+      message: string,
+    ): CommandOf<'execution.respond_to_approval'> => ({
+      ...base(),
+      command_type: 'execution.respond_to_approval',
+      payload: { execution_id: executionId, approval_id: approvalId, decision: 'deny', message },
+    }),
+    instruct: (
+      executionId: ExecutionId,
+      text: string,
+    ): CommandOf<'execution.send_instruction'> => ({
+      ...base(),
+      command_type: 'execution.send_instruction',
+      payload: { execution_id: executionId, text },
+    }),
+    interrupt: (executionId: ExecutionId): CommandOf<'execution.interrupt'> => ({
+      ...base(),
+      command_type: 'execution.interrupt',
+      payload: { execution_id: executionId },
+    }),
   };
 }
+
+/** What the scripted operator does with one workstream while a trace is recorded. */
+export interface OperatorScript {
+  readonly approval: 'approve' | 'deny';
+  /** Instructs the running turn this long after starting it; runtimes without the capability refuse. */
+  readonly instructAfterMs: number | null;
+  /** Interrupts the running turn this long after starting it. */
+  readonly interruptAfterMs: number | null;
+}
+
+export interface TracePlan {
+  /** File name under fixtures/traces. */
+  readonly file: string;
+  /** Seeds the identifiers, so each trace is reproducible and distinct from the others. */
+  readonly seed: number;
+  readonly projectName: string;
+  readonly workstreams: readonly (DemoWorkstream & { readonly operator: OperatorScript })[];
+}
+
+const APPROVES: OperatorScript = {
+  approval: 'approve',
+  instructAfterMs: null,
+  interruptAfterMs: null,
+};
+
+/**
+ * The recorded traces. The first is the demo; the second holds the states a client must present
+ * when work goes wrong: a failed turn, a runtime that became unreachable, an interrupted turn with
+ * a refused instruction, and a denied approval.
+ */
+export const TRACE_PLANS: readonly TracePlan[] = [
+  {
+    file: 'multiple_workstreams.jsonl',
+    seed: 1,
+    projectName: DEMO_PROJECT_NAME,
+    workstreams: DEMO_WORKSTREAMS.map((workstream) => ({ ...workstream, operator: APPROVES })),
+  },
+  {
+    file: 'failure_modes.jsonl',
+    seed: 3,
+    projectName: 'Halcyonic failure modes',
+    workstreams: [
+      {
+        title: 'Speed up the dashboard render',
+        objective: 'The dashboard renders in under 100 ms.',
+        instruction: 'Profile the dashboard render and remove the slowest step.',
+        scenario: 'runtime_error',
+        operator: APPROVES,
+      },
+      {
+        title: 'Run the integration suite',
+        objective: 'The integration suite passes on main.',
+        instruction: 'Run the full integration suite and fix what fails.',
+        scenario: 'agent_disconnect',
+        operator: APPROVES,
+      },
+      {
+        title: 'Refactor the session store',
+        objective: 'Session reads and writes go through one interface.',
+        instruction: 'Move session reads and writes behind a SessionStore interface.',
+        scenario: 'successful_feature',
+        operator: { approval: 'approve', instructAfterMs: 1500, interruptAfterMs: 3000 },
+      },
+      {
+        title: 'Drop the legacy sessions table',
+        objective: 'The legacy sessions table is gone.',
+        instruction: 'Write and apply a migration that drops the legacy sessions table.',
+        scenario: 'approval_required',
+        operator: { approval: 'deny', instructAfterMs: null, interruptAfterMs: null },
+      },
+    ],
+  },
+];

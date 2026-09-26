@@ -16,8 +16,15 @@ internal static class Repository
 
     public static string PathTo(string relative) => Path.Combine(Root, relative);
 
-    public static string[] Trace() =>
-        File.ReadAllLines(PathTo("fixtures/traces/multiple_workstreams.jsonl")).Where(line => line.Length > 0).ToArray();
+    /// <summary>The demo trace, one event per line.</summary>
+    public static string[] Trace() => Lines("fixtures/traces/multiple_workstreams.jsonl");
+
+    /// <summary>Every recorded trace, one event per line.</summary>
+    public static string[] AllTraces() =>
+        Directory.GetFiles(PathTo("fixtures/traces"), "*.jsonl").OrderBy(path => path).SelectMany(Lines).ToArray();
+
+    private static string[] Lines(string path) =>
+        File.ReadAllLines(Path.IsPathRooted(path) ? path : PathTo(path)).Where(line => line.Length > 0).ToArray();
 
     private static string FindRoot()
     {

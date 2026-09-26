@@ -49,6 +49,7 @@ Commands are posted as JSON `CommandEnvelope`s to `/api/commands`. The shape is 
 ```bash
 pnpm replay fixtures/traces/multiple_workstreams.jsonl            # at recorded pace
 pnpm replay fixtures/traces/multiple_workstreams.jsonl --instant  # all at once
+pnpm replay fixtures/traces/failure_modes.jsonl                   # failed, unknown, interrupted
 ```
 
 The replay server uses an in-memory journal marked `fixture` and registers no runtimes, so

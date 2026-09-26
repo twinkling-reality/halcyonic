@@ -14,13 +14,12 @@ import {
   renderSchemaDocument,
 } from './index.ts';
 
-const TRACE = readFileSync(
-  new URL('../../../fixtures/traces/multiple_workstreams.jsonl', import.meta.url),
-  'utf8',
-)
-  .trim()
-  .split('\n')
-  .map((line) => JSON.parse(line) as Record<string, unknown>);
+const TRACE = ['multiple_workstreams.jsonl', 'failure_modes.jsonl'].flatMap((file) =>
+  readFileSync(new URL(`../../../fixtures/traces/${file}`, import.meta.url), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line) as Record<string, unknown>),
+);
 
 function sampleEvent(
   type: string,
@@ -41,7 +40,7 @@ const COMMAND = {
 };
 
 describe('event envelopes', () => {
-  test('every event in the recorded trace matches the contract', () => {
+  test('every event in the recorded traces matches the contract', () => {
     for (const event of TRACE) {
       const parsed = parseEventEnvelope(event);
       assert.ok(parsed.ok, JSON.stringify(parsed.ok ? null : parsed.issues));
