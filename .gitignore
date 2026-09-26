@@ -1,0 +1,20 @@
+node_modules/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Local runtime state. The control plane defaults to ~/.halcyonic; these cover data
+# directories pointed inside the repository during development.
+/.data/
+*.db
+*.db-wal
+*.db-shm
+
+# Secrets and local environment overrides.
+.env
+.env.*
+
+# Private working material: plans, research notes, handoffs and scratch output that are
+# not canonical documentation. Durable conclusions belong in docs/internal instead.
+/.private/
+*.private.md

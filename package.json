@@ -1,0 +1,28 @@
+{
+  "name": "halcyonic",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@11.27.1",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "dev": "node --watch apps/control-plane/src/main.ts",
+    "start": "node apps/control-plane/src/main.ts",
+    "demo": "node apps/control-plane/src/cli/demo.ts",
+    "replay": "node apps/control-plane/src/cli/replay.ts",
+    "fixtures:record": "node apps/control-plane/src/cli/record-fixtures.ts",
+    "contracts:emit": "node packages/contracts/scripts/emit-schema.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "node --test --test-reporter=spec 'packages/*/src/**/*.test.ts' 'packages/integrations/*/src/**/*.test.ts' 'apps/*/src/**/*.test.ts' 'tooling/**/*.test.ts'",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^24.13.6",
+    "typescript": "^7.0.2"
+  }
+}

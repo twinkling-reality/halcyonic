@@ -1,0 +1,22 @@
+{
+  "name": "@halcyonic/control-plane",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts",
+    "dev": "node --watch src/main.ts"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.3.1",
+    "@halcyonic/contracts": "workspace:*",
+    "@halcyonic/domain": "workspace:*",
+    "@halcyonic/integration-mock": "workspace:*",
+    "@halcyonic/runtime-core": "workspace:*",
+    "fastify": "^5.12.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

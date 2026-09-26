@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "id": "agent_disconnect",
+  "description": "Starts a long command and then the runtime becomes unreachable, so the execution's true state is unknown.",
+  "steps": [
+    {
+      "after_ms": 600,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": { "text": "I will run the full integration suite." }
+      }
+    },
+    {
+      "after_ms": 500,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-1",
+          "tool_name": "bash",
+          "title": "pnpm test:integration"
+        }
+      }
+    },
+    {
+      "after_ms": 3000,
+      "disconnect": {
+        "reason": "The runtime process exited unexpectedly while a command was running."
+      }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "format": 1,
+  "id": "runtime_error",
+  "description": "Starts work and then the turn fails with a model provider error, as a real runtime turn can.",
+  "steps": [
+    {
+      "after_ms": 600,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": { "text": "I will start by reading the rendering pipeline." }
+      }
+    },
+    {
+      "after_ms": 500,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-1",
+          "tool_name": "read",
+          "title": "Read src/render/pipeline.ts"
+        }
+      }
+    },
+    {
+      "after_ms": 900,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-1", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 1200,
+      "emit": {
+        "type": "runtime.turn.failed",
+        "payload": {
+          "error": {
+            "code": "provider_error",
+            "message": "The model provider rejected the request: rate limit exceeded."
+          }
+        }
+      }
+    }
+  ]
+}

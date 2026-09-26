@@ -1,0 +1,95 @@
+{
+  "format": 1,
+  "id": "approval_required",
+  "description": "Writes a migration, then waits for a human to approve running it. Approval runs it and the tests; denial leaves it unapplied.",
+  "steps": [
+    {
+      "after_ms": 600,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": { "text": "I will add a migration that moves sessions into their own table." }
+      }
+    },
+    {
+      "after_ms": 500,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-1",
+          "tool_name": "edit",
+          "title": "Create migrations/0007_sessions.sql"
+        }
+      }
+    },
+    {
+      "after_ms": 1300,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-1", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 400,
+      "await_approval": {
+        "approval_id": "approval-1",
+        "subject": {
+          "kind": "tool_use",
+          "tool_name": "bash",
+          "summary": "Run `pnpm db:migrate` against the local development database"
+        },
+        "if_approved": [
+          {
+            "after_ms": 200,
+            "emit": {
+              "type": "runtime.tool.started",
+              "payload": {
+                "tool_call_id": "call-2",
+                "tool_name": "bash",
+                "title": "pnpm db:migrate"
+              }
+            }
+          },
+          {
+            "after_ms": 1500,
+            "emit": {
+              "type": "runtime.tool.completed",
+              "payload": { "tool_call_id": "call-2", "outcome": "succeeded" }
+            }
+          },
+          {
+            "after_ms": 300,
+            "emit": {
+              "type": "runtime.test_run.started",
+              "payload": { "test_run_id": "tests-1", "label": "pnpm test sessions" }
+            }
+          },
+          {
+            "after_ms": 2200,
+            "emit": {
+              "type": "runtime.test_run.completed",
+              "payload": { "test_run_id": "tests-1", "outcome": "passed", "summary": "18 passed" }
+            }
+          },
+          {
+            "after_ms": 400,
+            "emit": {
+              "type": "runtime.agent_message",
+              "payload": { "text": "The migration ran and the session tests pass." }
+            }
+          },
+          { "after_ms": 200, "emit": { "type": "runtime.turn.completed", "payload": {} } }
+        ],
+        "if_denied": [
+          {
+            "after_ms": 400,
+            "emit": {
+              "type": "runtime.agent_message",
+              "payload": { "text": "Understood. The migration is written but not applied." }
+            }
+          },
+          { "after_ms": 200, "emit": { "type": "runtime.turn.completed", "payload": {} } }
+        ]
+      }
+    }
+  ]
+}
