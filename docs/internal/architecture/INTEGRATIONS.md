@@ -46,7 +46,7 @@ is built.
 | --- | --- | --- | --- | --- |
 | start_execution | yes | yes | yes | yes |
 | instruct_at_rest | yes | yes (resume) | yes | yes (resume) |
-| instruct_while_running | v1 partial, v2 steer or queue | queued (streaming input) | yes (`turn/steer`) | no |
+| instruct_while_running | v2 steer or queue, at the next step | queued (streaming input) | yes (`turn/steer`) | no |
 | respond_to_approval | yes | yes (`canUseTool`) | yes (server requests) | no, approvals are rejected |
 | interrupt | yes (abort) | yes (streaming input) | yes (`turn/interrupt`) | process signal only |
 | pause | no | no | no | no |
@@ -59,11 +59,11 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
 | Integration | Status | Blocking question |
 | --- | --- | --- |
 | Mock runtime | Built. Synthetic, labeled everywhere. | None |
-| OpenCode | Not started. Planned first real runtime, because it proves provider and local model independence. | v1 or v2 API ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)) |
-| Claude Code | Not started. Agent SDK with streaming input for executions Halcyonic starts; API key authentication only. | Attaching to terminal sessions |
+| OpenCode | In progress: the v2 API pinned to `@opencode/cli` 2.0.18, on a server Halcyonic launches ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)). Proves provider and local model independence. | How the pinned binary is installed for users |
+| Claude Code | In progress: Agent SDK with streaming input for executions Halcyonic starts; API key authentication only. | Attaching to terminal sessions; model spend for a real smoke test |
 | Codex | Not started. | Experimental app-server versus stable exec without approvals |
-| Salidium | No adapter. Salidium's local API is private and unversioned by its own decision. | A released, versioned read contract in Salidium |
-| Seorak | No adapter. `/api/v1` is versioned and read-only with scoped credentials. | Correlating executions with Seorak sessions; live state |
+| Salidium | In progress: a client for Salidium's versioned, read-only consumer contract, built against its release candidate. | Salidium publishing the contract |
+| Seorak | No adapter. `/api/v1` is versioned and read-only with scoped credentials; its types are published in `@seorak/types` 0.1.0. | Correlating executions with Seorak sessions: not in the published API |
 
 ## Salidium and Seorak boundary
 

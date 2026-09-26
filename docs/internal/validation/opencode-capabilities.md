@@ -1,74 +1,125 @@
 # OpenCode capabilities
 
 - **Question:** What can a Halcyonic adapter control and observe through OpenCode's official
-  server API, and is it a sound first real runtime?
+  server API, and which API version should it target?
 - **Date:** 2026-09-26.
 - **Versions:** `opencode-ai` 1.18.32 (v1, published 2026-09-21, the default install) and
   `@opencode/cli` 2.0.18 (v2, first released 2026-09-11). Repository `anomalyco/opencode`
   (formerly `sst/opencode`), MIT.
 - **Method:** Official documentation, the OpenAPI documents committed at tags `v1.18.32` and
-  `v2.0.18`, server source at those tags, and the npm registry. OpenCode was **not** installed or
-  run. The migration statement below was re-checked directly against the official page.
-- **Status:** Documentation and source verified. Runtime smoke test not yet performed.
+  `v2.0.18`, server source at those tags, and the npm registry; then a runtime smoke test of both
+  versions (below).
+- **Status:** Documentation, source and runtime verified for the scenarios listed. Real providers,
+  long or concurrent runs, and the `--stdio` and `--service` modes are not tested.
 
-## Findings
+## Findings from documentation and source
 
 - **Two major versions ship side by side.** The official migration guide
   (https://opencode.ai/v2/docs/migrate-v1/) says: "Integrations that call the V1 server API must
   migrate to the V2 API." v2's OpenAPI document labels itself "Experimental" with version 0.0.1,
   and v2 shipped 19 releases in 15 days.
-- **Headless server.** `opencode serve`, loopback by default. v1 tries port 4096, then a random
-  port, and has **no authentication unless `OPENCODE_SERVER_PASSWORD` is set** (HTTP Basic). v2
-  always requires a password and generates one if none is set.
-- **OpenAPI 3.1.** v1 serves it at `/doc` (162 paths); v2 at `/openapi.json` (113 paths).
-- **One server, many projects,** selected per request by directory (`x-opencode-directory`).
+- **One server, many projects,** selected per request by directory.
 - **Sessions and prompting (v1).** `POST /session`, `POST /session/{id}/prompt_async` (returns
   204), `POST /session/{id}/abort`, `GET /session/{id}/diff`, `GET /session/status`.
 - **Permissions (v1).** A `permission.asked` event, answered by
   `POST /permission/{requestID}/reply` with `once`, `always` or `reject` and an optional message.
-  Rejecting cascades to the session's other pending requests.
-- **Status model.** `idle | busy | retry`. A session waiting for permission stays `busy`; the
-  pending request is the only signal.
-- **Events (v1).** Server-sent events at `/event` (per directory) and `/global/event`, with a
-  heartbeat every 10 seconds. No resume: SSE ids are not set, so a reconnecting client cannot ask
-  for what it missed (experimental catch-up endpoints exist).
+  The source says rejecting cascades to the session's other pending requests (not runtime tested).
 - **v2 additions.** `session.execution.started/succeeded/failed/interrupted` events, instructions
-  with `delivery: "steer"` or `"queue"`, interrupt with resume, recovery of interrupted runs after
-  a restart, and a replayable session log (experimental).
+  with `delivery: "steer"` or `"queue"`, interrupt with resume. The v2 documentation also describes
+  recovery of interrupted runs after a restart and a replayable session log; neither was observed
+  at runtime (below).
 - **Providers and local models.** 75+ providers through AI SDK and Models.dev. Documented local
   paths: Ollama, LM Studio and llama.cpp (OpenAI-compatible). vLLM is documented in the v2 docs;
   in v1 it is reachable only through the generic OpenAI-compatible provider.
 - **SDK.** `@opencode-ai/sdk` 1.18.32; only its `/v2` subpath is generated from the OpenAPI
   document. v2 has `@opencode/client`.
 
+## Runtime smoke test (2026-09-26)
+
+Method: both platform binaries (darwin arm64; v1 sha256 `a3c45d4e…4395e`, v2 sha256
+`6759c7f8…6bf`) run headless under `env -i` with temporary HOME, XDG and TMPDIR directories,
+bound to loopback, against a local fake OpenAI-compatible provider, with an allowlisting proxy and
+a socket monitor. No real provider, no credentials. Eight scenarios per version: startup and
+authentication, the OpenAPI document, a simple turn, an approval, interrupt, a prompt while busy,
+reconnect, several directories; plus a server restart mid-turn. The raw evidence is kept outside
+the repository.
+
+Observed in both versions:
+
+- Server-sent events carry only `data:` lines: no `event:`, `id:` or `retry:` fields, though every
+  payload has its own `evt_…` id. Events during a disconnect are lost, and `Last-Event-ID` is
+  ignored.
+- There is no pause and no "waiting for approval" status: a session waiting on a permission shows
+  as busy (v1) or running (v2); the pending permission is the only signal.
+- A prompt sent while a turn runs is delivered at the next step boundary and never cuts a running
+  model stream.
+- After the server was stopped (SIGTERM or SIGKILL) mid-turn and restarted, the run was not
+  resumed and no final event was emitted.
+
+v1 (`opencode-ai` 1.18.32):
+
+- No authentication unless `OPENCODE_SERVER_PASSWORD` is set; a heartbeat data event every 10 s.
+- A rejection message reaches the model. Abort leaves the pending permission listed, and a late
+  reply returns 200 but runs nothing.
+- It downloaded `@opencode-ai/plugin` from npm on first opening a project, even with default
+  plugins disabled.
+
+v2 (`@opencode/cli` 2.0.18):
+
+- Authentication is always on; a password is generated and printed unless `OPENCODE_PASSWORD` is
+  set. `/` and unknown paths serve the web UI without authentication. With the default port busy
+  it moves to 4097.
+- The served `/openapi.json` has 115 paths (2 more than the committed document) and describes
+  event payloads only as an opaque string.
+- One global `/api/event` stream for all directories, with a `location` field per event, a
+  heartbeat comment every 15 s, and a per-session `durable.seq` on durable events.
+- Execution lifecycle events carry reasons, and the session records an `outcome`.
+- `steer` and `queue` both wait for the running step; inside a tool loop, `steer` is delivered
+  right after the tool result and `queue` after the model answers it. `interrupt?resume=true`
+  interrupts and delivers the steered instruction in one call.
+- Interrupt removes pending permissions without any event; a late reply gets 404.
+- Defects: a rejection message is accepted (204) but reaches neither the model nor any event; tool
+  output can only be polled (`GET /api/shell/{shellID}/output`), not streamed; the experimental
+  session log returned no events; a nonexistent directory gives 500 on `/api/location` yet a
+  session can still be created there.
+- It made no network requests beyond loopback.
+
 ## Capability matrix
 
-| Capability | v1 | v2 |
+Runtime observed unless stated.
+
+| Capability | v1 1.18.32 | v2 2.0.18 |
 | --- | --- | --- |
-| start_execution | Supported: create session, `prompt_async` | Supported |
-| instruct_at_rest | Supported: new prompt to the session | Supported |
-| instruct_while_running | Partial: joins the running loop; timing untested | Supported: steer or queue |
-| respond_to_approval | Supported: permission reply | Supported |
-| interrupt | Supported: abort | Supported: interrupt |
-| pause | Not supported | Not supported (queue parking is not a pause) |
-| discover existing work | Supported: project and session listing | Supported |
-| diff | Supported | Supported |
-| terminal output | Partial: tool output in message parts; PTY over WebSocket | Supported |
+| start_execution | Supported | Supported |
+| instruct_at_rest | Supported | Supported |
+| instruct_while_running | Partial: next step boundary, no delivery choice | Supported: `steer` or `queue`, next step boundary |
+| respond_to_approval | Supported | Supported; the rejection message is dropped |
+| interrupt | Supported; the pending permission stays listed | Supported; pending permissions are removed silently |
+| pause | Not supported | Not supported |
+| discover existing work | Supported | Supported |
+| diff | Supported, needs a message id | Supported |
+| terminal output | Pushed in events; PTY over WebSocket | Polled only; PTY over WebSocket |
+| replay after reconnect | Not supported | Not supported; the experimental log returned nothing |
+| recovery after restart | Not supported | Documented; not observed |
 
 ## Consequences for Halcyonic
 
-- OpenCode remains the right first real runtime (provider and local-model independence), but the
-  adapter must target one API version deliberately, pin the exact OpenCode version, and generate
-  its client types from the OpenAPI document served by that binary.
-- Because v1 has no authentication by default, the adapter must start or require OpenCode with a
-  password and never expose its port beyond loopback.
-- Event streams do not resume, so after a reconnect the adapter must re-read session state and
-  deduplicate by native ids; the journal's `(source, source_native_id)` uniqueness supports this.
-- A pending permission is the only signal that a session is waiting. The adapter must emit
-  `runtime.approval.requested` from it; the normalized status then becomes `waiting_for_human`.
+- Target v2, pinned to an exact version and binary checksum, and have Halcyonic launch its own
+  copy with an explicit port and password
+  ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)).
+- Event streams do not resume: after a reconnect the adapter re-reads each hosted session's state
+  and pending permissions and reconciles; the journal's `(source, source_native_id)` uniqueness
+  deduplicates by `evt_` id.
+- The adapter emits `runtime.approval.requested` from `permission.asked`; the normalized status
+  then becomes `waiting_for_human`. A turn ended by interrupt clears pending approvals, which
+  matches v2 removing them silently.
+- A server that dies mid-turn loses its runs: the adapter reports `runtime.connection.lost` rather
+  than waiting for a recovery that was not observed.
+- Denials cannot carry a reason to the model on 2.0.18; the adapter still sends it, and the defect
+  must be re-checked on every upgrade.
 
-## Needs a runtime smoke test
+## Not yet tested
 
-Exact SSE framing; whether prompts sent while busy are picked up mid-turn; whether abort rejects
-pending permissions; `/doc` content type and authentication; v2 password and port behavior; v2
-restart recovery.
+Several pending approvals at once and the cascade on reject; `always` replies; the question tool;
+subagents; compaction; `--stdio` and `--service`; Linux and Windows; real providers; long or
+concurrent runs.

@@ -14,6 +14,9 @@ coverage/
 .env
 .env.*
 
+# Git worktrees that agent sessions create for isolated work.
+/.claude/worktrees/
+
 # Private working material: plans, research notes, handoffs and scratch output that are
 # not canonical documentation. Durable conclusions belong in docs/internal instead.
 /.private/
