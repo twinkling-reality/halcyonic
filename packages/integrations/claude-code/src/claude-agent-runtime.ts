@@ -1,0 +1,733 @@
+import { randomUUID } from 'node:crypto';
+import { statSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
+import {
+  type CanUseTool,
+  type Options,
+  type PermissionMode,
+  type PermissionResult,
+  type Query,
+  query,
+  type SDKAssistantMessage,
+  type SDKMessage,
+  type SDKResultMessage,
+  type SDKUserMessage,
+} from '@anthropic-ai/claude-agent-sdk';
+import type {
+  ApprovalDecision,
+  ErrorInfo,
+  EventOf,
+  ExecutionId,
+  Provenance,
+  RuntimeCapabilities,
+  RuntimeDescriptor,
+  RuntimeEventType,
+  RuntimeId,
+  RuntimeOptions,
+} from '@halcyonic/contracts';
+import {
+  type Clock,
+  type ExecutionContext,
+  type ObservationSink,
+  type OptionsValidation,
+  RuntimeActionError,
+  type RuntimeAdapter,
+  type RuntimeObservation,
+  type StartExecutionRequest,
+  type StartExecutionResult,
+  systemClock,
+} from '@halcyonic/runtime-core';
+import { buildEnvironment } from './environment.ts';
+
+/**
+ * What the adapter implements on the verified Agent SDK surface. How the CLI treats a message
+ * queued while a turn runs is not verified, so instructions are accepted only between turns.
+ */
+export const CLAUDE_AGENT_CAPABILITIES: RuntimeCapabilities = {
+  start_execution: true,
+  instruct_at_rest: true,
+  instruct_while_running: false,
+  respond_to_approval: true,
+  interrupt: true,
+};
+
+/** The part of a running SDK query the adapter uses. The SDK's `Query` satisfies it. */
+export type QueryHandle = AsyncIterable<SDKMessage> & Pick<Query, 'interrupt' | 'close'>;
+
+/**
+ * The shape of the SDK's `query()` as the adapter calls it: streaming input, explicit options.
+ * It is the one seam between the adapter and the SDK, so tests can script a run.
+ */
+export type QueryFunction = (params: {
+  prompt: AsyncIterable<SDKUserMessage>;
+  options: Options;
+}) => QueryHandle;
+
+export interface ClaudeAgentRuntimeOptions {
+  readonly runtimeId?: RuntimeId;
+  /** Where allowlisted variables are read from. Defaults to the control plane's environment. */
+  readonly inheritedEnvironment?: Readonly<Record<string, string | undefined>>;
+  /** Variables added to every launched agent's environment, for example a launcher label. */
+  readonly environment?: Readonly<Record<string, string>>;
+  /** A Claude Code executable to run instead of the one bundled with the SDK. */
+  readonly pathToClaudeCodeExecutable?: string;
+  readonly clock?: Clock;
+  readonly query?: QueryFunction;
+}
+
+const START_OPTIONS = ['cwd', 'model', 'permission_mode'];
+
+/**
+ * Permission modes a start may choose. `bypassPermissions` and `auto` are refused because they
+ * take decisions away from the person supervising the execution.
+ */
+const PERMISSION_MODES: readonly PermissionMode[] = ['default', 'acceptEdits', 'plan', 'dontAsk'];
+
+/** Model names and ids as Claude Code accepts them. A leading `-` could read as a CLI flag. */
+const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@[\]-]{0,255}$/;
+
+interface StartOptions {
+  readonly cwd: string;
+  readonly model: string | undefined;
+  readonly permissionMode: PermissionMode | undefined;
+}
+
+/**
+ * Runs Claude Code sessions through the Claude Agent SDK in streaming input mode. Halcyonic
+ * chooses each session id at launch, so an execution can be correlated with what Salidium and
+ * Seorak record before the runtime reports anything. Only executions it starts are controlled.
+ */
+export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
+  readonly descriptor: RuntimeDescriptor;
+  readonly #environment: Readonly<Record<string, string>>;
+  readonly #executable: string | undefined;
+  readonly #clock: Clock;
+  readonly #query: QueryFunction;
+  readonly #sessions = new Map<ExecutionId, ClaudeSession>();
+  #closed = false;
+
+  constructor(options: ClaudeAgentRuntimeOptions = {}) {
+    this.#environment = buildEnvironment(
+      options.inheritedEnvironment ?? process.env,
+      options.environment ?? {},
+    );
+    this.#executable = options.pathToClaudeCodeExecutable;
+    this.#clock = options.clock ?? systemClock;
+    this.#query = options.query ?? query;
+    this.descriptor = {
+      runtime_id: options.runtimeId ?? ('claude-agent' as RuntimeId),
+      kind: 'claude-agent',
+      display_name: 'Claude Agent',
+      synthetic: false,
+      capabilities: CLAUDE_AGENT_CAPABILITIES,
+    };
+  }
+
+  validateStartOptions(options: RuntimeOptions): OptionsValidation {
+    const parsed = parseStartOptions(options);
+    return parsed.ok ? { ok: true } : parsed;
+  }
+
+  async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
+    if (this.#closed) throw closedError();
+    const parsed = parseStartOptions(request.options);
+    if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    const executionId = request.execution.execution_id;
+    if (this.#sessions.has(executionId)) {
+      throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
+    }
+    const session = new ClaudeSession(randomUUID(), request.emit, this.#clock);
+    this.#sessions.set(executionId, session);
+    let started: Promise<string>;
+    try {
+      started = session.start(
+        this.#query,
+        this.#options(parsed.value, session),
+        request.instruction,
+      );
+    } catch (error) {
+      // query() refused before starting a process, so nothing ran.
+      this.#sessions.delete(executionId);
+      throw new RuntimeActionError(
+        'runtime_start_failed',
+        clip(errorText(error), 2000) ?? 'The SDK refused to start Claude Code.',
+      );
+    }
+    return { native_id: await started };
+  }
+
+  async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
+    await this.#session(request.execution).instruct(request.text);
+  }
+
+  async respondToApproval(request: {
+    execution: ExecutionContext;
+    approval_id: string;
+    decision: ApprovalDecision;
+    message: string | null;
+  }): Promise<void> {
+    this.#session(request.execution).respond(
+      request.approval_id,
+      request.decision,
+      request.message,
+    );
+  }
+
+  async interrupt(request: { execution: ExecutionContext }): Promise<void> {
+    await this.#session(request.execution).interrupt();
+  }
+
+  /** Ends every query this adapter started. The SDK then stops each Claude Code process. */
+  async close(): Promise<void> {
+    this.#closed = true;
+    const sessions = [...this.#sessions.values()];
+    this.#sessions.clear();
+    await Promise.all(sessions.map((session) => session.close()));
+  }
+
+  #options(start: StartOptions, session: ClaudeSession): Options {
+    return {
+      cwd: start.cwd,
+      env: { ...this.#environment },
+      sessionId: session.id,
+      canUseTool: session.canUseTool,
+      // Claude Code's own system prompt. Without this option the SDK sends an empty one.
+      systemPrompt: { type: 'preset', preset: 'claude_code' },
+      // settingSources stays unset: every settings source loads, so the user's hooks run and
+      // Salidium and Seorak observe the session.
+      ...(start.model !== undefined && { model: start.model }),
+      ...(start.permissionMode !== undefined && { permissionMode: start.permissionMode }),
+      ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),
+    };
+  }
+
+  #session(execution: ExecutionContext): ClaudeSession {
+    if (this.#closed) throw closedError();
+    const session = this.#sessions.get(execution.execution_id);
+    if (session === undefined) {
+      throw new RuntimeActionError(
+        'execution_unknown_to_runtime',
+        'Claude Agent has no session for this execution. Sessions do not survive a restart.',
+      );
+    }
+    return session;
+  }
+}
+
+function parseStartOptions(
+  options: RuntimeOptions,
+):
+  | { readonly ok: true; readonly value: StartOptions }
+  | { readonly ok: false; readonly message: string } {
+  const unknown = Object.keys(options).filter((key) => !START_OPTIONS.includes(key));
+  if (unknown.length > 0) {
+    return invalid(
+      `Unknown Claude Agent options: ${unknown.join(', ')}. Supported: ${START_OPTIONS.join(', ')}.`,
+    );
+  }
+  const { cwd, model, permission_mode } = options;
+  if (typeof cwd !== 'string' || !isAbsolute(cwd)) {
+    return invalid('Option "cwd" is required and must be an absolute path.');
+  }
+  if (!isDirectory(cwd)) return invalid(`Option "cwd" must name an existing directory: ${cwd}`);
+  if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
+    return invalid('Option "model" must be a Claude model name or id.');
+  }
+  const permissionMode = PERMISSION_MODES.find((mode) => mode === permission_mode);
+  if (permission_mode !== undefined && permissionMode === undefined) {
+    return invalid(`Option "permission_mode" must be one of ${PERMISSION_MODES.join(', ')}.`);
+  }
+  return { ok: true, value: { cwd, model, permissionMode } };
+}
+
+function invalid(message: string): { readonly ok: false; readonly message: string } {
+  return { ok: false, message };
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
+  } catch {
+    return false;
+  }
+}
+
+function closedError(): RuntimeActionError {
+  return new RuntimeActionError('runtime_closed', 'The Claude Agent runtime is closed.');
+}
+
+interface Turn {
+  /** Unique within the session; used to build native event ids. */
+  readonly key: string;
+  /** The uuid of the user message the adapter delivered, or null for a turn the runtime began. */
+  readonly id: string | null;
+  confirmed: boolean;
+  interruptRequested: boolean;
+  /** Settles when the runtime shows it has taken up the turn, or rejects when it never will. */
+  readonly confirmation: PromiseWithResolvers<void>;
+}
+
+function newTurn(key: string, id: string | null): Turn {
+  const confirmation = Promise.withResolvers<void>();
+  // Awaited by whoever delivered the turn; a turn nobody awaits must not become an unhandled rejection.
+  confirmation.promise.catch(() => {});
+  return { key, id, confirmed: false, interruptRequested: false, confirmation };
+}
+
+interface PendingApproval {
+  readonly input: Record<string, unknown>;
+  readonly answer: (result: PermissionResult) => void;
+}
+
+const DENIED_MESSAGE = 'The person supervising this session in Halcyonic denied this request.';
+
+/** One Claude Code session: one SDK query, fed one user message per turn. */
+class ClaudeSession {
+  /** The session id Halcyonic chose and passed as `--session-id`. */
+  readonly id: string;
+  readonly #emitObservation: ObservationSink;
+  readonly #clock: Clock;
+  readonly #input = new InputQueue();
+  readonly #approvals = new Map<string, PendingApproval>();
+  readonly #activeTools = new Set<string>();
+  #query: QueryHandle | null = null;
+  #consuming: Promise<void> = Promise.resolve();
+  #turn: Turn | null = null;
+  /** The session id the runtime reported, once it has confirmed the session. */
+  #nativeId: string | null = null;
+  #state: 'open' | 'lost' | 'closed' = 'open';
+  #sequence = 0;
+
+  constructor(id: string, emit: ObservationSink, clock: Clock) {
+    this.id = id;
+    this.#emitObservation = emit;
+    this.#clock = clock;
+  }
+
+  /** Launches the query with the first instruction. Resolves with the confirmed session id. */
+  start(queryFunction: QueryFunction, options: Options, instruction: string): Promise<string> {
+    const turn = this.#deliver(instruction);
+    const handle = queryFunction({ prompt: this.#input, options });
+    this.#query = handle;
+    this.#consuming = this.#consume(handle);
+    return turn.confirmation.promise.then(() => this.#nativeId ?? this.id);
+  }
+
+  async instruct(text: string): Promise<void> {
+    this.#assertOpen();
+    if (this.#turn !== null) {
+      throw new RuntimeActionError(
+        'turn_in_progress',
+        'Claude Agent accepts instructions only between turns.',
+      );
+    }
+    await this.#deliver(text).confirmation.promise;
+  }
+
+  /** Answers a pending permission request. The runtime receives the decision as it is resolved. */
+  respond(approvalId: string, decision: ApprovalDecision, message: string | null): void {
+    this.#assertOpen();
+    const approval = this.#approvals.get(approvalId);
+    if (approval === undefined) {
+      throw new RuntimeActionError(
+        'approval_not_pending',
+        `Approval ${approvalId} is not pending.`,
+      );
+    }
+    this.#approvals.delete(approvalId);
+    this.#emit(
+      'runtime.approval.resolved',
+      { approval_id: approvalId, decision: decision === 'approve' ? 'approved' : 'denied' },
+      observed('can_use_tool.response'),
+      `${approvalId}:resolved`,
+    );
+    approval.answer(
+      decision === 'approve'
+        ? { behavior: 'allow', updatedInput: approval.input }
+        : { behavior: 'deny', message: message ?? DENIED_MESSAGE },
+    );
+  }
+
+  /** Resolves when Claude Code confirms the interrupt; the turn's end is reported separately. */
+  async interrupt(): Promise<void> {
+    this.#assertOpen();
+    const turn = this.#turn;
+    const handle = this.#query;
+    if (turn === null || handle === null) {
+      throw new RuntimeActionError('no_running_turn', 'There is no running turn to interrupt.');
+    }
+    turn.interruptRequested = true;
+    try {
+      await handle.interrupt();
+    } catch (error) {
+      throw new RuntimeActionError(
+        'interrupt_failed',
+        clip(`Claude Code did not confirm the interrupt: ${errorText(error)}`, 2000) ??
+          'Claude Code did not confirm the interrupt.',
+        'unknown',
+      );
+    }
+  }
+
+  async close(): Promise<void> {
+    if (this.#state === 'closed') return;
+    this.#state = 'closed';
+    const turn = this.#turn;
+    this.#turn = null;
+    turn?.confirmation.reject(
+      new RuntimeActionError(
+        'runtime_closed',
+        'The Claude Agent runtime closed before Claude Code took up the instruction.',
+        'unknown',
+      ),
+    );
+    this.#approvals.clear();
+    this.#input.end();
+    this.#query?.close();
+    await this.#consuming;
+  }
+
+  /** The SDK calls this for every tool use that needs a person's decision. It may wait indefinitely. */
+  readonly canUseTool: CanUseTool = (toolName, input, options) => {
+    if (this.#state !== 'open') return Promise.reject(new Error('The session is no longer open.'));
+    if (options.signal.aborted)
+      return Promise.reject(new Error('The permission request was withdrawn.'));
+    this.#evidence(this.#nativeId ?? this.id, 'can_use_tool');
+    const approvalId = options.requestId || options.toolUseID;
+    const { promise, resolve, reject } = Promise.withResolvers<PermissionResult>();
+    this.#approvals.set(approvalId, { input, answer: resolve });
+    // Claude Code withdraws a request it no longer needs, for example when the turn is interrupted.
+    options.signal.addEventListener(
+      'abort',
+      () => {
+        if (this.#approvals.delete(approvalId))
+          reject(new Error('The permission request was withdrawn.'));
+      },
+      { once: true },
+    );
+    this.#emit(
+      'runtime.approval.requested',
+      {
+        approval_id: approvalId,
+        subject: {
+          kind: 'tool_use',
+          tool_name: toolName.slice(0, 128),
+          summary: approvalSummary(input),
+        },
+      },
+      observed('can_use_tool'),
+      `${approvalId}:requested`,
+    );
+    return promise;
+  };
+
+  #deliver(text: string): Turn {
+    const id = randomUUID();
+    const turn = newTurn(id, id);
+    this.#turn = turn;
+    // The same shape the SDK itself sends for a string prompt, plus a uuid that names the turn.
+    this.#input.push({
+      type: 'user',
+      session_id: '',
+      message: { role: 'user', content: [{ type: 'text', text }] },
+      parent_tool_use_id: null,
+      uuid: id,
+    });
+    return turn;
+  }
+
+  #assertOpen(): void {
+    if (this.#state === 'closed') throw closedError();
+    if (this.#state === 'lost') {
+      throw new RuntimeActionError(
+        'runtime_unreachable',
+        'The Claude Code process for this execution has ended. Sessions are not resumed yet.',
+      );
+    }
+  }
+
+  async #consume(handle: QueryHandle): Promise<void> {
+    let failure: unknown;
+    try {
+      for await (const message of handle) {
+        if (this.#state === 'open') this.#handle(message);
+      }
+    } catch (error) {
+      failure = error;
+    }
+    if (this.#state === 'open') this.#lose(failure);
+  }
+
+  #handle(message: SDKMessage): void {
+    switch (message.type) {
+      case 'system':
+        if (message.subtype === 'init') {
+          this.#evidence(message.session_id, 'system.init', message.uuid);
+        }
+        return;
+      case 'assistant':
+        this.#evidence(message.session_id, 'assistant');
+        this.#assistant(message);
+        return;
+      case 'user':
+        if ('isReplay' in message) return;
+        this.#evidence(message.session_id ?? this.id, 'user');
+        this.#toolResults(message);
+        return;
+      case 'result':
+        this.#evidence(message.session_id, `result.${message.subtype}`);
+        this.#finishTurn(message);
+        return;
+      default:
+        return;
+    }
+  }
+
+  /**
+   * Records that the runtime is working on a turn. The first evidence of a delivered turn confirms
+   * it, and the first confirmation also confirms the session. A system/init message outside any
+   * turn marks a turn the runtime began by itself; other messages never invent a turn.
+   */
+  #evidence(sessionId: string, nativeType: string, initUuid?: string): void {
+    let turn = this.#turn;
+    if (turn === null) {
+      if (initUuid === undefined) return;
+      turn = newTurn(initUuid, null);
+      this.#turn = turn;
+    }
+    if (turn.confirmed) return;
+    turn.confirmed = true;
+    if (this.#nativeId === null) {
+      this.#nativeId = sessionId;
+      this.#emit(
+        'runtime.execution.started',
+        { native_id: sessionId },
+        observed(nativeType),
+        'session',
+      );
+    }
+    this.#emit(
+      'runtime.turn.started',
+      { turn_id: turn.id },
+      observed(nativeType),
+      `${turn.key}:started`,
+    );
+    turn.confirmation.resolve();
+  }
+
+  #assistant(message: SDKAssistantMessage): void {
+    // Subagent text is not the agent speaking to the person; synthetic error messages are not prose.
+    const speaks = message.parent_tool_use_id === null && message.error === undefined;
+    for (const [index, block] of message.message.content.entries()) {
+      const eventId = `${message.uuid}:${index}`;
+      if (block.type === 'text' && speaks) {
+        const text = clip(block.text, 32_000);
+        if (text !== null) {
+          this.#emit('runtime.agent_message', { text }, reported('assistant.text'), eventId);
+        }
+      } else if (block.type === 'tool_use') {
+        this.#activeTools.add(block.id);
+        this.#emit(
+          'runtime.tool.started',
+          {
+            tool_call_id: block.id,
+            tool_name: block.name.slice(0, 128),
+            title: describeInput(block.input, 500),
+          },
+          observed('assistant.tool_use'),
+          eventId,
+        );
+      }
+    }
+  }
+
+  #toolResults(message: SDKUserMessage): void {
+    const content = message.message.content;
+    if (typeof content === 'string') return;
+    for (const [index, block] of content.entries()) {
+      if (block.type !== 'tool_result' || !this.#activeTools.delete(block.tool_use_id)) continue;
+      this.#emit(
+        'runtime.tool.completed',
+        {
+          tool_call_id: block.tool_use_id,
+          outcome: block.is_error === true ? 'failed' : 'succeeded',
+        },
+        observed('user.tool_result'),
+        `${message.uuid ?? block.tool_use_id}:${index}`,
+      );
+    }
+  }
+
+  /** The CLI emits exactly one result per turn; it ends the turn. */
+  #finishTurn(result: SDKResultMessage): void {
+    const turn = this.#turn;
+    if (turn === null) return;
+    this.#turn = null;
+    this.#activeTools.clear();
+    const provenance = observed(`result.${result.subtype}`);
+    const succeeded = result.subtype === 'success' && !result.is_error;
+    const aborted =
+      result.terminal_reason === 'aborted_streaming' || result.terminal_reason === 'aborted_tools';
+    if (turn.interruptRequested && (!succeeded || aborted)) {
+      this.#emit('runtime.turn.interrupted', { turn_id: turn.id }, provenance, result.uuid);
+    } else if (succeeded) {
+      this.#emit('runtime.turn.completed', { turn_id: turn.id }, provenance, result.uuid);
+    } else {
+      this.#emit(
+        'runtime.turn.failed',
+        { turn_id: turn.id, error: resultError(result) },
+        provenance,
+        result.uuid,
+      );
+    }
+  }
+
+  /** The query ended on its own, so the process is gone. A query that ends without a result has an unknown effect. */
+  #lose(failure: unknown): void {
+    this.#state = 'lost';
+    const reason =
+      clip(
+        failure === undefined
+          ? 'The Claude Code process ended.'
+          : `The Claude Code process ended: ${errorText(failure)}`,
+        2000,
+      ) ?? 'The Claude Code process ended.';
+    const turn = this.#turn;
+    this.#turn = null;
+    if (turn !== null) {
+      if (turn.confirmed) {
+        this.#emit(
+          'runtime.turn.failed',
+          {
+            turn_id: turn.id,
+            error: {
+              code: 'no_result',
+              message:
+                clip(
+                  `The turn ended without a result, so whether its work took effect is unknown. ${reason}`,
+                  2000,
+                ) ?? reason,
+            },
+          },
+          { epistemic: 'inferred', native_type: null, rule: 'query_ended_without_result' },
+          `${turn.key}:no_result`,
+        );
+      }
+      turn.confirmation.reject(new RuntimeActionError('runtime_exited', reason, 'unknown'));
+    }
+    if (this.#nativeId !== null) {
+      this.#emit('runtime.connection.lost', { reason }, observed('query.end'), 'connection_lost');
+    }
+    this.#approvals.clear();
+    this.#activeTools.clear();
+    this.#input.end();
+  }
+
+  #emit<T extends RuntimeEventType>(
+    type: T,
+    payload: EventOf<T>['payload'],
+    provenance: Provenance,
+    localId: string,
+  ): void {
+    if (this.#state === 'closed') return;
+    this.#sequence += 1;
+    this.#emitObservation({
+      type,
+      payload,
+      provenance,
+      occurred_at: this.#clock.now().toISOString(),
+      native_event_id: `${this.id}:${localId}`,
+      sequence: this.#sequence,
+    } as RuntimeObservation);
+  }
+}
+
+/** A single-consumer queue of the user messages the adapter delivers to the SDK. */
+class InputQueue implements AsyncIterable<SDKUserMessage> {
+  readonly #buffered: SDKUserMessage[] = [];
+  #waiting: ((result: IteratorResult<SDKUserMessage>) => void) | null = null;
+  #ended = false;
+
+  push(message: SDKUserMessage): void {
+    const waiting = this.#waiting;
+    this.#waiting = null;
+    if (waiting !== null) waiting({ done: false, value: message });
+    else this.#buffered.push(message);
+  }
+
+  end(): void {
+    this.#ended = true;
+    const waiting = this.#waiting;
+    this.#waiting = null;
+    waiting?.({ done: true, value: undefined });
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<SDKUserMessage> {
+    return {
+      next: () => {
+        const message = this.#buffered.shift();
+        if (message !== undefined) return Promise.resolve({ done: false, value: message });
+        if (this.#ended) return Promise.resolve({ done: true, value: undefined });
+        return new Promise((resolve) => {
+          this.#waiting = resolve;
+        });
+      },
+      return: () => {
+        this.end();
+        return Promise.resolve({ done: true, value: undefined });
+      },
+    };
+  }
+}
+
+function observed(nativeType: string): Provenance {
+  return { epistemic: 'observed', native_type: `claude-agent-sdk/${nativeType}` };
+}
+
+function reported(nativeType: string): Provenance {
+  return { epistemic: 'reported', native_type: `claude-agent-sdk/${nativeType}` };
+}
+
+const CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
+
+function resultError(result: SDKResultMessage): ErrorInfo {
+  if (result.subtype === 'success') {
+    // A success result flagged as an error carries the API error text.
+    return {
+      code: 'api_error',
+      message: clip(result.result, 2000) ?? 'The turn ended with an API error.',
+    };
+  }
+  return {
+    code: CODE_PATTERN.test(result.subtype) ? result.subtype : 'turn_failed',
+    message: clip(result.errors.join('; '), 2000) ?? `The turn ended with ${result.subtype}.`,
+  };
+}
+
+/** Structured input fields that say what a tool call will do, in order of preference. */
+const DESCRIBING_FIELDS = ['command', 'file_path', 'notebook_path', 'url', 'query', 'pattern'];
+
+/** Describes a tool call from its structured input, for example the Bash command. Never from model prose. */
+function describeInput(input: unknown, max: number): string | null {
+  if (typeof input !== 'object' || input === null) return null;
+  for (const field of DESCRIBING_FIELDS) {
+    const value: unknown = Reflect.get(input, field);
+    const text = typeof value === 'string' ? clip(value, max) : null;
+    if (text !== null) return text;
+  }
+  return null;
+}
+
+function approvalSummary(input: Record<string, unknown>): string {
+  return describeInput(input, 2000) ?? clip(JSON.stringify(input), 2000) ?? '{}';
+}
+
+/** Shortens text to a contract limit. Null when nothing visible remains. */
+function clip(text: string, max: number): string | null {
+  const clipped = text.slice(0, max);
+  return /\S/.test(clipped) ? clipped : null;
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
