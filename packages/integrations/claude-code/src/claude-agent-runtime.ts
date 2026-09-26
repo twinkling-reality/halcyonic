@@ -27,6 +27,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
   type OptionsValidation,
@@ -64,6 +65,8 @@ export type QueryFunction = (params: {
 }) => QueryHandle;
 
 export interface ClaudeAgentRuntimeOptions {
+  /** Which directories sessions may work in, decided by the host. A `cwd` it refuses is rejected. */
+  readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
   /** Where allowlisted variables are read from. Defaults to the control plane's environment. */
   readonly inheritedEnvironment?: Readonly<Record<string, string | undefined>>;
@@ -100,17 +103,19 @@ interface StartOptions {
 export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   readonly #environment: Readonly<Record<string, string>>;
+  readonly #directoryPolicy: DirectoryPolicy;
   readonly #executable: string | undefined;
   readonly #clock: Clock;
   readonly #query: QueryFunction;
   readonly #sessions = new Map<ExecutionId, ClaudeSession>();
   #closed = false;
 
-  constructor(options: ClaudeAgentRuntimeOptions = {}) {
+  constructor(options: ClaudeAgentRuntimeOptions) {
     this.#environment = buildEnvironment(
       options.inheritedEnvironment ?? process.env,
       options.environment ?? {},
     );
+    this.#directoryPolicy = options.directoryPolicy;
     this.#executable = options.pathToClaudeCodeExecutable;
     this.#clock = options.clock ?? systemClock;
     this.#query = options.query ?? query;
@@ -124,13 +129,13 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options);
+    const parsed = parseStartOptions(options, this.#directoryPolicy);
     return parsed.ok ? { ok: true } : parsed;
   }
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closed) throw closedError();
-    const parsed = parseStartOptions(request.options);
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     const executionId = request.execution.execution_id;
     if (this.#sessions.has(executionId)) {
@@ -216,6 +221,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
 
 function parseStartOptions(
   options: RuntimeOptions,
+  directoryPolicy: DirectoryPolicy,
 ):
   | { readonly ok: true; readonly value: StartOptions }
   | { readonly ok: false; readonly message: string } {
@@ -230,6 +236,8 @@ function parseStartOptions(
     return invalid('Option "cwd" is required and must be an absolute path.');
   }
   if (!isDirectory(cwd)) return invalid(`Option "cwd" must name an existing directory: ${cwd}`);
+  const allowed = directoryPolicy(cwd);
+  if (!allowed.ok) return invalid(allowed.message);
   if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
     return invalid('Option "model" must be a Claude model name or id.');
   }
@@ -237,7 +245,7 @@ function parseStartOptions(
   if (permission_mode !== undefined && permissionMode === undefined) {
     return invalid(`Option "permission_mode" must be one of ${PERMISSION_MODES.join(', ')}.`);
   }
-  return { ok: true, value: { cwd, model, permissionMode } };
+  return { ok: true, value: { cwd: allowed.directory, model, permissionMode } };
 }
 
 function invalid(message: string): { readonly ok: false; readonly message: string } {

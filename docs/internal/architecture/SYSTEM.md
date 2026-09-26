@@ -15,7 +15,9 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Architecture boundary tests | `tooling/` | Built |
 | XR client core: realtime session, client projection, character presentation (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
 | XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Skeleton; not yet opened in Unity |
-| OpenCode, Claude Code and Codex adapters | `packages/integrations/*` | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
+| Claude Agent runtime (Claude Code through the Agent SDK) | `packages/integrations/claude-code` | Built; registered when enabled |
+| OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; not yet registered |
+| Codex runtime | none | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
 | Seorak integration | none | Waits for Seorak to publish its correlation endpoint; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
@@ -23,11 +25,13 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 ## Dependency rules
 
 ```text
-apps/control-plane ──> integrations/mock ──> runtime-core ──> contracts ──> typebox
-        │                                         ▲               ▲
-        ├──> domain ──────────────────────────────┼───────────────┘
-        ├──> runtime-core ────────────────────────┘
+apps/control-plane ──> integrations/mock, claude-code ──> runtime-core ──> contracts ──> typebox
+        │               integrations/salidium ──────────────────────────────┘
+        ├──> domain ──────────────────────────────────────────────────────────┘
+        ├──> runtime-core
         └──> fastify, @fastify/websocket, node:sqlite
+
+integrations/claude-code ──> @anthropic-ai/claude-agent-sdk (pinned)
 ```
 
 - `contracts` depends only on TypeBox. It is the vocabulary every other part shares.
@@ -90,6 +94,10 @@ Environment variables, all optional:
 | `HALCYONIC_COMMAND_TIMEOUT_MS` | `30000` | How long to wait for a runtime to confirm an action |
 | `HALCYONIC_MOCK_SCENARIOS_DIR` | `fixtures/scenarios` | Mock runtime scenarios |
 | `SALIDIUM_HOME` | `~/.salidium` | Where Salidium publishes its discovery file, as Salidium itself resolves it |
+| `HALCYONIC_PROJECT_ROOTS` | none | Directories agents may work in, with everything below them, separated by `:`; with none, no real runtime can start |
+| `HALCYONIC_CLAUDE_AGENT` | `0` | `1` registers the Claude Agent runtime; it then needs `ANTHROPIC_API_KEY` or a cloud provider in the environment |
+| `HALCYONIC_CLAUDE_EXECUTABLE` | bundled | A Claude Code executable to use instead of the one the Agent SDK bundles |
+| `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |
 
 Files in the data directory besides the journal and the access token: `salidium-credential`, the
 consumer credential the owner created for Halcyonic (mode 0600; optional).

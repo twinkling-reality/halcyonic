@@ -29,6 +29,33 @@ describe('configuration', () => {
     assert.deepEqual(config.projectRoots, [first, second]);
   });
 
+  test('real runtimes are off unless enabled, and the switches accept only 1 or 0', () => {
+    assert.equal(loadConfig({}).claudeAgent, false);
+    assert.equal(loadConfig({ HALCYONIC_CLAUDE_AGENT: '1' }).claudeAgent, true);
+    assert.equal(loadConfig({ HALCYONIC_CLAUDE_AGENT: '0' }).claudeAgent, false);
+    assert.throws(() => loadConfig({ HALCYONIC_CLAUDE_AGENT: 'yes' }), ConfigError);
+  });
+
+  test('a Claude Code executable must be an existing absolute file', () => {
+    const executable = join(base, 'claude');
+    writeFileSync(executable, '#!/bin/sh\n');
+    assert.equal(
+      loadConfig({ HALCYONIC_CLAUDE_EXECUTABLE: executable }).claudeExecutable,
+      executable,
+    );
+    for (const path of ['claude', join(base, 'missing'), base]) {
+      assert.throws(() => loadConfig({ HALCYONIC_CLAUDE_EXECUTABLE: path }), ConfigError, path);
+    }
+  });
+
+  test('agent environment pass-through takes variable names only', () => {
+    assert.deepEqual(
+      loadConfig({ HALCYONIC_AGENT_ENV: 'SSH_AUTH_SOCK, HTTPS_PROXY' }).agentEnvironment,
+      ['SSH_AUTH_SOCK', 'HTTPS_PROXY'],
+    );
+    assert.throws(() => loadConfig({ HALCYONIC_AGENT_ENV: 'SSH_AUTH_SOCK=/tmp/x' }), ConfigError);
+  });
+
   test('refuses project roots that are relative, missing or files', () => {
     const file = join(base, 'file');
     writeFileSync(file, 'x');

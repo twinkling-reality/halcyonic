@@ -63,6 +63,18 @@ Whether a workstream needs its human, and why. Every signal names the facts behi
 Completion alone is not an attention signal; status already conveys it. The server sends status
 and attention only; clients decide presentation (animation, material, sound, placement).
 
+## Runtime kinds
+
+| Kind | Runtime | Synthetic |
+| --- | --- | --- |
+| `mock` | Scripted scenarios for development | yes |
+| `claude-agent` | Claude Code through the Claude Agent SDK, displayed as "Claude Agent" | no |
+| `opencode` | OpenCode's v2 server API, pinned version | no |
+
+A kind names the adapter type; the runtime id names a configured instance of it. Salidium observes
+`claude-agent` sessions (as its provider `claude-code`) and Codex; it does not observe `mock` or
+`opencode`.
+
 ## Commands
 
 | Command | Policy | Admitted when |

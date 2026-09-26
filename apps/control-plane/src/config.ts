@@ -21,6 +21,12 @@ export interface ControlPlaneConfig {
   readonly scenariosDir: string;
   /** Directories agents may work in, with everything below them. Empty allows none. */
   readonly projectRoots: readonly string[];
+  /** Whether the Claude Agent runtime is registered. It needs Anthropic or cloud provider credentials. */
+  readonly claudeAgent: boolean;
+  /** A Claude Code executable to use instead of the one bundled with the Agent SDK. */
+  readonly claudeExecutable: string | null;
+  /** Names of variables copied from the control plane's environment into every launched agent's. */
+  readonly agentEnvironment: readonly string[];
 }
 
 export class ConfigError extends Error {
@@ -60,7 +66,45 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
         fileURLToPath(new URL('../../../fixtures/scenarios', import.meta.url)),
     ),
     projectRoots: parseProjectRoots(env.HALCYONIC_PROJECT_ROOTS),
+    claudeAgent: parseSwitch('HALCYONIC_CLAUDE_AGENT', env.HALCYONIC_CLAUDE_AGENT),
+    claudeExecutable: parseExecutable(
+      'HALCYONIC_CLAUDE_EXECUTABLE',
+      env.HALCYONIC_CLAUDE_EXECUTABLE,
+    ),
+    agentEnvironment: parseNames('HALCYONIC_AGENT_ENV', env.HALCYONIC_AGENT_ENV),
   };
+}
+
+function parseSwitch(name: string, raw: string | undefined): boolean {
+  if (raw === undefined || raw === '' || raw === '0') return false;
+  if (raw === '1') return true;
+  throw new ConfigError(`${name} must be 1 or 0, got "${raw}".`);
+}
+
+function parseExecutable(name: string, raw: string | undefined): string | null {
+  if (raw === undefined || raw === '') return null;
+  if (!isAbsolute(raw)) throw new ConfigError(`${name} must be an absolute path, got "${raw}".`);
+  let isFile = false;
+  try {
+    isFile = statSync(raw).isFile();
+  } catch {
+    throw new ConfigError(`${name} ${raw} does not exist.`);
+  }
+  if (!isFile) throw new ConfigError(`${name} ${raw} is not a file.`);
+  return raw;
+}
+
+function parseNames(name: string, raw: string | undefined): string[] {
+  if (raw === undefined || raw.trim() === '') return [];
+  return raw.split(',').map((entry) => {
+    const variable = entry.trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(variable)) {
+      throw new ConfigError(
+        `${name} must list variable names separated by commas, got "${variable}".`,
+      );
+    }
+    return variable;
+  });
 }
 
 function parseProjectRoots(raw: string | undefined): string[] {

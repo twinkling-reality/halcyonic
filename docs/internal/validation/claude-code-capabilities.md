@@ -11,8 +11,9 @@
   is built. During that pass, one headless run was made
   (`claude -p "echo test" --output-format stream-json --verbose --include-partial-messages`); it
   is the only runtime observation so far.
-- **Status:** Partly documentation verified. SDK argument and environment handling runtime
-  verified (below); no real Claude Code session has been run for Halcyonic yet.
+- **Status:** Documentation verified, and the adapter's surface runtime verified without a model:
+  the chosen session id, approvals, a second turn, interrupt and process lifetime, against the real
+  bundled CLI and a fake API (below). No session with a real model has been run for Halcyonic yet.
 
 ## Findings
 
@@ -109,9 +110,7 @@ Not yet verified: whether the real CLI honors `--session-id`.
 
 ## Needs a runtime smoke test
 
-Whether the real CLI honors `--session-id`; the stream message types and fields; how queued input
-behaves during a running turn; interrupt timing; `canUseTool` with a long pending wait; resume
-across processes; `listSessions` output.
+Superseded by the adapter build section below, which lists what is now verified and what is not.
 
 ## Adapter build: SDK surface and runtime checks without a model (2026-09-26)
 
@@ -190,7 +189,8 @@ model.
 - Display name "Claude Agent"; runtime kind and default runtime id `claude-agent`.
 - Capabilities: start_execution, instruct_at_rest, respond_to_approval and interrupt.
   `instruct_while_running` is false because queued input during a turn is not verified.
-- Start options: `cwd` (required, an existing absolute directory); `model` (a Claude model name or
+- Start options: `cwd` (required, an existing absolute directory that the host's directory policy
+  allows; the control plane allows only directories under `HALCYONIC_PROJECT_ROOTS`); `model` (a Claude model name or
   id; a leading `-` is refused because the SDK passes it as a CLI argument); `permission_mode`
   (`default`, `acceptEdits`, `plan` or `dontAsk`; `bypassPermissions` and `auto` are refused
   because they take decisions away from the person supervising).

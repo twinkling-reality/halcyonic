@@ -12,6 +12,7 @@
     "@fastify/websocket": "^11.3.1",
     "@halcyonic/contracts": "workspace:*",
     "@halcyonic/domain": "workspace:*",
+    "@halcyonic/integration-claude-code": "workspace:*",
     "@halcyonic/integration-mock": "workspace:*",
     "@halcyonic/integration-salidium": "workspace:*",
     "@halcyonic/runtime-core": "workspace:*",

@@ -4,6 +4,7 @@ import { loadScenarios, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import { loadConfig } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
+import { createDirectoryPolicy } from './directory-policy.ts';
 import { registerRealtime } from './http/realtime.ts';
 import { registerRoutes } from './http/routes.ts';
 import { loadOrCreateAccessToken } from './http/security.ts';
@@ -11,12 +12,19 @@ import { createHttpServer } from './http/server.ts';
 import { createUuidV7Generator } from './ids.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
+import { createRuntimeAdapters } from './runtimes.ts';
 
 async function main(): Promise<void> {
   const config = loadConfig();
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
+  // Built first, so a misconfigured runtime stops startup before anything else opens.
+  const adapters = createRuntimeAdapters(config, {
+    mock: new MockRuntimeAdapter({ scenarios: loadScenarios(config.scenariosDir) }),
+    directoryPolicy: createDirectoryPolicy(config.projectRoots),
+    environment: process.env,
+  });
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
   const ids = createUuidV7Generator();
@@ -34,7 +42,7 @@ async function main(): Promise<void> {
 
   const controlPlane = new ControlPlane({
     journal,
-    adapters: [new MockRuntimeAdapter({ scenarios: loadScenarios(config.scenariosDir) })],
+    adapters,
     ids,
     clock: systemClock,
     scheduler: systemScheduler,
@@ -53,20 +61,25 @@ async function main(): Promise<void> {
       token_file: access.path,
       journal: controlPlane.journal.info,
       runtimes: controlPlane.registry.descriptors().map((runtime) => runtime.runtime_id),
+      project_roots: config.projectRoots,
     },
     'control plane ready',
   );
 
   let stopping = false;
   const shutdown = async (signal: string) => {
-    if (stopping) return;
+    if (stopping) {
+      // A second signal exits at once; process exit handlers still stop launched agent processes.
+      app.log.warn({ signal }, 'second signal; exiting without waiting');
+      process.exit(1);
+    }
     stopping = true;
     app.log.info({ signal }, 'shutting down');
     await app.close();
     await controlPlane.close();
   };
-  process.once('SIGINT', () => void shutdown('SIGINT'));
-  process.once('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
 main().catch((error: unknown) => {

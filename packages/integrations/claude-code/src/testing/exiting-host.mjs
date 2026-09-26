@@ -9,6 +9,7 @@ import { ClaudeAgentRuntimeAdapter } from '../index.ts';
 const [executable, cwd, home, record, mode] = process.argv.slice(2);
 
 const adapter = new ClaudeAgentRuntimeAdapter({
+  directoryPolicy: (path) => ({ ok: true, directory: path }),
   inheritedEnvironment: {
     PATH: '/usr/bin:/bin',
     HOME: home,

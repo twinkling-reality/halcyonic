@@ -83,6 +83,7 @@ async function waitFor(condition: () => boolean, timeoutMs: number, what: string
 
 function adapterFor(record: string, extra: Record<string, string> = {}) {
   return new ClaudeAgentRuntimeAdapter({
+    directoryPolicy: (path: string) => ({ ok: true, directory: path }),
     inheritedEnvironment: {
       PATH: '/usr/bin:/bin',
       HOME,

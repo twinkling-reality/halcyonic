@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -321,6 +321,7 @@ function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
   const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
   const runs: ScriptedRun[] = [];
   const adapter = new ClaudeAgentRuntimeAdapter({
+    directoryPolicy: (path: string) => ({ ok: true, directory: path }),
     inheritedEnvironment: INHERITED,
     clock: time,
     query: (params) => {
@@ -851,6 +852,27 @@ describe('closing', () => {
 });
 
 describe('start options', () => {
+  test('the host directory policy decides which cwd a session may use, and its real path is used', async () => {
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-claude-elsewhere-')));
+    try {
+      const { adapter, start, runs } = setup({
+        directoryPolicy: (path) =>
+          path === WORKDIR
+            ? { ok: true, directory: WORKDIR }
+            : { ok: false, message: `${path} is outside the project roots.` },
+      });
+      assert.deepEqual(adapter.validateStartOptions({ cwd: elsewhere }), {
+        ok: false,
+        message: `${elsewhere} is outside the project roots.`,
+      });
+      await assert.rejects(start({ cwd: elsewhere }), actionError('invalid_runtime_options'));
+      assert.equal(runs.length, 0, 'no session was launched');
+      assert.equal(adapter.validateStartOptions({ cwd: WORKDIR }).ok, true);
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
+  });
+
   test('cwd is required and must be an existing absolute directory; unknown options are refused', () => {
     const { adapter } = setup();
     const file = join(WORKDIR, 'a-file.txt');

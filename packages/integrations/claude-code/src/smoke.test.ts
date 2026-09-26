@@ -45,6 +45,7 @@ describe('Claude Agent against the real Claude Code CLI', {
     const workdir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-claude-smoke-')));
     let launched: Options | undefined;
     const adapter = new ClaudeAgentRuntimeAdapter({
+      directoryPolicy: (path: string) => ({ ok: true, directory: path }),
       query: (params) => {
         launched = params.options;
         return query(params);

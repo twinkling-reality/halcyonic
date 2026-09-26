@@ -12,8 +12,13 @@ defends against now are:
 - leaking secrets or work content into logs.
 
 It is not a sandbox against other processes running as the same user; those can read the token,
-as with Salidium. The agent runtimes themselves are not yet integrated, so no provider credential
-exists in Halcyonic.
+as with Salidium.
+
+When the Claude Agent runtime is enabled, the Anthropic API key or cloud provider credentials live
+in the control plane's environment and reach each launched Claude Code process through an
+explicitly built environment: an allowlist of variables, plus the names listed in
+`HALCYONIC_AGENT_ENV`. Nothing else in the control plane's environment reaches an agent, and a
+claude.ai login is never used.
 
 The one third-party credential it holds is Salidium's consumer credential, which reads Salidium's
 reports and nothing else. It lives in `<data dir>/salidium-credential`, is read on every request,
@@ -34,6 +39,9 @@ endpoint prove the same instance on loopback, and is never logged or passed to l
 | Size limits | 1 MiB request bodies; 256 KiB WebSocket messages; slow WebSocket clients are disconnected |
 | Data at rest | Data directory mode 0700; journal, WAL and SHM files mode 0600 |
 | Logging | Log context carries identifiers only, never tokens, instructions or agent text |
+| Agent working directories | Only directories whose real path lies under `HALCYONIC_PROJECT_ROOTS`; `..` and symbolic links cannot escape a root; with no roots configured, no real runtime can start |
+| Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options |
+| Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown; a hard kill can leave a Claude Code turn running (see the validation record) |
 
 ## Authorization
 

@@ -29,6 +29,9 @@ importers:
       '@halcyonic/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@halcyonic/integration-claude-code':
+        specifier: workspace:*
+        version: link:../../packages/integrations/claude-code
       '@halcyonic/integration-mock':
         specifier: workspace:*
         version: link:../../packages/integrations/mock

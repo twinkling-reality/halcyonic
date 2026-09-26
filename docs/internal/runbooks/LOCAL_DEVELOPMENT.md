@@ -44,6 +44,23 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:47800/api/events?aft
 Commands are posted as JSON `CommandEnvelope`s to `/api/commands`. The shape is in
 `packages/contracts/schema/halcyonic-contracts.schema.json` under `$defs/CommandEnvelope`.
 
+## Run real agents
+
+Real runtimes work only inside directories you list, and are off until enabled:
+
+```bash
+export HALCYONIC_PROJECT_ROOTS="$HOME/dev"   # directories agents may work in, separated by :
+export HALCYONIC_CLAUDE_AGENT=1              # register the Claude Agent runtime
+export ANTHROPIC_API_KEY=...                 # or a cloud provider's variables
+pnpm dev
+```
+
+Start an execution on it with the runtime id `claude-agent` and options such as
+`{"cwd": "/Users/you/dev/app", "permission_mode": "default"}`; `model` is optional. A `cwd` outside
+the project roots is rejected. Every run spends model credit. The runtime's sessions appear in
+Salidium and Seorak like any other Claude Code session, because Halcyonic keeps your home and Claude
+configuration directories.
+
 ## Connect Salidium
 
 With a Salidium that serves its consumer contract running, create a credential for Halcyonic and

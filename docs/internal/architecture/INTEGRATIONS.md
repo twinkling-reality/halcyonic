@@ -59,8 +59,8 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
 | Integration | Status | Blocking question |
 | --- | --- | --- |
 | Mock runtime | Built. Synthetic, labeled everywhere. | None |
-| OpenCode | In progress: the v2 API pinned to `@opencode/cli` 2.0.18, on a server Halcyonic launches ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)). Proves provider and local model independence. | How the pinned binary is installed for users |
-| Claude Code | In progress: Agent SDK with streaming input for executions Halcyonic starts; API key authentication only. | Attaching to terminal sessions; model spend for a real smoke test |
+| OpenCode | Built: `packages/integrations/opencode`, the v2 API pinned to `@opencode/cli` 2.0.18 on a server Halcyonic launches and supervises ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)); end to end tests against the real binary and a fake provider. Not yet registered by the control plane. Proves provider and local model independence. | How the pinned binary is installed for users |
+| Claude Code | Built: `packages/integrations/claude-code`, runtime kind `claude-agent` ("Claude Agent"), on the Agent SDK 0.3.283 with streaming input and a session id chosen at launch; API key or cloud provider authentication only. Registered when `HALCYONIC_CLAUDE_AGENT=1`. Verified against the real CLI without a model ([record](../validation/claude-code-capabilities.md)). | A smoke test with a real model; attaching to terminal sessions |
 | Codex | Not started. | Experimental app-server versus stable exec without approvals |
 | Salidium | Built: a client for Salidium's versioned, read-only consumer contract v1, exercised end to end against its release candidate ([record](../validation/salidium-consumer-contract.md)); served per execution at `GET /api/executions/:execution_id/understanding`. | Salidium publishing the contract |
 | Seorak | No adapter. `/api/v1` is versioned and read-only with scoped credentials; its types are published in `@seorak/types` 0.1.0. | Correlating executions with Seorak sessions: not in the published API |
@@ -102,3 +102,10 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
    sessions, and never pass `SALIDIUM_INTERNAL` to a launched agent: it makes Salidium drop the
    session's hooks.
 7. Record fixtures from real runs, sanitized, for contract tests.
+8. Accept a working directory only through the host's `DirectoryPolicy`
+   (`packages/runtime-core/src/adapter.ts`) and use the real path it returns. The control plane
+   allows only directories under `HALCYONIC_PROJECT_ROOTS`, so a client cannot point an agent
+   anywhere else on the machine.
+9. Make sure an agent process cannot outlive the control plane unsupervised: stop it on close and on
+   the control plane's exit, and say plainly in the validation record what a hard kill leaves
+   running.
