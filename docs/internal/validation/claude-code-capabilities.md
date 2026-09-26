@@ -11,7 +11,8 @@
   is built. During that pass, one headless run was made
   (`claude -p "echo test" --output-format stream-json --verbose --include-partial-messages`); it
   is the only runtime observation so far.
-- **Status:** Partly documentation verified. Runtime smoke test not yet performed.
+- **Status:** Partly documentation verified. SDK argument and environment handling runtime
+  verified (below); no real Claude Code session has been run for Halcyonic yet.
 
 ## Findings
 
@@ -82,7 +83,32 @@ From the review pass, not yet re-checked:
 - Salidium and Seorak observe these sessions through their own hooks and transcripts. Halcyonic
   must not install global hooks; it controls only what it hosts.
 
+## Runtime check: SDK arguments and environment (2026-09-26)
+
+Method: `@anthropic-ai/claude-agent-sdk` 0.3.283 (bundling CLI 2.1.283) pointed through
+`pathToClaudeCodeExecutable` at a fake executable that logged its arguments and environment variable
+names, inside a no-network sandbox with no credentials. No model was contacted.
+
+- **Choosing the session id works.** The SDK's own `sessionId` option is sent as
+  `--session-id=<uuid>`; `extraArgs: {'session-id': <uuid>}` is sent as `--session-id <uuid>`.
+  Setting both sends the flag twice with no warning. Use `sessionId`.
+- **An explicit `env` replaces the whole environment**; the SDK adds only
+  `CLAUDE_CODE_ENTRYPOINT` and `CLAUDE_AGENT_SDK_VERSION`. Without `env`, the host environment is
+  inherited.
+- **Settings load from every source by default**: no `--setting-sources` flag is sent unless
+  `settingSources` is set, so the user's hooks (including Salidium's and Seorak's) run for SDK
+  sessions.
+- **Default arguments:** `--output-format stream-json --verbose --input-format stream-json
+  --permission-mode default`.
+- **The SDK validates nothing before spawning.** An invalid session id passes through, and a child
+  that exits 0 without output ends `query()` with no error. An adapter must treat a query that ends
+  without a result message as a failure of unknown effect.
+- The SDK sets `NoDefaultCurrentDirectoryInExePath=1` in the host process when it loads.
+
+Not yet verified: whether the real CLI honors `--session-id`.
+
 ## Needs a runtime smoke test
 
-The stream message types and fields; how queued input behaves during a running turn; interrupt
-timing; `canUseTool` with a long pending wait; resume across processes; `listSessions` output.
+Whether the real CLI honors `--session-id`; the stream message types and fields; how queued input
+behaves during a running turn; interrupt timing; `canUseTool` with a long pending wait; resume
+across processes; `listSessions` output.

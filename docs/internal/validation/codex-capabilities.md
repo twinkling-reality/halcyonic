@@ -10,7 +10,8 @@
   schemas generated locally by the installed binary without contacting any service. No session was
   started. The app-server status and method names below were re-checked directly against
   https://learn.chatgpt.com/docs/app-server.
-- **Status:** Documentation and source verified. Runtime smoke test not yet performed.
+- **Status:** Documentation and source verified. Thread identity runtime verified (below);
+  approvals, steering and interrupt not yet runtime tested.
 
 ## Findings
 
@@ -71,8 +72,27 @@
   reason to prefer it over separate `exec` processes. (Corrected 2026-09-26: an earlier version of
   this record recommended an isolated `CODEX_HOME`.)
 
+## Runtime check: thread identity (2026-09-26)
+
+Method: the installed `codex-cli` 0.151.0 with an empty, isolated `CODEX_HOME`, inside a
+no-network sandbox with no credentials; no turn could reach a model.
+
+- **`codex exec --json`: verified.** `thread.started.thread_id` equals the uuid in the rollout
+  file name and `session_meta.payload.id` (which equals `payload.session_id`). `originator` is
+  `codex_exec`, `source` is `exec`.
+- **App-server: not directly verified.** `thread/start` needs no authentication and returns a
+  UUIDv7 `thread.id` equal to `thread.sessionId`, with a `thread.path` naming
+  `rollout-...-<thread.id>.jsonl`. The rollout is written only at the first turn, so a thread that
+  never runs a turn leaves nothing for Salidium or Seorak to see.
+- `thread/start` alone tried to connect to `wss://api.openai.com/v1/responses`, so it is not
+  network-silent even without a turn.
+- App-server threads report `source: "vscode"` even with a custom `clientInfo.name`, which
+  appeared only in the user agent.
+- Every `codex` invocation writes to `CODEX_HOME`, including `--help`.
+- `codex exec` does not fail fast on missing credentials; it retries the network indefinitely.
+
 ## Needs a runtime smoke test
 
-Whether the `exec` thread id matches the rollout file; SIGINT behavior on `exec --json`; an
+App-server thread id against its rollout after a first turn; SIGINT behavior on `exec --json`; an
 app-server approval round trip with only stable features enabled; `turn/steer` ordering during a
 running command; resuming an exec thread through app-server; attaching to the shared local daemon.
