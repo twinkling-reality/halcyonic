@@ -52,3 +52,13 @@ Status and attention are derived only from those facts.
   normally `unavailable`.
 - Clients refetch while a workspace is open. Pushing changes from Salidium's feed to clients is a
   later improvement, not part of this decision.
+
+## Note, 2026-09-27
+
+Seorak has published the correlation this decision waited for: a resolve by the runtime kind and
+the runtime's own session id (Seorak's ADR 007, in `@seorak/types` 0.2.0 and served by `seorak`
+0.3.0). Seorak's evaluation now follows the pattern above at
+`GET /api/executions/:execution_id/evaluation`
+([record](../validation/seorak-integration-api.md)). Because each evaluation spends three of the
+credential's 60 requests a minute, clients fetch it on demand rather than refetching it on a
+timer. The decision is otherwise unchanged.

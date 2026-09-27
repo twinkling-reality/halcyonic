@@ -1,6 +1,8 @@
 import {
   type CommandSubmissionResponse,
   compileValidator,
+  EvaluationResponse,
+  type EvaluationResult,
   EventsQuery,
   type EventsResponse,
   ExecutionId,
@@ -16,6 +18,7 @@ import {
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ControlPlane } from '../core/control-plane.ts';
+import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import { errorBody } from './server.ts';
 
@@ -23,9 +26,11 @@ const validateEventsQuery = compileValidator(EventsQuery);
 const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
+const validateEvaluationResponse = compileValidator(EvaluationResponse);
 
 export interface RouteSources {
   readonly understanding: UnderstandingSource;
+  readonly evaluation: EvaluationSource;
 }
 
 /**
@@ -128,6 +133,45 @@ export function registerRoutes(
         reason: {
           code: 'invalid_understanding',
           message: 'The understanding provider returned data outside the contract.',
+        },
+      },
+    };
+  });
+
+  // Read through to the evaluation provider; nothing here is journaled (ADR 0010).
+  app.get('/api/executions/:execution_id/evaluation', async (request, reply) => {
+    const executionId = (request.params as { execution_id: string }).execution_id;
+    if (!validateExecutionId(executionId).ok) {
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'execution_id must be an execution identifier.'));
+    }
+    const execution = controlPlane.projection.execution(executionId);
+    if (execution === undefined) {
+      return reply
+        .code(404)
+        .send(errorBody('execution_not_found', `Execution ${executionId} does not exist.`));
+    }
+    const result: EvaluationResult =
+      execution.native_id === null
+        ? {
+            availability: 'not_found',
+            reason: {
+              code: 'native_id_unknown',
+              message: 'The runtime has not reported its session id yet.',
+            },
+          }
+        : await sources.evaluation.evaluate(execution.runtime.kind, execution.native_id);
+    const body = { execution_id: execution.execution_id, result };
+    if (validateEvaluationResponse(body).ok) return body;
+    request.log.warn({ execution_id: executionId }, 'evaluation does not match the contract');
+    return {
+      execution_id: execution.execution_id,
+      result: {
+        availability: 'incompatible',
+        reason: {
+          code: 'invalid_evaluation',
+          message: 'The evaluation provider returned data outside the contract.',
         },
       },
     };

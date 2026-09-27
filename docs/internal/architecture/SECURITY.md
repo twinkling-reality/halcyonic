@@ -23,10 +23,21 @@ Seorak attributes them to Halcyonic. `ANTHROPIC_BASE_URL` is not inherited, beca
 API key is sent and a tool that launches the control plane may set it for its own endpoint; a
 gateway must be passed on purpose.
 
-The one third-party credential it holds is Salidium's consumer credential, which reads Salidium's
-reports and nothing else. It lives in `<data dir>/salidium-credential`, is read on every request,
-is refused when other users can read the file, is sent only after Salidium's discovery file and
-endpoint prove the same instance on loopback, and is never logged or passed to launched agents.
+The control plane also holds one credential for each product whose conclusions it reads through.
+Each is read from its file on every request, refused when other users can read the file, and never
+logged or passed to launched agents:
+
+- Salidium's consumer credential, in `<data dir>/salidium-credential`, reads Salidium's reports
+  and nothing else. It is sent only after Salidium's discovery file and endpoint prove the same
+  instance on loopback.
+- Seorak's integration credential, in `<data dir>/seorak-credential`, reads Seorak's content-free
+  measurements with the `sessions:read` and `replay:read` scopes, for the audience
+  `http://127.0.0.1:4317/api/v1`, until it expires or the owner revokes it. It is sent only if it
+  has Seorak's `srkx_` form, only to 127.0.0.1 on Seorak's port, and never along a redirect.
+  Seorak publishes no way to prove that the process on that port is Seorak, so while Seorak is
+  stopped another local account could listen there and receive the credential. With it, that
+  account could read the same measurements through Seorak's loopback plane until the credential
+  expires or is revoked.
 
 ## Controls
 

@@ -16,6 +16,7 @@
     "@halcyonic/integration-mock": "workspace:*",
     "@halcyonic/integration-opencode": "workspace:*",
     "@halcyonic/integration-salidium": "workspace:*",
+    "@halcyonic/integration-seorak": "workspace:*",
     "@halcyonic/runtime-core": "workspace:*",
     "fastify": "^5.12.5"
   },

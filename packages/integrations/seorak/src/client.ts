@@ -1,6 +1,5 @@
-import type { ValidationIssue } from '@halcyonic/contracts';
+import type { EvaluationFailure, EvaluationResult, ValidationIssue } from '@halcyonic/contracts';
 import { RequestBudget, WINDOW_MS } from './budget.ts';
-import type { EvaluationFailure, EvaluationResult } from './evaluation.ts';
 import { toEvaluation } from './mapping.ts';
 import {
   API_BASE_PATH,

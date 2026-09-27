@@ -25,6 +25,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   CommandResult: { discriminator: 'kind', suffix: 'Result' },
   ApprovalSubject: { discriminator: 'kind', suffix: 'Subject' },
   UnderstandingResult: { discriminator: 'availability', suffix: 'Understanding' },
+  EvaluationResult: { discriminator: 'availability', suffix: 'Evaluation' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
@@ -40,6 +41,7 @@ const ROOTS: readonly string[] = [
   'CommandSubmissionResponse',
   'ErrorResponse',
   'UnderstandingResponse',
+  'EvaluationResponse',
 ];
 
 interface CsType {
@@ -74,7 +76,12 @@ interface Parent {
 
 class CSharpGenerator {
   readonly #index = indexDefinitions();
-  readonly #variantByShape = new Map<string, Variant>();
+  /**
+   * Union variants by shape. Variants of different unions may share a shape, as the failures of
+   * `UnderstandingResult` and `EvaluationResult` do: each is still its own class under its own
+   * union. Such a shape maps to null, because only a union can say which variant it means.
+   */
+  readonly #variantByShape = new Map<string, Variant | null>();
   readonly #unionByVariant = new Map<string, string>();
   /** Declared C# type names, with the shape each was declared for. */
   readonly #declared = new Map<string, string>();
@@ -92,11 +99,8 @@ class CSharpGenerator {
           );
         }
         const shape = this.#index.shapeOf(option);
-        const existing = this.#variantByShape.get(shape);
-        if (existing !== undefined) {
-          throw new Error(`${className} and ${existing.className} have the same shape`);
-        }
-        this.#variantByShape.set(shape, { className, union, tag });
+        const shared = this.#variantByShape.has(shape);
+        this.#variantByShape.set(shape, shared ? null : { className, union, tag });
         this.#unionByVariant.set(className, union);
       }
     }
@@ -124,6 +128,9 @@ class CSharpGenerator {
     }
 
     const variant = this.#variantByShape.get(this.#index.shapeOf(schema));
+    if (variant === null) {
+      throw new Error(`${context}: variants of several unions have this shape; refer to a union`);
+    }
     if (variant !== undefined) {
       this.#resolve(definition(variant.union), variant.union);
       return reference(variant.className);

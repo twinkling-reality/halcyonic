@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { compileValidator } from '@halcyonic/contracts';
+import { compileValidator, ESTIMATED_COST_NOTE, EvaluationResult } from '@halcyonic/contracts';
 import { SeorakClient } from './client.ts';
-import { ESTIMATED_COST_NOTE, EvaluationResult } from './evaluation.ts';
 
 /**
  * The real local plane, opt in: set HALCYONIC_SEORAK_CREDENTIAL_FILE to a file, mode 600, holding

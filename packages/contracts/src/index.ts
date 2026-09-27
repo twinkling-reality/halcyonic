@@ -1,5 +1,6 @@
 export * from './api.ts';
 export * from './commands.ts';
+export * from './evaluation.ts';
 export * from './events.ts';
 export * from './primitives.ts';
 export * from './realtime.ts';

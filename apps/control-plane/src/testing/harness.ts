@@ -12,6 +12,7 @@ import { registerRoutes } from '../http/routes.ts';
 import { loadOrCreateAccessToken } from '../http/security.ts';
 import { createHttpServer } from '../http/server.ts';
 import { createUuidV7Generator } from '../ids.ts';
+import { type EvaluationSource, seorakEvaluation } from '../intelligence/evaluation.ts';
 import { salidiumUnderstanding, type UnderstandingSource } from '../intelligence/understanding.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
@@ -51,6 +52,8 @@ export interface TestControlPlaneOptions {
   readonly commandTimeoutMs?: number;
   /** Defaults to Salidium at a location where it never runs. */
   readonly understanding?: UnderstandingSource;
+  /** Defaults to Seorak without a credential, so it is never sent a request. */
+  readonly evaluation?: EvaluationSource;
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -95,6 +98,9 @@ export async function startTestServer(options: TestControlPlaneOptions = {}) {
         home: join(dataDir, 'salidium'),
         credentialPath: join(dataDir, 'salidium-credential'),
       }),
+    evaluation:
+      options.evaluation ??
+      seorakEvaluation({ credentialPath: join(dataDir, 'seorak-credential') }),
   });
   registerRealtime(app, harness.controlPlane);
   await app.listen({ host: '127.0.0.1', port: 0 });

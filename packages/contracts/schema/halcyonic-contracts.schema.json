@@ -6127,6 +6127,723 @@
       },
       "additionalProperties": false
     },
+    "EvaluationResponse": {
+      "type": "object",
+      "required": [
+        "execution_id",
+        "result"
+      ],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "result": {
+          "$ref": "#/$defs/EvaluationResult"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "evaluation"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "evaluation": {
+              "$ref": "#/$defs/Evaluation"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "not_found"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "incompatible"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unauthorized"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Evaluation": {
+      "type": "object",
+      "required": [
+        "source",
+        "cost",
+        "outcome",
+        "verification"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/EvaluationSource"
+        },
+        "cost": {
+          "$ref": "#/$defs/EvaluationCost"
+        },
+        "outcome": {
+          "$ref": "#/$defs/EvaluationOutcome"
+        },
+        "verification": {
+          "$ref": "#/$defs/EvaluationVerification"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationSource": {
+      "type": "object",
+      "required": [
+        "system",
+        "api_version"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "const": "seorak"
+        },
+        "api_version": {
+          "type": "string",
+          "const": "v1"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationCost": {
+      "type": "object",
+      "required": [
+        "availability",
+        "coverage",
+        "freshness",
+        "estimated_usd",
+        "note"
+      ],
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/EvaluationAvailability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvaluationCoverage"
+        },
+        "freshness": {
+          "$ref": "#/$defs/EvaluationFreshness"
+        },
+        "estimated_usd": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "const": "Estimated from token counts at list prices. Not a bill."
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationOutcome": {
+      "type": "object",
+      "required": [
+        "availability",
+        "coverage",
+        "freshness",
+        "measure"
+      ],
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/EvaluationAvailability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvaluationCoverage"
+        },
+        "freshness": {
+          "$ref": "#/$defs/EvaluationFreshness"
+        },
+        "measure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationOutcomeMeasure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationOutcomeMeasure": {
+      "type": "object",
+      "required": [
+        "commits_landed",
+        "uncommitted",
+        "line_survival",
+        "error_count",
+        "first_error_at",
+        "end_reason"
+      ],
+      "properties": {
+        "commits_landed": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uncommitted": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationUncommitted"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line_survival": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationLineSurvival"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_error_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "end_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationEndReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationUncommitted": {
+      "type": "object",
+      "required": [
+        "files_touched",
+        "lines_added",
+        "lines_removed",
+        "generated_lines_excluded"
+      ],
+      "properties": {
+        "files_touched": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_added": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_removed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "generated_lines_excluded": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationLineSurvival": {
+      "type": "object",
+      "required": [
+        "rung",
+        "fate",
+        "rate",
+        "lines_authored",
+        "lines_surviving",
+        "commits_checked"
+      ],
+      "properties": {
+        "rung": {
+          "type": "string",
+          "const": "3d"
+        },
+        "fate": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "retained"
+            },
+            {
+              "type": "string",
+              "const": "overwritten"
+            },
+            {
+              "type": "string",
+              "const": "unreachable"
+            },
+            {
+              "type": "string",
+              "const": "unknown"
+            }
+          ]
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lines_authored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_surviving": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "commits_checked": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationEndReason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "clear"
+        },
+        {
+          "type": "string",
+          "const": "resume"
+        },
+        {
+          "type": "string",
+          "const": "logout"
+        },
+        {
+          "type": "string",
+          "const": "prompt_input_exit"
+        },
+        {
+          "type": "string",
+          "const": "bypass_permissions_disabled"
+        },
+        {
+          "type": "string",
+          "const": "other"
+        }
+      ]
+    },
+    "EvaluationVerification": {
+      "type": "object",
+      "required": [
+        "availability",
+        "coverage",
+        "freshness",
+        "lens"
+      ],
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/EvaluationAvailability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvaluationCoverage"
+        },
+        "freshness": {
+          "$ref": "#/$defs/EvaluationFreshness"
+        },
+        "lens": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationVerificationLens"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationVerificationLens": {
+      "type": "object",
+      "required": [
+        "by_kind",
+        "empty_reason"
+      ],
+      "properties": {
+        "by_kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvaluationVerificationKind"
+          }
+        },
+        "empty_reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 600
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationVerificationKind": {
+      "type": "object",
+      "required": [
+        "label",
+        "runs",
+        "passed",
+        "pass_rate"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "runs": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "passed": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pass_rate": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationAvailability": {
+      "type": "object",
+      "required": [
+        "state",
+        "reason"
+      ],
+      "properties": {
+        "state": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "available"
+            },
+            {
+              "type": "string",
+              "const": "partial"
+            },
+            {
+              "type": "string",
+              "const": "unavailable"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "not_captured"
+                },
+                {
+                  "type": "string",
+                  "const": "not_retained"
+                },
+                {
+                  "type": "string",
+                  "const": "not_yet_computed"
+                },
+                {
+                  "type": "string",
+                  "const": "outside_credential_restriction"
+                },
+                {
+                  "type": "string",
+                  "const": "temporarily_unavailable"
+                },
+                {
+                  "type": "string",
+                  "const": "result_limit"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationCoverage": {
+      "type": "object",
+      "required": [
+        "requested",
+        "observed",
+        "matched_sessions",
+        "included_sessions",
+        "complete",
+        "omissions"
+      ],
+      "properties": {
+        "requested": {
+          "$ref": "#/$defs/EvaluationDateRange"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationDateRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "matched_sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "included_sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "omissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvaluationCoverageOmission"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationCoverageOmission": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "outside_retention"
+        },
+        {
+          "type": "string",
+          "const": "capture_unavailable"
+        },
+        {
+          "type": "string",
+          "const": "projection_pending"
+        },
+        {
+          "type": "string",
+          "const": "credential_restriction"
+        },
+        {
+          "type": "string",
+          "const": "result_limit"
+        }
+      ]
+    },
+    "EvaluationFreshness": {
+      "type": "object",
+      "required": [
+        "state",
+        "generated_at",
+        "data_through",
+        "stale_at"
+      ],
+      "properties": {
+        "state": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "fresh"
+            },
+            {
+              "type": "string",
+              "const": "stale"
+            },
+            {
+              "type": "string",
+              "const": "revalidating"
+            }
+          ]
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "data_through": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stale_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationDateRange": {
+      "type": "object",
+      "required": [
+        "from",
+        "through"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "through": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      },
+      "additionalProperties": false
+    },
     "ExecutionStatus": {
       "anyOf": [
         {

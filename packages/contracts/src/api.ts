@@ -1,4 +1,5 @@
 import Type, { type Static } from 'typebox';
+import { EvaluationResult } from './evaluation.ts';
 import { StoredEvent } from './events.ts';
 import { ExecutionId, Position, WorkstreamId } from './primitives.ts';
 import { RuntimeDescriptor } from './runtime.ts';
@@ -67,6 +68,17 @@ export const UnderstandingResponse = Type.Object(
   strict,
 );
 export type UnderstandingResponse = Static<typeof UnderstandingResponse>;
+
+/**
+ * What the evaluation source (Seorak) measured about one execution, read through on request and
+ * never journaled (ADR 0010). Each answer costs the source three requests of a budget of 60 a
+ * minute, so clients fetch it on demand, for example when a workstream is opened, and never poll.
+ */
+export const EvaluationResponse = Type.Object(
+  { execution_id: ExecutionId, result: EvaluationResult },
+  strict,
+);
+export type EvaluationResponse = Static<typeof EvaluationResponse>;
 
 export const ValidationIssueSchema = Type.Object(
   { path: Type.String(), message: Type.String() },

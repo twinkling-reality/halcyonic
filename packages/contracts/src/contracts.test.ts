@@ -6,7 +6,10 @@ import { renderCSharpContracts } from './csharp.ts';
 import {
   buildSchemaDocument,
   COMMAND_VARIANTS,
+  compileValidator,
+  ESTIMATED_COST_NOTE,
   EVENT_VARIANTS,
+  EvaluationResult,
   parseClientMessage,
   parseCommandEnvelope,
   parseEventEnvelope,
@@ -134,6 +137,62 @@ describe('commands and realtime messages', () => {
   });
 });
 
+describe('the evaluation contract', () => {
+  const validate = compileValidator(EvaluationResult);
+  const read = {
+    availability: { state: 'available', reason: null },
+    coverage: {
+      requested: { from: '2026-06-28', through: '2026-09-26' },
+      observed: null,
+      matched_sessions: 1,
+      included_sessions: 1,
+      complete: true,
+      omissions: [],
+    },
+    freshness: {
+      state: 'fresh',
+      generated_at: '2026-09-26T18:00:00.000Z',
+      data_through: null,
+      stale_at: '2026-09-26T18:05:00.000Z',
+    },
+  };
+  const evaluation = {
+    source: { system: 'seorak', api_version: 'v1' },
+    cost: { ...read, estimated_usd: null, note: ESTIMATED_COST_NOTE },
+    outcome: { ...read, measure: null },
+    verification: {
+      ...read,
+      lens: {
+        by_kind: [{ label: 'test', runs: 5, passed: 4, pass_rate: 0.8 }],
+        empty_reason: null,
+      },
+    },
+  };
+  const available = (value: object) => validate({ availability: 'available', evaluation: value });
+
+  test('keeps what the source does not know as null, and carries no score', () => {
+    assert.ok(available(evaluation).ok);
+    assert.equal(available({ ...evaluation, score: 0.9 }).ok, false);
+    const { outcome: _outcome, ...partial } = evaluation;
+    assert.equal(available(partial).ok, false);
+  });
+
+  test("labels every cost as an estimate with the source's note", () => {
+    for (const note of ['', 'The amount billed.'])
+      assert.equal(available({ ...evaluation, cost: { ...evaluation.cost, note } }).ok, false);
+  });
+
+  test('holds rates to fractions from 0 to 1', () => {
+    for (const pass_rate of [80, -0.1]) {
+      const lens = {
+        by_kind: [{ label: 'test', runs: 5, passed: 4, pass_rate }],
+        empty_reason: null,
+      };
+      assert.equal(available({ ...evaluation, verification: { ...read, lens } }).ok, false);
+    }
+  });
+});
+
 describe('the language-neutral schema document', () => {
   test('the committed document is current', () => {
     const committed = readFileSync(
@@ -183,5 +242,13 @@ describe('the C# bindings', () => {
       ),
     ];
     for (const tag of tags) assert.ok(generated.includes(`"${tag}" => new `), tag);
+  });
+
+  test('a variant shape two unions share becomes a class under each union', () => {
+    for (const [variant, union] of [
+      ['NotFoundUnderstanding', 'UnderstandingResult'],
+      ['NotFoundEvaluation', 'EvaluationResult'],
+    ])
+      assert.ok(generated.includes(`public sealed class ${variant} : ${union}`), variant);
   });
 });
