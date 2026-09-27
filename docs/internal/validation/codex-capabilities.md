@@ -10,8 +10,9 @@
   schemas generated locally by the installed binary without contacting any service. No session was
   started. The app-server status and method names below were re-checked directly against
   https://learn.chatgpt.com/docs/app-server.
-- **Status:** Documentation and source verified. Thread identity runtime verified (below);
-  approvals, steering and interrupt not yet runtime tested.
+- **Status:** Documentation and source verified; runtime verified against 0.157.0 with a fake
+  provider for both surfaces (2026-09-27, below). Real models, code mode and the daemon are not
+  tested.
 
 ## Findings
 
@@ -96,3 +97,66 @@ no-network sandbox with no credentials; no turn could reach a model.
 App-server thread id against its rollout after a first turn; SIGINT behavior on `exec --json`; an
 app-server approval round trip with only stable features enabled; `turn/steer` ordering during a
 running command; resuming an exec thread through app-server; attaching to the shared local daemon.
+
+## Runtime smoke test (2026-09-27)
+
+Method: `@openai/codex` 0.157.0 (0.157.1 was younger than the one-day minimum release age when
+chosen), darwin arm64 binary sha256 `ad0be20d…3714`, installed without install scripts and run
+directly under `env -i` with temporary HOME, CODEX_HOME, XDG and TMPDIR, a macOS sandbox profile that
+allowed only loopback and denied the real home, a logging proxy with an empty allowlist, and a
+socket monitor. A fake provider on loopback spoke the Responses API (0.157.0 accepts no other wire
+API) and scripted text, shell calls, patches, slow streams and errors, using the `gpt-5.5` model
+metadata because the newest bundled models call tools from JavaScript ("code mode"), which the fake
+cannot script. The raw evidence is kept outside the repository.
+
+App-server over stdio, stable API surface only (no `experimentalApi` opt-in):
+
+- **Identity.** `thread/start` returns a UUIDv7 thread id equal to the session id; the rollout file
+  appears only after the first turn and carries the same id. `source` is `vscode`; the client's
+  `clientInfo.name` becomes the thread's `originator` (also sent to the provider), and a
+  client-supplied `threadSource` is persisted.
+- **Approvals.** A command needing escalation sets the thread `active` with `waitingOnApproval` and
+  sends `item/commandExecution/requestApproval`; `accept` runs it, `decline` refuses it (the model is
+  told and the turn completes), `cancel` interrupts the turn. `availableDecisions` omitted `decline`,
+  which still worked. File change approvals worked.
+- **Interrupt** ends the turn as `interrupted` within milliseconds and closes the model stream, but a
+  running command keeps running and streaming output until the server exits; a pending approval is
+  resolved without running. An interrupt for a turn that already finished gets no reply until a later
+  interrupt.
+- **Steer.** `turn/steer` returns at once and is delivered at the next model request, never cutting
+  the current stream or command. `turn/start` on a busy thread silently acts as a steer.
+- **Errors** end the turn `failed` with an `error` notification; an HTTP 500's provider message is
+  replaced by a generic one.
+- **Restart.** After SIGKILL or SIGTERM mid-turn, the turn reads `interrupted` after a restart and
+  `thread/resume` continues the thread with its history. SIGTERM sends no `turn/completed` first. A
+  command writing only to a file survived SIGKILL as an orphan.
+- **Shared CODEX_HOME.** A thread loaded by one Codex process cannot be resumed by another ("already
+  has an active writer") until that process exits.
+- **Egress.** With a custom provider, no model traffic left the machine, but every start tried
+  plugin requests to chatgpt.com and GitHub; with the default provider, `thread/start` opened a
+  connection to OpenAI. Every provider request carries the installation id, the workspace path, the
+  latest commit hash and the sandbox mode.
+
+`exec --json`:
+
+- Forces `approval_policy = never`: commands either run or are refused with a message to the model,
+  and no configuration override changes it.
+- SIGINT aborts the turn and kills a running command, but the stream ends without a final event
+  (exit code 1). Output arrives only at item completion; file changes carry no diff.
+- In 0.157.0, exec is itself built on an in-process app-server client.
+
+## Capability matrix (runtime, 0.157.0)
+
+| Capability | app-server, stable surface | exec --json |
+| --- | --- | --- |
+| start_execution | Observed | Observed |
+| instruct_at_rest | Observed, also after a restart via `thread/resume` | Observed (`exec resume`) |
+| instruct_while_running | Observed (`turn/steer`, at the next model request) | Not supported |
+| respond_to_approval | Observed (accept, decline, cancel) | Not supported (forced `never`) |
+| interrupt | Observed; running commands survive it | SIGINT, no final event |
+| pause | Not supported | Not supported |
+| discovery | Observed (`thread/list`, `thread/read`) | Not supported |
+| diff | Observed (per file and unified) | Paths only |
+| terminal output | Observed (deltas) | At completion only |
+
+Decision: [ADR 0011](../decisions/0011-codex-app-server-stable-surface.md).

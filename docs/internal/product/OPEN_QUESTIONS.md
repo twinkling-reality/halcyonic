@@ -17,7 +17,6 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 
 | Question | Why it matters | Resolved by |
 | --- | --- | --- |
-| Codex: build on the experimental `codex app-server` (the only surface with approvals, steering, interrupt and diffs) or the stable `codex exec` (no approvals)? | Codex control depth | Runtime smoke test, pinned CLI version |
 | Claude Code: Agent SDK streaming input for hosted executions; how to attach to sessions a person started in a terminal? | Discovering existing work | Runtime smoke test; documented surfaces only |
 | How does Halcyonic observe work it did not start (discovery and attach), per runtime? | The "existing project" entry path | Per-runtime validation |
 | Should a project bind to one directory, and should parallel workstreams get their own git worktrees? Agents already work only under host-configured project roots, and clients name a directory per execution. | Starting real work from the XR client without typing paths | Product and security design |

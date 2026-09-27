@@ -23,3 +23,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0008](0008-engine-independent-csharp-client-core.md) | An engine-independent C# client core with generated contract bindings | Accepted |
 | [0009](0009-opencode-v2-pinned-and-launched-by-halcyonic.md) | Target OpenCode's v2 API, pinned, on a server Halcyonic launches | Accepted |
 | [0010](0010-external-intelligence-is-read-through.md) | External intelligence is read through, not journaled | Accepted |
+| [0011](0011-codex-app-server-stable-surface.md) | Target Codex's app-server stable surface, pinned, on a server Halcyonic launches | Accepted |
