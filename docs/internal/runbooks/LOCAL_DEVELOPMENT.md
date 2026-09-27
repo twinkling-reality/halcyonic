@@ -97,7 +97,8 @@ OPENCODE_BIN="$HALCYONIC_OPENCODE_BIN" node --test packages/integrations/opencod
 
 ## Connect Salidium
 
-With a Salidium that serves its consumer contract running, create a credential for Halcyonic and
+With Salidium 0.6.0 or later running (earlier versions do not serve the consumer contract), create
+a credential for Halcyonic and
 store only the token in the data directory, readable only by you. `--json` makes Salidium print the
 token as a field instead of in prose, and `umask 077` creates the file private from the start:
 

@@ -11,8 +11,9 @@
   Salidium's consumer test daemon (`scripts/consumer-test-daemon.mjs`) from the Salidium checkout,
   with a scratch HOME, SALIDIUM_HOME and TMPDIR and a PATH without agent CLIs. The daemon serves
   synthetic sessions, installs no hooks and writes only to a temporary directory.
-- **Status:** Verified against the release candidate as revised on 2026-09-26 (below) and synthetic
-  sessions. Real Claude Code or Codex sessions and a released Salidium are not verified.
+- **Status:** Verified against the release candidate as revised on 2026-09-26 and synthetic sessions,
+  then against the released `salidium@0.6.0` daemon (below). Real Claude Code or Codex sessions are
+  not verified.
 
 ## Findings
 
@@ -82,3 +83,14 @@ HEAD `27c9dbb` plus its uncommitted changes.
   maximum lengths on every text field.
 - **Test daemon** runs no providers, sets its own SALIDIUM_HOME, fixes its clock, and seeds a third,
   working session. All five real-wire tests passed, and live reports matched the fixtures exactly.
+
+## Released (2026-09-27)
+
+`salidium@0.6.0` is on npm (`latest`, SLSA provenance, tag v0.6.0) and its CLI serves
+`/consumer/v1`; `@salidium/consumer-contract` is not published yet, which does not affect Halcyonic,
+since it reads the wire with its own schemas. Halcyonic's client ran against the released daemon,
+isolated (temporary HOME, SALIDIUM_HOME, CLAUDE_CONFIG_DIR and CODEX_HOME, a PATH without agent
+CLIs, loopback): `consumer.json` was published, a credential created with `salidium consumer create
+--json` was accepted, an unknown Claude Code session answered `not_found`, an OpenCode execution
+answered `unavailable` (`runtime_not_observed`), and the feed opened with `resync`. Halcyonic's
+target is Salidium 0.6.0, contract `salidium.consumer` 1.0.
