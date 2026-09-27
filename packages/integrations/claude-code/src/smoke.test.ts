@@ -43,9 +43,11 @@ describe('Claude Agent against the real Claude Code CLI', {
     timeout: 600_000,
   }, async () => {
     const workdir = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-claude-smoke-')));
+    const records = mkdtempSync(join(tmpdir(), 'halcyonic-claude-smoke-records-'));
     let launched: Options | undefined;
     const adapter = new ClaudeAgentRuntimeAdapter({
       directoryPolicy: (path: string) => ({ ok: true, directory: path }),
+      processRecordFile: join(records, 'claude-agent-processes.json'),
       query: (params) => {
         launched = params.options;
         return query(params);
@@ -130,6 +132,7 @@ describe('Claude Agent against the real Claude Code CLI', {
     } finally {
       await adapter.close();
       rmSync(workdir, { recursive: true, force: true });
+      rmSync(records, { recursive: true, force: true });
     }
   });
 });

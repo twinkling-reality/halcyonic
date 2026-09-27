@@ -39,6 +39,7 @@ import {
   systemClock,
 } from '@halcyonic/runtime-core';
 import { buildEnvironment } from './environment.ts';
+import { ProcessGuard, type StaleProcess } from './process-guard.ts';
 
 /**
  * What the adapter implements on the verified Agent SDK surface. How the CLI treats a message
@@ -67,6 +68,11 @@ export type QueryFunction = (params: {
 export interface ClaudeAgentRuntimeOptions {
   /** Which directories sessions may work in, decided by the host. A `cwd` it refuses is rejected. */
   readonly directoryPolicy: DirectoryPolicy;
+  /**
+   * File listing the Claude Code processes this adapter launched while they run, so that a later
+   * start can stop any that outlived a crash. Use one file per runtime instance.
+   */
+  readonly processRecordFile: string;
   readonly runtimeId?: RuntimeId;
   /** Where allowlisted variables are read from. Defaults to the control plane's environment. */
   readonly inheritedEnvironment?: Readonly<Record<string, string | undefined>>;
@@ -99,6 +105,11 @@ interface StartOptions {
  * Runs Claude Code sessions through the Claude Agent SDK in streaming input mode. Halcyonic
  * chooses each session id at launch, so an execution can be correlated with what Salidium and
  * Seorak record before the runtime reports anything. Only executions it starts are controlled.
+ *
+ * Every Claude Code process is launched through a `ProcessGuard`: recorded in the process record
+ * file and watched by a watchdog process before it receives any input, so none outlives the
+ * process hosting the adapter, however that process ends. This relies on `ps` and POSIX signals:
+ * macOS and Linux only.
  */
 export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
@@ -107,6 +118,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly #executable: string | undefined;
   readonly #clock: Clock;
   readonly #query: QueryFunction;
+  readonly #guard: ProcessGuard;
   readonly #sessions = new Map<ExecutionId, ClaudeSession>();
   #closed = false;
 
@@ -115,6 +127,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       options.inheritedEnvironment ?? process.env,
       options.environment ?? {},
     );
+    this.#guard = new ProcessGuard(options.processRecordFile);
     this.#directoryPolicy = options.directoryPolicy;
     this.#executable = options.pathToClaudeCodeExecutable;
     this.#clock = options.clock ?? systemClock;
@@ -128,9 +141,24 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     };
   }
 
+  /** Pid of the watchdog process while one runs, for diagnostics. */
+  get watchdogPid(): number | null {
+    return this.#guard.watchdogPid;
+  }
+
   validateStartOptions(options: RuntimeOptions): OptionsValidation {
     const parsed = parseStartOptions(options, this.#directoryPolicy);
     return parsed.ok ? { ok: true } : parsed;
+  }
+
+  /**
+   * Stops Claude Code processes that an earlier run launched and that are still running, as listed
+   * in the process record file, each only while the process with its pid is still that process.
+   * Call it at startup; the first launch also waits for it. Once it has succeeded, it returns
+   * nothing.
+   */
+  stopStaleProcesses(): Promise<readonly StaleProcess[]> {
+    return this.#guard.stopStale();
   }
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
@@ -182,12 +210,16 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     await this.#session(request.execution).interrupt();
   }
 
-  /** Ends every query this adapter started. The SDK then stops each Claude Code process. */
+  /**
+   * Ends every query this adapter started. The SDK then stops each Claude Code process; this
+   * resolves once they have exited, the process record file is removed and the watchdog stopped.
+   */
   async close(): Promise<void> {
     this.#closed = true;
     const sessions = [...this.#sessions.values()];
     this.#sessions.clear();
     await Promise.all(sessions.map((session) => session.close()));
+    await this.#guard.close();
   }
 
   #options(start: StartOptions, session: ClaudeSession): Options {
@@ -196,6 +228,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       env: { ...this.#environment },
       sessionId: session.id,
       canUseTool: session.canUseTool,
+      spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, session.id),
       // Claude Code's own system prompt. Without this option the SDK sends an empty one.
       systemPrompt: { type: 'preset', preset: 'claude_code' },
       // settingSources stays unset: every settings source loads, so the user's hooks run and

@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
-import { EnvironmentError } from '@halcyonic/integration-claude-code';
+import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { ConfigError, loadConfig } from './config.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
-import { ANTHROPIC_KEY_FILE, createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
+import {
+  ANTHROPIC_KEY_FILE,
+  CLAUDE_AGENT_PROCESS_RECORD,
+  createRuntimeAdapters,
+  stopStaleRuntimeServers,
+} from './runtimes.ts';
 import { SCENARIOS } from './testing/harness.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-runtimes-'));
@@ -76,6 +83,51 @@ describe('runtime composition', () => {
       [],
       'nothing was recorded, so nothing is stopped',
     );
+    await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test('a Claude Code process recorded by an earlier run is stopped at startup, without launching anything', async (t) => {
+    const dataDir = mkdtempSync(join(base, 'claude-stale-'));
+    // Plays a Claude Code process that outlived a crashed control plane.
+    const sessionId = randomUUID();
+    const orphan = spawn(
+      process.execPath,
+      ['-e', 'setInterval(() => {}, 1000)', '--', `--session-id=${sessionId}`],
+      { stdio: 'ignore' },
+    );
+    const stoppedBy = new Promise((resolve) =>
+      orphan.once('exit', (_code, signal) => resolve(signal)),
+    );
+    t.after(() => orphan.kill('SIGKILL'));
+    const pid = orphan.pid;
+    assert.ok(pid !== undefined);
+    // Recorded as the adapter records a launch: the start time and command line `ps` reports.
+    const fields = execFileSync('ps', ['-ww', '-p', String(pid), '-o', 'lstart=,args='], {
+      env: { PATH: '/bin:/usr/bin', TZ: 'UTC', LC_ALL: 'C' },
+      encoding: 'utf8',
+    })
+      .trim()
+      .split(/\s+/);
+    const record = join(dataDir, CLAUDE_AGENT_PROCESS_RECORD);
+    const startedAt = fields.slice(0, 5).join(' ');
+    const command = fields.slice(5).join(' ');
+    writeFileSync(record, JSON.stringify({ processes: [{ pid, startedAt, command, sessionId }] }), {
+      mode: 0o600,
+    });
+
+    const hosted = adapters(
+      { HALCYONIC_CLAUDE_AGENT: '1' },
+      { ...HOST, ANTHROPIC_API_KEY: 'not-a-real-key' },
+      dataDir,
+    );
+    assert.deepEqual(await stopStaleRuntimeServers(hosted), [
+      { runtimeId: 'claude-agent', outcome: 'stopped', pid },
+    ]);
+    assert.equal(await stoppedBy, 'SIGTERM');
+    assert.equal(existsSync(record), false);
+    const claude = hosted.find((adapter) => adapter instanceof ClaudeAgentRuntimeAdapter);
+    assert.ok(claude instanceof ClaudeAgentRuntimeAdapter);
+    assert.equal(claude.watchdogPid, null, 'nothing was launched');
     await Promise.all(hosted.map((adapter) => adapter.close()));
   });
 

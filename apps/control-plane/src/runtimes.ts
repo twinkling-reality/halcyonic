@@ -12,6 +12,9 @@ export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
 /** The file in the data directory where the OpenCode server Halcyonic launched is recorded. */
 export const OPENCODE_SERVER_RECORD = 'opencode-server.json';
 
+/** The file in the data directory listing the Claude Code processes Halcyonic launched, while they run. */
+export const CLAUDE_AGENT_PROCESS_RECORD = 'claude-agent-processes.json';
+
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
   readonly directoryPolicy: DirectoryPolicy;
@@ -36,6 +39,7 @@ export function createRuntimeAdapters(
     adapters.push(
       new ClaudeAgentRuntimeAdapter({
         directoryPolicy: dependencies.directoryPolicy,
+        processRecordFile: join(dependencies.dataDir, CLAUDE_AGENT_PROCESS_RECORD),
         inheritedEnvironment: withAnthropicKey(dependencies.environment, dependencies.dataDir),
         environment: additions,
         ...(config.claudeExecutable !== null && {
@@ -58,18 +62,25 @@ export function createRuntimeAdapters(
 }
 
 /**
- * Stops runtime servers that an earlier control plane launched and that outlived it, such as an
- * OpenCode server left behind by a crash, before anything else can reach them.
+ * Stops runtime processes that an earlier control plane launched and that outlived it, such as an
+ * OpenCode server or Claude Code processes left behind by a crash, before anything else can reach
+ * them. Reports each recorded process and what stopping it found.
  */
 export async function stopStaleRuntimeServers(
   adapters: readonly RuntimeAdapter[],
-): Promise<{ runtimeId: string; outcome: string }[]> {
-  const stopped: { runtimeId: string; outcome: string }[] = [];
+): Promise<{ runtimeId: string; outcome: string; pid: number }[]> {
+  const stopped: { runtimeId: string; outcome: string; pid: number }[] = [];
   for (const adapter of adapters) {
-    if (!(adapter instanceof OpenCodeRuntimeAdapter)) continue;
-    const result = await adapter.stopStaleServer();
-    if (result.outcome !== 'none') {
-      stopped.push({ runtimeId: adapter.descriptor.runtime_id, outcome: result.outcome });
+    const runtimeId = adapter.descriptor.runtime_id;
+    if (adapter instanceof OpenCodeRuntimeAdapter) {
+      const result = await adapter.stopStaleServer();
+      if (result.outcome !== 'none') {
+        stopped.push({ runtimeId, outcome: result.outcome, pid: result.pid });
+      }
+    } else if (adapter instanceof ClaudeAgentRuntimeAdapter) {
+      for (const { pid, outcome } of await adapter.stopStaleProcesses()) {
+        stopped.push({ runtimeId, outcome, pid });
+      }
     }
   }
   return stopped;
