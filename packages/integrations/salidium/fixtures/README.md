@@ -3,10 +3,12 @@
 `v1/` holds copies of the retained fixtures of Salidium's consumer contract v1, from
 `packages/consumer-contract/fixtures/v1/` in the Salidium repository
 (<https://github.com/twinkling-reality/salidium>), release candidate `1.0.0-rc.0` as revised on
-2026-09-26, copied that day before the version was published. Salidium recorded them from a real
-daemon serving invented sessions on a fixed clock: every name, path and id in them is made up, and
-they hold no credentials. The redaction marker in one statement (`ghp_[GITHUB_TOKEN#1]`) is
-Salidium's proof that it redacts, not a token.
+2026-09-26, copied that day before the version was published. They equal, value for value, the
+fixtures of `@salidium/consumer-contract@1.0.0-rc.0` as published on npm on 2026-09-27 (SLSA
+provenance, commit `0e9269a`). Salidium recorded them from a real daemon serving invented sessions
+on a fixed clock: every name, path and id in them is made up, and they hold no credentials. The
+redaction marker in one statement (`ghp_[GITHUB_TOKEN#1]`) is Salidium's proof that it redacts, not
+a token.
 
 Twelve of Salidium's thirteen are copied:
 

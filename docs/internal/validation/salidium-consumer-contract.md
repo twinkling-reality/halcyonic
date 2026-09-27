@@ -53,13 +53,13 @@ it is fixing them before the freeze.
 
 - Halcyonic reads understanding through at `GET /api/executions/:execution_id/understanding` and
   never journals it ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)).
-- Halcyonic's runtime kinds `claude-code` and `codex` map to Salidium's providers; every other kind,
-  including `mock` and `opencode`, is not observed by Salidium.
+- Halcyonic's runtime kind `claude-agent` maps to Salidium's provider `claude-code`, and `codex` to
+  `codex`; every other kind, including `mock` and `opencode`, is not observed by Salidium.
 - The credential lives in `<data dir>/salidium-credential` with mode 0600, is read on every request,
   and is never logged or passed to launched agents.
 - Re-run the real-wire tests (`SALIDIUM_CHECKOUT=<checkout> node --test
-  packages/integrations/salidium/src/live-salidium.test.ts`) and re-copy the fixtures whenever
-  Salidium changes the wire, and pin the published version when it exists.
+  packages/integrations/salidium/src/live-salidium.test.ts`) whenever Salidium changes the wire,
+  and re-copy the fixtures from the published `@salidium/consumer-contract` of the new version.
 
 ## Revised release candidate (2026-09-26)
 
@@ -87,8 +87,10 @@ HEAD `27c9dbb` plus its uncommitted changes.
 ## Released (2026-09-27)
 
 `salidium@0.6.0` is on npm (`latest`, SLSA provenance, tag v0.6.0) and its CLI serves
-`/consumer/v1`; `@salidium/consumer-contract` is not published yet, which does not affect Halcyonic,
-since it reads the wire with its own schemas. Halcyonic's client ran against the released daemon,
+`/consumer/v1`. `@salidium/consumer-contract@1.0.0-rc.0` followed the same day, on the dist-tags
+`next` and `latest`. Both provenance attestations name commit `0e9269a` on `main`. Halcyonic does not
+depend on the package, since it reads the wire with its own schemas, but the twelve fixtures it keeps
+equal the published package's value for value. Halcyonic's client ran against the released daemon,
 isolated (temporary HOME, SALIDIUM_HOME, CLAUDE_CONFIG_DIR and CODEX_HOME, a PATH without agent
 CLIs, loopback): `consumer.json` was published, a credential created with `salidium consumer create
 --json` was accepted, an unknown Claude Code session answered `not_found`, an OpenCode execution
