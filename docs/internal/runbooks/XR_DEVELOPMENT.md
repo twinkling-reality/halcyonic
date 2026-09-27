@@ -78,10 +78,12 @@ Enter Play mode with the Meta XR Simulator active. The client reads the token fr
 connects to `ws://127.0.0.1:47800/realtime` (override with `HALCYONIC_ENDPOINT`). The line above
 the characters says whether the state is live.
 
-- **Keep the editor and the Simulator on screen.** Run In Background is on, so Play mode continues
-  while the Simulator's window has focus. But when the editor and the Simulator sat on a desktop
-  Space that was not shown, the XR session stayed at READY, nothing rendered, and even the client's
-  heartbeat stalled until the control plane dropped it.
+- **Keep the editor frontmost.** The editor submitted XR frames only while it was the active
+  application; hidden or merely visible, the session stayed at READY and nothing rendered. Run In
+  Background is on, but it did not change this.
+- **Known failure on this Mac.** On an M5 Max with macOS 26.7, every session then failed at its
+  first frame (`XR_ERROR_RUNTIME_FAILURE`), with the Simulator warning that it cannot find MoltenVK
+  entry points. See [meta-xr-platform.md](../validation/meta-xr-platform.md) for what was tried.
 - **First launch.** The Simulator starts with a welcome screen.
 - **Controllers by default.** The Simulator starts with controllers as its input; the hands-only
   check needs its inputs switched to hands.

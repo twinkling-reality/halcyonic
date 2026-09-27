@@ -76,24 +76,38 @@ packages pinned above.
 
 ## Simulator (2026-09-27)
 
-The stage scene ran in Play mode against Meta XR Simulator 207.0 (the active OpenXR runtime), on
-macOS arm64 with Metal. The characters have not been seen in the Simulator yet.
+The stage scene ran in Play mode against Meta XR Simulator 207.0, the active OpenXR runtime.
+Machine: an Apple M5 Max on macOS 26.7, with Metal. Nothing has rendered in the Simulator yet, so
+the characters have not been seen there.
 
-- **Client connection.** OpenXR loaded the Simulator and the Halcyonic client connected to the
+- **Client connection.** OpenXR loaded the Simulator, and the Halcyonic client connected to the
   control plane.
-- **Pause bug.** Unity reported a resume without a pause when the XR session started, which exposed
-  a pause bug in the client (fixed in 6df47ac).
-- **Hidden desktop.** With the editor and the Simulator on a desktop Space that was not shown, the
-  session reached READY and never SYNCHRONIZED: after one frame the app submitted no more, and the
-  client's heartbeat to the control plane stalled. Turning on Run In Background did not change this.
-  The likely cause is macOS throttling applications whose windows are not visible (App Nap or
-  occlusion); it has not been confirmed with the windows on screen.
-- **Runtime failure.** One session ended after about a minute with `xrEndFrame` returning
-  `XR_ERROR_RUNTIME_FAILURE`, right after the Simulator logged that passthrough was null. The cause
-  is not known.
+- **Pause bug.** Unity reported a resume without a pause when the XR session started. That exposed
+  a pause bug in the client, fixed in 6df47ac.
+- **Frames only while the editor is active.** Hidden windows: after one frame the app submitted no
+  more, so the session never left READY, and the client's heartbeat to the control plane stalled.
+  Visible but inactive windows: the editor still submitted no frames. Frames flowed only once the
+  editor was the frontmost application; Run In Background made no difference.
+- **Every frame is refused.** With frames flowing, each session failed at its first `xrEndFrame`
+  with `XR_ERROR_RUNTIME_FAILURE`:
+  - The Simulator marked every `xrBeginFrame` as discarded.
+  - Before each session it warned "Cannot find MoltenVK entry points".
+  - Unity then restarted the session, which failed the same way.
+- **What did not help.** None of these changed the failure:
+  - activating the Simulator through Unity's Window > Meta > Meta XR Simulator menu, which sets the
+    runtime for the editor process;
+  - a freshly launched Simulator;
+  - multi-pass rendering;
+  - turning off Meta's foveation feature on Standalone;
+  - a scene holding only Meta's Camera Rig (Halcyonic's bootstrap still added its stage, which draws
+    only text and spheres).
+- **Libraries.** The editor process loaded the Simulator runtime (`SIMULATOR.so`), but no Vulkan or
+  MoltenVK library appeared among its open files, although the Simulator ships both.
+- **Inference.** The Simulator's Metal path fails on this machine. Unresolved: whether the cause is
+  the Simulator version, the GPU and OS, or a missing setup step. The first session also logged a
+  null passthrough just before failing, although passthrough is off in the scene and the project.
 - **Warnings.** The Simulator rejects the Oculus Touch proximity binding
-  (`XR_ERROR_PATH_UNSUPPORTED`) and warns that it cannot find MoltenVK entry points. Neither stopped
-  a session.
+  (`XR_ERROR_PATH_UNSUPPORTED`); that did not stop a session.
 
 ## Only settled on hardware
 
