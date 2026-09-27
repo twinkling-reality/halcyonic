@@ -24,12 +24,14 @@ license), XR Hands 1.9.0, Newtonsoft.Json 3.2.2, the Test Framework, the generat
 `packages/contracts/csharp`, and the embedded client core. It then writes the project settings,
 `Packages/packages-lock.json` and a `.meta` file for every asset.
 
-1. Check the Console for compile errors. The Unity layer (`apps/xr/Assets/Halcyonic`) has not been
+1. On the editor's first launch, Unity shows its Editor Software Terms, possibly on another desktop
+   Space. Nothing loads, and the editor log stops after licensing, until you accept them.
+2. Check the Console for compile errors. The Unity layer (`apps/xr/Assets/Halcyonic`) has not been
    compiled by Unity yet; fix anything it reports.
-2. In **Project Settings > XR Plug-in Management**, enable **OpenXR** for Android and for the
+3. In **Project Settings > XR Plug-in Management**, enable **OpenXR** for Android and for the
    desktop platform (the Simulator runs there), and enable the **Meta Quest** feature group.
-3. Run Meta's **Project Setup Tool** and apply the required fixes.
-4. Commit the generated `ProjectSettings/`, `Packages/packages-lock.json` and `.meta` files. The
+4. Run Meta's **Project Setup Tool** and apply the required fixes.
+5. Commit the generated `ProjectSettings/`, `Packages/packages-lock.json` and `.meta` files. The
    `.meta` files fix asset identities, so they must be committed once and kept.
 
 ## Scene
