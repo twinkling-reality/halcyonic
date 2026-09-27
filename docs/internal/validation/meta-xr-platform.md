@@ -70,6 +70,11 @@ packages pinned above.
 - **Project Setup Tool.** On the fresh project its required tasks were the Oculus Touch interaction
   profile (Standalone) and a single GameActivity entry point (Android). Hand tracking is a
   recommended task, off by default.
+- **Android build checks.** The Android build refuses Active Input Handling set to "Both" (Unity:
+  "not supported on Android"), so the project uses the Input System package only. A failed build can
+  leave the XR settings in the preloaded assets, the Performance Testing package's run files in
+  `Assets/Resources` and `Assets/StreamingAssets/RuntimeActionBindings.json` behind; remove them
+  rather than commit them.
 - **Per-machine file.** Meta's Immersive Debugger writes `Assets/Resources/DevAgentSettings.asset`
   with the machine's LAN address and a generated access token.
 - **Halcyonic's code.** The contracts, the client core and the Unity layer compiled with no warnings.

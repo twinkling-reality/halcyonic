@@ -30,7 +30,8 @@ The project settings are committed, so a fresh clone opens configured:
 - OpenXR is the XR loader for Android and for the desktop platform (the Simulator runs there), and
   starts with the app.
 - Meta's OpenXR feature set is enabled on both, with the Oculus Touch controller profiles.
-- Active Input Handling is set to both input systems, and the Android entry point is GameActivity.
+- Active Input Handling is the Input System package only: the Android build refuses "Both" with the
+  GameActivity entry point, which Meta's setup tool requires.
 - Hand tracking support is "Controllers and Hands", and the Android manifest declares it.
 
 Meta's Project Setup Tool reports no required task. Its remaining recommendations (Vulkan,
@@ -107,7 +108,16 @@ workstream.
 - Opening the system menu hides the hands and keeps the scene rendering (VRC.Quest.Input.4).
   Whether the Simulator reproduces the real focus change is itself something to confirm.
 
-## On a Quest (later)
+## On a Quest
+
+The Android player settings are committed:
+- application id `com.halcyonic.xr`, product name Halcyonic;
+- IL2CPP on ARM64, minimum API level 32;
+- Internet Access set to Require, because Unity's automatic detection does not see
+  `ClientWebSocket` and would leave the permission out.
+
+Switch the editor's platform to Android before building. `adb` comes with Unity's Android module,
+in `PlaybackEngines/AndroidPlayer/SDK/platform-tools`.
 
 The control plane serves only loopback. Over USB, with developer mode enabled on the headset:
 
@@ -115,11 +125,10 @@ The control plane serves only loopback. Over USB, with developer mode enabled on
 adb reverse tcp:47800 tcp:47800
 ```
 
-Then copy the token into the app's persistent data directory, replacing `<application id>` with
-the id set in Player Settings:
+Then copy the token into the app's persistent data directory:
 
 ```bash
-adb push ~/.halcyonic/access-token /sdcard/Android/data/<application id>/files/access-token
+adb push ~/.halcyonic/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token
 ```
 
 Whether `ClientWebSocket` works under IL2CPP on Quest is unverified; test it first.
