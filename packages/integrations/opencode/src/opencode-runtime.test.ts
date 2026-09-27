@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -11,6 +11,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { OPENCODE_CAPABILITIES, OpenCodeRuntimeAdapter } from './opencode-runtime.ts';
 import { buildEnvironment, INHERITED_VARIABLES } from './server.ts';
+import { allowOnly } from './testing/directory-policy.ts';
 import { TEST_EXECUTION } from './testing/observations.ts';
 
 function temporary(t: TestContext): string {
@@ -19,11 +20,13 @@ function temporary(t: TestContext): string {
   return directory;
 }
 
-function adapter(t: TestContext, binaryPath = '/nonexistent/opencode') {
+/** An adapter whose binary cannot start, whose policy allows only its temporary directory. */
+function adapter(t: TestContext) {
   const directory = temporary(t);
   const runtime = new OpenCodeRuntimeAdapter({
-    binaryPath,
+    binaryPath: '/nonexistent/opencode',
     serverRecordFile: join(directory, 'server.json'),
+    directoryPolicy: allowOnly(directory),
   });
   t.after(() => runtime.close());
   return { runtime, directory };
@@ -86,6 +89,54 @@ describe('OpenCode start options', () => {
       );
     }
   });
+
+  test('a directory the host policy refuses is refused, with the policy message', async (t) => {
+    const { runtime } = adapter(t);
+    const outside = temporary(t);
+    const message = `${outside} is outside the directories this test allows.`;
+    assert.deepEqual(runtime.validateStartOptions({ directory: outside }), { ok: false, message });
+    await assert.rejects(
+      runtime.startExecution({
+        execution: TEST_EXECUTION,
+        instruction: 'Do the work.',
+        options: { directory: outside },
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        actionError('invalid_runtime_options')(error) && (error as Error).message === message,
+    );
+    // The adapter's own checks come first; the policy decides only on an existing directory.
+    const missing = join(outside, 'missing');
+    const result = runtime.validateStartOptions({ directory: missing });
+    assert.deepEqual(result, {
+      ok: false,
+      message: `Option "directory" does not exist: ${missing}`,
+    });
+  });
+
+  test('the policy is asked for the path as given, and a policy that throws refuses', (t) => {
+    const directory = temporary(t);
+    const asked: string[] = [];
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: '/nonexistent/opencode',
+      serverRecordFile: join(directory, 'server.json'),
+      directoryPolicy: (path) => {
+        asked.push(path);
+        if (path.endsWith('boom')) throw new Error('policy failure');
+        return { ok: true, directory: path };
+      },
+    });
+    t.after(() => runtime.close());
+    mkdirSync(join(directory, 'sub'));
+    const given = `${directory}/sub/..`;
+    assert.deepEqual(runtime.validateStartOptions({ directory: given }), { ok: true });
+    assert.deepEqual(asked, [given]);
+    const boom = join(directory, 'boom');
+    mkdirSync(boom);
+    const refused = runtime.validateStartOptions({ directory: boom });
+    assert.equal(refused.ok, false);
+    assert.match(refused.ok ? '' : refused.message, /policy failure/);
+  });
 });
 
 describe('OpenCode server environment', () => {
@@ -126,6 +177,7 @@ describe('OpenCode server environment', () => {
           new OpenCodeRuntimeAdapter({
             binaryPath: '/nonexistent/opencode',
             serverRecordFile: join(temporary(t), 'server.json'),
+            directoryPolicy: allowOnly(tmpdir()),
             env: { [name]: 'x' },
           }),
         new RegExp(name),

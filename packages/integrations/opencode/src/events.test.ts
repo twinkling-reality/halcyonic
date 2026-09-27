@@ -21,6 +21,8 @@ import { SseParser } from './sse.ts';
 import { assertValidObservations } from './testing/observations.ts';
 
 const NOW = new Date('2026-09-26T12:00:00.000Z');
+/** The session of simple-turn.sse, prompted again in second-turn.sse. */
+const SIMPLE = 'ses_f203a445fffeuXBorlhS7f2ATC';
 
 interface Replayed {
   readonly state: SessionState;
@@ -259,6 +261,48 @@ describe('OpenCode 2.0.18 event mapping', () => {
       ['runtime.turn.started'],
     );
     assert.notEqual(state.turn, null);
+  });
+
+  test('after a reconciliation settled a turn, older transitions in the stream are ignored', () => {
+    // Everything up to the end of the first turn (created 1790460673313) counts as settled.
+    const state = createSessionState();
+    state.settledThrough = 1790460673313;
+    const { observations } = only(
+      replay(
+        ['simple-turn.sse', 'second-turn.sse'],
+        new Map([[SIMPLE, { state, observations: [] }]]),
+      ),
+    );
+    assert.deepEqual(
+      observations.map((item) => [item.type, item.sequence]),
+      [
+        // The settled turn's text is history, so it is still reported.
+        ['runtime.agent_message', 7],
+        ['runtime.turn.started', 12],
+        ['runtime.agent_message', 16],
+        ['runtime.turn.completed', 19],
+      ],
+    );
+  });
+
+  test('a turn seen starting stops awaiting its prompt and dates the turn from its start', () => {
+    const state = createSessionState();
+    state.awaitingStart = true;
+    state.pendingInboxId = 'msg_1';
+    state.since = 1;
+    const event = decodeEvent(
+      JSON.stringify({
+        id: 'evt_2',
+        created: 1790460673267,
+        type: 'session.execution.started',
+        data: { sessionID: 'ses_1' },
+      }),
+    );
+    assert.ok(event !== null);
+    observeEvent(state, event, NOW);
+    assert.equal(state.awaitingStart, false);
+    assert.equal(state.pendingInboxId, null);
+    assert.equal(state.since, 1790460673267);
   });
 
   test('repeated transitions are reported once', () => {

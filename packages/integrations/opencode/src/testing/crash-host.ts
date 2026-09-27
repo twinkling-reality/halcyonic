@@ -5,6 +5,7 @@
  * with `binaryPath`, `recordFile`, `env` and `directory`.
  */
 import { OpenCodeRuntimeAdapter } from '../opencode-runtime.ts';
+import { allowOnly } from './directory-policy.ts';
 import { TEST_EXECUTION } from './observations.ts';
 
 const options = JSON.parse(process.argv[2] ?? '{}') as {
@@ -16,6 +17,7 @@ const options = JSON.parse(process.argv[2] ?? '{}') as {
 const runtime = new OpenCodeRuntimeAdapter({
   binaryPath: options.binaryPath,
   serverRecordFile: options.recordFile,
+  directoryPolicy: allowOnly(options.directory),
   env: options.env,
 });
 await runtime.startExecution({

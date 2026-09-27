@@ -1,4 +1,3 @@
-import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
@@ -11,6 +10,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
   type OptionsValidation,
@@ -41,6 +41,7 @@ import {
   launchServer,
   OPENCODE_VERSION,
   type OpenCodeServer,
+  settlesWithin,
 } from './server.ts';
 import {
   readServerRecord,
@@ -70,6 +71,11 @@ export interface OpenCodeRuntimeOptions {
    * stop a server that outlived a crash. Use one file per runtime instance.
    */
   readonly serverRecordFile: string;
+  /**
+   * The host's decision on which directories agents may work in. A directory it refuses is
+   * refused as a start option, and a session runs in the real path it returns.
+   */
+  readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
   /**
    * Variables set on top of the inherited allowlist, for example provider credentials, or
@@ -112,6 +118,10 @@ interface HostedSession {
   readonly emit: ObservationSink;
   readonly connection: Connection;
   readonly state: SessionState;
+  /** Requests sent for this session that OpenCode has not answered yet. */
+  readonly inFlight: Set<Promise<unknown>>;
+  /** Set while the session is reconciled; requests wait for it, so none races the snapshot. */
+  reconciling: Promise<void> | null;
   lost: boolean;
 }
 
@@ -120,6 +130,8 @@ const SESSION_CREATED: Provenance = {
   native_type: 'opencode/session.create',
 };
 const READ_TIMEOUT_MS = 5000;
+/** How often a snapshot caught between two recorded states is read again before giving up. */
+const TRANSITIONAL_READS = 20;
 
 /**
  * Runs OpenCode 2.0.18 executions through its v2 server API. The adapter owns one server
@@ -139,6 +151,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   readonly #binaryPath: string;
   readonly #recordFile: string;
+  readonly #directoryPolicy: DirectoryPolicy;
   readonly #environment: Readonly<Record<string, string>>;
   readonly #port: number | null;
   readonly #startupTimeoutMs: number;
@@ -154,6 +167,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   constructor(options: OpenCodeRuntimeOptions) {
     this.#binaryPath = options.binaryPath;
     this.#recordFile = options.serverRecordFile;
+    this.#directoryPolicy = options.directoryPolicy;
     this.#environment = buildEnvironment(process.env, options.env ?? {});
     this.#port = options.port ?? null;
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 30_000;
@@ -175,7 +189,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options);
+    const parsed = parseStartOptions(options, this.#directoryPolicy);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
 
@@ -194,25 +208,18 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    const parsed = parseStartOptions(request.options);
+    // Checked again here: the directory may have changed since admission.
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    let directory: string;
-    try {
-      // The real path: OpenCode computes an odd relative subpath for a directory behind a symlink.
-      directory = realpathSync(parsed.value.directory);
-    } catch {
-      throw new RuntimeActionError(
-        'invalid_runtime_options',
-        `Option "directory" does not exist: ${parsed.value.directory}`,
-      );
-    }
     const connection = await this.#connection();
     const body: Record<string, unknown> = {
       title: `Halcyonic execution ${request.execution.execution_id}`,
-      location: { directory },
+      // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
+      // directory reached through a symbolic link.
+      location: { directory: parsed.value.directory },
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     const created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');
@@ -230,6 +237,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       emit: request.emit,
       connection,
       state: createSessionState(),
+      inFlight: new Set(),
+      reconciling: null,
       lost: false,
     };
     this.#sessions.set(request.execution.execution_id, session);
@@ -256,15 +265,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
     const session = this.#hosted(request.execution);
-    // Its first event must be observed, so the turn starts only on a connected stream.
+    // Its first event should be observed, so the turn starts on a connected stream.
     await ready(session.connection);
-    if (session.lost) throw unreachableError();
-    if (session.state.turn !== null || session.state.awaitingStart) {
-      throw new RuntimeActionError(
-        'turn_in_progress',
-        'OpenCode is running a turn for this execution; instructions are delivered only between turns.',
-      );
-    }
     await this.#prompt(session, request.text);
   }
 
@@ -282,24 +284,22 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       decision: request.decision === 'approve' ? 'once' : 'reject',
     };
     if (request.message !== null) body.message = request.message;
-    await send(session.connection, 'POST', path, body, 'approval_not_pending');
-    if (session.state.approvals.has(request.approval_id)) {
-      session.state.replies.set(
-        request.approval_id,
-        request.decision === 'approve' ? 'approved' : 'denied',
-      );
-    }
+    await this.#act(session, async () => {
+      await send(session.connection, 'POST', path, body, 'approval_not_pending');
+      if (session.state.approvals.has(request.approval_id)) {
+        session.state.replies.set(
+          request.approval_id,
+          request.decision === 'approve' ? 'approved' : 'denied',
+        );
+      }
+    });
   }
 
   async interrupt(request: { execution: ExecutionContext }): Promise<void> {
     const session = this.#hosted(request.execution);
     const path = `/api/session/${encodeURIComponent(session.sessionId)}/interrupt`;
-    const response = await send(
-      session.connection,
-      'POST',
-      path,
-      undefined,
-      'execution_unknown_to_runtime',
+    const response = await this.#act(session, () =>
+      send(session.connection, 'POST', path, undefined, 'execution_unknown_to_runtime'),
     );
     const interrupted = isRecord(response.body) ? response.body.interrupted : undefined;
     if (interrupted === true) return;
@@ -501,34 +501,53 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     const sessions = [...this.#bySessionId.values()].filter(
       (session) => session.connection === connection && !session.lost,
     );
-    if (sessions.length === 0) return;
-    const client = connection.server.client;
-    let active: ReadonlySet<string>;
-    try {
-      active = await readActiveSessions(client);
-    } catch (error) {
-      for (const session of sessions) {
-        this.#lose(
-          session,
-          `After the OpenCode event stream reconnected, the running sessions could not be read (${message(error)}).`,
-        );
-      }
-      return;
-    }
     for (const session of sessions) {
-      if (connection.halted.signal.aborted || session.lost) continue;
-      try {
-        const snapshot = await readSnapshot(client, session, active.has(session.sessionId));
-        if (connection.halted.signal.aborted || session.lost) continue;
-        const result = reconcileSession(session.state, snapshot, this.#clock.now());
-        if (result.ok) this.#emit(session, result.observations);
-        else this.#lose(session, result.reason);
-      } catch (error) {
-        this.#lose(
-          session,
-          `After the OpenCode event stream reconnected, the session could not be read (${message(error)}).`,
-        );
+      if (connection.halted.signal.aborted) return;
+      if (!session.lost) await this.#reconcile(session);
+    }
+  }
+
+  /**
+   * Re-reads one session and reports what changed while the stream was down. Requests for the
+   * session wait meanwhile, and answers still on their way are awaited first, so the state knows,
+   * for example, whether its last prompt was accepted.
+   */
+  async #reconcile(session: HostedSession): Promise<void> {
+    let release: () => void = () => undefined;
+    session.reconciling = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const lost = (reason: string) =>
+      this.#lose(session, `After the OpenCode event stream reconnected, ${reason}`);
+    try {
+      const answered = Promise.allSettled([...session.inFlight]);
+      if (!(await settlesWithin(answered, READ_TIMEOUT_MS))) {
+        lost('a request for this session was still unanswered.');
+        return;
       }
+      for (let reads = 1; ; reads += 1) {
+        const snapshot = await readSnapshot(session.connection.server.client, session);
+        if (session.connection.halted.signal.aborted || session.lost) return;
+        const result = reconcileSession(session.state, snapshot, this.#clock.now());
+        if (result.kind === 'settled') {
+          this.#emit(session, result.observations);
+          return;
+        }
+        if (result.kind === 'unsettled') {
+          this.#lose(session, result.reason);
+          return;
+        }
+        if (reads >= TRANSITIONAL_READS) {
+          lost('the session did not settle into a recorded state.');
+          return;
+        }
+        await delay(50);
+      }
+    } catch (error) {
+      lost(`the session could not be read (${message(error)}).`);
+    } finally {
+      session.reconciling = null;
+      release();
     }
   }
 
@@ -547,21 +566,63 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return session;
   }
 
-  async #prompt(session: HostedSession, text: string): Promise<void> {
-    // Set before sending: the execution can start before the response arrives.
-    session.state.awaitingStart = true;
+  /**
+   * Sends a request for a session once no reconciliation of it is under way, and tracks it until
+   * OpenCode answers. The request starts in the same tick as the check, so none slips in between.
+   */
+  async #act<T>(session: HostedSession, run: () => Promise<T>): Promise<T> {
+    while (session.reconciling !== null) await session.reconciling;
+    if (session.lost) throw unreachableError();
+    const request = run();
+    session.inFlight.add(request);
     try {
-      await send(
-        session.connection,
-        'POST',
-        `/api/session/${encodeURIComponent(session.sessionId)}/prompt`,
-        { text },
-        'execution_unknown_to_runtime',
-      );
-    } catch (error) {
-      session.state.awaitingStart = false;
-      throw error;
+      return await request;
+    } finally {
+      session.inFlight.delete(request);
     }
+  }
+
+  /** Starts a turn at rest. OpenCode names the prompt's inbox item, which traces its start. */
+  async #prompt(session: HostedSession, text: string): Promise<void> {
+    const state = session.state;
+    await this.#act(session, async () => {
+      if (state.turn !== null || state.awaitingStart) {
+        throw new RuntimeActionError(
+          'turn_in_progress',
+          'OpenCode is running a turn for this execution; instructions are delivered only between turns.',
+        );
+      }
+      // Set before sending: the execution can start before the response arrives.
+      state.awaitingStart = true;
+      let response: HttpResponse;
+      try {
+        response = await send(
+          session.connection,
+          'POST',
+          `/api/session/${encodeURIComponent(session.sessionId)}/prompt`,
+          { text },
+          'execution_unknown_to_runtime',
+        );
+      } catch (error) {
+        state.awaitingStart = false;
+        throw error;
+      }
+      const item =
+        isRecord(response.body) && isRecord(response.body.data) ? response.body.data : {};
+      if (typeof item.id !== 'string') {
+        state.awaitingStart = false;
+        throw new RuntimeActionError(
+          'runtime_protocol_error',
+          'OpenCode accepted the prompt without identifying it.',
+          'unknown',
+        );
+      }
+      if (state.awaitingStart) {
+        state.pendingInboxId = item.id;
+        const enqueuedAt = isRecord(item.time) ? item.time.created : null;
+        if (typeof enqueuedAt === 'number') state.since = enqueuedAt;
+      }
+    });
   }
 
   #emit(session: HostedSession, observations: readonly RuntimeObservation[]): void {
@@ -668,23 +729,27 @@ function readiness(): Readiness {
   return state;
 }
 
-async function readActiveSessions(client: OpenCodeClient): Promise<ReadonlySet<string>> {
-  const data = await readData(client, '/api/session/active');
-  if (!isRecord(data)) throw new Error('GET /api/session/active returned no session map');
-  return new Set(Object.keys(data));
-}
-
+/** Reads a session in the order `SessionSnapshot` documents: each read can only be newer. */
 async function readSnapshot(
   client: OpenCodeClient,
   session: HostedSession,
-  running: boolean,
 ): Promise<SessionSnapshot> {
   const base = `/api/session/${encodeURIComponent(session.sessionId)}`;
-  const info = await readData(client, base);
-  const permissions = await readData(client, `${base}/permission`);
-  if (!isRecord(info) || !Array.isArray(permissions)) {
-    throw new Error(`the session or its permissions had an unexpected shape`);
+  const inbox = new Set<string>();
+  if (session.state.awaitingStart) {
+    const items = await readData(client, `${base}/inbox`);
+    if (!Array.isArray(items)) throw new Error('the inbox had an unexpected shape');
+    for (const item of items) {
+      if (isRecord(item) && typeof item.id === 'string') inbox.add(item.id);
+    }
   }
+  const permissions = await readData(client, `${base}/permission`);
+  const active = await readData(client, '/api/session/active');
+  const info = await readData(client, base);
+  if (!Array.isArray(permissions) || !isRecord(active) || !isRecord(info)) {
+    throw new Error('the session, its permissions or the running sessions had an unexpected shape');
+  }
+  const running = Object.hasOwn(active, session.sessionId);
   const toolStatus = new Map<string, string>();
   if (running && session.state.tools.size > 0) {
     const messages = await readData(client, `${base}/message`);
@@ -704,10 +769,11 @@ async function readSnapshot(
     pending.push({ id: item.id, action: item.action, resources: item.resources });
   }
   return {
+    inbox,
+    permissions: pending,
     running,
     outcome: typeof info.outcome === 'string' ? info.outcome : null,
     idleAt: isRecord(info.time) && typeof info.time.idle === 'number' ? info.time.idle : null,
-    permissions: pending,
     toolStatus,
   };
 }

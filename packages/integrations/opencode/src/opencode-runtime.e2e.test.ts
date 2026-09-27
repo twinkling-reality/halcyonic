@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
 import { readProcessIdentity } from './server-record.ts';
+import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_SHELL_COMMAND, type FakeProviderOptions } from './testing/fake-provider.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { createSandbox, type OpenCodeSandbox } from './testing/sandbox.ts';
@@ -116,6 +117,7 @@ async function harness(
   const runtime = new OpenCodeRuntimeAdapter({
     binaryPath: BINARY,
     serverRecordFile: sandbox.recordFile,
+    directoryPolicy: allowOnly(sandbox.project),
     env: sandbox.env,
     ...setup.runtime,
   });
@@ -217,6 +219,12 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     );
     assertValidObservations(execution.observations, execution.context);
     assert.equal(sandbox.provider.requests.at(-1)?.model, 'fake-model');
+    // OpenCode works in the real path the directory policy returned; its prompt names it.
+    assert.ok(
+      sandbox.provider.requests[0]?.body.includes(
+        `Working directory: ${realpathSync(sandbox.project)}`,
+      ),
+    );
 
     // The server is the configured binary, and its record names it without any secret.
     const pid = runtime.serverPid;
@@ -482,6 +490,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       const runtime = new OpenCodeRuntimeAdapter({
         binaryPath: BINARY,
         serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
       });
       t.after(() => runtime.close());
@@ -512,6 +521,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       const runtime = new OpenCodeRuntimeAdapter({
         binaryPath: BINARY,
         serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
       });
       t.after(() => runtime.close());
@@ -539,14 +549,16 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     SLOW_TEST,
     async (t) => {
       // A second of silence drops the stream (OpenCode's heartbeat comes every 15 s); it reopens
-      // five seconds later. The approval is answered and the turn finishes inside that gap.
+      // five seconds later. The approval is answered three seconds after it is known, and the
+      // turn finishes, inside that gap. Whether the approval was seen live or learned by an
+      // earlier reconnect, nothing but the turn's end can be reported after it.
       const { runtime, sandbox, start } = await harness(t, {
-        runtime: { streamSilenceTimeoutMs: 1000, reconnectDelaysMs: [5000] },
+        runtime: { streamSilenceTimeoutMs: 1000, reconnectDelaysMs: [5000, 200, 200, 200] },
       });
       const execution = await start('Please RUN_SHELL for the end to end test.');
       const requested = await execution.next('runtime.approval.requested');
       assert.ok(requested.type === 'runtime.approval.requested');
-      await delay(2500);
+      await delay(3000);
       await runtime.respondToApproval({
         execution: execution.context,
         approval_id: requested.payload.approval_id,
@@ -569,15 +581,23 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   );
 
   test('reconnecting while nothing changed reports nothing twice', SLOW_TEST, async (t) => {
+    // A second of silence drops the stream again and again: during the first prompt, which
+    // blocks a fresh OpenCode project for more than a second, while the approval waits, and
+    // around the turn's end. The assertions hold whichever of these a reconnect lands in.
     const { runtime, start } = await harness(t, {
-      runtime: { streamSilenceTimeoutMs: 1000, reconnectDelaysMs: [200] },
+      runtime: {
+        streamSilenceTimeoutMs: 1000,
+        reconnectDelaysMs: Array.from({ length: 10 }, () => 200),
+      },
     });
     const execution = await start('Please RUN_SHELL for the end to end test.');
     const requested = await execution.next('runtime.approval.requested');
     assert.ok(requested.type === 'runtime.approval.requested');
-    // Several drops and reconnects happen while the approval waits.
+    await delay(1500);
+    // Several reconnects while the approval waits re-read a session that did not change.
+    const known = execution.observations.length;
     await delay(4000);
-    assert.deepEqual(execution.typesAfter('runtime.approval.requested'), []);
+    assert.deepEqual(execution.types().slice(known), []);
     await runtime.respondToApproval({
       execution: execution.context,
       approval_id: requested.payload.approval_id,
@@ -586,11 +606,14 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     });
     await execution.next('runtime.turn.completed', 1, 20_000);
     await delay(1500);
-    const types = execution.types();
-    assert.equal(types.filter((type) => type === 'runtime.approval.requested').length, 1);
-    assert.equal(types.filter((type) => type === 'runtime.turn.started').length, 1);
-    assert.equal(types.filter((type) => type === 'runtime.turn.completed').length, 1);
-    assert.equal(types.includes('runtime.connection.lost'), false);
+    const count = (type: RuntimeEventType) =>
+      execution.types().filter((item) => item === type).length;
+    assert.equal(count('runtime.turn.started'), 1);
+    assert.equal(count('runtime.approval.requested'), 1);
+    assert.equal(count('runtime.turn.completed'), 1);
+    assert.ok(count('runtime.tool.started') <= 1);
+    assert.ok(count('runtime.approval.resolved') <= 1);
+    assert.equal(count('runtime.connection.lost'), 0);
     assertValidObservations(execution.observations, execution.context);
   });
 });

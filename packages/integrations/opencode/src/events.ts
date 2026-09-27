@@ -63,8 +63,20 @@ export type ApprovalOutcome = 'approved' | 'denied';
 export interface SessionState {
   /** The running turn, identified by the id of the event that started it when that was seen. */
   turn: { readonly id: string | null } | null;
-  /** A prompt was accepted and the execution it starts has not been seen yet. */
+  /** A prompt was sent and the execution it starts has not been seen yet. */
   awaitingStart: boolean;
+  /** Inbox item id OpenCode gave that prompt; it leaves the inbox when an execution takes it. */
+  pendingInboxId: string | null;
+  /**
+   * An OpenCode time no later than the start of the running or awaited turn: when its prompt was
+   * enqueued, or when it was seen starting. An outcome recorded before it belongs to an older turn.
+   */
+  since: number | null;
+  /**
+   * OpenCode time up to which a reconciliation settled the session. Transitions reported by older
+   * events, still in the stream after a reconnect, were settled already and are ignored.
+   */
+  settledThrough: number | null;
   /** Pending permission requests. */
   readonly approvals: Set<string>;
   /** Decisions OpenCode confirmed with a 204, kept until `permission.replied` arrives. */
@@ -77,6 +89,9 @@ export function createSessionState(): SessionState {
   return {
     turn: null,
     awaitingStart: false,
+    pendingInboxId: null,
+    since: null,
+    settledThrough: null,
     approvals: new Set(),
     replies: new Map(),
     tools: new Set(),
@@ -87,6 +102,8 @@ export function createSessionState(): SessionState {
 export function endTurn(state: SessionState): void {
   state.turn = null;
   state.awaitingStart = false;
+  state.pendingInboxId = null;
+  state.since = null;
   state.approvals.clear();
   state.replies.clear();
   state.tools.clear();
@@ -117,10 +134,21 @@ export function observeEvent(
     }),
   ];
   const data = event.data;
+  // Agent text is history, not state, so it is reported even from a settled stretch.
+  if (
+    state.settledThrough !== null &&
+    event.created !== null &&
+    event.created <= state.settledThrough &&
+    event.type !== 'session.text.ended'
+  ) {
+    return [];
+  }
 
   switch (event.type) {
     case 'session.execution.started': {
       state.awaitingStart = false;
+      state.pendingInboxId = null;
+      if (event.created !== null) state.since = event.created;
       if (state.turn !== null) return [];
       state.turn = { id: event.id };
       return make('runtime.turn.started', { turn_id: event.id });
