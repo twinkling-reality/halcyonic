@@ -12,7 +12,7 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// The control plane's REST API, for what the realtime stream does not carry: journal history and
-    /// what the understanding provider says about an execution.
+    /// what the understanding and evaluation providers say about an execution.
     /// </summary>
     public sealed class ControlPlaneApi : IEventHistory, IDisposable
     {
@@ -54,6 +54,19 @@ namespace Halcyonic.Client
             var body = await GetAsync("api/executions/" + Uri.EscapeDataString(executionId) + "/understanding", cancellationToken)
                 .ConfigureAwait(false);
             return HalcyonicJson.Deserialize<UnderstandingResponse>(body);
+        }
+
+        /// <summary>
+        /// What the evaluation provider (Seorak) measured about an execution: its estimated cost, outcome
+        /// and verification runs. The control plane reads it through on request; the result states its
+        /// availability instead of failing. Each read costs Seorak three requests of a budget of 60 a
+        /// minute, so fetch it on demand, for example when a workstream is opened, and never poll.
+        /// </summary>
+        public async Task<EvaluationResponse> GetEvaluationAsync(string executionId, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/executions/" + Uri.EscapeDataString(executionId) + "/evaluation", cancellationToken)
+                .ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<EvaluationResponse>(body);
         }
 
         public void Dispose() => http.Dispose();

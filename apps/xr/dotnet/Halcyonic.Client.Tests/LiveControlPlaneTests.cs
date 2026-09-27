@@ -150,6 +150,13 @@ public class LiveControlPlaneTests
         Json.AssertRoundTrips<UnderstandingResponse>(
             await raw.GetStringAsync(new Uri(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), "api/executions/" + executionId + "/understanding")));
 
+        // So is evaluation, read through to Seorak, which does not observe the mock runtime either.
+        var evaluation = await history.GetEvaluationAsync(executionId);
+        Assert.That(evaluation.Result, Is.TypeOf<UnavailableEvaluation>());
+        Assert.That(((UnavailableEvaluation)evaluation.Result).Reason.Code, Is.EqualTo("runtime_not_observed"));
+        Json.AssertRoundTrips<EvaluationResponse>(
+            await raw.GetStringAsync(new Uri(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), "api/executions/" + executionId + "/evaluation")));
+
         var position = session.State.Position;
         connections.Last().Abort();
         await Until(s => connections.Count == 2 && s.Status.IsLive, "the session reconnects");
