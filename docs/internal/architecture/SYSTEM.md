@@ -19,14 +19,14 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
 | Codex runtime | none | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
-| Seorak integration | none | Waits for Seorak to publish its correlation endpoint; see [INTEGRATIONS.md](INTEGRATIONS.md) |
+| Seorak client: integration API v1, evaluation per execution | `packages/integrations/seorak` | Built; verified against `seorak` 0.3.0 |
 | Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
 ## Dependency rules
 
 ```text
 apps/control-plane ──> integrations/mock, claude-code, opencode ──> runtime-core ──> contracts ──> typebox
-        │               integrations/salidium ──────────────────────────────┘
+        │               integrations/salidium, seorak ──────────────────────┘
         ├──> domain ──────────────────────────────────────────────────────────┘
         ├──> runtime-core
         └──> fastify, @fastify/websocket, node:sqlite
@@ -102,6 +102,7 @@ Environment variables, all optional:
 
 Files in the data directory besides the journal and the access token, all optional and mode 0600:
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
+`seorak-credential`, the integration credential the owner issued for Halcyonic, and
 `anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
 `opencode-server.json` and `claude-agent-processes.json`, the records of the running OpenCode
 server and Claude Code processes (no secrets) that let the next start stop anything a crash left

@@ -115,6 +115,31 @@ Salidium's real-wire tests run against its consumer test daemon from a built Sal
 SALIDIUM_CHECKOUT=/path/to/salidium node --test packages/integrations/salidium/src/live-salidium.test.ts
 ```
 
+## Connect Seorak
+
+With Seorak running its local plane on 127.0.0.1:4317 (Halcyonic is verified against 0.3.0),
+issue an API integration credential for Halcyonic in Seorak's local dashboard
+(<http://127.0.0.1:4317/dashboard>): audience `http://127.0.0.1:4317/api/v1`, not the MCP one,
+with the scopes `sessions:read` and `replay:read`. Seorak shows the token once. Store only the
+token in the data directory, readable only by you:
+
+```bash
+(umask 077 && cat > ~/.halcyonic/seorak-credential)   # paste the token, then press Ctrl-D
+```
+
+`GET /api/executions/:execution_id/evaluation` then answers from Seorak for executions on runtimes
+it observes (Claude Code and Codex). Every answer states its availability, so a missing credential,
+a stopped Seorak or an unobserved runtime reads as such rather than as an error. An evaluation
+spends three of the credential's 60 requests a minute: fetch it on demand, never on a timer.
+The live test reads the credential file in its own process, never prints it, and makes at most six
+requests; name a Claude Code session Seorak captured to evaluate one:
+
+```bash
+HALCYONIC_SEORAK_CREDENTIAL_FILE=~/.halcyonic/seorak-credential \
+HALCYONIC_SEORAK_SESSION_ID=<session id> \
+node --test packages/integrations/seorak/src/live-seorak.test.ts
+```
+
 ## Replay a recorded trace
 
 ```bash

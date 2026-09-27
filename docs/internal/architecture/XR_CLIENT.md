@@ -37,10 +37,12 @@ the same definition names, as the JSON Schema document:
   non-null values, `AllowNull` for `Nullable(...)`, so a missing key is always an error.
 - String literal unions become enums whose `[EnumMember]` values are the wire strings.
 - Discriminated unions (events, commands, realtime messages, sources, provenance, attention
-  reasons, command results, approval subjects) become an abstract base class with one sealed class
-  per variant. A generated converter reads the discriminator, creates the variant and populates
-  it. Properties every variant shares move to the base, so `EventEnvelope.WorkstreamId` works
-  without a cast.
+  reasons, command results, approval subjects, understanding and evaluation results) become an
+  abstract base class with one sealed class per variant. A generated converter reads the
+  discriminator, creates the variant and populates it. Properties every variant shares move to the
+  base, so `EventEnvelope.WorkstreamId` works without a cast. Variants of two unions may have the
+  same shape, as the failures of understanding and evaluation do; each is still its own class, such
+  as `NotFoundUnderstanding` and `NotFoundEvaluation`.
 - Timestamps stay strings (`DateParseHandling.None`), `HalcyonicJson.FormatTimestamp` writes the
   canonical form, and type metadata such as `$type` is ignored.
 - `HalcyonicJson.Tolerant` ignores unknown properties, for an older client reading a newer server;
@@ -79,6 +81,10 @@ the same definition names, as the JSON Schema document:
   as a claim. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
   (`GET /api/events`, paged, refused if the journal changed).
+- **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
+  (`GetUnderstandingAsync`, `GetEvaluationAsync`). Each answer states its availability instead of
+  failing. An evaluation spends three of Seorak's 60 requests a minute, so a client fetches it when
+  a workstream is opened, never on a timer.
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. Whether `ClientWebSocket` works under IL2CPP on Quest is
   unverified ([meta-xr-platform.md](../validation/meta-xr-platform.md)); the interface is the seam
@@ -96,9 +102,12 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   resynchronization;
 - activity descriptions from both recorded traces, workspace actions for every status and
   capability combination, command feedback, and history paging;
+- the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
+  answer without one, and a refusal;
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
-  matching what arrived live, resuming after a dropped connection without a snapshot, and an
+  matching what arrived live, understanding and evaluation answering that their providers do not
+  observe the mock runtime, resuming after a dropped connection without a snapshot, and an
   execution in flight shown as stale during a control plane crash and as `unknown` after the
   restart.
 

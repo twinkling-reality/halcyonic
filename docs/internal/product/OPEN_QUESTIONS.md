@@ -24,7 +24,11 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | How are test runs identified in real runtimes? Only an inferred rule from commands is available. | `verifying` status and verification attention | Adapter design with an `inferred` provenance rule |
 | Claude Code: can a background task raise an approval after its turn ended? The domain clears pending approvals when a turn ends. | Approvals must never vanish | A smoke test with a real model |
 | Claude Code: `AskUserQuestion` arrives as an ordinary approval, and approving it gives no answers. How should questions reach the person? | Clarifying questions from agents | Adapter design after a real-model smoke test |
-| Seorak: how does a Halcyonic execution correlate with a Seorak session? The published API (`@seorak/types` 0.1.0) exposes only opaque session references. | The Evaluate surface | A published correlation endpoint in Seorak |
+| Seorak: do verification lens rows carry `runs`, `passed` and `passRate` (a fraction) as part of v1, and how are rows labeled? The published types leave metric keys open, and no session with verification runs has been read yet ([record](../validation/seorak-integration-api.md)). | Halcyonic answers `incompatible` to a row without them | Seorak publishing the row shape or an example |
+| Seorak: does 403 mean only a missing scope, and does 429 always carry `Retry-After` in seconds? What burst does a credential get by default? | How refusals read and how the client paces itself | Seorak's answer and an observed refusal |
+| Seorak: may v1 add values to its closed unions, such as availability reasons, coverage omissions, end reasons and line survival fates? | Halcyonic answers `incompatible` to a value it does not know | Seorak's compatibility rule |
+| Seorak: can a client prove that the process on the plane's port is Seorak before it sends the credential, as Salidium's discovery file allows? | While Seorak is stopped, another local account could receive the credential | A discovery mechanism in Seorak |
+| Seorak: the observed range and `dataThrough` of a resolve miss; the other availability reasons a resolve can give; whether a part that is available always carries its value; whether the verification lens can page; whether the HTTP reads need the scopes `PRIVATE_MCP_TOOL_SCOPES` names. | Halcyonic reads each of these strictly | Seorak's answer |
 
 ## Platform and security
 

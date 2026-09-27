@@ -19,6 +19,7 @@ see [SECURITY.md](SECURITY.md).
 | `GET /api/runtimes` | Runtime descriptors with capabilities; clients show only supported actions |
 | `GET /api/events?after=&limit=&workstream_id=` | Journal history after a position (limit 1 to 1000, default 200) |
 | `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution |
+| `GET /api/executions/:execution_id/evaluation` | What Seorak measured about the execution's session (estimated cost, outcome, verification runs), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. Each answer spends three of Seorak's 60 requests a minute, so fetch it on demand, for example when a workstream is opened, and never poll |
 | `POST /api/commands` | Submits a `CommandEnvelope` (JSON only) |
 
 Command submission answers honestly:

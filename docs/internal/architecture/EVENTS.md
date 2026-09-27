@@ -46,8 +46,8 @@ Every event says how its fact is known, using the same classes as Salidium:
   rejects anything else. A claim never becomes an observation.
 - `inferred`: derived by a named deterministic rule, which the event records.
 
-Assessments from other systems (Salidium, Seorak) will get their own event types that carry their
-evidence references; none exist yet.
+Assessments from other systems (Salidium, Seorak) are not events: they are read through on
+request and never journaled (see [What is not journaled](#what-is-not-journaled)).
 
 ## Catalog
 

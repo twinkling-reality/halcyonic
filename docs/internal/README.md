@@ -43,6 +43,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
+| [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
 
 ## Private documents
