@@ -12,7 +12,7 @@
   https://learn.chatgpt.com/docs/app-server.
 - **Status:** Documentation and source verified; runtime verified against 0.157.0 with a fake
   provider for both surfaces (2026-09-27, below). Real models, code mode and the daemon are not
-  tested.
+  tested. The app-server adapter was built and verified end to end on 2026-09-27 (below).
 
 ## Findings
 
@@ -160,3 +160,88 @@ App-server over stdio, stable API surface only (no `experimentalApi` opt-in):
 | terminal output | Observed (deltas) | At completion only |
 
 Decision: [ADR 0011](../decisions/0011-codex-app-server-stable-surface.md).
+
+## Adapter build (2026-09-27)
+
+Method: building `packages/integrations/codex` against the same pinned binary (sha256
+`ad0be20d…3714`), reading Codex's source at `rust-v0.157.0`, and running the adapter's end to end
+tests with temporary HOME, CODEX_HOME, XDG and TMPDIR, a TypeScript port of the fake provider
+configured as a custom model provider, a proxy that refuses and records every connection, and a
+monitor of every socket the binary's processes hold. The switches below were first tried without
+credentials inside a macOS sandbox profile that allowed only loopback. The suite passed five
+consecutive runs, and a manual check ran an approval round trip over REST on a control plane
+hosting the runtime, in temporary directories.
+
+Findings beyond, or differing from, the smoke test:
+
+- **Commands run in sessions of their own.** Codex starts every command with `setsid`
+  (`codex-rs/utils/pty/src/process_group.rs`, `pipe.rs`, `pty.rs`), so a signal to the server's
+  process group never reaches a command. What stops them is Codex's own shutdown, which the end of
+  its input and SIGTERM both start (`codex-rs/app-server-transport/src/transport/stdio.rs`, bounded
+  at 45 s). Verified: with its host killed by SIGKILL while a command ran, the server read the end
+  of its input, exited within about 0.4 s, and its command stopped. The adapter stops a server by
+  ending its input, then SIGTERM, then SIGKILL for its process group and every descendant, which it
+  finds through their parents.
+- **Restart.** After the server is killed mid-turn, the adapter relaunches it, resumes the thread
+  with `thread/resume` and reads the latest turn with `thread/turns/list`: the killed turn reads
+  `interrupted`, reported as inferred (rule `codex.restart.turn_status`), and the thread takes a
+  new turn at rest. Verified end to end.
+- **Sandboxed commands** under `workspace-write` produce the usual item events; the smoke test
+  missed them because its own sandbox prevented Codex's. A patch inside the writable roots is
+  applied without asking; one outside them asks with `item/fileChange/requestApproval`, whose
+  parameters name no files, so the adapter summarizes the request from the item's changes.
+- **Approval routing.** `thread/start` accepts `approvalsReviewer`, and `auto_review` would send
+  approvals to a reviewer agent. The adapter always passes `user` and refuses a thread whose
+  reported approval policy, reviewer or sandbox differ from what it asked for.
+- **Policies.** Under `on-request` with `danger-full-access`, Codex runs every command it does not
+  flag as dangerous without asking (`codex-rs/core/src/exec_policy.rs`); `untrusted` asks before
+  every command not known to be safe; `never` never asks. The adapter refuses `never`, the granular
+  policies, and `danger-full-access` with `on-request`.
+- **Server requests.** Codex takes an error answer to one of its requests as a denial, an empty
+  permission grant, a declined elicitation or an empty answer to a question
+  (`codex-rs/app-server/src/bespoke_event_handling.rs`). The adapter shows the person command and
+  file change approvals and refuses every other request that way.
+- **Interrupts** that find no running turn are held until the next turn ends, completed or aborted,
+  and answered then (`codex-rs/app-server/src/request_processors/turn_processor.rs`), which
+  explains the unanswered interrupt of the smoke test.
+- **Decline messages** cannot be delivered: the approval response has no field for one, and the
+  model sees "rejected by user".
+- **Provider metadata.** The turn metadata lists a workspace only when it is a git repository; the
+  working directory always reaches the provider in the environment context.
+- **Switches**, verified at the source and by attributing every connection attempt:
+  `features.plugins = false` removes the startup requests to chatgpt.com, github.com and
+  api.github.com; `analytics.enabled = true` adds metrics to ab.chatgpt.com
+  (`codex-rs/core/src/otel_init.rs`), and `analytics.enabled = false` also turns off the analytics
+  events client, which otherwise runs (`codex-rs/core/src/session/session.rs`);
+  `CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED=1`, which the adapter always sets, disables
+  remote control (`codex-rs/cli/src/main.rs`; an internal switch, verifiable only in the source).
+  With all three, no test attempted a connection beyond loopback.
+
+What a hard kill leaves running:
+
+- The control plane killed: the server's input ends, Codex stops its commands and exits, and the
+  next start clears the record left behind. Verified.
+- The control plane and the watchdog killed while the server could not act (stopped with SIGSTOP,
+  as a hung server would be): the next start stops the server with SIGTERM, then SIGKILL for its
+  group and descendants, commands included. Verified.
+- The server itself killed with SIGKILL by anything else: its running commands survive as orphans,
+  re-parented to launchd, which Halcyonic cannot find afterwards (a command writing only to a file
+  ran on in the smoke test). The adapter relaunches the server and reports the turn interrupted,
+  never the command stopped.
+- On Linux, Codex asks the kernel to send each command SIGTERM when its parent dies
+  (`PR_SET_PDEATHSIG`), so such orphans may not survive there. Not tested.
+
+Not verified:
+
+- A real model or provider, a ChatGPT sign-in or an API key, and what the analytics events client
+  sends with a real sign-in.
+- Linux.
+- Refusing permission grants, questions and MCP elicitations with the real binary (a stand-in
+  binary and the source only).
+- The approval summaries for input to a running command and for network access (constructed
+  requests only), and two approvals for one item.
+- A decision sent as its turn ends; the adapter reports that race with an unknown effect.
+- The npm launcher script used as the configured binary.
+- That Salidium and Seorak show a thread Halcyonic started.
+- A connection that ignores the proxy variables and lasts less than the socket monitor's 200 ms
+  sample (the smoke test's sandbox saw none).
