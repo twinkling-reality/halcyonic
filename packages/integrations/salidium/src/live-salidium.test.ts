@@ -1,26 +1,28 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { describe, type TestContext, test } from 'node:test';
 import type { UnderstandingResult } from '@halcyonic/contracts';
 import { SalidiumClient } from './client.ts';
+import { isFailure, parseJson, readDiscovery, refusal } from './connection.ts';
 import { openSalidiumFeed, type SalidiumFeedEvent } from './feed.ts';
 import { toUnderstanding } from './report.ts';
 import { SseParser } from './sse.ts';
 import { consumerToken, fixture } from './testing/fake-salidium.ts';
 import { until } from './testing/until.ts';
-import { readFeedMessage, validateDiscovery, validateReport } from './wire.ts';
+import { readFeedMessage, validateReport } from './wire.ts';
 
 /**
  * The real wire, opt in: set SALIDIUM_CHECKOUT to a Salidium checkout whose build output exists.
  *
  * Each test runs Salidium's own consumer test daemon (`scripts/consumer-test-daemon.mjs`) from that
- * checkout as a separate process. It seeds the synthetic sessions behind the retained fixtures,
- * creates a throwaway credential, and writes only to a temporary directory; nothing of Salidium is
- * imported here. Its environment is minimal on top of that: a scratch HOME, SALIDIUM_HOME and
+ * checkout as a separate process. It seeds the synthetic sessions behind the retained fixtures on the
+ * fixtures' fixed clock, enables no provider adapter, creates a throwaway credential, and writes only
+ * to a temporary directory; nothing of Salidium is imported here. Its environment is minimal on top of that: a scratch HOME, SALIDIUM_HOME and
  * TMPDIR, and a PATH without agent CLIs, so nothing it could spawn is found.
  */
 const CHECKOUT = process.env.SALIDIUM_CHECKOUT;
@@ -38,6 +40,7 @@ interface Ready {
   readonly sessions: {
     readonly verified: Identity;
     readonly failing: Identity;
+    readonly working: Identity;
     readonly internal: Identity;
   };
 }
@@ -97,31 +100,23 @@ describe('the real Salidium consumer test daemon', {
   test('serves the synthetic sessions exactly as the retained fixtures describe them', async (t) => {
     const { ready } = await daemon(t);
     assert.equal(ready.discovery, join(ready.home, 'consumer.json'));
-    const discovery = validateDiscovery(JSON.parse(readFileSync(ready.discovery, 'utf8')));
-    assert.ok(discovery.ok);
-    assert.equal(discovery.value.baseUrl, ready.baseUrl);
+    const discovered = readDiscovery(JSON.parse(readFileSync(ready.discovery, 'utf8')), 'file');
+    assert.ok(!isFailure(discovered));
+    assert.equal(discovered.contract.baseUrl, ready.baseUrl);
 
     const client = new SalidiumClient({ home: ready.home, credential: ready.token });
     for (const [name, kind, identity] of [
-      ['session-report-verified', 'claude-code', ready.sessions.verified],
+      ['session-report-verified', 'claude-agent', ready.sessions.verified],
       ['session-report-failing', 'codex', ready.sessions.failing],
+      ['session-report-working', 'claude-agent', ready.sessions.working],
     ] as const) {
       const result = await client.understand(kind, identity.sessionId);
       assert.equal(result.availability, 'available', reason(result));
       if (result.availability !== 'available') return;
       const report = validateReport(fixture(name));
       assert.ok(report.ok);
-      const expected = toUnderstanding(report.value, discovery.value);
-      const { source } = result.understanding;
-      assert.equal(source.instance_id, discovery.value.instanceId);
-      // Only the time the report was generated may differ from the recorded fixture.
-      assert.deepEqual(
-        {
-          ...result.understanding,
-          source: { ...source, generated_at: expected.source.generated_at },
-        },
-        expected,
-      );
+      // The daemon runs on the fixtures' clock, so only its instance differs from the recording.
+      assert.deepEqual(result.understanding, toUnderstanding(report.value, discovered));
     }
 
     assert.equal(
@@ -130,11 +125,11 @@ describe('the real Salidium consumer test daemon', {
     );
     const internal = ready.sessions.internal.sessionId;
     assert.equal(
-      reason(await client.understand('claude-code', internal)),
+      reason(await client.understand('claude-agent', internal)),
       'not_found/not_observed',
     );
     const stranger = new SalidiumClient({ home: ready.home, credential: consumerToken() });
-    const refused = await stranger.understand('claude-code', ready.sessions.verified.sessionId);
+    const refused = await stranger.understand('claude-agent', ready.sessions.verified.sessionId);
     assert.equal(reason(refused), 'unauthorized/credential_rejected');
   });
 
@@ -190,7 +185,7 @@ describe('the real Salidium consumer test daemon', {
     ]);
     const verified = ready.sessions.verified.sessionId;
     assert.equal(
-      reason(await client.understand('claude-code', verified)),
+      reason(await client.understand('claude-agent', verified)),
       'unauthorized/credential_rejected',
     );
   });
@@ -217,9 +212,41 @@ describe('the real Salidium consumer test daemon', {
     const client = new SalidiumClient({ home: ready.home, credential: ready.token });
     const verified = ready.sessions.verified.sessionId;
     assert.equal(
-      reason(await client.understand('claude-code', verified)),
+      reason(await client.understand('claude-agent', verified)),
       'unavailable/not_running',
     );
+  });
+
+  test('refuses a foreign Host, Origin or site with contract errors the client maps', async (t) => {
+    const { ready } = await daemon(t);
+    // fetch cannot send another Host, so these requests are made with node:http.
+    const ask = (headers: Record<string, string>) =>
+      new Promise<{ status: number; body: unknown }>((resolve, reject) => {
+        const sent = request(`${ready.baseUrl}/discovery`, { headers }, (response) => {
+          let text = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk: string) => {
+            text += chunk;
+          });
+          response.on('end', () =>
+            resolve({ status: response.statusCode ?? 0, body: parseJson(text) }),
+          );
+        });
+        sent.on('error', reject);
+        sent.end();
+      });
+    const port = new URL(ready.baseUrl).port;
+    const cases: [Record<string, string>, number, string][] = [
+      [{ Host: `evil.example:${port}` }, 421, 'unavailable/host_not_allowed'],
+      [{ Origin: 'https://evil.example' }, 403, 'unavailable/origin_not_allowed'],
+      [{ 'Sec-Fetch-Site': 'cross-site' }, 403, 'unavailable/origin_not_allowed'],
+    ];
+    for (const [headers, status, mapped] of cases) {
+      const answer = await ask(headers);
+      assert.equal(answer.status, status);
+      const refused = refusal(answer.status, answer.body, 'discovery');
+      assert.equal(refused && `${refused.availability}/${refused.reason.code}`, mapped);
+    }
   });
 
   test('opens the feed with resync and sends a heartbeat every fifteen seconds', async (t) => {

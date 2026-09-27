@@ -8,7 +8,7 @@ import {
   type SalidiumFeedEvent,
   type SalidiumFeedOptions,
 } from './feed.ts';
-import { consumerToken, FakeSalidium, fixture } from './testing/fake-salidium.ts';
+import { consumerToken, contractError, FakeSalidium, fixture } from './testing/fake-salidium.ts';
 import { until } from './testing/until.ts';
 
 async function start(t: TestContext): Promise<FakeSalidium> {
@@ -62,7 +62,7 @@ describe("following Salidium's change feed", () => {
         sessionId: 'claude-code:6f1c2a90-3b7e-4d15-9a2c-0e8b5d7f4c11',
         provider: 'claude-code',
         nativeId: '6f1c2a90-3b7e-4d15-9a2c-0e8b5d7f4c11',
-        evidenceSequence: 20,
+        evidenceSequence: 22,
       },
       {
         type: 'session_removed',
@@ -181,6 +181,23 @@ describe("following Salidium's change feed", () => {
       },
     ]);
     assert.deepEqual(fake.authorizedRequests(), []);
+  });
+
+  test("says unavailable when Salidium's loopback guard or an internal failure refuses the feed", async (t) => {
+    const fake = await start(t);
+    fake.overrides.set('/consumer/v1/feed', (response) =>
+      contractError(response, 421, 'host-not-allowed', 'only a loopback Host is accepted'),
+    );
+    const events = follow(t, fake);
+    await until(() => disconnections(events).length === 1, 'the refusal');
+    fake.overrides.set('/consumer/v1/feed', (response) =>
+      contractError(response, 500, 'internal', 'the request could not be completed'),
+    );
+    await until(() => disconnections(events).length === 2, 'the failure');
+    assert.deepEqual(disconnections(events), [
+      'unavailable/host_not_allowed',
+      'unavailable/server_error',
+    ]);
   });
 
   test('says incompatible when the feed endpoint answers outside the contract', async (t) => {

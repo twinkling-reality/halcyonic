@@ -1,11 +1,21 @@
 import type { Understanding } from '@halcyonic/contracts';
-import type { WireDiscovery, WireReport } from './wire.ts';
+import type { Discovered } from './connection.ts';
+import type { WireReport } from './wire.ts';
 
 type Source = Understanding['source'];
 type Statement = NonNullable<Understanding['latest_statement']>;
 type Verification = Understanding['verification']['latest_by_method'][number];
+type Waiting = NonNullable<Understanding['waiting']>;
 type WireStatement = NonNullable<WireReport['latestStatement']>;
 type WireRun = WireReport['verification']['latestByMethod'][number];
+type WireWaiting = NonNullable<WireReport['waiting']>;
+
+/** Written out, so a kind either side adds fails the type check instead of passing unmapped. */
+const WAITING_KIND: Record<WireWaiting['kind'], Waiting['kind']> = {
+  permission: 'permission',
+  question: 'question',
+  input: 'input',
+};
 
 /** Salidium spells two values with hyphens; Halcyonic's vocabulary is snake_case. */
 const EXIT_OBSERVATION: Record<
@@ -51,15 +61,14 @@ function verification(run: WireRun): Verification {
  * made stays `reported`, file coverage stays `inferred`, and the generated explanation stays
  * `explained`. Properties this function does not name never reach the result.
  */
-export function toUnderstanding(report: WireReport, discovery: WireDiscovery): Understanding {
+export function toUnderstanding(
+  report: WireReport,
+  { discovery, contract }: Discovered,
+): Understanding {
   const source: Source = {
     system: 'salidium',
     version: discovery.salidium.version,
-    contract: {
-      name: discovery.contract.name,
-      major: discovery.contract.major,
-      minor: discovery.contract.minor,
-    },
+    contract: { name: contract.name, major: contract.major, minor: contract.minor },
     instance_id: discovery.instanceId,
     generated_at: report.generatedAt,
     evidence_sequence: report.session.evidenceSeq,
@@ -76,6 +85,12 @@ export function toUnderstanding(report: WireReport, discovery: WireDiscovery): U
       epistemic: report.verdict.provenance,
     },
     latest_statement: report.latestStatement && statement(report.latestStatement),
+    waiting: report.waiting && {
+      kind: WAITING_KIND[report.waiting.kind],
+      summary: report.waiting.summary,
+      since: report.waiting.since,
+      epistemic: report.waiting.provenance,
+    },
     changes: {
       summary: changes.glance,
       files: changes.files.map((file) => ({

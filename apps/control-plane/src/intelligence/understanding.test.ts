@@ -32,7 +32,7 @@ describe('Salidium as the understanding source', () => {
 
   test('without a credential file the answer says how to create one', async () => {
     const { source, credentialPath } = setup('missing');
-    const result = await source.understand('claude-code', '5f0c7f1e-0000-4000-8000-000000000001');
+    const result = await source.understand('claude-agent', '5f0c7f1e-0000-4000-8000-000000000001');
     assert.deepEqual(reason(result), ['unauthorized', 'credential_missing']);
     assert.match(
       result.availability === 'available' ? '' : result.reason.message,
@@ -56,7 +56,7 @@ describe('Salidium as the understanding source', () => {
   test('with a private credential file, a Salidium that is not running reads as unavailable', async () => {
     const { source, credentialPath } = setup('not-running');
     writeFileSync(credentialPath, 'slc_example\n', { mode: 0o600 });
-    const result = await source.understand('claude-code', '5f0c7f1e-0000-4000-8000-000000000001');
+    const result = await source.understand('claude-agent', '5f0c7f1e-0000-4000-8000-000000000001');
     assert.deepEqual(reason(result), ['unavailable', 'not_running']);
   });
 });

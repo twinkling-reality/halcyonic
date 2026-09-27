@@ -3,11 +3,14 @@ import type { ErrorInfo } from '@halcyonic/contracts';
 import {
   checkCredential,
   connect,
+  credentialRejected,
   DEFAULT_TIMEOUT_MS,
   type Failure,
   fail,
   invalid,
   isFailure,
+  parseJson,
+  refusal,
   type SalidiumOptions,
 } from './connection.ts';
 import { EventStreamError, SseParser } from './sse.ts';
@@ -166,19 +169,13 @@ async function follow(
     }
     const type = response.headers.get('content-type') ?? '';
     if (response.status !== 200 || !type.startsWith('text/event-stream') || !response.body) {
-      await response.body?.cancel().catch(() => {});
-      if (response.status === 401)
-        return fail(
-          'unauthorized',
-          'credential_rejected',
-          'Salidium refused the consumer credential; it may have been revoked. Create a new one with `salidium consumer create <label>`.',
-        );
-      if (response.status >= 500)
-        return fail(
-          'unavailable',
-          'server_error',
-          `Salidium failed to open its feed (HTTP ${response.status}).`,
-        );
+      // An error answer is a short contract document; anything else is not read.
+      const body =
+        response.status === 200 ? undefined : parseJson(await response.text().catch(() => ''));
+      if (response.status === 200) await response.body?.cancel().catch(() => {});
+      if (response.status === 401) return credentialRejected();
+      const refused = refusal(response.status, body, 'feed');
+      if (refused) return refused;
       return fail(
         'incompatible',
         'unexpected_status',

@@ -34,9 +34,9 @@ export interface RecordedRequest {
 /**
  * A stand-in for Salidium's daemon that speaks consumer contract v1 over real loopback HTTP, the way
  * Salidium's release candidate does (`packages/daemon/src/server/httpServer.ts`, `consumer/routes.ts`
- * and `server/sse.ts`): Host, Origin and cross-site checks first, GET only, discovery without a
- * credential, the bearer credential on everything else, a feed that opens with a padding comment
- * and `resync`, and the retained fixtures as documents.
+ * and `server/sse.ts`): Host, Origin and cross-site checks first, refused with contract errors,
+ * GET only, discovery without a credential, the bearer credential on everything else, a feed that
+ * opens with a padding comment and `resync`, and the retained fixtures as documents.
  */
 export class FakeSalidium {
   readonly home = mkdtempSync(join(tmpdir(), 'halcyonic-salidium-'));
@@ -57,7 +57,11 @@ export class FakeSalidium {
 
   static async start(): Promise<FakeSalidium> {
     const fake = new FakeSalidium();
-    for (const name of ['session-report-verified', 'session-report-failing']) {
+    for (const name of [
+      'session-report-verified',
+      'session-report-failing',
+      'session-report-working',
+    ]) {
       const report = fixture(name);
       fake.reports.set((report.session as Json).id as string, report);
     }
@@ -71,13 +75,19 @@ export class FakeSalidium {
     return this.#port;
   }
 
-  /** The discovery document this daemon serves and writes. */
+  /** The discovery document this daemon serves and writes, listing its one major version. */
   discovery(): Json {
     return {
       ...fixture('consumer-discovery'),
       instanceId: this.instanceId,
-      baseUrl: `http://127.0.0.1:${this.#port}/consumer/v1`,
+      contracts: [this.contract()],
     };
+  }
+
+  /** This daemon's entry for major version 1 in `contracts`. */
+  contract(): Json {
+    const [entry] = fixture('consumer-discovery').contracts as Json[];
+    return { ...entry, baseUrl: `http://127.0.0.1:${this.#port}/consumer/v1` };
   }
 
   writeDiscovery(document: unknown = this.discovery()): void {
@@ -132,12 +142,17 @@ export class FakeSalidium {
       `[::1]:${this.#port}`,
     ]);
     if (!hosts.has(request.headers.host ?? ''))
-      return json(response, 421, { error: 'unexpected host' });
+      return contractError(response, 421, 'host-not-allowed', 'only a loopback Host is accepted');
     const origin = request.headers.origin;
     if (origin && !hosts.has(origin.replace(/^https?:\/\//, '')))
-      return json(response, 403, { error: 'origin not allowed' });
+      return contractError(
+        response,
+        403,
+        'origin-not-allowed',
+        'cross-origin requests are refused',
+      );
     if (request.headers['sec-fetch-site'] === 'cross-site')
-      return json(response, 403, { error: 'cross-site request' });
+      return contractError(response, 403, 'origin-not-allowed', 'cross-site requests are refused');
 
     const override = this.overrides.get(url.pathname);
     if (override) {
@@ -146,7 +161,12 @@ export class FakeSalidium {
     }
     if (request.method !== 'GET') {
       response.setHeader('Allow', 'GET');
-      return error(response, 405, 'method-not-allowed', 'the consumer contract is read-only');
+      return contractError(
+        response,
+        405,
+        'method-not-allowed',
+        'the consumer contract is read-only',
+      );
     }
     if (url.pathname === '/consumer/v1/discovery') return json(response, 200, this.discovery());
     if (request.headers.authorization !== `Bearer ${this.token}`) {
@@ -160,16 +180,16 @@ export class FakeSalidium {
       const found = this.reports.get(decodeURIComponent(report[1]));
       return found
         ? json(response, 200, found)
-        : error(response, 404, 'not-found', 'no such session');
+        : contractError(response, 404, 'not-found', 'no such session');
     }
-    return error(response, 404, 'not-found', 'no such consumer endpoint');
+    return contractError(response, 404, 'not-found', 'no such consumer endpoint');
   }
 
   #lookup(response: ServerResponse, url: URL): undefined {
     const provider = url.searchParams.get('provider');
     const sessionId = url.searchParams.get('sessionId');
     if (!provider || !sessionId)
-      return error(response, 400, 'bad-request', 'provider and sessionId are required');
+      return contractError(response, 400, 'bad-request', 'provider and sessionId are required');
     for (const report of this.reports.values()) {
       const session = report.session as Json;
       const native = session.native as Json;
@@ -206,7 +226,13 @@ function json(response: ServerResponse, status: number, body: unknown): undefine
   response.end(JSON.stringify(body));
 }
 
-function error(response: ServerResponse, status: number, code: string, message: string): undefined {
+/** Answers with a `salidium.consumer-error` document, as every refusal under `/consumer` is. */
+export function contractError(
+  response: ServerResponse,
+  status: number,
+  code: string,
+  message: string,
+): undefined {
   return json(response, status, {
     format: 'salidium.consumer-error',
     version: 1,

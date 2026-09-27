@@ -4995,6 +4995,7 @@
         "source",
         "verdict",
         "latest_statement",
+        "waiting",
         "changes",
         "verification",
         "review",
@@ -5016,7 +5017,8 @@
           ],
           "properties": {
             "headline": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "tone": {
               "anyOf": [
@@ -5045,7 +5047,8 @@
             "because": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 600
                 },
                 {
                   "type": "null"
@@ -5080,6 +5083,53 @@
             }
           ]
         },
+        "waiting": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "kind",
+                "summary",
+                "since",
+                "epistemic"
+              ],
+              "properties": {
+                "kind": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "permission"
+                    },
+                    {
+                      "type": "string",
+                      "const": "question"
+                    },
+                    {
+                      "type": "string",
+                      "const": "input"
+                    }
+                  ]
+                },
+                "summary": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "since": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                },
+                "epistemic": {
+                  "$ref": "#/$defs/UnderstandingEpistemic"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "changes": {
           "type": "object",
           "required": [
@@ -5089,7 +5139,8 @@
           ],
           "properties": {
             "summary": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "files": {
               "type": "array",
@@ -5116,7 +5167,8 @@
           ],
           "properties": {
             "summary": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "latest_by_method": {
               "type": "array",
@@ -5127,7 +5179,8 @@
             "unverified_files": {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 4096
               }
             },
             "statements": {
@@ -5149,7 +5202,8 @@
           ],
           "properties": {
             "summary": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "open": {
               "type": "integer",
@@ -5176,7 +5230,8 @@
           ],
           "properties": {
             "summary": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 300
             },
             "items": {
               "type": "array",
@@ -5209,7 +5264,8 @@
           "const": "salidium"
         },
         "version": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 64
         },
         "contract": {
           "type": "object",
@@ -5220,7 +5276,8 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 64
             },
             "major": {
               "type": "integer"
@@ -5232,7 +5289,8 @@
           "additionalProperties": false
         },
         "instance_id": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 64
         },
         "generated_at": {
           "type": "string",
@@ -5256,7 +5314,8 @@
       ],
       "properties": {
         "text": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 600
         },
         "author": {
           "anyOf": [
@@ -5269,10 +5328,6 @@
                 {
                   "type": "string",
                   "const": "subagent"
-                },
-                {
-                  "type": "string",
-                  "const": "user"
                 }
               ]
             },
@@ -5343,7 +5398,8 @@
         "runner": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "string",
+              "maxLength": 120
             },
             {
               "type": "null"
@@ -5351,7 +5407,8 @@
           ]
         },
         "label": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 300
         },
         "outcome": {
           "anyOf": [
@@ -5500,7 +5557,8 @@
         "caveats": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 120
           }
         },
         "stale": {
@@ -5585,7 +5643,8 @@
         "model": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "string",
+              "maxLength": 120
             },
             {
               "type": "null"
@@ -5615,12 +5674,14 @@
                   ],
                   "properties": {
                     "summary": {
-                      "type": "string"
+                      "type": "string",
+                      "maxLength": 600
                     },
                     "currently": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 600
                         },
                         {
                           "type": "null"
@@ -5639,7 +5700,8 @@
                   ],
                   "properties": {
                     "summary": {
-                      "type": "string"
+                      "type": "string",
+                      "maxLength": 600
                     },
                     "lanes": {
                       "type": "array",
@@ -5650,7 +5712,8 @@
                     "chain": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 200
                       }
                     }
                   },
@@ -5665,12 +5728,14 @@
                   ],
                   "properties": {
                     "summary": {
-                      "type": "string"
+                      "type": "string",
+                      "maxLength": 600
                     },
                     "root": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 200
                         },
                         {
                           "type": "null"
@@ -5680,7 +5745,8 @@
                     "steps": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "maxLength": 200
                       }
                     }
                   },
@@ -5699,24 +5765,29 @@
                       ],
                       "properties": {
                         "from": {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 200
                         },
                         "from_steps": {
                           "type": "array",
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 200
                           }
                         },
                         "why": {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 600
                         },
                         "to": {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 200
                         },
                         "to_steps": {
                           "type": "array",
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 200
                           }
                         }
                       },
@@ -5776,7 +5847,8 @@
       ],
       "properties": {
         "path": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 4096
         },
         "change_count": {
           "type": "integer",
@@ -5815,7 +5887,8 @@
             "by": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 300
                 },
                 {
                   "type": "null"
@@ -5854,10 +5927,12 @@
       ],
       "properties": {
         "rule": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 120
         },
         "label": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 300
         },
         "severity": {
           "anyOf": [
@@ -5907,7 +5982,8 @@
       ],
       "properties": {
         "text": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 600
         },
         "status": {
           "anyOf": [
@@ -5979,7 +6055,8 @@
       ],
       "properties": {
         "sha": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 64
         },
         "at": {
           "type": "string",
@@ -6000,12 +6077,14 @@
       ],
       "properties": {
         "label": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 300
         },
         "instance": {
           "anyOf": [
             {
-              "type": "string"
+              "type": "string",
+              "maxLength": 200
             },
             {
               "type": "null"
@@ -6035,12 +6114,14 @@
       ],
       "properties": {
         "title": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 100
         },
         "steps": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200
           }
         }
       },

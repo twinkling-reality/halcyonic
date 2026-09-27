@@ -1904,7 +1904,6 @@ namespace Halcyonic.Contracts
     {
         [EnumMember(Value = "agent")] Agent,
         [EnumMember(Value = "subagent")] Subagent,
-        [EnumMember(Value = "user")] User,
     }
 
     public sealed class UnderstandingStatement
@@ -1917,6 +1916,29 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("at", Required = Required.AllowNull)]
         public string? At { get; set; }
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UnderstandingWaitingKind
+    {
+        [EnumMember(Value = "permission")] Permission,
+        [EnumMember(Value = "question")] Question,
+        [EnumMember(Value = "input")] Input,
+    }
+
+    public sealed class UnderstandingWaiting
+    {
+        [JsonProperty("kind", Required = Required.Always)]
+        public UnderstandingWaitingKind Kind { get; set; }
+
+        [JsonProperty("summary", Required = Required.Always)]
+        public string Summary { get; set; } = default!;
+
+        [JsonProperty("since", Required = Required.Always)]
+        public string Since { get; set; } = default!;
 
         [JsonProperty("epistemic", Required = Required.Always)]
         public UnderstandingEpistemic Epistemic { get; set; }
@@ -2329,6 +2351,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("latest_statement", Required = Required.AllowNull)]
         public UnderstandingStatement? LatestStatement { get; set; }
+
+        [JsonProperty("waiting", Required = Required.AllowNull)]
+        public UnderstandingWaiting? Waiting { get; set; }
 
         [JsonProperty("changes", Required = Required.Always)]
         public UnderstandingChanges Changes { get; set; } = default!;
