@@ -10,7 +10,6 @@ import {
   type SeorakAgent,
   validateOutcome,
   validateSession,
-  type WireMetadata,
 } from './wire.ts';
 
 /**
@@ -79,45 +78,67 @@ function incoherent(what: string): Failure<'incompatible'> {
   return fail('incompatible', 'invalid_document', `Seorak's ${what}.`);
 }
 
-/** The scopes each read needs: ADR 007 for the resolve, `PRIVATE_MCP_TOOL_SCOPES` for the rest. */
+/** The scope each read needs, the same over HTTP as over MCP (ADR 007, section 2). */
 const SESSIONS = 'sessions:read';
 const REPLAY = 'replay:read';
 
-type WireReason = NonNullable<WireMetadata['availability']['reason']>;
+type Miss = readonly [Availability, string, string];
 
 /**
- * What a resolve that found no session means, by Seorak's reason. ADR 007 gives `not-captured` for
- * a miss and `outside-credential-restriction` for a session the credential may not see; the other
- * reasons are read by what they say.
+ * What a resolve that found no session means, by Seorak's reason. A miss is always `not-captured`
+ * or `outside-credential-restriction` (ADR 007, section 2); the other reasons Seorak publishes are
+ * read by what they say.
  */
-const MISS: Record<WireReason, readonly [Availability, string, string]> = {
-  'not-captured': [
-    'not_found',
-    'not_captured',
-    'Seorak has not captured this session. A session launched moments ago may not have reached a hook yet, so retry with backoff.',
+const MISS: ReadonlyMap<string, Miss> = new Map<string, Miss>([
+  [
+    'not-captured',
+    [
+      'not_found',
+      'not_captured',
+      'Seorak has not captured this session. A session launched moments ago may not have reached a hook yet, so retry with backoff.',
+    ],
   ],
-  'not-retained': ['not_found', 'not_retained', 'Seorak no longer retains this session.'],
-  'not-yet-computed': [
-    'not_found',
-    'not_yet_computed',
-    'Seorak has not computed this session yet; retry with backoff.',
+  ['not-retained', ['not_found', 'not_retained', 'Seorak no longer retains this session.']],
+  [
+    'not-yet-computed',
+    [
+      'not_found',
+      'not_yet_computed',
+      'Seorak has not computed this session yet; retry with backoff.',
+    ],
   ],
-  'outside-credential-restriction': [
-    'unauthorized',
-    'outside_credential_restriction',
-    "The Seorak credential's project or date restriction excludes this session.",
+  [
+    'outside-credential-restriction',
+    [
+      'unauthorized',
+      'outside_credential_restriction',
+      "The Seorak credential's project or date restriction excludes this session.",
+    ],
   ],
-  'temporarily-unavailable': [
-    'unavailable',
-    'temporarily_unavailable',
-    'Seorak cannot resolve the session for now; retry with backoff.',
+  [
+    'temporarily-unavailable',
+    [
+      'unavailable',
+      'temporarily_unavailable',
+      'Seorak cannot resolve the session for now; retry with backoff.',
+    ],
   ],
-  'result-limit': [
-    'unavailable',
-    'result_limit',
-    'Seorak did not resolve the session because a result limit was reached.',
+  [
+    'result-limit',
+    [
+      'unavailable',
+      'result_limit',
+      'Seorak did not resolve the session because a result limit was reached.',
+    ],
   ],
-};
+]);
+
+/** A reason v1 added after this client: unavailable for a reason it cannot name (ADR 007). */
+const UNNAMED_MISS: Miss = [
+  'unavailable',
+  'unknown_reason',
+  'Seorak did not resolve the session, for a reason this client cannot name.',
+];
 
 interface Reply {
   readonly status: number;
@@ -202,7 +223,7 @@ export class SeorakClient {
       return fail(
         'unavailable',
         'rate_limited',
-        `The Seorak credential's request budget is spent until ${new Date(retryAt).toISOString()}, so no request was sent.`,
+        `Seorak's request budget allows no request until ${new Date(retryAt).toISOString()}, so none was sent.`,
       );
 
     let unused = REQUESTS_PER_EVALUATION;
@@ -220,10 +241,11 @@ export class SeorakClient {
       const resolved = validateSession(resolve.value);
       if (!resolved.ok) return invalid('session resolve answer', resolved.issues);
       const { session, availability } = resolved.value;
+      // Only `unavailable` carries a null payload (ADR 007, section 2), and it says why.
       if (session === null) {
         if (availability.state !== 'unavailable' || availability.reason === null)
           return incoherent('resolve answer names no session but does not say why');
-        const [state, code, message] = MISS[availability.reason];
+        const [state, code, message] = MISS.get(availability.reason) ?? UNNAMED_MISS;
         return fail(state, code, message);
       }
       // Both halves of the identity must match (ADR 007).
@@ -240,6 +262,8 @@ export class SeorakClient {
       if (!outcome.ok) return invalid('session outcome', outcome.issues);
       if (outcome.value.sessionRef !== ref)
         return incoherent('outcome names a different session than the one resolved');
+      if (outcome.value.outcome === null && outcome.value.availability.state !== 'unavailable')
+        return incoherent('outcome carries no measure although it says it is available');
 
       const lensReply = await read('verification lens', `${path}/replay/verification`, REPLAY);
       if (isFailure(lensReply)) return lensReply;
@@ -248,8 +272,8 @@ export class SeorakClient {
       const { result } = lens.value;
       if (result !== null && result.sessionRef !== ref)
         return incoherent('verification lens names a different session than the one resolved');
-      if (result !== null && lens.value.availability.state === 'unavailable')
-        return incoherent('verification lens carries a result although it says it is unavailable');
+      if ((result === null) !== (lens.value.availability.state === 'unavailable'))
+        return incoherent('verification lens has a result exactly when it says it is unavailable');
       return {
         availability: 'available',
         evaluation: toEvaluation(resolved.value, session.costUsd, outcome.value, lens.value),
@@ -277,7 +301,12 @@ export class SeorakClient {
     return credential;
   }
 
-  /** One request, interpreted by its status. Rejects only when the caller's own signal aborts. */
+  /**
+   * One request, interpreted by its status as ADR 007 (section 2) states them: 401 for every
+   * credential failure, 403 for a valid credential without the scope, 429 with `Retry-After` in
+   * whole seconds. Error bodies are not part of the contract and are never read. Rejects only when
+   * the caller's own signal aborts.
+   */
   async #read(
     what: string,
     path: string,
@@ -293,13 +322,13 @@ export class SeorakClient {
       return fail(
         'unauthorized',
         'credential_rejected',
-        `Seorak refused the integration credential: it may have expired, been revoked or been issued for another audience. Issue a new one in Seorak's dashboard (${this.#origin}/dashboard) for the audience ${this.#origin}${API_BASE_PATH}.`,
+        `Seorak refused the integration credential as unknown, expired, revoked or issued for another audience. Issue a new one in Seorak's dashboard (${this.#origin}/dashboard) for the audience ${this.#origin}${API_BASE_PATH}.`,
       );
     if (reply.status === 403)
       return fail(
         'unauthorized',
         'credential_forbidden',
-        `Seorak refused the ${what} request for this credential (HTTP 403). The read needs the ${scope} scope, and Halcyonic needs sessions:read and replay:read.`,
+        `Seorak refused the ${what} request (HTTP 403): the credential lacks the ${scope} scope it needs. Halcyonic needs sessions:read and replay:read.`,
       );
     if (reply.status === 429) {
       const until = retryTime(reply.retryAfter, Date.now());
@@ -307,7 +336,7 @@ export class SeorakClient {
       return fail(
         'unavailable',
         'rate_limited',
-        `Seorak refused the ${what} request: the credential's request budget is spent until ${new Date(until).toISOString()}.`,
+        `Seorak refused the ${what} request over a request budget, the credential's own or the one all credentials share, and asked for no request until ${new Date(until).toISOString()}.`,
       );
     }
     if (reply.status >= 500)

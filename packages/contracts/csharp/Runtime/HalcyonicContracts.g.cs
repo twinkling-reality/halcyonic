@@ -2494,6 +2494,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "outside_credential_restriction")] OutsideCredentialRestriction,
         [EnumMember(Value = "temporarily_unavailable")] TemporarilyUnavailable,
         [EnumMember(Value = "result_limit")] ResultLimit,
+        [EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationAvailability
@@ -2522,6 +2523,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "projection_pending")] ProjectionPending,
         [EnumMember(Value = "credential_restriction")] CredentialRestriction,
         [EnumMember(Value = "result_limit")] ResultLimit,
+        [EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationCoverage
@@ -2640,6 +2642,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "prompt_input_exit")] PromptInputExit,
         [EnumMember(Value = "bypass_permissions_disabled")] BypassPermissionsDisabled,
         [EnumMember(Value = "other")] Other,
+        [EnumMember(Value = "unknown")] Unknown,
     }
 
     public sealed class EvaluationOutcomeMeasure

@@ -3,9 +3,12 @@ import { describe, test } from 'node:test';
 import {
   EXAMPLE,
   lensDocument,
+  lensExample,
   outcomeDocument,
+  outcomeExample,
   resolveHit,
   resolveMiss,
+  verificationRow,
 } from './testing/fake-seorak.ts';
 import {
   CREDENTIAL_PATTERN,
@@ -41,6 +44,17 @@ describe('integration API v1 reader', () => {
     assert.equal(validateSession(resolveMiss()).ok, true);
   });
 
+  test("accepts ADR 007's example outcome and verification lens", () => {
+    const outcome = validateOutcome(outcomeExample());
+    assert.ok(outcome.ok);
+    assert.equal(outcome.value.sessionRef, EXAMPLE.sessionRef);
+    const lens = readLens(lensExample());
+    assert.ok(lens.ok);
+    assert.deepEqual(lens.value.result?.rows, [
+      { label: 'test', runs: 4, passed: 3, passRate: 0.75 },
+    ]);
+  });
+
   test('accepts outcome and lens documents built from the published types', () => {
     assert.equal(validateOutcome(outcomeDocument(EXAMPLE.sessionRef)).ok, true);
     const lens = readLens(lensDocument(EXAMPLE.sessionRef));
@@ -49,6 +63,44 @@ describe('integration API v1 reader', () => {
       { label: 'test', runs: 5, passed: 4, passRate: 0.8 },
       { label: 'typecheck', runs: 2, passed: 2, passRate: 1 },
     ]);
+  });
+
+  test('reads a pass rate of null, as when nothing ran, and a row of no kind', () => {
+    const lens = readLens(
+      lensDocument(EXAMPLE.sessionRef, [verificationRow('Verification', 0, 0, null)]),
+    );
+    assert.ok(lens.ok);
+    assert.deepEqual(lens.value.result?.rows, [
+      { label: 'Verification', runs: 0, passed: 0, passRate: null },
+    ]);
+  });
+
+  test('reads the five unions v1 may grow as any string', () => {
+    const outcome = outcomeExample();
+    const measure = outcome.outcome as Json;
+    const grown = {
+      ...outcome,
+      availability: { state: 'partial', reason: 'sampled' },
+      coverage: { ...(outcome.coverage as Json), omissions: ['sampled'] },
+      outcome: {
+        ...measure,
+        endReason: 'crashed',
+        lineSurvival: {
+          rung: '3d',
+          fate: 'reverted',
+          rate: null,
+          linesAuthored: 1,
+          linesSurviving: 0,
+          commitsChecked: 1,
+        },
+      },
+    };
+    assert.deepEqual(issues(validateOutcome(grown)), []);
+    const row = verificationRow('test', 1, 1, 1);
+    (row.metrics as Json[])[2] = { key: 'passRate', label: 'Pass rate', value: 100, unit: 'ratio' };
+    const lens = readLens(lensDocument(EXAMPLE.sessionRef, [row]));
+    assert.ok(lens.ok);
+    assert.equal(lens.value.result?.rows[0]?.passRate, null);
   });
 
   test('rejects a missing property, a wrong type, an unknown value and an omitted null', () => {
@@ -60,7 +112,7 @@ describe('integration API v1 reader', () => {
       [{ ...hit, session: withoutCost }, 'costUsd'],
       [{ ...hit, session: { ...session, costUsd: '1.37' } }, 'costUsd'],
       [{ ...hit, session: { ...session, sessionRef: 'ses_NOT-HEX' } }, 'sessionRef'],
-      [{ ...hit, coverage: { ...(hit.coverage as Json), omissions: ['forgotten'] } }, 'omissions'],
+      [{ ...hit, coverage: { ...(hit.coverage as Json), omissions: [1] } }, 'omissions'],
       [{ ...hit, freshness: { ...(hit.freshness as Json), state: 'warm' } }, 'state'],
       [{ ...hit, coverage: { ...(hit.coverage as Json), matchedSessionCount: 1.5 } }, 'matched'],
       [

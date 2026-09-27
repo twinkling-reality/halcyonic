@@ -18,6 +18,12 @@ import { ErrorInfo, Nullable, Timestamp } from './primitives.ts';
  * `null` means the source does not have the value: show it as unknown or pending, never as zero,
  * blank or success. The measurements stay apart: nothing here is a score, and a client must not
  * combine them into one. Texts are the source's, untrusted: escape them when rendering.
+ *
+ * The source may add values to five of its vocabularies within its version (availability reasons,
+ * coverage omissions, end reasons, line survival fates and metric units) but never removes or
+ * redefines one. A value Halcyonic does not know yet arrives as `unknown`, never as a guess at one
+ * it knows; an unknown omission makes the coverage incomplete, and a metric in an unknown unit is
+ * null.
  */
 
 const strict = { additionalProperties: false } as const;
@@ -49,7 +55,11 @@ export const EvaluationAvailability = Type.Object(
       Type.Literal('partial'),
       Type.Literal('unavailable'),
     ]),
-    /** Null when fully available; otherwise the source's stable reason. Never read it as zero. */
+    /**
+     * Null when fully available; otherwise the source's stable reason. Never read it as zero.
+     * `unknown` is a reason the source added after this contract: unavailable for a reason
+     * Halcyonic cannot name.
+     */
     reason: Nullable(
       Type.Union([
         Type.Literal('not_captured'),
@@ -58,6 +68,7 @@ export const EvaluationAvailability = Type.Object(
         Type.Literal('outside_credential_restriction'),
         Type.Literal('temporarily_unavailable'),
         Type.Literal('result_limit'),
+        Type.Literal('unknown'),
       ]),
     ),
   },
@@ -73,7 +84,10 @@ export const EvaluationCoverage = Type.Object(
     matched_sessions: Count,
     included_sessions: Count,
     complete: Type.Boolean(),
-    /** Why the coverage is not complete. */
+    /**
+     * Why the coverage is not complete. `unknown` is an omission the source added after this
+     * contract; coverage that has one is never complete.
+     */
     omissions: Type.Array(
       Type.Union([
         Type.Literal('outside_retention'),
@@ -81,6 +95,7 @@ export const EvaluationCoverage = Type.Object(
         Type.Literal('projection_pending'),
         Type.Literal('credential_restriction'),
         Type.Literal('result_limit'),
+        Type.Literal('unknown'),
       ]),
     ),
   },
@@ -141,7 +156,8 @@ export const EvaluationUncommitted = Type.Object(
 
 /**
  * Whether the lines a session wrote were still on the branch at a fixed maturation rung (three
- * days), so a fresh session has none yet. `rate` is null below the source's own floor.
+ * days): until then the source has none, or reports the fate `unknown`. `rate` is null below the
+ * source's own floor. `unknown` is also a fate the source added after this contract.
  */
 export const EvaluationLineSurvival = Type.Object(
   {
@@ -160,7 +176,10 @@ export const EvaluationLineSurvival = Type.Object(
   strict,
 );
 
-/** How a session ended, as its runtime reported it: a lifecycle event, never completion. */
+/**
+ * How a session ended, as its runtime reported it: a lifecycle event, never completion. `unknown`
+ * is a reason the source added after this contract.
+ */
 export const EvaluationEndReason = Type.Union([
   Type.Literal('clear'),
   Type.Literal('resume'),
@@ -168,6 +187,7 @@ export const EvaluationEndReason = Type.Union([
   Type.Literal('prompt_input_exit'),
   Type.Literal('bypass_permissions_disabled'),
   Type.Literal('other'),
+  Type.Literal('unknown'),
 ]);
 
 /**
@@ -184,7 +204,7 @@ export const EvaluationOutcomeMeasure = Type.Object(
     /** Tool calls that errored. Null when no call said whether it errored; 0 is a measured zero. */
     error_count: Nullable(Count),
     first_error_at: Nullable(Timestamp),
-    /** Null while the session is active or its runtime reported no reason. */
+    /** Null while the session is active or when its end was not captured. */
     end_reason: Nullable(EvaluationEndReason),
   },
   strict,
@@ -199,26 +219,29 @@ export const EvaluationOutcome = Type.Object(
   strict,
 );
 
-/** The verification runs of one kind of check, such as tests, in the session. */
+/**
+ * The verification runs of one kind of check in the session. Each metric is null when the source
+ * reports none, or in a unit Halcyonic does not know yet.
+ */
 export const EvaluationVerificationKind = Type.Object(
   {
-    /** The source's name for the kind, for example `test`. */
+    /** The source's name for the kind: `test`, `build`, `typecheck`, `lint`, or `Verification` for a run of no kind. */
     label: Text(120),
     /** Runs of this kind that returned a result. */
     runs: Nullable(Count),
     /** Runs of this kind that passed. Never more than `runs`. */
     passed: Nullable(Count),
-    /** The share of runs that passed, or null when no run returned a result. */
+    /** The share of runs that passed, or null when nothing ran. */
     pass_rate: Nullable(Fraction),
   },
   strict,
 );
 
-/** The session's verification runs, one entry per kind of check. */
+/** The session's verification runs, one entry per kind of check that was measured. */
 export const EvaluationVerificationLens = Type.Object(
   {
     by_kind: Type.Array(EvaluationVerificationKind),
-    /** The source's explanation when it captured no verification run. */
+    /** The source's explanation when it measured nothing, as it does when `by_kind` is empty. */
     empty_reason: Nullable(Text(600)),
   },
   strict,
@@ -227,7 +250,7 @@ export const EvaluationVerificationLens = Type.Object(
 export const EvaluationVerification = Type.Object(
   {
     ...Read,
-    /** Null when the source could not produce the verification lens. */
+    /** Null when the source could not produce the verification lens. Measured for Claude Code only. */
     lens: Nullable(EvaluationVerificationLens),
   },
   strict,

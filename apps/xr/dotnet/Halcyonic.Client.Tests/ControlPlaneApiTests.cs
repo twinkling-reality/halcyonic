@@ -53,7 +53,7 @@ public class ControlPlaneApiTests
                   "matched_sessions": 1,
                   "included_sessions": 0,
                   "complete": false,
-                  "omissions": ["projection_pending"]
+                  "omissions": ["projection_pending", "unknown"]
                 },
                 "freshness": {
                   "state": "revalidating",
@@ -142,7 +142,10 @@ public class ControlPlaneApiTests
         Assert.That(evaluation.Cost.Freshness.StaleAt, Is.EqualTo("2026-09-26T18:05:00.000Z"));
 
         Assert.That(evaluation.Outcome.Availability.Reason, Is.EqualTo(EvaluationAvailabilityReason.NotYetComputed));
-        Assert.That(evaluation.Outcome.Coverage.Omissions, Is.EqualTo(new[] { EvaluationCoverageOmission.ProjectionPending }));
+        Assert.That(
+            evaluation.Outcome.Coverage.Omissions,
+            Is.EqualTo(new[] { EvaluationCoverageOmission.ProjectionPending, EvaluationCoverageOmission.Unknown }),
+            "an omission Seorak added after the contract arrives as unknown");
         Assert.That(evaluation.Outcome.Freshness.State, Is.EqualTo(EvaluationFreshnessState.Revalidating));
         var measure = evaluation.Outcome.Measure!;
         Assert.That(measure.CommitsLanded, Is.Null);
