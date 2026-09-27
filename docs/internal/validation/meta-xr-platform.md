@@ -74,6 +74,27 @@ packages pinned above.
   with the machine's LAN address and a generated access token.
 - **Halcyonic's code.** The contracts, the client core and the Unity layer compiled with no warnings.
 
+## Simulator (2026-09-27)
+
+The stage scene ran in Play mode against Meta XR Simulator 207.0 (the active OpenXR runtime), on
+macOS arm64 with Metal. The characters have not been seen in the Simulator yet.
+
+- **Client connection.** OpenXR loaded the Simulator and the Halcyonic client connected to the
+  control plane.
+- **Pause bug.** Unity reported a resume without a pause when the XR session started, which exposed
+  a pause bug in the client (fixed in 6df47ac).
+- **Hidden desktop.** With the editor and the Simulator on a desktop Space that was not shown, the
+  session reached READY and never SYNCHRONIZED: after one frame the app submitted no more, and the
+  client's heartbeat to the control plane stalled. Turning on Run In Background did not change this.
+  The likely cause is macOS throttling applications whose windows are not visible (App Nap or
+  occlusion); it has not been confirmed with the windows on screen.
+- **Runtime failure.** One session ended after about a minute with `xrEndFrame` returning
+  `XR_ERROR_RUNTIME_FAILURE`, right after the Simulator logged that passthrough was null. The cause
+  is not known.
+- **Warnings.** The Simulator rejects the Oculus Touch proximity binding
+  (`XR_ERROR_PATH_UNSUPPORTED`) and warns that it cannot find MoltenVK entry points. Neither stopped
+  a session.
+
 ## Only settled on hardware
 
 Sustained frame rate with hand tracking and network traffic; focus changes under the real

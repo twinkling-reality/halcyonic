@@ -50,10 +50,14 @@ files fix asset identities, so commit new ones and keep them.
 
 ## Scene
 
-Create a scene with Meta's Building Blocks for a camera rig and hand tracking. No Halcyonic object
-is needed in the scene: `HalcyonicBootstrap` adds the stage (connection, characters and focus
-guard) to any scene that does not have one. Assign the rig's hand visuals to the `FocusGuard`
-component, so they hide when the app loses input focus.
+`Assets/Halcyonic/Scenes/Stage.unity`, the only scene in the build, holds:
+- Meta's Camera Rig building block, with a floor-level tracking origin;
+- the Hand Tracking building block;
+- the Halcyonic stage object, with the connection, the characters and the focus guard.
+
+Both hands are assigned to `FocusGuard`, so they hide when the app loses input focus.
+`HalcyonicBootstrap` still adds a stage to any other scene that lacks one, but without hand visuals
+to hide.
 
 ## Run against the control plane
 
@@ -73,6 +77,14 @@ Enter Play mode with the Meta XR Simulator active. The client reads the token fr
 `~/.halcyonic/access-token` (override with `HALCYONIC_TOKEN_FILE` or `HALCYONIC_DATA_DIR`) and
 connects to `ws://127.0.0.1:47800/realtime` (override with `HALCYONIC_ENDPOINT`). The line above
 the characters says whether the state is live.
+
+- **Keep the editor and the Simulator on screen.** Run In Background is on, so Play mode continues
+  while the Simulator's window has focus. But when the editor and the Simulator sat on a desktop
+  Space that was not shown, the XR session stayed at READY, nothing rendered, and even the client's
+  heartbeat stalled until the control plane dropped it.
+- **First launch.** The Simulator starts with a welcome screen.
+- **Controllers by default.** The Simulator starts with controllers as its input; the hands-only
+  check needs its inputs switched to hands.
 
 To see recorded data instead, stop `pnpm dev` and run
 `pnpm replay fixtures/traces/multiple_workstreams.jsonl`; the stage labels it as recorded.

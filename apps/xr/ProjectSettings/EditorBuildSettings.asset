@@ -4,7 +4,10 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Halcyonic/Scenes/Stage.unity
+    guid: 0ae4f5579b8444c1295a3a7cafc4638d
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 9d443549c7a7c4cbeb8c8f278ee91d5e, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 6d2054f4b2cf24e2782f5b6b3cc6e59b, type: 2}

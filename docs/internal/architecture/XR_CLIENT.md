@@ -119,7 +119,8 @@ Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 Interaction SDKs 207.0.0, XR Hands 1.9.0 and Newtonsoft.Json 3.2.2. Its scripts use only long-stable
 core Unity APIs:
 
-- `HalcyonicBootstrap` adds the stage to any scene that lacks one, so no scene file carries it.
+- `HalcyonicBootstrap` adds the stage to any scene that lacks one. The stage scene carries its own,
+  so that its `FocusGuard` can reference the rig's hands.
 - `ControlPlaneConnection` owns the session and pumps it every frame. It passes the application's
   pause state to `RealtimeSession.SetPausedAsync`, which stops the session on a pause and resumes it
   from the last position afterwards. It ignores the resumes Unity reports without a pause, at app
