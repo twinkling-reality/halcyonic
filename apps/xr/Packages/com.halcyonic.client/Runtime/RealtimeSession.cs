@@ -63,6 +63,12 @@ namespace Halcyonic.Client
         private Task? loop;
         private IRealtimeTransport? commandChannel;
 
+        private readonly object pauseGate = new object();
+        private Task pauseTransition = Task.CompletedTask;
+        private bool paused;
+        /// <summary>Whether the last pause stopped a running session, so that resuming starts it again.</summary>
+        private bool resumeAfterPause;
+
         /// <summary>The position of the last message received; used only by the background loop.</summary>
         private ResumeCursor? cursor;
 
@@ -88,7 +94,78 @@ namespace Halcyonic.Client
             }
         }
 
-        public async Task StopAsync()
+        /// <summary>Stops the session. A pause in progress no longer resumes it.</summary>
+        public Task StopAsync()
+        {
+            lock (pauseGate)
+            {
+                resumeAfterPause = false;
+            }
+            return StopRunningAsync();
+        }
+
+        /// <summary>
+        /// Follows the application's pause state; a headset that goes to sleep loses its sockets.
+        /// Pausing stops a running session, and resuming starts it again from the last position, but
+        /// only if that pause stopped it. A repeated or unmatched notification, such as the resume a
+        /// platform reports when an app starts, changes nothing. Transitions run in order.
+        /// </summary>
+        public Task SetPausedAsync(bool pause)
+        {
+            lock (pauseGate)
+            {
+                if (pause == paused) return pauseTransition;
+                paused = pause;
+                pauseTransition = pause ? PauseAfterAsync(pauseTransition) : ResumeAfterAsync(pauseTransition);
+                return pauseTransition;
+            }
+        }
+
+        private async Task PauseAfterAsync(Task previous)
+        {
+            await Settled(previous).ConfigureAwait(false);
+            bool running;
+            // Held together, so that a StopAsync in between cannot be undone by a stale answer.
+            lock (pauseGate)
+            {
+                lock (gate)
+                {
+                    running = loop != null;
+                }
+                resumeAfterPause = running;
+            }
+            if (running) await StopRunningAsync().ConfigureAwait(false);
+        }
+
+        private async Task ResumeAfterAsync(Task previous)
+        {
+            await Settled(previous).ConfigureAwait(false);
+            // Held together, so that a StopAsync cannot slip in between the check and the start.
+            lock (pauseGate)
+            {
+                if (!resumeAfterPause) return;
+                resumeAfterPause = false;
+                lock (gate)
+                {
+                    if (loop == null) Start();
+                }
+            }
+        }
+
+        /// <summary>Waits for an earlier transition; its failure belongs to whoever awaited it.</summary>
+        private static async Task Settled(Task transition)
+        {
+            try
+            {
+                await transition.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Reported through the task returned for that transition.
+            }
+        }
+
+        private async Task StopRunningAsync()
         {
             Task? running;
             CancellationTokenSource? source;
@@ -113,6 +190,10 @@ namespace Halcyonic.Client
 
         public void Dispose()
         {
+            lock (pauseGate)
+            {
+                resumeAfterPause = false;
+            }
             lock (gate)
             {
                 stopping?.Cancel();

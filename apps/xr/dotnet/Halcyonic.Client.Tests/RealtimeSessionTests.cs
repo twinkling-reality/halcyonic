@@ -294,4 +294,75 @@ public class RealtimeSessionTests
         session.Pump();
         Assert.That(session.Status.Phase, Is.EqualTo(ConnectionPhase.Stopped));
     }
+
+    [Test]
+    public async Task AResumeWithoutAPauseChangesNothing()
+    {
+        // Unity reports a resume when an app starts and when an XR session starts in the editor.
+        StartSession();
+        await ConnectLiveAsync(Samples.Snapshot(1));
+        await session.SetPausedAsync(false);
+        session.Pump();
+        Assert.That(session.Status.IsLive, Is.True);
+        Assert.That(server.Attempts, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task PausingStopsAndResumingReconnectsFromTheLastPosition()
+    {
+        StartSession();
+        var first = await ConnectLiveAsync(Samples.Snapshot(5, new[] { Samples.Workstream("w1") }));
+        await session.SetPausedAsync(true);
+        session.Pump();
+        Assert.That(session.Status.Phase, Is.EqualTo(ConnectionPhase.Stopped));
+        Assert.That(first.Disposed, Is.True);
+        Assert.That(session.State.Workstreams.ContainsKey("w1"), Is.True, "the last known state stays");
+
+        await session.SetPausedAsync(false);
+        var second = await server.AcceptAsync();
+        var hello = await second.ReceiveFromClientAsync();
+        Assert.That((long?)hello["resume"]!["position"], Is.EqualTo(5));
+        second.Send(Samples.Welcome(resumed: true, head: 5));
+        await Pumping.Until(session, s => s.Status.IsLive, "the session is live again");
+    }
+
+    [Test]
+    public async Task QuickPausesAndResumesRunInOrder()
+    {
+        StartSession();
+        await ConnectLiveAsync(Samples.Snapshot(1));
+        var transitions = new[]
+        {
+            session.SetPausedAsync(true),
+            session.SetPausedAsync(false),
+            session.SetPausedAsync(true),
+            session.SetPausedAsync(false),
+        };
+        await Task.WhenAll(transitions);
+        Assert.Throws<InvalidOperationException>(() => session.Start(), "the session runs again");
+    }
+
+    [Test]
+    public async Task AStopDuringAPauseIsNotUndoneByTheResume()
+    {
+        // An app disabled while paused stops its session; a resume already queued must not revive it.
+        StartSession();
+        await ConnectLiveAsync(Samples.Snapshot(1));
+        var pause = session.SetPausedAsync(true);
+        var resume = session.SetPausedAsync(false);
+        await session.StopAsync();
+        await Task.WhenAll(pause, resume);
+        Assert.That(server.Attempts, Is.EqualTo(1));
+        Assert.DoesNotThrow(() => session.Start(), "the session was not running");
+    }
+
+    [Test]
+    public async Task AResumeDoesNotStartASessionThatWasNotRunning()
+    {
+        server = new FakeServer();
+        session = new RealtimeSession(Options(), server.CreateTransport);
+        await session.SetPausedAsync(true);
+        await session.SetPausedAsync(false);
+        Assert.DoesNotThrow(() => session.Start(), "the session was not running");
+    }
 }

@@ -111,8 +111,10 @@ Interaction SDKs 207.0.0, XR Hands 1.9.0 and Newtonsoft.Json 3.2.2. Its scripts 
 core Unity APIs:
 
 - `HalcyonicBootstrap` adds the stage to any scene that lacks one, so no scene file carries it.
-- `ControlPlaneConnection` owns the session, pumps it every frame, stops it when the application
-  pauses and resumes it from the last position afterwards.
+- `ControlPlaneConnection` owns the session and pumps it every frame. It passes the application's
+  pause state to `RealtimeSession.SetPausedAsync`, which stops the session on a pause and resumes it
+  from the last position afterwards. It ignores the resumes Unity reports without a pause, at app
+  start and when an XR session starts, and never revives a session stopped in between.
 - `CharacterStage` places one placeholder character per workstream in an arc, and says above them
   whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
   motion follows the activity, with the title, status and attention notes written out.

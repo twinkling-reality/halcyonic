@@ -14,7 +14,6 @@ namespace Halcyonic.XR
     public sealed class ControlPlaneConnection : MonoBehaviour
     {
         private RealtimeSession? session;
-        private Task? stopping;
 
         /// <summary>Raised on the main thread after received messages were applied.</summary>
         public event Action<StateChanges>? Changed;
@@ -52,25 +51,16 @@ namespace Halcyonic.XR
 
         private void OnApplicationPause(bool paused)
         {
-            // A sleeping headset loses its sockets. Stop cleanly, then resume from the last position.
-            if (session == null) return;
-            if (paused)
-            {
-                stopping = session.StopAsync();
-            }
-            else
-            {
-                ResumeAfterPause();
-            }
+            // A sleeping headset loses its sockets: the session stops, then resumes from the last
+            // position. Unity also reports resumes without a pause, which the session ignores.
+            if (session != null) Report(session.SetPausedAsync(paused));
         }
 
-        private async void ResumeAfterPause()
+        private static async void Report(Task transition)
         {
             try
             {
-                if (stopping != null) await stopping;
-                stopping = null;
-                if (session != null && isActiveAndEnabled) session.Start();
+                await transition;
             }
             catch (Exception error)
             {
