@@ -45,3 +45,6 @@ coverage/
 /apps/xr/*.slnx
 /apps/xr/.vs/
 /apps/xr/.idea/
+# Meta's Immersive Debugger agent settings: written per machine, with its LAN address and a token.
+/apps/xr/Assets/Resources/DevAgentSettings.asset
+/apps/xr/Assets/Resources/DevAgentSettings.asset.meta

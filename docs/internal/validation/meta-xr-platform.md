@@ -5,7 +5,8 @@
 - **Date:** 2026-09-26.
 - **Method:** Official Meta Horizon developer documentation and release notes, the Meta and Unity
   package registries, and Unity release pages. Nothing was installed.
-- **Status:** Documentation verified. No Unity project exists yet; nothing has run on a device.
+- **Status:** Documentation verified, and the project's first import in the Unity editor (below).
+  Nothing has run in the Simulator or on a device.
 
 ## Findings
 
@@ -46,6 +47,32 @@
 - Put the WebSocket behind `IRealtimeTransport`, set Internet Access to Require, test `wss://` on
   a Quest in the first week, and keep a native Android WebSocket as a fallback.
 - Keep Meta XR Operator out of release builds.
+
+## First import (2026-09-27)
+
+Unity `6000.3.25f1` on macOS (Apple silicon) opened `apps/xr` for the first time, with the
+packages pinned above.
+
+- **Undeclared engine modules.** Meta's Core and Interaction SDKs use `AssetBundle`,
+  `UnityEngine.AI` (`NavMeshQueryFilter`) and `Physics2D` without declaring the built-in modules
+  that provide them. Without `com.unity.modules.assetbundle`, `ai` and `physics2d` in the manifest,
+  `Oculus.VR` and `Oculus.Interaction` fail with CS1069 and the editor offers Safe Mode.
+- **Resolved versions.** The Test Framework is built into this editor at 1.6.0. Resolution pulls in
+  Input System 1.20.0, XR Core Utilities 2.6.0 and XR Plug-in Management 4.6.1. The Package Manager
+  warns that Meta's packages carry no signature.
+- **Restart and crash.** After the first import the editor set Active Input Handling to Both and
+  relaunched itself. On this editor version that relaunch crashed during shutdown (an Objective-C
+  exception while unloading scripted objects), so the project had to be reopened by hand. The
+  settings written before the crash were intact.
+- **Meta's first-run prompts.** Meta asks to enable its OpenXR feature set on Standalone and
+  Android, and asks whether to share additional usage data with Meta. The data choice applies to
+  every Meta developer tool on the machine.
+- **Project Setup Tool.** On the fresh project its required tasks were the Oculus Touch interaction
+  profile (Standalone) and a single GameActivity entry point (Android). Hand tracking is a
+  recommended task, off by default.
+- **Per-machine file.** Meta's Immersive Debugger writes `Assets/Resources/DevAgentSettings.asset`
+  with the machine's LAN address and a generated access token.
+- **Halcyonic's code.** The contracts, the client core and the Unity layer compiled with no warnings.
 
 ## Only settled on hardware
 

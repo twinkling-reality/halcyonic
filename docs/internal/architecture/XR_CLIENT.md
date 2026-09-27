@@ -6,7 +6,7 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ## Layers
 
 ```text
-Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard      skeleton, not yet compiled by Unity
+Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard      skeleton, compiles in Unity
         │
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested

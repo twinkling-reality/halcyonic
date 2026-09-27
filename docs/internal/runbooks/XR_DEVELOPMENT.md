@@ -21,18 +21,32 @@ These steps need the owner's accounts and are not automated.
 Unity resolves the packages in `apps/xr/Packages/manifest.json`: OpenXR 1.18.0, the Meta XR Core
 and Interaction SDKs 207.0.0 (from Meta's registry at `npm.developer.oculus.com`, under Meta's SDK
 license), XR Hands 1.9.0, Newtonsoft.Json 3.2.2, the Test Framework, the generated contracts from
-`packages/contracts/csharp`, and the embedded client core. It then writes the project settings,
-`Packages/packages-lock.json` and a `.meta` file for every asset.
+`packages/contracts/csharp`, and the embedded client core. The manifest also lists the AI,
+AssetBundle and Physics 2D engine modules, which Meta's SDKs use without declaring; without them
+Meta's code does not compile.
+
+The project settings are committed, so a fresh clone opens configured:
+
+- OpenXR is the XR loader for Android and for the desktop platform (the Simulator runs there), and
+  starts with the app.
+- Meta's OpenXR feature set is enabled on both, with the Oculus Touch controller profiles.
+- Active Input Handling is set to both input systems, and the Android entry point is GameActivity.
+- Hand tracking support is "Controllers and Hands", and the Android manifest declares it.
+
+Meta's Project Setup Tool reports no required task. Its remaining recommendations (Vulkan,
+single-pass instancing, ASTC textures, target API 34, MSAA and others) are left for the Quest build.
+
+On first open:
 
 1. On the editor's first launch, Unity shows its Editor Software Terms, possibly on another desktop
    Space. Nothing loads, and the editor log stops after licensing, until you accept them.
-2. Check the Console for compile errors. The Unity layer (`apps/xr/Assets/Halcyonic`) has not been
-   compiled by Unity yet; fix anything it reports.
-3. In **Project Settings > XR Plug-in Management**, enable **OpenXR** for Android and for the
-   desktop platform (the Simulator runs there), and enable the **Meta Quest** feature group.
-4. Run Meta's **Project Setup Tool** and apply the required fixes.
-5. Commit the generated `ProjectSettings/`, `Packages/packages-lock.json` and `.meta` files. The
-   `.meta` files fix asset identities, so they must be committed once and kept.
+2. Meta asks whether to share additional usage data with Meta. Halcyonic's choice is **Only share
+   essential data**. It applies to every Meta developer tool on the machine.
+3. Meta writes `Assets/Resources/DevAgentSettings.asset` with the machine's LAN address and a
+   generated token. It is git-ignored; never commit it.
+
+Unity writes a `.meta` file for every asset, including in `packages/contracts/csharp`. The `.meta`
+files fix asset identities, so commit new ones and keep them.
 
 ## Scene
 
