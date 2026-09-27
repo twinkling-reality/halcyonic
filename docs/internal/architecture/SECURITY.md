@@ -34,10 +34,11 @@ logged or passed to launched agents:
   measurements with the `sessions:read` and `replay:read` scopes, for the audience
   `http://127.0.0.1:4317/api/v1`, until it expires or the owner revokes it. It is sent only if it
   has Seorak's `srkx_` form, only to 127.0.0.1 on Seorak's port, and never along a redirect.
-  Seorak publishes no way to prove that the process on that port is Seorak, so while Seorak is
-  stopped another local account could listen there and receive the credential. With it, that
-  account could read the same measurements through Seorak's loopback plane until the credential
-  expires or is revoked.
+  Seorak publishes no way to prove that the process on that port is Seorak (the request is open
+  with Seorak), so while Seorak is stopped another local account could listen there and receive
+  the credential. With it, that account could read the same measurements through Seorak's loopback
+  plane until the credential expires or is revoked. Seorak's unauthenticated `GET /data-plane`
+  proves nothing, since any listener could answer it, and is not read.
 
 ## Controls
 
