@@ -80,6 +80,15 @@ function alive(pid: number): boolean {
   }
 }
 
+/** These tests never start an execution, so their adapters allow no directory. */
+function adapterFor(file: string): OpenCodeRuntimeAdapter {
+  return new OpenCodeRuntimeAdapter({
+    binaryPath: '/unused',
+    serverRecordFile: file,
+    directoryPolicy: () => ({ ok: false, message: 'No directory is allowed in this test.' }),
+  });
+}
+
 function recordFile(t: TestContext): string {
   const directory = mkdtempSync(join(tmpdir(), 'halcyonic-opencode-record-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -111,7 +120,7 @@ describe('a server left running by an earlier run', () => {
     assert.equal(alive(grandchild), true);
     const file = recordFile(t);
     await writeServerRecord(file, server.record);
-    const adapter = new OpenCodeRuntimeAdapter({ binaryPath: '/unused', serverRecordFile: file });
+    const adapter = adapterFor(file);
     const result = await adapter.stopStaleServer();
     assert.deepEqual(result, { outcome: 'stopped', pid: server.pid, port: 1 });
     await within(server.exited, 5000, 'the stand-in to exit');
@@ -126,7 +135,7 @@ describe('a server left running by an earlier run', () => {
     const file = recordFile(t);
     const reused = { ...other.record, startedAt: 'Thu Jan  1 00:00:00 1970' };
     await writeServerRecord(file, reused);
-    const adapter = new OpenCodeRuntimeAdapter({ binaryPath: '/unused', serverRecordFile: file });
+    const adapter = adapterFor(file);
     assert.deepEqual(await adapter.stopStaleServer(), {
       outcome: 'not_ours',
       pid: other.pid,
@@ -147,7 +156,7 @@ describe('a server left running by an earlier run', () => {
     await gone.exited;
     const file = recordFile(t);
     await writeServerRecord(file, gone.record);
-    const adapter = new OpenCodeRuntimeAdapter({ binaryPath: '/unused', serverRecordFile: file });
+    const adapter = adapterFor(file);
     assert.deepEqual(await adapter.stopStaleServer(), {
       outcome: 'not_running',
       pid: gone.pid,

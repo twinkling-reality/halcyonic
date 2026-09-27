@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,7 @@ import {
 } from '@halcyonic/runtime-core';
 import { OpenCodeRuntimeAdapter, type OpenCodeRuntimeOptions } from './opencode-runtime.ts';
 import { readProcessIdentity } from './server-record.ts';
+import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_SHELL_COMMAND, type FakeProviderOptions } from './testing/fake-provider.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { createSandbox, type OpenCodeSandbox } from './testing/sandbox.ts';
@@ -116,6 +117,7 @@ async function harness(
   const runtime = new OpenCodeRuntimeAdapter({
     binaryPath: BINARY,
     serverRecordFile: sandbox.recordFile,
+    directoryPolicy: allowOnly(sandbox.project),
     env: sandbox.env,
     ...setup.runtime,
   });
@@ -217,6 +219,12 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     );
     assertValidObservations(execution.observations, execution.context);
     assert.equal(sandbox.provider.requests.at(-1)?.model, 'fake-model');
+    // OpenCode works in the real path the directory policy returned; its prompt names it.
+    assert.ok(
+      sandbox.provider.requests[0]?.body.includes(
+        `Working directory: ${realpathSync(sandbox.project)}`,
+      ),
+    );
 
     // The server is the configured binary, and its record names it without any secret.
     const pid = runtime.serverPid;
@@ -482,6 +490,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       const runtime = new OpenCodeRuntimeAdapter({
         binaryPath: BINARY,
         serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
       });
       t.after(() => runtime.close());
@@ -512,6 +521,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       const runtime = new OpenCodeRuntimeAdapter({
         binaryPath: BINARY,
         serverRecordFile: sandbox.recordFile,
+        directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
       });
       t.after(() => runtime.close());

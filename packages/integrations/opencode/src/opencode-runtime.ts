@@ -1,4 +1,3 @@
-import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import type {
@@ -11,6 +10,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
   type OptionsValidation,
@@ -70,6 +70,11 @@ export interface OpenCodeRuntimeOptions {
    * stop a server that outlived a crash. Use one file per runtime instance.
    */
   readonly serverRecordFile: string;
+  /**
+   * The host's decision on which directories agents may work in. A directory it refuses is
+   * refused as a start option, and a session runs in the real path it returns.
+   */
+  readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
   /**
    * Variables set on top of the inherited allowlist, for example provider credentials, or
@@ -139,6 +144,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   readonly #binaryPath: string;
   readonly #recordFile: string;
+  readonly #directoryPolicy: DirectoryPolicy;
   readonly #environment: Readonly<Record<string, string>>;
   readonly #port: number | null;
   readonly #startupTimeoutMs: number;
@@ -154,6 +160,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   constructor(options: OpenCodeRuntimeOptions) {
     this.#binaryPath = options.binaryPath;
     this.#recordFile = options.serverRecordFile;
+    this.#directoryPolicy = options.directoryPolicy;
     this.#environment = buildEnvironment(process.env, options.env ?? {});
     this.#port = options.port ?? null;
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 30_000;
@@ -175,7 +182,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options);
+    const parsed = parseStartOptions(options, this.#directoryPolicy);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
 
@@ -194,25 +201,18 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    const parsed = parseStartOptions(request.options);
+    // Checked again here: the directory may have changed since admission.
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    let directory: string;
-    try {
-      // The real path: OpenCode computes an odd relative subpath for a directory behind a symlink.
-      directory = realpathSync(parsed.value.directory);
-    } catch {
-      throw new RuntimeActionError(
-        'invalid_runtime_options',
-        `Option "directory" does not exist: ${parsed.value.directory}`,
-      );
-    }
     const connection = await this.#connection();
     const body: Record<string, unknown> = {
       title: `Halcyonic execution ${request.execution.execution_id}`,
-      location: { directory },
+      // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
+      // directory reached through a symbolic link.
+      location: { directory: parsed.value.directory },
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     const created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');
