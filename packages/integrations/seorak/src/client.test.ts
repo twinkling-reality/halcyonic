@@ -2,14 +2,13 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, type TestContext, test } from 'node:test';
-import { compileValidator } from '@halcyonic/contracts';
+import { compileValidator, type Evaluation, EvaluationResult } from '@halcyonic/contracts';
 import {
   type EvaluateOptions,
   SeorakClient,
   type SeorakOptions,
   seorakAgentFor,
 } from './client.ts';
-import { type Evaluation, EvaluationResult } from './evaluation.ts';
 import {
   type CapturedSession,
   EXAMPLE,

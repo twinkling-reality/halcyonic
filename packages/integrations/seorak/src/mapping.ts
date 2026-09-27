@@ -1,4 +1,4 @@
-import { ESTIMATED_COST_NOTE, type Evaluation } from './evaluation.ts';
+import { ESTIMATED_COST_NOTE, type Evaluation } from '@halcyonic/contracts';
 import type { ReadLens, WireMetadata, WireOutcome } from './wire.ts';
 
 type Read = Pick<Evaluation['cost'], 'availability' | 'coverage' | 'freshness'>;

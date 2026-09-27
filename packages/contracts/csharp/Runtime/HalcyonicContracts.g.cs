@@ -2467,4 +2467,365 @@ namespace Halcyonic.Contracts
         [JsonProperty("result", Required = Required.Always)]
         public UnderstandingResult Result { get; set; } = default!;
     }
+
+    public sealed class EvaluationSource
+    {
+        [JsonProperty("system", Required = Required.Always)]
+        public string System { get; set; } = "seorak";
+
+        [JsonProperty("api_version", Required = Required.Always)]
+        public string ApiVersion { get; set; } = "v1";
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum EvaluationAvailabilityState
+    {
+        [EnumMember(Value = "available")] Available,
+        [EnumMember(Value = "partial")] Partial,
+        [EnumMember(Value = "unavailable")] Unavailable,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum EvaluationAvailabilityReason
+    {
+        [EnumMember(Value = "not_captured")] NotCaptured,
+        [EnumMember(Value = "not_retained")] NotRetained,
+        [EnumMember(Value = "not_yet_computed")] NotYetComputed,
+        [EnumMember(Value = "outside_credential_restriction")] OutsideCredentialRestriction,
+        [EnumMember(Value = "temporarily_unavailable")] TemporarilyUnavailable,
+        [EnumMember(Value = "result_limit")] ResultLimit,
+    }
+
+    public sealed class EvaluationAvailability
+    {
+        [JsonProperty("state", Required = Required.Always)]
+        public EvaluationAvailabilityState State { get; set; }
+
+        [JsonProperty("reason", Required = Required.AllowNull)]
+        public EvaluationAvailabilityReason? Reason { get; set; }
+    }
+
+    public sealed class EvaluationDateRange
+    {
+        [JsonProperty("from", Required = Required.Always)]
+        public string From { get; set; } = default!;
+
+        [JsonProperty("through", Required = Required.Always)]
+        public string Through { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum EvaluationCoverageOmission
+    {
+        [EnumMember(Value = "outside_retention")] OutsideRetention,
+        [EnumMember(Value = "capture_unavailable")] CaptureUnavailable,
+        [EnumMember(Value = "projection_pending")] ProjectionPending,
+        [EnumMember(Value = "credential_restriction")] CredentialRestriction,
+        [EnumMember(Value = "result_limit")] ResultLimit,
+    }
+
+    public sealed class EvaluationCoverage
+    {
+        [JsonProperty("requested", Required = Required.Always)]
+        public EvaluationDateRange Requested { get; set; } = default!;
+
+        [JsonProperty("observed", Required = Required.AllowNull)]
+        public EvaluationDateRange? Observed { get; set; }
+
+        [JsonProperty("matched_sessions", Required = Required.Always)]
+        public long MatchedSessions { get; set; }
+
+        [JsonProperty("included_sessions", Required = Required.Always)]
+        public long IncludedSessions { get; set; }
+
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
+
+        [JsonProperty("omissions", Required = Required.Always)]
+        public List<EvaluationCoverageOmission> Omissions { get; set; } = new List<EvaluationCoverageOmission>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum EvaluationFreshnessState
+    {
+        [EnumMember(Value = "fresh")] Fresh,
+        [EnumMember(Value = "stale")] Stale,
+        [EnumMember(Value = "revalidating")] Revalidating,
+    }
+
+    public sealed class EvaluationFreshness
+    {
+        [JsonProperty("state", Required = Required.Always)]
+        public EvaluationFreshnessState State { get; set; }
+
+        [JsonProperty("generated_at", Required = Required.Always)]
+        public string GeneratedAt { get; set; } = default!;
+
+        [JsonProperty("data_through", Required = Required.AllowNull)]
+        public string? DataThrough { get; set; }
+
+        [JsonProperty("stale_at", Required = Required.Always)]
+        public string StaleAt { get; set; } = default!;
+    }
+
+    public sealed class EvaluationCost
+    {
+        [JsonProperty("availability", Required = Required.Always)]
+        public EvaluationAvailability Availability { get; set; } = default!;
+
+        [JsonProperty("coverage", Required = Required.Always)]
+        public EvaluationCoverage Coverage { get; set; } = default!;
+
+        [JsonProperty("freshness", Required = Required.Always)]
+        public EvaluationFreshness Freshness { get; set; } = default!;
+
+        [JsonProperty("estimated_usd", Required = Required.AllowNull)]
+        public double? EstimatedUsd { get; set; }
+
+        [JsonProperty("note", Required = Required.Always)]
+        public string Note { get; set; } = "Estimated from token counts at list prices. Not a bill.";
+    }
+
+    public sealed class EvaluationUncommitted
+    {
+        [JsonProperty("files_touched", Required = Required.Always)]
+        public long FilesTouched { get; set; }
+
+        [JsonProperty("lines_added", Required = Required.Always)]
+        public long LinesAdded { get; set; }
+
+        [JsonProperty("lines_removed", Required = Required.Always)]
+        public long LinesRemoved { get; set; }
+
+        [JsonProperty("generated_lines_excluded", Required = Required.Always)]
+        public long GeneratedLinesExcluded { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum EvaluationLineSurvivalFate
+    {
+        [EnumMember(Value = "retained")] Retained,
+        [EnumMember(Value = "overwritten")] Overwritten,
+        [EnumMember(Value = "unreachable")] Unreachable,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class EvaluationLineSurvival
+    {
+        [JsonProperty("rung", Required = Required.Always)]
+        public string Rung { get; set; } = "3d";
+
+        [JsonProperty("fate", Required = Required.Always)]
+        public EvaluationLineSurvivalFate Fate { get; set; }
+
+        [JsonProperty("rate", Required = Required.AllowNull)]
+        public double? Rate { get; set; }
+
+        [JsonProperty("lines_authored", Required = Required.Always)]
+        public long LinesAuthored { get; set; }
+
+        [JsonProperty("lines_surviving", Required = Required.Always)]
+        public long LinesSurviving { get; set; }
+
+        [JsonProperty("commits_checked", Required = Required.Always)]
+        public long CommitsChecked { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum EvaluationEndReason
+    {
+        [EnumMember(Value = "clear")] Clear,
+        [EnumMember(Value = "resume")] Resume,
+        [EnumMember(Value = "logout")] Logout,
+        [EnumMember(Value = "prompt_input_exit")] PromptInputExit,
+        [EnumMember(Value = "bypass_permissions_disabled")] BypassPermissionsDisabled,
+        [EnumMember(Value = "other")] Other,
+    }
+
+    public sealed class EvaluationOutcomeMeasure
+    {
+        [JsonProperty("commits_landed", Required = Required.AllowNull)]
+        public long? CommitsLanded { get; set; }
+
+        [JsonProperty("uncommitted", Required = Required.AllowNull)]
+        public EvaluationUncommitted? Uncommitted { get; set; }
+
+        [JsonProperty("line_survival", Required = Required.AllowNull)]
+        public EvaluationLineSurvival? LineSurvival { get; set; }
+
+        [JsonProperty("error_count", Required = Required.AllowNull)]
+        public long? ErrorCount { get; set; }
+
+        [JsonProperty("first_error_at", Required = Required.AllowNull)]
+        public string? FirstErrorAt { get; set; }
+
+        [JsonProperty("end_reason", Required = Required.AllowNull)]
+        public EvaluationEndReason? EndReason { get; set; }
+    }
+
+    public sealed class EvaluationOutcome
+    {
+        [JsonProperty("availability", Required = Required.Always)]
+        public EvaluationAvailability Availability { get; set; } = default!;
+
+        [JsonProperty("coverage", Required = Required.Always)]
+        public EvaluationCoverage Coverage { get; set; } = default!;
+
+        [JsonProperty("freshness", Required = Required.Always)]
+        public EvaluationFreshness Freshness { get; set; } = default!;
+
+        [JsonProperty("measure", Required = Required.AllowNull)]
+        public EvaluationOutcomeMeasure? Measure { get; set; }
+    }
+
+    public sealed class EvaluationVerificationKind
+    {
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("runs", Required = Required.AllowNull)]
+        public long? Runs { get; set; }
+
+        [JsonProperty("passed", Required = Required.AllowNull)]
+        public long? Passed { get; set; }
+
+        [JsonProperty("pass_rate", Required = Required.AllowNull)]
+        public double? PassRate { get; set; }
+    }
+
+    public sealed class EvaluationVerificationLens
+    {
+        [JsonProperty("by_kind", Required = Required.Always)]
+        public List<EvaluationVerificationKind> ByKind { get; set; } = new List<EvaluationVerificationKind>();
+
+        [JsonProperty("empty_reason", Required = Required.AllowNull)]
+        public string? EmptyReason { get; set; }
+    }
+
+    public sealed class EvaluationVerification
+    {
+        [JsonProperty("availability", Required = Required.Always)]
+        public EvaluationAvailability Availability { get; set; } = default!;
+
+        [JsonProperty("coverage", Required = Required.Always)]
+        public EvaluationCoverage Coverage { get; set; } = default!;
+
+        [JsonProperty("freshness", Required = Required.Always)]
+        public EvaluationFreshness Freshness { get; set; } = default!;
+
+        [JsonProperty("lens", Required = Required.AllowNull)]
+        public EvaluationVerificationLens? Lens { get; set; }
+    }
+
+    public sealed class Evaluation
+    {
+        [JsonProperty("source", Required = Required.Always)]
+        public EvaluationSource Source { get; set; } = default!;
+
+        [JsonProperty("cost", Required = Required.Always)]
+        public EvaluationCost Cost { get; set; } = default!;
+
+        [JsonProperty("outcome", Required = Required.Always)]
+        public EvaluationOutcome Outcome { get; set; } = default!;
+
+        [JsonProperty("verification", Required = Required.Always)]
+        public EvaluationVerification Verification { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(EvaluationResultConverter))]
+    public abstract class EvaluationResult
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class EvaluationResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(EvaluationResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            EvaluationResult value = tag switch
+            {
+                "available" => new AvailableEvaluation(),
+                "not_found" => new NotFoundEvaluation(),
+                "unavailable" => new UnavailableEvaluation(),
+                "incompatible" => new IncompatibleEvaluation(),
+                "unauthorized" => new UnauthorizedEvaluation(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "EvaluationResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for EvaluationResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableEvaluation : EvaluationResult
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("evaluation", Required = Required.Always)]
+        public Evaluation Evaluation { get; set; } = default!;
+    }
+
+    public sealed class NotFoundEvaluation : EvaluationResult
+    {
+        protected override string Discriminator => "not_found";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnavailableEvaluation : EvaluationResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class IncompatibleEvaluation : EvaluationResult
+    {
+        protected override string Discriminator => "incompatible";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnauthorizedEvaluation : EvaluationResult
+    {
+        protected override string Discriminator => "unauthorized";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class EvaluationResponse
+    {
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public EvaluationResult Result { get; set; } = default!;
+    }
 }

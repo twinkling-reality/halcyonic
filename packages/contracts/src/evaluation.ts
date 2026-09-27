@@ -1,15 +1,14 @@
-import { ErrorInfo, Nullable, Timestamp } from '@halcyonic/contracts';
 import Type, { type Static } from 'typebox';
+import { ErrorInfo, Nullable, Timestamp } from './primitives.ts';
 
 /**
  * What an evaluation source measured about one execution's session: its estimated cost, its
  * outcome and its verification runs.
  *
- * This is Halcyonic's shape, not the source's wire format, and it is meant to move into
- * `packages/contracts` beside `Understanding`. It is strict, like every Halcyonic contract: the
- * mapping from the source's documents is written field by field, so nothing the source adds later
- * reaches Halcyonic clients unannounced. It is read through from the source on request and never
- * journaled (ADR 0010).
+ * This is Halcyonic's shape, not the source's wire format. It is strict, like every Halcyonic
+ * contract: the mapping from the source's documents is written field by field, so nothing the
+ * source adds later reaches Halcyonic clients unannounced. It is read through from the source on
+ * request and never journaled (ADR 0010).
  *
  * The three parts are read separately, and each keeps the source's own statement about itself:
  * `availability` (whether the source could support the claim at all), `coverage` (which dates and
@@ -27,8 +26,13 @@ const Count = Type.Integer({ minimum: 0 });
 const Fraction = Type.Number({ minimum: 0, maximum: 1 });
 /** A calendar date, `YYYY-MM-DD`, interpreted as UTC. */
 const CalendarDate = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' });
-const DateRange = Type.Object({ from: CalendarDate, through: CalendarDate }, strict);
 const Text = (maxLength: number) => Type.String({ maxLength });
+
+/** Calendar dates from `from` through `through`, inclusive. */
+export const EvaluationDateRange = Type.Object(
+  { from: CalendarDate, through: CalendarDate },
+  strict,
+);
 
 /**
  * The note every cost estimate carries, Seorak's `COST_ESTIMATE_NOTE` word for word
@@ -63,9 +67,9 @@ export const EvaluationAvailability = Type.Object(
 /** Which dates and sessions a part actually covers. */
 export const EvaluationCoverage = Type.Object(
   {
-    requested: DateRange,
+    requested: EvaluationDateRange,
     /** Null when nothing was observed. */
-    observed: Nullable(DateRange),
+    observed: Nullable(EvaluationDateRange),
     matched_sessions: Count,
     included_sessions: Count,
     complete: Type.Boolean(),
@@ -82,6 +86,7 @@ export const EvaluationCoverage = Type.Object(
   },
   strict,
 );
+export const EvaluationCoverageOmission = EvaluationCoverage.properties.omissions.items;
 
 /** How current a part is, by the source's clock. */
 export const EvaluationFreshness = Type.Object(
@@ -123,6 +128,48 @@ export const EvaluationCost = Type.Object(
   strict,
 );
 
+/** The uncommitted changes at a session's end. Generated and lock file lines are counted apart. */
+export const EvaluationUncommitted = Type.Object(
+  {
+    files_touched: Count,
+    lines_added: Count,
+    lines_removed: Count,
+    generated_lines_excluded: Count,
+  },
+  strict,
+);
+
+/**
+ * Whether the lines a session wrote were still on the branch at a fixed maturation rung (three
+ * days), so a fresh session has none yet. `rate` is null below the source's own floor.
+ */
+export const EvaluationLineSurvival = Type.Object(
+  {
+    rung: Type.Literal('3d'),
+    fate: Type.Union([
+      Type.Literal('retained'),
+      Type.Literal('overwritten'),
+      Type.Literal('unreachable'),
+      Type.Literal('unknown'),
+    ]),
+    rate: Nullable(Fraction),
+    lines_authored: Count,
+    lines_surviving: Count,
+    commits_checked: Count,
+  },
+  strict,
+);
+
+/** How a session ended, as its runtime reported it: a lifecycle event, never completion. */
+export const EvaluationEndReason = Type.Union([
+  Type.Literal('clear'),
+  Type.Literal('resume'),
+  Type.Literal('logout'),
+  Type.Literal('prompt_input_exit'),
+  Type.Literal('bypass_permissions_disabled'),
+  Type.Literal('other'),
+]);
+
 /**
  * Whether the session's work landed and lasted, in counts and closed values only. Every field is
  * null until the source has the rows to determine it; a session that has not matured is pending,
@@ -132,54 +179,13 @@ export const EvaluationOutcomeMeasure = Type.Object(
   {
     /** Commits that landed during the session. */
     commits_landed: Nullable(Count),
-    /** The uncommitted changes at the session's end. Generated and lock file lines are counted apart. */
-    uncommitted: Nullable(
-      Type.Object(
-        {
-          files_touched: Count,
-          lines_added: Count,
-          lines_removed: Count,
-          generated_lines_excluded: Count,
-        },
-        strict,
-      ),
-    ),
-    /**
-     * Whether the lines the session wrote were still on the branch at a fixed maturation rung (three
-     * days), so a fresh session has none yet. `rate` is null below the source's own floor.
-     */
-    line_survival: Nullable(
-      Type.Object(
-        {
-          rung: Type.Literal('3d'),
-          fate: Type.Union([
-            Type.Literal('retained'),
-            Type.Literal('overwritten'),
-            Type.Literal('unreachable'),
-            Type.Literal('unknown'),
-          ]),
-          rate: Nullable(Fraction),
-          lines_authored: Count,
-          lines_surviving: Count,
-          commits_checked: Count,
-        },
-        strict,
-      ),
-    ),
+    uncommitted: Nullable(EvaluationUncommitted),
+    line_survival: Nullable(EvaluationLineSurvival),
     /** Tool calls that errored. Null when no call said whether it errored; 0 is a measured zero. */
     error_count: Nullable(Count),
     first_error_at: Nullable(Timestamp),
-    /** How the session ended, as its runtime reported it: a lifecycle event, never completion. */
-    end_reason: Nullable(
-      Type.Union([
-        Type.Literal('clear'),
-        Type.Literal('resume'),
-        Type.Literal('logout'),
-        Type.Literal('prompt_input_exit'),
-        Type.Literal('bypass_permissions_disabled'),
-        Type.Literal('other'),
-      ]),
-    ),
+    /** Null while the session is active or its runtime reported no reason. */
+    end_reason: Nullable(EvaluationEndReason),
   },
   strict,
 );
@@ -208,20 +214,21 @@ export const EvaluationVerificationKind = Type.Object(
   strict,
 );
 
+/** The session's verification runs, one entry per kind of check. */
+export const EvaluationVerificationLens = Type.Object(
+  {
+    by_kind: Type.Array(EvaluationVerificationKind),
+    /** The source's explanation when it captured no verification run. */
+    empty_reason: Nullable(Text(600)),
+  },
+  strict,
+);
+
 export const EvaluationVerification = Type.Object(
   {
     ...Read,
     /** Null when the source could not produce the verification lens. */
-    lens: Nullable(
-      Type.Object(
-        {
-          by_kind: Type.Array(EvaluationVerificationKind),
-          /** The source's explanation when it captured no verification run. */
-          empty_reason: Nullable(Text(600)),
-        },
-        strict,
-      ),
-    ),
+    lens: Nullable(EvaluationVerificationLens),
   },
   strict,
 );
