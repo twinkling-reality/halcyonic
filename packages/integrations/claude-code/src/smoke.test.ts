@@ -88,8 +88,14 @@ describe('Claude Agent against the real Claude Code CLI', {
       assert.deepEqual(observed[0]?.payload, { native_id });
 
       await waitForTurnEnds(1, true);
+      const first = turnEnds()[0];
+      // A failed turn names its cause, for example an API key the API refuses.
+      assert.equal(
+        first?.type,
+        'runtime.turn.completed',
+        `the first turn ended with ${JSON.stringify(first?.payload)}`,
+      );
       assert.ok(answered.size >= 1, 'Claude Code asked for approval before changing files');
-      assert.equal(turnEnds()[0]?.type, 'runtime.turn.completed');
       assert.ok(existsSync(join(workdir, 'smoke-marker.txt')));
       assert.ok(observed.some((observation) => observation.type === 'runtime.tool.completed'));
 
