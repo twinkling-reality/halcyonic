@@ -79,6 +79,15 @@ importers:
         specifier: workspace:*
         version: link:../../runtime-core
 
+  packages/integrations/codex:
+    dependencies:
+      '@halcyonic/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@halcyonic/runtime-core':
+        specifier: workspace:*
+        version: link:../../runtime-core
+
   packages/integrations/mock:
     dependencies:
       '@halcyonic/contracts':
