@@ -11,9 +11,8 @@
   Salidium's consumer test daemon (`scripts/consumer-test-daemon.mjs`) from the Salidium checkout,
   with a scratch HOME, SALIDIUM_HOME and TMPDIR and a PATH without agent CLIs. The daemon serves
   synthetic sessions, installs no hooks and writes only to a temporary directory.
-- **Status:** Verified against the release candidate and synthetic sessions. Real Claude Code or
-  Codex sessions and a released Salidium are not verified. Salidium is revising the wire before its
-  freeze in response to the findings below, so the fixtures and client will be updated.
+- **Status:** Verified against the release candidate as revised on 2026-09-26 (below) and synthetic
+  sessions. Real Claude Code or Codex sessions and a released Salidium are not verified.
 
 ## Findings
 
@@ -60,3 +59,26 @@ it is fixing them before the freeze.
 - Re-run the real-wire tests (`SALIDIUM_CHECKOUT=<checkout> node --test
   packages/integrations/salidium/src/live-salidium.test.ts`) and re-copy the fixtures whenever
   Salidium changes the wire, and pin the published version when it exists.
+
+## Revised release candidate (2026-09-26)
+
+Salidium revised the wire before its freeze in response to the findings above, keeping the version
+at 1.0.0-rc.0 (unpublished), and Halcyonic's client and fixtures followed. Tested against Salidium
+HEAD `27c9dbb` plus its uncommitted changes.
+
+- **Discovery** lists every major version: `contracts: [{name, major, minor, baseUrl}]` replaces
+  `contract`, `baseUrl` and `endpoints`. Halcyonic takes the `salidium.consumer` major 1 entry,
+  ignores the others, applies its loopback check to that entry's base URL, and answers
+  `incompatible` (`unsupported_contract`) when there is none.
+- **`waiting`** now carries provenance (observed for a permission request, a notification or a
+  question tool call; reported when read from the agent's last message), and the verdict follows
+  it. Halcyonic's understanding carries `waiting` again.
+- **Statements**: only reported agent or subagent statements cross; user-authored ones and
+  unlabelled reasons do not. The working headline is Salidium's own wording, no longer a tool title.
+- **Errors**: a handler failure is a contract error (500 `internal`), and the loopback guard's
+  refusals are contract errors too (421 `host-not-allowed`, 403 `origin-not-allowed`). Halcyonic
+  reports all three as `unavailable`.
+- **Bounds** never loosen within a major version, so Halcyonic's contract now carries Salidium's
+  maximum lengths on every text field.
+- **Test daemon** runs no providers, sets its own SALIDIUM_HOME, fixes its clock, and seeds a third,
+  working session. All five real-wire tests passed, and live reports matched the fixtures exactly.
