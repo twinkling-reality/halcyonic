@@ -5,14 +5,16 @@ import { describe, type TestContext, test } from 'node:test';
 import { compileValidator, UnderstandingResult } from '@halcyonic/contracts';
 import { SalidiumClient, salidiumProviderFor, type UnderstandOptions } from './client.ts';
 import { defaultSalidiumHome } from './connection.ts';
-import { consumerToken, FakeSalidium, fixture } from './testing/fake-salidium.ts';
+import { consumerToken, contractError, FakeSalidium, fixture } from './testing/fake-salidium.ts';
 
 const validateResult = compileValidator(UnderstandingResult);
 
-const VERIFIED = { kind: 'claude-code', id: '6f1c2a90-3b7e-4d15-9a2c-0e8b5d7f4c11' };
+const VERIFIED = { kind: 'claude-agent', id: '6f1c2a90-3b7e-4d15-9a2c-0e8b5d7f4c11' };
 const FAILING = { kind: 'codex', id: '0199a3f2-7c4e-7b10-8d2a-5e6f9c1b3a47' };
+const WORKING = { kind: 'claude-agent', id: 'b27e5d10-8c4f-4a63-9e1d-3f5a7c9b2e84' };
 const VERIFIED_SESSION = `claude-code:${VERIFIED.id}`;
 const FAILING_SESSION = `codex:${FAILING.id}`;
+const VERIFIED_REPORT = `/consumer/v1/sessions/${encodeURIComponent(VERIFIED_SESSION)}/report`;
 
 async function start(t: TestContext): Promise<FakeSalidium> {
   const fake = await FakeSalidium.start();
@@ -55,19 +57,16 @@ describe('reading an understanding from Salidium', () => {
     const result = await understand(fake, VERIFIED);
     assert.equal(result.availability, 'available');
     if (result.availability !== 'available') return;
-    assert.equal(result.understanding.verdict.headline, '3 files changed, unverified');
+    assert.equal(result.understanding.verdict.headline, '4 files changed, unverified');
     assert.equal(result.understanding.source.instance_id, fake.instanceId);
-    assert.equal(result.understanding.source.evidence_sequence, 20);
+    assert.equal(result.understanding.source.evidence_sequence, 22);
 
     assert.deepEqual(
       fake.requests.map((request) => [request.path, request.headers.authorization]),
       [
         ['/consumer/v1/discovery', undefined],
         ['/consumer/v1/sessions/lookup', `Bearer ${fake.token}`],
-        [
-          `/consumer/v1/sessions/${encodeURIComponent(VERIFIED_SESSION)}/report`,
-          `Bearer ${fake.token}`,
-        ],
+        [VERIFIED_REPORT, `Bearer ${fake.token}`],
       ],
     );
     for (const { headers } of fake.requests) {
@@ -78,19 +77,19 @@ describe('reading an understanding from Salidium', () => {
   });
 
   test('maps Halcyonic runtime kinds to Salidium provider ids explicitly', () => {
-    assert.equal(salidiumProviderFor('claude-code'), 'claude-code');
+    assert.equal(salidiumProviderFor('claude-agent'), 'claude-code');
     assert.equal(salidiumProviderFor('codex'), 'codex');
-    for (const kind of ['mock', 'opencode', 'Claude-Code', 'toString', 'constructor', ''])
+    for (const kind of ['claude-code', 'mock', 'opencode', 'Codex', 'toString', 'constructor', ''])
       assert.equal(salidiumProviderFor(kind), null, kind);
   });
 
   test('looks up by provider and native id, and skips the lookup when the session id is known', async (t) => {
     const fake = await start(t);
-    assert.equal((await understand(fake, FAILING)).availability, 'available');
+    assert.equal((await understand(fake, VERIFIED)).availability, 'available');
     const lookup = fake.requests.find((request) => request.path.endsWith('/lookup'));
     assert.deepEqual(Object.fromEntries(lookup?.query ?? []), {
-      provider: 'codex',
-      sessionId: FAILING.id,
+      provider: 'claude-code',
+      sessionId: VERIFIED.id,
     });
 
     const hinted = await start(t);
@@ -99,6 +98,15 @@ describe('reading an understanding from Salidium', () => {
     assert.equal(
       hinted.requests.some((request) => request.path.endsWith('/lookup')),
       false,
+    );
+  });
+
+  test('reads a session that is still working, in Salidium words', async (t) => {
+    const fake = await start(t);
+    const result = await understand(fake, WORKING);
+    assert.equal(
+      result.availability === 'available' && result.understanding.verdict.headline,
+      'Running a command',
     );
   });
 
@@ -127,8 +135,10 @@ describe('reading an understanding from Salidium', () => {
 
   test('says unavailable without a request for a runtime Salidium does not observe', async (t) => {
     const fake = await start(t);
-    const result = await understand(fake, { kind: 'mock', id: 'mock-session-1' });
-    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    for (const kind of ['mock', 'claude-code']) {
+      const result = await understand(fake, { kind, id: 'session-1' });
+      assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    }
     assert.deepEqual(fake.requests, []);
   });
 
@@ -142,8 +152,25 @@ describe('reading an understanding from Salidium', () => {
   test('says unavailable when the discovery file names a port nothing answers on', async (t) => {
     const fake = await start(t);
     const baseUrl = `http://127.0.0.1:${await closedPort()}/consumer/v1`;
-    fake.writeDiscovery({ ...fake.discovery(), baseUrl });
+    fake.writeDiscovery({ ...fake.discovery(), contracts: [{ ...fake.contract(), baseUrl }] });
     assert.deepEqual(reason(await understand(fake, VERIFIED)), ['unavailable', 'unreachable']);
+  });
+
+  test('uses the major 1 entry and ignores the others listed beside it', async (t) => {
+    const fake = await start(t);
+    const v2 = {
+      ...fake.contract(),
+      major: 2,
+      baseUrl: `http://127.0.0.1:${await closedPort()}/consumer/v2`,
+    };
+    fake.writeDiscovery({ ...fake.discovery(), contracts: [v2, fake.contract()] });
+    const result = await understand(fake, VERIFIED);
+    assert.equal(result.availability, 'available');
+    assert.deepEqual(result.availability === 'available' && result.understanding.source.contract, {
+      name: 'salidium.consumer',
+      major: 1,
+      minor: 0,
+    });
   });
 
   test('never sends the credential to a port that does not prove it is the same instance', async (t) => {
@@ -166,14 +193,36 @@ describe('reading an understanding from Salidium', () => {
     assert.deepEqual(fake.authorizedRequests(), []);
   });
 
-  test('says incompatible when Salidium offers another contract version', async (t) => {
+  test("says unavailable when Salidium's loopback guard refuses the request", async (t) => {
     const fake = await start(t);
-    const contract = { name: 'salidium.consumer', major: 2, minor: 0 };
-    fake.writeDiscovery({
-      ...fake.discovery(),
-      contract,
-      baseUrl: 'http://127.0.0.1:1/consumer/v2',
-    });
+    fake.overrides.set('/consumer/v1/discovery', (response) =>
+      contractError(response, 421, 'host-not-allowed', 'only a loopback Host is accepted'),
+    );
+    assert.deepEqual(reason(await understand(fake, VERIFIED)), ['unavailable', 'host_not_allowed']);
+    assert.deepEqual(fake.authorizedRequests(), []);
+
+    fake.overrides.clear();
+    fake.overrides.set(VERIFIED_REPORT, (response) =>
+      contractError(response, 403, 'origin-not-allowed', 'cross-origin requests are refused'),
+    );
+    assert.deepEqual(reason(await understand(fake, VERIFIED)), [
+      'unavailable',
+      'origin_not_allowed',
+    ]);
+  });
+
+  test('says unavailable when Salidium fails to answer', async (t) => {
+    const fake = await start(t);
+    fake.overrides.set(VERIFIED_REPORT, (response) =>
+      contractError(response, 500, 'internal', 'the request could not be completed'),
+    );
+    assert.deepEqual(reason(await understand(fake, VERIFIED)), ['unavailable', 'server_error']);
+  });
+
+  test('says incompatible when Salidium does not offer major version 1', async (t) => {
+    const fake = await start(t);
+    const v2 = { ...fake.contract(), major: 2, baseUrl: 'http://127.0.0.1:1/consumer/v2' };
+    fake.writeDiscovery({ ...fake.discovery(), contracts: [v2] });
     assert.deepEqual(reason(await understand(fake, VERIFIED)), [
       'incompatible',
       'unsupported_contract',
@@ -208,12 +257,9 @@ describe('reading an understanding from Salidium', () => {
 
   test('says incompatible for an answer the contract does not give', async (t) => {
     const fake = await start(t);
-    fake.overrides.set('/consumer/v1/sessions/lookup', (response) => {
-      response.statusCode = 404;
-      response.end(
-        JSON.stringify({ ...fixture('consumer-error-session-not-observed'), error: 'not-found' }),
-      );
-    });
+    fake.overrides.set('/consumer/v1/sessions/lookup', (response) =>
+      contractError(response, 404, 'not-found', 'no such consumer endpoint'),
+    );
     assert.deepEqual(reason(await understand(fake, VERIFIED)), [
       'incompatible',
       'unexpected_status',
@@ -226,18 +272,6 @@ describe('reading an understanding from Salidium', () => {
       'incompatible',
       'unexpected_status',
     ]);
-  });
-
-  test('says unavailable when Salidium fails to answer', async (t) => {
-    const fake = await start(t);
-    fake.overrides.set(
-      `/consumer/v1/sessions/${encodeURIComponent(VERIFIED_SESSION)}/report`,
-      (response) => {
-        response.statusCode = 500;
-        response.end(JSON.stringify({ error: 'internal error' }));
-      },
-    );
-    assert.deepEqual(reason(await understand(fake, VERIFIED)), ['unavailable', 'server_error']);
   });
 
   test('says unauthorized without sending a missing or malformed credential', async (t) => {
@@ -278,7 +312,8 @@ describe('reading an understanding from Salidium', () => {
 
   test('ignores what a later minor version adds', async (t) => {
     const fake = await start(t);
-    fake.writeDiscovery({ ...fake.discovery(), addedLater: { feature: true } });
+    const contract = { ...fake.contract(), addedLater: [] };
+    fake.writeDiscovery({ ...fake.discovery(), contracts: [contract], addedLater: { x: 1 } });
     fake.reports.set(VERIFIED_SESSION, { ...fixture('session-report-verified'), addedLater: 1 });
     assert.equal((await understand(fake, VERIFIED)).availability, 'available');
   });

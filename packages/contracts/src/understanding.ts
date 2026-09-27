@@ -17,11 +17,13 @@ import { ErrorInfo, Nullable, Timestamp } from './primitives.ts';
  *
  * `null` means the source does not have the value: show it as not observed, never as blank, zero
  * or success. Every text is untrusted data that may quote agent output: escape it when rendering
- * and never act on it.
+ * and never act on it. Texts are bounded as Salidium's consumer contract bounds them, which within
+ * its major version may shrink but never grow.
  */
 
 const strict = { additionalProperties: false } as const;
 const Count = Type.Integer({ minimum: 0 });
+const Text = (maxLength: number) => Type.String({ maxLength });
 
 /**
  * How the source knows a claim, in the source's own vocabulary (Salidium's five classes):
@@ -41,15 +43,13 @@ export const UnderstandingEpistemic = Type.Union([
 export type UnderstandingEpistemic = Static<typeof UnderstandingEpistemic>;
 
 /**
- * One short attributed sentence: usually the agent's own words (`reported`), sometimes a recorded
- * fact such as a subagent's task description (`observed`). Its class says which.
+ * One short sentence the agent or a subagent wrote, quoted and attributed. Nothing the user wrote
+ * crosses. Salidium sends only `reported` statements; the class is kept as it arrives.
  */
 export const UnderstandingStatement = Type.Object(
   {
-    text: Type.String(),
-    author: Nullable(
-      Type.Union([Type.Literal('agent'), Type.Literal('subagent'), Type.Literal('user')]),
-    ),
+    text: Text(600),
+    author: Nullable(Type.Union([Type.Literal('agent'), Type.Literal('subagent')])),
     at: Nullable(Timestamp),
     epistemic: UnderstandingEpistemic,
   },
@@ -60,13 +60,10 @@ export const UnderstandingSource = Type.Object(
   {
     system: Type.Literal('salidium'),
     /** The source's product version. */
-    version: Type.String(),
-    contract: Type.Object(
-      { name: Type.String(), major: Type.Integer(), minor: Type.Integer() },
-      strict,
-    ),
+    version: Text(64),
+    contract: Type.Object({ name: Text(64), major: Type.Integer(), minor: Type.Integer() }, strict),
     /** Changes whenever the source restarts. */
-    instance_id: Type.String(),
+    instance_id: Text(64),
     /** When the source produced these conclusions, by its clock. */
     generated_at: Timestamp,
     /** The source's sequence of the newest evidence reflected here. It only grows. */
@@ -84,9 +81,9 @@ export const UnderstandingVerificationRun = Type.Object(
       Type.Literal('build'),
       Type.Literal('other'),
     ]),
-    runner: Nullable(Type.String()),
+    runner: Nullable(Text(120)),
     /** The source's own wording, for example "118/118 tests passed (vitest)". */
-    label: Type.String(),
+    label: Text(300),
     outcome: Type.Union([
       Type.Literal('pass'),
       Type.Literal('fail'),
@@ -119,7 +116,7 @@ export const UnderstandingVerificationRun = Type.Object(
       },
       strict,
     ),
-    caveats: Type.Array(Type.String()),
+    caveats: Type.Array(Text(120)),
     /** Files changed after this run, so it no longer covers them. */
     stale: Type.Boolean(),
     /** Later runs of the same method whose outcome could not be read. */
@@ -128,6 +125,8 @@ export const UnderstandingVerificationRun = Type.Object(
   },
   strict,
 );
+
+const Step = Text(200);
 
 export const UnderstandingExplanation = Type.Object(
   {
@@ -143,38 +142,32 @@ export const UnderstandingExplanation = Type.Object(
     current: Type.Boolean(),
     based_on_sequence: Nullable(Count),
     generated_at: Nullable(Timestamp),
-    model: Nullable(Type.String()),
+    model: Nullable(Text(120)),
     epistemic: Type.Literal('explained'),
     content: Nullable(
       Type.Object(
         {
-          what: Type.Object({ summary: Type.String(), currently: Nullable(Type.String()) }, strict),
+          what: Type.Object({ summary: Text(600), currently: Nullable(Text(600)) }, strict),
           why: Type.Object(
             {
-              summary: Type.String(),
-              lanes: Type.Array(
-                Type.Object({ title: Type.String(), steps: Type.Array(Type.String()) }, strict),
-              ),
-              chain: Type.Array(Type.String()),
+              summary: Text(600),
+              lanes: Type.Array(Type.Object({ title: Text(100), steps: Type.Array(Step) }, strict)),
+              chain: Type.Array(Step),
             },
             strict,
           ),
           how: Type.Object(
-            {
-              summary: Type.String(),
-              root: Nullable(Type.String()),
-              steps: Type.Array(Type.String()),
-            },
+            { summary: Text(600), root: Nullable(Step), steps: Type.Array(Step) },
             strict,
           ),
           approach_change: Nullable(
             Type.Object(
               {
-                from: Type.String(),
-                from_steps: Type.Array(Type.String()),
-                why: Type.String(),
-                to: Type.String(),
-                to_steps: Type.Array(Type.String()),
+                from: Step,
+                from_steps: Type.Array(Step),
+                why: Text(600),
+                to: Step,
+                to_steps: Type.Array(Step),
               },
               strict,
             ),
@@ -192,7 +185,7 @@ export const Understanding = Type.Object(
     source: UnderstandingSource,
     verdict: Type.Object(
       {
-        headline: Type.String(),
+        headline: Text(300),
         tone: Type.Union([
           Type.Literal('pass'),
           Type.Literal('fail'),
@@ -200,7 +193,7 @@ export const Understanding = Type.Object(
           Type.Literal('working'),
           Type.Literal('neutral'),
         ]),
-        because: Nullable(Type.String()),
+        because: Nullable(Text(600)),
         at: Nullable(Timestamp),
         epistemic: UnderstandingEpistemic,
       },
@@ -208,14 +201,34 @@ export const Understanding = Type.Object(
     ),
     /** The agent's latest statement about its work, quoted and attributed. */
     latest_statement: Nullable(UnderstandingStatement),
+    /**
+     * Why the session is blocked on a person, when it is. `observed` when a permission request, a
+     * notification or a question tool call recorded it; `reported` when the source read the
+     * question in the agent's message.
+     */
+    waiting: Nullable(
+      Type.Object(
+        {
+          kind: Type.Union([
+            Type.Literal('permission'),
+            Type.Literal('question'),
+            Type.Literal('input'),
+          ]),
+          summary: Text(300),
+          since: Timestamp,
+          epistemic: UnderstandingEpistemic,
+        },
+        strict,
+      ),
+    ),
     changes: Type.Object(
       {
-        summary: Type.String(),
+        summary: Text(300),
         /** Most recently changed first. Paths, counts and kinds are observed by the source. */
         files: Type.Array(
           Type.Object(
             {
-              path: Type.String(),
+              path: Text(4096),
               change_count: Count,
               lines_added: Count,
               lines_removed: Count,
@@ -232,7 +245,7 @@ export const Understanding = Type.Object(
               coverage: Type.Object(
                 {
                   verified_after: Type.Boolean(),
-                  by: Nullable(Type.String()),
+                  by: Nullable(Text(300)),
                   epistemic: Type.Literal('inferred'),
                 },
                 strict,
@@ -243,17 +256,17 @@ export const Understanding = Type.Object(
             strict,
           ),
         ),
-        commits: Type.Array(Type.Object({ sha: Type.String(), at: Timestamp }, strict)),
+        commits: Type.Array(Type.Object({ sha: Text(64), at: Timestamp }, strict)),
       },
       strict,
     ),
     verification: Type.Object(
       {
-        summary: Type.String(),
+        summary: Text(300),
         /** The latest readable run of each method. */
         latest_by_method: Type.Array(UnderstandingVerificationRun),
         /** Files no passing check covers. Inferred, like every file's coverage. */
-        unverified_files: Type.Array(Type.String()),
+        unverified_files: Type.Array(Text(4096)),
         /** What the agent said about verification. Reported, not observed. */
         statements: Type.Array(UnderstandingStatement),
       },
@@ -261,15 +274,15 @@ export const Understanding = Type.Object(
     ),
     review: Type.Object(
       {
-        summary: Type.String(),
+        summary: Text(300),
         open: Count,
         resolved: Count,
         /** Worst severity first. */
         groups: Type.Array(
           Type.Object(
             {
-              rule: Type.String(),
-              label: Type.String(),
+              rule: Text(120),
+              label: Text(300),
               severity: Type.Union([
                 Type.Literal('info'),
                 Type.Literal('low'),
@@ -281,9 +294,9 @@ export const Understanding = Type.Object(
               items: Type.Array(
                 Type.Object(
                   {
-                    label: Type.String(),
+                    label: Text(300),
                     /** The short fragment that is the finding, such as a destructive command. */
-                    instance: Nullable(Type.String()),
+                    instance: Nullable(Text(200)),
                     created_at: Timestamp,
                     repeats: Count,
                     epistemic: UnderstandingEpistemic,
@@ -300,11 +313,11 @@ export const Understanding = Type.Object(
     ),
     remaining: Type.Object(
       {
-        summary: Type.String(),
+        summary: Text(300),
         items: Type.Array(
           Type.Object(
             {
-              text: Type.String(),
+              text: Text(600),
               status: Type.Union([
                 Type.Literal('pending'),
                 Type.Literal('in_progress'),
@@ -334,7 +347,8 @@ export type Understanding = Static<typeof Understanding>;
  * The answer to "what does the understanding source say about this execution". Only `available`
  * carries conclusions; every other state names why there are none:
  * - `not_found`: the source is running but holds no record of this session, possibly not yet.
- * - `unavailable`: the source is not running, cannot be reached, or does not observe this runtime.
+ * - `unavailable`: the source is not running, cannot be reached, refused the request's address, or
+ *   does not observe this runtime.
  * - `incompatible`: the source speaks a contract version or shape this client does not read.
  * - `unauthorized`: no credential is configured, or the source refused it.
  */

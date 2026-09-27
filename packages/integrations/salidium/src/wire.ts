@@ -11,8 +11,8 @@ import Type, { type Static } from 'typebox';
  * They are tolerant readers. Each requires only the properties this package uses and leaves every
  * object open, because a later minor version may add properties and feed message types, and a
  * consumer must ignore them. What they do require is checked as the contract states it, including
- * enumerations and nullability: within major version 1 those never change, so a mismatch means the
- * producer is not speaking this contract.
+ * enumerations, nullability and maximum lengths: within major version 1 those never change, and a
+ * bound may shrink but never grow, so a mismatch means the producer is not speaking this contract.
  */
 
 export const CONSUMER_BASE_PATH = '/consumer/v1';
@@ -25,7 +25,9 @@ export const CONSUMER_TOKEN_PATTERN = /^salidium_consumer_[0-9a-f]{12}_[0-9a-f]{
 export const NATIVE_SESSION_ID_PATTERN = /^[^\u0000-\u001f\u007f]{1,512}$/;
 
 const Count = Type.Integer({ minimum: 0 });
-const Id = Type.String({ minLength: 1 });
+const Id = Type.String({ minLength: 1, maxLength: 1100 });
+/** Salidium's text, bounded as the contract bounds it. */
+const Text = (maxLength: number) => Type.String({ maxLength });
 
 export const WireEpistemic = Type.Enum([
   'observed',
@@ -38,27 +40,40 @@ export type WireEpistemic = Static<typeof WireEpistemic>;
 
 /**
  * Written to `$SALIDIUM_HOME/consumer.json` while the daemon runs and served without a credential at
- * `/consumer/v1/discovery`. `baseUrl` is held to the contract's loopback pattern, because it decides
- * where the credential is sent.
+ * `/consumer/v1/discovery`. `contracts` lists every major version the daemon serves; entries for
+ * other majors are ignored here, so the array is read loosely and the major 1 entry is checked on
+ * its own with `WireContractEntry`.
  */
 export const WireDiscovery = Type.Object({
   format: Type.Literal('salidium.consumer-discovery'),
   version: Type.Literal(1),
-  contract: Type.Object({
-    name: Type.Literal('salidium.consumer'),
-    major: Type.Literal(1),
-    minor: Count,
-  }),
-  salidium: Type.Object({ version: Type.String() }),
+  contracts: Type.Array(Type.Unknown(), { minItems: 1 }),
+  salidium: Type.Object({ version: Text(64) }),
   instanceId: Type.String({ pattern: '^[0-9a-f]{32}$' }),
-  baseUrl: Type.String({ pattern: '^http://127\\.0\\.0\\.1:\\d{1,5}/consumer/v1$' }),
 });
 export type WireDiscovery = Static<typeof WireDiscovery>;
+
+/** The discovery entry for major version 1. `baseUrl` decides where the credential is sent. */
+export const WireContractEntry = Type.Object({
+  name: Type.Literal('salidium.consumer'),
+  major: Type.Literal(1),
+  minor: Count,
+  baseUrl: Type.String({ pattern: '^http://127\\.0\\.0\\.1:\\d{1,5}/consumer/v1$' }),
+});
+export type WireContractEntry = Static<typeof WireContractEntry>;
+
+/** Whether a discovery entry names the contract and major version this client implements. */
+export function isMajorOneEntry(entry: unknown): boolean {
+  const { name, major } = (entry ?? {}) as { name?: unknown; major?: unknown };
+  return name === 'salidium.consumer' && major === 1;
+}
 
 export const WireError = Type.Object({
   format: Type.Literal('salidium.consumer-error'),
   version: Type.Literal(1),
   error: Type.Enum([
+    'host-not-allowed',
+    'origin-not-allowed',
     'unauthorized',
     'not-found',
     'session-not-observed',
@@ -78,18 +93,19 @@ export const WireLookup = Type.Object({
 });
 export type WireLookup = Static<typeof WireLookup>;
 
+/** Only what the agent or a subagent said crosses; nothing the user wrote does. */
 const Statement = Type.Object({
-  text: Type.String(),
+  text: Text(600),
   provenance: WireEpistemic,
-  author: Nullable(Type.Enum(['agent', 'subagent', 'user'])),
+  author: Nullable(Type.Enum(['agent', 'subagent'])),
   at: Nullable(Timestamp),
 });
 
 const VerificationRun = Type.Object({
   at: Timestamp,
-  label: Type.String(),
+  label: Text(300),
   method: Type.Enum(['test', 'typecheck', 'lint', 'build', 'other']),
-  runner: Nullable(Type.String()),
+  runner: Nullable(Text(120)),
   outcome: Type.Enum(['pass', 'fail', 'partial', 'unknown']),
   counts: Nullable(
     Type.Object({
@@ -105,12 +121,13 @@ const VerificationRun = Type.Object({
     observation: Type.Enum(['explicit', 'inferred-success', 'inferred-failure', 'unknown']),
   }),
   provenance: WireEpistemic,
-  caveats: Type.Array(Type.String()),
+  caveats: Type.Array(Text(120)),
   stale: Type.Boolean(),
   laterUnreadable: Count,
 });
 
-const Steps = Type.Array(Type.String());
+const Step = Text(200);
+const Steps = Type.Array(Step);
 
 /** `salidium.session-report` version 2. Version 1 is the interface's download and not a contract. */
 export const WireReport = Type.Object({
@@ -119,18 +136,26 @@ export const WireReport = Type.Object({
   generatedAt: Timestamp,
   session: Type.Object({ id: Id, native: NativeIdentity, evidenceSeq: Count }),
   verdict: Type.Object({
-    headline: Type.String(),
+    headline: Text(300),
     tone: Type.Enum(['pass', 'fail', 'attention', 'working', 'neutral']),
     provenance: WireEpistemic,
-    because: Nullable(Type.String()),
+    because: Nullable(Text(600)),
     at: Nullable(Timestamp),
   }),
   latestStatement: Nullable(Statement),
+  waiting: Nullable(
+    Type.Object({
+      kind: Type.Enum(['permission', 'question', 'input']),
+      summary: Text(300),
+      since: Timestamp,
+      provenance: WireEpistemic,
+    }),
+  ),
   changes: Type.Object({
-    glance: Type.String(),
+    glance: Text(300),
     files: Type.Array(
       Type.Object({
-        path: Type.String(),
+        path: Text(4096),
         changeCount: Count,
         linesAdded: Count,
         linesRemoved: Count,
@@ -138,35 +163,35 @@ export const WireReport = Type.Object({
         lastChangedAt: Timestamp,
         coverage: Type.Object({
           verifiedAfter: Type.Boolean(),
-          by: Nullable(Type.String()),
+          by: Nullable(Text(300)),
           provenance: Type.Literal('inferred'),
         }),
         reason: Nullable(Statement),
       }),
     ),
-    commits: Type.Array(Type.Object({ sha: Type.String(), at: Timestamp })),
+    commits: Type.Array(Type.Object({ sha: Text(64), at: Timestamp })),
   }),
   verification: Type.Object({
-    glance: Type.String(),
+    glance: Text(300),
     latestByMethod: Type.Array(VerificationRun),
-    unverifiedFiles: Type.Array(Type.String()),
+    unverifiedFiles: Type.Array(Text(4096)),
     statements: Type.Array(Statement),
   }),
   review: Type.Object({
-    glance: Type.String(),
+    glance: Text(300),
     open: Count,
     resolved: Count,
     groups: Type.Array(
       Type.Object({
-        rule: Type.String(),
-        label: Type.String(),
+        rule: Text(120),
+        label: Text(300),
         severity: Type.Enum(['info', 'low', 'medium', 'high']),
         occurrences: Count,
         latestAt: Timestamp,
         items: Type.Array(
           Type.Object({
-            label: Type.String(),
-            instance: Nullable(Type.String()),
+            label: Text(300),
+            instance: Nullable(Text(200)),
             createdAt: Timestamp,
             provenance: WireEpistemic,
             repeats: Count,
@@ -176,10 +201,10 @@ export const WireReport = Type.Object({
     ),
   }),
   remaining: Type.Object({
-    glance: Type.String(),
+    glance: Text(300),
     items: Type.Array(
       Type.Object({
-        text: Type.String(),
+        text: Text(600),
         status: Type.Enum(['pending', 'in_progress', 'failing', 'reported']),
         provenance: WireEpistemic,
         source: Type.Enum(['plan', 'verification', 'agent']),
@@ -192,22 +217,22 @@ export const WireReport = Type.Object({
     current: Type.Boolean(),
     basedOnSeq: Nullable(Count),
     generatedAt: Nullable(Timestamp),
-    model: Nullable(Type.String()),
+    model: Nullable(Text(120)),
     content: Nullable(
       Type.Object({
-        what: Type.Object({ summary: Type.String(), currently: Nullable(Type.String()) }),
+        what: Type.Object({ summary: Text(600), currently: Nullable(Text(600)) }),
         why: Type.Object({
-          summary: Type.String(),
-          lanes: Type.Array(Type.Object({ title: Type.String(), steps: Steps })),
+          summary: Text(600),
+          lanes: Type.Array(Type.Object({ title: Text(100), steps: Steps })),
           chain: Steps,
         }),
-        how: Type.Object({ summary: Type.String(), root: Nullable(Type.String()), steps: Steps }),
+        how: Type.Object({ summary: Text(600), root: Nullable(Step), steps: Steps }),
         approachChange: Nullable(
           Type.Object({
-            from: Type.String(),
+            from: Step,
             fromSteps: Steps,
-            why: Type.String(),
-            to: Type.String(),
+            why: Text(600),
+            to: Step,
             toSteps: Steps,
           }),
         ),
@@ -267,6 +292,7 @@ export function readFeedMessage(value: unknown): Validated<WireFeedMessage> | nu
 }
 
 export const validateDiscovery = compileValidator(WireDiscovery);
+export const validateContractEntry = compileValidator(WireContractEntry);
 export const validateError = compileValidator(WireError);
 export const validateLookup = compileValidator(WireLookup);
 export const validateReport = compileValidator(WireReport);

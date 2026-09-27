@@ -2,6 +2,7 @@ import type { UnderstandingResult } from '@halcyonic/contracts';
 import {
   checkCredential,
   connect,
+  credentialRejected,
   DEFAULT_TIMEOUT_MS,
   type Failure,
   fail,
@@ -9,6 +10,7 @@ import {
   invalid,
   isFailure,
   type Reply,
+  refusal,
   type SalidiumOptions,
 } from './connection.ts';
 import { toUnderstanding } from './report.ts';
@@ -26,12 +28,12 @@ export type SalidiumProvider = 'claude-code' | 'codex';
 /**
  * Halcyonic runtime kinds whose sessions Salidium observes, with the provider id Salidium uses for
  * each. A runtime kind is Halcyonic's adapter type and a provider id is Salidium's vocabulary, so
- * the mapping is written out rather than assumed. The Claude Code and Codex adapters do not exist
- * yet; they must use these kinds, or this table changes with them. Every other kind, such as
+ * the mapping is written out rather than assumed: the Claude Agent adapter (kind `claude-agent`)
+ * runs Claude Code sessions, which Salidium names `claude-code`. Every other kind, such as
  * `mock` or `opencode`, is not observed by Salidium.
  */
 const PROVIDER_BY_RUNTIME_KIND: ReadonlyMap<string, SalidiumProvider> = new Map([
-  ['claude-code', 'claude-code'],
+  ['claude-agent', 'claude-code'],
   ['codex', 'codex'],
 ]);
 
@@ -121,7 +123,7 @@ export class SalidiumClient {
       );
     return {
       availability: 'available',
-      understanding: toUnderstanding(report.value, instance.discovery),
+      understanding: toUnderstanding(report.value, instance),
     };
   }
 }
@@ -144,26 +146,18 @@ function interpret(
   if (reply === null)
     return fail('unavailable', 'unreachable', `Salidium did not answer the ${what} request.`);
   if (reply.status === 200) return { value: reply.body };
-  if (reply.status === 401)
-    return fail(
-      'unauthorized',
-      'credential_rejected',
-      'Salidium refused the consumer credential; it may have been revoked. Create a new one with `salidium consumer create <label>`.',
-    );
+  if (reply.status === 401) return credentialRejected();
   if (reply.status === 404) {
     const error = validateError(reply.body);
     if (error.ok && error.value.error === missing)
       return fail('not_found', 'not_observed', missingMessage);
   }
-  if (reply.status >= 500)
-    return fail(
-      'unavailable',
-      'server_error',
-      `Salidium failed to answer the ${what} request (HTTP ${reply.status}).`,
-    );
-  return fail(
-    'incompatible',
-    'unexpected_status',
-    `Salidium answered the ${what} request with HTTP ${reply.status}, which consumer contract v1 does not give.`,
+  return (
+    refusal(reply.status, reply.body, what) ??
+    fail(
+      'incompatible',
+      'unexpected_status',
+      `Salidium answered the ${what} request with HTTP ${reply.status}, which consumer contract v1 does not give.`,
+    )
   );
 }

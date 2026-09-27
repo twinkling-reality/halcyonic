@@ -2,24 +2,20 @@
   "format": "salidium.consumer-discovery",
   "version": 1,
   "generatedAt": "2026-09-20T16:20:00.000Z",
-  "contract": {
-    "name": "salidium.consumer",
-    "major": 1,
-    "minor": 0
-  },
+  "contracts": [
+    {
+      "name": "salidium.consumer",
+      "major": 1,
+      "minor": 0,
+      "baseUrl": "http://127.0.0.1:47822/consumer/v1"
+    }
+  ],
   "salidium": {
     "version": "0.5.0"
   },
   "instanceId": "5f0e2b7c9a1d4e3f8b6a0c2d4e6f8a1b",
   "pid": 48213,
   "startedAt": "2026-09-20T16:00:00.000Z",
-  "baseUrl": "http://127.0.0.1:47822/consumer/v1",
-  "endpoints": {
-    "sessions": "/consumer/v1/sessions",
-    "lookup": "/consumer/v1/sessions/lookup",
-    "report": "/consumer/v1/sessions/{id}/report",
-    "feed": "/consumer/v1/feed"
-  },
   "authentication": {
     "scheme": "bearer",
     "credential": "consumer",
