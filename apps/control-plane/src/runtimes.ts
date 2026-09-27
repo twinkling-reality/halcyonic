@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
+import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
@@ -14,6 +15,9 @@ export const OPENCODE_SERVER_RECORD = 'opencode-server.json';
 
 /** The file in the data directory listing the Claude Code processes Halcyonic launched, while they run. */
 export const CLAUDE_AGENT_PROCESS_RECORD = 'claude-agent-processes.json';
+
+/** The file in the data directory where the Codex app-server Halcyonic launched is recorded. */
+export const CODEX_SERVER_RECORD = 'codex-server.json';
 
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
@@ -58,13 +62,23 @@ export function createRuntimeAdapters(
       }),
     );
   }
+  if (config.codexBinary !== null) {
+    adapters.push(
+      new CodexRuntimeAdapter({
+        binaryPath: config.codexBinary,
+        serverRecordFile: join(dependencies.dataDir, CODEX_SERVER_RECORD),
+        directoryPolicy: dependencies.directoryPolicy,
+        env: additions,
+      }),
+    );
+  }
   return adapters;
 }
 
 /**
  * Stops runtime processes that an earlier control plane launched and that outlived it, such as an
- * OpenCode server or Claude Code processes left behind by a crash, before anything else can reach
- * them. Reports each recorded process and what stopping it found.
+ * OpenCode or Codex server or Claude Code processes left behind by a crash, before anything else
+ * can reach them. Reports each recorded process and what stopping it found.
  */
 export async function stopStaleRuntimeServers(
   adapters: readonly RuntimeAdapter[],
@@ -72,7 +86,7 @@ export async function stopStaleRuntimeServers(
   const stopped: { runtimeId: string; outcome: string; pid: number }[] = [];
   for (const adapter of adapters) {
     const runtimeId = adapter.descriptor.runtime_id;
-    if (adapter instanceof OpenCodeRuntimeAdapter) {
+    if (adapter instanceof OpenCodeRuntimeAdapter || adapter instanceof CodexRuntimeAdapter) {
       const result = await adapter.stopStaleServer();
       if (result.outcome !== 'none') {
         stopped.push({ runtimeId, outcome: result.outcome, pid: result.pid });

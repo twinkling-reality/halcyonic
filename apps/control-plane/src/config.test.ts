@@ -48,6 +48,16 @@ describe('configuration', () => {
     }
   });
 
+  test('a Codex binary is off unless set, and must be an existing absolute file', () => {
+    assert.equal(loadConfig({}).codexBinary, null);
+    const binary = join(base, 'codex');
+    writeFileSync(binary, '#!/bin/sh\n');
+    assert.equal(loadConfig({ HALCYONIC_CODEX_BIN: binary }).codexBinary, binary);
+    for (const path of ['codex', join(base, 'missing'), base]) {
+      assert.throws(() => loadConfig({ HALCYONIC_CODEX_BIN: path }), ConfigError, path);
+    }
+  });
+
   test('agent environment pass-through takes variable names only', () => {
     assert.deepEqual(
       loadConfig({ HALCYONIC_AGENT_ENV: 'SSH_AUTH_SOCK, HTTPS_PROXY' }).agentEnvironment,

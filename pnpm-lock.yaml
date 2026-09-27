@@ -32,6 +32,9 @@ importers:
       '@halcyonic/integration-claude-code':
         specifier: workspace:*
         version: link:../../packages/integrations/claude-code
+      '@halcyonic/integration-codex':
+        specifier: workspace:*
+        version: link:../../packages/integrations/codex
       '@halcyonic/integration-mock':
         specifier: workspace:*
         version: link:../../packages/integrations/mock

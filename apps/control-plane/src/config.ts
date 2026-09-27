@@ -29,6 +29,11 @@ export interface ControlPlaneConfig {
   readonly agentEnvironment: readonly string[];
   /** The pinned OpenCode binary; the OpenCode runtime is registered only when it is set. */
   readonly opencodeBinary: string | null;
+  /**
+   * The pinned Codex binary, the native one rather than the npm launcher script; the Codex runtime
+   * is registered only when it is set.
+   */
+  readonly codexBinary: string | null;
 }
 
 export class ConfigError extends Error {
@@ -75,6 +80,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     ),
     agentEnvironment: parseNames('HALCYONIC_AGENT_ENV', env.HALCYONIC_AGENT_ENV),
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
+    codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
   };
 }
 

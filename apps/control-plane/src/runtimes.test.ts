@@ -6,12 +6,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
+import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { ConfigError, loadConfig } from './config.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
 import {
   ANTHROPIC_KEY_FILE,
   CLAUDE_AGENT_PROCESS_RECORD,
+  CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
   createRuntimeAdapters,
   stopStaleRuntimeServers,
@@ -84,6 +86,94 @@ describe('runtime composition', () => {
       [],
       'nothing was recorded, so nothing is stopped',
     );
+    await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test('the Codex runtime is registered when its binary is configured, without launching it', async () => {
+    const dataDir = mkdtempSync(join(base, 'codex-'));
+    const binary = join(dataDir, 'codex');
+    writeFileSync(binary, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const hosted = adapters({ HALCYONIC_CODEX_BIN: binary }, HOST, dataDir);
+    const codex = hosted.find((adapter) => adapter.descriptor.kind === 'codex');
+    assert.ok(codex instanceof CodexRuntimeAdapter);
+    assert.equal(codex.descriptor.runtime_id, 'codex');
+    assert.equal(codex.descriptor.display_name, 'Codex 0.157.0');
+    assert.equal(codex.descriptor.synthetic, false);
+    // The control plane's directory policy decides: with no project roots, nothing is allowed.
+    assert.deepEqual(codex.validateStartOptions({ cwd: dataDir }), {
+      ok: false,
+      message: 'No project roots are configured on the control plane (HALCYONIC_PROJECT_ROOTS).',
+    });
+    assert.deepEqual(
+      await stopStaleRuntimeServers(hosted),
+      [],
+      'nothing was recorded, so nothing is stopped',
+    );
+    assert.equal(codex.serverPid, null, 'nothing was launched');
+    await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test('a variable the Codex adapter owns cannot reach it through the agent environment', () => {
+    const dataDir = mkdtempSync(join(base, 'codex-reserved-'));
+    const binary = join(dataDir, 'codex');
+    writeFileSync(binary, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    assert.throws(
+      () =>
+        adapters(
+          { HALCYONIC_CODEX_BIN: binary, HALCYONIC_AGENT_ENV: 'SALIDIUM_INTERNAL' },
+          { ...HOST, SALIDIUM_INTERNAL: '1' },
+          dataDir,
+        ),
+      /SALIDIUM_INTERNAL/,
+    );
+  });
+
+  test('a Codex server recorded by an earlier run is stopped at startup, without launching anything', async (t) => {
+    const dataDir = mkdtempSync(join(base, 'codex-stale-'));
+    // Plays a Codex app-server that outlived a crashed control plane, in its own process group.
+    const binary = join(dataDir, 'codex.mjs');
+    writeFileSync(binary, 'setInterval(() => {}, 1000);\n');
+    const orphan = spawn(process.execPath, [binary, 'app-server'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    const stoppedBy = new Promise((resolve) =>
+      orphan.once('exit', (_code, signal) => resolve(signal)),
+    );
+    t.after(() => orphan.kill('SIGKILL'));
+    const pid = orphan.pid;
+    assert.ok(pid !== undefined);
+    // Recorded as the adapter records a launch: the start time and command line `ps` reports.
+    let fields: string[] = [];
+    for (let attempt = 0; attempt < 50 && !fields.includes('app-server'); attempt += 1) {
+      fields = execFileSync('ps', ['-ww', '-p', String(pid), '-o', 'lstart=,args='], {
+        env: { PATH: '/bin:/usr/bin', TZ: 'UTC', LC_ALL: 'C' },
+        encoding: 'utf8',
+      })
+        .trim()
+        .split(/\s+/);
+    }
+    const record = join(dataDir, CODEX_SERVER_RECORD);
+    writeFileSync(
+      record,
+      JSON.stringify({
+        pid,
+        binaryPath: binary,
+        command: fields.slice(5).join(' '),
+        startedAt: fields.slice(0, 5).join(' '),
+      }),
+      { mode: 0o600 },
+    );
+
+    const hosted = adapters({ HALCYONIC_CODEX_BIN: binary }, HOST, dataDir);
+    assert.deepEqual(await stopStaleRuntimeServers(hosted), [
+      { runtimeId: 'codex', outcome: 'stopped', pid },
+    ]);
+    assert.equal(await stoppedBy, 'SIGTERM');
+    assert.equal(existsSync(record), false);
+    const codex = hosted.find((adapter) => adapter instanceof CodexRuntimeAdapter);
+    assert.ok(codex instanceof CodexRuntimeAdapter);
+    assert.equal(codex.serverPid, null, 'nothing was launched');
     await Promise.all(hosted.map((adapter) => adapter.close()));
   });
 

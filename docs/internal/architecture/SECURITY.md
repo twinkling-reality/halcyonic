@@ -23,6 +23,29 @@ Seorak attributes them to Halcyonic. `ANTHROPIC_BASE_URL` is not inherited, beca
 API key is sent and a tool that launches the control plane may set it for its own endpoint; a
 gateway must be passed on purpose.
 
+When the Codex runtime is enabled, its app-server also gets an explicitly built environment: an
+allowlist (`PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, the locale variables, `TMPDIR`, `TZ`,
+`CODEX_HOME` and the XDG directories), plus the names listed in `HALCYONIC_AGENT_ENV`. Configuration
+may not set `SALIDIUM_INTERNAL`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, which would replace
+Halcyonic's identity on its threads, or `CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED`, which
+the adapter always sets so the server never enables remote control, a second control channel
+through chatgpt.com. Codex runs with the developer's own `CODEX_HOME`, so the developer's
+`config.toml` applies: sign-in and keys, model providers, the MCP servers configured there, plugins
+and their startup sync (chatgpt.com, github.com and api.github.com, observed without credentials), the
+analytics events client, which runs unless `analytics.enabled = false`, metrics sent to
+ab.chatgpt.com when `analytics.enabled = true`, and saved rules that let matching commands run
+without asking. Halcyonic sets only what keeps the person in control: the working directory, the
+sandbox mode, an approval policy that asks (`on-request` or `untrusted`), and approvals routed to
+the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
+settings. Every request Codex sends to the model provider carries the originator `halcyonic`, a
+user agent with the Codex version and the operating system, and turn metadata with the
+installation id, the thread and session ids, the sandbox mode, whether analytics is on and, for a
+workspace that is a git repository, its path, latest commit hash and whether it has uncommitted
+changes; the working directory also reaches the provider in the conversation's environment
+context. Codex writes each thread's rollout to the developer's `CODEX_HOME`, tagged `halcyonic`. The
+adapter writes no logs; when a server fails to start, the end of its error output becomes part of
+the start failure's message.
+
 The control plane also holds one credential for each product whose conclusions it reads through.
 Each is read from its file on every request, refused when other users can read the file, and never
 logged or passed to launched agents:
@@ -55,9 +78,10 @@ logged or passed to launched agents:
 | Data at rest | Data directory mode 0700; journal, WAL and SHM files mode 0600 |
 | Logging | Log context carries identifiers only, never tokens, instructions or agent text |
 | Agent working directories | Only directories whose real path lies under `HALCYONIC_PROJECT_ROOTS`; `..` and symbolic links cannot escape a root; with no roots configured, no real runtime can start |
-| Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options |
-| Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode server are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal |
+| Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options, and so are Codex's approval policy `never`, its granular policies and `danger-full-access` with `on-request`, under which Codex runs every command it does not flag as dangerous without asking |
+| Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode and Codex servers are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal. Codex starts each command in a session of its own, beyond the reach of a signal to its server's process group: ending the server's input makes Codex stop them, and a server that has to be killed is killed with all its descendants. A Codex server killed by anything else leaves its running commands behind |
 | OpenCode server | Launched from the configured binary only, never from PATH; bound to 127.0.0.1 on a free port with a password generated per launch and kept in memory; refused unless it reports version 2.0.18 and the process id Halcyonic started; recorded (without the password, mode 0600) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
+| Codex server | Launched from the configured native binary only, never from PATH, in its own process group, speaking JSON-RPC over its stdin and stdout, so it listens on no port; refused unless both `codex --version` and its answer to `initialize` report 0.157.0 and `ps` shows the launched binary; remote control switched off; only methods on the stable API surface, never the experimental opt-in; requests Halcyonic does not show the person (permission grants, questions, MCP elicitations) are refused, which Codex takes as a denial or an empty answer; recorded (mode 0600, no secrets) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
 
 ## Authorization
 
