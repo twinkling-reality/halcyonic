@@ -103,8 +103,9 @@ Environment variables, all optional:
 Files in the data directory besides the journal and the access token, all optional and mode 0600:
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
 `anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
-`opencode-server.json`, the record of the running OpenCode server (no password) that lets the next
-start stop a server a crash left behind.
+`opencode-server.json` and `claude-agent-processes.json`, the records of the running OpenCode
+server and Claude Code processes (no secrets) that let the next start stop anything a crash left
+behind.
 
 ## Toolchain
 

@@ -12,6 +12,7 @@ import { createDirectoryPolicy } from './directory-policy.ts';
 import {
   ANTHROPIC_KEY_FILE,
   CLAUDE_AGENT_PROCESS_RECORD,
+  claudeAgentEnvironment,
   createRuntimeAdapters,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
@@ -129,6 +130,16 @@ describe('runtime composition', () => {
     assert.ok(claude instanceof ClaudeAgentRuntimeAdapter);
     assert.equal(claude.watchdogPid, null, 'nothing was launched');
     await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test('launched Claude Code sessions carry the Halcyonic launcher label, which pass-through cannot override', () => {
+    assert.deepEqual(
+      claudeAgentEnvironment({ SSH_AUTH_SOCK: '/tmp/agent', SEORAK_LAUNCHER: 'other' }),
+      {
+        SSH_AUTH_SOCK: '/tmp/agent',
+        SEORAK_LAUNCHER: 'halcyonic',
+      },
+    );
   });
 
   test('an enabled Claude Agent runtime without credentials stops startup', () => {

@@ -41,7 +41,7 @@ export function createRuntimeAdapters(
         directoryPolicy: dependencies.directoryPolicy,
         processRecordFile: join(dependencies.dataDir, CLAUDE_AGENT_PROCESS_RECORD),
         inheritedEnvironment: withAnthropicKey(dependencies.environment, dependencies.dataDir),
-        environment: additions,
+        environment: claudeAgentEnvironment(additions),
         ...(config.claudeExecutable !== null && {
           pathToClaudeCodeExecutable: config.claudeExecutable,
         }),
@@ -107,6 +107,15 @@ function withAnthropicKey(environment: NodeJS.ProcessEnv, dataDir: string): Node
   const key = readFileSync(path, 'utf8').trim();
   if (key === '') throw new ConfigError(`${path} is empty.`);
   return { ...environment, ANTHROPIC_API_KEY: key };
+}
+
+/**
+ * The labels Halcyonic sets on the Claude Code sessions it launches, after any pass-through
+ * variables so they cannot be overridden: Seorak attributes a session to its launcher with
+ * SEORAK_LAUNCHER (documented in Seorak's public setup guide and ADR 007).
+ */
+export function claudeAgentEnvironment(additions: Record<string, string>): Record<string, string> {
+  return { ...additions, SEORAK_LAUNCHER: 'halcyonic' };
 }
 
 function passThrough(

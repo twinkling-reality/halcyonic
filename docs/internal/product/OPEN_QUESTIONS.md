@@ -24,7 +24,6 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | How are test runs identified in real runtimes? Only an inferred rule from commands is available. | `verifying` status and verification attention | Adapter design with an `inferred` provenance rule |
 | Claude Code: can a background task raise an approval after its turn ended? The domain clears pending approvals when a turn ends. | Approvals must never vanish | A smoke test with a real model |
 | Claude Code: `AskUserQuestion` arrives as an ordinary approval, and approving it gives no answers. How should questions reach the person? | Clarifying questions from agents | Adapter design after a real-model smoke test |
-| How is a Claude Code turn stopped when the control plane is killed hard (SIGKILL, out of memory)? The CLI keeps running a turn after losing its input. | Unsupervised agent work | A supervisor like the OpenCode adapter's watchdog |
 | Seorak: how does a Halcyonic execution correlate with a Seorak session? The published API (`@seorak/types` 0.1.0) exposes only opaque session references. | The Evaluate surface | A published correlation endpoint in Seorak |
 
 ## Platform and security

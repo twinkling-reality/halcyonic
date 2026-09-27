@@ -18,7 +18,8 @@ When the Claude Agent runtime is enabled, the Anthropic API key (from the enviro
 from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
 credentials reach each launched Claude Code process through an explicitly built environment: an allowlist of variables, plus the names listed in
 `HALCYONIC_AGENT_ENV`. Nothing else in the control plane's environment reaches an agent, and a
-claude.ai login is never used. `ANTHROPIC_BASE_URL` is not inherited, because it decides where the
+claude.ai login is never used. Launched Claude Code sessions carry `SEORAK_LAUNCHER=halcyonic`, so
+Seorak attributes them to Halcyonic. `ANTHROPIC_BASE_URL` is not inherited, because it decides where the
 API key is sent and a tool that launches the control plane may set it for its own endpoint; a
 gateway must be passed on purpose.
 
@@ -43,7 +44,7 @@ endpoint prove the same instance on loopback, and is never logged or passed to l
 | Logging | Log context carries identifiers only, never tokens, instructions or agent text |
 | Agent working directories | Only directories whose real path lies under `HALCYONIC_PROJECT_ROOTS`; `..` and symbolic links cannot escape a root; with no roots configured, no real runtime can start |
 | Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options |
-| Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown; a hard kill can leave a Claude Code turn running (see the validation record) |
+| Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode server are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal |
 | OpenCode server | Launched from the configured binary only, never from PATH; bound to 127.0.0.1 on a free port with a password generated per launch and kept in memory; refused unless it reports version 2.0.18 and the process id Halcyonic started; recorded (without the password, mode 0600) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
 
 ## Authorization
