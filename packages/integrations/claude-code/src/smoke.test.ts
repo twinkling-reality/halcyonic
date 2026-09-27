@@ -54,11 +54,14 @@ describe('Claude Agent against the real Claude Code CLI', {
     const observed: RuntimeObservation[] = [];
     const answered = new Set<string>();
     const turnEnds = () => observed.filter((observation) => TURN_ENDS.has(observation.type));
+    const seen = () => observed.map((observation) => observation.type).join(', ');
     /** Waits for the given number of turn ends, approving every request while `approve` is set. */
     const waitForTurnEnds = async (count: number, approve: boolean) => {
       const deadline = Date.now() + 240_000;
       while (turnEnds().length < count) {
-        if (Date.now() > deadline) throw new Error(`timed out waiting for turn ${count} to end`);
+        if (Date.now() > deadline) {
+          throw new Error(`timed out waiting for turn ${count} to end; observed ${seen()}`);
+        }
         for (const observation of observed) {
           if (observation.type !== 'runtime.approval.requested' || !approve) continue;
           const approvalId = observation.payload.approval_id;
@@ -105,7 +108,8 @@ describe('Claude Agent against the real Claude Code CLI', {
 
       await adapter.sendInstruction({
         execution,
-        text: 'Use the Bash tool to run `sleep 120`, then reply with the single word finished.',
+        // A command that writes a file always needs approval; `sleep` alone may not.
+        text: 'Use the Bash tool to run `touch interrupt-marker.txt && sleep 120`, then reply with the single word finished.',
       });
       const deadline = Date.now() + 240_000;
       while (
@@ -115,7 +119,9 @@ describe('Claude Agent against the real Claude Code CLI', {
             !answered.has(observation.payload.approval_id),
         )
       ) {
-        if (Date.now() > deadline) throw new Error('timed out waiting for the third approval');
+        if (Date.now() > deadline) {
+          throw new Error(`timed out waiting for the third approval; observed ${seen()}`);
+        }
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
       await adapter.interrupt({ execution });

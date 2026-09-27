@@ -18,9 +18,10 @@ export const INHERITED_VARIABLES: readonly string[] = [
   // Claude Code's configuration directory, passed through unchanged so Salidium and Seorak observe
   // these sessions where they observe every other session on the machine.
   'CLAUDE_CONFIG_DIR',
-  // Anthropic API key authentication.
+  // Anthropic API key authentication. ANTHROPIC_BASE_URL is deliberately not inherited: it decides
+  // where the key is sent, and a tool that launches the control plane can set it for its own
+  // endpoint (a Claude Code desktop session does). Pass it on purpose as a configured addition.
   'ANTHROPIC_API_KEY',
-  'ANTHROPIC_BASE_URL',
   // Amazon Bedrock.
   'CLAUDE_CODE_USE_BEDROCK',
   'ANTHROPIC_BEDROCK_BASE_URL',

@@ -11,9 +11,8 @@
   is built. During that pass, one headless run was made
   (`claude -p "echo test" --output-format stream-json --verbose --include-partial-messages`); it
   is the only runtime observation so far.
-- **Status:** Documentation verified, and the adapter's surface runtime verified without a model:
-  the chosen session id, approvals, a second turn, interrupt and process lifetime, against the real
-  bundled CLI and a fake API (below). No session with a real model has been run for Halcyonic yet.
+- **Status:** Documentation verified; the adapter's surface runtime verified without a model, then
+  with a real model (smoke test, 2026-09-26, below).
 
 ## Findings
 
@@ -232,3 +231,23 @@ approval is pending.
 - `AskUserQuestion` reaches the adapter as an ordinary approval; approving it gives Claude Code no
   answers, with unknown effect.
 - What a CLI orphaned by a hard-killed host does when it next needs a permission.
+
+## Smoke test with a real model (2026-09-26)
+
+Method: `packages/integrations/claude-code/src/smoke.test.ts` with the owner's workspace-scoped API
+key, model `claude-sonnet-5`, the bundled CLI 2.1.283, the developer's own HOME and Claude
+configuration (so the user's hooks ran), in a temporary working directory. Run from inside a Claude
+Code desktop session.
+
+- **Passed in 12 s.** The CLI kept the session id the adapter chose; Claude Code asked for approval
+  before running `touch smoke-marker.txt`, and the approved command ran and created the file; a
+  second turn at rest completed; a third turn's approval for `touch interrupt-marker.txt && sleep
+  120` was left pending and an interrupt ended the turn as interrupted.
+- **`ANTHROPIC_BASE_URL` must not be inherited.** The desktop session that ran the test sets it in
+  its own environment for its own endpoint. While the adapter inherited it, the CLI sent the API
+  key there: one key was refused with 400 (the endpoint demanded a workspace header) and another
+  with 401 (invalid key). The adapter no longer inherits it; a gateway can still be configured on
+  purpose as an addition (`HALCYONIC_AGENT_ENV`).
+- **`sleep 120` alone did not ask for approval** within four minutes, while a command that writes a
+  file did. Which commands Claude Code runs without asking is its own policy; the adapter only sees
+  the requests it makes.

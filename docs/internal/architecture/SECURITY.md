@@ -18,7 +18,9 @@ When the Claude Agent runtime is enabled, the Anthropic API key (from the enviro
 from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
 credentials reach each launched Claude Code process through an explicitly built environment: an allowlist of variables, plus the names listed in
 `HALCYONIC_AGENT_ENV`. Nothing else in the control plane's environment reaches an agent, and a
-claude.ai login is never used.
+claude.ai login is never used. `ANTHROPIC_BASE_URL` is not inherited, because it decides where the
+API key is sent and a tool that launches the control plane may set it for its own endpoint; a
+gateway must be passed on purpose.
 
 The one third-party credential it holds is Salidium's consumer credential, which reads Salidium's
 reports and nothing else. It lives in `<data dir>/salidium-credential`, is read on every request,

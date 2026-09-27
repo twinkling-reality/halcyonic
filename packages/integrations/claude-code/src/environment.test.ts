@@ -40,6 +40,16 @@ describe('launched agent environment', () => {
     });
   });
 
+  test('ANTHROPIC_BASE_URL is not inherited, because it decides where the API key goes', () => {
+    const environment = buildEnvironment(
+      { ...BASE, ANTHROPIC_BASE_URL: 'http://127.0.0.1:9/some-host-proxy' },
+      {},
+      NODE_DIRECTORY,
+    );
+    assert.equal(Object.hasOwn(environment, 'ANTHROPIC_BASE_URL'), false);
+    assert.equal(INHERITED_VARIABLES.includes('ANTHROPIC_BASE_URL'), false);
+  });
+
   test('SALIDIUM_INTERNAL never reaches an agent, whether inherited or configured', () => {
     const environment = buildEnvironment({ ...BASE, SALIDIUM_INTERNAL: '1' }, {}, NODE_DIRECTORY);
     assert.equal(Object.hasOwn(environment, 'SALIDIUM_INTERNAL'), false);
