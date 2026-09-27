@@ -54,3 +54,16 @@ Codex threads must use it too.
   to the provider, are documented in SECURITY.md when the adapter lands.
 - Revisit if app-server gains a versioned contract, or if the stable surface loses a method the
   adapter needs.
+
+## Note, 2026-09-27
+
+Building the adapter corrected one consequence. Codex 0.157.0 starts every command in a session of
+its own, so a signal to the server's process group reaches the server but never its commands. Of
+"stop the server with stdin end of input and its process group on exit", only the end of input
+stops commands, because Codex stops them as it shuts down. The adapter therefore stops the server
+by ending its input, and when it has to kill the server it kills the server's descendants too. A
+server killed by anything else still leaves its running commands behind
+([record](../validation/codex-capabilities.md)). The adapter also relaunches a server that exits
+and resumes its threads, settling a turn that was running from Codex's own record, where it reads
+`interrupted`. The provider metadata and the plugin traffic are documented in
+[SECURITY.md](../architecture/SECURITY.md). The decision is otherwise unchanged.

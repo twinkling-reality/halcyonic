@@ -17,7 +17,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Skeleton; compiles in Unity with OpenXR and Meta's feature set configured; not yet run in the Simulator |
 | Claude Agent runtime (Claude Code through the Agent SDK) | `packages/integrations/claude-code` | Built; registered when enabled |
 | OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
-| Codex runtime | none | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
+| Codex runtime (app-server, stable surface, pinned 0.157.0) | `packages/integrations/codex` | Built; registered when its binary is configured |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
 | Seorak client: integration API v1, evaluation per execution | `packages/integrations/seorak` | Built; verified against `seorak` 0.3.0 |
 | Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
@@ -25,9 +25,9 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 ## Dependency rules
 
 ```text
-apps/control-plane ──> integrations/mock, claude-code, opencode ──> runtime-core ──> contracts ──> typebox
-        │               integrations/salidium, seorak ──────────────────────┘
-        ├──> domain ──────────────────────────────────────────────────────────┘
+apps/control-plane ──> integrations/mock, claude-code, opencode, codex ──> runtime-core ──> contracts ──> typebox
+        │               integrations/salidium, seorak ─────────────────────────────┘
+        ├──> domain ─────────────────────────────────────────────────────────────────┘
         ├──> runtime-core
         └──> fastify, @fastify/websocket, node:sqlite
 
@@ -99,14 +99,15 @@ Environment variables, all optional:
 | `HALCYONIC_CLAUDE_EXECUTABLE` | bundled | A Claude Code executable to use instead of the one the Agent SDK bundles |
 | `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |
 | `HALCYONIC_OPENCODE_BIN` | none | Absolute path of the pinned OpenCode 2.0.18 binary; registers the OpenCode runtime |
+| `HALCYONIC_CODEX_BIN` | none | Absolute path of the pinned Codex 0.157.0 native binary; registers the Codex runtime |
 
 Files in the data directory besides the journal and the access token, all optional and mode 0600:
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
 `seorak-credential`, the integration credential the owner issued for Halcyonic, and
 `anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
-`opencode-server.json` and `claude-agent-processes.json`, the records of the running OpenCode
-server and Claude Code processes (no secrets) that let the next start stop anything a crash left
-behind.
+`opencode-server.json`, `codex-server.json` and `claude-agent-processes.json`, the records of the
+running OpenCode and Codex servers and Claude Code processes (no secrets) that let the next start
+stop anything a crash left behind.
 
 ## Toolchain
 

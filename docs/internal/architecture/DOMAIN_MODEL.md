@@ -70,10 +70,11 @@ and attention only; clients decide presentation (animation, material, sound, pla
 | `mock` | Scripted scenarios for development | yes |
 | `claude-agent` | Claude Code through the Claude Agent SDK, displayed as "Claude Agent" | no |
 | `opencode` | OpenCode's v2 server API, pinned version | no |
+| `codex` | Codex's app-server, stable surface, pinned version | no |
 
-A kind names the adapter type; the runtime id names a configured instance of it. Salidium observes
-`claude-agent` sessions (as its provider `claude-code`) and Codex; it does not observe `mock` or
-`opencode`.
+A kind names the adapter type; the runtime id names a configured instance of it. Salidium and
+Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `codex` threads (as
+`codex`, by thread id); they do not observe `mock` or `opencode`.
 
 ## Commands
 

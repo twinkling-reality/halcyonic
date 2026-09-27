@@ -95,6 +95,41 @@ Its end to end tests run against a binary and a fake provider when `OPENCODE_BIN
 OPENCODE_BIN="$HALCYONIC_OPENCODE_BIN" node --test packages/integrations/opencode/src/opencode-runtime.e2e.test.ts
 ```
 
+### Codex
+
+Halcyonic runs only its pinned Codex version, from a native binary you install for it, never the
+`codex` on your PATH ([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md)). Install it
+without running its install scripts:
+
+```bash
+npm install --prefix ~/.halcyonic/runtimes/codex-0.157.0 @openai/codex@0.157.0 --ignore-scripts
+```
+
+Then point the control plane at the native binary for your platform, not the npm `codex` launcher
+script, for example on an Apple silicon Mac:
+
+```bash
+export HALCYONIC_CODEX_BIN="$HOME/.halcyonic/runtimes/codex-0.157.0/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex"
+shasum -a 256 "$HALCYONIC_CODEX_BIN"   # ad0be20d04e2ba6146ecdb51d7f8b7b0fe15420a15dc9b0057518d858f1f3714 on darwin arm64
+```
+
+Start executions with the runtime id `codex` and options such as
+`{"cwd": "/Users/you/dev/app", "sandbox": "workspace-write", "approval_policy": "on-request"}`, the
+defaults of the last two; `model` is optional. The `cwd` must be under `HALCYONIC_PROJECT_ROOTS`.
+`approval_policy` `never` is refused, and `danger-full-access` needs `untrusted`. Codex uses your own
+`CODEX_HOME` (`~/.codex` by default): your configuration, your sign-in or API key, and your model
+providers. It writes each thread's rollout there like any other Codex session, where Salidium and
+Seorak read Codex sessions; that they show a thread Halcyonic started is not yet verified. A
+provider that reads its key from an environment variable (`env_key` in `config.toml`) needs that
+variable named in `HALCYONIC_AGENT_ENV`. Every run spends model credit.
+
+Its end to end tests run the binary against a fake provider when `CODEX_BIN` is set. They use
+temporary homes, never your `~/.codex`, and fail if Codex tries to reach anything beyond loopback:
+
+```bash
+CODEX_BIN="$HALCYONIC_CODEX_BIN" node --test packages/integrations/codex/src/codex-runtime.e2e.test.ts
+```
+
 ## Connect Salidium
 
 With Salidium 0.6.0 or later running (earlier versions do not serve the consumer contract), create

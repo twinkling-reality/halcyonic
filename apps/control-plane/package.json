@@ -13,6 +13,7 @@
     "@halcyonic/contracts": "workspace:*",
     "@halcyonic/domain": "workspace:*",
     "@halcyonic/integration-claude-code": "workspace:*",
+    "@halcyonic/integration-codex": "workspace:*",
     "@halcyonic/integration-mock": "workspace:*",
     "@halcyonic/integration-opencode": "workspace:*",
     "@halcyonic/integration-salidium": "workspace:*",
