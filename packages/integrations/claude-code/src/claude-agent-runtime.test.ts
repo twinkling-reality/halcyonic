@@ -322,6 +322,8 @@ function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
   const runs: ScriptedRun[] = [];
   const adapter = new ClaudeAgentRuntimeAdapter({
     directoryPolicy: (path: string) => ({ ok: true, directory: path }),
+    // Scripted queries launch no process, so nothing is ever recorded here.
+    processRecordFile: join(WORKDIR, `processes-${randomUUID()}.json`),
     inheritedEnvironment: INHERITED,
     clock: time,
     query: (params) => {
@@ -445,6 +447,8 @@ describe('starting an execution', () => {
     assert.equal(options.model, 'claude-sonnet-5');
     assert.equal(options.permissionMode, 'acceptEdits');
     assert.equal(options.pathToClaudeCodeExecutable, '/opt/claude/bin/claude');
+    // Claude Code is launched through the adapter's process guard.
+    assert.equal(typeof options.spawnClaudeCodeProcess, 'function');
     assert.deepEqual(options.systemPrompt, { type: 'preset', preset: 'claude_code' });
     // Leaving settingSources unset loads user settings, so the observers' hooks run.
     assert.equal(options.settingSources, undefined);

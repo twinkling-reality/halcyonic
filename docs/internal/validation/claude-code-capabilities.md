@@ -263,3 +263,117 @@ execution went `starting`, `running`, then `waiting_for_human` on an approval wh
 completed. Every command (project, workstream, start, approval) ended `completed`, and the execution
 kept the native session id. The understanding endpoint answered `unauthorized`
 (`credential_missing`), since that data directory held no Salidium credential.
+
+## Process lifetime after a hard kill: record and watchdog (2026-09-26)
+
+Question: can a Claude Code process outlive the process hosting the adapter? The adapter build
+section above found that a host killed without running exit handlers leaves a CLI with a turn in
+flight running with nobody supervising.
+
+Method: the pinned `@anthropic-ai/claude-agent-sdk` 0.3.283, read in its published types
+(`sdk.d.ts`, *types*) and bundled source (`sdk.mjs`, *source*); a static search of the JavaScript
+embedded in the pinned CLI 2.1.283 binary (*static*, not run); and runtime checks on macOS 26.7
+(arm64) with Node 24.15.0 (*runtime*), using the fake executable (`src/testing/fake-claude.mjs`),
+the host helper (`src/testing/exiting-host.mjs`) and stand-in processes. No model, network or
+credential was used, the real CLI was not run, and Linux was not tested.
+
+Verified:
+
+- **The SDK lets the host spawn the CLI** (*types*, *source*).
+  `Options.spawnClaudeCodeProcess?: (options: SpawnOptions) => SpawnedProcess` is called instead of
+  the SDK's own spawn; `SpawnOptions` is `{command, args, cwd?, env, signal}`, and a `ChildProcess`
+  satisfies `SpawnedProcess`. The SDK exposes the child's pid no other way. `query()` spawns
+  synchronously (only a resume through a `sessionStore` defers the spawn).
+- **What the SDK's own spawn does** (*source*). `ProcessTransport.initialize()` builds one
+  `{command, args, cwd, env, signal}` object and passes it either to the custom function or to its
+  own `spawnLocalProcess`, which calls `child_process.spawn(command, args, {cwd, stdio: ['pipe',
+  'pipe', 'pipe'], signal, env, windowsHide: true})`. With a custom function the SDK does not add
+  `--debug-file <path>`, which it adds only when the host sets `DEBUG_CLAUDE_AGENT_SDK`; it does not
+  read stderr, whose tail it otherwise appends (redacted) to exit errors; and it delivers `exit`
+  without waiting for stderr to close. Its close sequence (end stdin, SIGTERM 2 s later, SIGKILL
+  5 s after that) and its process exit handler act on the returned object, so they apply unchanged.
+  It writes user messages as soon as its initialize request is written, without waiting for the
+  answer, so a CLI receives both together.
+- **Tool commands and hooks leave the CLI's process group** (*static*). The CLI spawns shell
+  commands and hooks with `detached: true`, so signalling the CLI's group would not reach them.
+- **The adapter launches Claude Code exactly as the SDK does** (*runtime*). Launched through the
+  adapter and through the SDK's own spawn from the same options, the fake received the same
+  arguments (apart from the session id), the same environment names and values for HOME, PATH and
+  CLAUDE_CONFIG_DIR, the same working directory, and the same kind of stdin, stdout and stderr
+  (sockets on macOS), and both ran in the host's process group.
+- **What `ps` reports** (*runtime*), with `ps -ww -p <pid> -o lstart=,args=`, `TZ=UTC` and
+  `LC_ALL=C`. A native binary shows its final command line on the first read after spawn. A
+  `#!/usr/bin/env node` script, like the fake executable, shows `/usr/bin/env node <path> ...` for
+  several reads, then `node <path> ...`, with the same pid and start time. Under `LC_ALL=C`, macOS
+  `ps` escapes non-ASCII arguments (`ö` prints as `M-CM-6`), so a command line from `ps` cannot be
+  compared with the raw arguments.
+
+What the adapter does now:
+
+- `processRecordFile` is a required option. The control plane passes
+  `<data dir>/claude-agent-processes.json` and calls `stopStaleProcesses()` at startup.
+- Every Claude Code process is launched through `spawnClaudeCodeProcess` with the SDK's own spawn
+  call, in the host's process group; stderr is drained so the CLI cannot block on it. It receives
+  no input until it is in the record file and the watchdog has the updated list in its pipe. If
+  either fails, it is killed with SIGKILL before any input and its query fails with a message saying
+  it could not be recorded and watched.
+- The record file (mode 0600, replaced atomically) lists each live process: pid, start time and
+  command line as `ps` reports them, and the session id Halcyonic chose. The command line holds no
+  secret for the options the adapter sets, and is visible to every local user through `ps` anyway.
+  It is removed when no process is left.
+- A live process is the recorded one when `ps` reports the same start time and a command line that
+  carries `--session-id=<the recorded id>`, a random UUID per launch. The rest of the command line
+  is not compared, because of the exec and the escaping above.
+- One detached watchdog process (`node src/watchdog.ts`, empty environment) runs while the adapter
+  has live processes; its stdin is a pipe from the host, and each line is the complete list. When
+  its input ends (the host died, however it died, or the adapter closed the pipe) or on SIGTERM,
+  SIGINT or SIGHUP, it stops every listed process that is still the recorded one: SIGTERM, then
+  SIGKILL after 5 s, the identity checked before each signal, the pid only and never a group.
+- `stopStaleProcesses()` stops what an earlier run left in the record, the same way, then removes
+  it; the first launch waits for it. `close()` resolves once every launched process has exited, the
+  record is removed and the watchdog has exited.
+
+Results (*runtime*; `src/process-record.test.ts`, `src/sdk-process.test.ts` and the control plane's
+`runtimes.test.ts`, five consecutive green runs of all 26 tests, and `pnpm check`):
+
+- A host killed with SIGKILL while its CLI ignores the end of its input: the watchdog stopped the
+  CLI with SIGTERM; the whole test, host startup included, takes about 0.3 s. With three sessions,
+  all three were stopped.
+- Host and watchdog both killed with SIGKILL: the CLIs kept running; the next adapter's
+  `stopStaleProcesses()` stopped both and removed the record. At control plane startup,
+  `stopStaleRuntimeServers` stops a recorded process and reports `stopped` without launching
+  anything.
+- A recorded pid whose process started at another time, or lacks the recorded session id, is
+  reported `not_ours` and never signalled, by `stopStaleProcesses()` and by the watchdog.
+- A process that execs another program after launch (`/bin/sh` to `node`) is still recognized and
+  stopped. One that ignores SIGTERM is killed with SIGKILL after the grace period.
+- Every fake CLI launched through the adapter found itself in the record when its first input
+  arrived, including three launched at once; one launched by the SDK's own spawn did not.
+- With a read-only record directory, the process was killed before any input, the start failed
+  with `runtime_exited`, and no watchdog ran.
+- `close()` stopped a CLI that ignores the end of its input with SIGTERM about 2.1 s after closing,
+  removed the record and stopped the watchdog. A host that closes on SIGTERM exits only after its
+  CLI and watchdog are gone.
+- The earlier checks still pass: the session id chosen at launch, the environment rules
+  (`settingSources` unset, HOME, PATH with node, no SALIDIUM_INTERNAL, no ANTHROPIC_BASE_URL), and
+  hosts that exit or crash.
+
+Still unprotected or unverified:
+
+- **Platforms.** macOS was tested; Linux was not. The mechanism needs a `ps` that accepts
+  `-ww -p <pid> -o lstart=,args=` (procps-ng or BSD); with BusyBox `ps` (Alpine, for example)
+  every launch fails closed. Windows is not supported.
+- **Tool commands and hooks.** Only the CLI is signalled. What it started in its own process groups
+  is left to Claude Code's own shutdown on SIGTERM, which was not verified; a CLI that has to be
+  killed with SIGKILL may leave them running.
+- **The watchdog's delay.** Between a hard kill of the host and the watchdog's SIGTERM, the CLI runs
+  unsupervised for a fraction of a second, and up to 5 s more if it ignores SIGTERM.
+- **The watchdog alone killed.** Running processes are then protected only by the record until the
+  next launch or exit starts a new watchdog; if the host also dies, they run until the next start
+  calls `stopStaleProcesses()`.
+- **Start times** have one-second resolution; a reused pid is mistaken for a recorded process only
+  if it also starts within the same second and carries the recorded session id.
+- **Diagnostics.** Exit errors no longer carry the CLI's stderr tail, which the SDK collects only for
+  its own spawn; the adapter drains stderr without reporting it, since it may hold secrets. With
+  `DEBUG_CLAUDE_AGENT_SDK` set on the host, the CLI no longer receives `--debug-file`.
+- **The real CLI** was not run for these checks.

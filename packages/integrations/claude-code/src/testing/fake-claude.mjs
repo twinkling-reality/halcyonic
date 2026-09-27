@@ -3,17 +3,30 @@
 // and contacts nothing. It speaks just enough of the stream-json protocol for the Agent SDK: it
 // answers the initialize request, and answers each user message with system/init and a successful
 // result. It records its arguments, working directory, the names of its environment variables,
-// every line it receives, and any stopping signal in the JSON file named by FAKE_CLAUDE_RECORD.
-// Values are recorded only for HOME, CLAUDE_CONFIG_DIR and PATH. With FAKE_CLAUDE_IGNORE_EOF=1 it
-// keeps running after its input closes, like a CLI still finishing a turn, until a signal stops it.
+// what kind of file each of its standard streams is, every line it receives, and any stopping
+// signal in `<pid>.json` in the directory named by FAKE_CLAUDE_RECORD_DIR, so that several
+// processes can share one environment. Values are recorded only for HOME, CLAUDE_CONFIG_DIR and
+// PATH. With FAKE_CLAUDE_PROCESS_RECORD naming the adapter's process record file, it also records
+// whether that file already listed this process when its first input arrived. With
+// FAKE_CLAUDE_IGNORE_EOF=1 it keeps running after its input closes, like a CLI still finishing a
+// turn, until a signal stops it.
 import { randomUUID } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { fstatSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
 const args = process.argv.slice(2);
 const sessionFlag = args.find((arg) => arg.startsWith('--session-id='));
 const sessionId =
   sessionFlag === undefined ? randomUUID() : sessionFlag.slice('--session-id='.length);
+
+function kind(fd) {
+  const stat = fstatSync(fd);
+  if (stat.isFIFO()) return 'fifo';
+  if (stat.isSocket()) return 'socket';
+  if (stat.isCharacterDevice()) return 'character device';
+  return stat.isFile() ? 'file' : 'other';
+}
 
 const record = {
   pid: process.pid,
@@ -23,15 +36,31 @@ const record = {
   home: process.env.HOME ?? null,
   config_dir: process.env.CLAUDE_CONFIG_DIR ?? null,
   path: process.env.PATH ?? null,
+  stdio: [0, 1, 2].map(kind),
+  listed_before_input: null,
   received: [],
   input_closed: false,
   signal: null,
 };
 
-function save() {
-  if (process.env.FAKE_CLAUDE_RECORD) {
-    writeFileSync(process.env.FAKE_CLAUDE_RECORD, JSON.stringify(record, null, 2));
+function listsThisProcess(file) {
+  try {
+    const { processes } = JSON.parse(readFileSync(file, 'utf8'));
+    return processes.some((entry) => entry.pid === process.pid);
+  } catch {
+    return false;
   }
+}
+
+const recordFile = process.env.FAKE_CLAUDE_RECORD_DIR
+  ? join(process.env.FAKE_CLAUDE_RECORD_DIR, `${process.pid}.json`)
+  : undefined;
+
+// Replaced atomically, so a test never reads half a record.
+function save() {
+  if (!recordFile) return;
+  writeFileSync(`${recordFile}.tmp`, JSON.stringify(record, null, 2));
+  renameSync(`${recordFile}.tmp`, recordFile);
 }
 
 function send(message) {
@@ -88,6 +117,9 @@ save();
 
 const input = createInterface({ input: process.stdin });
 input.on('line', (line) => {
+  if (record.listed_before_input === null && process.env.FAKE_CLAUDE_PROCESS_RECORD) {
+    record.listed_before_input = listsThisProcess(process.env.FAKE_CLAUDE_PROCESS_RECORD);
+  }
   const message = JSON.parse(line);
   record.received.push(message);
   save();
