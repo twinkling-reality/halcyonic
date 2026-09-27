@@ -332,7 +332,8 @@ function signalGroup(pid: number, name: NodeJS.Signals): void {
   }
 }
 
-async function settlesWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+/** Waits for a promise to settle, for at most `ms`. Resolves whether it settled in time. */
+export async function settlesWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
   const timer = new AbortController();
   try {
     return await Promise.race([

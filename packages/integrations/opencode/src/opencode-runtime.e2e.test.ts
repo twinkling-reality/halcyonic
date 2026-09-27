@@ -549,14 +549,16 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     SLOW_TEST,
     async (t) => {
       // A second of silence drops the stream (OpenCode's heartbeat comes every 15 s); it reopens
-      // five seconds later. The approval is answered and the turn finishes inside that gap.
+      // five seconds later. The approval is answered three seconds after it is known, and the
+      // turn finishes, inside that gap. Whether the approval was seen live or learned by an
+      // earlier reconnect, nothing but the turn's end can be reported after it.
       const { runtime, sandbox, start } = await harness(t, {
-        runtime: { streamSilenceTimeoutMs: 1000, reconnectDelaysMs: [5000] },
+        runtime: { streamSilenceTimeoutMs: 1000, reconnectDelaysMs: [5000, 200, 200, 200] },
       });
       const execution = await start('Please RUN_SHELL for the end to end test.');
       const requested = await execution.next('runtime.approval.requested');
       assert.ok(requested.type === 'runtime.approval.requested');
-      await delay(2500);
+      await delay(3000);
       await runtime.respondToApproval({
         execution: execution.context,
         approval_id: requested.payload.approval_id,
@@ -579,15 +581,23 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   );
 
   test('reconnecting while nothing changed reports nothing twice', SLOW_TEST, async (t) => {
+    // A second of silence drops the stream again and again: during the first prompt, which
+    // blocks a fresh OpenCode project for more than a second, while the approval waits, and
+    // around the turn's end. The assertions hold whichever of these a reconnect lands in.
     const { runtime, start } = await harness(t, {
-      runtime: { streamSilenceTimeoutMs: 1000, reconnectDelaysMs: [200] },
+      runtime: {
+        streamSilenceTimeoutMs: 1000,
+        reconnectDelaysMs: Array.from({ length: 10 }, () => 200),
+      },
     });
     const execution = await start('Please RUN_SHELL for the end to end test.');
     const requested = await execution.next('runtime.approval.requested');
     assert.ok(requested.type === 'runtime.approval.requested');
-    // Several drops and reconnects happen while the approval waits.
+    await delay(1500);
+    // Several reconnects while the approval waits re-read a session that did not change.
+    const known = execution.observations.length;
     await delay(4000);
-    assert.deepEqual(execution.typesAfter('runtime.approval.requested'), []);
+    assert.deepEqual(execution.types().slice(known), []);
     await runtime.respondToApproval({
       execution: execution.context,
       approval_id: requested.payload.approval_id,
@@ -596,11 +606,14 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     });
     await execution.next('runtime.turn.completed', 1, 20_000);
     await delay(1500);
-    const types = execution.types();
-    assert.equal(types.filter((type) => type === 'runtime.approval.requested').length, 1);
-    assert.equal(types.filter((type) => type === 'runtime.turn.started').length, 1);
-    assert.equal(types.filter((type) => type === 'runtime.turn.completed').length, 1);
-    assert.equal(types.includes('runtime.connection.lost'), false);
+    const count = (type: RuntimeEventType) =>
+      execution.types().filter((item) => item === type).length;
+    assert.equal(count('runtime.turn.started'), 1);
+    assert.equal(count('runtime.approval.requested'), 1);
+    assert.equal(count('runtime.turn.completed'), 1);
+    assert.ok(count('runtime.tool.started') <= 1);
+    assert.ok(count('runtime.approval.resolved') <= 1);
+    assert.equal(count('runtime.connection.lost'), 0);
     assertValidObservations(execution.observations, execution.context);
   });
 });

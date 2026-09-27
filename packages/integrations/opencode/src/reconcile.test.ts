@@ -6,13 +6,21 @@ import { reconcileSession, type SessionSnapshot } from './reconcile.ts';
 import { assertValidObservations } from './testing/observations.ts';
 
 const NOW = new Date('2026-09-26T12:00:00.000Z');
+const ENQUEUED = Date.parse('2026-09-26T11:58:00.000Z');
+const IDLE = Date.parse('2026-09-26T11:59:00.000Z');
+const TURN_RULE = {
+  epistemic: 'inferred',
+  native_type: 'opencode/session',
+  rule: 'opencode.reconnect.session_state',
+};
 
 function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
+    inbox: new Set(),
+    permissions: [],
     running: true,
     outcome: null,
     idleAt: null,
-    permissions: [],
     toolStatus: new Map(),
     ...overrides,
   };
@@ -21,20 +29,35 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
 function running(turnId: string | null = 'evt_start'): SessionState {
   const state = createSessionState();
   state.turn = { id: turnId };
+  state.since = ENQUEUED;
   return state;
 }
 
-function reconciled(state: SessionState, read: SessionSnapshot): RuntimeObservation[] {
-  const result = reconcileSession(state, read, NOW);
-  assert.ok(result.ok, result.ok ? '' : result.reason);
-  assertValidObservations(result.observations);
-  return result.observations;
+/** A session whose prompt OpenCode accepted as inbox item `msg_1`, not yet seen starting. */
+function awaiting(): SessionState {
+  const state = createSessionState();
+  state.awaitingStart = true;
+  state.pendingInboxId = 'msg_1';
+  state.since = ENQUEUED;
+  return state;
 }
 
-function failure(state: SessionState, read: SessionSnapshot): string {
+function settled(state: SessionState, read: SessionSnapshot): RuntimeObservation[] {
   const result = reconcileSession(state, read, NOW);
-  assert.ok(!result.ok, 'expected the reconciliation to fail');
-  return result.reason;
+  assert.equal(result.kind, 'settled', JSON.stringify(result));
+  const observations = result.kind === 'settled' ? result.observations : [];
+  assertValidObservations(observations);
+  return observations;
+}
+
+function unsettled(state: SessionState, read: SessionSnapshot): string {
+  const result = reconcileSession(state, read, NOW);
+  assert.equal(result.kind, 'unsettled', JSON.stringify(result));
+  return result.kind === 'unsettled' ? result.reason : '';
+}
+
+function types(observations: readonly RuntimeObservation[]) {
+  return observations.map((item) => item.type);
 }
 
 describe('reconciling a session after the event stream reconnected', () => {
@@ -42,13 +65,10 @@ describe('reconciling a session after the event stream reconnected', () => {
     const state = running();
     state.approvals.add('per_1');
     assert.deepEqual(
-      reconciled(
-        state,
-        snapshot({ permissions: [{ id: 'per_1', action: 'shell', resources: [] }] }),
-      ),
+      settled(state, snapshot({ permissions: [{ id: 'per_1', action: 'shell', resources: [] }] })),
       [],
     );
-    assert.deepEqual(reconciled(createSessionState(), snapshot({ running: false })), []);
+    assert.deepEqual(settled(createSessionState(), snapshot({ running: false })), []);
   });
 
   test('a turn that ended while disconnected ends with the outcome OpenCode recorded', () => {
@@ -61,47 +81,85 @@ describe('reconciling a session after the event stream reconnected', () => {
       const state = running('evt_start');
       state.approvals.add('per_1');
       state.tools.add('call_1');
-      const [ended, ...rest] = reconciled(
-        state,
-        snapshot({ running: false, outcome, idleAt: Date.parse('2026-09-26T11:59:00.000Z') }),
-      );
+      const [ended, ...rest] = settled(state, snapshot({ running: false, outcome, idleAt: IDLE }));
       assert.deepEqual(rest, []);
       assert.equal(ended?.type, type);
       assert.equal(ended?.occurred_at, '2026-09-26T11:59:00.000Z');
-      assert.deepEqual(ended?.provenance, {
-        epistemic: 'inferred',
-        native_type: 'opencode/session',
-        rule: 'opencode.reconnect.session_state',
-      });
+      assert.deepEqual(ended?.provenance, TURN_RULE);
       assert.equal(
         ended !== undefined && 'turn_id' in ended.payload && ended.payload.turn_id,
         'evt_start',
       );
       assert.equal(state.turn, null);
       assert.equal(state.approvals.size + state.tools.size, 0);
+      // Events up to the end are settled; the stream must not report that turn again.
+      assert.equal(state.settledThrough, IDLE);
     }
   });
 
-  test('a turn that ended without a recorded outcome cannot be settled', () => {
-    assert.match(failure(running(), snapshot({ running: false })), /does not say how/);
+  test('an outcome older than the turn is transitional, and leaves the state as it was', () => {
+    const state = running();
+    const before = structuredClone(state);
+    const stale = snapshot({ running: false, outcome: 'succeeded', idleAt: ENQUEUED - 1 });
+    assert.deepEqual(reconcileSession(state, stale, NOW), { kind: 'transitional' });
+    assert.deepEqual(reconcileSession(state, snapshot({ running: false }), NOW), {
+      kind: 'transitional',
+    });
+    assert.deepEqual(state, before);
   });
 
-  test('a prompt accepted but never seen starting is settled only if its turn is still running', () => {
-    const waiting = createSessionState();
-    waiting.awaitingStart = true;
-    assert.match(failure(waiting, snapshot({ running: false, outcome: 'succeeded' })), /prompt/);
-    const started = createSessionState();
-    started.awaitingStart = true;
-    assert.deepEqual(
-      reconciled(started, snapshot()).map((item) => item.type),
-      ['runtime.turn.started'],
+  test('an outcome this adapter does not know cannot be settled', () => {
+    const reason = unsettled(
+      running(),
+      snapshot({ running: false, outcome: 'paused', idleAt: IDLE }),
     );
-    assert.deepEqual(started.turn, { id: null });
-    assert.equal(started.awaitingStart, false);
+    assert.match(reason, /paused/);
+  });
+
+  test('a prompt still in the inbox has not started: nothing is reported yet', () => {
+    const state = awaiting();
+    assert.deepEqual(settled(state, snapshot({ running: false, inbox: new Set(['msg_1']) })), []);
+    assert.equal(state.awaitingStart, true);
+    assert.equal(state.turn, null);
+  });
+
+  test('a prompt taken from the inbox started a turn, still running or already ended', () => {
+    for (const inbox of [new Set<string>(), new Set(['msg_1'])]) {
+      const state = awaiting();
+      const [started] = settled(state, snapshot({ inbox }));
+      assert.equal(started?.type, 'runtime.turn.started');
+      assert.deepEqual(started?.provenance, TURN_RULE);
+      assert.equal(started?.occurred_at, '2026-09-26T11:58:00.000Z');
+      assert.deepEqual(state.turn, { id: null });
+      assert.equal(state.awaitingStart, false);
+    }
+
+    const ran = awaiting();
+    const observations = settled(
+      ran,
+      snapshot({ running: false, outcome: 'succeeded', idleAt: IDLE }),
+    );
+    assert.deepEqual(types(observations), ['runtime.turn.started', 'runtime.turn.completed']);
+    assert.ok((observations[0]?.occurred_at ?? '') < (observations[1]?.occurred_at ?? ''));
+    assert.equal(ran.turn, null);
+    assert.equal(ran.settledThrough, IDLE);
+  });
+
+  test('a delivered prompt whose outcome is not recorded yet is transitional', () => {
+    const state = awaiting();
+    const read = snapshot({ running: false, outcome: 'succeeded', idleAt: ENQUEUED - 60_000 });
+    assert.deepEqual(reconcileSession(state, read, NOW), { kind: 'transitional' });
+    assert.equal(state.awaitingStart, true);
+  });
+
+  test('a prompt that OpenCode did not identify cannot be traced', () => {
+    const state = awaiting();
+    state.pendingInboxId = null;
+    assert.match(unsettled(state, snapshot()), /did not identify/);
   });
 
   test('a running session with a new pending permission reports the turn and the approval', () => {
-    const observations = reconciled(
+    const observations = settled(
       createSessionState(),
       snapshot({ permissions: [{ id: 'per_2', action: 'shell', resources: ['echo hi'] }] }),
     );
@@ -123,14 +181,26 @@ describe('reconciling a session after the event stream reconnected', () => {
     replied.approvals.add('per_1');
     replied.replies.set('per_1', 'denied');
     assert.deepEqual(
-      reconciled(replied, snapshot()).map((item) => [item.type, item.payload]),
+      settled(replied, snapshot()).map((item) => [item.type, item.payload]),
       [['runtime.approval.resolved', { approval_id: 'per_1', decision: 'denied' }]],
     );
     assert.equal(replied.approvals.size, 0);
 
     const unexplained = running();
     unexplained.approvals.add('per_1');
-    assert.match(failure(unexplained, snapshot()), /per_1/);
+    const before = structuredClone(unexplained);
+    assert.match(unsettled(unexplained, snapshot()), /per_1/);
+    assert.deepEqual(unexplained, before);
+  });
+
+  test('an approval gone because the turn ended is settled by the ending', () => {
+    const state = running();
+    state.approvals.add('per_1');
+    const observations = settled(
+      state,
+      snapshot({ running: false, outcome: 'interrupted', idleAt: IDLE }),
+    );
+    assert.deepEqual(types(observations), ['runtime.turn.interrupted']);
   });
 
   test('active tools are completed from their recorded status, and kept while still running', () => {
@@ -138,7 +208,7 @@ describe('reconciling a session after the event stream reconnected', () => {
     state.tools.add('call_ok');
     state.tools.add('call_err');
     state.tools.add('call_busy');
-    const observations = reconciled(
+    const observations = settled(
       state,
       snapshot({
         toolStatus: new Map([
