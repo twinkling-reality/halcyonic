@@ -1,19 +1,32 @@
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, describe, test } from 'node:test';
 import { EnvironmentError } from '@halcyonic/integration-claude-code';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { loadConfig } from './config.ts';
+import { ConfigError, loadConfig } from './config.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
-import { createRuntimeAdapters } from './runtimes.ts';
+import { ANTHROPIC_KEY_FILE, createRuntimeAdapters } from './runtimes.ts';
 import { SCENARIOS } from './testing/harness.ts';
 
-function adapters(configEnv: NodeJS.ProcessEnv, environment: NodeJS.ProcessEnv) {
+const base = mkdtempSync(join(tmpdir(), 'halcyonic-runtimes-'));
+after(() => rmSync(base, { recursive: true, force: true }));
+
+function adapters(
+  configEnv: NodeJS.ProcessEnv,
+  environment: NodeJS.ProcessEnv,
+  dataDir = join(base, 'empty'),
+) {
   return createRuntimeAdapters(loadConfig(configEnv), {
     mock: new MockRuntimeAdapter({ scenarios: SCENARIOS }),
     directoryPolicy: createDirectoryPolicy([]),
     environment,
+    dataDir,
   });
 }
+
+const HOST = { HOME: '/home/someone', PATH: '/usr/bin' };
 
 describe('runtime composition', () => {
   test('only the synthetic mock runtime is hosted unless a real runtime is enabled', () => {
@@ -32,6 +45,22 @@ describe('runtime composition', () => {
     assert.ok(claude);
     assert.equal(claude.descriptor.display_name, 'Claude Agent');
     assert.equal(claude.descriptor.synthetic, false);
+  });
+
+  test('the API key may come from a private file in the data directory instead of the environment', () => {
+    const dataDir = mkdtempSync(join(base, 'key-'));
+    writeFileSync(join(dataDir, ANTHROPIC_KEY_FILE), 'not-a-real-key\n', { mode: 0o600 });
+    const hosted = adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, dataDir);
+    assert.ok(hosted.some((adapter) => adapter.descriptor.kind === 'claude-agent'));
+  });
+
+  test('a key file other users can read, or an empty one, stops startup', () => {
+    const exposed = mkdtempSync(join(base, 'exposed-'));
+    writeFileSync(join(exposed, ANTHROPIC_KEY_FILE), 'not-a-real-key\n', { mode: 0o644 });
+    assert.throws(() => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, exposed), ConfigError);
+    const empty = mkdtempSync(join(base, 'empty-key-'));
+    writeFileSync(join(empty, ANTHROPIC_KEY_FILE), '\n', { mode: 0o600 });
+    assert.throws(() => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, empty), ConfigError);
   });
 
   test('an enabled Claude Agent runtime without credentials stops startup', () => {

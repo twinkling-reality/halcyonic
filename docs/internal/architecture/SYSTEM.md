@@ -99,8 +99,9 @@ Environment variables, all optional:
 | `HALCYONIC_CLAUDE_EXECUTABLE` | bundled | A Claude Code executable to use instead of the one the Agent SDK bundles |
 | `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |
 
-Files in the data directory besides the journal and the access token: `salidium-credential`, the
-consumer credential the owner created for Halcyonic (mode 0600; optional).
+Files in the data directory besides the journal and the access token, all optional and mode 0600:
+`salidium-credential`, the consumer credential the owner created for Halcyonic, and
+`anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set.
 
 ## Toolchain
 

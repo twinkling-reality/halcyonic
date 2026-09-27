@@ -24,6 +24,7 @@ async function main(): Promise<void> {
     mock: new MockRuntimeAdapter({ scenarios: loadScenarios(config.scenariosDir) }),
     directoryPolicy: createDirectoryPolicy(config.projectRoots),
     environment: process.env,
+    dataDir: config.dataDir,
   });
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });

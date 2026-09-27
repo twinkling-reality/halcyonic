@@ -46,12 +46,21 @@ Commands are posted as JSON `CommandEnvelope`s to `/api/commands`. The shape is 
 
 ## Run real agents
 
-Real runtimes work only inside directories you list, and are off until enabled:
+Real runtimes work only inside directories you list, and are off until enabled. The Claude Agent
+runtime needs an Anthropic API key: keep it in the data directory, readable only by you, rather than
+in your shell environment. Copy the key to the clipboard, then:
+
+```bash
+mkdir -p ~/.halcyonic && chmod 700 ~/.halcyonic
+(umask 077 && pbpaste > ~/.halcyonic/anthropic-api-key)
+```
+
+`ANTHROPIC_API_KEY` in the environment, or a cloud provider's variables, work too and take
+precedence over the file. Then:
 
 ```bash
 export HALCYONIC_PROJECT_ROOTS="$HOME/dev"   # directories agents may work in, separated by :
 export HALCYONIC_CLAUDE_AGENT=1              # register the Claude Agent runtime
-export ANTHROPIC_API_KEY=...                 # or a cloud provider's variables
 pnpm dev
 ```
 

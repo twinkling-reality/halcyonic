@@ -14,9 +14,9 @@ defends against now are:
 It is not a sandbox against other processes running as the same user; those can read the token,
 as with Salidium.
 
-When the Claude Agent runtime is enabled, the Anthropic API key or cloud provider credentials live
-in the control plane's environment and reach each launched Claude Code process through an
-explicitly built environment: an allowlist of variables, plus the names listed in
+When the Claude Agent runtime is enabled, the Anthropic API key (from the environment, or else
+from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
+credentials reach each launched Claude Code process through an explicitly built environment: an allowlist of variables, plus the names listed in
 `HALCYONIC_AGENT_ENV`. Nothing else in the control plane's environment reaches an agent, and a
 claude.ai login is never used.
 
