@@ -16,6 +16,7 @@ import { registerRoutes } from '../http/routes.ts';
 import { loadOrCreateAccessToken } from '../http/security.ts';
 import { createHttpServer } from '../http/server.ts';
 import { createUuidV7Generator } from '../ids.ts';
+import { seorakEvaluationFor } from '../intelligence/evaluation.ts';
 import { salidiumUnderstandingFor } from '../intelligence/understanding.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 
@@ -43,7 +44,10 @@ async function main(): Promise<void> {
     logger: app.log,
     commandTimeoutMs: config.commandTimeoutMs,
   });
-  registerRoutes(app, controlPlane, { understanding: salidiumUnderstandingFor(config.dataDir) });
+  registerRoutes(app, controlPlane, {
+    understanding: salidiumUnderstandingFor(config.dataDir),
+    evaluation: seorakEvaluationFor(config.dataDir),
+  });
   registerRealtime(app, controlPlane);
   await app.listen({ host: config.host, port: config.port });
   app.log.info(

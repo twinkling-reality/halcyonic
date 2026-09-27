@@ -4,4 +4,4 @@ export {
   type SeorakOptions,
   seorakAgentFor,
 } from './client.ts';
-export type { SeorakAgent } from './wire.ts';
+export { DEFAULT_PORT as SEORAK_DEFAULT_PORT, type SeorakAgent } from './wire.ts';

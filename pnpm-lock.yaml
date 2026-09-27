@@ -41,6 +41,9 @@ importers:
       '@halcyonic/integration-salidium':
         specifier: workspace:*
         version: link:../../packages/integrations/salidium
+      '@halcyonic/integration-seorak':
+        specifier: workspace:*
+        version: link:../../packages/integrations/seorak
       '@halcyonic/runtime-core':
         specifier: workspace:*
         version: link:../../packages/runtime-core
