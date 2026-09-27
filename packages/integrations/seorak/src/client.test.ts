@@ -175,7 +175,29 @@ describe('evaluating a session through Seorak', () => {
     assert.equal(cost.note, 'Estimated from token counts at list prices. Not a bill.');
   });
 
-  test('maps the outcome field by field', async (t) => {
+  test("maps ADR 007's example outcome and verification lens field by field", async (t) => {
+    const fake = await start(t);
+    const { outcome, verification } = evaluation(await evaluate(fake));
+    assert.deepEqual(outcome.measure, {
+      commits_landed: 1,
+      uncommitted: {
+        files_touched: 2,
+        lines_added: 40,
+        lines_removed: 6,
+        generated_lines_excluded: 0,
+      },
+      line_survival: null,
+      error_count: 3,
+      first_error_at: '2026-09-26T17:44:10.000Z',
+      end_reason: null,
+    });
+    assert.deepEqual(verification.lens, {
+      by_kind: [{ label: 'test', runs: 4, passed: 3, pass_rate: 0.75 }],
+      empty_reason: null,
+    });
+  });
+
+  test('maps a matured line survival and an end reason', async (t) => {
     const fake = await start(t);
     const outcome = fake.example.outcome.outcome as Json;
     outcome.lineSurvival = {
@@ -187,26 +209,16 @@ describe('evaluating a session through Seorak', () => {
       commitsChecked: 3,
     };
     outcome.endReason = 'prompt_input_exit';
-    assert.deepEqual(evaluation(await evaluate(fake)).outcome.measure, {
-      commits_landed: 2,
-      uncommitted: {
-        files_touched: 3,
-        lines_added: 41,
-        lines_removed: 7,
-        generated_lines_excluded: 120,
-      },
-      line_survival: {
-        rung: '3d',
-        fate: 'retained',
-        rate: 0.92,
-        lines_authored: 50,
-        lines_surviving: 46,
-        commits_checked: 3,
-      },
-      error_count: 1,
-      first_error_at: '2026-09-26T17:44:10.000Z',
-      end_reason: 'prompt_input_exit',
+    const measure = evaluation(await evaluate(fake)).outcome.measure;
+    assert.deepEqual(measure?.line_survival, {
+      rung: '3d',
+      fate: 'retained',
+      rate: 0.92,
+      lines_authored: 50,
+      lines_surviving: 46,
+      commits_checked: 3,
     });
+    assert.equal(measure?.end_reason, 'prompt_input_exit');
   });
 
   test('keeps an outcome that is unavailable or has not matured as null, not zeros', async (t) => {
@@ -328,6 +340,43 @@ describe('evaluating a session through Seorak', () => {
     assert.ok(Date.parse(cost.freshness.stale_at) < Date.now());
   });
 
+  test('reads a value v1 added to a union later as unknown, never as incompatible', async (t) => {
+    const fake = await start(t);
+    const { example } = fake;
+    example.outcome.availability = { state: 'partial', reason: 'sampled' };
+    example.outcome.coverage = {
+      ...(example.outcome.coverage as Json),
+      complete: true,
+      omissions: ['projection-pending', 'sampled', 'thinned'],
+    };
+    Object.assign(example.outcome.outcome as Json, {
+      endReason: 'crashed',
+      lineSurvival: {
+        rung: '3d',
+        fate: 'reverted',
+        rate: null,
+        linesAuthored: 12,
+        linesSurviving: 0,
+        commitsChecked: 1,
+      },
+    });
+    const row = verificationRow('test', 4, 3, 0.75);
+    (row.metrics as Json[])[2] = { key: 'passRate', label: 'Pass rate', value: 75, unit: 'ratio' };
+    example.lens = lensDocument(example.ref, [row]);
+
+    const { outcome, verification } = evaluation(await evaluate(fake));
+    assert.deepEqual(outcome.availability, { state: 'partial', reason: 'unknown' });
+    // An omission the client cannot name means the coverage is not known to be complete.
+    assert.equal(outcome.coverage.complete, false);
+    assert.deepEqual(outcome.coverage.omissions, ['projection_pending', 'unknown']);
+    assert.equal(outcome.measure?.end_reason, 'unknown');
+    assert.equal(outcome.measure?.line_survival?.fate, 'unknown');
+    // A metric in a unit the client does not know is unknown; the rest of the row stands.
+    assert.deepEqual(verification.lens?.by_kind, [
+      { label: 'test', runs: 4, passed: 3, pass_rate: null },
+    ]);
+  });
+
   test('says not_found when Seorak has not captured the session, which may still change', async (t) => {
     const fake = await start(t);
     const result = await evaluate(fake, { kind: 'claude-agent', id: 'launched-a-moment-ago' });
@@ -347,6 +396,8 @@ describe('evaluating a session through Seorak', () => {
       ['outside-credential-restriction', ['unauthorized', 'outside_credential_restriction']],
       ['temporarily-unavailable', ['unavailable', 'temporarily_unavailable']],
       ['result-limit', ['unavailable', 'result_limit']],
+      // A reason v1 added later: unavailable for a reason the client cannot name (ADR 007).
+      ['paused-by-owner', ['unavailable', 'unknown_reason']],
     ] as const) {
       fake.example.resolve = {
         ...resolveMiss(),
@@ -535,16 +586,11 @@ describe('evaluating a session through Seorak', () => {
       ['another API version', (s) => (s.resolve.apiVersion = 'v2'), /apiVersion/],
       ['no freshness', (s) => delete s.outcome.freshness, /required properties freshness/],
       [
-        'an unknown availability reason',
-        (s) => (s.lens.availability = { state: 'partial', reason: 'maybe-later' }),
-        /availability\/reason/,
+        'an availability state outside the published ones, which v1 does not grow',
+        (s) => (s.lens.availability = { state: 'maybe', reason: null }),
+        /availability\/state/,
       ],
       ['a negative cost', (s) => ((s.resolve.session as Json).costUsd = -1), /costUsd/],
-      [
-        'an unknown end reason',
-        (s) => ((s.outcome.outcome as Json).endReason = 'crashed'),
-        /endReason/,
-      ],
       [
         'an instant that is not one',
         (s) => ((s.outcome.freshness as Json).staleAt = 'soon'),
@@ -560,9 +606,18 @@ describe('evaluating a session through Seorak', () => {
         /has no passRate metric/,
       ],
       [
-        'a pass rate in percent',
+        'a pass rate given as a percentage rather than a fraction',
         (s) => (s.lens = lensDocument(s.ref, [verificationRow('test', 5, 4, 80)])),
         /metrics\/2\/value must be a fraction/,
+      ],
+      [
+        'runs in another published unit',
+        (s) => {
+          const row = verificationRow('test', 5, 4, 0.8);
+          (row.metrics as Json[])[0] = { key: 'runs', label: 'Runs', value: 5, unit: 'seconds' };
+          s.lens = lensDocument(s.ref, [row]);
+        },
+        /metrics\/0\/unit must be count for runs/,
       ],
       [
         'more passes than runs',
@@ -613,6 +668,17 @@ describe('evaluating a session through Seorak', () => {
       [
         'a lens that says it is unavailable',
         (f) => (f.example.lens.availability = { state: 'unavailable', reason: 'not-captured' }),
+      ],
+      // Available means non-null: only `unavailable` carries a null payload (ADR 007).
+      ['an available outcome without a measure', (f) => (f.example.outcome.outcome = null)],
+      [
+        'a partial lens without a result',
+        (f) =>
+          (f.example.lens = {
+            ...f.example.lens,
+            availability: { state: 'partial', reason: 'result-limit' },
+            result: null,
+          }),
       ],
     ];
     for (const [name, spoil] of cases) {

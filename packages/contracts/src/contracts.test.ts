@@ -191,6 +191,32 @@ describe('the evaluation contract', () => {
       assert.equal(available({ ...evaluation, verification: { ...read, lens } }).ok, false);
     }
   });
+
+  test('names a value the source added later unknown, and nothing else it does not know', () => {
+    const grown = {
+      availability: { state: 'partial', reason: 'unknown' },
+      coverage: { ...read.coverage, complete: false, omissions: ['unknown'] },
+      freshness: read.freshness,
+    };
+    const measure = {
+      commits_landed: null,
+      uncommitted: null,
+      line_survival: null,
+      error_count: null,
+      first_error_at: null,
+      end_reason: 'unknown',
+    };
+    assert.ok(available({ ...evaluation, outcome: { ...grown, measure } }).ok);
+    for (const reason of ['sampled', 'Unknown'])
+      assert.equal(
+        available({
+          ...evaluation,
+          outcome: { ...grown, availability: { state: 'partial', reason }, measure },
+        }).ok,
+        false,
+        reason,
+      );
+  });
 });
 
 describe('the language-neutral schema document', () => {

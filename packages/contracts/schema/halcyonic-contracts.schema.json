@@ -6536,6 +6536,10 @@
         {
           "type": "string",
           "const": "other"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
         }
       ]
     },
@@ -6697,6 +6701,10 @@
                 {
                   "type": "string",
                   "const": "result_limit"
+                },
+                {
+                  "type": "string",
+                  "const": "unknown"
                 }
               ]
             },
@@ -6773,6 +6781,10 @@
         {
           "type": "string",
           "const": "result_limit"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
         }
       ]
     },

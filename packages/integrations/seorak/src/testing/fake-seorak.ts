@@ -12,9 +12,23 @@ const FIXTURES = new URL('../../fixtures/v1/', import.meta.url);
 
 type Json = Record<string, unknown>;
 
+function fixture(name: string): Json {
+  return JSON.parse(readFileSync(new URL(`${name}.json`, FIXTURES), 'utf8')) as Json;
+}
+
 /** ADR 007's example of a resolve that found its session, word for word. Always a fresh copy. */
 export function resolveHit(): Json {
-  return JSON.parse(readFileSync(new URL('resolve-hit.json', FIXTURES), 'utf8')) as Json;
+  return fixture('resolve-hit');
+}
+
+/** ADR 007's example outcome of the session its resolve example finds. Always a fresh copy. */
+export function outcomeExample(): Json {
+  return fixture('outcome');
+}
+
+/** ADR 007's example verification lens of that session. Always a fresh copy. */
+export function lensExample(): Json {
+  return fixture('lens-verification');
 }
 
 /** The session ADR 007's example resolves. */
@@ -48,8 +62,8 @@ export function resolveDocument(agent: string, ref: string): Json {
 
 /**
  * ADR 007's miss, as its text describes it: the same envelope, unavailable because the session is
- * not captured, with no matched or included session, incomplete, and a null session. The observed
- * range and `dataThrough` of a miss are not described; they are null here, as for nothing observed.
+ * not captured, with no observed range, no `dataThrough`, no matched or included session, and a
+ * null session.
  */
 export function resolveMiss(): Json {
   const { coverage, freshness } = envelope() as { coverage: Json; freshness: Json };
@@ -93,9 +107,9 @@ export function outcomeDocument(ref: string): Json {
 }
 
 /**
- * One row of the verification lens as Seorak's team describes it: a kind of check with `runs`,
- * `passed` and `passRate` metrics. The metric labels and units are not published; the client reads
- * neither.
+ * One row of the verification lens as ADR 007 (section 2) states it: a kind of check with `runs`
+ * and `passed` in the unit `count`, and `passRate` in the unit `percent` whose value is a fraction.
+ * The metric labels are the ADR example's.
  */
 export function verificationRow(
   label: string,
@@ -106,8 +120,8 @@ export function verificationRow(
   return {
     label,
     metrics: [
-      { key: 'runs', label: 'Runs', value: runs, unit: 'count' },
-      { key: 'passed', label: 'Passed', value: passed, unit: 'count' },
+      { key: 'runs', label: 'Measured runs', value: runs, unit: 'count' },
+      { key: 'passed', label: 'Passed runs', value: passed, unit: 'count' },
       { key: 'passRate', label: 'Pass rate', value: passRate, unit: 'percent' },
     ],
   };
@@ -159,12 +173,14 @@ const NATIVE_SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
 /**
  * A stand-in for Seorak's local plane that serves integration API v1 over real loopback HTTP as the
  * public sources describe it. The Host must name 127.0.0.1 at the listener's port and an Origin is
- * refused (the collector's README). Every read needs the one `srkx_` bearer the plane issued and
- * the scope of the read (ADR 002 and 007). A resolve is a JSON POST of exactly `agent` and
- * `nativeSessionId`, refused with 413 over 1 KiB, 415 for another media type and 400 for another
- * shape, and a miss is the v1 envelope with a null session (ADR 007).
+ * refused (the collector's README). Every read needs the one `srkx_` bearer the plane issued, or it
+ * answers 401 with `error="invalid_token"`, and the scope of the read, or it answers 403 with
+ * `error="insufficient_scope"` and the scope (ADR 002 and 007). A resolve is a JSON POST of exactly
+ * `agent` and `nativeSessionId`, refused with 413 over 1 KiB, 415 for another media type and 400
+ * for another shape, and a miss is the v1 envelope with a null session (ADR 007). The session of
+ * ADR 007's examples is captured from the start, answered with those examples.
  *
- * The bodies of refusals are not published. The 401 copies what the running plane answered on
+ * Error bodies are not part of the contract. The 401's copies what the running plane answered on
  * 2026-09-26; the others are made up. The client reads none of them.
  */
 export class FakeSeorak {
@@ -181,7 +197,9 @@ export class FakeSeorak {
 
   static async start(): Promise<FakeSeorak> {
     const fake = new FakeSeorak();
-    fake.capture(EXAMPLE.agent, EXAMPLE.nativeSessionId, resolveHit());
+    const example = fake.capture(EXAMPLE.agent, EXAMPLE.nativeSessionId, resolveHit());
+    example.outcome = outcomeExample();
+    example.lens = lensExample();
     await new Promise<void>((resolve) => fake.#server.listen(0, '127.0.0.1', resolve));
     fake.#port = (fake.#server.address() as AddressInfo).port;
     return fake;
@@ -259,15 +277,15 @@ export class FakeSeorak {
     );
     if (method !== 'GET' || read === null) return json(response, 404, { error: 'not_found' });
     const [, ref, what] = read;
-    if (!this.scopes.has(what === 'outcome' ? 'sessions:read' : 'replay:read'))
-      return insufficientScope(response);
+    const scope = what === 'outcome' ? 'sessions:read' : 'replay:read';
+    if (!this.scopes.has(scope)) return insufficientScope(response, scope);
     const session = this.sessions.find((candidate) => candidate.ref === ref);
     if (session === undefined) return json(response, 404, { error: 'not_found' });
     return json(response, 200, what === 'outcome' ? session.outcome : session.lens);
   }
 
   #resolve(request: IncomingMessage, body: string, response: ServerResponse): undefined {
-    if (!this.scopes.has('sessions:read')) return insufficientScope(response);
+    if (!this.scopes.has('sessions:read')) return insufficientScope(response, 'sessions:read');
     if (Buffer.byteLength(body) > 1024) return json(response, 413, { error: 'too_large' });
     if (!(request.headers['content-type'] ?? '').startsWith('application/json'))
       return json(response, 415, { error: 'unsupported_media_type' });
@@ -304,7 +322,7 @@ export function json(response: ServerResponse, status: number, body: unknown): u
   response.end(JSON.stringify(body));
 }
 
-function insufficientScope(response: ServerResponse): undefined {
-  response.setHeader('WWW-Authenticate', 'Bearer error="insufficient_scope"');
+function insufficientScope(response: ServerResponse, scope: string): undefined {
+  response.setHeader('WWW-Authenticate', `Bearer error="insufficient_scope", scope="${scope}"`);
   return json(response, 403, { error: 'forbidden' });
 }
