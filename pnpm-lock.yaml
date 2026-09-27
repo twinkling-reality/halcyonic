@@ -35,6 +35,9 @@ importers:
       '@halcyonic/integration-mock':
         specifier: workspace:*
         version: link:../../packages/integrations/mock
+      '@halcyonic/integration-opencode':
+        specifier: workspace:*
+        version: link:../../packages/integrations/opencode
       '@halcyonic/integration-salidium':
         specifier: workspace:*
         version: link:../../packages/integrations/salidium

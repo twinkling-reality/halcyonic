@@ -12,7 +12,7 @@ import { createHttpServer } from './http/server.ts';
 import { createUuidV7Generator } from './ids.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
-import { createRuntimeAdapters } from './runtimes.ts';
+import { createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -28,6 +28,9 @@ async function main(): Promise<void> {
   });
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
+  for (const stale of await stopStaleRuntimeServers(adapters)) {
+    app.log.warn(stale, 'a runtime server from an earlier run was still recorded');
+  }
   const ids = createUuidV7Generator();
   const journal = openSqliteJournal({
     path: join(config.dataDir, 'control-plane.db'),

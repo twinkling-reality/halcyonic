@@ -16,7 +16,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | XR client core: realtime session, client projection, character presentation (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
 | XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Skeleton; not yet opened in Unity |
 | Claude Agent runtime (Claude Code through the Agent SDK) | `packages/integrations/claude-code` | Built; registered when enabled |
-| OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; not yet registered |
+| OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
 | Codex runtime | none | Not started; see [INTEGRATIONS.md](INTEGRATIONS.md) |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
 | Seorak integration | none | Waits for Seorak to publish its correlation endpoint; see [INTEGRATIONS.md](INTEGRATIONS.md) |
@@ -25,7 +25,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 ## Dependency rules
 
 ```text
-apps/control-plane ──> integrations/mock, claude-code ──> runtime-core ──> contracts ──> typebox
+apps/control-plane ──> integrations/mock, claude-code, opencode ──> runtime-core ──> contracts ──> typebox
         │               integrations/salidium ──────────────────────────────┘
         ├──> domain ──────────────────────────────────────────────────────────┘
         ├──> runtime-core
@@ -98,10 +98,13 @@ Environment variables, all optional:
 | `HALCYONIC_CLAUDE_AGENT` | `0` | `1` registers the Claude Agent runtime; it then needs `ANTHROPIC_API_KEY` or a cloud provider in the environment |
 | `HALCYONIC_CLAUDE_EXECUTABLE` | bundled | A Claude Code executable to use instead of the one the Agent SDK bundles |
 | `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |
+| `HALCYONIC_OPENCODE_BIN` | none | Absolute path of the pinned OpenCode 2.0.18 binary; registers the OpenCode runtime |
 
 Files in the data directory besides the journal and the access token, all optional and mode 0600:
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
-`anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set.
+`anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
+`opencode-server.json`, the record of the running OpenCode server (no password) that lets the next
+start stop a server a crash left behind.
 
 ## Toolchain
 

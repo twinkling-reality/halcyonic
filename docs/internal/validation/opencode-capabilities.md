@@ -123,3 +123,32 @@ Runtime observed unless stated.
 Several pending approvals at once and the cascade on reject; `always` replies; the question tool;
 subagents; compaction; `--stdio` and `--service`; Linux and Windows; real providers; long or
 concurrent runs.
+
+## Adapter build (2026-09-26)
+
+Found while building and testing `packages/integrations/opencode` against the 2.0.18 binary with a
+fake provider (15 end to end scenarios, five consecutive green runs):
+
+- `/api/info` answers 503 with `Retry-After: 1` for 30 to 50 ms after the port opens; readiness
+  retries on it. A busy explicit `--port` makes the server exit with code 1; there is no fallback.
+- The first prompt on a fresh project blocks OpenCode's event loop for 1.0 to 1.6 s, so a very
+  short silence timeout would drop the event stream during it.
+- `session.execution.failed` carries `{sessionID, error: {type, message, status?}}`. Creating a
+  session does not check the model: an unknown one is accepted and the execution then fails with
+  `provider.no-route`. `model: {providerID, id}` selects the model.
+- `POST /api/session` accepts a caller-chosen id starting with `ses`, and a duplicate silently
+  returns the existing session with 200, so the adapter lets OpenCode choose ids.
+- A message given with an approval, not only with a rejection, is accepted and dropped. Answering
+  an already answered request returns 404 `PermissionNotFoundError`.
+- The session inbox holds enqueued prompts not yet delivered; a prompt's inbox item id equals the
+  prompt response id and leaves the inbox on delivery. The adapter uses this to settle a reconnect
+  that lands between a prompt and its first event.
+- During a later turn the session still shows the previous turn's `outcome`; only
+  `/api/session/active` says it is running.
+- A directory reached through a symbolic link gives an odd relative subpath, so the adapter passes
+  the real path returned by the host's directory policy. Non-git directories work.
+- OpenCode ignores the end of its standard input and survives its parent being killed with
+  SIGKILL, so the adapter records the server and runs a watchdog process to stop it.
+
+The adapter refuses any server that does not report version 2.0.18. The configured binary's
+checksum is not verified yet.

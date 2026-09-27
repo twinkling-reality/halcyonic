@@ -14,6 +14,7 @@
     "@halcyonic/domain": "workspace:*",
     "@halcyonic/integration-claude-code": "workspace:*",
     "@halcyonic/integration-mock": "workspace:*",
+    "@halcyonic/integration-opencode": "workspace:*",
     "@halcyonic/integration-salidium": "workspace:*",
     "@halcyonic/runtime-core": "workspace:*",
     "fastify": "^5.12.5"

@@ -27,6 +27,8 @@ export interface ControlPlaneConfig {
   readonly claudeExecutable: string | null;
   /** Names of variables copied from the control plane's environment into every launched agent's. */
   readonly agentEnvironment: readonly string[];
+  /** The pinned OpenCode binary; the OpenCode runtime is registered only when it is set. */
+  readonly opencodeBinary: string | null;
 }
 
 export class ConfigError extends Error {
@@ -72,6 +74,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
       env.HALCYONIC_CLAUDE_EXECUTABLE,
     ),
     agentEnvironment: parseNames('HALCYONIC_AGENT_ENV', env.HALCYONIC_AGENT_ENV),
+    opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
   };
 }
 

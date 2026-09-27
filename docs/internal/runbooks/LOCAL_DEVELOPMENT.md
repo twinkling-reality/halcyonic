@@ -70,6 +70,31 @@ the project roots is rejected. Every run spends model credit. The runtime's sess
 Salidium and Seorak like any other Claude Code session, because Halcyonic keeps your home and Claude
 configuration directories.
 
+### OpenCode
+
+Halcyonic runs only its pinned OpenCode version, from a binary you install for it, never the
+`opencode` on your PATH ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)).
+Install it without running its install scripts, which would run the binary in your environment:
+
+```bash
+npm install --prefix ~/.halcyonic/runtimes/opencode-2.0.18 @opencode/cli@2.0.18 --ignore-scripts
+```
+
+Then point the control plane at the binary for your platform, for example on an Apple silicon Mac:
+
+```bash
+export HALCYONIC_OPENCODE_BIN="$HOME/.halcyonic/runtimes/opencode-2.0.18/node_modules/@opencode/cli-darwin-arm64/bin/opencode"
+```
+
+Start executions with the runtime id `opencode` and options such as
+`{"directory": "/Users/you/dev/app", "model": "provider/model"}`; the directory must be under
+`HALCYONIC_PROJECT_ROOTS`. OpenCode uses your own OpenCode configuration and providers.
+Its end to end tests run against a binary and a fake provider when `OPENCODE_BIN` is set:
+
+```bash
+OPENCODE_BIN="$HALCYONIC_OPENCODE_BIN" node --test packages/integrations/opencode/src/opencode-runtime.e2e.test.ts
+```
+
 ## Connect Salidium
 
 With a Salidium that serves its consumer contract running, create a credential for Halcyonic and

@@ -2,11 +2,15 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ClaudeAgentRuntimeAdapter } from '@halcyonic/integration-claude-code';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
+import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
 import { ConfigError, type ControlPlaneConfig } from './config.ts';
 
 /** The file in the data directory that may hold the Anthropic API key, instead of the environment. */
 export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
+
+/** The file in the data directory where the OpenCode server Halcyonic launched is recorded. */
+export const OPENCODE_SERVER_RECORD = 'opencode-server.json';
 
 export interface RuntimeDependencies {
   readonly mock: MockRuntimeAdapter;
@@ -40,7 +44,35 @@ export function createRuntimeAdapters(
       }),
     );
   }
+  if (config.opencodeBinary !== null) {
+    adapters.push(
+      new OpenCodeRuntimeAdapter({
+        binaryPath: config.opencodeBinary,
+        serverRecordFile: join(dependencies.dataDir, OPENCODE_SERVER_RECORD),
+        directoryPolicy: dependencies.directoryPolicy,
+        env: additions,
+      }),
+    );
+  }
   return adapters;
+}
+
+/**
+ * Stops runtime servers that an earlier control plane launched and that outlived it, such as an
+ * OpenCode server left behind by a crash, before anything else can reach them.
+ */
+export async function stopStaleRuntimeServers(
+  adapters: readonly RuntimeAdapter[],
+): Promise<{ runtimeId: string; outcome: string }[]> {
+  const stopped: { runtimeId: string; outcome: string }[] = [];
+  for (const adapter of adapters) {
+    if (!(adapter instanceof OpenCodeRuntimeAdapter)) continue;
+    const result = await adapter.stopStaleServer();
+    if (result.outcome !== 'none') {
+      stopped.push({ runtimeId: adapter.descriptor.runtime_id, outcome: result.outcome });
+    }
+  }
+  return stopped;
 }
 
 /**

@@ -7,7 +7,7 @@ import { EnvironmentError } from '@halcyonic/integration-claude-code';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { ConfigError, loadConfig } from './config.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
-import { ANTHROPIC_KEY_FILE, createRuntimeAdapters } from './runtimes.ts';
+import { ANTHROPIC_KEY_FILE, createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
 import { SCENARIOS } from './testing/harness.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-runtimes-'));
@@ -61,6 +61,22 @@ describe('runtime composition', () => {
     const empty = mkdtempSync(join(base, 'empty-key-'));
     writeFileSync(join(empty, ANTHROPIC_KEY_FILE), '\n', { mode: 0o600 });
     assert.throws(() => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, HOST, empty), ConfigError);
+  });
+
+  test('the OpenCode runtime is registered when its binary is configured, without launching it', async () => {
+    const dataDir = mkdtempSync(join(base, 'opencode-'));
+    const binary = join(dataDir, 'opencode');
+    writeFileSync(binary, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const hosted = adapters({ HALCYONIC_OPENCODE_BIN: binary }, HOST, dataDir);
+    const opencode = hosted.find((adapter) => adapter.descriptor.kind === 'opencode');
+    assert.ok(opencode);
+    assert.equal(opencode.descriptor.synthetic, false);
+    assert.deepEqual(
+      await stopStaleRuntimeServers(hosted),
+      [],
+      'nothing was recorded, so nothing is stopped',
+    );
+    await Promise.all(hosted.map((adapter) => adapter.close()));
   });
 
   test('an enabled Claude Agent runtime without credentials stops startup', () => {

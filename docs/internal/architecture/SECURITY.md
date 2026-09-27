@@ -44,6 +44,7 @@ endpoint prove the same instance on loopback, and is never logged or passed to l
 | Agent working directories | Only directories whose real path lies under `HALCYONIC_PROJECT_ROOTS`; `..` and symbolic links cannot escape a root; with no roots configured, no real runtime can start |
 | Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options |
 | Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown; a hard kill can leave a Claude Code turn running (see the validation record) |
+| OpenCode server | Launched from the configured binary only, never from PATH; bound to 127.0.0.1 on a free port with a password generated per launch and kept in memory; refused unless it reports version 2.0.18 and the process id Halcyonic started; recorded (without the password, mode 0600) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
 
 ## Authorization
 
