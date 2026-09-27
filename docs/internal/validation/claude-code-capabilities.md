@@ -251,3 +251,15 @@ Code desktop session.
 - **`sleep 120` alone did not ask for approval** within four minutes, while a command that writes a
   file did. Which commands Claude Code runs without asking is its own policy; the adapter only sees
   the requests it makes.
+
+## End to end through the control plane (2026-09-26)
+
+A real Claude Agent execution driven through the control plane over the realtime protocol, with
+`HALCYONIC_CLAUDE_AGENT=1`, a temporary data directory and project root, and model
+`claude-sonnet-5`. The snapshot listed `claude-agent` ("Claude Agent") beside the mock runtime. The
+execution went `starting`, `running`, then `waiting_for_human` on an approval whose subject was
+`{kind: tool_use, tool_name: Bash, summary: "touch e2e-marker.txt"}`; the approval sent as an
+`execution.respond_to_approval` command resolved it, the tool ran and created the file, and the turn
+completed. Every command (project, workstream, start, approval) ended `completed`, and the execution
+kept the native session id. The understanding endpoint answered `unauthorized`
+(`credential_missing`), since that data directory held no Salidium credential.
