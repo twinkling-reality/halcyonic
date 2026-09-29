@@ -10,8 +10,10 @@ Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard
         │
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
-        │                             CharacterPresenter, WorkspacePresenter,
-        │                             ActivityLog, EventHistory, CommandFactory
+        │                             CharacterPresenter, CharacterCues,
+        │                             CharacterIdentity, CharacterLineup,
+        │                             WorkspacePresenter, ActivityLog, EventHistory,
+        │                             CommandFactory
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -71,6 +73,20 @@ the same definition names, as the JSON Schema document:
   label for every status (never color alone), the attention level with one explanation per reason,
   and flags for simulated work, recorded fixture data, and a stale state while the session is not
   live. A completed turn reads "Turn finished", because completion says nothing about correctness.
+- **`CharacterCues`** turns a presentation into what the character shows: its eyes, its motion, its
+  halo, its surface (flowing, cracked or fogged), whether it faces the person, and whether it is
+  paused or ghosted ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)).
+  No two activities differ only in color, and the last known state keeps its cues but stops moving.
+- **`CharacterIdentity`** derives a character's body shape, hue, tone and motion phase from its
+  workstream id alone (FNV-1a over the UTF-8 id, then MurmurHash3's finalizer), so a workstream
+  looks the same in every session and version. The eight hues keep at least 25 degrees from the
+  state colors: amber for needs you, red for failed, green for a finished turn.
+- **`CharacterLineup`** chooses which workstreams have a character and where each stands: needs
+  you first, then failed, unknown or failing tests, then active work, then the most recently
+  changed. A shown workstream keeps its slot for as long as it stays shown; a newcomer takes the
+  free slot nearest the middle, or the slot of the one it replaces. A waiting workstream replaces
+  a shown one only from a more important tier, or, at rest, when it changed more recently, because
+  working ones change every few seconds and would otherwise swap in and out.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
@@ -100,6 +116,8 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the session against an in-memory server: handshake, resume, journal change, acknowledgements,
   outcome-unknown cases, refusal, idle detection, backoff, malformed input, backlog
   resynchronization;
+- character cues for every activity; identities that stay fixed across versions and spread over
+  every shape and hue for time-ordered ids; the lineup's choice, order and stable slots;
 - activity descriptions from both recorded traces, workspace actions for every status and
   capability combination, command feedback, and history paging;
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
