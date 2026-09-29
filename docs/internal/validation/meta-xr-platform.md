@@ -48,7 +48,8 @@
 - Design input around ray and pinch with gaze as an enhancement; never require gaze on Quest 3.
 - Put the WebSocket behind `IRealtimeTransport`, set Internet Access to Require, test `wss://` on
   a Quest in the first week, and keep a native Android WebSocket as a fallback.
-- Keep Meta XR Operator out of release builds.
+- Keep Meta XR Operator out of release builds. Meta's build step does, for every non-development
+  build ([horizon-store-release.md](horizon-store-release.md)).
 
 ## First import (2026-09-27)
 

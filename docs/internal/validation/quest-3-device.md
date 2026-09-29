@@ -133,7 +133,8 @@ only at debug level. The same demo on a fresh data directory completed.
   build reference; editor-only availability hides the gap until a device build.
 - Before a release or competition build: remove Meta's agentic media projection components and
   the Immersive Debugger, keep `DevAgentSettings.asset` out of the build, and build without the
-  development option.
+  development option. The release build now does all four
+  ([horizon-store-release.md](horizon-store-release.md)).
 - The stage could place itself in front of the user after a recenter or boundary change rather
   than at the world origin.
 - The system menu check remains for the next session with the wearer.
