@@ -38,6 +38,7 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Device pairing and per-device identity | Required before serving beyond loopback | Security design and ADR |
 | Remote relay provider and design | Remote mode | Later; not needed for the local slice |
 | Scope of camera and environmental context | Privacy and permissions | Product and security design |
+| Should the store build declare Meta VR Glasses (`stanley`) in `com.oculus.supportedDevices`? Meta's v207 default does; the store's manifest page lists only Quest identifiers, and Glasses are untested. | An upload could be refused, or claim a device never run on ([horizon-store-release.md](../validation/horizon-store-release.md)) | The owner, before the submission |
 
 ## Legal
 

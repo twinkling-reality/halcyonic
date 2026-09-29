@@ -139,8 +139,9 @@ core Unity APIs:
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
 ([quest-3-device.md](../validation/quest-3-device.md)); the Meta XR Simulator fails every frame on
 the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`, in an
-editor-only assembly, builds the development APK. Project settings, `.meta` files and the lock file
-are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
+editor-only assembly, builds a development APK, and a release APK that leaves Meta's development
+tools out ([horizon-store-release.md](../validation/horizon-store-release.md)). Project settings,
+`.meta` files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
 
 ## Not built yet
 

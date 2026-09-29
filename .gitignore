@@ -46,8 +46,11 @@ coverage/
 /apps/xr/.vs/
 /apps/xr/.idea/
 # Meta's Immersive Debugger agent settings: written per machine, with its LAN address and a token.
+# The release build moves them to the Assets folder while it runs.
 /apps/xr/Assets/Resources/DevAgentSettings.asset
 /apps/xr/Assets/Resources/DevAgentSettings.asset.meta
+/apps/xr/Assets/DevAgentSettings.asset
+/apps/xr/Assets/DevAgentSettings.asset.meta
 # Left by Android builds: the Android Gradle plugin's native build files; Meta's OVRBuildConfig,
 # recreated empty with a new GUID in every editor session that builds; the StreamingAssets folder
 # Meta's build step creates for RuntimeActionBindings.json and leaves empty (the project has no

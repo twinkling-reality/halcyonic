@@ -112,7 +112,8 @@ workstream.
 
 The Android player settings are committed:
 - application id `com.halcyonic.xr`, product name Halcyonic;
-- IL2CPP on ARM64, minimum API level 32;
+- IL2CPP on ARM64, minimum API level 32, target API level 34, which the Horizon Store requires
+  ([horizon-store-release.md](../validation/horizon-store-release.md));
 - Internet Access set to Require, because Unity's automatic detection does not see
   `ClientWebSocket` and would leave the permission out.
 
@@ -120,10 +121,16 @@ The Android player settings are committed:
 
 ### Build
 
-`QuestBuild` (`Assets/Halcyonic/Editor`) builds a development APK of the scenes in the build
-settings to `apps/xr/Builds/Halcyonic.apk`, which git ignores. In the editor, choose
-**Halcyonic > Build Quest APK**; switch the platform to Android first, or the build switches it and
-reimports. With the editor closed, build in batch mode from the repository root:
+`QuestBuild` (`Assets/Halcyonic/Editor`) builds the scenes in the build settings into
+`apps/xr/Builds/`, which git ignores:
+
+| APK | Menu item | Batch method | For |
+| --- | --- | --- | --- |
+| `Halcyonic.apk` | **Halcyonic > Build Quest APK** | `BuildDevelopmentApk` | The owner's headset only |
+| `Halcyonic-release.apk` | **Halcyonic > Build Quest Release APK** | `BuildReleaseApk` | A Horizon Store release channel, once signed |
+
+In the editor, switch the platform to Android first, or the build switches it and reimports. With
+the editor closed, build in batch mode from the repository root, naming the method:
 
 ```bash
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
@@ -140,6 +147,62 @@ A build changes the project in ways that are expected:
   are git-ignored.
 - A failed build can leave the XR settings in the preloaded assets. Restore `ProjectSettings.asset`
   rather than commit them.
+
+**Never share the development APK.** It is debuggable and carries Meta's development tools:
+Meta XR Operator, which serves agents from inside the app and brings a screen capture activity and
+service with the `FOREGROUND_SERVICE_MEDIA_PROJECTION` permission; the Immersive Debugger and its
+dev agent; and `DevAgentSettings.asset`, into which Meta's build step writes this Mac's LAN address
+and the token of the editor's remote agent server.
+
+The release APK is built without the development option, so it is not debuggable and has no
+profiler connection, and it leaves those tools out:
+- Meta's own build step leaves Meta XR Operator's Android library out of every non-development
+  build, and with it the media projection activity, service and permission. The project's manifest
+  removes nothing, so the development APK keeps them.
+- `QuestBuild` filters the assemblies of the Immersive Debugger, its dev agent and the agent bridge
+  out of every non-development build; nothing else in the build references them.
+- `BuildReleaseApk` moves `DevAgentSettings.asset` out of `Resources` for the build and back
+  afterwards; Meta never recreates it while a player builds. Any other non-development build fails
+  while the asset is in `Resources`. An interrupted release build can leave it at
+  `Assets/DevAgentSettings.asset`, which git ignores; move it back to `Assets/Resources`.
+- After building, `BuildReleaseApk` checks the APK for all of these, and deletes it if any remain.
+
+To inspect an APK, with the build tools in Unity's Android SDK:
+
+```bash
+TOOLS=/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/build-tools/36.0.0
+$TOOLS/aapt2 dump badging apps/xr/Builds/Halcyonic-release.apk
+$TOOLS/aapt2 dump xmltree --file AndroidManifest.xml apps/xr/Builds/Halcyonic-release.apk
+$TOOLS/apksigner verify --verbose apps/xr/Builds/Halcyonic-release.apk
+```
+
+A release APK shows `targetSdkVersion:'34'`, no `application-debuggable`, the permissions
+`INTERNET`, `com.oculus.permission.HAND_TRACKING` and AndroidX's own receiver permission, the
+`com.oculus.intent.category.VR` launcher category and `com.oculus.vr.focusaware`, and nothing from
+`com.meta.agenticxr`.
+
+### Before an upload
+
+The release APK is signed with Unity's debug key, and Meta requires the developer's own
+([horizon-store-release.md](../validation/horizon-store-release.md)). These steps need the owner's
+account and secrets, and are not automated:
+
+1. Create a release keystore outside the repository, for example with `keytool -genkeypair` from
+   Unity's OpenJDK (`PlaybackEngines/AndroidPlayer/OpenJDK/bin`). Back it up with its passwords:
+   every update to the app must be signed with the same key. Never commit it, and never put its
+   passwords on a command line.
+2. Raise **Bundle Version Code** (`AndroidBundleVersionCode` in `ProjectSettings.asset`) above
+   that of every build already uploaded for the app.
+3. Build the release APK, then sign it with the release key. `apksigner` replaces the debug
+   signature and asks for the passwords:
+   ```bash
+   $TOOLS/apksigner sign --ks /path/outside/the/repository/release.keystore apps/xr/Builds/Halcyonic-release.apk
+   $TOOLS/apksigner verify --verbose --print-certs apps/xr/Builds/Halcyonic-release.apk
+   ```
+4. Upload it to the release channel with Meta Quest Developer Hub or `ovr-platform-util`.
+
+Once the release APK carries the owner's key, the headset needs an uninstall before installing it
+over a debug-signed build, and the uninstall deletes the pushed access token.
 
 ### One-time headset setup
 

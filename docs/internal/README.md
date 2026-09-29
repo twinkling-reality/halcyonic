@@ -47,6 +47,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
 | [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
+| [horizon-store-release.md](validation/horizon-store-release.md) | Meta Horizon Store requirements for a Quest build, and the release APK checked against them |
 
 ## Private documents
 
