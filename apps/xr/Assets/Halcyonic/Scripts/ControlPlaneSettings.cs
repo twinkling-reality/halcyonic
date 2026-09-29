@@ -10,7 +10,8 @@ namespace Halcyonic.XR
     /// Where the control plane is and how to authenticate. In the editor and the XR Simulator the
     /// control plane runs on the same machine. On a headset, `adb reverse tcp:47800 tcp:47800`
     /// makes the same loopback address reach it over USB, and the token is pushed to the app's
-    /// persistent data directory (docs/internal/runbooks/XR_DEVELOPMENT.md).
+    /// persistent data directory (docs/internal/runbooks/XR_DEVELOPMENT.md). Without a token no
+    /// control plane is configured, and the stage shows the recorded demonstration instead.
     /// </summary>
     public static class ControlPlaneSettings
     {
