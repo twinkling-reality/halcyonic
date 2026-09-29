@@ -1,0 +1,21 @@
+{
+  "name": "Halcyonic.XR.Workspace.Editor",
+  "rootNamespace": "Halcyonic.XR.Workspace.Editor",
+  "references": [
+    "Halcyonic.XR",
+    "Halcyonic.XR.Workspace",
+    "Oculus.VR",
+    "Oculus.Interaction",
+    "Oculus.Interaction.OVR",
+    "Oculus.Interaction.Editor"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

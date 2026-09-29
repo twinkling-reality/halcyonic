@@ -16,7 +16,7 @@ namespace Halcyonic.Client
     /// <summary>How a command issued against the execution is going, in words.</summary>
     public sealed class CommandFeedback
     {
-        public CommandFeedback(string commandId, CommandType commandType, CommandStatus status, string text)
+        public CommandFeedback(string commandId, CommandType commandType, CommandStatus? status, string text)
         {
             CommandId = commandId;
             CommandType = commandType;
@@ -28,7 +28,11 @@ namespace Halcyonic.Client
 
         public CommandType CommandType { get; }
 
-        public CommandStatus Status { get; }
+        /// <summary>
+        /// The control plane's status of the command, or null while only this client knows about it:
+        /// sending, not sent, or with an unknown outcome (<see cref="CommandSubmissions"/>).
+        /// </summary>
+        public CommandStatus? Status { get; }
 
         public string Text { get; }
     }
@@ -79,6 +83,10 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<ActivityEntry> Activity { get; }
 
+        /// <summary>The approval that approving or denying answers: the oldest one pending.</summary>
+        public ApprovalView? ApprovalToAnswer =>
+            Execution?.PendingApprovals.OrderBy(approval => approval.RequestedAt, System.StringComparer.Ordinal).FirstOrDefault();
+
         /// <summary>The action needs an explicit, deliberate gesture, per the control plane's command policy.</summary>
         public bool RequiresConfirmation(WorkspaceAction action) => confirm.Contains(action);
     }
@@ -87,21 +95,40 @@ namespace Halcyonic.Client
     {
         private const int RecentCommands = 5;
 
-        public static WorkspacePresentation Present(WorkstreamView workstream, ClientProjection state, ActivityLog activity, bool live)
+        /// <param name="submissions">
+        /// This client's own commands, so that one still sending, not sent or with an unknown outcome
+        /// is described too; without it, only the control plane's records are.
+        /// </param>
+        public static WorkspacePresentation Present(
+            WorkstreamView workstream,
+            ClientProjection state,
+            ActivityLog activity,
+            bool live,
+            CommandSubmissions? submissions = null)
         {
             var execution = state.CurrentExecution(workstream);
             var runtime = execution == null ? null : state.RuntimeOf(execution);
             var actions = live && execution != null && runtime != null
                 ? ActionsFor(execution, runtime)
                 : new WorkspaceAction[0];
-            var commands = execution == null
-                ? new List<CommandFeedback>()
-                : state.Commands.Values
+            IReadOnlyList<CommandFeedback> commands;
+            if (execution == null)
+            {
+                commands = new List<CommandFeedback>();
+            }
+            else if (submissions != null)
+            {
+                commands = submissions.FeedbackFor(execution.ExecutionId, state, RecentCommands);
+            }
+            else
+            {
+                commands = state.Commands.Values
                     .Where(command => command.ExecutionId == execution.ExecutionId)
                     .OrderByDescending(command => command.IssuedAt, System.StringComparer.Ordinal)
                     .Take(RecentCommands)
                     .Select(Feedback)
                     .ToList();
+            }
             var confirm = actions.Where(action => state.RequiresConfirmation(CommandTypeOf(action))).ToList();
             return new WorkspacePresentation(
                 CharacterPresenter.Present(workstream, state, live),
@@ -176,7 +203,7 @@ namespace Halcyonic.Client
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);
         }
 
-        private static string Pending(CommandType type) => type switch
+        internal static string Pending(CommandType type) => type switch
         {
             CommandType.ExecutionRespondToApproval => "Answering the approval…",
             CommandType.ExecutionInterrupt => "Stopping the turn…",
