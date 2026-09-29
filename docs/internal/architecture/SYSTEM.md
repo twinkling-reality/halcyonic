@@ -91,6 +91,7 @@ Environment variables, all optional:
 | `HALCYONIC_PORT` | `47800` | HTTP and WebSocket port |
 | `HALCYONIC_DATA_DIR` | `~/.halcyonic` | Journal, access token |
 | `HALCYONIC_LOG_LEVEL` | `info` | `fatal` to `trace`, or `silent` |
+| `HALCYONIC_EXIT_ON_STDIN_END` | `0` | `1` shuts the control plane down, as SIGTERM does, when its standard input ends; for a launcher that holds that input open, so that the control plane stops when the launcher exits, however it exits |
 | `HALCYONIC_COMMAND_TIMEOUT_MS` | `30000` | How long to wait for a runtime to confirm an action |
 | `HALCYONIC_MOCK_SCENARIOS_DIR` | `fixtures/scenarios` | Mock runtime scenarios |
 | `SALIDIUM_HOME` | `~/.salidium` | Where Salidium publishes its discovery file, as Salidium itself resolves it |

@@ -34,6 +34,13 @@ export interface ControlPlaneConfig {
    * is registered only when it is set.
    */
   readonly codexBinary: string | null;
+  /**
+   * Whether the end of stdin shuts the control plane down as SIGTERM does. For a launcher, such as
+   * a test harness, that runs it as a child and holds its stdin open without writing to it: when
+   * the launcher exits, however it exits, the operating system closes the pipe and the control
+   * plane stops instead of running on as an orphan.
+   */
+  readonly exitOnStdinEnd: boolean;
 }
 
 export class ConfigError extends Error {
@@ -81,6 +88,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     agentEnvironment: parseNames('HALCYONIC_AGENT_ENV', env.HALCYONIC_AGENT_ENV),
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
+    exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
   };
 }
 

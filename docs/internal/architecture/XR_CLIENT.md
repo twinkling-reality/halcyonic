@@ -109,7 +109,11 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   matching what arrived live, understanding and evaluation answering that their providers do not
   observe the mock runtime, resuming after a dropped connection without a snapshot, and an
   execution in flight shown as stale during a control plane crash and as `unknown` after the
-  restart.
+  restart;
+- the real control plane process stopping by itself once its standard input closes, which the
+  operating system does when the test host dies: the tests start every control plane with
+  `HALCYONIC_EXIT_ON_STDIN_END=1` and a standard input only the test host holds, so none outlives
+  a test host that is killed, crashes or is ended by a runner's timeout.
 
 Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 

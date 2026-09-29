@@ -75,19 +75,40 @@ async function main(): Promise<void> {
   );
 
   let stopping = false;
-  const shutdown = async (signal: string) => {
-    if (stopping) {
+  let signalled = false;
+  // Runs once; later calls do nothing. Causes repeat and coincide: stdin ends and then closes, and
+  // a launcher ended by the same Ctrl-C as this process closes stdin during the shutdown the
+  // signal started.
+  const shutdown = async (cause: { signal: NodeJS.Signals } | { reason: string }) => {
+    if (stopping) return;
+    stopping = true;
+    app.log.info(cause, 'shutting down');
+    // A stdin still being read would keep the process alive after a signal.
+    if (config.exitOnStdinEnd) process.stdin.destroy();
+    await app.close();
+    await controlPlane.close();
+  };
+  const onSignal = (signal: NodeJS.Signals) => {
+    if (signalled) {
       // A second signal exits at once; process exit handlers still stop launched agent processes.
       app.log.warn({ signal }, 'second signal; exiting without waiting');
       process.exit(1);
     }
-    stopping = true;
-    app.log.info({ signal }, 'shutting down');
-    await app.close();
-    await controlPlane.close();
+    signalled = true;
+    void shutdown({ signal });
   };
-  process.on('SIGINT', () => void shutdown('SIGINT'));
-  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+  if (config.exitOnStdinEnd) {
+    // The launcher holds stdin open and never writes to it, so stdin ends when the launcher exits,
+    // however it exits. Anything written is discarded. The end of stdin, or a failure to read it,
+    // stops the control plane as SIGTERM does, but never counts as a second signal.
+    const stdinEnded = () => void shutdown({ reason: 'stdin ended' });
+    process.stdin.on('end', stdinEnded);
+    process.stdin.on('close', stdinEnded);
+    process.stdin.on('error', stdinEnded);
+    process.stdin.resume();
+  }
 }
 
 main().catch((error: unknown) => {
