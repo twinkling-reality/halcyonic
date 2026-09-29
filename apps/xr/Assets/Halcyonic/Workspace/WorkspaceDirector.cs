@@ -418,6 +418,13 @@ namespace Halcyonic.XR.Workspace
         {
             var journal = connection.Session?.State.Journal?.JournalId;
             if (journal == null) return;
+            if (connection.DemonstrationLine != null)
+            {
+                // The recorded demonstration plays its whole history through the session, and no
+                // control plane serves its journal.
+                workspace.HistoryNote = "";
+                return;
+            }
             var workstreamId = workspace.Character.WorkstreamId;
             var request = ++workspace.HistoryRequests;
             try
