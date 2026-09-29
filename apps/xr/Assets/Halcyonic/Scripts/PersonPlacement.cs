@@ -122,7 +122,9 @@ namespace Halcyonic.XR
             // Without a headset the camera's pose is all there is.
             if (!XRSettings.isDeviceActive) return true;
             var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
-            return head.isValid && head.TryGetFeatureValue(CommonUsages.isTracked, out var tracked) && tracked;
+            if (!head.isValid) return false;
+            // A headset that does not report whether it is tracked is taken as tracked.
+            return !head.TryGetFeatureValue(CommonUsages.isTracked, out var tracked) || tracked;
         }
     }
 }
