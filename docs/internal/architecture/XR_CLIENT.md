@@ -11,7 +11,8 @@ Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, WorkspacePresenter,
-        │                             ActivityLog, EventHistory, CommandFactory
+        │                             ActivityLog, EventHistory, CommandFactory,
+        │                             DemonstrationTransport, DemonstrationFallback
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -89,6 +90,26 @@ the same definition names, as the JSON Schema document:
   bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
   ([quest-3-device.md](../validation/quest-3-device.md)); `wss://` is not verified there yet, and
   the interface remains the seam for a native replacement.
+- **The recorded demonstration** is what a device with no control plane shows, proposed in
+  [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) so that
+  competition judges can run the app with nothing else. `DemonstrationRecording` reads the recording
+  the control plane makes with `pnpm demonstration:record`: the welcome, snapshot and event messages
+  a client receives from `pnpm replay` of the demo trace, and when. The control plane computed every
+  state in it, so the client still derives nothing. A recording whose journal is not a fixture is
+  refused, so every character reads recorded; the recorded work is the mock runtime's, so it also
+  reads simulated. `DemonstrationTransport` implements `IRealtimeTransport` over it without opening a
+  socket or using the token: each connection answers hello with the recorded welcome and snapshot,
+  sends the events at their recorded pace, holds the final state for 30 seconds and then ends, so
+  the session plays it again. It answers pings, and refuses every command with a `rejected`
+  acknowledgement that says, in words, that nothing was sent to an agent; nothing is journaled, and
+  no command is ever reported accepted or done. The recording has no runtime, so the workspace
+  offers no action. `DemonstrationFallback` chooses what is shown: the demonstration when no control
+  plane is configured; otherwise the control plane, except while it has not been live since the
+  start and its connection has failed, when the demonstration plays and the control plane is tried
+  again behind it. Once the control plane is live the demonstration stops for good, and a control
+  plane that drops later shows its last known state as usual. Each switch reaches consumers as a
+  resynchronization, like a journal change. Its `Line` is what the line above the stage says while
+  the demonstration is shown.
 
 ## Verification
 
@@ -104,6 +125,13 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   capability combination, command feedback, and history paging;
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
   answer without one, and a refusal;
+- the demonstration: the bundled recording holds every event of the demo trace, each message reads
+  strictly and writes back to the same JSON, and a live journal or anything out of order is
+  refused; played through a session it reaches the trace's final state at the recorded pace, with
+  every character recorded, simulated and not stale and no action offered, refuses each kind of
+  command in words without changing anything, and plays again after holding its final state; the
+  fallback shows it without a control plane, falls back to it from an unreachable one while trying
+  that one again, switches to the control plane once it is live and never back, and follows pauses;
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
@@ -125,16 +153,21 @@ core Unity APIs:
 
 - `HalcyonicBootstrap` adds the stage to any scene that lacks one. The stage scene carries its own,
   so that its `FocusGuard` can reference the rig's hands.
-- `ControlPlaneConnection` owns the session and pumps it every frame. It passes the application's
+- `ControlPlaneConnection` owns what is shown through a `DemonstrationFallback`: the session with
+  the control plane when an access token is found, and the demonstration, loaded from the text asset
+  `Resources/HalcyonicDemonstration.json` when first needed, while no control plane is configured or
+  reachable. It pumps both every frame and exposes the session shown, and `DemonstrationLine`, the
+  words for the line above the stage while the demonstration is shown. It passes the application's
   pause state to `RealtimeSession.SetPausedAsync`, which stops the session on a pause and resumes it
   from the last position afterwards. It ignores the resumes Unity reports without a pause, at app
-  start and when an XR session starts, and never revives a session stopped in between. After each
-  frame's pump that changed the connection status, it logs the phase and its detail, and nothing
-  else (never the token, workstream titles, instructions or agent text), as
-  `Halcyonic: connection <phase>: <detail>` without a stack trace, because on a headset the log
-  (`adb logcat -s Unity`) is the main diagnostic. It logs the status each frame ends with, so a
-  phase that begins and ends within one frame, such as `Connecting` when the connection is refused
-  at once, has no line of its own.
+  start and when an XR session starts, and never revives a session stopped in between. It logs, as
+  `Halcyonic: ...` lines without a stack trace, whether the control plane or the demonstration is
+  shown and why, and each change of either session's status as
+  `Halcyonic: connection <phase>: <detail>` or `Halcyonic: demonstration <phase>`: the phase and its
+  detail and nothing else (never the token, workstream titles, instructions or agent text), because
+  on a headset the log (`adb logcat -s Unity`) is the main diagnostic. It logs the status each frame
+  ends with, so a phase that begins and ends within one frame, such as `Connecting` when the
+  connection is refused at once, has no line of its own.
 - `CharacterStage` places one placeholder character per workstream in an arc, and says above them
   whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
   motion follows the activity, with the title, status and attention notes written out. The sphere
@@ -152,5 +185,7 @@ tools out ([horizon-store-release.md](../validation/horizon-store-release.md)). 
 ## Not built yet
 
 Hand interaction with characters; the expanded workspace; real character art; token provisioning
-on a headset; `wss://`. On a Quest, the loopback-only control plane is reachable over USB with
-`adb reverse tcp:47800 tcp:47800`; there is no LAN serving yet ([SECURITY.md](SECURITY.md)).
+on a headset; `wss://`; a demonstration in which a person can act, which a recording cannot confirm
+([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)). On a Quest,
+the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there
+is no LAN serving yet ([SECURITY.md](SECURITY.md)).

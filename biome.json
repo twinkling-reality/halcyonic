@@ -10,6 +10,7 @@
       "**",
       "!**/node_modules",
       "!fixtures/traces",
+      "!apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json",
       "!packages/contracts/schema",
       "!apps/xr/Packages/packages-lock.json",
       "!apps/xr/ProjectSettings"
