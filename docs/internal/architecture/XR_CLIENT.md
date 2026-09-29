@@ -277,9 +277,13 @@ a poke. Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front
 whose background takes the ray so nothing behind it is pointed at. The director keeps an
 `ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
 it opens and after a resynchronization (saying so in the activity caption while it reads, or why
-it could not), and sends commands with `CommandSubmissions.SubmitAsync`. Nothing is peeked or
-pressed while `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus
-returns only after the keyboard closes.
+it could not), and sends commands with `CommandSubmissions.SubmitAsync`. While the demonstration is
+shown it reads no history, since the recording plays all of it through the session, and its
+refusals read as any refusal does, through the acknowledgement's command record. A switch of
+session arrives as a resynchronization: the open workspace follows its workstream into the new
+state, or collapses when the workstream is not there. Nothing is peeked or pressed while
+`FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
+after the keyboard closes.
 
 Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek) for the Quest 3's
 roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays the

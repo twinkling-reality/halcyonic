@@ -72,7 +72,8 @@ namespace Halcyonic.Client
             var line = "On " + (workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
             if (execution.Runtime.Synthetic) line += ", simulated work";
             line += execution.TurnCount == 1 ? " · 1 turn" : " · " + execution.TurnCount.ToString(CultureInfo.InvariantCulture) + " turns";
-            if (workspace.Runtime == null) line += " · the control plane no longer offers this runtime";
+            // Gone from the control plane, or never there, as in a recording.
+            if (workspace.Runtime == null) line += " · the runtime is not available here";
             return line;
         }
 
@@ -123,7 +124,7 @@ namespace Halcyonic.Client
             if (workspace.Actions.Count > 0) return null;
             if (workspace.Character.Stale) return "Nothing can be sent until the connection is live again.";
             if (workspace.Execution == null) return "Nothing to steer until work starts.";
-            if (workspace.Runtime == null) return "Nothing can be sent: the control plane no longer offers its runtime.";
+            if (workspace.Runtime == null) return "Nothing can be sent: the runtime is not available here.";
             return workspace.Character.Activity switch
             {
                 CharacterActivity.Starting => "Nothing to steer while it starts.",

@@ -90,7 +90,9 @@ public class WorkspaceTextTests
         var replayed = Samples.Snapshot(9, new[] { work.Workstream }, new[] { work.Execution });
         replayed.Runtimes.Clear();
         work.State.ApplySnapshot(replayed, new StateChanges());
-        Assert.That(WorkspaceText.Execution(work.Present()), Does.EndWith("the control plane no longer offers this runtime"));
+        Assert.That(WorkspaceText.Execution(work.Present()), Is.EqualTo("On Mock runtime, simulated work · 3 turns · the runtime is not available here"));
+        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent: the runtime is not available here."),
+            "a recording carries no runtime, as in a replay or the demonstration");
 
         var idle = WorkspacePresenter.Present(Samples.Workstream("w2"), work.State, work.Activity, live: true);
         Assert.That(WorkspaceText.Execution(idle), Is.EqualTo("No execution yet."));
