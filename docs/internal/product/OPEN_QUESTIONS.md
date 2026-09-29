@@ -12,6 +12,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | How much direct coding belongs in the expanded workspace? | Avoids rebuilding an IDE | Usage in the workbench |
 | Does idea inception belong in the first release? | Scope | Product decision after the core mechanic works |
 | When does guided learning help rather than distract? | Future policy design | Research after the base product works |
+| What do competition judges run: a demonstration on the headset, a hosted control plane, or both? May they act in a demonstration, which cannot confirm a command? | Judges have no Mac and no `adb`, and the FAQ asks that an entry need no third-party device | The owner's decision on [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) |
+| Would the competition accept an entry that depends on a service the entrant runs? The FAQ speaks only of devices. | Decides whether a hosted control plane is an option for judges at all | A written answer from the organizers |
 
 ## Integrations
 
@@ -36,6 +38,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Microphone behavior during multitasking and media playback | Voice interaction | Hardware validation |
 | How do XR clients find the control plane on a LAN? | Local mode | Design plus hardware test |
 | Device pairing and per-device identity | Required before serving beyond loopback | Security design and ADR |
+| How does a headset receive a credential with no computer or phone involved? Today `adb` pushes the token. | A judge, or any user without `adb`, cannot connect otherwise; a credential shipped in the app is public | Security design, with device pairing |
+| How are clients of one control plane kept from each other's work? Every client receives every event and holds the same credential. | Any control plane that more than one person reaches, such as a hosted one | Security design and ADR, before any hosted control plane |
 | Remote relay provider and design | Remote mode | Later; not needed for the local slice |
 | Scope of camera and environmental context | Privacy and permissions | Product and security design |
 
