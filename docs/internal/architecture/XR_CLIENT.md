@@ -86,9 +86,9 @@ the same definition names, as the JSON Schema document:
   failing. An evaluation spends three of Seorak's 60 requests a minute, so a client fetches it when
   a workstream is opened, never on a timer.
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
-  bearer token on the upgrade request. Whether `ClientWebSocket` works under IL2CPP on Quest is
-  unverified ([meta-xr-platform.md](../validation/meta-xr-platform.md)); the interface is the seam
-  for a native replacement.
+  bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
+  ([quest-3-device.md](../validation/quest-3-device.md)); `wss://` is not verified there yet, and
+  the interface remains the seam for a native replacement.
 
 ## Verification
 
@@ -136,9 +136,11 @@ core Unity APIs:
   Standard shader of a primitive's default material, which then renders magenta.
 - `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
 
-Unity is not installed on the development machine yet, so none of this has been compiled or run
-by Unity. Project settings, `.meta` files and the lock file are generated on first open and then
-committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
+The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
+([quest-3-device.md](../validation/quest-3-device.md)); the Meta XR Simulator fails every frame on
+the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`, in an
+editor-only assembly, builds the development APK. Project settings, `.meta` files and the lock file
+are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
 
 ## Not built yet
 

@@ -5,8 +5,9 @@
 - **Date:** 2026-09-26.
 - **Method:** Official Meta Horizon developer documentation and release notes, the Meta and Unity
   package registries, and Unity release pages. Nothing was installed.
-- **Status:** Documentation verified, and the project's first import in the Unity editor (below).
-  Nothing has run in the Simulator or on a device.
+- **Status:** Documentation verified, the project's first import in the Unity editor, and a
+  Simulator run that rendered nothing (below). The first run on a device is in
+  [quest-3-device.md](quest-3-device.md).
 
 ## Findings
 
@@ -34,7 +35,8 @@
   tracking", which includes Quest 3. The Interaction SDK falls back to rays when eye data is not
   valid. Meta VR Glasses hardware is expected in spring 2027.
 - **WebSocket on Quest.** No official statement was found on
-  `System.Net.WebSockets.ClientWebSocket` under Android IL2CPP. **Unverified.**
+  `System.Net.WebSockets.ClientWebSocket` under Android IL2CPP. **Unverified** here; verified on a
+  Quest 3 on 2026-09-29 ([quest-3-device.md](quest-3-device.md)).
 
 ## Consequences for the XR client
 

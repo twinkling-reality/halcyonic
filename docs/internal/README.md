@@ -45,6 +45,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
 | [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |
 | [meta-xr-platform.md](validation/meta-xr-platform.md) | Unity, OpenXR, Meta XR SDK and Simulator, Horizon OS |
+| [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
 
 ## Private documents
 

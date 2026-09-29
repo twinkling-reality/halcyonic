@@ -116,6 +116,8 @@ The Android player settings are committed:
 - Internet Access set to Require, because Unity's automatic detection does not see
   `ClientWebSocket` and would leave the permission out.
 
+`ClientWebSocket` works under IL2CPP on a Quest 3 ([quest-3-device.md](../validation/quest-3-device.md)).
+
 ### Build
 
 `QuestBuild` (`Assets/Halcyonic/Editor`) builds a development APK of the scenes in the build
@@ -139,18 +141,70 @@ A build changes the project in ways that are expected:
 - A failed build can leave the XR settings in the preloaded assets. Restore `ProjectSettings.asset`
   rather than commit them.
 
+### One-time headset setup
+
+These steps need the owner's accounts.
+
+1. Set up the headset with the owner's Meta account, paired with the Meta Horizon app.
+2. At developers.meta.com, with the same account, create or join a developer organization.
+3. In the Meta Horizon app, open the headset's settings and turn on **Developer Mode**.
+4. Connect the headset with a USB-C data cable. In the headset, accept **Allow USB debugging**
+   with **Always allow from this computer**. `adb devices` must then list the headset as
+   `device`, not `unauthorized`.
+
 `adb` comes with Unity's Android module, in `PlaybackEngines/AndroidPlayer/SDK/platform-tools`.
 
-The control plane serves only loopback. Over USB, with developer mode enabled on the headset:
+### Install and connect
+
+The control plane serves only loopback; over USB, `adb reverse` makes the headset's loopback reach
+it. With `pnpm dev` running, from the repository root:
 
 ```bash
+adb install -r apps/xr/Builds/Halcyonic.apk
 adb reverse tcp:47800 tcp:47800
+adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
-Then copy the token into the app's persistent data directory:
+The first launch creates the app's data directory and reports that it has no access token. Copy
+the token there and start the app again:
 
 ```bash
 adb push ~/.halcyonic/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token
+adb shell am force-stop com.halcyonic.xr
+adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
-Whether `ClientWebSocket` works under IL2CPP on Quest is unverified; test it first.
+The token survives reinstalls. The control plane logs `realtime client connected` for
+`halcyonic-xr`.
+
+- **Run `adb reverse` again after every build.** Unity's Android build restarts the adb server,
+  which drops the rule, and the app cannot reach the control plane until it is back. The app
+  reconnects by itself.
+- **Stage out of view:** the stage is placed from the world origin. After a boundary change,
+  recenter: look at a palm, then pinch and hold the Meta icon.
+- **Logs:** `adb logcat -s Unity` is the app's log, and `adb logcat -s VrApi` reports the frame
+  rate every second.
+
+### Captures and an unattended headset
+
+`adb exec-out screencap` does not work on a Quest. Meta's capture service saves a JPEG of the
+wearer's view to `/sdcard/Oculus/Screenshots`:
+
+```bash
+adb shell am startservice -n com.oculus.metacam/.capture.CaptureService -a TAKE_SCREENSHOT
+```
+
+A capture shows the room when passthrough is on; keep captures out of the repository.
+
+A headset that is not worn sleeps, and the app pauses. The first command keeps it awake until a
+reboot or the second command:
+
+```bash
+adb shell am broadcast -a com.oculus.vrpowermanager.prox_close
+adb shell am broadcast -a com.oculus.vrpowermanager.automation_disable
+```
+
+Even awake, a headset left on a desk can lose its boundary, and the system then puts a dialog in
+front of the app, so the visual checks need a wearer.
+
+Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).
