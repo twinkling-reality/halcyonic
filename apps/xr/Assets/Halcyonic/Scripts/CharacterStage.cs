@@ -41,7 +41,9 @@ namespace Halcyonic.XR
         private void Refresh()
         {
             var session = connection.Session;
-            connectionLabel.text = session == null ? connection.SetupProblem ?? "Not connected" : Describe(session);
+            // A demonstration says so in its own words, so a recording is never read as live work.
+            connectionLabel.text = connection.DemonstrationLine
+                ?? (session == null ? connection.SetupProblem ?? "Not connected" : Describe(session));
             if (session == null) return;
 
             var live = session.Status.IsLive;

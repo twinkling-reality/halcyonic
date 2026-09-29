@@ -1,6 +1,7 @@
 # ADR 0012: Judges run a labeled demonstration on the headset
 
-- Status: Proposed
+- Status: Accepted by the owner on 2026-09-29: the on-device demonstration, with the scripted
+  interactive variant, so judges act.
 - Date: 2026-09-29
 
 ## Context
@@ -124,7 +125,9 @@ behaves this way once a hosted endpoint and credential are configured.
 
 ## Decision
 
-Proposed: judges run (a), the on-device demonstration. It is the only option that satisfies the FAQ
+Judges run (a), the on-device demonstration, extended with the scripted interactive variant: the
+owner chose on 2026-09-29 that judges must act. The proposal read: judges run (a), the on-device
+demonstration. It is the only option that satisfies the FAQ
 without qualification, it costs days rather than weeks, it moves no security boundary, and it leaves
 no service to keep alive through a judging window in which the submission cannot change. What it
 gives up, judges acting, is what (b) would show only with synthetic work behind a public credential.
@@ -148,7 +151,9 @@ As prototyped alongside this proposal:
   keeps trying that control plane. It switches to the control plane once it is live, and never back.
   Consumers see each switch as a resynchronization, like a journal change.
 
-## What the owner must decide
+## What the owner had to decide
+
+Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted control plane.
 
 1. Whether judges get (a), (b) or (c).
 2. With (a): whether judges only watch, with commands refused in words (built), or act in the scripted
