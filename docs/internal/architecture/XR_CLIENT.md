@@ -128,7 +128,13 @@ core Unity APIs:
 - `ControlPlaneConnection` owns the session and pumps it every frame. It passes the application's
   pause state to `RealtimeSession.SetPausedAsync`, which stops the session on a pause and resumes it
   from the last position afterwards. It ignores the resumes Unity reports without a pause, at app
-  start and when an XR session starts, and never revives a session stopped in between.
+  start and when an XR session starts, and never revives a session stopped in between. After each
+  frame's pump that changed the connection status, it logs the phase and its detail, and nothing
+  else (never the token, workstream titles, instructions or agent text), as
+  `Halcyonic: connection <phase>: <detail>` without a stack trace, because on a headset the log
+  (`adb logcat -s Unity`) is the main diagnostic. It logs the status each frame ends with, so a
+  phase that begins and ends within one frame, such as `Connecting` when the connection is refused
+  at once, has no line of its own.
 - `CharacterStage` places one placeholder character per workstream in an arc, and says above them
   whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
   motion follows the activity, with the title, status and attention notes written out. The sphere

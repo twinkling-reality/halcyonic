@@ -9,7 +9,8 @@ namespace Halcyonic.XR
 {
     /// <summary>
     /// Owns the realtime session for the scene. Networking runs in the background; this component
-    /// applies what arrived once per frame on the main thread and announces what changed.
+    /// applies what arrived once per frame on the main thread, announces what changed, and logs each
+    /// change of the connection status.
     /// </summary>
     public sealed class ControlPlaneConnection : MonoBehaviour
     {
@@ -46,7 +47,19 @@ namespace Halcyonic.XR
         {
             if (session == null) return;
             var changes = session.Pump();
+            if (changes.ConnectionChanged) LogStatus(session.Status);
             if (!changes.IsEmpty) Changed?.Invoke(changes);
+        }
+
+        /// <summary>
+        /// On a headset the log (logcat, tag Unity) is the main diagnostic. It gets the phase and its
+        /// detail, as of the end of the frame, and nothing else: never the token, workstream titles,
+        /// instructions or agent text.
+        /// </summary>
+        private void LogStatus(ConnectionStatus status)
+        {
+            var line = status.Detail == null ? status.Phase.ToString() : status.Phase + ": " + status.Detail;
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: connection {0}", line);
         }
 
         private void OnApplicationPause(bool paused)
