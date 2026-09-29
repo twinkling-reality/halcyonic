@@ -228,8 +228,9 @@ adb reverse tcp:47800 tcp:47800
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
-The first launch creates the app's data directory and reports that it has no access token. Copy
-the token there and start the app again:
+The first launch creates the app's data directory, logs that it has no access token, and shows the
+recorded demonstration, labeled as such, which is what a headset without a control plane shows.
+Copy the token there and start the app again:
 
 ```bash
 adb push ~/.halcyonic/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token
@@ -241,14 +242,16 @@ The token survives reinstalls. The control plane logs `realtime client connected
 `halcyonic-xr`.
 
 - **Run `adb reverse` again after any Unity run for Android.** Every Unity run with the Android
-  target kills the adb server as it exits, an import as well as a build, which drops the rule; the
-  app cannot reach the control plane until it is back, and then reconnects by itself.
+  target kills the adb server as it exits, an import as well as a build, which drops the rule. Until
+  the rule is back, an app that has not yet been live plays the recorded demonstration; it keeps
+  trying, and switches to the control plane by itself once it connects.
 - **Stage placement:** the stage places itself in front of the person when the session starts,
   after a recenter or a boundary change, and when the app resumes, and the app's log says why
   (`placed the stage in front of the person because ...`). If it is still out of view, recenter:
   look at a palm, then pinch and hold the Meta icon.
-- **Logs:** `adb logcat -s Unity` is the app's log, and `adb logcat -s VrApi` reports the frame
-  rate every second.
+- **Logs:** `adb logcat -s Unity` is the app's log: its `Halcyonic:` lines say whether the control
+  plane or the demonstration is shown, and each change of connection status. `adb logcat -s VrApi`
+  reports the frame rate every second.
 
 ### Captures and an unattended headset
 
