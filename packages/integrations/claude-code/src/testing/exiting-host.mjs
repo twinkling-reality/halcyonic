@@ -4,9 +4,18 @@
 // - throw: an uncaught exception, the way a crashing control plane ends;
 // - signal: like the control plane, wait for SIGTERM, close the adapter, and let the process end;
 // - wait: keep running until the test kills it, for example with SIGKILL.
+// In every mode, if its stdin ends first, it exits as `exit` does, so it does not outlive its test
+// either.
 // Argument: JSON with executable, cwd, home, processRecordFile, environment (variables added to
 // the agents' environment), mode, and count (executions to start, default 1).
 import { ClaudeAgentRuntimeAdapter } from '../index.ts';
+
+// The test holds stdin open and never writes to it, so stdin ends when the test's process exits,
+// however it exits.
+const exit = () => process.exit(0);
+process.stdin.on('end', exit);
+process.stdin.on('error', exit);
+process.stdin.resume();
 
 const {
   executable,
@@ -48,6 +57,9 @@ process.stdout.write(`${JSON.stringify({ watchdog: adapter.watchdogPid })}\n`, (
   if (mode === 'signal') {
     const keepAlive = setInterval(() => {}, 60_000);
     process.once('SIGTERM', () => {
+      // Reading stdin would keep this process alive after the close. Destroying it emits no `end`,
+      // so the close runs to its end.
+      process.stdin.destroy();
       void adapter.close().then(() => clearInterval(keepAlive));
     });
   } else if (mode === 'throw') {

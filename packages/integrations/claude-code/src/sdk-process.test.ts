@@ -20,7 +20,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
-import type { Readable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 import { after, describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -179,7 +179,7 @@ async function runTurn(
 }
 
 interface Host {
-  readonly child: ChildProcessByStdio<null, Readable, null>;
+  readonly child: ChildProcessByStdio<Writable, Readable, null>;
   readonly exited: Promise<number | null>;
   readonly watchdog: number;
 }
@@ -187,6 +187,8 @@ interface Host {
 /**
  * Runs testing/exiting-host.mjs: a process that starts `count` executions whose fake Claude Code
  * ignores the end of its input, like a CLI with a turn in flight. Resolves once they have started.
+ * Only this process holds the host's stdin, so the host exits when this process dies, however it
+ * dies.
  */
 async function startHost(
   t: TestContext,
@@ -205,7 +207,7 @@ async function startHost(
   };
   const child = spawn(process.execPath, [HOST, JSON.stringify(options)], {
     env: { PATH: process.env.PATH ?? '', HOME, CLAUDE_CONFIG_DIR: join(ROOT, 'host-config') },
-    stdio: ['ignore', 'pipe', 'ignore'],
+    stdio: ['pipe', 'pipe', 'ignore'],
   });
   const exited = new Promise<number | null>((resolve) => child.once('exit', resolve));
   // Nothing may outlive a test, even a failed one.
@@ -414,6 +416,19 @@ describe('the adapter through the real Agent SDK', () => {
     const recorded = onlyRecord(directory);
     assert.equal(recorded.input_closed, true);
     assert.equal(recorded.signal, 'SIGTERM');
+  });
+
+  test('a host whose stdin ends, as when its test dies, exits and still stops its Claude Code process', async (t) => {
+    const directory = scratch('host-stdin');
+    const host = await startHost(t, directory, 'wait');
+    const { pid } = onlyRecord(directory);
+    assert.ok(isAlive(pid));
+    // What the operating system does to the host's stdin when this process dies.
+    host.child.stdin.end();
+    assert.equal(await host.exited, 0);
+    await waitFor(() => !isAlive(pid), 5000, 'the orphaned process to stop');
+    assert.equal(onlyRecord(directory).signal, 'SIGTERM');
+    await waitFor(() => !isAlive(host.watchdog), 10_000, 'the watchdog to exit');
   });
 });
 

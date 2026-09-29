@@ -149,7 +149,10 @@ function turnId(observation: RuntimeObservation | undefined): string | null | un
     : undefined;
 }
 
-/** Runs one execution in a separate process that plays a control plane about to crash. */
+/**
+ * Runs one execution in a separate process that plays a control plane about to crash. Only this
+ * process holds the host's stdin, so the host exits when this process dies, however it dies.
+ */
 async function crashHost(t: TestContext, sandbox: OpenCodeSandbox) {
   const host: ChildProcess = spawn(
     process.execPath,
@@ -162,7 +165,7 @@ async function crashHost(t: TestContext, sandbox: OpenCodeSandbox) {
         directory: sandbox.project,
       }),
     ],
-    { stdio: ['ignore', 'pipe', 'inherit'] },
+    { stdio: ['pipe', 'pipe', 'inherit'] },
   );
   t.after(() => host.kill('SIGKILL'));
   const line = await Promise.race([
@@ -500,6 +503,25 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         port,
       });
       assert.equal(existsSync(sandbox.recordFile), false);
+      assert.deepEqual(sandbox.egress, []);
+    },
+  );
+
+  test(
+    'a crash host exits when its stdin ends, as when its test dies, and its watchdog stops the server',
+    SLOW_TEST,
+    async (t) => {
+      const sandbox = await createSandbox();
+      t.after(() => sandbox.cleanup());
+      const { host, serverPid } = await crashHost(t, sandbox);
+      const [watchdog] = childPids(host.pid ?? 0, 'watchdog.ts');
+      assert.ok(watchdog !== undefined);
+      const exited = new Promise((resolve) => host.once('exit', (code) => resolve(code)));
+      // What the operating system does to the host's stdin when this process dies.
+      host.stdin?.end();
+      assert.equal(await exited, 0);
+      await until(() => !alive(serverPid), 15_000, 'the watchdog to stop the orphaned server');
+      await until(() => !alive(watchdog), 10_000, 'the watchdog to exit');
       assert.deepEqual(sandbox.egress, []);
     },
   );
