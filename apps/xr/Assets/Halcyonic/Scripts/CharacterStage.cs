@@ -42,6 +42,8 @@ namespace Halcyonic.XR
         private MeshRenderer connectionPlate = null!;
         private MaterialPropertyBlock connectionPlateBlock = null!;
         private Transform? head;
+        private string? shownConnection;
+        private bool shownLive;
 
         private void Awake()
         {
@@ -174,6 +176,9 @@ namespace Halcyonic.XR
 
         private void ShowConnection(string text, bool live)
         {
+            if (text == shownConnection && live == shownLive) return;
+            shownConnection = text;
+            shownLive = live;
             const float width = 0.6f;
             const float padding = 0.01f;
             connectionLabel.text = Labels.Wrap(connectionLabel, text, width - 2f * padding, 3, out var lines);
