@@ -6,15 +6,17 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ## Layers
 
 ```text
-Unity layer (apps/xr/Assets)          stage, characters, focus guard                 compiles in Unity
-        │
+Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
+        │                             workspace: peek, panel, transition,             the workspace is not
+        │                             Meta's interaction rig                          verified on a headset
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
         │                             CharacterIdentity, CharacterLineup,
-        │                             WorkspacePresenter, ActivityLog, EventHistory,
-        │                             CommandFactory, DemonstrationTransport,
-        │                             DemonstrationFallback
+        │                             WorkspacePresenter, WorkspaceText,
+        │                             WorkspaceSteering, CommandSubmissions,
+        │                             ActivityLog, EventHistory, CommandFactory,
+        │                             DemonstrationTransport, DemonstrationFallback
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -95,7 +97,23 @@ the same definition names, as the JSON Schema document:
   would admit now (from declared capabilities and status; nothing while not live or when the
   runtime is gone), which of those actions need a deliberate confirmation (from the command
   policies in `welcome`; unknown counts as needed), feedback on recent commands in words, and the
-  activity.
+  activity. Approving or denying answers the oldest pending approval.
+- **`WorkspaceText`** writes every word the peek and the workspace show, so the Unity layer only
+  lays them out: the status with its qualifiers ("simulated", "recorded", "last known"), the
+  execution and its runtime, what needs the person, activity lines with the local time and agent
+  text quoted as "Agent says: “…”", action labels, a confirmation question that names exactly what
+  would be sent, why no action is offered, and the one-line peek: what the work needs first, else
+  the latest activity that is not a turn boundary, else the status, prefixed "Last known:" when
+  stale.
+- **`CommandSubmissions`** keeps this client's own view of each command it sent (sending, not
+  sent, outcome unknown, acknowledged) until the control plane's record of it arrives in the
+  projection. From then on only that record speaks, so a result reads as done only after the
+  runtime confirmed it. `WorkspacePresenter.Present` merges the two, newest first.
+- **`WorkspaceSteering`** turns presses in an open workspace into commands. It takes only offered
+  actions. One the control plane's policy marks for review waits for a second, deliberate press on
+  a separate button whose question names what will be sent; the confirmation lapses after 15
+  seconds, when the action is no longer offered, or when its approval is no longer pending, and
+  says so. Instruct asks for text first, and an empty text sends nothing.
 - **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
   as a claim. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
@@ -143,6 +161,9 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   every shape and hue for time-ordered ids; the lineup's choice, order and stable slots;
 - activity descriptions from both recorded traces, workspace actions for every status and
   capability combination, command feedback, and history paging;
+- the workspace's words and peek, steering with its confirmations and their lapses, and command
+  submissions through a session against the in-memory server (accepted, refused, cut off, not
+  connected);
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
   answer without one, and a refusal;
 - the demonstration: the bundled recording holds every event of the demo trace, each message reads
@@ -155,7 +176,8 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
-  observe the mock runtime, resuming after a dropped connection without a snapshot, and an
+  observe the mock runtime, resuming after a dropped connection without a snapshot, an approval
+  and then an instruction steered from the workspace to results the runtime confirmed, and an
   execution in flight shown as stale during a control plane crash and as `unknown` after the
   restart;
 - the real control plane process stopping by itself once its standard input closes, which the
@@ -207,7 +229,8 @@ core Unity APIs:
   middle of the lineup stands, the arc curves around the person's side of it at their distance
   when the pose arrived, and every label plate rests on the surface. While that pose is set, only
   the source moves the stage, and recenters leave it. The stage keeps animating and updating while
-  the app lacks input focus.
+  the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter`, so other
+  components add to characters without changing them.
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
@@ -230,16 +253,69 @@ core Unity APIs:
   has no MSAA.
 - `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
 
+### The workspace
+
+`Assets/Halcyonic/Workspace` is its own assembly, the only one that uses TextMeshPro and the Meta
+Interaction SDK. Three levels of detail show the same work, all in place
+([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)):
+
+- **Ambient:** the characters as the stage shows them.
+- **Peek:** while a hand ray (or a finger about to poke) points at a character, `PeekLabel` shows
+  one line beside it, on the side toward the middle of the view: `WorkspaceText.Peek`.
+- **Open:** a pinch on the ray, or a poke, opens `WorkspacePanel` beside that character, a little
+  nearer the person and facing them. It shows the title and status, the execution and its runtime,
+  the objective, what needs the person, the actions offered (with a confirmation step on a separate
+  button where the policy asks for one), how requests are going, and the recent activity with
+  agent text in italics as a claim. Collapse, or a second pinch on the character, returns to
+  ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
+  and links it to the panel while open, and shrinks the panel back on collapse; the character stays
+  where the stage put it.
+
+`WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to each character the stage
+creates: a sphere around the body for the ray, and a surface in front of it, facing the person, for
+a poke. Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the panel,
+whose background takes the ray so nothing behind it is pointed at. The director keeps an
+`ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
+it opens and after a resynchronization (saying so in the activity caption while it reads, or why
+it could not), and sends commands with `CommandSubmissions.SubmitAsync`. Nothing is peeked or
+pressed while `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus
+returns only after the keyboard closes.
+
+Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek) for the Quest 3's
+roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays the
+same: body text has an x-height near 0.55 degrees (about 14 pixels), the smallest captions about
+10 pixels, buttons are about 3 degrees tall. Text is TextMeshPro with Liberation Sans SDF, never
+parsing markup, since it shows text from agents and tools. Plates and lines use `Sprites/Default`,
+an always-included shader; the TextMeshPro shader reaches the build through the font asset in
+`Resources`.
+
+Instructions are typed on the Quest system keyboard (`TouchScreenKeyboard`, with Require System
+Keyboard on in `OculusProjectConfig`, from which Meta's build step adds
+`oculus.software.overlay_keyboard` to the manifest). Where no keyboard is supported, such as the
+editor, the workspace offers three preset instructions instead.
+
+### Scene
+
+Stage.unity carries Meta's comprehensive interaction rig, added the way the Interaction SDK's
+"Interactions Rig" building block adds it, by `StageSetup` (**Halcyonic > Set Up Stage
+Interaction**, also runnable in batch mode). It brings the hand data, hand visuals, and the ray and
+poke interactors the targets answer to. The Hand Tracking building block keeps tracking but no
+longer draws, as Meta's wizard does, and the rig's locomotion (hand microgestures, controller
+sticks, and the locomotor with its tunneling) is deactivated, because the stage is stationary.
+`FocusGuard` hides the rig's hands and controllers and deactivates its interactors.
+
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
-([quest-3-device.md](../validation/quest-3-device.md)); the Meta XR Simulator fails every frame on
-the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`, in an
-editor-only assembly, builds a development APK, and a release APK that leaves Meta's development
-tools out ([horizon-store-release.md](../validation/horizon-store-release.md)). Project settings,
-`.meta` files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
+([quest-3-device.md](../validation/quest-3-device.md)); the workspace compiles and builds but is not
+verified on a headset yet. The Meta XR Simulator fails every frame on the development Mac
+([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`, in an editor-only
+assembly, builds a development APK, and a release APK that leaves Meta's development tools out
+([horizon-store-release.md](../validation/horizon-store-release.md)). Project settings, `.meta`
+files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
 
 ## Not built yet
 
-Hand interaction with characters; the expanded workspace; token provisioning on a headset;
+Code, diffs, tests and output in the workspace; what Salidium and Seorak say about an execution,
+which `ControlPlaneApi` reads but the workspace does not show; token provisioning on a headset;
 `wss://`; a demonstration in which a person can act, which a recording cannot confirm
 ([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)). On a Quest,
 the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there

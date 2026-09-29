@@ -53,12 +53,30 @@ files fix asset identities, so commit new ones and keep them.
 
 `Assets/Halcyonic/Scenes/Stage.unity`, the only scene in the build, holds:
 - Meta's Camera Rig building block, with a floor-level tracking origin;
-- the Hand Tracking building block;
-- the Halcyonic stage object, with the connection, the characters and the focus guard.
+- the Hand Tracking building block, which keeps tracking but no longer draws the hands;
+- Meta's comprehensive interaction rig under the camera rig: hand data, the hands that are drawn,
+  and the hand ray and poke interactors, with its locomotion deactivated;
+- the Halcyonic stage object, with the connection, the characters, the focus guard and the
+  workspace director.
 
-Both hands are assigned to `FocusGuard`, so they hide when the app loses input focus.
-`HalcyonicBootstrap` still adds a stage to any other scene that lacks one, but without hand visuals
-to hide.
+`FocusGuard` hides the rig's hands and controllers and deactivates its interactors when the app
+loses input focus. `HalcyonicBootstrap` still adds a stage to any other scene that lacks one, but
+without hand visuals to hide and without hand interaction.
+
+`StageSetup` made the interaction part of the scene and can make it again: in the editor,
+**Halcyonic > Set Up Stage Interaction**; with the editor closed, in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.StageSetup.Apply -logFile ~/Library/Logs/Unity/halcyonic-xr-setup.log
+```
+
+It adds the rig the way the Interaction SDK's "Interactions Rig" building block does, and changes
+nothing when run again. If a newer SDK renames the objects it adjusts, it stops and logs the rig's
+hierarchy instead of saving the scene.
+
+Text in the workspace is TextMeshPro. Its essential resources are committed in
+`Assets/TextMesh Pro`, imported from the builtin `com.unity.ugui` package, without the EmojiOne
+sprites and the HDRP and URP shader graphs, which the stage does not use.
 
 ## Run against the control plane
 
@@ -147,6 +165,11 @@ A build changes the project in ways that are expected:
   are git-ignored.
 - A failed build can leave the XR settings in the preloaded assets. Restore `ProjectSettings.asset`
   rather than commit them.
+- Meta's `OVREngineConfigurationUpdater` sets the Android orientation to landscape left and
+  `vSyncCount` to 0 on the editor's first update with Android active, and the editor saves them.
+  Batch runs with `-quit` end before that update; a batch run that keeps the editor alive, or the
+  editor window, changes `ProjectSettings.asset` and `QualitySettings.asset`. Restore them unless
+  the change is intended.
 
 **Never share the development APK.** It is debuggable and carries Meta's development tools:
 Meta XR Operator, which serves agents from inside the app and brings a screen capture activity and
@@ -274,5 +297,48 @@ adb shell am broadcast -a com.oculus.vrpowermanager.automation_disable
 
 Even awake, a headset left on a desk can lose its boundary, and the system then puts a dialog in
 front of the app, so the visual checks need a wearer.
+
+### Milestone 3 checks on a Quest
+
+The workspace, with hands only. `pnpm demo` answers its approval by itself after 3 seconds; for an
+approval that waits for you, stop reading the demo's output as soon as it asks, which ends the demo
+with a broken pipe error before it answers:
+
+```bash
+pnpm demo | sed '/approval requested/q'
+```
+
+Run it again for each approval you need. Then, in the headset:
+
+- **Peek.** Point an open hand at a character until its ray touches it: one line appears beside
+  it, what it needs from you ("Approval needed to use bash: …") or what it did last, agent text as
+  "Agent says: “…”". It goes when the ray leaves.
+- **Open.** Pinch while pointing: the workspace grows out of the character to its side, a ring
+  marks the character and a line joins them. It shows the title, the status in words, the
+  execution and its runtime, the objective, the approval explained, the buttons offered, and the
+  recent activity, including what happened before the app started (otherwise the activity caption
+  says why the history is unavailable).
+- **Approve.** Pinch Approve: the row asks "Approve this request? bash: …", with Cancel and "Yes,
+  approve" at the far right. Pinch "Yes, approve": Requests reads "Sending to the control
+  plane…", then "Answering the approval…", then "Approval answered" once the runtime confirmed;
+  the activity and the status follow the turn to "Turn finished". Deny works the same way.
+- **Lapse.** Arm a confirmation and wait 15 seconds: the question goes, and "The confirmation timed
+  out, so nothing was sent." shows.
+- **Stop.** On a waiting approval, pinch "Stop the turn", then "Yes, stop it": "Stopping the
+  turn…", then "Turn stopped"; the status reads "Stopped".
+- **Instruct.** On a finished character, pinch Instruct: the system keyboard opens and the app's
+  hands pause. Type, press Enter: "Sending the instruction…", then "Instruction delivered", and the
+  activity shows the mock runtime's new turn. Note whether the keyboard appeared and could be used
+  with hands.
+- **Collapse.** Pinch Collapse, top right, or pinch the character again: the workspace shrinks back
+  into the character.
+- **Poke.** Step up to a character and push a fingertip into the front of its body: it opens. Poke
+  the workspace's buttons.
+- **Focus.** With the workspace open, open the system menu: hands, rays and the peek go, nothing
+  can be pressed; close it and they return.
+- **Disconnected.** Stop `pnpm dev`: the status adds "last known", and the buttons give way to
+  "Nothing can be sent until the connection is live again."; restart it and they return.
+- **Legible.** Every line readable where the workspace opens, and the peek at the character's
+  distance, without leaning in.
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

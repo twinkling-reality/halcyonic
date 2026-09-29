@@ -49,6 +49,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
 | [horizon-store-release.md](validation/horizon-store-release.md) | Meta Horizon Store requirements for a Quest build, and the release APK checked against them |
 | [character-rendering.md](validation/character-rendering.md) | How the characters render and place themselves, and their cost on a Quest 3 |
+| [workspace-interaction.md](validation/workspace-interaction.md) | Interaction SDK rig and targets, TextMeshPro and the system keyboard for the workspace |
 
 ## Private documents
 

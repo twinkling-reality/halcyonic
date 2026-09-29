@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using UnityEngine;
@@ -74,6 +75,16 @@ namespace Halcyonic.XR
         private float radius;
         private string? shownConnection;
         private bool shownLive;
+
+        /// <summary>
+        /// Raised with the workstream id when the stage creates a character, so other components can
+        /// add to it at runtime; the workspace attaches its ray and poke targets this way.
+        /// </summary>
+        public event System.Action<string, CharacterView>? CharacterCreated;
+
+        /// <summary>The character showing a workstream, if it is on the stage.</summary>
+        public bool TryGetCharacter(string workstreamId, [MaybeNullWhen(false)] out CharacterView view) =>
+            views.TryGetValue(workstreamId, out view);
 
         private void Awake()
         {
@@ -198,6 +209,7 @@ namespace Halcyonic.XR
                     view = CharacterView.Create(arc, id);
                     view.Person = head;
                     views[id] = view;
+                    CharacterCreated?.Invoke(id, view);
                 }
                 view.Show(CharacterPresenter.Present(session.State.Workstreams[id], session.State, live));
                 MoveToSlot(id, view, slot);
