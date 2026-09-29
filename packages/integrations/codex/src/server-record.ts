@@ -26,15 +26,28 @@ export interface ProcessIdentity {
 /** A fixed zone and locale keep the start time `ps` prints comparable across runs. */
 const PS_ENV = { PATH: '/bin:/usr/bin:/sbin:/usr/sbin', TZ: 'UTC', LC_ALL: 'C' };
 
+/**
+ * Far more than Node's default limit on a command's output, 1 MiB, which one command line can
+ * exceed: it can take up to ARG_MAX (1 MiB on macOS), and `ps` prints a byte beyond ASCII as three
+ * or four characters. Command lines are read only for the processes asked about, never for every
+ * process running, so the output stays well below this.
+ */
+const PS_MAX_OUTPUT = 64 * 1024 * 1024;
+
 function ps(args: readonly string[]): Promise<string | null> {
   return new Promise((resolve, reject) => {
-    execFile('ps', ['-ww', ...args], { env: PS_ENV, timeout: 5000 }, (error, stdout) => {
-      const output = stdout.trim();
-      if (error === null) resolve(output);
-      // ps runs and exits 1, printing nothing, when no process matches.
-      else if (typeof error.code === 'number' && output === '') resolve(null);
-      else reject(new Error(`ps failed: ${error.message}`));
-    });
+    execFile(
+      'ps',
+      ['-ww', ...args],
+      { env: PS_ENV, timeout: 5000, maxBuffer: PS_MAX_OUTPUT },
+      (error, stdout) => {
+        const output = stdout.trim();
+        if (error === null) resolve(output);
+        // ps runs and exits 1, printing nothing, when no process matches.
+        else if (typeof error.code === 'number' && output === '') resolve(null);
+        else reject(new Error(`ps failed: ${error.message}`));
+      },
+    );
   });
 }
 
@@ -65,31 +78,55 @@ export async function readProcessIdentity(pid: number): Promise<ProcessIdentity 
 /**
  * The live descendants of a process. Codex starts each command in a session of its own, so a
  * signal to the server's process group does not reach them; they are found through their parents
- * instead.
+ * instead. Every process is listed with its parent only, which stays small however long the
+ * command lines on the machine are; identities are then read for the processes found that way,
+ * and each counts only if that read still shows its parents leading to `pid`, so a pid reused in
+ * between is never taken for a descendant.
  */
 export async function readDescendants(pid: number): Promise<ProcessIdentity[]> {
-  const output = await ps(['-A', '-o', 'pid=,ppid=,pgid=,lstart=,args=']);
-  const rows: { readonly parent: number; readonly identity: ProcessIdentity }[] = [];
+  const links: Link[] = [];
+  for (const line of ((await ps(['-A', '-o', 'pid=,ppid='])) ?? '').split('\n')) {
+    const fields = line.trim().split(/\s+/);
+    const child = Number(fields[0]);
+    const parent = Number(fields[1]);
+    if (Number.isSafeInteger(child) && Number.isSafeInteger(parent)) {
+      links.push({ pid: child, parent });
+    }
+  }
+  const candidates = below(pid, links).map((link) => link.pid);
+  if (candidates.length === 0) return [];
+  const output = await ps(['-p', candidates.join(','), '-o', 'pid=,ppid=,pgid=,lstart=,args=']);
+  const rows: (Link & { readonly identity: ProcessIdentity })[] = [];
   for (const line of (output ?? '').split('\n')) {
     const fields = line.trim().split(/\s+/);
     const identity = parseIdentity(Number(fields[0]), fields.slice(2));
     if (identity !== null && Number.isSafeInteger(identity.pid)) {
-      rows.push({ parent: Number(fields[1]), identity });
+      rows.push({ pid: identity.pid, parent: Number(fields[1]), identity });
     }
   }
-  const found = new Set([pid]);
-  const descendants: ProcessIdentity[] = [];
+  return below(pid, rows).map((row) => row.identity);
+}
+
+interface Link {
+  readonly pid: number;
+  readonly parent: number;
+}
+
+/** The links below `root`, followed through their parents, in the order they were found. */
+function below<T extends Link>(root: number, links: readonly T[]): T[] {
+  const found = new Set([root]);
+  const result: T[] = [];
   for (let grew = true; grew; ) {
     grew = false;
-    for (const { parent, identity } of rows) {
-      if (found.has(parent) && !found.has(identity.pid)) {
-        found.add(identity.pid);
-        descendants.push(identity);
+    for (const link of links) {
+      if (found.has(link.parent) && !found.has(link.pid)) {
+        found.add(link.pid);
+        result.push(link);
         grew = true;
       }
     }
   }
-  return descendants;
+  return result;
 }
 
 /** True when a live process is the recorded server: same start time, same command, that binary. */

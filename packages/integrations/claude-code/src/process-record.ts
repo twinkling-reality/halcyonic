@@ -29,6 +29,13 @@ export type StopOutcome = 'not_running' | 'not_ours' | 'stopped';
 const PS_ENV = { PATH: '/bin:/usr/bin:/sbin:/usr/sbin', TZ: 'UTC', LC_ALL: 'C' };
 
 /**
+ * Far more than Node's default limit on a command's output, 1 MiB, which one command line can
+ * exceed: it can take up to ARG_MAX (1 MiB on macOS), and `ps` prints a byte beyond ASCII as three
+ * or four characters. A recorded pid can belong to any process by the time it is read.
+ */
+const PS_MAX_OUTPUT = 64 * 1024 * 1024;
+
+/**
  * Reads a process's start time and command line in one `ps` call, so both describe the same
  * process. Resolves null when no process has the pid; rejects when `ps` cannot be used.
  */
@@ -37,7 +44,7 @@ export function readProcessIdentity(pid: number): Promise<ProcessIdentity | null
     execFile(
       'ps',
       ['-ww', '-p', String(pid), '-o', 'lstart=,args='],
-      { env: PS_ENV, timeout: 5000 },
+      { env: PS_ENV, timeout: 5000, maxBuffer: PS_MAX_OUTPUT },
       (error, stdout) => {
         const output = stdout.trim();
         if (error !== null) {

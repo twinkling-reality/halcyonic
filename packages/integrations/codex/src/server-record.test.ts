@@ -5,7 +5,7 @@
  * the server's process group does not reach.
  */
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -122,6 +122,54 @@ function adapterFor(file: string): CodexRuntimeAdapter {
     serverRecordFile: file,
     directoryPolicy: () => ({ ok: false, message: 'No directory is allowed in this test.' }),
   });
+}
+
+const MIB = 1024 * 1024;
+
+interface LongCommand {
+  readonly pid: number;
+  /** The command line as passed, which `ps` prints unchanged when it is ASCII. */
+  readonly command: string;
+}
+
+/**
+ * Starts `count` children of this test, each with `chunks` arguments of 32 KiB of `character`, and
+ * waits until `ps` prints all their command lines, more than 1 MiB together, which is Node's
+ * default limit on a command's output. Each is `/bin/sh` waiting in its built-in `read` on an input
+ * only this test holds: sh would replace itself and its arguments with a lone external command, and
+ * the input ends when this test's process ends, however it ends.
+ */
+async function longCommands(
+  t: TestContext,
+  count: number,
+  chunks: number,
+  character = 'x',
+): Promise<LongCommand[]> {
+  const chunk = character.repeat((32 * 1024) / Buffer.byteLength(character));
+  const args = ['-c', 'read line', 'halcyonic-long-command', ...Array<string>(chunks).fill(chunk)];
+  const started: LongCommand[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const child = spawn('/bin/sh', args, { stdio: ['pipe', 'ignore', 'ignore'], env: {} });
+    t.after(() => child.kill('SIGKILL'));
+    assert.ok(child.pid !== undefined, 'a process with a long command line did not start');
+    started.push({ pid: child.pid, command: ['/bin/sh', ...args].join(' ') });
+  }
+  const least = Buffer.byteLength(started[0]?.command ?? '');
+  const pids = started.map(({ pid }) => pid).join(',');
+  for (let attempt = 0; ; attempt += 1) {
+    const lines = execFileSync('ps', ['-ww', '-o', 'args=', '-p', pids], {
+      env: { PATH: '/bin:/usr/bin:/sbin:/usr/sbin', LC_ALL: 'C' },
+      encoding: 'utf8',
+      maxBuffer: 64 * MIB,
+    })
+      .split('\n')
+      .filter((line) => line !== '');
+    const printed = lines.reduce((total, line) => total + line.length, 0);
+    const whole = lines.length === count && lines.every((line) => line.length >= least);
+    if (whole && printed > MIB) return started;
+    assert.ok(attempt < 50, `ps printed ${printed} bytes of the long command lines`);
+    await delay(20);
+  }
 }
 
 describe('a Codex server left running by an earlier run', () => {
@@ -255,5 +303,41 @@ describe('the Codex watchdog', () => {
     child.kill('SIGKILL');
     await gone(watchdog, 'the watchdog');
     assert.equal(alive(other.pid), true);
+  });
+});
+
+describe('reading processes while long command lines fill the process table', () => {
+  test('finds the commands of a server while other command lines print more than 1 MiB', async (t) => {
+    await longCommands(t, 32, 2);
+    const server = await standIn(t, { WITH_COMMAND: '1' });
+    const descendants = await readDescendants(server.pid);
+    assert.deepEqual(
+      descendants.map((descendant) => [descendant.pid, descendant.groupId]),
+      [[server.child, server.child]],
+    );
+  });
+
+  test('reads descendants whose command lines together print more than 1 MiB', async (t) => {
+    const commands = await longCommands(t, 32, 2);
+    const descendants = await readDescendants(process.pid);
+    for (const { pid, command } of commands) {
+      assert.equal(descendants.find((descendant) => descendant.pid === pid)?.command, command);
+    }
+  });
+
+  test('reads a command whose line alone prints more than 1 MiB', {
+    skip:
+      process.platform !== 'darwin' &&
+      'only macOS ps prints a byte beyond ASCII as several characters, so one command line can print more than 1 MiB',
+  }, async (t) => {
+    const [long] = await longCommands(t, 1, 14, 'é');
+    assert.ok(long !== undefined);
+    const identity = await readProcessIdentity(long.pid);
+    assert.ok(identity !== null && identity.command.length > MIB);
+    const descendants = await readDescendants(process.pid);
+    assert.deepEqual(
+      descendants.find((descendant) => descendant.pid === long.pid),
+      identity,
+    );
   });
 });

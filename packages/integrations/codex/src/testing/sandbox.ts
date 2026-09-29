@@ -123,6 +123,11 @@ export async function createSandbox(
 const LOOPBACK = /^(?:127\.0\.0\.1|\[::1\]):\d+(?:->(?:127\.0\.0\.1|\[::1\]):\d+)?(?: \(\w+\))?$/;
 const PS_ENV = { PATH: '/bin:/usr/bin:/sbin:/usr/sbin', LC_ALL: 'C' };
 
+/** An extended regular expression, the kind pgrep takes, that matches `text` literally. */
+export function literalPattern(text: string): string {
+  return text.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
+}
+
 /**
  * Every 200 ms, lists the internet sockets of every process running `binaryPath` and of their
  * descendants, and records any that is not between loopback addresses. It finds a connection that
@@ -162,18 +167,22 @@ function watchSockets(binaryPath: string): { findings: string[]; stop(): Promise
   };
 }
 
+/**
+ * The processes running `binaryPath` and their descendants. pgrep matches every command line
+ * without printing them, and `ps` lists each process with its parent only, so what is read stays
+ * small however long the command lines on the machine are.
+ */
 async function processTree(binaryPath: string): Promise<number[]> {
-  const rows = (await run('ps', ['-ww', '-A', '-o', 'pid=,ppid=,args=']))
+  const found = new Set(
+    (await run('pgrep', ['-f', `^${literalPattern(binaryPath)} `]))
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map(Number),
+  );
+  const rows = (await run('ps', ['-A', '-o', 'pid=,ppid=']))
     .split('\n')
     .map((line) => line.trim().split(/\s+/))
-    .map((fields) => ({
-      pid: Number(fields[0]),
-      ppid: Number(fields[1]),
-      args: fields.slice(2).join(' '),
-    }));
-  const found = new Set(
-    rows.filter((row) => row.args.startsWith(`${binaryPath} `)).map((row) => row.pid),
-  );
+    .map((fields) => ({ pid: Number(fields[0]), ppid: Number(fields[1]) }));
   for (let grew = true; grew; ) {
     grew = false;
     for (const row of rows) {
@@ -188,7 +197,7 @@ async function processTree(binaryPath: string): Promise<number[]> {
 
 /**
  * Runs a command and resolves with its output. Exit status 1 is not a failure: lsof exits 1 when
- * one of the processes it was asked about has already exited.
+ * one of the processes it was asked about has already exited, and pgrep when no process matches.
  */
 function run(command: string, args: readonly string[]): Promise<string> {
   return new Promise((resolve, reject) => {

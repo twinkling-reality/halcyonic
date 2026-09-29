@@ -5,7 +5,7 @@
  * host, however the host ends. Each test keeps its files in a directory of its own.
  */
 import assert from 'node:assert/strict';
-import { type ChildProcessByStdio, execFileSync, spawn } from 'node:child_process';
+import { type ChildProcessByStdio, execFileSync, spawn, spawnSync } from 'node:child_process';
 import {
   chmodSync,
   copyFileSync,
@@ -385,8 +385,15 @@ describe('the adapter through the real Agent SDK', () => {
       await adapter.close();
     }
     assert.ok(sessionId !== undefined);
-    const running = execFileSync('ps', ['-A', '-ww', '-o', 'args='], { encoding: 'utf8' });
-    assert.ok(!running.includes(`--session-id=${sessionId}`), 'the process is still running');
+    // pgrep matches every command line without printing them, and exits 1 when none matches.
+    const running = spawnSync('pgrep', ['-f', '--', `--session-id=${sessionId}`], {
+      encoding: 'utf8',
+    });
+    assert.equal(
+      running.status,
+      1,
+      `the process is still running, or pgrep failed: ${running.stdout}${running.stderr}`,
+    );
     // Killed before it could start, or started and never given any input.
     for (const recorded of fakeRecords(directory)) assert.deepEqual(recorded.received, []);
   });

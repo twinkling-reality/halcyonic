@@ -245,3 +245,48 @@ Not verified:
 - That Salidium and Seorak show a thread Halcyonic started.
 - A connection that ignores the proxy variables and lasts less than the socket monitor's 200 ms
   sample (the smoke test's sandbox saw none).
+
+## Large process tables (2026-09-29)
+
+Question: do the adapter and its end to end suite still find processes on a machine running many
+processes with long command lines?
+
+Found: the end to end suite failed one test on a Mac running several Unity IL2CPP builds, with "the
+socket monitor failed: ps failed: stdout maxBuffer length exceeded". Listing every process with its
+command line (`ps -ww -A -o ...,args=`) printed more than 1 MiB, Node's default limit on the output
+of `execFile` and `execFileSync`, so the call failed. The adapter's `readDescendants` listed
+processes the same way. On such a machine, the watchdog and the next start left a recorded server
+that ignored SIGTERM running, because `stopRecordedProcess` failed before its SIGKILL, and at
+startup that failure stopped the control plane from starting; closing the adapter killed such a
+server's process group but not its commands.
+
+Measured on macOS 26.7 (arm64), where `kern.argmax` is 1 MiB: 32 processes holding 64 KiB of
+arguments each made that listing print 2.3 MiB, while `ps -A -o pid=,ppid=` printed 12 KiB for
+about 1,050 processes. Under `LC_ALL=C`, macOS `ps` prints a byte beyond ASCII as three or four
+characters (see the Claude Code record), so one process with 448 KiB of such arguments printed about
+1.3 MiB.
+
+What changed:
+
+- `readDescendants` lists every process with its parent only, then reads pid, parent, group, start
+  time and command line for the processes below the server alone (`ps -p <pids>`), and keeps those
+  that this second read still shows below the server, so a pid reused between the two reads is never
+  taken for a descendant.
+- The `ps` reads of the Codex, OpenCode and Claude Code process records accept up to 64 MiB of
+  output: one command line can print more than 1 MiB, and a recorded pid can belong to any process
+  by the time it is read.
+- The end to end suite's socket monitor finds the binary's processes with `pgrep -f`, which matches
+  command lines without printing them, and follows their descendants through `ps -A -o pid=,ppid=`.
+  The suite's check for a running command, and the Claude Code test's check that a killed CLI is
+  gone, use `pgrep -f` too.
+
+Verified: regression tests that start processes holding 2 MiB of command lines, and one whose line
+prints 1.3 MiB (macOS only), failed on the same limit before the change and pass after it, for
+`readDescendants` and for the identity reads of all three adapters. With 2 MiB of such command lines
+running, the end to end test of an interrupt with a running command failed before the change (its
+process check hit the same limit), and passed after it, as did the test that stops a hung server
+and its command at the next start. Without them, the Codex end to end suite passed three
+consecutive runs and the OpenCode suite one.
+
+Left unchanged, since they read little output: `codex --version`, `pgrep -P` in the end to end
+tests, and `ps -p <pid>` in tests, for processes they started with short command lines.
