@@ -6,7 +6,7 @@
  * leave loopback. Without CODEX_BIN these tests are skipped and the unit tests still run.
  */
 import assert from 'node:assert/strict';
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { type ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -25,7 +25,7 @@ import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { type FakeProviderOptions, PATCH_CONTENT } from './testing/fake-provider.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
-import { type CodexSandbox, createSandbox } from './testing/sandbox.ts';
+import { type CodexSandbox, createSandbox, literalPattern } from './testing/sandbox.ts';
 
 const BINARY = process.env.CODEX_BIN ?? '';
 const SKIP =
@@ -116,12 +116,19 @@ function approvalId(observation: RuntimeObservation): string {
   return observation.payload.approval_id;
 }
 
-/** Pids of processes whose command line contains `text`. */
+/**
+ * Pids of processes whose command line contains `text`. pgrep matches every command line without
+ * printing them, so its output stays small however long the command lines on the machine are.
+ */
 function processesWith(text: string): number[] {
-  return execFileSync('ps', ['-ww', '-A', '-o', 'pid=,args='], { encoding: 'utf8' })
-    .split('\n')
-    .filter((line) => line.includes(text))
-    .map((line) => Number(line.trim().split(/\s+/)[0]));
+  const result = spawnSync('pgrep', ['-f', '--', literalPattern(text)], { encoding: 'utf8' });
+  // pgrep exits 1 when no process matches.
+  if (result.status === 1) return [];
+  if (result.status !== 0) {
+    const ending = result.error?.message ?? `${result.status ?? result.signal} ${result.stderr}`;
+    throw new Error(`pgrep failed: ${ending}`);
+  }
+  return result.stdout.trim().split('\n').map(Number);
 }
 
 function markerLines(file: string): number {

@@ -3,7 +3,7 @@
  * play the recorded ones, so the identity checks and signals are exercised on real processes.
  */
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -86,6 +86,41 @@ async function within<T>(promise: Promise<T>, ms: number, what: string): Promise
   }
 }
 
+const MIB = 1024 * 1024;
+
+const LONG_COMMAND_SKIP =
+  process.platform !== 'darwin' &&
+  'only macOS ps prints a byte beyond ASCII as several characters, so one command line can print more than 1 MiB';
+
+/**
+ * Starts a child of this test whose command line `ps` prints as more than 1 MiB, Node's default
+ * limit on a command's output: 448 KiB of a character beyond ASCII, which macOS `ps` prints as
+ * three characters a byte. It is `/bin/sh` waiting in its built-in `read` on an input only this
+ * test holds, so it keeps its command line and ends when this test's process ends.
+ */
+async function longCommand(t: TestContext): Promise<number> {
+  const args = [
+    '-c',
+    'read line',
+    'halcyonic-long-command',
+    ...Array<string>(14).fill('é'.repeat(16 * 1024)),
+  ];
+  const child = spawn('/bin/sh', args, { stdio: ['pipe', 'ignore', 'ignore'], env: {} });
+  t.after(() => child.kill('SIGKILL'));
+  const pid = child.pid;
+  assert.ok(pid !== undefined, 'the process with a long command line did not start');
+  for (let attempt = 0; ; attempt += 1) {
+    const printed = execFileSync('ps', ['-ww', '-o', 'args=', '-p', String(pid)], {
+      env: { PATH: '/bin:/usr/bin:/sbin:/usr/sbin', LC_ALL: 'C' },
+      encoding: 'utf8',
+      maxBuffer: 64 * MIB,
+    });
+    if (printed.length > MIB) return pid;
+    assert.ok(attempt < 50, `ps printed ${printed.length} bytes of the long command line`);
+    await delay(20);
+  }
+}
+
 describe('a recorded process', () => {
   test('is stopped with SIGTERM while it is still the recorded process', async (t) => {
     const recorded = await standIn(t);
@@ -119,6 +154,17 @@ describe('a recorded process', () => {
     assert.equal(await stopRecordedProcess(anotherLaunch), 'not_ours');
     await delay(200);
     assert.equal(alive(other.pid), true);
+  });
+
+  test('is never signalled when its pid now belongs to a process whose command line prints more than 1 MiB', {
+    skip: LONG_COMMAND_SKIP,
+  }, async (t) => {
+    const pid = await longCommand(t);
+    const identity = await readProcessIdentity(pid);
+    assert.ok(identity !== null && identity.command.length > MIB);
+    const record = { pid, ...identity, command: 'claude', sessionId: randomUUID() };
+    assert.equal(await stopRecordedProcess(record), 'not_ours');
+    assert.equal(alive(pid), true);
   });
 
   test('is still recognized after a script executable execs its interpreter', async (t) => {
