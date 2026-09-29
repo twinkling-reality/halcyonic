@@ -116,8 +116,30 @@ The Android player settings are committed:
 - Internet Access set to Require, because Unity's automatic detection does not see
   `ClientWebSocket` and would leave the permission out.
 
-Switch the editor's platform to Android before building. `adb` comes with Unity's Android module,
-in `PlaybackEngines/AndroidPlayer/SDK/platform-tools`.
+### Build
+
+`QuestBuild` (`Assets/Halcyonic/Editor`) builds a development APK of the scenes in the build
+settings to `apps/xr/Builds/Halcyonic.apk`, which git ignores. In the editor, choose
+**Halcyonic > Build Quest APK**; switch the platform to Android first, or the build switches it and
+reimports. With the editor closed, build in batch mode from the repository root:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
+```
+
+Close the editor first: only one Unity instance can have the project open. In batch mode a failed
+build exits with status 1, and the log says why.
+
+A build changes the project in ways that are expected:
+- Meta's build step adds `OculusRuntimeSettings` to the preloaded assets and never removes it; that
+  entry is committed.
+- The Android Gradle plugin's native build files (`.utmp`), Meta's `OVRBuildConfig`, an empty
+  `StreamingAssets` folder and, after a failed build, the Performance Testing package's run files
+  are git-ignored.
+- A failed build can leave the XR settings in the preloaded assets. Restore `ProjectSettings.asset`
+  rather than commit them.
+
+`adb` comes with Unity's Android module, in `PlaybackEngines/AndroidPlayer/SDK/platform-tools`.
 
 The control plane serves only loopback. Over USB, with developer mode enabled on the headset:
 
