@@ -240,9 +240,9 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 The token survives reinstalls. The control plane logs `realtime client connected` for
 `halcyonic-xr`.
 
-- **Run `adb reverse` again after every build.** Unity's Android build restarts the adb server,
-  which drops the rule, and the app cannot reach the control plane until it is back. The app
-  reconnects by itself.
+- **Run `adb reverse` again after any Unity run for Android.** Every Unity run with the Android
+  target kills the adb server as it exits, an import as well as a build, which drops the rule; the
+  app cannot reach the control plane until it is back, and then reconnects by itself.
 - **Stage out of view:** the stage is placed from the world origin. After a boundary change,
   recenter: look at a palm, then pinch and hold the Meta icon.
 - **Logs:** `adb logcat -s Unity` is the app's log, and `adb logcat -s VrApi` reports the frame
