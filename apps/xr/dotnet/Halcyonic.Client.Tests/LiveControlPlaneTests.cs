@@ -198,4 +198,22 @@ public class LiveControlPlaneTests
 
         AssertEveryServerMessageRoundTrips();
     }
+
+    /// <summary>
+    /// A test host that dies without disposing its control plane, however it dies, closes the
+    /// control plane's standard input as it goes. The control plane must then stop by itself instead
+    /// of running on, orphaned, on its private port.
+    /// </summary>
+    [Test]
+    public async Task StopsByItselfWhenItsStandardInputCloses()
+    {
+        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+
+        controlPlane.CloseStandardInput();
+
+        Assert.That(
+            controlPlane.WaitForExit(TimeSpan.FromSeconds(10)),
+            Is.EqualTo(0),
+            "the control plane shuts down cleanly:\n" + controlPlane.Output);
+    }
 }

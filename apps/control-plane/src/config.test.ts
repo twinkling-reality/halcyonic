@@ -36,6 +36,16 @@ describe('configuration', () => {
     assert.throws(() => loadConfig({ HALCYONIC_CLAUDE_AGENT: 'yes' }), ConfigError);
   });
 
+  test('stopping at the end of stdin is off unless enabled, and its switch accepts only 1 or 0', () => {
+    assert.equal(loadConfig({}).exitOnStdinEnd, false);
+    assert.equal(loadConfig({ HALCYONIC_EXIT_ON_STDIN_END: '' }).exitOnStdinEnd, false);
+    assert.equal(loadConfig({ HALCYONIC_EXIT_ON_STDIN_END: '0' }).exitOnStdinEnd, false);
+    assert.equal(loadConfig({ HALCYONIC_EXIT_ON_STDIN_END: '1' }).exitOnStdinEnd, true);
+    for (const raw of ['yes', 'true', '2', ' 1']) {
+      assert.throws(() => loadConfig({ HALCYONIC_EXIT_ON_STDIN_END: raw }), ConfigError, raw);
+    }
+  });
+
   test('a Claude Code executable must be an existing absolute file', () => {
     const executable = join(base, 'claude');
     writeFileSync(executable, '#!/bin/sh\n');

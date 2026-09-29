@@ -26,6 +26,13 @@ Use another data directory or port through the environment:
 HALCYONIC_DATA_DIR=/tmp/halcyonic-dev HALCYONIC_PORT=47801 pnpm dev
 ```
 
+A program that runs the control plane as its child, such as a test harness, can have it stop when
+the program exits, however it exits: set `HALCYONIC_EXIT_ON_STDIN_END=1`, give the control plane a
+pipe as its standard input, and hold the pipe open without writing to it. When the program exits,
+even by SIGKILL or a crash, the operating system closes the pipe and the control plane shuts down
+as it does on SIGTERM. Leave it unset otherwise: input that has already ended, such as
+`/dev/null`, stops the control plane as soon as it is ready.
+
 ## Drive it
 
 `pnpm demo` connects over the realtime protocol, creates a project with three workstreams on the
@@ -204,9 +211,11 @@ pnpm test:csharp
 ```
 
 This builds the generated contracts and the XR client core the way Unity constrains them (.NET
-Standard 2.1, C# 9, warnings as errors) and runs their NUnit tests on .NET 10. Two tests start real
-control plane processes with Node.js on free ports and temporary data directories. Filter them out
-with `dotnet test apps/xr/dotnet/Halcyonic.Client.Tests --filter "TestCategory!=ControlPlane"`.
+Standard 2.1, C# 9, warnings as errors) and runs their NUnit tests on .NET 10. Three tests start
+real control plane processes with Node.js on free ports and temporary data directories. Each runs
+with `HALCYONIC_EXIT_ON_STDIN_END=1` and a standard input only the test host holds, so none outlives
+a test host that is killed or crashes. Filter them out with
+`dotnet test apps/xr/dotnet/Halcyonic.Client.Tests --filter "TestCategory!=ControlPlane"`.
 
 ## Inspect the journal
 

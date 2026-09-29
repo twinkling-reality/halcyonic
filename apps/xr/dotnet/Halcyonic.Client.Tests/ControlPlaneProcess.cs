@@ -13,7 +13,17 @@ using System.Threading.Tasks;
 
 namespace Halcyonic.Client.Tests;
 
-/// <summary>A real control plane (`node apps/control-plane/src/main.ts`) on a private port and data directory.</summary>
+/// <summary>
+/// A real control plane (`node apps/control-plane/src/main.ts`) on a private port and data directory.
+/// </summary>
+/// <remarks>
+/// Its standard input is a pipe that only this test host holds and never writes to, and it runs
+/// with HALCYONIC_EXIT_ON_STDIN_END=1. <see cref="Dispose"/> kills it, but a test host that dies
+/// first (killed, crashed, or ended by a runner's timeout) never disposes it: the operating system
+/// then closes the pipe, and the control plane shuts itself down instead of running on as an
+/// orphan. The pipe's writer belongs to the <see cref="Process"/> this object keeps, so the pipe
+/// stays open for this object's lifetime; only <see cref="CloseStandardInput"/> closes it early.
+/// </remarks>
 internal sealed class ControlPlaneProcess : IDisposable
 {
     private readonly Process process;
@@ -53,6 +63,8 @@ internal sealed class ControlPlaneProcess : IDisposable
         {
             WorkingDirectory = Repository.Root,
             UseShellExecute = false,
+            // Held open and never written to; see the class remarks.
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
@@ -60,6 +72,7 @@ internal sealed class ControlPlaneProcess : IDisposable
         start.Environment["HALCYONIC_DATA_DIR"] = dataDir;
         start.Environment["HALCYONIC_PORT"] = port.ToString(CultureInfo.InvariantCulture);
         start.Environment["HALCYONIC_LOG_LEVEL"] = "warn";
+        start.Environment["HALCYONIC_EXIT_ON_STDIN_END"] = "1";
         Process process;
         try
         {
@@ -97,6 +110,24 @@ internal sealed class ControlPlaneProcess : IDisposable
         if (disposed || process.HasExited) return;
         process.Kill(entireProcessTree: true);
         process.WaitForExit();
+    }
+
+    /// <summary>
+    /// Closes the control plane's standard input, as the operating system does when the test host
+    /// dies, so that the control plane shuts itself down.
+    /// </summary>
+    public void CloseStandardInput() => process.StandardInput.Close();
+
+    /// <summary>
+    /// Waits up to <paramref name="timeout"/> for the process to exit by itself. Returns its exit
+    /// code, or null while it still runs.
+    /// </summary>
+    public int? WaitForExit(TimeSpan timeout)
+    {
+        if (!process.WaitForExit(timeout)) return null;
+        // Also waits for the output handlers, so that Output is complete.
+        process.WaitForExit();
+        return process.ExitCode;
     }
 
     public void Dispose()
