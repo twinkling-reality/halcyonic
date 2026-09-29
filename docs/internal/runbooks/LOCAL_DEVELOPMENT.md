@@ -200,9 +200,17 @@ first or set `HALCYONIC_PORT`.
 | --- | --- | --- |
 | A contract in `packages/contracts` | `pnpm contracts:emit` | Review the schema and C# diffs, then `pnpm test:csharp` |
 | Contracts, the pipeline, the mock runtime or a scenario | `pnpm fixtures:record` | Review the trace diff |
+| Contracts, the pipeline or `fixtures/traces/multiple_workstreams.jsonl` | `pnpm demonstration:record` | Review the demonstration diff, then `pnpm test:csharp` |
 
 `pnpm check` fails when any generated file is stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
-checks the trace alone.
+checks the trace alone, and `node apps/control-plane/src/cli/record-demonstration.ts --check` the
+demonstration alone.
+
+The demonstration is what the XR client plays when no control plane is configured or reachable
+([XR_CLIENT.md](../architecture/XR_CLIENT.md)): the welcome, snapshot and event messages a client
+receives from `pnpm replay fixtures/traces/multiple_workstreams.jsonl`, and when, recorded by the
+control plane under virtual time into `apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json`.
+Re-record the trace first when both are stale.
 
 ## Test the C# client
 
