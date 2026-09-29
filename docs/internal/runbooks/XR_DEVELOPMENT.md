@@ -243,8 +243,10 @@ The token survives reinstalls. The control plane logs `realtime client connected
 - **Run `adb reverse` again after any Unity run for Android.** Every Unity run with the Android
   target kills the adb server as it exits, an import as well as a build, which drops the rule; the
   app cannot reach the control plane until it is back, and then reconnects by itself.
-- **Stage out of view:** the stage is placed from the world origin. After a boundary change,
-  recenter: look at a palm, then pinch and hold the Meta icon.
+- **Stage placement:** the stage places itself in front of the person when the session starts,
+  after a recenter or a boundary change, and when the app resumes, and the app's log says why
+  (`placed the stage in front of the person because ...`). If it is still out of view, recenter:
+  look at a palm, then pinch and hold the Meta icon.
 - **Logs:** `adb logcat -s Unity` is the app's log, and `adb logcat -s VrApi` reports the frame
   rate every second.
 

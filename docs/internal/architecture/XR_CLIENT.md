@@ -6,7 +6,7 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ## Layers
 
 ```text
-Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard      skeleton, compiles in Unity
+Unity layer (apps/xr/Assets)          stage, characters, focus guard                 compiles in Unity
         │
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
@@ -153,11 +153,36 @@ core Unity APIs:
   (`adb logcat -s Unity`) is the main diagnostic. It logs the status each frame ends with, so a
   phase that begins and ends within one frame, such as `Connecting` when the connection is refused
   at once, has no line of its own.
-- `CharacterStage` places one placeholder character per workstream in an arc, and says above them
-  whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
-  motion follows the activity, with the title, status and attention notes written out. The sphere
-  uses `Legacy Shaders/Diffuse`, one of the always-included shaders: a player build leaves out the
-  Standard shader of a primitive's default material, which then renders magenta.
+- `CharacterStage` stands the characters on an arc of fixed slots in front of the person and says
+  above them whether the state is live. The arc is 2.4 m away, beyond the system windows, such as
+  Virtual Display's screens, that open within about 2 m
+  ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); 0.45 m below the eyes;
+  and 100 degrees wide. All three are serialized settings, and characters and labels scale with the
+  distance, so they keep their apparent size. The arc is placed at the person's head, facing where
+  they face, when the session starts and the head is tracked, when the tracking origin changes
+  (a recenter or a new boundary, through `XRInputSubsystem.trackingOriginUpdated`), when the app
+  resumes, and when the head seems to jump farther in one frame than a person can move; the log
+  says why each time. The stage keeps animating and updating while the app lacks input focus.
+- `CharacterView` draws a `CharacterPresentation` as a bot
+  ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
+  generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
+  shader, a halo and a testing ring behind and around it, and the title, the status and the
+  attention notes on a plate underneath, wrapped to the slot's width. `Body` is the moving visual
+  root, and `LookAtPerson` turns the character to the person for the workspace. Per-character
+  values go through `MaterialPropertyBlock`s, so nothing allocates per frame. Labels use Unity's
+  built-in font through `TextMesh`, rasterized at 48 pixels, close to their size on the headset.
+- A player build leaves out shaders that nothing in the build references; the first device build
+  rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
+  Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
+  which the build always includes, so exactly the variants those materials use are compiled and
+  the Always Included Shaders list stays as it is.
+- Cost on a Quest 3, estimated
+  ([character-rendering.md](../validation/character-rendering.md)): the body shader is one pass
+  without keywords, about 160 to 185 arithmetic operations and at most two texture reads per
+  pixel in any state, from a 128 by 128 noise texture baked at startup. Six bodies cover about
+  380,000 pixels a frame across both eyes. The lookbook computed fractal noise per pixel, about ten
+  times the arithmetic. Edges are anti-aliased in the shaders, because the Android quality level
+  has no MSAA.
 - `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
 
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
@@ -169,6 +194,6 @@ tools out ([horizon-store-release.md](../validation/horizon-store-release.md)). 
 
 ## Not built yet
 
-Hand interaction with characters; the expanded workspace; real character art; token provisioning
+Hand interaction with characters; the expanded workspace; token provisioning
 on a headset; `wss://`. On a Quest, the loopback-only control plane is reachable over USB with
 `adb reverse tcp:47800 tcp:47800`; there is no LAN serving yet ([SECURITY.md](SECURITY.md)).

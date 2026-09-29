@@ -1,98 +1,551 @@
 #nullable enable
 using Halcyonic.Client;
-using Halcyonic.Contracts;
 using UnityEngine;
 
 namespace Halcyonic.XR
 {
     /// <summary>
-    /// A placeholder character: a sphere whose motion follows the activity, with the status always
-    /// written out, so no state depends on color or motion alone.
+    /// A workstream's character: a glossy bot whose shape and color are the workstream's identity
+    /// and whose eyes, motion and light show its state, with the title, the status and the
+    /// attention notes written underneath, so no state depends on color or motion alone
+    /// (docs/internal/decisions/0013-characters-are-bots-with-a-living-surface.md).
     /// </summary>
+    /// <remarks>
+    /// The character's own transform is its place on the stage: its forward axis points at the
+    /// person, and the stage scales it with its distance, so the sizes here are meters as seen from
+    /// one meter away. Only <see cref="Body"/> moves; the labels stay where they are. The cues come
+    /// from <see cref="CharacterCues"/>; this class only chooses shapes, timings and colors, and it
+    /// allocates nothing per frame.
+    /// </remarks>
     public sealed class CharacterView : MonoBehaviour
     {
         /// <summary>
-        /// A primitive's default material uses the Standard shader, which a player build leaves out
-        /// when no asset in the build uses it; the body then renders magenta. This shader is in the
-        /// project's always-included shaders (Graphics settings).
+        /// The radius of a sphere around <see cref="Body"/>'s origin that holds the body in every
+        /// state, in Body's local units.
         /// </summary>
-        private const string BodyShader = "Legacy Shaders/Diffuse";
+        public const float BodyRadius = 0.12f;
+
+        /// <summary>The body mesh is about one unit in radius; this makes it 8.8 cm at the one-meter scale.</summary>
+        private const float BodyScale = 0.088f;
+
+        private const float LabelWidth = 0.3f;
+        private const float LabelTop = -0.125f;
+        private const float LabelPadding = 0.012f;
+        private const float LabelGap = 0.006f;
+        private const float TitleEm = 0.024f;
+        private const float StatusEm = 0.02f;
+        private const float NotesEm = 0.018f;
+
+        /// <summary>How far a character that needs its person rises, at most.</summary>
+        private const float RiseHeight = 0.1f;
+
+        private const float EyeSwitchSeconds = 0.18f;
+
+        private static readonly int BodyColorId = Shader.PropertyToID("_BodyColor");
+        private static readonly int ClockId = Shader.PropertyToID("_Clock");
+        private static readonly int FlowId = Shader.PropertyToID("_Flow");
+        private static readonly int FlowSpeedId = Shader.PropertyToID("_FlowSpeed");
+        private static readonly int CrackId = Shader.PropertyToID("_Crack");
+        private static readonly int FogId = Shader.PropertyToID("_Fog");
+        private static readonly int SaturationId = Shader.PropertyToID("_Saturation");
+        private static readonly int GhostId = Shader.PropertyToID("_Ghost");
+        private static readonly int EyeKindId = Shader.PropertyToID("_EyeKind");
+        private static readonly int EyeOpenId = Shader.PropertyToID("_EyeOpen");
+        private static readonly int EyeInkId = Shader.PropertyToID("_EyeInk");
+        private static readonly int LookId = Shader.PropertyToID("_Look");
+        private static readonly int EyeLayoutId = Shader.PropertyToID("_EyeLayout");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly int RectId = Shader.PropertyToID("_Rect");
+
+        private static readonly Color NeedsYouLight = new Color(1f, 0.68f, 0.24f);
+        private static readonly Color FailedLight = new Color(1f, 0.35f, 0.31f);
+        private static readonly Color FinishedLight = new Color(0.31f, 0.82f, 0.54f);
+        private static readonly Color VerifyingLight = new Color(0.84f, 0.95f, 1f);
+        private static readonly Color UnknownLight = new Color(0.6f, 0.64f, 0.7f);
+        private static readonly Color RingColor = new Color(0.85f, 0.96f, 1f);
 
         private Transform body = null!;
-        private Material bodyMaterial = null!;
+        private Transform shell = null!;
+        private MeshRenderer shellRenderer = null!;
+        private MeshRenderer haloRenderer = null!;
+        private Transform ring = null!;
+        private MeshRenderer ringRenderer = null!;
+        private Transform labels = null!;
+        private MeshRenderer plateRenderer = null!;
         private TextMesh title = null!;
         private TextMesh status = null!;
         private TextMesh notes = null!;
+        private MaterialPropertyBlock bodyBlock = null!;
+        private MaterialPropertyBlock haloBlock = null!;
+        private MaterialPropertyBlock ringBlock = null!;
+        private MaterialPropertyBlock plateBlock = null!;
+        private CharacterIdentity identity = null!;
+        private Vector4 bodyColor;
+        private Vector4 eyeLayout;
+
         private CharacterPresentation? presentation;
-        private float phase;
+        private CharacterCues? cues;
+        private bool lookAtPerson;
+        private string shownTitle = "";
+        private string shownStatus = "";
+        private string shownNotes = "";
+        private CharacterHalo shownHalo;
+        private bool shownGhosted;
+
+        // The animation, advanced every frame toward the cues' targets.
+        private float clock;
+        private float lift;
+        private float squash;
+        private float eyeOpen = 1f;
+        private float lookX;
+        private float lookY;
+        private float eyeInk = 1f;
+        private float eyeKind;
+        private float nextEyeKind;
+        private float eyeSwitch;
+        private float flow;
+        private float flowSpeed = 0.55f;
+        private float crack;
+        private float fog;
+        private float saturation = 1f;
+        private float ghost;
+        private float haloStrength;
+        private Color haloColor = Color.black;
+        private float ringAlpha;
+
+        /// <summary>
+        /// The character's visual root: it hops, rises, slumps and turns with the character's state.
+        /// Its scale stays one, the body is centered on its origin within <see cref="BodyRadius"/>,
+        /// and its forward axis is the direction the character faces.
+        /// </summary>
+        public Transform Body => body;
+
+        public string WorkstreamId { get; private set; } = "";
+
+        /// <summary>What the character shows now, or null before the first <see cref="Show"/>.</summary>
+        public CharacterPresentation? Presentation => presentation;
+
+        /// <summary>The person's head, which a character that needs them turns to. Set by the stage.</summary>
+        internal Transform? Person { get; set; }
 
         public static CharacterView Create(Transform parent, string workstreamId)
         {
             var root = new GameObject("Character " + workstreamId);
             root.transform.SetParent(parent, false);
             var view = root.AddComponent<CharacterView>();
-            view.Build();
+            view.Build(workstreamId);
             return view;
         }
 
         public void Show(CharacterPresentation next)
         {
+            var first = presentation == null;
             presentation = next;
-            title.text = next.Title;
-            status.text = StatusLine(next);
-            notes.text = string.Join("\n", next.AttentionNotes);
-            bodyMaterial.color = ColorOf(next);
-        }
-
-        private void Build()
-        {
-            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.name = "Body";
-            sphere.transform.SetParent(transform, false);
-            sphere.transform.localScale = Vector3.one * 0.22f;
-            body = sphere.transform;
-            var bodyRenderer = sphere.GetComponent<Renderer>();
-            var shader = Shader.Find(BodyShader);
-            if (shader == null)
+            cues = CharacterCues.Of(next);
+            var kind = EyeKindOf(cues.Eyes);
+            if (first)
             {
-                Debug.LogError("Halcyonic: the shader " + BodyShader + " is not in the build, so characters render magenta. Keep it in Graphics settings' Always Included Shaders.");
-                shader = bodyRenderer.sharedMaterial.shader;
+                eyeKind = kind;
+                nextEyeKind = kind;
             }
-            bodyMaterial = new Material(shader);
-            bodyRenderer.sharedMaterial = bodyMaterial;
-            title = Labels.Create(transform, "Title", new Vector3(0f, 0.24f, 0f), 0.003f);
-            status = Labels.Create(transform, "Status", new Vector3(0f, -0.2f, 0f), 0.0025f);
-            notes = Labels.Create(transform, "Notes", new Vector3(0f, -0.3f, 0f), 0.0018f);
-            phase = Random.value * Mathf.PI * 2f;
+            else if (kind != nextEyeKind)
+            {
+                // A change of eyes happens through a blink.
+                nextEyeKind = kind;
+                eyeSwitch = EyeSwitchSeconds;
+            }
+            ShowLabels(next, cues);
+            if (first) Advance(0f, true);
         }
 
-        private void OnDestroy() => Destroy(bodyMaterial);
+        /// <summary>
+        /// While <paramref name="look"/> is true, the character turns to face the person and focuses
+        /// its open eyes on them: for the workspace, while the character is hovered or opened. The
+        /// state's own cues stay, so closed, crossed or flat eyes stay as they are. The latest call
+        /// wins.
+        /// </summary>
+        public void LookAtPerson(bool look) => lookAtPerson = look;
 
-        private void Update()
+        private void Build(string workstreamId)
         {
-            if (presentation == null) return;
-            float amplitude;
-            float speed;
-            switch (presentation.Activity)
+            WorkstreamId = workstreamId;
+            CharacterMaterials.Prepare();
+            identity = CharacterIdentity.Of(workstreamId);
+            var color = Color.HSVToRGB((float)identity.Hue / 360f, (float)identity.Saturation, (float)identity.Value);
+            // The shader lights in sRGB, as the lookbook did, and converts at the end.
+            bodyColor = new Vector4(color.r, color.g, color.b, 1f);
+            eyeLayout = CharacterMeshes.EyeLayout(identity.Shape);
+            clock = (float)identity.Phase * 60f;
+
+            body = new GameObject("Body").transform;
+            body.SetParent(transform, false);
+
+            shellRenderer = CreateRenderer(body, "Shell", CharacterMeshes.Body(identity.Shape), CharacterMaterials.Body);
+            shell = shellRenderer.transform;
+            shell.localScale = Vector3.one * BodyScale;
+
+            haloRenderer = CreateRenderer(body, "Halo", CharacterMeshes.Quad(), CharacterMaterials.Halo);
+            haloRenderer.transform.localPosition = new Vector3(0f, 0f, -0.3f * BodyScale);
+            haloRenderer.transform.localScale = Vector3.one * (4.4f * BodyScale);
+            haloRenderer.enabled = false;
+
+            ringRenderer = CreateRenderer(body, "Ring", CharacterMeshes.Band(), CharacterMaterials.Ring);
+            ring = ringRenderer.transform;
+            ring.localScale = Vector3.one * BodyScale;
+            ringRenderer.enabled = false;
+
+            // Text reads along its parent's forward axis, and the character faces the person.
+            labels = new GameObject("Labels").transform;
+            labels.SetParent(transform, false);
+            labels.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            plateRenderer = Labels.CreatePlate(labels, "Plate");
+            title = Labels.CreateSized(labels, "Title", Vector3.zero, TitleEm, FontStyle.Bold, TextAnchor.UpperCenter);
+            status = Labels.CreateSized(labels, "Status", Vector3.zero, StatusEm, FontStyle.Normal, TextAnchor.UpperCenter);
+            notes = Labels.CreateSized(labels, "Notes", Vector3.zero, NotesEm, FontStyle.Normal, TextAnchor.UpperCenter);
+
+            bodyBlock = new MaterialPropertyBlock();
+            haloBlock = new MaterialPropertyBlock();
+            ringBlock = new MaterialPropertyBlock();
+            plateBlock = new MaterialPropertyBlock();
+        }
+
+        private static MeshRenderer CreateRenderer(Transform parent, string name, Mesh mesh, Material material)
+        {
+            var child = new GameObject(name);
+            child.transform.SetParent(parent, false);
+            child.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = child.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            return renderer;
+        }
+
+        private void Update() => Advance(Time.deltaTime, false);
+
+        /// <summary>Moves the animation on by a frame, or straight to the state's pose when snapping.</summary>
+        private void Advance(float deltaTime, bool snap)
+        {
+            if (cues == null) return;
+            if (!cues.Paused) clock += deltaTime;
+            var t = clock;
+
+            // The body's motion.
+            var targetLift = 0f;
+            var targetSquash = 0f;
+            var yaw = 0f;
+            var roll = 0f;
+            switch (cues.Motion)
             {
-                case CharacterActivity.Working:
-                case CharacterActivity.Verifying:
-                    amplitude = 0.03f;
-                    speed = 4f;
+                case CharacterMotion.Breathe:
+                    targetLift = Mathf.Sin(t * 1.3f) * 0.0035f;
+                    targetSquash = Mathf.Sin(t * 1.3f) * 0.012f;
                     break;
-                case CharacterActivity.Starting:
-                case CharacterActivity.WaitingForHuman:
-                    amplitude = 0.02f;
-                    speed = 2f;
+                case CharacterMotion.Warm:
+                    targetLift = Mathf.Sin(t * 2.4f) * 0.005f;
+                    targetSquash = Mathf.Sin(t * 4.8f) * 0.01f;
+                    yaw = Mathf.Sin(t * 0.9f) * 0.08f;
                     break;
+                case CharacterMotion.Hop:
+                {
+                    var hop = Mathf.Abs(Mathf.Sin(t * 3.1f));
+                    targetLift = hop * 0.018f;
+                    targetSquash = hop < 0.22f ? (0.22f - hop) * 0.35f : 0f;
+                    yaw = Mathf.Sin(t * 0.6f) * 0.18f;
+                    break;
+                }
+                case CharacterMotion.Hover:
+                    targetLift = Mathf.Sin(t * 1.4f) * 0.004f;
+                    break;
+                case CharacterMotion.Rise:
+                    targetLift = RiseRoom() + Mathf.Sin(t * 2.1f) * 0.003f;
+                    targetSquash = -Mathf.Max(0f, Mathf.Sin(t * 4.2f)) * 0.025f;
+                    break;
+                case CharacterMotion.Settle:
+                    targetLift = -0.004f + Mathf.Sin(t * 1.1f) * 0.0012f;
+                    targetSquash = 0.02f + Mathf.Sin(t * 1.1f) * 0.01f;
+                    break;
+                case CharacterMotion.Slump:
+                    targetLift = -0.012f;
+                    targetSquash = 0.07f;
+                    roll = 0.14f;
+                    break;
+                case CharacterMotion.Drift:
+                    targetLift = Mathf.Sin(t * 0.7f) * 0.0025f;
+                    yaw = Mathf.Sin(t * 0.31f) * 0.1f;
+                    break;
+                case CharacterMotion.Frozen:
+                    // Stopped mid-hop, a little turned.
+                    targetLift = 0.007f;
+                    targetSquash = -0.03f;
+                    yaw = 0.12f;
+                    roll = -0.05f;
+                    break;
+            }
+
+            // The eyes.
+            var targetOpen = 1f;
+            var targetLookX = 0f;
+            var targetLookY = 0f;
+            var targetInk = 1f;
+            var openEyes = true;
+            switch (cues.Eyes)
+            {
+                case CharacterEyes.Open:
+                    targetLookX = Mathf.Sin(t * 0.23f) * 0.35f;
+                    targetLookY = Mathf.Sin(t * 0.17f) * 0.2f;
+                    break;
+                case CharacterEyes.OnTask:
+                    targetOpen = 0.78f;
+                    targetLookX = Mathf.Sin(t * 0.8f) * 0.7f;
+                    targetLookY = -0.7f;
+                    break;
+                case CharacterEyes.Scanning:
+                    targetOpen = 0.9f;
+                    targetLookX = Mathf.Sin(t * 2.6f);
+                    targetLookY = -0.15f;
+                    break;
+                case CharacterEyes.OnPerson:
+                    targetOpen = 1.12f;
+                    break;
+                case CharacterEyes.Unfocused:
+                    targetOpen = 0.42f;
+                    targetLookX = Mathf.Sin(t * 0.37f) * 0.9f;
+                    targetLookY = Mathf.Cos(t * 0.29f) * 0.6f;
+                    targetInk = 0.75f;
+                    break;
+                case CharacterEyes.Closed:
+                    openEyes = false;
+                    targetLookY = -0.25f;
+                    break;
+                case CharacterEyes.Crossed:
+                    openEyes = false;
+                    targetLookY = -0.15f;
+                    break;
+                case CharacterEyes.Flat:
+                    openEyes = false;
+                    targetLookX = 0.25f;
+                    break;
+            }
+            if (lookAtPerson && openEyes && cues.Eyes != CharacterEyes.Unfocused)
+            {
+                targetLookX = 0f;
+                targetLookY = 0f;
+            }
+            if (openEyes)
+            {
+                var blinkPeriod = 3.4f + (float)identity.Phase * 1.9f;
+                if (t % blinkPeriod < 0.13f) targetOpen *= 0.1f;
+            }
+            if (eyeSwitch > 0f)
+            {
+                eyeSwitch = Mathf.Max(0f, eyeSwitch - deltaTime);
+                if (eyeSwitch <= EyeSwitchSeconds / 2f) eyeKind = nextEyeKind;
+                targetOpen *= Mathf.Max(0.08f, Mathf.Abs(eyeSwitch / EyeSwitchSeconds * 2f - 1f));
+            }
+            if (cues.Ghosted) targetInk *= 0.85f;
+
+            // The surface.
+            var targetFlow = cues.Flowing ? 1f : 0f;
+            var targetFlowSpeed = cues.Motion == CharacterMotion.Hover ? 0.95f : 0.55f;
+            var targetCrack = cues.Cracked ? 1f : 0f;
+            var targetFog = cues.Fogged ? 1f : 0f;
+            var targetGhost = cues.Ghosted ? 1f : 0f;
+            var targetSaturation = cues.Ghosted ? 0.18f
+                : cues.Motion == CharacterMotion.Frozen ? 0.55f
+                : cues.Cracked ? 0.72f
+                : cues.Fogged ? 0.45f
+                : 1f;
+
+            // The light around it.
+            var targetHaloColor = haloColor;
+            var targetHalo = 0f;
+            switch (cues.Halo)
+            {
+                case CharacterHalo.NeedsYou:
+                    targetHaloColor = NeedsYouLight;
+                    targetHalo = 0.75f * (0.8f + 0.25f * Mathf.Sin(t * 3.2f));
+                    break;
+                case CharacterHalo.Failed:
+                    targetHaloColor = FailedLight;
+                    targetHalo = 0.5f;
+                    break;
+                case CharacterHalo.Finished:
+                    targetHaloColor = FinishedLight;
+                    targetHalo = 0.3f;
+                    break;
+                case CharacterHalo.Verifying:
+                    targetHaloColor = VerifyingLight;
+                    targetHalo = 0.28f;
+                    break;
+                case CharacterHalo.Unknown:
+                    targetHaloColor = UnknownLight;
+                    targetHalo = 0.28f;
+                    break;
+            }
+            if (cues.Ghosted) targetHalo *= 0.3f;
+            var targetRing = cues.Ring ? 1f : 0f;
+
+            var ease = snap ? 1f : 1f - Mathf.Exp(-deltaTime * 8f);
+            var quick = snap ? 1f : 1f - Mathf.Exp(-deltaTime * 30f);
+            lift = Mathf.Lerp(lift, targetLift, ease);
+            squash = Mathf.Lerp(squash, targetSquash, ease);
+            eyeOpen = Mathf.Lerp(eyeOpen, targetOpen, quick);
+            lookX = Mathf.Lerp(lookX, targetLookX, quick);
+            lookY = Mathf.Lerp(lookY, targetLookY, quick);
+            eyeInk = Mathf.Lerp(eyeInk, targetInk, ease);
+            flow = Mathf.Lerp(flow, targetFlow, ease);
+            flowSpeed = Mathf.Lerp(flowSpeed, targetFlowSpeed, ease);
+            crack = Mathf.Lerp(crack, targetCrack, ease);
+            fog = Mathf.Lerp(fog, targetFog, ease);
+            saturation = Mathf.Lerp(saturation, targetSaturation, ease);
+            ghost = Mathf.Lerp(ghost, targetGhost, ease);
+            haloColor = snap || haloStrength < 0.01f ? targetHaloColor : Color.Lerp(haloColor, targetHaloColor, ease);
+            haloStrength = Mathf.Lerp(haloStrength, targetHalo, ease);
+            ringAlpha = Mathf.Lerp(ringAlpha, targetRing, ease);
+            if (snap) eyeKind = nextEyeKind;
+
+            Turn(yaw, roll, snap ? 1f : 1f - Mathf.Exp(-deltaTime * 5f));
+            Apply(t);
+        }
+
+        /// <summary>
+        /// How far a character that needs its person can rise without passing their eye level, in
+        /// the character's own units.
+        /// </summary>
+        private float RiseRoom()
+        {
+            if (Person == null) return RiseHeight;
+            var scale = Mathf.Max(transform.lossyScale.y, 0.01f);
+            var room = (Person.position.y - transform.position.y) / scale - 0.02f;
+            return Mathf.Clamp(room, 0f, RiseHeight);
+        }
+
+        private void Turn(float yaw, float roll, float ease)
+        {
+            var facing = cues!.FacesPerson || lookAtPerson;
+            if (facing && cues.Paused) return;
+            // Relative to the character's place, so the body moves with the stage when it is placed again.
+            Quaternion target;
+            if (facing && Person != null)
+            {
+                var toPerson = Person.position - body.position;
+                var level = new Vector3(toPerson.x, 0f, toPerson.z);
+                if (level.sqrMagnitude < 1e-6f) return;
+                // Tip up or down toward the person's eyes, but not so far that the face turns away.
+                var pitch = Mathf.Clamp(Mathf.Atan2(toPerson.y, level.magnitude) * Mathf.Rad2Deg, -30f, 30f);
+                var world = Quaternion.LookRotation(level, Vector3.up) * Quaternion.Euler(-pitch, 0f, roll * Mathf.Rad2Deg);
+                target = Quaternion.Inverse(transform.rotation) * world;
+            }
+            else
+            {
+                target = Quaternion.Euler(0f, yaw * Mathf.Rad2Deg, roll * Mathf.Rad2Deg);
+            }
+            body.localRotation = Quaternion.Slerp(body.localRotation, target, ease);
+        }
+
+        private void Apply(float t)
+        {
+            body.localPosition = new Vector3(0f, lift, 0f);
+            shell.localScale = new Vector3(BodyScale * (1f + squash), BodyScale * (1f - squash), BodyScale * (1f + squash));
+
+            bodyBlock.SetVector(BodyColorId, bodyColor);
+            bodyBlock.SetFloat(ClockId, t);
+            bodyBlock.SetFloat(FlowId, flow);
+            bodyBlock.SetFloat(FlowSpeedId, flowSpeed);
+            bodyBlock.SetFloat(CrackId, crack);
+            bodyBlock.SetFloat(FogId, fog);
+            bodyBlock.SetFloat(SaturationId, saturation);
+            bodyBlock.SetFloat(GhostId, ghost);
+            bodyBlock.SetFloat(EyeKindId, eyeKind);
+            bodyBlock.SetFloat(EyeOpenId, eyeOpen);
+            bodyBlock.SetFloat(EyeInkId, eyeInk);
+            bodyBlock.SetVector(LookId, new Vector4(lookX, lookY, 0f, 0f));
+            bodyBlock.SetVector(EyeLayoutId, eyeLayout);
+            shellRenderer.SetPropertyBlock(bodyBlock);
+
+            haloRenderer.enabled = haloStrength > 0.004f;
+            if (haloRenderer.enabled)
+            {
+                haloBlock.SetColor(ColorId, new Color(haloColor.r, haloColor.g, haloColor.b, haloStrength));
+                haloRenderer.SetPropertyBlock(haloBlock);
+            }
+
+            ringRenderer.enabled = ringAlpha > 0.004f;
+            if (ringRenderer.enabled)
+            {
+                // Level around the body, tipping back and forth, and sweeping around.
+                ring.localRotation = Quaternion.Euler(90f + 25f * Mathf.Sin(t * 1.1f), 0f, 0f) * Quaternion.Euler(0f, 0f, t * 92f);
+                ringBlock.SetColor(ColorId, new Color(RingColor.r, RingColor.g, RingColor.b, 0.9f * ringAlpha));
+                ringRenderer.SetPropertyBlock(ringBlock);
+            }
+        }
+
+        private static float EyeKindOf(CharacterEyes eyes)
+        {
+            switch (eyes)
+            {
+                case CharacterEyes.Closed:
+                    return 1f;
+                case CharacterEyes.Crossed:
+                    return 2f;
+                case CharacterEyes.Flat:
+                    return 3f;
                 default:
-                    amplitude = 0.008f;
-                    speed = 0.8f;
-                    break;
+                    return 0f;
             }
-            // A character that needs a decision rises toward the user's eye line.
-            var lift = presentation.Attention == AttentionLevel.ActionRequired ? 0.1f : 0f;
-            body.localPosition = new Vector3(0f, lift + Mathf.Sin(Time.time * speed + phase) * amplitude, 0f);
+        }
+
+        /// <summary>Writes the title, status and notes under the character, wrapped to its width, on a plate.</summary>
+        private void ShowLabels(CharacterPresentation next, CharacterCues nextCues)
+        {
+            var statusLine = StatusLine(next);
+            var noteText = string.Join("\n", next.AttentionNotes);
+            if (next.Title == shownTitle && statusLine == shownStatus && noteText == shownNotes
+                && nextCues.Halo == shownHalo && nextCues.Ghosted == shownGhosted)
+            {
+                return;
+            }
+            shownTitle = next.Title;
+            shownStatus = statusLine;
+            shownNotes = noteText;
+            shownHalo = nextCues.Halo;
+            shownGhosted = nextCues.Ghosted;
+
+            var width = LabelWidth - 2f * LabelPadding;
+            title.text = Labels.Wrap(title, next.Title, width, 2, out var titleLines);
+            status.text = Labels.Wrap(status, statusLine, width, 2, out var statusLines);
+            var noteLines = 0;
+            notes.text = noteText.Length == 0 ? "" : Labels.Wrap(notes, noteText, width, 4, out noteLines);
+
+            var y = LabelTop - LabelPadding;
+            title.transform.localPosition = new Vector3(0f, y, 0f);
+            y -= titleLines * Labels.LineHeight(title) + LabelGap;
+            status.transform.localPosition = new Vector3(0f, y, 0f);
+            y -= statusLines * Labels.LineHeight(status);
+            if (noteLines > 0)
+            {
+                y -= LabelGap;
+                notes.transform.localPosition = new Vector3(0f, y, 0f);
+                y -= noteLines * Labels.LineHeight(notes);
+            }
+            var bottom = y - LabelPadding;
+
+            title.color = new Color(0.97f, 0.98f, 1f);
+            status.color = nextCues.Halo == CharacterHalo.NeedsYou ? new Color(1f, 0.8f, 0.47f)
+                : nextCues.Halo == CharacterHalo.Failed ? new Color(1f, 0.66f, 0.62f)
+                : new Color(0.8f, 0.85f, 0.93f);
+            notes.color = new Color(0.86f, 0.89f, 0.94f);
+
+            // Behind the text as the person sees it; the labels' forward axis points away from them.
+            var plate = plateRenderer.transform;
+            plate.localPosition = new Vector3(0f, (LabelTop + bottom) / 2f, 0.002f);
+            plate.localScale = new Vector3(LabelWidth, LabelTop - bottom, 1f);
+            plateBlock.SetColor(ColorId, new Color(0.06f, 0.07f, 0.09f, nextCues.Ghosted ? 0.45f : 0.62f));
+            plateBlock.SetVector(RectId, new Vector4(LabelWidth, LabelTop - bottom, 0.02f, 0f));
+            plateRenderer.SetPropertyBlock(plateBlock);
         }
 
         private static string StatusLine(CharacterPresentation character)
@@ -103,35 +556,6 @@ namespace Halcyonic.XR
             if (character.Recorded) line += " · recorded";
             if (character.Stale) line += " · last known";
             return line;
-        }
-
-        private static Color ColorOf(CharacterPresentation character)
-        {
-            Color color;
-            switch (character.Activity)
-            {
-                case CharacterActivity.Working:
-                case CharacterActivity.Verifying:
-                case CharacterActivity.Starting:
-                    color = new Color(0.35f, 0.62f, 0.95f);
-                    break;
-                case CharacterActivity.WaitingForHuman:
-                    color = new Color(0.98f, 0.76f, 0.3f);
-                    break;
-                case CharacterActivity.TurnFinished:
-                    color = new Color(0.45f, 0.8f, 0.55f);
-                    break;
-                case CharacterActivity.Failed:
-                    color = new Color(0.9f, 0.35f, 0.35f);
-                    break;
-                case CharacterActivity.Unknown:
-                    color = new Color(0.6f, 0.6f, 0.65f);
-                    break;
-                default:
-                    color = new Color(0.8f, 0.8f, 0.85f);
-                    break;
-            }
-            return character.Stale ? Color.Lerp(color, Color.gray, 0.6f) : color;
         }
     }
 }
