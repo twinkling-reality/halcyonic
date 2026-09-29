@@ -203,7 +203,10 @@ async function readThread(
   }
 }
 
-/** Runs one execution in a separate process that plays a control plane about to crash. */
+/**
+ * Runs one execution in a separate process that plays a control plane about to crash. Only this
+ * process holds the host's stdin, so the host exits when this process dies, however it dies.
+ */
 async function crashHost(t: TestContext, sandbox: CodexSandbox, marker: string) {
   const host: ChildProcess = spawn(
     process.execPath,
@@ -217,7 +220,7 @@ async function crashHost(t: TestContext, sandbox: CodexSandbox, marker: string) 
         instruction: `CMD:for i in $(seq 1 300); do echo tick >> ${marker}; sleep 0.2; done`,
       }),
     ],
-    { stdio: ['ignore', 'pipe', 'inherit'] },
+    { stdio: ['pipe', 'pipe', 'inherit'] },
   );
   t.after(() => host.kill('SIGKILL'));
   const line = await Promise.race([
@@ -631,6 +634,27 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       t.after(() => runtime.close());
       assert.deepEqual(await runtime.stopStaleServer(), { outcome: 'not_running', pid: serverPid });
       assert.equal(existsSync(sandbox.recordFile), false);
+      assertStayedLocal(sandbox);
+    },
+  );
+
+  test(
+    'a crash host exits when its stdin ends, as when its test dies, and leaves nothing running',
+    SLOW_TEST,
+    async (t) => {
+      const sandbox = await createSandbox(BINARY);
+      t.after(() => sandbox.cleanup());
+      const marker = `${sandbox.project}/marker.log`;
+      const { host, serverPid } = await crashHost(t, sandbox, marker);
+      const [watchdog] = watchdogsOf(host.pid ?? 0);
+      assert.ok(watchdog !== undefined);
+      const exited = new Promise((resolve) => host.once('exit', (code) => resolve(code)));
+      // What the operating system does to the host's stdin when this process dies.
+      host.stdin?.end();
+      assert.equal(await exited, 0);
+      await until(() => !alive(serverPid), 15_000, 'the server to exit');
+      await until(() => processesWith(marker).length === 0, 10_000, 'the command to stop');
+      await until(() => !alive(watchdog), 15_000, 'the watchdog to exit');
       assertStayedLocal(sandbox);
     },
   );
