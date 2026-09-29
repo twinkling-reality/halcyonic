@@ -5,12 +5,14 @@ import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type {
   EventEnvelope,
+  ExecutionId,
   RuntimeDescriptor,
   RuntimeId,
   WorkstreamId,
 } from '@halcyonic/contracts';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import {
+  type ObservationSink,
   RuntimeActionError,
   type RuntimeAdapter,
   type RuntimeObservation,
@@ -318,6 +320,102 @@ describe('truthful failure handling', () => {
     await time.runUntilIdle();
     assert.ok(!types(controlPlane.journal.readAll()).includes('runtime.agent_message'));
     assert.ok(entries.some((entry) => entry.message === 'runtime observation rejected'));
+    await controlPlane.close();
+  });
+
+  test('a native id reused for another execution or event type is dropped with a warning; a re-delivery is not', async () => {
+    const { logger, entries } = capturingLogger();
+    const sinks: ObservationSink[] = [];
+    const harness = createTestControlPlane({
+      logger,
+      adapters: () => [
+        stubRuntime('reusing', async (request) => {
+          sinks.push(request.emit);
+          return { native_id: null };
+        }),
+      ],
+    });
+    const { controlPlane, commands, time } = harness;
+    const start = async (): Promise<ExecutionId> => {
+      const workstreamId = await createWorkstream(harness);
+      controlPlane.commands.submit(
+        {
+          ...commands.startExecution(workstreamId, FEATURE),
+          payload: {
+            workstream_id: workstreamId,
+            runtime_id: 'reusing' as RuntimeId,
+            instruction: 'Go.',
+            options: {},
+          },
+        },
+        'internal',
+      );
+      await time.runUntilIdle();
+      const executionId = controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+      assert.ok(executionId);
+      return executionId;
+    };
+    const firstExecution = await start();
+    const secondExecution = await start();
+    const [first, second] = sinks;
+    assert.ok(first && second);
+    const started: RuntimeObservation = {
+      type: 'runtime.execution.started',
+      occurred_at: time.now().toISOString(),
+      native_event_id: 'native-1',
+      sequence: 1,
+      provenance: { epistemic: 'observed', native_type: null },
+      payload: { native_id: null },
+    };
+    const reuses = () =>
+      entries.filter(
+        (entry) =>
+          entry.level === 'warn' &&
+          entry.message === 'runtime reused a native event id; the event was not journaled',
+      );
+
+    first(started);
+    first(started);
+    assert.equal(reuses().length, 0, 'the same record delivered again is not a reuse');
+    assert.ok(entries.some((entry) => entry.message === 'duplicate event ignored'));
+
+    second(started);
+    first({
+      type: 'runtime.agent_message',
+      occurred_at: time.now().toISOString(),
+      native_event_id: 'native-1',
+      sequence: 2,
+      provenance: { epistemic: 'reported', native_type: null },
+      payload: { text: 'Private agent text.' },
+    });
+
+    const journaled = [...controlPlane.journal.readAll()].filter(
+      ({ event }) => event.source_native_id === 'native-1',
+    );
+    assert.deepEqual(
+      journaled.map(({ event }) => [event.execution_id, event.event_type]),
+      [[firstExecution, 'runtime.execution.started']],
+    );
+    const stored = journaled[0];
+    assert.ok(stored);
+    const reported = reuses().map(({ context }) => {
+      const { event_id, ...identifiers } = context as { event_id?: unknown };
+      assert.ok(typeof event_id === 'string' && event_id !== stored.event.event_id);
+      return identifiers;
+    });
+    const existing = {
+      runtime_id: 'reusing',
+      source_native_id: 'native-1',
+      existing_event_id: stored.event.event_id,
+      existing_event_type: 'runtime.execution.started',
+      existing_execution_id: firstExecution,
+      existing_position: stored.position,
+    };
+    assert.deepEqual(reported, [
+      { ...existing, event_type: 'runtime.execution.started', execution_id: secondExecution },
+      { ...existing, event_type: 'runtime.agent_message', execution_id: firstExecution },
+    ]);
+    assert.ok(!JSON.stringify(entries).includes('Private agent text.'), 'no payload text logged');
     await controlPlane.close();
   });
 

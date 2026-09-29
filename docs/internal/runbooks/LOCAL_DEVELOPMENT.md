@@ -231,6 +231,9 @@ all history and the access token; clients need the new token afterwards.
   `HALCYONIC_PORT`.
 - **Executions show `unknown` after a restart**: intended. Their runtime sessions did not survive
   the restart, so their true state cannot be known.
+- **`runtime reused a native event id` in the log**: a runtime adapter gave a different record the
+  native id of one already journaled, and the journal dropped it. It is an adapter defect; the
+  warning names both events ([EVENTS.md](../architecture/EVENTS.md)).
 - **`holds a fixture journal`**: the data directory contains a journal created as a fixture. Use a
   different `HALCYONIC_DATA_DIR`.
 - **pnpm fails to switch versions**: pnpm 10 cannot install pnpm 12's native binary. The

@@ -53,17 +53,49 @@ describe('SQLite journal', () => {
     assert.ok(runtimeEvent);
     const first = journal.append(runtimeEvent);
     assert.equal(first.status, 'appended');
+    const existing = {
+      eventId: runtimeEvent.event_id,
+      eventType: runtimeEvent.event_type,
+      executionId: runtimeEvent.execution_id,
+    };
     assert.deepEqual(journal.append(runtimeEvent), {
       status: 'duplicate',
       position: 1,
       matchedOn: 'event_id',
+      existing,
     });
     const redelivered = { ...runtimeEvent, event_id: ids.next() } as EventEnvelope;
     assert.deepEqual(journal.append(redelivered), {
       status: 'duplicate',
       position: 1,
       matchedOn: 'source_native_id',
+      existing,
     });
+    journal.close();
+  });
+
+  test('a duplicate names the event already journaled, not the one it refused', () => {
+    const journal = openSqliteJournal({ path: ':memory:', originIfNew: 'live', ids });
+    const runtimeEvents = TRACE.filter((event) => event.source_native_id !== null);
+    const stored = runtimeEvents[0];
+    const other = runtimeEvents.find(
+      (event) =>
+        event.execution_id !== stored?.execution_id && event.event_type !== stored?.event_type,
+    );
+    assert.ok(stored && other);
+    journal.append(stored);
+    const reusing = { ...other, source_native_id: stored.source_native_id } as EventEnvelope;
+    assert.deepEqual(journal.append(reusing), {
+      status: 'duplicate',
+      position: 1,
+      matchedOn: 'source_native_id',
+      existing: {
+        eventId: stored.event_id,
+        eventType: stored.event_type,
+        executionId: stored.execution_id,
+      },
+    });
+    assert.equal(journal.head(), 1);
     journal.close();
   });
 
