@@ -11,8 +11,15 @@ namespace Halcyonic.XR
     /// </summary>
     public sealed class CharacterView : MonoBehaviour
     {
+        /// <summary>
+        /// A primitive's default material uses the Standard shader, which a player build leaves out
+        /// when no asset in the build uses it; the body then renders magenta. This shader is in the
+        /// project's always-included shaders (Graphics settings).
+        /// </summary>
+        private const string BodyShader = "Legacy Shaders/Diffuse";
+
         private Transform body = null!;
-        private Renderer bodyRenderer = null!;
+        private Material bodyMaterial = null!;
         private TextMesh title = null!;
         private TextMesh status = null!;
         private TextMesh notes = null!;
@@ -34,7 +41,7 @@ namespace Halcyonic.XR
             title.text = next.Title;
             status.text = StatusLine(next);
             notes.text = string.Join("\n", next.AttentionNotes);
-            bodyRenderer.material.color = ColorOf(next);
+            bodyMaterial.color = ColorOf(next);
         }
 
         private void Build()
@@ -44,12 +51,22 @@ namespace Halcyonic.XR
             sphere.transform.SetParent(transform, false);
             sphere.transform.localScale = Vector3.one * 0.22f;
             body = sphere.transform;
-            bodyRenderer = sphere.GetComponent<Renderer>();
+            var bodyRenderer = sphere.GetComponent<Renderer>();
+            var shader = Shader.Find(BodyShader);
+            if (shader == null)
+            {
+                Debug.LogError("Halcyonic: the shader " + BodyShader + " is not in the build, so characters render magenta. Keep it in Graphics settings' Always Included Shaders.");
+                shader = bodyRenderer.sharedMaterial.shader;
+            }
+            bodyMaterial = new Material(shader);
+            bodyRenderer.sharedMaterial = bodyMaterial;
             title = Labels.Create(transform, "Title", new Vector3(0f, 0.24f, 0f), 0.003f);
             status = Labels.Create(transform, "Status", new Vector3(0f, -0.2f, 0f), 0.0025f);
             notes = Labels.Create(transform, "Notes", new Vector3(0f, -0.3f, 0f), 0.0018f);
             phase = Random.value * Mathf.PI * 2f;
         }
+
+        private void OnDestroy() => Destroy(bodyMaterial);
 
         private void Update()
         {

@@ -127,7 +127,9 @@ core Unity APIs:
   start and when an XR session starts, and never revives a session stopped in between.
 - `CharacterStage` places one placeholder character per workstream in an arc, and says above them
   whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
-  motion follows the activity, with the title, status and attention notes written out.
+  motion follows the activity, with the title, status and attention notes written out. The sphere
+  uses `Legacy Shaders/Diffuse`, one of the always-included shaders: a player build leaves out the
+  Standard shader of a primitive's default material, which then renders magenta.
 - `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
 
 Unity is not installed on the development machine yet, so none of this has been compiled or run
