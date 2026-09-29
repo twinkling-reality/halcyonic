@@ -29,13 +29,13 @@ const execution: ExecutionContext = {
   project_id: '01920000-0000-7000-8000-000000000001' as ProjectId,
 };
 
-function setup() {
+function setup(context: ExecutionContext = execution) {
   const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
   const runtime = new MockRuntimeAdapter({ scenarios: SCENARIOS, clock: time, scheduler: time });
   const observed: RuntimeObservation[] = [];
   const start = (scenario: string) =>
     runtime.startExecution({
-      execution,
+      execution: context,
       instruction: 'Do the work.',
       options: { scenario },
       emit: (observation) => observed.push(observation),
@@ -48,7 +48,7 @@ describe('mock runtime scenarios', () => {
   test('a successful feature runs its turn to completion', async () => {
     const { time, start, types } = setup();
     const result = await start('successful_feature');
-    assert.equal(result.native_id, 'mock-session-1');
+    assert.equal(result.native_id, `mock-session-${execution.execution_id}`);
     await time.runUntilIdle();
     assert.deepEqual(types(), [
       'runtime.execution.started',
@@ -96,6 +96,22 @@ describe('mock runtime scenarios', () => {
       const parsed = parseEventEnvelope(envelope);
       assert.ok(parsed.ok, JSON.stringify(parsed.ok ? null : parsed.issues));
     }
+  });
+
+  test('a new runtime instance never reuses native ids, because the journal outlives it', async () => {
+    const nativeIds = async (executionId: string) => {
+      const { time, start, observed } = setup({
+        ...execution,
+        execution_id: executionId as ExecutionId,
+      });
+      await start('successful_feature');
+      await time.runUntilIdle();
+      return observed.map((observation) => observation.native_event_id);
+    };
+    const first = await nativeIds(execution.execution_id);
+    const afterRestart = await nativeIds('01920000-0000-7000-8000-000000000004');
+    assert.ok(first.length > 0);
+    assert.equal(new Set([...first, ...afterRestart]).size, first.length + afterRestart.length);
   });
 
   test('a runtime error fails the turn with the scripted error', async () => {

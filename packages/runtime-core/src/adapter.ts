@@ -27,7 +27,11 @@ export type RuntimeObservation = {
   [T in RuntimeEventType]: {
     readonly type: T;
     readonly occurred_at: Timestamp;
-    /** Identifier of the native record, unique within the runtime instance. Used for deduplication. */
+    /**
+     * Identifier of the native record, used for deduplication. Unique for the runtime id for as
+     * long as the journal lives, across control plane restarts, not only within one process: the
+     * journal drops a record whose id it already holds.
+     */
     readonly native_event_id: string | null;
     /** Native ordering within the execution when the runtime provides one, otherwise arrival order. */
     readonly sequence: number | null;

@@ -10,6 +10,8 @@ history, replay, debugging and audit all come from the same record.
   clients track the last position they applied.
 - **Idempotency.** An event is journaled once per `event_id`, and a runtime record is journaled
   once per `(source, source_native_id)`, so a runtime record delivered twice is not duplicated.
+  A runtime's native ids must therefore stay unique for as long as the journal lives, across
+  control plane restarts: the journal drops a new record whose id it already holds.
 - **Identity.** Each journal has a `journal_id` and an `origin`: `live` for a running control plane,
   `fixture` for one loaded from a trace. Clients show fixture data as such.
 - **Durability.** WAL mode with `synchronous = FULL`; files are readable by their owner only.

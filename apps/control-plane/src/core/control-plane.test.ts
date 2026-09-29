@@ -10,7 +10,13 @@ import type {
   WorkstreamId,
 } from '@halcyonic/contracts';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
-import { RuntimeActionError, type RuntimeAdapter } from '@halcyonic/runtime-core';
+import {
+  RuntimeActionError,
+  type RuntimeAdapter,
+  type RuntimeObservation,
+  type StartExecutionRequest,
+  type StartExecutionResult,
+} from '@halcyonic/runtime-core';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { capturingLogger, createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
 
@@ -50,6 +56,21 @@ function stubRuntime(
     startExecution,
     close: async () => {},
   };
+}
+
+/** The mock runtime, keeping every observation it reports. */
+class ObservedMockRuntime extends MockRuntimeAdapter {
+  readonly observations: RuntimeObservation[] = [];
+
+  override startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
+    return super.startExecution({
+      ...request,
+      emit: (observation) => {
+        this.observations.push(observation);
+        request.emit(observation);
+      },
+    });
+  }
 }
 
 async function createWorkstream(
@@ -376,6 +397,45 @@ describe('restart', () => {
       { status: pending?.status, effect: pending?.failure?.effect },
       { status: 'failed', effect: 'unknown' },
     );
+    await second.controlPlane.close();
+  });
+
+  test('a mock runtime started after a restart has every observation journaled', async () => {
+    const path = join(directory, 'restart-mock.db');
+    const first = createTestControlPlane({ path });
+    const earlier = await createWorkstream(first);
+    first.controlPlane.commands.submit(first.commands.startExecution(earlier, FEATURE), 'internal');
+    await first.time.runUntilIdle();
+    assert.equal(first.controlPlane.projection.workstream(earlier)?.status, 'completed');
+    await first.controlPlane.close();
+
+    // A new control plane process on the same journal, with a new mock runtime.
+    const { time } = first;
+    const restarted = new ObservedMockRuntime({
+      scenarios: SCENARIOS,
+      clock: time,
+      scheduler: time,
+    });
+    const second = createTestControlPlane({ path, time, adapters: () => [restarted] });
+    second.controlPlane.reconcile();
+    const workstreamId = await createWorkstream(second);
+    second.controlPlane.commands.submit(
+      second.commands.startExecution(workstreamId, FEATURE),
+      'internal',
+    );
+    await time.runUntilIdle();
+
+    const executionId =
+      second.controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(restarted.observations.length > 0);
+    const journaled = [...second.journal.readAll()].filter(
+      ({ event }) => event.execution_id === executionId && event.source.kind === 'runtime',
+    );
+    assert.deepEqual(
+      journaled.map(({ event }) => [event.event_type, event.source_native_id]),
+      restarted.observations.map((observation) => [observation.type, observation.native_event_id]),
+    );
+    assert.equal(second.controlPlane.projection.workstream(workstreamId)?.status, 'completed');
     await second.controlPlane.close();
   });
 });
