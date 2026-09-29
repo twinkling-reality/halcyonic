@@ -12,8 +12,8 @@ namespace Halcyonic.XR
     /// </summary>
     internal static class CharacterMeshes
     {
-        /// <summary>Vertices around the outline; enough for a smooth silhouette at arm's length.</summary>
-        private const int Segments = 64;
+        /// <summary>Vertices around the outline; enough for smooth normals where an outline turns fast.</summary>
+        private const int Segments = 96;
 
         /// <summary>Rings of vertices from the center of the face to the center of the back.</summary>
         private const int Rings = 28;
@@ -218,7 +218,7 @@ namespace Halcyonic.XR
             for (var step = 0; step < 24; step++)
             {
                 var middle = (inside + outside) / 2f;
-                if (HexagonDistance(direction * middle, 0.72f) - 0.2f < 0f) inside = middle;
+                if (HexagonDistance(direction * middle, 0.6f) - 0.32f < 0f) inside = middle;
                 else outside = middle;
             }
             return (inside + outside) / 2f;

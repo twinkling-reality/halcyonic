@@ -62,7 +62,7 @@
 - A halo is 4.4 body radii across, so six halos cover about six times the bodies' area, at a dozen
   operations a pixel with blending; only needs you, failed, finished, running tests and unknown
   have one.
-- A body mesh has 1,730 vertices. Per character and frame the CPU writes a few transforms and three
+- A body mesh has 2,594 vertices. Per character and frame the CPU writes a few transforms and three
   property blocks, and allocates nothing; text is wrapped again only when it changes.
 
 ## Consequences
