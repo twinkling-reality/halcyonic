@@ -7,7 +7,7 @@ import {
 import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
-import type { EventJournal } from '../journal/journal.ts';
+import type { AppendResult, EventJournal } from '../journal/journal.ts';
 import type { Logger } from '../logger.ts';
 import type { EventPublisher } from './publisher.ts';
 
@@ -74,10 +74,7 @@ export class Recorder {
 
     const appended = this.#deps.journal.append(event);
     if (appended.status === 'duplicate') {
-      this.#deps.logger.debug(
-        { event_id: event.event_id, position: appended.position, matched_on: appended.matchedOn },
-        'duplicate event ignored',
-      );
+      this.#reportDuplicate(event, appended);
       return { status: 'duplicate', position: appended.position };
     }
 
@@ -95,5 +92,42 @@ export class Recorder {
     }
     this.#deps.publisher.publish({ position: appended.position, event, changes });
     return { status: 'recorded', position: appended.position, event };
+  }
+
+  /**
+   * A record delivered again, or an event imported again, is expected and ignored quietly. A
+   * native id that already names an event of another execution or type is not a re-delivery:
+   * the runtime reused the id and this event is lost, so that is a warning. The log carries
+   * identifiers only, never payload text.
+   */
+  #reportDuplicate(
+    event: EventEnvelope,
+    duplicate: Extract<AppendResult, { status: 'duplicate' }>,
+  ): void {
+    const { existing } = duplicate;
+    const reused =
+      duplicate.matchedOn === 'source_native_id' &&
+      (existing.executionId !== event.execution_id || existing.eventType !== event.event_type);
+    if (!reused) {
+      this.#deps.logger.debug(
+        { event_id: event.event_id, position: duplicate.position, matched_on: duplicate.matchedOn },
+        'duplicate event ignored',
+      );
+      return;
+    }
+    this.#deps.logger.warn(
+      {
+        runtime_id: event.source.kind === 'runtime' ? event.source.runtime_id : null,
+        source_native_id: event.source_native_id,
+        event_id: event.event_id,
+        event_type: event.event_type,
+        execution_id: event.execution_id,
+        existing_event_id: existing.eventId,
+        existing_event_type: existing.eventType,
+        existing_execution_id: existing.executionId,
+        existing_position: duplicate.position,
+      },
+      'runtime reused a native event id; the event was not journaled',
+    );
   }
 }

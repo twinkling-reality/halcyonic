@@ -149,9 +149,11 @@ class SqliteJournal implements EventJournal {
         event_id, event_type, project_id, workstream_id, execution_id,
         source_kind, source_id, source_native_id, occurred_at, ingested_at, envelope
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-    this.#findByEventId = db.prepare('SELECT position FROM events WHERE event_id = ?');
+    this.#findByEventId = db.prepare(
+      'SELECT position, event_id, event_type, execution_id FROM events WHERE event_id = ?',
+    );
     this.#findByNativeId = db.prepare(
-      'SELECT position FROM events WHERE source_kind = ? AND source_id = ? AND source_native_id = ?',
+      'SELECT position, event_id, event_type, execution_id FROM events WHERE source_kind = ? AND source_id = ? AND source_native_id = ?',
     );
     this.#head = db.prepare('SELECT COALESCE(MAX(position), 0) AS head FROM events');
     this.#readAfter = db.prepare(
@@ -168,23 +170,15 @@ class SqliteJournal implements EventJournal {
 
   append(event: EventEnvelope): AppendResult {
     const sourceId = event.source.kind === 'runtime' ? event.source.runtime_id : '';
-    const byEventId = this.#findByEventId.get(event.event_id) as { position: number } | undefined;
-    if (byEventId !== undefined) {
-      return { status: 'duplicate', position: byEventId.position, matchedOn: 'event_id' };
-    }
+    const byEventId = this.#findByEventId.get(event.event_id) as IdentityRow | undefined;
+    if (byEventId !== undefined) return duplicate(byEventId, 'event_id');
     if (event.source_native_id !== null) {
       const byNativeId = this.#findByNativeId.get(
         event.source.kind,
         sourceId,
         event.source_native_id,
-      ) as { position: number } | undefined;
-      if (byNativeId !== undefined) {
-        return {
-          status: 'duplicate',
-          position: byNativeId.position,
-          matchedOn: 'source_native_id',
-        };
-      }
+      ) as IdentityRow | undefined;
+      if (byNativeId !== undefined) return duplicate(byNativeId, 'source_native_id');
     }
     const result = this.#insert.run(
       event.event_id,
@@ -226,6 +220,27 @@ class SqliteJournal implements EventJournal {
     this.#closed = true;
     this.#db.close();
   }
+}
+
+/** The columns that say which event a duplicate matched, without reading its envelope. */
+interface IdentityRow {
+  readonly position: number;
+  readonly event_id: string;
+  readonly event_type: string;
+  readonly execution_id: string | null;
+}
+
+function duplicate(row: IdentityRow, matchedOn: 'event_id' | 'source_native_id'): AppendResult {
+  return {
+    status: 'duplicate',
+    position: row.position,
+    matchedOn,
+    existing: {
+      eventId: row.event_id,
+      eventType: row.event_type,
+      executionId: row.execution_id,
+    },
+  };
 }
 
 /** Stored events are validated on the way out too: the journal is data, not trusted code. */

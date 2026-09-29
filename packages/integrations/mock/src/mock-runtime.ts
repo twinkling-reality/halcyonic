@@ -69,7 +69,6 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
   readonly #clock: Clock;
   readonly #scheduler: Scheduler;
   readonly #sessions = new Map<ExecutionId, MockSession>();
-  #sessionCount = 0;
   #closed = false;
 
   constructor(options: MockRuntimeOptions) {
@@ -118,9 +117,11 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    this.#sessionCount += 1;
+    // Named after the execution, not a count of this process's sessions: the journal outlives
+    // the process and deduplicates by native id, so a name reused after a restart would make it
+    // drop every observation of the new session.
     const session = new MockSession(
-      `mock-session-${this.#sessionCount}`,
+      `mock-session-${request.execution.execution_id}`,
       request.emit,
       this.#clock,
       this.#scheduler,

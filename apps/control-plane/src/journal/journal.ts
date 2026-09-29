@@ -4,9 +4,19 @@ export type AppendResult =
   | { readonly status: 'appended'; readonly position: number }
   | {
       readonly status: 'duplicate';
+      /** Position of the event already in the journal. */
       readonly position: number;
       /** Which identity matched an event already in the journal. */
       readonly matchedOn: 'event_id' | 'source_native_id';
+      /**
+       * The event already in the journal, so a caller can tell a record delivered again from an
+       * id its source reused for a different record.
+       */
+      readonly existing: {
+        readonly eventId: string;
+        readonly eventType: string;
+        readonly executionId: string | null;
+      };
     };
 
 export interface ReadOptions {
