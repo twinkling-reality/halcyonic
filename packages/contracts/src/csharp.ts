@@ -2,6 +2,7 @@ import { indexDefinitions, NAMED_DEFINITIONS } from './definitions.ts';
 import {
   COMMAND_SCHEMA_VERSION,
   EVENT_SCHEMA_VERSION,
+  PAIRING_PROTOCOL_VERSION,
   REALTIME_PROTOCOL_VERSION,
 } from './versions.ts';
 
@@ -26,6 +27,9 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   ApprovalSubject: { discriminator: 'kind', suffix: 'Subject' },
   UnderstandingResult: { discriminator: 'availability', suffix: 'Understanding' },
   EvaluationResult: { discriminator: 'availability', suffix: 'Evaluation' },
+  Principal: { discriminator: 'kind', suffix: 'Principal' },
+  PairingClientMessage: { discriminator: 'type', suffix: 'Message' },
+  PairingServerMessage: { discriminator: 'type', suffix: 'Message' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
@@ -42,6 +46,8 @@ const ROOTS: readonly string[] = [
   'ErrorResponse',
   'UnderstandingResponse',
   'EvaluationResponse',
+  'PairingClientMessage',
+  'PairingServerMessage',
 ];
 
 interface CsType {
@@ -443,6 +449,7 @@ function header(): string[] {
     `        public const int EventSchema = ${EVENT_SCHEMA_VERSION};`,
     `        public const int CommandSchema = ${COMMAND_SCHEMA_VERSION};`,
     `        public const int RealtimeProtocol = ${REALTIME_PROTOCOL_VERSION};`,
+    `        public const int PairingProtocol = ${PAIRING_PROTOCOL_VERSION};`,
     '    }',
     '',
     '    /// <summary>',

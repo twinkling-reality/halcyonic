@@ -9,7 +9,9 @@ import {
   PolicyCategory,
   ReceivedVia,
 } from './commands.ts';
+import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
 import {
+  DeviceId,
   ErrorInfo,
   EventId,
   ExecutionId,
@@ -99,6 +101,12 @@ const CommandScope = {
   workstream_id: Nullable(WorkstreamId),
   execution_id: Nullable(ExecutionId),
 };
+/** Facts about the control plane itself, such as its paired devices, belong to no project. */
+const NoScope = {
+  project_id: Type.Null(),
+  workstream_id: Type.Null(),
+  execution_id: Type.Null(),
+};
 
 function projectEvent<const T extends string, P extends TSchema>(eventType: T, payload: P) {
   return Type.Object(
@@ -144,6 +152,19 @@ function commandEvent<const T extends string, P extends TSchema>(eventType: T, p
     {
       ...EnvelopeBase,
       ...CommandScope,
+      event_type: Type.Literal(eventType),
+      source: ControlPlaneSource,
+      payload,
+    },
+    strict,
+  );
+}
+
+function controlPlaneEvent<const T extends string, P extends TSchema>(eventType: T, payload: P) {
+  return Type.Object(
+    {
+      ...EnvelopeBase,
+      ...NoScope,
       event_type: Type.Literal(eventType),
       source: ControlPlaneSource,
       payload,
@@ -207,10 +228,22 @@ export const ExecutionStateUnknown = executionEvent(
   ),
 );
 
+/**
+ * Who submitted the command, as the control plane authenticated it. Null for a command from inside
+ * the control plane, and for commands journaled before principals were recorded, which the journal
+ * reads as null.
+ */
+const CommandPrincipal = Nullable(Principal);
+
 export const CommandAccepted = commandEvent(
   'command.accepted',
   Type.Object(
-    { command: CommandEnvelope, policy: PolicyCategory, received_via: ReceivedVia },
+    {
+      command: CommandEnvelope,
+      policy: PolicyCategory,
+      received_via: ReceivedVia,
+      principal: CommandPrincipal,
+    },
     strict,
   ),
 );
@@ -218,9 +251,39 @@ export const CommandAccepted = commandEvent(
 export const CommandRejected = commandEvent(
   'command.rejected',
   Type.Object(
-    { command: CommandEnvelope, rejection: CommandRejection, received_via: ReceivedVia },
+    {
+      command: CommandEnvelope,
+      rejection: CommandRejection,
+      received_via: ReceivedVia,
+      principal: CommandPrincipal,
+    },
     strict,
   ),
+);
+
+/**
+ * A device proved it saw the pairing code and received its credential (ADR 0017). Only the
+ * credential's SHA-256 is kept; the credential exists only on the device.
+ */
+export const DevicePaired = controlPlaneEvent(
+  'device.paired',
+  Type.Object(
+    {
+      device_id: DeviceId,
+      /** Self-declared by the device; recorded for display, never trusted. */
+      label: DeviceLabel,
+      credential_sha256: Sha256Hex,
+      /** The TLS certificate the device saw and pinned. */
+      certificate_sha256: Sha256Hex,
+    },
+    strict,
+  ),
+);
+
+/** The device's credential is no longer accepted. */
+export const DeviceRevoked = controlPlaneEvent(
+  'device.revoked',
+  Type.Object({ device_id: DeviceId, revoked_by: Principal }, strict),
 );
 
 /** The action was carried out, confirmed by the runtime where a runtime was involved. */
@@ -362,6 +425,8 @@ export const EVENT_VARIANTS = [
   CommandRejected,
   CommandCompleted,
   CommandFailed,
+  DevicePaired,
+  DeviceRevoked,
   RuntimeExecutionStarted,
   RuntimeTurnStarted,
   RuntimeTurnCompleted,
@@ -383,6 +448,15 @@ export type EventType = EventEnvelope['event_type'];
 export type EventOf<T extends EventType> = Extract<EventEnvelope, { event_type: T }>;
 export type RuntimeEvent = Extract<EventEnvelope, { source: { kind: 'runtime' } }>;
 export type ControlPlaneEvent = Exclude<EventEnvelope, RuntimeEvent>;
+export type DeviceEvent = Extract<EventEnvelope, { event_type: `device.${string}` }>;
+
+/**
+ * Device events are the control plane's own record of who may reach it. They carry no work, and
+ * realtime clients never receive them (docs/internal/architecture/REALTIME.md).
+ */
+export function isDeviceEvent(event: EventEnvelope): event is DeviceEvent {
+  return event.event_type === 'device.paired' || event.event_type === 'device.revoked';
+}
 
 /** An event as stored in the journal, with the position the journal assigned to it. */
 export const StoredEvent = Type.Object(

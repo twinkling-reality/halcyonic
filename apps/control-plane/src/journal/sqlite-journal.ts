@@ -43,6 +43,10 @@ const MIGRATIONS: readonly string[] = [
   CREATE INDEX events_workstream ON events (workstream_id, position);
   CREATE INDEX events_execution ON events (execution_id, position);
   `,
+  // Command events record their principal. Nothing stored changes: events journaled before this
+  // read with a null principal (see readStoredEnvelope). The version tells an older build, whose
+  // contract has no principal, to refuse the journal rather than fail on its newer events.
+  '-- 2: command events carry a principal',
 ];
 
 export const JOURNAL_SCHEMA_VERSION = MIGRATIONS.length;
@@ -245,7 +249,7 @@ function duplicate(row: IdentityRow, matchedOn: 'event_id' | 'source_native_id')
 
 /** Stored events are validated on the way out too: the journal is data, not trusted code. */
 function toStoredEvent(row: { position: number; envelope: string }): StoredEvent {
-  const parsed = parseEventEnvelope(JSON.parse(row.envelope));
+  const parsed = parseEventEnvelope(readStoredEnvelope(JSON.parse(row.envelope)));
   if (!parsed.ok) {
     const details = parsed.issues.map((issue) => `${issue.path} ${issue.message}`).join('; ');
     throw new JournalError(
@@ -253,4 +257,23 @@ function toStoredEvent(row: { position: number; envelope: string }): StoredEvent
     );
   }
   return { position: row.position, event: parsed.value };
+}
+
+/**
+ * Reads an event as the contract now describes it. Only a field added later, whose value for older
+ * events is known, belongs here; the stored text is never rewritten.
+ */
+function readStoredEnvelope(envelope: unknown): unknown {
+  if (typeof envelope !== 'object' || envelope === null) return envelope;
+  const { event_type: type, payload } = envelope as Record<string, unknown>;
+  if (
+    (type === 'command.accepted' || type === 'command.rejected') &&
+    typeof payload === 'object' &&
+    payload !== null &&
+    !('principal' in payload)
+  ) {
+    // Journaled before principals were recorded (journal schema 1): who sent it is not known.
+    return { ...envelope, payload: { ...payload, principal: null } };
+  }
+  return envelope;
 }
