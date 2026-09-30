@@ -57,7 +57,7 @@ public class UsageLeftTests
         Assert.That(words, Does.Not.Contain("allowance").IgnoreCase);
         Assert.That(words, Does.Not.Contain("remaining").IgnoreCase);
         Assert.That(words, Does.Not.Contain(" now").IgnoreCase);
-        Assert.That(words, Does.Not.Contain("—"));
+        Assert.That(words, Does.Not.Contain("\u2014"));
     }
 
     [Test]
