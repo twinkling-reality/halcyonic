@@ -70,6 +70,13 @@ client                                   server
 - **Acknowledgements.** `command_ack` reports `accepted`, `rejected`, `duplicate` or `conflict`.
   Because events are recorded while the command is handled, a client may receive the command's
   events before its acknowledgement; correlate by `command_id`.
+- **Rejection codes.** A rejected command's record carries a code and a message in words. The
+  code `demonstration` never comes from a control plane: only the XR client's recorded
+  demonstration, which stands in for one on a device without one, answers with it. It means the
+  command was sent to no control plane and no agent, however admissible it was in the recording,
+  and the message says how the recording continues. It was added without a new protocol version
+  because no control plane sends it, so no client of an older version can receive it
+  ([XR_CLIENT.md](XR_CLIENT.md)).
 - **Errors.** `error {error: {code, message, issues}, fatal}`. Invalid JSON or an invalid message
   after `hello` is not fatal. Fatal errors close with code 1008.
 - **Liveness.** The server pings every 15 seconds and drops a client that misses a pong.

@@ -7045,6 +7045,10 @@
         {
           "type": "string",
           "const": "invalid_runtime_options"
+        },
+        {
+          "type": "string",
+          "const": "demonstration"
         }
       ]
     },
