@@ -138,3 +138,32 @@ only at debug level. The same demo on a fresh data directory completed.
 - The stage could place itself in front of the user after a recenter or boundary change rather
   than at the world origin.
 - The system menu check remains for the next session with the wearer.
+
+## Second session: characters and the workspace (2026-09-29, evening)
+
+The build from `b3b5f1a` (the characters of ADR 0013 and the workspace of ADR 0014), against a
+control plane on a clean data directory, driven by `pnpm demo` held at its approval. The owner
+wore the headset with Meta's Virtual Display showing their Mac.
+
+- **Verified:** the bots rendered on the arc with their written statuses, the character that
+  needed a decision rose in the middle with its approval explained, and the owner opened its
+  workspace by pinching at it. The panel showed the objective, the approval and the recent
+  activity, with agent text marked as such. Approving with the second press reached the control
+  plane as `execution.respond_to_approval`, completed, and the panel then showed "Approval
+  answered", the test run passing and "Turn finished" from the runtime's own events, offering only
+  Instruct afterwards. Opening the workspace read its history over REST, so `HttpClient` works under
+  IL2CPP on the Quest 3 too.
+- **Virtual Display inside Halcyonic:** the Mac's screens appeared as windows inside Halcyonic's
+  scene, and captures included them. With them open, input focus went to whichever the hand ray
+  reached first, and the windows hung in front of the characters. The XR session flapped between
+  focused and visible dozens of times, OVRPlugin reported reference space changes with its recenter
+  count reaching 99, and the stage re-placed itself about every two seconds. After the owner
+  minimized the windows, Virtual Display stayed the top resumed activity and Halcyonic stayed
+  unfocused, showing no rays, until `am start` brought it to the front.
+- **Interaction:** the gaze peek appeared over each character the head swept past; the hand ray
+  appeared only at one raised hand angle, so pointing from a relaxed seated posture failed; the
+  panel let the labels behind it show through and covered the rest of the arc.
+- **Not checked:** instructing through the system keyboard, collapsing, and the system menu.
+- The log line `Hands: failed to remap HAND_TRACKER ... missing runtime permission(s)` refers to
+  `horizonos.permission.internal.ACCESS_HAND_TRACKING`, an internal permission third-party apps are
+  not granted; hand tracking itself worked.
