@@ -200,17 +200,28 @@ first or set `HALCYONIC_PORT`.
 | --- | --- | --- |
 | A contract in `packages/contracts` | `pnpm contracts:emit` | Review the schema and C# diffs, then `pnpm test:csharp` |
 | Contracts, the pipeline, the mock runtime or a scenario | `pnpm fixtures:record` | Review the trace diff |
-| Contracts, the pipeline or `fixtures/traces/multiple_workstreams.jsonl` | `pnpm demonstration:record` | Review the demonstration diff, then `pnpm test:csharp` |
+| Contracts, the pipeline, the mock runtime, a scenario it plays, or its plan | `pnpm demonstration:record` | Review the demonstration diff, then `pnpm test:csharp` |
 
 `pnpm check` fails when any generated file is stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
 checks the trace alone, and `node apps/control-plane/src/cli/record-demonstration.ts --check` the
 demonstration alone.
 
-The demonstration is what the XR client plays when no control plane is configured or reachable
-([XR_CLIENT.md](../architecture/XR_CLIENT.md)): the welcome, snapshot and event messages a client
-receives from `pnpm replay fixtures/traces/multiple_workstreams.jsonl`, and when, recorded by the
-control plane under virtual time into `apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json`.
-Re-record the trace first when both are stale.
+The demonstration is what the XR client plays when no control plane is configured or reachable,
+and it follows the answers a person gives ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). Its plan,
+in `apps/control-plane/src/fixtures/demonstration.ts`, names a project, three workstreams, the mock
+scenarios they play (`order_history_pagination` and `order_confirmation_email` beside the story,
+`sign_in_rate_limit` for it) and the instructions offered once the story's first turn has ended.
+The recorder runs the real control plane with the mock runtime under virtual time with seeded
+identifiers, once for the beginning and again from the start for every answer the recording offers:
+approve, deny, and stop the turn wherever a workspace would offer them, and each recorded
+instruction. The runs share their beginning exactly, and it writes them as one tree into
+`apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json`, about 490 KiB. Where a path would
+leave work open to an action it has no answer for, it ends with its control plane started again
+without runtimes, as a replay serves a journal. The recorder names the two runtimes for the
+demonstration, "Simulated agent (demonstration)" and "Simulated agent (demonstration, watch only)";
+both are the synthetic mock runtime, and the second declares nothing but starting work. Every
+answer multiplies what follows it, so a longer story or another directed workstream grows the
+file quickly; its tests check that the workspace offers exactly the answers recorded.
 
 ## Test the C# client
 

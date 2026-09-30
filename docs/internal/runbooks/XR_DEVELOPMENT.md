@@ -350,4 +350,49 @@ controller. Then, in the headset:
 - **Legible.** Every line readable where the workspace opens, and the peek at the character's
   distance, without leaning in.
 
+### The demonstration judges see
+
+A headset with no access token plays the recorded demonstration and follows your answers
+([XR_CLIENT.md](../architecture/XR_CLIENT.md)). To see it on a headset that has a token, move the
+token aside and start the app again; move it back afterwards:
+
+```bash
+adb shell mv /sdcard/Android/data/com.halcyonic.xr/files/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token.off
+adb shell am force-stop com.halcyonic.xr
+adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+# afterwards
+adb shell mv /sdcard/Android/data/com.halcyonic.xr/files/access-token.off /sdcard/Android/data/com.halcyonic.xr/files/access-token
+```
+
+Then, with hands only:
+
+- **The line.** Above the stage: "Demonstration: recorded, simulated work played on this device, not
+  live." and "It follows your answers, and nothing reaches an agent."
+- **Beside the story.** Of three characters, "Paginate the order history endpoint" and "Send an
+  order confirmation email" work for about five seconds and finish. Opened, each shows "On Simulated
+  agent (demonstration, watch only)" and no buttons.
+- **The story.** "Add rate limiting to the sign-in endpoint" then works, and about nine seconds in
+  it needs you, with "Approval needed to use shell: Run make migrate …". It waits as long as you
+  like. Opened: "On Simulated agent (demonstration), simulated work", and Approve, Deny and Stop the
+  turn.
+- **Approve.** After the confirmation, Requests reads "Not sent to any agent; the recording
+  continues as recorded for approving.", and the recording continues: "demonstration recorder asked
+  to approve", "Approved", the migration, then "Tests failed: 1 failed, 23 passed" and "Turn
+  finished".
+- **Instruct.** Instruct offers two buttons instead of the keyboard, "Count per account too" and
+  "Change the test instead". Either one: "Not sent to any agent; the recording continues as recorded
+  for “…”.", a new turn, and "24 passed".
+- **Deny** instead: the agent says it did not run the migration; Instruct then offers "Keep them in
+  memory", which also ends with the tests passing. **Stop the turn**, at any moment while it works
+  or waits: "Stopped".
+- **The end.** Once the story has ended, the line adds "This recording has ended and starts again
+  shortly.", and the workspace says nothing can be sent. About 20 seconds later the characters go
+  back to "Not started" and it plays again, with no "Disconnected" and no "last known" on the
+  way; an open workspace shows none of the earlier activity or answers. Unanswered instructions
+  also give way to a new start after a minute.
+- **Sleep.** Take the headset off until it sleeps and put it back on: the demonstration plays from
+  its beginning.
+- **Log.** `adb logcat -s Unity` shows `Halcyonic: demonstration plays from its beginning (n)` at
+  each start and `demonstration reached an end` at each end, and never what was answered.
+
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

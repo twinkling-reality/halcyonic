@@ -97,3 +97,9 @@ synchronized. After any disconnect:
 
 A different `journal_id` means a different journal (for example a fresh data directory or a
 fixture replay): discard local state and apply the snapshot.
+
+A client applies a snapshot whenever one arrives, not only after `welcome`. A control plane sends
+one only there, but the recorded demonstration sends its beginning's snapshot again, on the same
+connection, each time it starts again. That snapshot names the same journal at an earlier position:
+the client's history and commands from after that position no longer apply, and the XR client
+core reports it as a rewind (`StateChanges.Rewound`).

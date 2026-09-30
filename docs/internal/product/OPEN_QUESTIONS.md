@@ -13,7 +13,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | How much direct coding belongs in the expanded workspace? | Avoids rebuilding an IDE | Usage in the workbench |
 | Does idea inception belong in the first release? | Scope | Product decision after the core mechanic works |
 | When does guided learning help rather than distract? | Future policy design | Research after the base product works |
-| What do competition judges run: a demonstration on the headset, a hosted control plane, or both? May they act in a demonstration, which cannot confirm a command? | Judges have no Mac and no `adb`, and the FAQ asks that an entry need no third-party device | The owner's decision on [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) |
+| The demonstration holds at its approval until someone answers. Should it continue on its own after a while, with an answer the recording names as its own, for a judge who never opens the character? | A judge who does not find the workspace sees the story stop at "Needs you" until the headset sleeps | The owner, after watching someone new to the app use it on a headset |
+| Do judges read the demonstration's watch-only characters as a limit of the recording rather than of the product? Only one of its three workstreams can be directed ([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)). | A judge who tries a watched character first finds no action | Headset sessions with people new to the app |
 | Would the competition accept an entry that depends on a service the entrant runs? The FAQ speaks only of devices. | Decides whether a hosted control plane is an option for judges at all | A written answer from the organizers |
 
 ## Integrations
