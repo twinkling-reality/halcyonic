@@ -53,8 +53,9 @@ namespace Halcyonic.XR.Workspace
             if (line != shownLine)
             {
                 shownLine = line;
-                text.text = line;
-                width = Mathf.Min(MaxWidth, text.GetPreferredValues(line).x + 0.01f);
+                // What needs the person or what it did last: words from agents and tools, shown as written.
+                WorkspaceVisuals.SetLiteral(text, line);
+                width = Mathf.Min(MaxWidth, text.GetPreferredValues(text.text).x + 0.01f);
             }
             var eased = Mathf.SmoothStep(0f, 1f, opacity);
             text.color = WithAlpha(WorkspaceVisuals.TextColor, eased);

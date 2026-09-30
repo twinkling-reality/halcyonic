@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -26,7 +25,8 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// The words of the peek and of the expanded workspace, so the XR layer only lays them out. Agent
-    /// text is always marked as a claim, and every state is written out, never left to color.
+    /// text is always marked as a claim, every state is written out, never left to color, and text
+    /// Halcyonic did not write shows by <see cref="LabelText"/>'s rule.
     /// </summary>
     public static class WorkspaceText
     {
@@ -56,6 +56,17 @@ namespace Halcyonic.Client
         /// <summary>What the workspace says when it offers presets instead of the keyboard.</summary>
         public const string PresetPrompt = "No keyboard here. Send one of these instead:";
 
+        /// <summary>What the confirmation asks while part of the request it answers has not been shown yet.</summary>
+        public const string ReadRequestFirst = "Read the whole request below before approving it.";
+
+        /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
+        public const string RequestNotRead = "Nothing was sent: read the whole request before approving it.";
+
+        /// <summary>The buttons that step through a request shown in parts.</summary>
+        public const string PreviousPart = "Previous part";
+
+        public const string NextPart = "Next part";
+
         /// <summary>The status label with its qualifiers, for example "Needs you · simulated · last known".</summary>
         public static string StatusLine(CharacterPresentation character)
         {
@@ -75,7 +86,7 @@ namespace Halcyonic.Client
         {
             var execution = workspace.Execution;
             if (execution == null) return "No execution yet.";
-            var line = "On " + (workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
+            var line = "On " + OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
             if (execution.Runtime.Synthetic) line += ", simulated work";
             line += execution.TurnCount == 1 ? " · 1 turn" : " · " + execution.TurnCount.ToString(CultureInfo.InvariantCulture) + " turns";
             // Gone from the control plane, or never there, as in a recording.
@@ -105,15 +116,34 @@ namespace Halcyonic.Client
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
-        /// <summary>The question a deliberate confirmation asks, naming exactly what would be sent.</summary>
-        public static string ConfirmationPrompt(WorkspaceAction action, ApprovalView? approval, string? instruction) => action switch
+        /// <summary>
+        /// The question a deliberate confirmation asks, naming exactly what would be sent. Approving
+        /// and denying ask about the request shown whole below the question (<see cref="Request"/>).
+        /// </summary>
+        public static string ConfirmationPrompt(WorkspaceAction action, string? instruction) => action switch
         {
-            WorkspaceAction.Approve => "Approve this request? " + Subject(approval),
-            WorkspaceAction.Deny => "Deny this request? " + Subject(approval),
+            WorkspaceAction.Approve => "Approve the request below?",
+            WorkspaceAction.Deny => "Deny the request below?",
             WorkspaceAction.Interrupt => "Stop the current turn? The runtime confirms when it has stopped.",
             WorkspaceAction.Instruct => "Send this instruction? “" + OneLine(instruction ?? "") + "”",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
+
+        /// <summary>
+        /// The whole of what an approval asks for, as the runtime reported it: the tool and what it
+        /// would do, for example "bash: Run the migration". Never shortened; the workspace shows it in
+        /// parts when it does not fit.
+        /// </summary>
+        public static string Request(ApprovalView? approval) => approval?.Subject switch
+        {
+            ToolUseSubject tool => OneLine(tool.ToolName) + ": " + OneLine(tool.Summary),
+            _ => "The runtime asked for approval.",
+        };
+
+        /// <summary>The caption over a request shown whole, with which part shows when it takes more than one.</summary>
+        public static string RequestCaption(int part, int parts) => parts <= 1
+            ? "The whole request"
+            : "The whole request, part " + part.ToString(CultureInfo.InvariantCulture) + " of " + parts.ToString(CultureInfo.InvariantCulture);
 
         public static string ConfirmLabel(WorkspaceAction action) => action switch
         {
@@ -161,40 +191,27 @@ namespace Halcyonic.Client
             return Truncate(OneLine(line), maxLength);
         }
 
-        /// <summary>Shortens text to at most <paramref name="maxLength"/> characters, ending in an ellipsis when cut.</summary>
+        /// <summary>
+        /// Shortens text to at most <paramref name="maxLength"/> characters, ending in an ellipsis when
+        /// cut, and never between the two halves of a character outside the Basic Multilingual Plane.
+        /// </summary>
         public static string Truncate(string text, int maxLength)
         {
             if (maxLength < 1) throw new ArgumentOutOfRangeException(nameof(maxLength), maxLength, "Must be at least 1.");
             if (text.Length <= maxLength) return text;
-            return text.Substring(0, maxLength - 1).TrimEnd() + "…";
+            var kept = maxLength - 1;
+            if (kept > 0 && char.IsHighSurrogate(text[kept - 1])) kept--;
+            return text.Substring(0, kept).TrimEnd() + "…";
         }
 
-        /// <summary>Collapses line breaks and runs of whitespace, so text fits a single line.</summary>
-        public static string OneLine(string text)
-        {
-            var result = new StringBuilder(text.Length);
-            var space = false;
-            foreach (var character in text)
-            {
-                if (char.IsWhiteSpace(character))
-                {
-                    space = result.Length > 0;
-                    continue;
-                }
-                if (space) result.Append(' ');
-                space = false;
-                result.Append(character);
-            }
-            return result.ToString();
-        }
+        /// <summary>
+        /// Text as one line of exactly what it says, by the one rule for text Halcyonic did not write
+        /// (<see cref="LabelText.Plain"/>): line breaks and tabs as spaces, and what would not show as
+        /// itself shown as its code point.
+        /// </summary>
+        public static string OneLine(string text) => LabelText.Plain(text);
 
         private static string Describe(ActivityEntry entry) =>
             entry.Reported ? "Agent says: “" + OneLine(entry.Text) + "”" : OneLine(entry.Text);
-
-        private static string Subject(ApprovalView? approval) => approval?.Subject switch
-        {
-            ToolUseSubject tool => tool.ToolName + ": " + OneLine(tool.Summary),
-            _ => "The runtime asked for approval.",
-        };
     }
 }

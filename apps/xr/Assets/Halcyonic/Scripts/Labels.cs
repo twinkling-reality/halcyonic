@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Text;
+using Halcyonic.Client;
 using UnityEngine;
 
 namespace Halcyonic.XR
@@ -9,6 +10,11 @@ namespace Halcyonic.XR
     /// World-space text with Unity's built-in font, so labels need no imported assets, and the
     /// plates that keep it legible over any background. Text is measured with the font's own glyph
     /// advances, so it wraps to a width instead of spilling into the next character's labels.
+    ///
+    /// Titles, attention notes and connection details come from outside, so a label never interprets
+    /// markup (TextMesh's rich text is on by default, and would hide text in a transparent color),
+    /// and every line goes through the one rule for text Halcyonic did not write
+    /// (<see cref="LabelText.Plain"/>). TextMesh parses no backslash escapes, so backslashes stay single.
     /// </summary>
     internal static class Labels
     {
@@ -73,6 +79,7 @@ namespace Halcyonic.XR
             text.anchor = anchor;
             text.alignment = TextAlignment.Center;
             text.color = Color.white;
+            text.richText = false;
             return text;
         }
 
@@ -107,7 +114,8 @@ namespace Halcyonic.XR
         /// <summary>
         /// Breaks text into lines no wider than <paramref name="width"/>, at spaces where it can, and
         /// keeps at most <paramref name="maxLines"/> lines, ending with an ellipsis when some text had
-        /// to be left out.
+        /// to be left out. Each line of the text, as it separates them, shows by the one rule for text
+        /// Halcyonic did not write.
         /// </summary>
         public static string Wrap(TextMesh label, string text, float width, int maxLines, out int lineCount)
         {
@@ -115,7 +123,7 @@ namespace Halcyonic.XR
             foreach (var paragraph in text.Split('\n'))
             {
                 var current = "";
-                foreach (var word in paragraph.Split(' '))
+                foreach (var word in LabelText.Plain(paragraph).Split(' '))
                 {
                     if (word.Length == 0) continue;
                     var candidate = current.Length == 0 ? word : current + " " + word;

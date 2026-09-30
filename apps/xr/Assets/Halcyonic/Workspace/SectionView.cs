@@ -12,12 +12,12 @@ namespace Halcyonic.XR.Workspace
     /// line, which may wrap, then each claim with its epistemic class beside it, or each measurement
     /// with its part. It derives nothing; the client core's presenters write every word.
     ///
-    /// Everything it shows can come from a source, which may quote an agent, so it is untrusted. Its
-    /// labels never interpret markup (rich text off), and every text goes through
-    /// <see cref="IntelligenceText.ForTextMeshPro"/> with escape parsing on, because TextMeshPro turns
-    /// backslash sequences such as \n or A into other characters even with rich text off:
-    /// each label shows exactly what was written. WorkspaceRender checks it on real labels in the
-    /// editor.
+    /// Everything it shows can come from a source, which may quote an agent, so it is untrusted. Every
+    /// label shows its text through <see cref="WorkspaceVisuals.SetLiteral"/>, the one rule for text
+    /// Halcyonic did not write: no markup, every backslash doubled for escape parsing, since
+    /// TextMeshPro turns backslash sequences into other characters even with rich text off, and what
+    /// would not show as itself shown as its code point. Each label shows exactly what was written.
+    /// WorkspaceRender checks it on real labels in the editor.
     /// </summary>
     public sealed class SectionView : MonoBehaviour
     {
@@ -58,14 +58,6 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        /// <summary>Shows text exactly as written: no markup, and backslashes as they are.</summary>
-        public static void SetPlain(TextMeshPro label, string text)
-        {
-            label.richText = false;
-            label.parseCtrlCharacters = true;
-            label.text = IntelligenceText.ForTextMeshPro(text);
-        }
-
         public void Show(SectionPresentation section)
         {
             provenance.color = ColorOf(section.ProvenanceTone);
@@ -84,7 +76,7 @@ namespace Halcyonic.XR.Workspace
                 text.gameObject.SetActive(shown);
                 if (!shown) continue;
                 var line = section.Lines[index];
-                SetPlain(tag, line.Tag);
+                WorkspaceVisuals.SetLiteral(tag, line.Tag);
                 tag.rectTransform.localPosition = new Vector3(WorkspacePanel.DetailsLeft, y, -0.001f);
                 text.fontSize = line.Detail ? WorkspaceVisuals.CaptionSize : WorkspaceVisuals.DetailSize;
                 text.color = line.Detail && line.Tone == SectionTone.Secondary ? WorkspaceVisuals.SecondaryColor : ColorOf(line.Tone);
@@ -100,7 +92,7 @@ namespace Halcyonic.XR.Workspace
         private static int Place(TextMeshPro label, string text, float left, float top, int maxRows)
         {
             var width = WorkspacePanel.DetailsLeft + WorkspacePanel.DetailsWidth - left;
-            SetPlain(label, text);
+            WorkspaceVisuals.SetLiteral(label, text);
             label.textWrappingMode = maxRows > 1 ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
             label.rectTransform.localPosition = new Vector3(left, top, -0.001f);
             label.rectTransform.sizeDelta = new Vector2(width, maxRows * Pitch);

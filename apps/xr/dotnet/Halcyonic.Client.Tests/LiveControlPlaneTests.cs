@@ -198,6 +198,8 @@ public class LiveControlPlaneTests
 
         Assert.That(steering.Press(WorkspaceAction.Approve, Workspace()).Step, Is.EqualTo(SteeringStep.Confirm),
             "the control plane marks answering an approval for review");
+        Assert.That(steering.Request(Workspace()), Does.StartWith("bash: "), "the whole request shows below the question");
+        steering.RequestShown(1, 1);
         var approve = steering.Confirm(Workspace());
         Assert.That(approve.Step, Is.EqualTo(SteeringStep.Send));
         await submissions.SubmitAsync(command => session!.SubmitAsync(command), approve.Command!, executionId);
