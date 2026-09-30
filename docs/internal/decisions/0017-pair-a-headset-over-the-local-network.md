@@ -36,6 +36,11 @@ Verified on 2026-09-29, with the evidence in
     `ClientWebSocket` uses and that already works on the Quest over `ws://`.
   - `ECDiffieHellman.Create` and `ECDsa.Create` throw `NotImplementedException`.
     `BigInteger.ModPow` is implemented.
+- **At runtime in the Unity editor** (Mono with UnityTLS, whose WebSocket and TLS classes
+  disassemble the same as the headset's): `ClientWebSocket` refused a self-signed certificate
+  with `UNITYTLS_X509VERIFY_FLAG_NOT_TRUSTED` without calling its options' callback or
+  `ServicePointManager`'s, while a pinning `SslStream` callback with `WebSocket.CreateFromStream`
+  paired with a real control plane and carried a live session.
 - **Node.js 24's crypto** offers ECDH, signatures and certificate parsing, but no elliptic curve
   point addition, no scalar multiplication of an arbitrary point and no hash to curve, and it
   cannot issue a certificate ([nodejs.org, Crypto](https://nodejs.org/docs/latest-v24.x/api/crypto.html)).
@@ -124,7 +129,7 @@ headset can do what its owner could over that network until the owner revokes it
 - **What each listener serves.** Loopback: everything as before with the access token, plus
   pairing windows and the device list and revocation. Network: `GET /api/health`, the pairing
   WebSocket `/pair`, and, with a device credential, the realtime stream, REST reads and commands,
-  and `DELETE /api/device` (a device revokes itself). The access token is never accepted on the
+  and `POST /api/device/revoke` (a device revokes itself). The access token is never accepted on the
   network listener. Both refuse any `Origin` and cross-site fetches; the network listener accepts
   only an IP address or a `.local` name, with its port, as `Host`.
 - **Pairing window.** `pnpm pair` opens one through loopback and prints the addresses, the port and
