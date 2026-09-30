@@ -35,6 +35,8 @@ namespace Halcyonic.Client
         public bool HasExpectedResult => State == NewWorkSubmissionState.Completed && Command switch
         {
             ProjectCreateCommand => EffectiveRecord?.Result is ProjectCreatedResult,
+            // Binding a project to a folder completes with no result.
+            ProjectSetLocationCommand => EffectiveRecord?.Result == null,
             WorkstreamCreateCommand => EffectiveRecord?.Result is WorkstreamCreatedResult,
             ExecutionStartCommand => EffectiveRecord?.Result is ExecutionCreatedResult,
             _ => false,
