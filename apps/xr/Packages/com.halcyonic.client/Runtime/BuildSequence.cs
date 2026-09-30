@@ -8,6 +8,9 @@ namespace Halcyonic.Client
     public enum BuildStepKind
     {
         CreateProject,
+
+        /// <summary><c>project.set_location</c>: an existing project bound to the folder the person chose.</summary>
+        BindFolder,
         CreateWorkstream,
         StartWork,
     }
@@ -48,8 +51,14 @@ namespace Halcyonic.Client
 
         public BuildStepStatus Status { get; internal set; }
 
-        /// <summary>The control plane's reason for a refusal or failure, as it gave it.</summary>
+        /// <summary>The control plane's reason for a refusal or failure, as it gave it: text from outside.</summary>
         public string? Reason { get; internal set; }
+
+        /// <summary>The refusal's code, which decides the words and the next action offered.</summary>
+        public RejectionCode? Refusal { get; internal set; }
+
+        /// <summary>The failure's code, as the control plane gave it, such as <c>location_not_created</c>.</summary>
+        public string? Failure { get; internal set; }
 
         /// <summary>A failure whose effect the control plane could not rule out.</summary>
         public bool EffectUnknown { get; internal set; }
@@ -57,13 +66,14 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// Start building: the ordinary commands, sent one at a time, each only once the control plane
-    /// recorded the one before it completed: <c>project.create</c> for a new project,
-    /// <c>workstream.create</c>, then <c>execution.start</c>. A projected record wins over a missing
-    /// or lost acknowledgement (<see cref="NewWorkSubmission"/>). A refusal or failure stops the
-    /// sequence and says why. While a command's outcome is unknown, or it failed with an effect that
-    /// cannot be ruled out, or completed with an unexpected result, its id stays in
-    /// <see cref="Unresolved"/>, and nothing more is sent: a blind retry could start the same work
-    /// twice. Accepted is not done: a step is confirmed only by its completed record.
+    /// recorded the one before it completed: <c>project.create</c> for a new project, with the folder
+    /// the person chose, or <c>project.set_location</c> first when an existing project is to work in
+    /// another folder; then <c>workstream.create</c> and <c>execution.start</c>. A projected record wins
+    /// over a missing or lost acknowledgement (<see cref="NewWorkSubmission"/>). A refusal or failure
+    /// stops the sequence and says why, keeping its code. While a command's outcome is unknown, or it
+    /// failed with an effect that cannot be ruled out, or completed with an unexpected result, its id
+    /// stays in <see cref="Unresolved"/>, and nothing more is sent: a blind retry could start the same
+    /// work twice. Accepted is not done: a step is confirmed only by its completed record.
     /// </summary>
     public sealed class BuildSequence
     {
@@ -71,16 +81,23 @@ namespace Halcyonic.Client
         private readonly CommandFactory commands;
         private readonly List<BuildStep> steps = new List<BuildStep>();
         private string? newProjectName;
+        private ProjectLocationChoice? location;
         private int index;
 
         /// <param name="draft">The runtime, model and first task, with its project unless one is created.</param>
         /// <param name="newProjectName">The project to create first, or null to add the work to the draft's project.</param>
-        public BuildSequence(NewWorkDraft draft, CommandFactory commands, string? newProjectName)
+        /// <param name="folder">
+        /// Where the project's files live: sent with <c>project.create</c> for a new project, or bound
+        /// first with <c>project.set_location</c> for an existing one; null to leave it as it is.
+        /// </param>
+        public BuildSequence(NewWorkDraft draft, CommandFactory commands, string? newProjectName, ProjectLocationChoice? folder = null)
         {
             this.draft = draft ?? throw new ArgumentNullException(nameof(draft));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
             this.newProjectName = newProjectName;
+            location = folder;
             if (newProjectName != null) steps.Add(new BuildStep(BuildStepKind.CreateProject));
+            else if (folder != null) steps.Add(new BuildStep(BuildStepKind.BindFolder));
             steps.Add(new BuildStep(BuildStepKind.CreateWorkstream));
             steps.Add(new BuildStep(BuildStepKind.StartWork));
         }
@@ -102,6 +119,9 @@ namespace Halcyonic.Client
         /// <summary>A step was refused, failed, not sent, or ended unexpectedly; nothing more is sent.</summary>
         public bool Stopped { get; private set; }
 
+        /// <summary>The step that stopped the sequence, or null while it runs or once it started the work.</summary>
+        public BuildStep? StoppedAt => Stopped && index < steps.Count ? steps[index] : null;
+
         /// <summary>
         /// The id of the command that may have run without this headset knowing its result. While
         /// set, the entry panel keeps it on the device and offers no other start.
@@ -112,7 +132,7 @@ namespace Halcyonic.Client
         public CommandEnvelope Begin()
         {
             if (index != 0 || Current != null) throw new InvalidOperationException("The sequence has begun.");
-            return Send(newProjectName != null ? commands.CreateProject(newProjectName) : draft.CreateWorkstream());
+            return Send(CommandFor(steps[0].Kind));
         }
 
         /// <summary>
@@ -124,22 +144,27 @@ namespace Halcyonic.Client
         /// <summary>
         /// Sends the stopped step again as a new command built from the draft as it is now, for
         /// example after the person chose another runtime; <paramref name="projectName"/> replaces the
-        /// name of a project not created yet.
+        /// name of a project not created yet. With <paramref name="folder"/>, a project not created yet
+        /// is created there, and a project that exists is bound to it first with
+        /// <c>project.set_location</c>, as after <c>location_required</c> or <c>location_missing</c>.
         /// </summary>
-        public CommandEnvelope Retry(string? projectName = null)
+        public CommandEnvelope Retry(string? projectName = null, ProjectLocationChoice? folder = null)
         {
             if (!CanRetry) throw new InvalidOperationException("Only a step that cannot have run is sent again.");
             if (projectName != null) newProjectName = projectName;
+            if (folder != null) location = folder;
             Stopped = false;
             var step = steps[index];
             step.Reason = null;
+            step.Refusal = null;
+            step.Failure = null;
             step.EffectUnknown = false;
-            return Send(step.Kind switch
+            if (folder != null && step.Kind != BuildStepKind.CreateProject && step.Kind != BuildStepKind.BindFolder)
             {
-                BuildStepKind.CreateProject => commands.CreateProject(newProjectName!),
-                BuildStepKind.CreateWorkstream => draft.CreateWorkstream(),
-                _ => draft.StartExecution(WorkstreamId!),
-            });
+                // The project exists: bind it to the folder before the step is sent again.
+                steps.Insert(index, new BuildStep(BuildStepKind.BindFolder));
+            }
+            return Send(CommandFor(steps[index].Kind));
         }
 
         /// <summary>The acknowledgement of the command in flight.</summary>
@@ -173,12 +198,14 @@ namespace Halcyonic.Client
                 case NewWorkSubmissionState.Rejected:
                     step.Status = BuildStepStatus.Refused;
                     step.Reason = current.EffectiveRecord?.Rejection?.Message;
+                    step.Refusal = current.EffectiveRecord?.Rejection?.Code;
                     Unresolved = null;
                     return Stop();
                 case NewWorkSubmissionState.Failed:
                     var failure = current.EffectiveRecord?.Failure;
                     step.Status = BuildStepStatus.Failed;
                     step.Reason = failure?.Message;
+                    step.Failure = failure?.Code;
                     step.EffectUnknown = failure?.Effect == FailureEffect.Unknown;
                     if (!step.EffectUnknown) Unresolved = null;
                     return Stop();
@@ -190,21 +217,31 @@ namespace Halcyonic.Client
             }
             step.Status = BuildStepStatus.Confirmed;
             Unresolved = null;
-            index++;
             switch (current.EffectiveRecord!.Result)
             {
                 case ProjectCreatedResult project:
                     draft.ProjectId = project.ProjectId;
-                    return Send(draft.CreateWorkstream());
+                    break;
                 case WorkstreamCreatedResult workstream:
                     WorkstreamId = workstream.WorkstreamId;
-                    return Send(draft.StartExecution(workstream.WorkstreamId));
-                default:
+                    break;
+                case ExecutionCreatedResult _:
+                    index++;
                     Current = null;
                     Started = true;
                     return null;
             }
+            index++;
+            return Send(CommandFor(steps[index].Kind));
         }
+
+        private CommandEnvelope CommandFor(BuildStepKind kind) => kind switch
+        {
+            BuildStepKind.CreateProject => commands.CreateProject(newProjectName!, location),
+            BuildStepKind.BindFolder => commands.SetProjectLocation(draft.ProjectId!, location!),
+            BuildStepKind.CreateWorkstream => draft.CreateWorkstream(),
+            _ => draft.StartExecution(WorkstreamId!),
+        };
 
         private CommandEnvelope Send(CommandEnvelope command)
         {
