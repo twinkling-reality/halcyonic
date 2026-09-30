@@ -37,6 +37,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Question | Why it matters | Resolved by |
 | --- | --- | --- |
 | Does a sustained WebSocket survive Quest focus changes, sleep and headset removal? | Multitasking is a kill condition | Hardware validation record |
+| Does a recenter with the palm gesture come with an input focus change? The stage in front of the person comes to the person after a recenter only when no focus change comes with it, since the reference space changes that come with focus changes are ignored ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)). | A person who recenters to find the stage could find it stays where it was | The recenter check in the milestone 3 runbook |
+| With system windows open over the app, can a person return input focus to Halcyonic with hands by pinching at its content, as Meta's requirements describe, also after minimizing the windows? And do the windows, drawn over the app, hide the workspace where they overlap it? | In the second headset session Halcyonic stayed unfocused until `adb` brought it to the front | The Virtual Display checks in the milestone 3 runbook |
 | Does `System.Net.WebSockets.ClientWebSocket` work on Quest (Android, IL2CPP), including `wss://`? | The XR transport | First-week device test; keep a native fallback |
 | Microphone behavior during multitasking and media playback | Voice interaction | Hardware validation |
 | How do XR clients find the control plane on a LAN? | Local mode | Design plus hardware test |
