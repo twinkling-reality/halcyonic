@@ -133,7 +133,11 @@ What a client sees and can do about folders on the host
 - **A device can make empty folders** directly inside a root, one per `project.create` or
   `project.set_location`, and bind projects to any folder directly inside a root. It cannot make
   one elsewhere, name a deeper folder, follow a link, or delete anything. Nothing limits how many
-  it makes.
+  it makes: there is no per-principal or per-device limit on folder creation, so a paired device
+  can fill a root with empty folders until the owner revokes it.
+- **Listing reads a bounded part of each root**: at most 10,000 entries, in the order the file
+  system returns them, then sorts the folders among them and keeps 200; a root with more entries is
+  marked truncated, and its folders past the first 10,000 entries are not offered.
 - **A folder that changes after it was bound** is checked again at every start: gone or no longer
   a folder is `location_missing`, now leading elsewhere through a symbolic link is
   `location_missing` too, and outside the roots is `location_not_allowed`. Work already running
@@ -150,7 +154,9 @@ records the principal that sent it, as the control plane authenticated it, besid
 self-declared identity, which is recorded for audit and never trusted. What differs between them
 today is device management: opening a pairing window, listing devices and revoking one are served
 on loopback only, and a device can revoke no credential but its own. Commands are admitted alike
-for both. Every accepted command records its policy category (`low_consequence`,
+for both: any authenticated principal, a paired device included, can rebind any project to another
+folder with `project.set_location`, which changes where that project's later work runs, as it can
+start work in any project. Every accepted command records its policy category (`low_consequence`,
 `review_required`, `high_consequence`); categories do not yet restrict anyone. No
 `high_consequence` command exists; merge, deploy, delete and destructive commands must not be added
 until explicit human confirmation and a policy that tells principals apart exist.
