@@ -1,7 +1,9 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 
 namespace Halcyonic.Client
 {
@@ -52,10 +54,23 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<string> Pages => pages;
 
-        private static string Safe(string value) => LabelText.Plain(value
-            .Replace("\r", " ‹carriage return› ")
-            .Replace("\n", " ‹line break› ")
-            .Replace("\t", " ‹tab› "));
+        // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
+        // control character in ASCII, and double a literal backslash so a typed marker differs.
+        private static string Safe(string value)
+        {
+            var result = new StringBuilder(value.Length);
+            for (var index = 0; index < value.Length; index++)
+            {
+                var unit = value[index];
+                var paired = char.IsHighSurrogate(unit) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]);
+                var codePoint = paired ? char.ConvertToUtf32(unit, value[index + 1]) : unit;
+                if (unit == '\\') result.Append("\\\\");
+                else if (codePoint >= 0x20 && codePoint <= 0x7E) result.Append(unit);
+                else result.Append("\\u{").Append(codePoint.ToString("X", CultureInfo.InvariantCulture)).Append('}');
+                if (paired) index++;
+            }
+            return result.ToString();
+        }
 
         private static void Add(List<string> lines, string text)
         {
@@ -64,13 +79,28 @@ namespace Halcyonic.Client
                 lines.Add("");
                 return;
             }
+            var line = new StringBuilder(LineCharacters);
             for (var index = 0; index < text.Length;)
             {
-                var length = Math.Min(LineCharacters, text.Length - index);
-                if (index + length < text.Length && char.IsHighSurrogate(text[index + length - 1])) length--;
-                lines.Add(text.Substring(index, length));
+                var length = 1;
+                if (text[index] == '\\' && index + 1 < text.Length)
+                {
+                    if (text[index + 1] == '\\') length = 2;
+                    else if (text[index + 1] == 'u' && index + 2 < text.Length && text[index + 2] == '{')
+                    {
+                        var end = text.IndexOf('}', index + 3);
+                        if (end >= 0) length = end + 1 - index;
+                    }
+                }
+                if (line.Length + length > LineCharacters)
+                {
+                    lines.Add(line.ToString());
+                    line.Clear();
+                }
+                line.Append(text, index, length);
                 index += length;
             }
+            if (line.Length > 0) lines.Add(line.ToString());
         }
     }
 }
