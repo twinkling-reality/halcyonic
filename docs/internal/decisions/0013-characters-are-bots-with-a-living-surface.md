@@ -24,6 +24,11 @@ inspired them, and nothing was copied.
 
 The characters render on a Meta Quest 3 at 72 Hz, six at once, beside system windows that open
 within about 2 m of the person ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)).
+The competition's rules, which the owner shared the same day, add four constraints: keep essential
+interface and interactions within a comfortable, narrower field of view that adapts across devices,
+since a Quest 3S and Meta's glasses see less than a Quest 3; run at 60 frames a second or more;
+show no brand names, logos or recognizable branded products; and work for a seated person, within
+about 2 ft, without standing or reaching far.
 
 ## Decision
 
@@ -50,6 +55,15 @@ The owner chose bots.
 | Last known (not live) | As they were | Frozen | Ghosted into a halftone of dots |
 | Not started, starting | Open; down on the task | Breathes; a quick bob | None |
 
+- The characters stand on an arc of fixed slots 2.4 m away, beyond the system windows. By default
+  60 degrees lie between the outermost, so every character and its labels stay within about 36
+  degrees of where the person faced, and characters that need attention stand in the middle. The
+  person looks at them and points at them from the seat; nothing needs them to stand or reach.
+- Six characters are built to take little of a 72 Hz frame, above the rules' 60 frames a second:
+  noise is baked into a texture instead of computed per pixel, each body is one pass, and nothing
+  allocates per frame. The cost is estimated, not yet measured on a headset
+  ([character-rendering.md](../validation/character-rendering.md)).
+- Nothing on a character shows a brand: shapes, hues and eyes are drawn in code.
 - A finished turn gets no celebration, because it proves nothing about correctness.
 - Everything is code: meshes generated in C#, two shaders, and a noise texture baked at startup. No
   rigging, and no purchased or generated assets, so everything stays under the project's license.
@@ -74,6 +88,8 @@ The owner chose bots.
 - Characters move all the time while work runs. Whether that stays calm over a long session, in
   the corner of the person's eye while they code, is open
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- The arc does not adapt to a device's field of view at run time. Its default fits a Quest 3 and a
+  Quest 3S; another device needs its span and distance tuned.
 - Custom shaders must ship through materials that the build includes
   ([XR_CLIENT.md](../architecture/XR_CLIENT.md)).
 - Revisit if hardware sessions show that the characters are decoration, a kill condition, or that

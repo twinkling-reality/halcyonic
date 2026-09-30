@@ -56,8 +56,8 @@
   and 185 while working, with at most two texture reads in any state, from a 128 by 128 noise
   texture (64 KB) baked once at startup. The lookbook's satin flow evaluated 3D value noise 16 times
   per pixel, about 120 operations each: some 2,000 operations, ten times the whole body shader.
-- A body about 0.42 m wide at 2.4 m spans about 10 degrees. At about 20 pixels per degree in the eye
-  buffer that is about 31,000 pixels per eye, and about 380,000 pixels a frame for six characters
+- A body about 0.34 m wide at 2.4 m spans about 8 degrees. At about 20 pixels per degree in the eye
+  buffer that is about 20,000 pixels per eye, and about 240,000 pixels a frame for six characters
   in both eyes.
 - A halo is 4.4 body radii across, so six halos cover about six times the bodies' area, at a dozen
   operations a pixel with blending; only needs you, failed, finished, running tests and unknown
@@ -73,7 +73,8 @@
 
 ## To check on the headset
 
-1. The characters render in both eyes, none magenta, with their labels readable at 2.4 m.
+1. The characters render in both eyes, none magenta, with their labels readable at 2.4 m, and the
+   outermost labels end within about 36 degrees of straight ahead.
 2. With six characters animating, `adb logcat -s VrApi` reports 72 fps with no stale frames, and
    the app's GPU time stays well under a frame.
 3. After a recenter and after a boundary change, the stage stands in front of the person again, and

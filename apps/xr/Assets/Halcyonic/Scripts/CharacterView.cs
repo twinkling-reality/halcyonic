@@ -23,21 +23,25 @@ namespace Halcyonic.XR
         /// The radius of a sphere around <see cref="Body"/>'s origin that holds the body in every
         /// state, in Body's local units.
         /// </summary>
-        public const float BodyRadius = 0.12f;
+        public const float BodyRadius = 0.1f;
 
-        /// <summary>The body mesh is about one unit in radius; this makes it 8.8 cm at the one-meter scale.</summary>
-        private const float BodyScale = 0.088f;
+        /// <summary>
+        /// The body mesh is about one unit in radius; this makes it 7 cm at the one-meter scale, about
+        /// 8 degrees across.
+        /// </summary>
+        private const float BodyScale = 0.07f;
 
-        private const float LabelWidth = 0.3f;
-        private const float LabelTop = -0.125f;
-        private const float LabelPadding = 0.012f;
-        private const float LabelGap = 0.006f;
-        private const float TitleEm = 0.024f;
-        private const float StatusEm = 0.02f;
-        private const float NotesEm = 0.018f;
+        /// <summary>The widest a label plate gets: about 11 degrees, less than the 12 between slots.</summary>
+        private const float LabelWidth = 0.2f;
+        private const float LabelTop = -0.1f;
+        private const float LabelPadding = 0.01f;
+        private const float LabelGap = 0.005f;
+        private const float TitleEm = 0.021f;
+        private const float StatusEm = 0.018f;
+        private const float NotesEm = 0.016f;
 
         /// <summary>How far a character that needs its person rises, at most.</summary>
-        private const float RiseHeight = 0.1f;
+        private const float RiseHeight = 0.085f;
 
         private const float EyeSwitchSeconds = 0.18f;
 
@@ -240,45 +244,45 @@ namespace Halcyonic.XR
             switch (cues.Motion)
             {
                 case CharacterMotion.Breathe:
-                    targetLift = Mathf.Sin(t * 1.3f) * 0.0035f;
+                    targetLift = Mathf.Sin(t * 1.3f) * 0.003f;
                     targetSquash = Mathf.Sin(t * 1.3f) * 0.012f;
                     break;
                 case CharacterMotion.Warm:
-                    targetLift = Mathf.Sin(t * 2.4f) * 0.005f;
+                    targetLift = Mathf.Sin(t * 2.4f) * 0.004f;
                     targetSquash = Mathf.Sin(t * 4.8f) * 0.01f;
                     yaw = Mathf.Sin(t * 0.9f) * 0.08f;
                     break;
                 case CharacterMotion.Hop:
                 {
                     var hop = Mathf.Abs(Mathf.Sin(t * 3.1f));
-                    targetLift = hop * 0.018f;
+                    targetLift = hop * 0.0145f;
                     targetSquash = hop < 0.22f ? (0.22f - hop) * 0.35f : 0f;
                     yaw = Mathf.Sin(t * 0.6f) * 0.18f;
                     break;
                 }
                 case CharacterMotion.Hover:
-                    targetLift = Mathf.Sin(t * 1.4f) * 0.004f;
+                    targetLift = Mathf.Sin(t * 1.4f) * 0.0032f;
                     break;
                 case CharacterMotion.Rise:
-                    targetLift = RiseRoom() + Mathf.Sin(t * 2.1f) * 0.003f;
+                    targetLift = RiseRoom() + Mathf.Sin(t * 2.1f) * 0.0025f;
                     targetSquash = -Mathf.Max(0f, Mathf.Sin(t * 4.2f)) * 0.025f;
                     break;
                 case CharacterMotion.Settle:
-                    targetLift = -0.004f + Mathf.Sin(t * 1.1f) * 0.0012f;
+                    targetLift = -0.0032f + Mathf.Sin(t * 1.1f) * 0.001f;
                     targetSquash = 0.02f + Mathf.Sin(t * 1.1f) * 0.01f;
                     break;
                 case CharacterMotion.Slump:
-                    targetLift = -0.012f;
+                    targetLift = -0.0095f;
                     targetSquash = 0.07f;
                     roll = 0.14f;
                     break;
                 case CharacterMotion.Drift:
-                    targetLift = Mathf.Sin(t * 0.7f) * 0.0025f;
+                    targetLift = Mathf.Sin(t * 0.7f) * 0.002f;
                     yaw = Mathf.Sin(t * 0.31f) * 0.1f;
                     break;
                 case CharacterMotion.Frozen:
                     // Stopped mid-hop, a little turned.
-                    targetLift = 0.007f;
+                    targetLift = 0.0056f;
                     targetSquash = -0.03f;
                     yaw = 0.12f;
                     roll = -0.05f;
@@ -515,7 +519,7 @@ namespace Halcyonic.XR
             shownGhosted = nextCues.Ghosted;
 
             var width = LabelWidth - 2f * LabelPadding;
-            title.text = Labels.Wrap(title, next.Title, width, 2, out var titleLines);
+            title.text = Labels.Wrap(title, next.Title, width, 3, out var titleLines);
             status.text = Labels.Wrap(status, statusLine, width, 2, out var statusLines);
             var noteLines = 0;
             notes.text = noteText.Length == 0 ? "" : Labels.Wrap(notes, noteText, width, 4, out noteLines);
@@ -539,12 +543,15 @@ namespace Halcyonic.XR
                 : new Color(0.8f, 0.85f, 0.93f);
             notes.color = new Color(0.86f, 0.89f, 0.94f);
 
-            // Behind the text as the person sees it; the labels' forward axis points away from them.
+            // As wide as the widest line, so neighbours' plates keep apart. Behind the text as the
+            // person sees it; the labels' forward axis points away from them.
+            var textWidth = Mathf.Max(Labels.WidestLine(title), Mathf.Max(Labels.WidestLine(status), Labels.WidestLine(notes)));
+            var plateWidth = Mathf.Min(LabelWidth, textWidth + 2f * LabelPadding);
             var plate = plateRenderer.transform;
             plate.localPosition = new Vector3(0f, (LabelTop + bottom) / 2f, 0.002f);
-            plate.localScale = new Vector3(LabelWidth, LabelTop - bottom, 1f);
+            plate.localScale = new Vector3(plateWidth, LabelTop - bottom, 1f);
             plateBlock.SetColor(ColorId, new Color(0.06f, 0.07f, 0.09f, nextCues.Ghosted ? 0.45f : 0.62f));
-            plateBlock.SetVector(RectId, new Vector4(LabelWidth, LabelTop - bottom, 0.02f, 0f));
+            plateBlock.SetVector(RectId, new Vector4(plateWidth, LabelTop - bottom, 0.016f, 0f));
             plateRenderer.SetPropertyBlock(plateBlock);
         }
 
