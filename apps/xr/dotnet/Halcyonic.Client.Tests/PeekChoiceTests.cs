@@ -51,11 +51,11 @@ public class PeekChoiceTests
     }
 
     [Test]
-    public void TheGazePeeksOnlyAfterRestingOnACharacterForHalfASecond()
+    public void TheGazePeeksOnlyAfterRestingOnACharacterForTheDwell()
     {
         var frames = Resting("a");
 
-        frames.Run(0.45f);
+        frames.Run(PeekChoice.DwellSeconds - 0.05f);
         Assert.That(frames.Choice.Shown, Is.Null, "not yet: the gaze has rested less than the dwell");
 
         frames.Run(0.1f);
@@ -65,6 +65,30 @@ public class PeekChoiceTests
 
         frames.Run(PeekChoice.FadeInSeconds);
         Assert.That(frames.Choice.Opacity, Is.EqualTo(1f));
+    }
+
+    [Test]
+    public void AShowingPeekAllowsAnEarlyPinchAndReportsWhatBlocksIt()
+    {
+        var frames = Resting("a", offCenter: 9f);
+        frames.Step();
+        Assert.That(frames.Choice.PinchBlock, Is.EqualTo(PinchRefusal.NoGazePeek));
+
+        frames.Run(PeekChoice.DwellSeconds + 0.1f);
+        Assert.That(frames.Choice.Shown, Is.EqualTo("a"));
+        Assert.That(frames.Choice.PinchTarget, Is.EqualTo("a"), "a quarter-visible peek accepts a pinch");
+        Assert.That(frames.Choice.PinchBlock, Is.EqualTo(PinchRefusal.None));
+
+        frames.Input.HandOnTarget = true;
+        frames.Step();
+        Assert.That(frames.Choice.PinchBlock, Is.EqualTo(PinchRefusal.HandOnTarget));
+        frames.Input.HandOnTarget = false;
+        frames.Input.Open = "b";
+        frames.Step();
+        Assert.That(frames.Choice.PinchBlock, Is.EqualTo(PinchRefusal.WorkspaceOpen));
+        frames.Input.Suspended = true;
+        frames.Step();
+        Assert.That(frames.Choice.PinchBlock, Is.EqualTo(PinchRefusal.FocusLost));
     }
 
     [Test]
@@ -97,7 +121,7 @@ public class PeekChoiceTests
         Assert.That(frames.Choice.Shown, Is.Null, "a slow turn is still a turn");
         Assert.That(frames.Choice.HeadSpeed, Is.EqualTo(30f).Within(1f));
 
-        frames.Run(0.45f);
+        frames.Run(PeekChoice.DwellSeconds - 0.05f);
         Assert.That(frames.Choice.Shown, Is.Null, "the dwell starts when the head slows");
         frames.Run(0.25f);
         Assert.That(frames.Choice.Shown, Is.EqualTo("a"));

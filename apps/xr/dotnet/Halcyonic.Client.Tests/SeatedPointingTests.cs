@@ -97,6 +97,21 @@ public class SeatedPointingTests
     }
 
     [Test]
+    public void AModestlyTurnedPalmPointsWhileANearlyFlatPalmStillRests()
+    {
+        var hand = Seat.Pointing(drop: 0.40f);
+        var turned = Vector3.Normalize(new Vector3(-0.5f, -1f, 0f));
+        var pointing = new HandPosture(true, true, hand.Knuckle, hand.Palm, turned);
+        Assert.That(SeatedPointing.Aim(Seat.Head, pointing).Active, Is.True,
+            "a roughly 27 degree palm turn is enough from a seated posture");
+
+        var flat = Vector3.Normalize(new Vector3(-0.2f, -1f, 0f));
+        var resting = new HandPosture(true, true, hand.Knuckle, hand.Palm, flat);
+        Assert.That(SeatedPointing.Aim(Seat.Head, resting).Active, Is.False,
+            "a roughly 11 degree palm turn remains a resting hand");
+    }
+
+    [Test]
     public void HandsLowInTheLapPointAtTheFloorNotAtTheCharacters()
     {
         var lap = SeatedPointing.Aim(Seat.Head, Seat.Pointing(drop: 0.65f, forward: 0.25f));
