@@ -151,8 +151,10 @@ Revoking a device applies to what it already has open, not only to its next requ
   revocation, is replaced by 401 `device_revoked`. Only `POST /api/device/revoke` answers the
   device that revoked itself.
 
-The listener waits 10 seconds for a whole request, headers and body, closes a connection silent
-for 30 seconds or idle between requests for 5, and holds 32 connections at once. A device holds
+The listener waits 5 seconds for a TLS handshake and 10 for a whole request, headers and body,
+closes a connection on which nothing moves for 60 seconds, which outlasts the slowest route's
+answer, or idle between requests for 5, and holds 32 connections at once, 8 of them from any one
+address. A WebSocket it closes waits a second for the client's answer. A device holds
 at most 4 realtime connections; another is refused with the fatal error `too_many_connections`.
 
 ## Pairing: `GET /pair`

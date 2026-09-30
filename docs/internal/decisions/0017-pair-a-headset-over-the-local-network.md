@@ -131,9 +131,10 @@ headset can do what its owner could over that network until the owner revokes it
   WebSocket `/pair`, and, with a device credential, the realtime stream, REST reads and commands,
   and `POST /api/device/revoke` (a device revokes itself). The access token is never accepted on the
   network listener. Both refuse any `Origin` and cross-site fetches; the network listener accepts
-  only an IP address or a `.local` name, with its port, as `Host`. It waits 10 seconds for a whole
-  request, closes a silent connection after 30 and an idle one after 5, and holds 32 connections,
-  4 of them realtime per device.
+  only an IP address or a `.local` name, with its port, as `Host`. It waits 5 seconds for a TLS
+  handshake and 10 for a whole request, closes a connection on which nothing moves after 60, longer
+  than a model list may take, and an idle one after 5, and holds 32 connections, 8 per address and
+  4 of them realtime per device. A WebSocket it closes waits a second for the client's answer.
 - **Pairing window.** `pnpm pair` opens one through loopback and prints the addresses, the port and
   an eight-digit code. One window at a time, for five minutes, closed by the first device that
   pairs, by three failed attempts, by `Ctrl-C`, or by the control plane stopping. Outside a window
@@ -156,7 +157,9 @@ headset can do what its owner could over that network until the owner revokes it
   connections stop handling anything when the revocation is journaled, get a close frame, and are
   cut off a second later. A device is authorized again where a command would act, so a command
   from a request or connection authenticated before the revocation is rejected with
-  `device_revoked`, and any answer to such a request is replaced by 401.
+  `device_revoked`, and any answer to such a request is replaced by 401. What the device started
+  before the revocation, such as an execution, keeps running: revocation stops the device, not the
+  work, which the owner can interrupt from loopback.
 - **Journal.** `device.paired` (device id, self-declared label, SHA-256 of the credential and of
   the certificate) and `device.revoked` (device id, who revoked it) are journaled through
   `Recorder`; the device registry is part of the projection. `command.accepted` and
