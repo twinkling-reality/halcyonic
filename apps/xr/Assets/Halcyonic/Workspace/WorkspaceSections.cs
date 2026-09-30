@@ -16,7 +16,9 @@ namespace Halcyonic.XR.Workspace
     /// most every two seconds; Evaluation, whose reads spend the evaluation source's budget, never
     /// reads by itself again. Reads go to the control plane, or to the recorded demonstration while
     /// it plays, through <see cref="IIntelligenceReader"/>; the client core writes every word. Acting
-    /// from the workspace returns the details to Activity, where the request's result shows.
+    /// from the workspace returns the details to Activity, where the request's result shows. While an
+    /// approval or denial waits for its confirmation, the tab row and the details show the whole
+    /// request it answers instead (<see cref="RequestView"/>).
     /// </summary>
     public sealed class WorkspaceSections : MonoBehaviour
     {
@@ -40,6 +42,7 @@ namespace Halcyonic.XR.Workspace
         private PanelButton refresh = null!;
         private SpriteRenderer chosenMark = null!;
         private SectionView view = null!;
+        private RequestView request = null!;
         private IntelligenceFeed<UnderstandingResponse> understanding = null!;
         private IntelligenceFeed<EvaluationResponse> evaluation = null!;
         private SectionKind? shown;
@@ -82,6 +85,30 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Every label the sections draw, for the editor's check that none interprets what it shows.</summary>
         public SectionView View => view;
 
+        /// <summary>The whole request an armed approval or denial answers, while it shows.</summary>
+        public RequestView Request => request;
+
+        /// <summary>Raised when the person turns to another part of the request.</summary>
+        public event Action? RequestTurned;
+
+        /// <summary>
+        /// Shows the whole request in place of the tabs and the details, from its first part unless it
+        /// shows already.
+        /// </summary>
+        public void ShowRequest(string text)
+        {
+            request.Show(text);
+            Arrange();
+        }
+
+        /// <summary>Hides the request, if it shows, and returns to the activity.</summary>
+        public void EndRequest()
+        {
+            if (!request.gameObject.activeSelf) return;
+            request.Hide();
+            Choose(null);
+        }
+
         private void Build()
         {
             understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => Reader().ReadUnderstandingAsync(id, cancel));
@@ -93,6 +120,8 @@ namespace Halcyonic.XR.Workspace
             // A shape as well as a color marks the tab chosen.
             chosenMark = WorkspaceVisuals.Plate(transform, "Chosen tab", new Vector2(0.1f, 0.004f), WorkspaceVisuals.TextColor, WorkspaceVisuals.PanelControlOrder);
             view = SectionView.Create(transform);
+            request = RequestView.Create(transform, () => panel.Accepting());
+            request.Turned += () => RequestTurned?.Invoke();
             panel.ActionPressed += _ => Choose(null);
             panel.ConfirmPressed += () => Choose(null);
             panel.PresetPressed += _ => Choose(null);
@@ -113,9 +142,18 @@ namespace Halcyonic.XR.Workspace
         private void Choose(SectionKind? kind)
         {
             shown = kind;
-            panel.ShowActivity(kind == null);
-            view.gameObject.SetActive(kind != null);
             drawn = -1;
+            Arrange();
+        }
+
+        /// <summary>The tabs and the details they choose, or, while it shows, the whole request in their place.</summary>
+        private void Arrange()
+        {
+            var reading = request.gameObject.activeSelf;
+            var kind = shown;
+            panel.ShowActivity(!reading && kind == null);
+            view.gameObject.SetActive(!reading && kind != null);
+            chosenMark.gameObject.SetActive(!reading);
             var x = WorkspacePanel.DetailsLeft;
             var center = WorkspacePanel.TabsTop - WorkspacePanel.TabsHeight / 2f;
             foreach (var (button, label, tab) in new[]
@@ -125,6 +163,11 @@ namespace Halcyonic.XR.Workspace
                 (evaluationTab, IntelligenceText.EvaluationTitle, SectionKind.Evaluation),
             })
             {
+                if (reading)
+                {
+                    button.Hide();
+                    continue;
+                }
                 var width = button.Measure(label, 0.12f);
                 button.Show(label, new Vector2(x + width / 2f, center), width);
                 if (tab == kind)
@@ -134,7 +177,7 @@ namespace Halcyonic.XR.Workspace
                 }
                 x += width + TabGap;
             }
-            if (kind == null)
+            if (reading || kind == null)
             {
                 refresh.Hide();
                 return;
@@ -166,7 +209,7 @@ namespace Halcyonic.XR.Workspace
             }
             understanding.Poll();
             evaluation.Poll();
-            if (shown is not SectionKind kind) return;
+            if (shown is not SectionKind kind || request.gameObject.activeSelf) return;
             var version = kind == SectionKind.Understanding ? understanding.Version : evaluation.Version;
             if (version == drawn && Time.unscaledTime < redrawAt) return;
             drawn = version;

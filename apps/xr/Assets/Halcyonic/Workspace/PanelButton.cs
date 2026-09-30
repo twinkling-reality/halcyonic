@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
 
@@ -55,13 +56,17 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>How wide the button is with this label: the label and a margin, at least <paramref name="minWidth"/>.</summary>
-        public float Measure(string text, float minWidth) => Mathf.Max(minWidth, label.GetPreferredValues(text).x + 0.05f);
+        public float Measure(string text, float minWidth) =>
+            Mathf.Max(minWidth, label.GetPreferredValues(LabelText.ForTextMeshPro(text)).x + 0.05f);
 
-        /// <summary>Shows the button centered at <paramref name="center"/>, in the panel's coordinates.</summary>
+        /// <summary>
+        /// Shows the button centered at <paramref name="center"/>, in the panel's coordinates. Its
+        /// label can come from outside, as a recorded instruction's does, so it shows as written.
+        /// </summary>
         public void Show(string text, Vector2 center, float width, bool confirm = false)
         {
-            var changed = !gameObject.activeSelf || label.text != text;
-            label.text = text;
+            var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(text);
+            WorkspaceVisuals.SetLiteral(label, text);
             Width = width;
             var size = new Vector2(Width, height);
             plate.size = size;
@@ -74,6 +79,8 @@ namespace Halcyonic.XR.Workspace
             // Slightly in front of the panel, so a ray finds the button before the panel behind it.
             transform.localPosition = new Vector3(center.x, center.y, -0.004f);
             if (changed) shownAt = Time.unscaledTime;
+            // Painted at once, so a confirmation never shows a frame in the ordinary button's color.
+            Paint();
             gameObject.SetActive(true);
         }
 
@@ -89,7 +96,9 @@ namespace Halcyonic.XR.Workspace
         private void Update()
         {
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime);
-            plate.color = flash > 0f ? WorkspaceVisuals.ButtonPressColor : target.Hovered ? hover : normal;
+            Paint();
         }
+
+        private void Paint() => plate.color = flash > 0f ? WorkspaceVisuals.ButtonPressColor : target.Hovered ? hover : normal;
     }
 }

@@ -38,6 +38,9 @@ namespace Halcyonic.XR.Workspace
         public string? WhyNoActions;
         public string? Prompt;
         public string? ConfirmLabel;
+
+        /// <summary>The confirmation can be given now; an approval's only once its whole request has shown.</summary>
+        public bool CanConfirm = true;
         public IReadOnlyList<PresetInstruction> Presets = Array.Empty<PresetInstruction>();
         public string? Notice;
         public IReadOnlyList<string> Feedback = Array.Empty<string>();
@@ -56,6 +59,11 @@ namespace Halcyonic.XR.Workspace
     /// At its design distance (<see cref="WorkspaceVisuals.PanelDistance"/>) it spans about 34 by 27
     /// degrees, and it keeps that angular size wherever it opens: all of it fits the comfortable
     /// middle of a narrower field of view than the Quest 3's, and nothing essential sits at an edge.
+    ///
+    /// Titles, objectives, what needs the person, prompts, requests and activity come from outside,
+    /// so every label shows its text through <see cref="WorkspaceVisuals.SetLiteral"/>, and a line
+    /// cut short ends in an ellipsis. Agent text leans as a claim, drawn by
+    /// <see cref="WorkspaceVisuals.Lean"/> rather than TextMeshPro's italics, which drop the ellipsis.
     /// </summary>
     public sealed class WorkspacePanel : MonoBehaviour
     {
@@ -95,6 +103,7 @@ namespace Halcyonic.XR.Workspace
         private readonly List<PanelButton> presetButtons = new List<PanelButton>();
         private readonly List<TextMeshPro> feedbackLines = new List<TextMeshPro>();
         private readonly List<TextMeshPro> activityLines = new List<TextMeshPro>();
+        private readonly List<bool> leaning = new List<bool>();
         private readonly List<WorkspaceAction> shownActions = new List<WorkspaceAction>();
         private readonly List<PresetInstruction> shownPresets = new List<PresetInstruction>();
         private TextMeshPro title = null!;
@@ -154,7 +163,14 @@ namespace Halcyonic.XR.Workspace
             activityCaption = Line("Activity caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, activityTop, ContentWidth, 0.024f);
             for (var index = 0; index < MaxActivity; index++)
             {
-                activityLines.Add(Line("Activity " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, activityTop - 0.024f - index * LineHeight, ContentWidth, LineHeight));
+                var line = Line("Activity " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, activityTop - 0.024f - index * LineHeight, ContentWidth, LineHeight);
+                var slot = index;
+                leaning.Add(false);
+                line.OnPreRenderText += info =>
+                {
+                    if (leaning[slot]) WorkspaceVisuals.Lean(info);
+                };
+                activityLines.Add(line);
             }
 
             collapse = Button("Collapse", () => CollapsePressed?.Invoke());
@@ -180,12 +196,12 @@ namespace Halcyonic.XR.Workspace
 
         public void Show(PanelContent content)
         {
-            title.text = content.Title;
-            status.text = content.Status;
+            WorkspaceVisuals.SetLiteral(title, content.Title);
+            WorkspaceVisuals.SetLiteral(status, content.Status);
             status.color = content.StatusColor;
-            execution.text = content.Execution;
-            objective.text = content.Objective;
-            attention.text = content.Attention.Count == 0 ? "Nothing needs you right now." : string.Join("\n", content.Attention);
+            WorkspaceVisuals.SetLiteral(execution, content.Execution);
+            WorkspaceVisuals.SetLiteral(objective, content.Objective);
+            WorkspaceVisuals.SetLiteralLines(attention, content.Attention.Count == 0 ? new[] { "Nothing needs you right now." } : content.Attention);
             attention.color = content.Attention.Count == 0 ? WorkspaceVisuals.SecondaryColor : content.AttentionColor;
 
             // The collapse control sits in the top right corner, away from every action.
@@ -199,11 +215,11 @@ namespace Halcyonic.XR.Workspace
             if (feedback.Count == 0) feedback.Add(("Requests: none yet", WorkspaceVisuals.SecondaryColor));
             for (var index = 0; index < feedbackLines.Count; index++)
             {
-                feedbackLines[index].text = index < feedback.Count ? feedback[index].Text : "";
+                WorkspaceVisuals.SetLiteral(feedbackLines[index], index < feedback.Count ? feedback[index].Text : "");
                 if (index < feedback.Count) feedbackLines[index].color = feedback[index].Color;
             }
 
-            activityCaption.text = content.ActivityCaption;
+            WorkspaceVisuals.SetLiteral(activityCaption, content.ActivityCaption);
             // The newest activity is at the bottom, like a log.
             var first = Math.Max(0, content.Activity.Count - activityLines.Count);
             for (var index = 0; index < activityLines.Count; index++)
@@ -212,12 +228,16 @@ namespace Halcyonic.XR.Workspace
                 var source = first + index;
                 if (source >= content.Activity.Count)
                 {
-                    line.text = "";
+                    WorkspaceVisuals.SetLiteral(line, "");
                     continue;
                 }
                 var (text, claim) = content.Activity[source];
-                line.text = text;
-                line.fontStyle = claim ? FontStyles.Italic : FontStyles.Normal;
+                WorkspaceVisuals.SetLiteral(line, text);
+                if (leaning[index] != claim)
+                {
+                    leaning[index] = claim;
+                    line.havePropertiesChanged = true;
+                }
                 line.color = claim ? WorkspaceVisuals.ClaimColor : WorkspaceVisuals.TextColor;
             }
         }
@@ -242,7 +262,7 @@ namespace Halcyonic.XR.Workspace
             var shown = new HashSet<PanelButton>();
             shownActions.Clear();
             shownPresets.Clear();
-            controlsText.text = "";
+            WorkspaceVisuals.SetLiteral(controlsText, "");
 
             switch (content.Mode)
             {
@@ -252,11 +272,16 @@ namespace Halcyonic.XR.Workspace
                     if (shownActions.Count == 0) SetControlsText(content.WhyNoActions ?? "", Left, right, WorkspaceVisuals.SecondaryColor);
                     break;
                 case ControlsMode.Confirm:
-                    // The confirmation goes where no action button was, so pressing twice in one place never confirms.
+                    // The confirmation goes where no action button was, so pressing twice in one place never
+                    // confirms. Its place is kept while it cannot be given yet, so Cancel never moves and the
+                    // confirmation appears where nothing was.
                     var confirmLabel = content.ConfirmLabel ?? "Confirm";
                     var confirmWidth = confirm.Measure(confirmLabel, 0.2f);
-                    confirm.Show(confirmLabel, new Vector2(right - confirmWidth / 2f, center), confirmWidth, confirm: true);
-                    shown.Add(confirm);
+                    if (content.CanConfirm)
+                    {
+                        confirm.Show(confirmLabel, new Vector2(right - confirmWidth / 2f, center), confirmWidth, confirm: true);
+                        shown.Add(confirm);
+                    }
                     var cancelWidth = cancel.Measure("Cancel", 0.15f);
                     var cancelRight = right - confirmWidth - Gap;
                     cancel.Show("Cancel", new Vector2(cancelRight - cancelWidth / 2f, center), cancelWidth);
@@ -304,7 +329,7 @@ namespace Halcyonic.XR.Workspace
 
         private void SetControlsText(string text, float left, float right, Color color)
         {
-            controlsText.text = text;
+            WorkspaceVisuals.SetLiteral(controlsText, text);
             controlsText.color = color;
             controlsText.rectTransform.localPosition = new Vector3(left, ActionsTop, -0.001f);
             controlsText.rectTransform.sizeDelta = new Vector2(Math.Max(0.05f, right - left), PanelButton.Height);

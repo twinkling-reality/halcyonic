@@ -1,4 +1,7 @@
 #nullable enable
+using System.Collections.Generic;
+using System.Linq;
+using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
 
@@ -31,6 +34,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>At <see cref="PeekDistance"/>, a 30 mm em keeps a 14 pixel x-height.</summary>
         public const float PeekSize = 0.30f;
+
+        /// <summary>The slant of text read as a claim: this font's italic style, 35, as TextMeshPro shears it, 0.35.</summary>
+        private const float Shear = 0.35f;
 
         // Transparent renderers draw in sorting order before distance. The workspace, the nearest
         // thing to the person, draws after everything at the characters' distance, and its plate is
@@ -84,7 +90,11 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        /// <summary>World-space text that never interprets markup, since it shows text from agents and tools.</summary>
+        /// <summary>
+        /// World-space text that never interprets markup, since it shows text from agents and tools.
+        /// Escape parsing stays on, so a doubled backslash shows as one: text goes in through
+        /// <see cref="SetLiteral"/>, which doubles every backslash.
+        /// </summary>
         public static TextMeshPro Text(Transform parent, string name, float size, Color color, Vector2 box, TextAlignmentOptions alignment,
             bool wrap = false, int order = TextOrder)
         {
@@ -94,6 +104,7 @@ namespace Halcyonic.XR.Workspace
             text.rectTransform.pivot = new Vector2(0f, 1f);
             text.rectTransform.sizeDelta = box;
             text.richText = false;
+            text.parseCtrlCharacters = true;
             text.fontSize = size;
             text.color = color;
             text.alignment = alignment;
@@ -101,6 +112,49 @@ namespace Halcyonic.XR.Workspace
             text.overflowMode = TextOverflowModes.Ellipsis;
             text.sortingOrder = order;
             return text;
+        }
+
+        /// <summary>
+        /// Shows text on a label literally and completely, by the one rule for text Halcyonic did not
+        /// write (<see cref="LabelText"/>): no markup, backslashes as they are, and what would not
+        /// show as itself as its code point. Every label that can show such text gets it this way.
+        /// </summary>
+        public static void SetLiteral(TMP_Text label, string text)
+        {
+            label.richText = false;
+            label.parseCtrlCharacters = true;
+            label.text = LabelText.ForTextMeshPro(text);
+        }
+
+        /// <summary><see cref="SetLiteral"/> for a label of several lines: each line by the rule, one under the other.</summary>
+        public static void SetLiteralLines(TMP_Text label, IEnumerable<string> lines)
+        {
+            label.richText = false;
+            label.parseCtrlCharacters = true;
+            label.text = string.Join("\n", lines.Select(LabelText.ForTextMeshPro));
+        }
+
+        /// <summary>
+        /// Leans every letter a label laid out, as italics would, for its <c>OnPreRenderText</c>.
+        /// TextMeshPro's italic style cannot be used: Liberation Sans SDF has no italic typeface, so a
+        /// label set to italics finds no ellipsis, turns its overflow to Truncate for good and cuts
+        /// text short without saying so. An upright label leaned here keeps its ellipsis, which leans
+        /// with it.
+        /// </summary>
+        public static void Lean(TMP_TextInfo info)
+        {
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                // About the middle of a capital, as TextMeshPro shears, so the letter keeps its place.
+                var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
+                {
+                    vertices[corner].x += Shear * (vertices[corner].y - middle);
+                }
+            }
         }
 
         /// <summary>A rounded rectangle centered on its transform, facing the person like the text.</summary>

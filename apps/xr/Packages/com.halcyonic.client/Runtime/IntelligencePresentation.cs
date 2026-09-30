@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -43,7 +42,7 @@ namespace Halcyonic.Client
         /// </summary>
         public string Tag { get; }
 
-        /// <summary>Plain text: the source's words cleaned of control characters, or the app's own. Never markup.</summary>
+        /// <summary>Plain text: the source's words as <see cref="LabelText.Plain"/> shows them, or the app's own. Never markup.</summary>
         public string Text { get; }
 
         public SectionTone Tone { get; }
@@ -86,7 +85,8 @@ namespace Halcyonic.Client
     /// <summary>
     /// Turns what the understanding source concluded about an execution into the Understanding
     /// section. Every claim keeps the source's epistemic class, agent text stays a quote, a value the
-    /// source does not have is said to be unknown, and every text from the source is plain text.
+    /// source does not have is said to be unknown, and every text from the source is plain text
+    /// (<see cref="LabelText.Plain"/>).
     /// </summary>
     public static class UnderstandingPresenter
     {
@@ -554,39 +554,13 @@ namespace Halcyonic.Client
         public static string TitleOf(SectionKind kind) => kind == SectionKind.Understanding ? UnderstandingTitle : EvaluationTitle;
 
         /// <summary>
-        /// Text from a source, made plain: control and format characters (such as bidirectional
-        /// overrides and zero-width characters) removed, and line breaks and runs of whitespace
-        /// collapsed into single spaces, so it is one line of exactly what it says. Markup characters
-        /// stay as they are; the labels that show them never interpret markup.
+        /// Text from a source, made plain by the one rule for text Halcyonic did not write
+        /// (<see cref="LabelText.Plain"/>): one line of exactly what it says, with every character
+        /// that would not show as itself, such as a bidirectional override or a zero width space,
+        /// shown as its code point. Markup characters stay as they are; the labels that show them
+        /// never interpret markup.
         /// </summary>
-        public static string Plain(string? text)
-        {
-            if (string.IsNullOrEmpty(text)) return "";
-            var result = new StringBuilder(text!.Length);
-            var space = false;
-            foreach (var character in text)
-            {
-                var category = char.GetUnicodeCategory(character);
-                if (char.IsWhiteSpace(character) || category == UnicodeCategory.LineSeparator || category == UnicodeCategory.ParagraphSeparator)
-                {
-                    space = result.Length > 0;
-                    continue;
-                }
-                if (category == UnicodeCategory.Control || category == UnicodeCategory.Format) continue;
-                if (space) result.Append(' ');
-                space = false;
-                result.Append(character);
-            }
-            return result.ToString();
-        }
-
-        /// <summary>
-        /// Text as a TextMeshPro label with its escape parsing on shows it, character for character.
-        /// Even with rich text off, TextMeshPro turns a backslash sequence such as \n, \t, A or
-        /// \U0001F600 in a label's text into another character; a doubled backslash shows one, so every
-        /// backslash is doubled. Use it only on text a label shows, with rich text off.
-        /// </summary>
-        public static string ForTextMeshPro(string text) => text.Replace("\\", "\\\\");
+        public static string Plain(string? text) => LabelText.Plain(text);
 
         /// <summary>A path's last part, which fits a line where the whole path would not.</summary>
         public static string FileName(string path)
