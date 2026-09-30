@@ -5,6 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { connect as tcpConnect } from 'node:net';
 import { PassThrough } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
 import { createServer, type TLSSocket, connect as tlsConnect } from 'node:tls';
@@ -14,8 +15,10 @@ import type {
   PairingOpenedResponse,
   PairingRefusalReason,
   PairingStatus,
+  RuntimeId,
 } from '@halcyonic/contracts';
 import { RealtimeClient } from '../client/realtime-client.ts';
+import { MODEL_LIST_TIMEOUT_MS } from '../core/runtime-models.ts';
 import { PairingRefused, pairDevice, replay } from '../testing/device.ts';
 import { startTestServer, TEST_CLIENT, type TestServerOptions } from '../testing/harness.ts';
 import {
@@ -28,7 +31,7 @@ import {
 import { createNetworkIdentity } from './certificate.ts';
 import { MAX_REALTIME_CONNECTIONS_PER_DEVICE } from './devices.ts';
 import { credentialSha256 } from './pairing-protocol.ts';
-import { MAX_NETWORK_CONNECTIONS } from './server.ts';
+import { DEFAULT_NETWORK_LIMITS } from './server.ts';
 
 type Server = Awaited<ReturnType<typeof startTestServer>>;
 
@@ -753,7 +756,15 @@ describe('what revocation stops, and how long the listener waits', () => {
 
   test('a request that holds back its body, or a connection that sends nothing, is cut off', async (t) => {
     const server = await start(t, {
-      network: { timeouts: { requestMs: 300, idleMs: 600, keepAliveMs: 300, checkEveryMs: 50 } },
+      network: {
+        listener: {
+          handshakeMs: 300,
+          requestMs: 300,
+          idleMs: 600,
+          keepAliveMs: 300,
+          checkEveryMs: 50,
+        },
+      },
     });
     const paired = await pairDevice(network(server).target, await openWindow(server));
     const staged = await stageRequest(network(server).target, {
@@ -775,11 +786,63 @@ describe('what revocation stops, and how long the listener waits', () => {
       }),
       'closing a silent connection',
     );
+
+    // A connection that never starts TLS is closed as well, not held for Node's two minutes.
+    const { target } = network(server);
+    const bare = tcpConnect({ host: target.host, port: target.port });
+    bare.on('error', () => {});
+    await within(
+      3_000,
+      new Promise((resolve) => {
+        bare.once('close', resolve);
+        bare.resume();
+      }),
+      'closing a connection that sends no ClientHello',
+    );
     assert.equal(server.controlPlane.projection.projects().length, 0);
   });
 
-  test('the listener holds a bounded number of connections, and a device a few realtime ones', async (t) => {
-    const server = await start(t);
+  test('the idle timeout outlasts the slowest answer, which a shorter one would cut off', async (t) => {
+    assert.ok(
+      DEFAULT_NETWORK_LIMITS.idleMs >= MODEL_LIST_TIMEOUT_MS + 15_000,
+      'a model list may take its whole timeout before the answer leaves',
+    );
+    const stalled = {
+      descriptor: {
+        runtime_id: 'stalled' as RuntimeId,
+        kind: 'test',
+        display_name: 'Stalled',
+        synthetic: true,
+        capabilities: {
+          start_execution: false,
+          instruct_at_rest: false,
+          instruct_while_running: false,
+          respond_to_approval: false,
+          interrupt: false,
+        },
+        model_choice: 'listed' as const,
+      },
+      validateStartOptions: () => ({ ok: true as const }),
+      listModels: () => new Promise<never>(() => {}),
+      close: async () => {},
+    };
+    const ask = async (idleMs: number) => {
+      const server = await start(t, {
+        modelListTimeoutMs: 300,
+        adapters: () => [stalled],
+        network: { listener: { idleMs } },
+      });
+      const paired = await pairDevice(network(server).target, await openWindow(server));
+      return onNetwork(server, 'GET', '/api/runtimes/stalled/models', bearer(paired.credential))
+        .then((answer) => answer.status)
+        .catch(() => 'cut off');
+    };
+    assert.equal(await ask(1_000), 200, 'the model list timed out, and the answer said so');
+    assert.equal(await ask(100), 'cut off');
+  });
+
+  test('the listener holds a bounded number of connections, and an address and a device a few', async (t) => {
+    const server = await start(t, { network: { listener: { connections: 6 } } });
     const { target, identity } = network(server);
     const paired = await pairDevice(target, await openWindow(server));
     const realtime = async () => {
@@ -791,6 +854,11 @@ describe('what revocation stops, and how long the listener waits', () => {
       return socket;
     };
     const held: TlsWebSocket[] = [];
+    const sockets: TLSSocket[] = [];
+    t.after(() => {
+      for (const socket of sockets) socket.destroy();
+      for (const socket of held) socket.destroy();
+    });
     for (let index = 0; index < MAX_REALTIME_CONNECTIONS_PER_DEVICE; index += 1) {
       const socket = await realtime();
       await socket.waitFor((text) => text.includes('"welcome"'));
@@ -806,14 +874,10 @@ describe('what revocation stops, and how long the listener waits', () => {
     await again.waitFor((text) => text.includes('"welcome"'));
     held.push(again);
 
-    const sockets: TLSSocket[] = [];
-    for (let index = held.length; index < MAX_NETWORK_CONNECTIONS; index += 1) {
+    // Four realtime connections and two more make the six this listener holds.
+    for (let index = held.length; index < 6; index += 1) {
       sockets.push((await openTls(target, identity.certificateSha256)).socket);
     }
-    t.after(() => {
-      for (const socket of sockets) socket.destroy();
-      for (const socket of held) socket.destroy();
-    });
     await assert.rejects(openTls(target, identity.certificateSha256), 'one connection too many');
     sockets.pop()?.destroy();
     await pause(50);
@@ -824,5 +888,74 @@ describe('what revocation stops, and how long the listener waits', () => {
       pin: identity.certificateSha256,
     });
     assert.equal(health.status, 200, 'a connection that closes makes room for another');
+  });
+
+  test('one address holds a few connections, however many the listener has room for', async (t) => {
+    const server = await start(t);
+    const { target, identity } = network(server);
+    const sockets: TLSSocket[] = [];
+    t.after(() => {
+      for (const socket of sockets) socket.destroy();
+    });
+    for (let index = 0; index < DEFAULT_NETWORK_LIMITS.connectionsPerAddress; index += 1) {
+      sockets.push((await openTls(target, identity.certificateSha256)).socket);
+    }
+    await assert.rejects(openTls(target, identity.certificateSha256), 'the address holds enough');
+    const bare = tcpConnect({ host: target.host, port: target.port });
+    bare.on('error', () => {});
+    await within(
+      3_000,
+      new Promise((resolve) => {
+        bare.once('close', resolve);
+        bare.resume();
+      }),
+      'refusing a plain connection from the same address',
+    );
+    sockets.pop()?.destroy();
+    await pause(50);
+    const health = await tlsRequest(target, {
+      method: 'GET',
+      path: '/api/health',
+      pin: identity.certificateSha256,
+    });
+    assert.equal(health.status, 200);
+  });
+
+  test('a socket the listener closes is cut off a second on when its client never answers', async (t) => {
+    const server = await start(t);
+    const { target } = network(server);
+    const paired = await pairDevice(target, await openWindow(server));
+    const held: TlsWebSocket[] = [];
+    t.after(() => {
+      for (const socket of held) socket.destroy();
+    });
+    for (let index = 0; index < MAX_REALTIME_CONNECTIONS_PER_DEVICE; index += 1) {
+      const socket = await TlsWebSocket.connect(target, '/realtime', {
+        headers: bearer(paired.credential),
+        pin: paired.certificateSha256,
+      });
+      held.push(socket);
+    }
+    // A realtime connection refused past the device's cap, by a client that ignores the close.
+    const refusedAt = Date.now();
+    const refused = await TlsWebSocket.connect(target, '/realtime', {
+      headers: bearer(paired.credential),
+      pin: paired.certificateSha256,
+      hostile: true,
+    });
+    held.push(refused);
+    assert.equal((await refused.closed).code, 1008);
+    await within(5_000, refused.disconnected, 'cutting off the refused connection');
+    assert.ok(Date.now() - refusedAt < 5_000);
+
+    // A pairing exchange that has ended, likewise.
+    await openWindow(server);
+    const pairingAt = Date.now();
+    const ended = await TlsWebSocket.connect(target, '/pair', { hostile: true });
+    held.push(ended);
+    ended.sendJson({ type: 'pair_request', protocol: 2, device_label: 'Quest 3' });
+    assert.equal(((await ended.message(0)).error as { code: string }).code, 'unsupported_protocol');
+    await within(5_000, ended.disconnected, 'cutting off the ended pairing connection');
+    assert.ok(Date.now() - pairingAt < 5_000);
   });
 });

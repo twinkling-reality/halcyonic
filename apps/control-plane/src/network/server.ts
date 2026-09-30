@@ -1,3 +1,4 @@
+import type { Socket } from 'node:net';
 import { PAIRING_PROTOCOL_VERSION, parsePairingClientMessage } from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
@@ -19,28 +20,44 @@ declare module 'fastify' {
   }
 }
 
-/** How long the network listener waits for a client, which may be anything on the network. */
-export interface NetworkTimeouts {
+/**
+ * How long the network listener waits for a client, which may be anything on the network, and how
+ * many connections it holds.
+ */
+export interface NetworkLimits {
+  /** For the TLS handshake, from the connection. Node's default is two minutes. */
+  readonly handshakeMs: number;
   /** For a whole request, headers and body, from its first byte. */
   readonly requestMs: number;
-  /** For a connection that sends nothing. An upgraded WebSocket has its own heartbeat instead. */
+  /**
+   * For a connection on which nothing moves, which includes a route working on its answer, so it
+   * outlasts the slowest route: a model list may take 30 seconds. An upgraded WebSocket has its
+   * own heartbeat instead.
+   */
   readonly idleMs: number;
   /** For the next request on a kept-alive connection. */
   readonly keepAliveMs: number;
   /** How often requests are checked against `requestMs`; Node's default is 30 seconds. */
   readonly checkEveryMs: number;
+  /** Connections held at once, from every address. */
+  readonly connections: number;
+  /** Connections held at once from one address: a headset needs a few. */
+  readonly connectionsPerAddress: number;
 }
 
-/** A device's requests are small: ten seconds is plenty over Wi-Fi. */
-export const DEFAULT_NETWORK_TIMEOUTS: NetworkTimeouts = {
+/** A device's requests are small, and a headset holds a realtime connection and a few requests. */
+export const DEFAULT_NETWORK_LIMITS: NetworkLimits = {
+  handshakeMs: 5_000,
   requestMs: 10_000,
-  idleMs: 30_000,
+  idleMs: 60_000,
   keepAliveMs: 5_000,
   checkEveryMs: 1_000,
+  connections: 32,
+  connectionsPerAddress: 8,
 };
 
-/** Connections the network listener holds at once, from every device and address. */
-export const MAX_NETWORK_CONNECTIONS = 32;
+/** How long a WebSocket the listener closes waits for the client to answer the close frame. */
+export const WEBSOCKET_CLOSE_TIMEOUT_MS = 1_000;
 
 export interface NetworkServerOptions {
   readonly logger: FastifyBaseLogger;
@@ -50,7 +67,7 @@ export interface NetworkServerOptions {
   readonly devices: DeviceAccess;
   readonly pairing: Pairing;
   readonly clock: Clock;
-  readonly timeouts?: NetworkTimeouts;
+  readonly limits?: NetworkLimits;
 }
 
 /** Paths that answer without a device credential. The pairing path has checks of its own. */
@@ -67,27 +84,30 @@ const FAILED_CREDENTIALS_PER_MINUTE = 30;
  */
 export async function createNetworkServer(options: NetworkServerOptions): Promise<FastifyInstance> {
   const { controlPlane, devices, pairing } = options;
-  const timeouts = options.timeouts ?? DEFAULT_NETWORK_TIMEOUTS;
+  const limits = options.limits ?? DEFAULT_NETWORK_LIMITS;
   // Fastify types an HTTPS server apart from an HTTP one; the routes use nothing that differs.
   const app = Fastify({
     https: {
       key: options.identity.key,
       cert: options.identity.certificate,
       minVersion: 'TLSv1.2',
-      headersTimeout: timeouts.requestMs,
-      requestTimeout: timeouts.requestMs,
-      connectionsCheckingInterval: timeouts.checkEveryMs,
+      handshakeTimeout: limits.handshakeMs,
+      headersTimeout: limits.requestMs,
+      requestTimeout: limits.requestMs,
+      connectionsCheckingInterval: limits.checkEveryMs,
     },
     loggerInstance: options.logger,
     bodyLimit: 1024 * 1024,
     forceCloseConnections: true,
     // Fastify sets these on the server it creates, over what the https options said.
-    requestTimeout: timeouts.requestMs,
-    connectionTimeout: timeouts.idleMs,
-    keepAliveTimeout: timeouts.keepAliveMs,
+    requestTimeout: limits.requestMs,
+    connectionTimeout: limits.idleMs,
+    keepAliveTimeout: limits.keepAliveMs,
   }) as unknown as FastifyInstance;
-  app.server.maxConnections = MAX_NETWORK_CONNECTIONS;
-  await prepareServer(app);
+  app.server.maxConnections = limits.connections;
+  limitConnectionsPerAddress(app, limits.connectionsPerAddress);
+  // A client that never answers a close frame, such as a revoked device's, is cut off a second on.
+  await prepareServer(app, { webSocketCloseTimeoutMs: WEBSOCKET_CLOSE_TIMEOUT_MS });
   const failures = new WindowCounter(options.clock, FAILED_CREDENTIALS_PER_MINUTE, 60_000);
 
   app.addHook('onRequest', async (request, reply) => {
@@ -166,6 +186,28 @@ export async function createNetworkServer(options: NetworkServerOptions): Promis
   );
 
   return app;
+}
+
+/**
+ * Refuses a connection from an address already holding `max`, before its TLS handshake, so one
+ * device on the network cannot take every connection the listener holds.
+ */
+function limitConnectionsPerAddress(app: FastifyInstance, max: number): void {
+  const open = new Map<string, number>();
+  app.server.on('connection', (socket: Socket) => {
+    const address = socket.remoteAddress ?? '';
+    const count = open.get(address) ?? 0;
+    if (count >= max) {
+      socket.destroy();
+      return;
+    }
+    open.set(address, count + 1);
+    socket.once('close', () => {
+      const left = (open.get(address) ?? 1) - 1;
+      if (left > 0) open.set(address, left);
+      else open.delete(address);
+    });
+  });
 }
 
 /** One pairing exchange on one connection, time boxed; the connection closes after the answer. */

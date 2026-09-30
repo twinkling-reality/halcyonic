@@ -82,12 +82,25 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Fast
  * What both listeners share: JSON only, WebSockets with the same message limit, the request's
  * principal, and errors in the contract's shape.
  */
-export async function prepareServer(app: FastifyInstance): Promise<void> {
+export async function prepareServer(
+  app: FastifyInstance,
+  options: {
+    /** How long a WebSocket the server closes waits for the client's answer; ws's default is 30 s. */
+    readonly webSocketCloseTimeoutMs?: number;
+  } = {},
+): Promise<void> {
   // The API speaks JSON only. Fastify also parses text/plain by default, which is the content
   // type a cross-site form can send without a preflight, so it is refused with 415 instead.
   app.removeContentTypeParser('text/plain');
 
-  await app.register(websocket, { options: { maxPayload: MAX_WEBSOCKET_MESSAGE_BYTES } });
+  await app.register(websocket, {
+    options: {
+      maxPayload: MAX_WEBSOCKET_MESSAGE_BYTES,
+      ...(options.webSocketCloseTimeoutMs === undefined
+        ? {}
+        : { closeTimeout: options.webSocketCloseTimeoutMs }),
+    },
+  });
   app.decorateRequest('principal', null);
 
   app.setErrorHandler((error: FastifyError, request, reply) => {

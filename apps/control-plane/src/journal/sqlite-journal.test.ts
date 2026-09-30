@@ -272,6 +272,53 @@ describe('SQLite journal', () => {
     check.close();
   });
 
+  test('a version 2 journal with principals but starts without a model, as the pairing work stamped it, opens', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    journal.close();
+    // Builds of the pairing work before it merged model choice stamped version 2 for principals:
+    // their command events name who sent them, and their starts have no model_ref.
+    const db = new DatabaseSync(path);
+    const commandEvents = "event_type IN ('command.accepted', 'command.rejected')";
+    const start = "json_extract(envelope, '$.payload.command.command_type') = 'execution.start'";
+    db.exec(
+      `UPDATE events SET envelope = json_set(envelope, '$.payload.principal', json('{"kind":"local"}'))
+         WHERE ${commandEvents}`,
+    );
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.command.payload.model_ref')
+         WHERE ${commandEvents} AND ${start}`,
+    );
+    const starts = (
+      db
+        .prepare(`SELECT COUNT(*) AS count FROM events WHERE ${commandEvents} AND ${start}`)
+        .get() as { count: number }
+    ).count;
+    assert.ok(starts > 0);
+    db.exec('PRAGMA user_version = 2');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const events = [...reopened.readAll()].map((stored) => stored.event);
+    assert.equal(events.length, TRACE.length);
+    const commands = events.flatMap((event) =>
+      event.event_type === 'command.accepted' || event.event_type === 'command.rejected'
+        ? [event.payload]
+        : [],
+    );
+    assert.ok(
+      commands.every((payload) => payload.principal?.kind === 'local'),
+      'a principal already recorded stays',
+    );
+    const modelRefs = commands.flatMap((payload) =>
+      payload.command.command_type === 'execution.start' ? [payload.command.payload.model_ref] : [],
+    );
+    assert.equal(modelRefs.length, starts);
+    assert.ok(modelRefs.every((modelRef) => modelRef === null));
+    reopened.close();
+  });
+
   test('a stored event that no longer matches the contract is reported, not trusted', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });

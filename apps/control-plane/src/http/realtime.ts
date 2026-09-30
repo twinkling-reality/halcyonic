@@ -26,9 +26,6 @@ export const DEFAULT_REALTIME_OPTIONS: RealtimeOptions = {
   maxBufferedBytes: 8 * 1024 * 1024,
 };
 
-/** How long an ended connection's client has to answer the close frame before it is cut off. */
-const CLOSE_GRACE_MS = 1_000;
-
 /**
  * Called with each connection a guard authenticated and what ends it at once. It returns what to
  * call when the connection closes, or why the connection may not stay. The network listener uses
@@ -124,14 +121,13 @@ class RealtimeConnection {
 
   /**
    * Ends the connection now, for a device just revoked: it handles nothing more, including what
-   * the socket has already received, and is sent nothing more but a close frame. The socket is
-   * destroyed a moment later whether or not the client answers the close frame, which a hostile
-   * client never does.
+   * the socket has already received, and is sent nothing more but a close frame. The network
+   * listener destroys the socket a second later if the client, as a hostile one would, never
+   * answers the close frame.
    */
   end(): void {
     this.#dispose();
     this.#socket.close(1008, 'device revoked');
-    setTimeout(() => this.#socket.terminate(), CLOSE_GRACE_MS).unref();
   }
 
   /** Turns the connection away before it has handled anything, saying why. */
