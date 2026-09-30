@@ -94,6 +94,21 @@ describe('binding a project to an existing folder', () => {
     });
   });
 
+  test('a folder named in another case is bound by the one spelling the file system has', (t) => {
+    const { root, app, locations } = layout('case');
+    if (!existsSync(join(root, 'APP'))) {
+      t.skip('this volume is case-sensitive');
+      return;
+    }
+    const upper = locations.bind({ kind: 'existing_folder', root, folder_name: 'APP' });
+    const lower = locations.bind({ kind: 'existing_folder', root, folder_name: 'app' });
+    assert.deepEqual(upper, lower);
+    assert.deepEqual(upper, { ok: true, location: { path: app, name: 'app', created: false } });
+    // The same folder by a new name is taken, whatever its case.
+    const taken = locations.check({ kind: 'new_folder', root, folder_name: 'App' });
+    assert.equal(taken.ok ? 'ok' : taken.code, 'location_exists');
+  });
+
   test('a root is named as the host lists it, or as it was configured', () => {
     const top = join(base, 'configured');
     const real = join(top, 'real');
