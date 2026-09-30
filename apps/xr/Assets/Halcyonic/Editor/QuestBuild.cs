@@ -100,8 +100,11 @@ namespace Halcyonic.XR.Editor
     /// <item>Meta XR Operator's Android library: the agentic media projection activity and service,
     /// the FOREGROUND_SERVICE_MEDIA_PROJECTION permission, and an OpenXR API layer that serves agents
     /// from inside the app. Meta's own build step leaves it out of every non-development build.</item>
-    /// <item>The Immersive Debugger, its dev agent, and the agent bridge through which the dev agent
-    /// reaches the editor, which <see cref="LeaveOutMetaDevelopmentAssemblies"/> leaves out.</item>
+    /// <item>The Immersive Debugger's dev agent, and the agent bridge through which it reaches the
+    /// editor, which <see cref="LeaveOutMetaDevelopmentAssemblies"/> leaves out. The debugger's
+    /// runtime assembly stays: the MR Utility Kit's <c>MRUK.Awake</c> reads its settings, and the
+    /// linker cannot process a method whose assembly is missing. The committed settings keep the
+    /// debugger disabled, and its runtime has no networking; see horizon-store-release.md.</item>
     /// <item>DevAgentSettings.asset, into which Meta's build step writes this Mac's LAN address and
     /// the token of the editor's remote agent server for every build, and which ships because it
     /// sits in Resources. <see cref="DevAgentSettingsAside"/> keeps it out.</item>
@@ -110,9 +113,9 @@ namespace Halcyonic.XR.Editor
     internal static class MetaDevelopmentTools
     {
         // Meta.XR.ImmersiveDebugger.Interface stays: Meta's building blocks reference its attributes.
+        // Meta.XR.ImmersiveDebugger stays: the MR Utility Kit's MRUK.Awake reads its RuntimeSettings.
         internal static readonly string[] Assemblies =
         {
-            "Meta.XR.ImmersiveDebugger",
             "Meta.XR.ImmersiveDebugger.DevAgent",
             "meta.xr.ai.agentbridge",
             "meta.xr.ai.agentbridge.telemetry",

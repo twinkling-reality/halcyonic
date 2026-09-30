@@ -1,0 +1,21 @@
+{
+  "name": "Halcyonic.XR.Room",
+  "rootNamespace": "Halcyonic.XR.Room",
+  "references": [
+    "Halcyonic.XR",
+    "Halcyonic.XR.Workspace",
+    "Halcyonic.Client",
+    "Oculus.VR",
+    "meta.xr.mrutilitykit",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

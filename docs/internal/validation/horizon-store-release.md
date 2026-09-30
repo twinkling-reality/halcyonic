@@ -147,6 +147,44 @@ leftover `Assets/DevAgentSettings.asset` stopped the release build before it mov
 non-development build started outside `BuildReleaseApk`, with the asset in `Resources`, failed
 before building anything.
 
+## With the MR Utility Kit (2026-09-29, later)
+
+The room placement ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)) added
+MRUK 207.0.0 to the project, and with it a change to what the release build leaves out. Evidence:
+a release build and a development build in batch mode, `aapt2 dump badging`, the release APK's
+`ScriptingAssemblies.json`, and the Core SDK's source in the package cache.
+
+- **Why the debugger's runtime ships.** With only MRUK added, `BuildReleaseApk` failed in Unity's
+  linker: `error IL1005: Meta.XR.MRUtilityKit.MRUK.Awake(): Error processing method`. `MRUK.Awake`
+  reads `Meta.XR.ImmersiveDebugger.RuntimeSettings.Instance.ImmersiveDebuggerEnabled` without a
+  guard, and the release build left `Meta.XR.ImmersiveDebugger` out. The linker stubs a missing
+  method but not a missing assembly, and it processed `MRUK.Awake` although nothing used MRUK yet,
+  so any release build containing MRUK fails without that assembly. The
+  release build now leaves out only `Meta.XR.ImmersiveDebugger.DevAgent`,
+  `meta.xr.ai.agentbridge` and `meta.xr.ai.agentbridge.telemetry`, and still checks the APK for
+  them, for the Operator's library and manifest entries, and for `DevAgentSettings.asset`.
+- **What ships.** The Immersive Debugger's runtime assembly, disabled: the committed
+  `ImmersiveDebuggerSettings.asset` sets `immersiveDebuggerEnabled: 0`. Outside the dev agent its
+  sources open no sockets, listeners or web requests, write no files and use no player
+  preferences.
+- **Its startup hooks, with the debugger disabled.** `SceneSetup` returns at once, so no debugger
+  interface is built. `ConsoleLogsCache` subscribes to log messages only when the debugger is
+  enabled, so it captures nothing. `LogCaptureService`, compiled whenever the OpenXR package is
+  present, subscribes to every log message before the first scene loads, whatever the settings:
+  it keeps at most 200 entries in memory, each message cut to 500 characters and each stack trace
+  to 300, merging repeats, plus three counters. It writes nothing to disk and sends nothing: its
+  only readers are the Operator's tool callbacks in `ImmersiveDebuggerBinder`, which only the dev
+  agent's `LLMDialogPanelRegistrar` adds, and the dev agent is left out. The app's own log lines
+  carry no secrets, workstream titles or agent text (AGENTS.md). The other hooks register types
+  or reset static state.
+- **The release APK now** has 126 script assemblies (121 before; added: `Halcyonic.XR.Room`, the
+  workspace's `Halcyonic.XR.Workspace`, `meta.xr.mrutilitykit`, `Unity.AI.Navigation` and
+  `Meta.XR.ImmersiveDebugger`), is 70.6 MB, and declares `USE_ANCHOR_API` and `USE_SCENE` besides
+  `HAND_TRACKING`, `INTERNET` and the receiver permission, and passthrough as a feature it does
+  not require. Neither permission is prohibited or review-required
+  ([mixed-reality-room.md](mixed-reality-room.md)); each is used, for the room and the anchor.
+  `QuestBuild`'s own check passed.
+
 ## Consequences
 
 - Upload only APKs from `QuestBuild.BuildReleaseApk`
@@ -158,7 +196,8 @@ before building anything.
   startup hooks, connects, renders and passes the milestone 2 checks; the development APK still
   does all of that at API level 34. Both are signed with the same debug key today, so either
   installs over the other. Once the release APK carries the owner's key, installing it needs an
-  uninstall first, which deletes the pushed access token.
+  uninstall first, which deletes the pushed access token. The release APK shows no debugger
+  interface although the debugger's runtime is in it.
 - Decide whether the store build declares Meta VR Glasses (`stanley`) before submitting
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - Re-read these pages before the upload: their requirements change.

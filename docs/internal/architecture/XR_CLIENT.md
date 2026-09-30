@@ -7,8 +7,9 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
-        │                             workspace: gaze and hand peek, panel,           the workspace is not
-        │                             transition, first-time hint; Meta's rig         verified on a headset
+        │                             workspace: gaze and hand peek, panel,           the workspace and the
+        │                             transition, first-time hint; Meta's rig;        room are not verified
+        │                             room: passthrough, MRUK, stage anchor           on a headset
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
@@ -16,7 +17,8 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             WorkspacePresenter, WorkspaceText,
         │                             WorkspaceSteering, CommandSubmissions,
         │                             ActivityLog, EventHistory, CommandFactory,
-        │                             DemonstrationTransport, DemonstrationFallback
+        │                             DemonstrationTransport, DemonstrationFallback,
+        │                             StageSurfaces, PlacementMemory, RoomStatus
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -146,6 +148,27 @@ the same definition names, as the JSON Schema document:
   plane that drops later shows its last known state as usual. Each switch reaches consumers as a
   resynchronization, like a journal change. Its `Line` is what the line above the stage says while
   the demonstration is shown.
+- **The room placement's decisions** ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)),
+  on plain floor plan geometry the Unity layer converts to and from its vectors:
+  - `StageSurfaces.Choose` picks where the characters stand from the room's surfaces facing up
+    (desks and tables, then other furniture tops) and the objects standing on them: 0.4 to 0.9 m
+    from the eyes, 0.15 to 1.0 m below them, within 45 degrees of where the person faces, and no
+    steeper than 62 degrees down. A spot counts only when the whole lineup, as the stage draws it
+    (an arc around the eyes through the spot, 60 degrees between the outermost characters), stays
+    on the surface and outside every object on it, by a margin of half a label plate, which the
+    stage scales with the distance, and 2 cm. Desks win over other furniture; among spots of one
+    kind, the one nearest 0.55 m straight ahead wins, where 10 cm off that reach costs as much as
+    10 degrees of turn, or 2.5 degrees of looking down beyond 45. `StillSuits` decides whether a
+    placement kept from an earlier session still suits the seat, with looser limits and half the
+    margin, so sitting a little differently keeps it and another seat chooses again.
+  - `PlacementMemory` remembers which saved anchor keeps the stage's place in which room, one per
+    room for the eight rooms used last, in plain text, and returns the anchors it stops
+    remembering so they are erased.
+  - `RoomStatus` holds what the person chose, passthrough's state, what is known of the room and
+    where the stage stands, and derives the space shown (the real room where passthrough works and
+    the person has not chosen the virtual space), what is offered (room access again, or space
+    setup where it would help and the headset can run it), and one short line that says where
+    the agents are and why.
 
 ## Verification
 
@@ -166,6 +189,13 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   connected);
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
   answer without one, and a refusal;
+- the room placement's choices: a desk in front taking the lineup on its near half with the whole
+  arc on it; a desk winning over furniture that sits better; the floor, shelves at eye level,
+  surfaces out of reach, behind the person or too small for the lineup refused; a monitor on the
+  desk, an L-shaped desk and a turned desk; sitting back, standing, and a low table moving the
+  lineup; placements kept across a slightly different seat and chosen again from another seat or
+  when the desk moved; the memory's rooms, replacements, limit and saved form; and the status's
+  space, offers and words, all short and naming no brand;
 - the demonstration: the bundled recording holds every event of the demo trace, each message reads
   strictly and writes back to the same JSON, and a live journal or anything out of order is
   refused; played through a session it reaches the trace's final state at the recorded pace, with
@@ -190,8 +220,8 @@ Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 ## Unity layer
 
 `apps/xr` is a Unity 6000.3.25f1 project whose manifest pins OpenXR 1.18.0, the Meta XR Core and
-Interaction SDKs 207.0.0, XR Hands 1.9.0 and Newtonsoft.Json 3.2.2. Its scripts use only long-stable
-core Unity APIs:
+Interaction SDKs and the MR Utility Kit 207.0.0, XR Hands 1.9.0 and Newtonsoft.Json 3.2.2. Its
+scripts use only long-stable core Unity APIs:
 
 - `HalcyonicBootstrap` adds the stage to any scene that lacks one. The stage scene carries its own,
   so that its `FocusGuard` can reference the rig's hands.
@@ -255,9 +285,9 @@ core Unity APIs:
 
 ### The workspace
 
-`Assets/Halcyonic/Workspace` is its own assembly, the only one that uses TextMeshPro and the Meta
-Interaction SDK. Three levels of detail show the same work, all in place
-([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)):
+`Assets/Halcyonic/Workspace` is its own assembly, the one that builds the Meta Interaction SDK's
+targets; the room's controls reuse its `PanelButton`. Three levels of detail show the same work,
+all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)):
 
 - **Ambient:** the characters as the stage shows them.
 - **Peek:** while the person looks at a character, or a hand ray (or a finger about to poke)
@@ -335,6 +365,68 @@ Keyboard on in `OculusProjectConfig`, from which Meta's build step adds
 `oculus.software.overlay_keyboard` to the manifest). Where no keyboard is supported, such as the
 editor, the workspace offers three preset instructions instead.
 
+### The room
+
+`Assets/Halcyonic/Room` is its own assembly, `Halcyonic.XR.Room`, the only one that references
+the MR Utility Kit. It puts the stage in the person's real room: passthrough on, the characters on
+their desk, and the place kept with a spatial anchor so they are there again the next session
+([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md),
+[mixed-reality-room.md](../validation/mixed-reality-room.md)). `RoomBootstrap` adds
+`RoomPlacement` to the stage object after the scene loads, in any scene with Meta's camera rig, so
+neither the scene nor the stage refers to it; the stage finds it as its `IStagePlacementSource`.
+
+- **Space.** The real room is the default wherever passthrough works; the virtual space shows when
+  the person chooses it, a choice kept on the device, or by itself when passthrough is
+  unavailable (unsupported, failed, or not started within 6 seconds). `PassthroughView` turns on
+  `OVRManager.isInsightPassthroughEnabled`, adds an `OVRPassthroughLayer` underlay, and clears the
+  rig's cameras to transparent black while it runs; the virtual space gives them their background
+  back.
+- **Room access.** On the first visit to the real room, once the head is tracked, the controls
+  show "To stand your agents on your desk, allow access to this room's layout." for 2.5 seconds,
+  and then the app asks for the spatial data permission, which the headset explains once and
+  confirms. A person who declines is not asked again; the controls offer to ask, once more per
+  session, and after a second refusal say that the headset's settings can allow it.
+- **Reading the room.** `RoomReader` creates MRUK in code, with loading on startup off, world lock
+  off (the rig's tracking space is never moved) and space setup only on request, loads the scene
+  model, and takes the room around the eyes. It describes, in world coordinates, every surface
+  facing up that is a table (a desk) or other furniture top (storage, a bed, anything else), from
+  its plane's outline or its volume's top, and every object with a volume, as its footprint and
+  height. Couches are only obstacles: a couch's box top is its backrest.
+- **Choosing and keeping the place.** `RoomPlacement` first restores the anchor saved for that
+  room, or, without a room, the most recent one, when it localizes within 6 seconds and still
+  suits the seat (`StageSurfaces.StillSuits`). Otherwise it chooses a spot
+  (`StageSurfaces.Choose`), publishes it at once, so the stage moves there while the anchor is
+  made, and keeps it with an `OVRSpatialAnchor` created there and saved on the headset
+  (`StageAnchors`), remembered for the room by `PlacementMemory` in a player preference. An anchor
+  the headset no longer holds is forgotten; an anchor a room no longer uses is erased when the
+  new one is saved or the room is dropped from the memory's eight.
+- **The pose.** `Preferred` is the spot on the surface where the middle of the lineup stands, with
+  a yaw facing away from the person; the stage draws the arc around the person's side of it.
+  Only the anchor's tracked pose moves it afterwards: after the anchor moves more than 2 cm or 2
+  degrees and holds still for half a second with input focus, as after a recenter, the pose is
+  published again. Reference space events never move it, because with system windows open the
+  session's focus can flap many times a second and each flap reports one. An anchor untracked for
+  5 seconds of focused time returns the stage in front of the person until it is tracked again; a
+  placement without an anchor stays where it was put.
+- **Fallbacks.** Without passthrough, room access, a room set up, the person inside a set-up room,
+  a surface that fits, or an anchor, the stage stands in front of the person, as it does without
+  a placement source, and the line says why. Space setup is offered where it would help (no room,
+  outside the rooms, or no surface), started only when the person presses it
+  (`OVRScene.RequestSpaceSetup`, which pauses the app until the person finishes or cancels), and
+  the room is read again afterwards. A placement without a saved anchor holds for the session.
+  Nothing waits on the room before the characters appear.
+- **Controls.** `RoomControls` shows the switch ("Show a virtual space" or "Show my room") and the
+  offer ("Allow room access" or "Set up this room") as the workspace's `PanelButton`s, pointed at
+  and pinched or poked and ignoring input while `FocusGuard.InputSuspended`. They rest 26 degrees
+  to the right, 0.4 m out and 0.4 m below the eyes, about 45 degrees down, within a seated
+  person's reach and under the lineup on a desk; they come up in front of the person, a little
+  below the eyes, for 6 seconds when there is something to read or offered, and return to rest
+  when the person has faced more than 50 degrees away for 1.5 seconds. Above them, one line from
+  `RoomStatus.Line` shows for 8 seconds after it changes.
+- **Logs.** `Halcyonic: room ...` lines say what was shown, asked, read, chosen, restored, kept,
+  lost and erased, and why, with distances and angles, and never an anchor or room id or a
+  position.
+
 ### Scene
 
 Stage.unity carries Meta's comprehensive interaction rig, added the way the Interaction SDK's
@@ -347,11 +439,15 @@ sticks, and the locomotor with its tunneling) is deactivated, because the stage 
 also adds the SDK's gaze as its gaze quick action builds it, Meta's eye gaze prefab beside the
 rig's HMD with a `GazeConecaster`, and turns on its camera pose emulation.
 
+The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
+the passthrough layer, the stage's anchor and its controls under an object of its own.
+
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
-([quest-3-device.md](../validation/quest-3-device.md)); the workspace compiles and builds but is not
-verified on a headset yet. The Meta XR Simulator fails every frame on the development Mac
-([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`, in an editor-only
-assembly, builds a development APK, and a release APK that leaves Meta's development tools out
+([quest-3-device.md](../validation/quest-3-device.md)); the workspace and the room placement
+compile and build but are not verified on a headset yet. The Meta XR Simulator fails every frame
+on the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`,
+in an editor-only assembly, builds a development APK, and a release APK that leaves Meta's
+development tools out, except the Immersive Debugger's runtime, disabled, which MRUK needs
 ([horizon-store-release.md](../validation/horizon-store-release.md)). Project settings, `.meta`
 files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
 
