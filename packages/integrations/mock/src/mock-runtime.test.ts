@@ -46,6 +46,27 @@ function setup(context: ExecutionContext = execution) {
 }
 
 describe('mock runtime scenarios', () => {
+  test('an empty start uses a generic simulation and makes no work claim', async () => {
+    const { time, runtime, observed, types } = setup();
+    assert.deepEqual(runtime.validateStartOptions({}, null), { ok: true });
+    await runtime.startExecution({
+      execution,
+      instruction: 'Check the headset start flow.',
+      options: {},
+      model_ref: null,
+      emit: (observation) => observed.push(observation),
+    });
+    await time.runUntilIdle();
+    assert.deepEqual(types(), [
+      'runtime.execution.started',
+      'runtime.turn.started',
+      'runtime.agent_message',
+      'runtime.turn.completed',
+    ]);
+    const message = observed.find((observation) => observation.type === 'runtime.agent_message');
+    assert.match(message?.payload.text ?? '', /no software work was performed/);
+  });
+
   test('a successful feature runs its turn to completion', async () => {
     const { time, start, types } = setup();
     const result = await start('successful_feature');
@@ -238,7 +259,7 @@ describe('mock runtime actions', () => {
 
   test('start options are validated before anything starts', async () => {
     const { runtime } = setup();
-    assert.deepEqual(runtime.validateStartOptions({}, null).ok, false);
+    assert.deepEqual(runtime.validateStartOptions({}, null).ok, true);
     assert.deepEqual(runtime.validateStartOptions({ scenario: 'nope' }, null).ok, false);
     assert.deepEqual(
       runtime.validateStartOptions({ scenario: 'runtime_error', model: 'x' }, null).ok,
@@ -326,6 +347,7 @@ describe('scenario files', () => {
       'order_history_pagination',
       'runtime_error',
       'sign_in_rate_limit',
+      'simulated_start',
       'successful_feature',
     ]);
   });
