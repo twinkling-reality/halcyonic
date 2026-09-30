@@ -19,7 +19,7 @@ Early development. What exists today:
   when configured;
 - an **XR client** for Meta Quest (Unity): characters for workstreams, and a workspace to open by
   hand, act on and collapse back. Without a control plane it plays a labeled, recorded
-  demonstration.
+  demonstration that follows your answers, without sending anything to an agent.
 
 `docs/internal/architecture/SYSTEM.md` describes what is built and what is not.
 

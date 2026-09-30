@@ -156,8 +156,8 @@ As prototyped alongside this proposal:
 Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted control plane.
 
 1. Whether judges get (a), (b) or (c).
-2. With (a): whether judges only watch, with commands refused in words (built), or act in the scripted
-   interactive variant, which follows their answers and says so (not built).
+2. With (a): whether judges only watch, with commands refused in words, or act in the scripted
+   interactive variant, which follows their answers and says so (chosen, and since built).
 3. With (b) or (c): whether Halcyonic may serve beyond loopback before device pairing,
    per-device authorization and a relay exist, with a credential that ships in the app and is
    therefore public, and whether the owner will run that service, unchanged, from 2026-11-18 until
@@ -181,11 +181,39 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
 
 - Judges, and anyone the owner shows the app to without the Mac, can run it with nothing else.
 - The demonstration shows only what the control plane recorded. Regenerate it with
-  `pnpm demonstration:record` after changes to the contracts, the pipeline or its trace;
-  `pnpm check` fails while it is stale.
-- Still required before a competition build, whichever option: the stage shows the demonstration
-  line; the workspace (milestone 3) words refusals and offers no action without a runtime; a
-  non-development build without Meta's agentic media projection components, the Immersive Debugger
-  and `DevAgentSettings.asset` ([quest-3-device.md](../validation/quest-3-device.md)).
-- Revisit if the organizers say judges must be able to act, or accept a hosted service and the owner
-  wants the control loop shown, or once device pairing and encrypted transport exist.
+  `pnpm demonstration:record` after changes to the contracts, the pipeline, the mock runtime, the
+  scenarios it plays or its plan; `pnpm check` fails while it is stale.
+- The scripted interactive variant is built ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). The
+  recorder no longer replays a trace: it records the demonstration from mock scenarios written for
+  it, a small web service whose sign-in gets rate limiting, with a branch for every answer a judge
+  can give, as a tree of about 490 KiB that shares its beginning. What it cost and settled:
+  - *Only one workstream can be directed.* Work at rest always admits an instruction, so every
+    workstream a judge could direct multiplies the branches of everything after it. The story's two
+    other workstreams run first, on a simulated runtime that declares nothing to direct and reads
+    as watch only, and the directed one starts when they have finished.
+  - *Every offered action has its continuation, and nothing else is offered.* The recording carries
+    the runtimes' descriptors, so the workspace computes actions as it does live: stop the turn at
+    every instant a turn runs, approve and deny at the approval, where the recording holds until
+    someone answers, and recorded instructions once the first turn has ended. Where a path would
+    leave an action open that it has no answer for, after a stop or a second turn, it ends with its
+    control plane started again without runtimes, so its final state holds with nothing offered,
+    then the demonstration starts again.
+  - *The judge's command is answered, never accepted.* The contracts gained an additive rejection
+    code, `demonstration`, because none of the existing codes was true of a command the recording
+    had just offered ([REALTIME.md](../architecture/REALTIME.md)); the words say that nothing
+    reached an agent and what the recording continues with. The recording then plays its own
+    command, which the recorded runtime confirmed.
+  - *Instructions.* The recording cannot follow arbitrary text. The workspace offers its recorded
+    instructions as buttons instead of the keyboard; typed text that matches none continues with
+    the first recorded one and says which.
+  - *Starting again.* The demonstration starts again within its connection, with the beginning's
+    snapshot, so it never reads as disconnected; clients treat the same journal at an earlier
+    position as a rewind. After the headset sleeps it plays from the beginning.
+  - *The runtime's name.* The recorder names the recorded runtimes "Simulated agent
+    (demonstration)" and "Simulated agent (demonstration, watch only)"; both are the synthetic mock
+    runtime, so every surface still labels the work as simulated.
+- Still required before a competition build: checking the scripted demonstration on a headset
+  with hands only, and the release build that leaves Meta's development tools out
+  ([horizon-store-release.md](../validation/horizon-store-release.md)).
+- Revisit if the organizers accept a hosted service and the owner wants the control loop shown, or
+  once device pairing and encrypted transport exist.

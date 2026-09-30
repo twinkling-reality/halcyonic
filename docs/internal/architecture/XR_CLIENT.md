@@ -16,6 +16,7 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             WorkspacePresenter, WorkspaceText,
         │                             WorkspaceSteering, CommandSubmissions,
         │                             ActivityLog, EventHistory, CommandFactory,
+        │                             DemonstrationRecording, DemonstrationPlayer,
         │                             DemonstrationTransport, DemonstrationFallback
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
@@ -126,26 +127,53 @@ the same definition names, as the JSON Schema document:
   bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
   ([quest-3-device.md](../validation/quest-3-device.md)); `wss://` is not verified there yet, and
   the interface remains the seam for a native replacement.
-- **The recorded demonstration** is what a device with no control plane shows, proposed in
-  [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) so that
-  competition judges can run the app with nothing else. `DemonstrationRecording` reads the recording
-  the control plane makes with `pnpm demonstration:record`: the welcome, snapshot and event messages
-  a client receives from `pnpm replay` of the demo trace, and when. The control plane computed every
-  state in it, so the client still derives nothing. A recording whose journal is not a fixture is
-  refused, so every character reads recorded; the recorded work is the mock runtime's, so it also
-  reads simulated. `DemonstrationTransport` implements `IRealtimeTransport` over it without opening a
-  socket or using the token: each connection answers hello with the recorded welcome and snapshot,
-  sends the events at their recorded pace, holds the final state for 30 seconds and then ends, so
-  the session plays it again. It answers pings, and refuses every command with a `rejected`
-  acknowledgement that says, in words, that nothing was sent to an agent; nothing is journaled, and
-  no command is ever reported accepted or done. The recording has no runtime, so the workspace
-  offers no action. `DemonstrationFallback` chooses what is shown: the demonstration when no control
-  plane is configured; otherwise the control plane, except while it has not been live since the
-  start and its connection has failed, when the demonstration plays and the control plane is tried
-  again behind it. Once the control plane is live the demonstration stops for good, and a control
-  plane that drops later shows its last known state as usual. Each switch reaches consumers as a
-  resynchronization, like a journal change. Its `Line` is what the line above the stage says while
-  the demonstration is shown.
+- **The recorded demonstration** is what a device with no control plane shows, so that
+  competition judges can run the app with nothing else and act in it: the scripted interactive
+  demonstration of [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md).
+  `DemonstrationRecording` reads what the control plane records with `pnpm demonstration:record`
+  ([LOCAL_DEVELOPMENT.md](../runbooks/LOCAL_DEVELOPMENT.md)): the welcome, the beginning's
+  snapshot, and a tree of nodes, each a stretch of event messages with their times. Where a person
+  could act, a node lists the answers it holds a continuation for (approve, deny, stop the turn, or
+  one of its recorded instructions, each with a short label), each leading to its own node. A node
+  ends by holding its final state: until an answer at an approval, for 60 seconds while it offers
+  instructions, or, where the recording has nothing more, after a snapshot of its control plane
+  started again without runtimes, for 20 seconds. The control plane computed every state in it,
+  so the client still derives nothing. A recording whose journal is not a fixture, whose answers
+  are not where an instant ends, or whose nodes do not form a tree that continues the journal, is
+  refused; every character reads recorded, and its runtimes are synthetic, so it also reads
+  simulated. The work a person directs runs on "Simulated agent (demonstration)", with the mock
+  runtime's capabilities; the work beside it runs first, on "Simulated agent (demonstration, watch
+  only)", which declares nothing to direct. `WorkspacePresenter` therefore offers, as it does live
+  and with no special case, exactly the actions the recording holds an answer for; a test checks
+  every point of every path.
+  `DemonstrationPlayer` plays it as a `RealtimeSession`, through a `DemonstrationTransport` per
+  connection that opens no socket and never uses the token. Hello is answered with the welcome and
+  the beginning's snapshot, and the events follow at their recorded pace, one instant at a time. A
+  command that matches an answer offered where the playback stands switches to that answer's node;
+  it is answered with a `rejected` acknowledgement with the code `demonstration`
+  ([REALTIME.md](REALTIME.md)), whose words say that nothing was sent to any agent and what the
+  recording continues with, for example "Not sent to any agent; the recording continues as
+  recorded for approving." `WorkspacePresenter.Feedback` shows those words as they are, without
+  "Refused:", since the recording then plays its own recorded command, which its runtime confirmed.
+  Typed text that matches no recorded instruction, ignoring case and spacing, continues with the
+  first one offered and says so; any other command changes nothing and says that too. Nothing is
+  journaled, and no command is ever reported accepted or done. Once a final state has held, the
+  transport sends the beginning's snapshot again on the same connection, so the demonstration
+  starts again without a disconnect; consumers see a rewind (`StateChanges.Rewound`: the same
+  journal at an earlier position) and drop activity and submissions from before, as after a journal
+  change. A new connection, as after the headset sleeps, also starts from the beginning. The
+  player shares where the playback stands: `InstructionsFor` the recorded instructions offered for
+  an execution, as `PresetInstruction`s; `Ended` while it holds one of its ends; `Plays`, how often
+  it started from the beginning. It can take a recording still being read on another thread and
+  connects once it is read. `DemonstrationFallback` chooses what is shown: the demonstration when
+  no control plane is configured; otherwise the control plane, except while it has not been live
+  since the start and its connection has failed, when the demonstration plays and the control plane
+  is tried again behind it. Once the control plane is live the demonstration stops for good, and a
+  control plane that drops later shows its last known state as usual. Each switch reaches consumers
+  as a resynchronization, like a journal change. Its `Line` is what the line above the stage says
+  while the demonstration is shown: that it is recorded, simulated work played on the device, not
+  live, that it follows the person's answers and that nothing reaches an agent, and, while it holds
+  an end, that it starts again shortly.
 
 ## Verification
 
@@ -166,13 +194,20 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   connected);
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
   answer without one, and a refusal;
-- the demonstration: the bundled recording holds every event of the demo trace, each message reads
-  strictly and writes back to the same JSON, and a live journal or anything out of order is
-  refused; played through a session it reaches the trace's final state at the recorded pace, with
-  every character recorded, simulated and not stale and no action offered, refuses each kind of
-  command in words without changing anything, and plays again after holding its final state; the
-  fallback shows it without a control plane, falls back to it from an unreachable one while trying
-  that one again, switches to the control plane once it is live and never back, and follows pauses;
+- the demonstration: every message of the bundled recording reads strictly and writes back to the
+  same JSON, it reads in well under a second, and a live journal, anything out of order, an answer
+  inside an instant, a node that is not a tree's, or an ending from another journal is refused; at
+  every instant of every path the workspace offers exactly the actions the recording holds an
+  answer for; the transport holds at the approval, answers each kind of command in words, continues
+  with the recorded answer, ends without a runtime and starts again without ending the connection;
+  a judge's first minutes, through `WorkspaceSteering` and `CommandSubmissions`: an approval
+  confirmed and answered in words, the tests failing, a recorded instruction offered as a preset,
+  the tests passing, the recording ending with nothing offered, and the session live throughout;
+  typed text answered with a recorded instruction that is named; starting again as a rewind of the
+  same journal; the fallback shows it without a control plane, offers its instructions where it
+  stands, says when it has ended, falls back to it from an unreachable control plane while trying
+  that one again, switches to the control plane once it is live and never back, and plays it from
+  the beginning after a pause;
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
@@ -198,8 +233,11 @@ core Unity APIs:
 - `ControlPlaneConnection` owns what is shown through a `DemonstrationFallback`: the session with
   the control plane when an access token is found, and the demonstration, loaded from the text asset
   `Resources/HalcyonicDemonstration.json` when first needed, while no control plane is configured or
-  reachable. It pumps both every frame and exposes the session shown, and `DemonstrationLine`, the
-  words for the line above the stage while the demonstration is shown. It passes the application's
+  reachable. It loads the asset on the main thread and reads it on another, so the recording's
+  half megabyte never holds up a frame, and logs once if it cannot be read. It pumps both every
+  frame and exposes the session shown, `DemonstrationLine`, the words for the line above the stage
+  while the demonstration is shown, and `DemonstrationInstructions`, the recorded instructions the
+  demonstration offers for an execution where it stands, empty otherwise. It passes the application's
   pause state to `RealtimeSession.SetPausedAsync`, which stops the session on a pause and resumes it
   from the last position afterwards. It ignores the resumes Unity reports without a pause, at app
   start and when an XR session starts, and never revives a session stopped in between. It logs, as
@@ -209,7 +247,8 @@ core Unity APIs:
   detail and nothing else (never the token, workstream titles, instructions or agent text), because
   on a headset the log (`adb logcat -s Unity`) is the main diagnostic. It logs the status each frame
   ends with, so a phase that begins and ends within one frame, such as `Connecting` when the
-  connection is refused at once, has no line of its own.
+  connection is refused at once, has no line of its own. For the demonstration it also logs each
+  start from the beginning, with its count, and each end it reaches, never what was answered.
 - `CharacterStage` stands the characters on an arc of fixed slots in front of the person and says
   above them whether the state is live, or, while the demonstration is shown, its
   `DemonstrationLine`. The arc is 2.4 m away, beyond the system windows, such as Virtual Display's
@@ -282,10 +321,12 @@ panel, whose background takes the ray so nothing behind it is pointed at. The di
 `ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
 it opens and after a resynchronization (saying so in the activity caption while it reads, or why
 it could not), and sends commands with `CommandSubmissions.SubmitAsync`. While the demonstration is
-shown it reads no history, since the recording plays all of it through the session, and its
-refusals read as any refusal does, through the acknowledgement's command record. A switch of
-session arrives as a resynchronization: the open workspace follows its workstream into the new
-state, or collapses when the workstream is not there. Nothing is peeked, hinted or pressed while
+shown it reads no history, since the recording plays all of it through the session; its answers
+read through the acknowledgement's command record, in the demonstration's own words; and Instruct
+offers the instructions the demonstration recorded there as presets instead of opening the
+keyboard. A switch of session arrives as a resynchronization: the open workspace follows its
+workstream into the new state, or collapses when the workstream is not there. On a journal change
+or a rewind it drops its activity and submissions, which no longer apply. Nothing is peeked, hinted or pressed while
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
 after the keyboard closes.
 
@@ -358,8 +399,7 @@ files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELO
 ## Not built yet
 
 Code, diffs, tests and output in the workspace; what Salidium and Seorak say about an execution,
-which `ControlPlaneApi` reads but the workspace does not show; token provisioning on a headset;
-`wss://`; a demonstration in which a person can act, which a recording cannot confirm
-([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)). On a Quest,
+which `ControlPlaneApi` reads but the workspace does not show, and recorded answers for them in the
+demonstration, whose format leaves room for them; token provisioning on a headset; `wss://`. On a Quest,
 the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there
 is no LAN serving yet ([SECURITY.md](SECURITY.md)).

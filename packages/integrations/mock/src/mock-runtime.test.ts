@@ -18,7 +18,7 @@ import {
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
 import { MockRuntimeAdapter } from './mock-runtime.ts';
-import { loadScenarios, ScenarioError } from './scenario.ts';
+import { loadScenarios, parseScenario, ScenarioError } from './scenario.ts';
 
 const SCENARIOS_DIR = fileURLToPath(new URL('../../../../fixtures/scenarios', import.meta.url));
 const SCENARIOS = loadScenarios(SCENARIOS_DIR);
@@ -178,6 +178,53 @@ describe('mock runtime actions', () => {
     ]);
   });
 
+  test('an instruction the scenario scripts plays its turn; any other plays the default one', async () => {
+    const { time, runtime, start, observed, types } = setup();
+    await start('sign_in_rate_limit');
+    await time.runUntilIdle();
+    await runtime.respondToApproval({ execution, approval_id: 'approval-1', decision: 'approve' });
+    await time.runUntilIdle();
+    const texts = () =>
+      observed.flatMap((observation) =>
+        observation.type === 'runtime.agent_message' ? [observation.payload.text] : [],
+      );
+    const outcomes = () =>
+      observed.flatMap((observation) =>
+        observation.type === 'runtime.test_run.completed' ? [observation.payload.outcome] : [],
+      );
+    assert.deepEqual(outcomes(), ['failed']);
+
+    await runtime.sendInstruction({
+      execution,
+      text: 'Count failed attempts per account as well as per address.',
+    });
+    await time.runUntilIdle();
+    assert.deepEqual(outcomes(), ['failed', 'passed']);
+    assert.equal(types().at(-1), 'runtime.turn.completed');
+
+    await runtime.sendInstruction({ execution, text: 'Count failed attempts per account.' });
+    await time.runUntilIdle();
+    assert.match(texts().at(-1) ?? '', /No real work is performed/);
+    assert.deepEqual(
+      outcomes(),
+      ['failed', 'passed'],
+      'an unscripted text only gets the default turn',
+    );
+  });
+
+  test('a runtime can be named for where it is shown, and stays synthetic', () => {
+    const named = new MockRuntimeAdapter({
+      scenarios: SCENARIOS,
+      runtimeId: 'demonstration' as RuntimeId,
+      displayName: 'Simulated agent (demonstration)',
+    });
+    assert.equal(named.descriptor.display_name, 'Simulated agent (demonstration)');
+    assert.equal(named.descriptor.synthetic, true);
+    assert.equal(named.descriptor.runtime_id, 'demonstration');
+    const plain = new MockRuntimeAdapter({ scenarios: SCENARIOS });
+    assert.equal(plain.descriptor.display_name, 'Mock runtime (development fixture)');
+  });
+
   test('instructions while a turn runs are refused, matching the declared capability', async () => {
     const { runtime, start } = setup();
     assert.equal(runtime.descriptor.capabilities.instruct_while_running, false);
@@ -214,9 +261,32 @@ describe('scenario files', () => {
       'agent_disconnect',
       'approval_required',
       'failing_tests',
+      'order_confirmation_email',
+      'order_history_pagination',
       'runtime_error',
+      'sign_in_rate_limit',
       'successful_feature',
     ]);
+  });
+
+  test('a scenario that scripts the same instruction twice is refused', () => {
+    const turn = [{ after_ms: 0, emit: { type: 'runtime.turn.completed', payload: {} } }];
+    const scenario = {
+      format: 1,
+      id: 'twice',
+      description: 'Test scenario.',
+      steps: turn,
+      instructions: [
+        { text: 'Do it.', steps: turn },
+        { text: 'Do it.', steps: turn },
+      ],
+    };
+    assert.throws(() => parseScenario(scenario, 'twice.json'), /instructions\/1 repeats/);
+    assert.equal(
+      parseScenario({ ...scenario, instructions: [{ text: 'Do it.', steps: turn }] }, 'once.json')
+        .instructions?.length,
+      1,
+    );
   });
 
   test('a scenario whose id does not match its file, or that emits a mock-owned event, is refused', () => {

@@ -122,6 +122,12 @@ export const RejectionCode = Type.Union([
   Type.Literal('capability_unsupported'),
   Type.Literal('invalid_state'),
   Type.Literal('invalid_runtime_options'),
+  /**
+   * The client is playing a recorded demonstration on its own device: the command was not sent to
+   * any control plane or agent, however admissible it was in the recording. Only the client's
+   * demonstration answers with it; a control plane never does.
+   */
+  Type.Literal('demonstration'),
 ]);
 export type RejectionCode = Static<typeof RejectionCode>;
 

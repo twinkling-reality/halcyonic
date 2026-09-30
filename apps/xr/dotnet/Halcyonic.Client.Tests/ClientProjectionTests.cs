@@ -23,6 +23,30 @@ public class ClientProjectionTests
     }
 
     [Test]
+    public void ASnapshotBackAtAnEarlierPositionOfTheSameJournalRewinds()
+    {
+        var state = new ClientProjection();
+        var first = new StateChanges();
+        state.ApplySnapshot(Samples.Snapshot(12, new[] { Samples.Workstream("w1") }), first);
+        Assert.That(first.Rewound, Is.False, "the first snapshot");
+
+        var later = new StateChanges();
+        state.ApplySnapshot(Samples.Snapshot(40, new[] { Samples.Workstream("w1") }), later);
+        var same = new StateChanges();
+        state.ApplySnapshot(Samples.Snapshot(40, new[] { Samples.Workstream("w1") }), same);
+        Assert.That(later.Rewound || same.Rewound, Is.False, "forward, or where it already was");
+
+        var rewound = new StateChanges();
+        state.ApplySnapshot(Samples.Snapshot(12, new[] { Samples.Workstream("w1") }), rewound);
+        Assert.That(rewound.Rewound && rewound.Resynchronized, Is.True);
+        Assert.That(state.Position, Is.EqualTo(12));
+
+        var another = new StateChanges();
+        state.ApplySnapshot(Samples.Snapshot(3, journal: Samples.Journal("01a0dcf1-5a80-7000-8000-000000000002")), another);
+        Assert.That(another.Rewound, Is.False, "another journal is a journal change, not a rewind");
+    }
+
+    [Test]
     public void AnEventReplacesTheEntitiesItChanged()
     {
         var state = new ClientProjection();
