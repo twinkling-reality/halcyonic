@@ -245,8 +245,15 @@ public class LiveControlPlaneTests
         Json.AssertRoundTrips<RuntimeModelsResponse>(await raw.GetStringAsync(new Uri(baseUri, "api/runtimes/mock/models")));
 
         var project = (ProjectCreatedResult)await RunAsync(commands.CreateProject("Client tests"));
-        var workstream = (WorkstreamCreatedResult)await RunAsync(
-            commands.CreateWorkstream(project.ProjectId, "Move sessions to their own table", null));
+        var draft = new NewWorkDraft(commands)
+        {
+            ProjectId = project.ProjectId,
+            Objective = "Move sessions to their own table and test the migration.",
+        };
+        draft.ChooseRuntime(mock);
+        draft.SetModels(listed);
+        draft.ChooseModel(models[0]);
+        var workstream = (WorkstreamCreatedResult)await RunAsync(draft.CreateWorkstream());
         var options = new Dictionary<string, JToken> { ["scenario"] = "successful_feature" };
 
         // A model the runtime does not list is refused in words, and nothing starts.
@@ -255,8 +262,9 @@ public class LiveControlPlaneTests
         Assert.That(unlisted.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
         Assert.That(unlisted.Command!.Rejection!.Message, Is.EqualTo("The mock runtime lists no model mock/gone."));
 
-        var execution = (ExecutionCreatedResult)await RunAsync(commands.StartExecution(
-            workstream.WorkstreamId, "mock", "Write and apply the migration.", options, modelRef: models[0].ModelRef));
+        var chosen = draft.StartExecution(workstream.WorkstreamId);
+        chosen.Payload.Options["scenario"] = options["scenario"];
+        var execution = (ExecutionCreatedResult)await RunAsync(chosen);
         await Until(
             s => s.State.Executions[execution.ExecutionId].ModelRef == "mock/fast",
             "the execution shows the model the runtime reports using");
