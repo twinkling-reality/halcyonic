@@ -86,3 +86,24 @@ headset.
   targets, the system keyboard under OpenXR and its focus change, `HttpClient` under IL2CPP for
   history, and legibility. Revisit the input choice if the rig costs too much frame time, and the keyboard
   choice if the system keyboard is unusable with hands.
+- The first session with the workspace on a Quest 3 (2026-09-29) confirmed opening, reading,
+  approving with the second press and the runtime-confirmed result, and `HttpClient` under IL2CPP.
+  It also showed what this decision left too eager or too narrow, and the owner asked for these
+  changes, made the same day ([workspace-interaction.md](../validation/workspace-interaction.md)):
+  - The gaze peeked every character the head swept past: the conecaster's 0.2 s dwell is shorter
+    than a sweep takes to cross a character. The peek now waits for the gaze to rest half a second
+    near the middle of the view with the head nearly still, fades, and shows one at a time.
+  - Look and pinch, the alternative left for a headset trial, is adopted, as the competition names
+    gaze interactions: while a gaze peek shows and no hand ray or finger is on a target, a pinch of
+    either hand at any height opens that character. It no longer competes with the ray's pinch,
+    because it acts only when no hand points at anything.
+  - The SDK's hand ray, on while the headset's shoulder-based pointer pose is valid, reached the
+    arc only from a hand held near shoulder height. The rig's hand rays now run from a pivot below
+    the shoulder and turn off for a palm facing the floor or the eyes: a seated person points from
+    a relaxed posture, and resting or typing hands have no ray. Pointing palm down no longer shows a
+    ray; the palm turns sideways or away.
+  - The workspace let labels behind it show through and covered the rest of the arc. Its plate is
+    opaque, and it opens clear of every character's body: below the arc 2.4 m away, which moves the
+    lowest its center goes from 24 to 30 degrees below eye level, and above a lineup on a desk
+    ([ADR 0015](0015-the-stage-stands-on-the-persons-desk.md)).
+  - The first-time hint says "Look, then pinch".

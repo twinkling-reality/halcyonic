@@ -33,8 +33,8 @@ namespace Halcyonic.XR.Workspace
         public const float PeekSize = 0.30f;
 
         // Transparent renderers draw in sorting order before distance. The workspace, the nearest
-        // thing to the person, draws after everything at the characters' distance, so a peek or a
-        // character's label behind it never shows through.
+        // thing to the person, draws after everything at the characters' distance, and its plate is
+        // opaque, so neither a peek nor a character's body or label behind it shows through.
         public const int PlateOrder = 0;
         public const int ControlOrder = 1;
         public const int TextOrder = 2;
@@ -42,7 +42,11 @@ namespace Halcyonic.XR.Workspace
         public const int PanelControlOrder = 11;
         public const int PanelTextOrder = 12;
 
-        public static readonly Color PanelColor = new Color(0.06f, 0.08f, 0.11f, 0.95f);
+        /// <summary>
+        /// Opaque. At 95 percent, and blended in the project's linear color space, a white label
+        /// behind the workspace lifted its dark plate by up to 54 of 255 levels: readable through it.
+        /// </summary>
+        public static readonly Color PanelColor = new Color(0.06f, 0.08f, 0.11f, 1f);
         public static readonly Color TextColor = new Color(0.93f, 0.95f, 0.96f);
         public static readonly Color SecondaryColor = new Color(0.64f, 0.69f, 0.74f);
         public static readonly Color ClaimColor = new Color(0.80f, 0.85f, 0.90f);

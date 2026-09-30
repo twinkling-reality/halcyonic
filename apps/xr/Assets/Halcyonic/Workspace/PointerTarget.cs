@@ -17,15 +17,25 @@ namespace Halcyonic.XR.Workspace
     /// </summary>
     public sealed class PointerTarget : MonoBehaviour
     {
+        /// <summary>Hand pointers on any target, counted across all of them.</summary>
+        private static int handsOnTargets;
+
         private readonly HashSet<int> hands = new HashSet<int>();
         private readonly HashSet<int> gazes = new HashSet<int>();
         private BoundsClipper? clipper;
+        private PokeInteractable? poke;
 
         /// <summary>A hand or the gaze started or stopped hovering.</summary>
         public event Action? HoverChanged;
 
-        /// <summary>A pinch on the ray, or a poke that pressed through the surface. Gaze only hovers.</summary>
+        /// <summary>A pinch on the ray, or a poke that pressed through the surface.</summary>
         public event Action? Selected;
+
+        /// <summary>A look and pinch: the gaze interactor selected this, on a pinch <see cref="GazeHover"/> allowed.</summary>
+        public event Action? GazeSelected;
+
+        /// <summary>A hand ray or a finger is on some target: a character, the workspace, a button.</summary>
+        public static bool AnyHandOnTarget => handsOnTargets > 0;
 
         /// <summary>A hand ray or a finger is on it.</summary>
         public bool HandHovered => hands.Count > 0;
@@ -60,6 +70,7 @@ namespace Halcyonic.XR.Workspace
                 var pokeInteractable = host.AddComponent<PokeInteractable>();
                 pokeInteractable.InjectAllPokeInteractable(patch);
                 pokeInteractable.WhenPointerEventRaised += target.OnHand;
+                target.poke = pokeInteractable;
             }
             return target;
         }
@@ -94,10 +105,19 @@ namespace Halcyonic.XR.Workspace
             if (clipper != null) clipper.Size = new Vector3(size.x, size.y, 0.1f);
         }
 
+        /// <summary>How close, along the surface's normal, a fingertip hovers the poke and stops hovering it, in meters.</summary>
+        public void SetPokeReach(float enter, float exit)
+        {
+            if (poke == null) return;
+            poke.EnterHoverNormal = enter;
+            poke.ExitHoverNormal = exit;
+        }
+
         private void OnDisable()
         {
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
             if (hands.Count == 0 && gazes.Count == 0) return;
+            handsOnTargets -= hands.Count;
             hands.Clear();
             gazes.Clear();
             HoverChanged?.Invoke();
@@ -105,13 +125,19 @@ namespace Halcyonic.XR.Workspace
 
         private void OnHand(PointerEvent pointer)
         {
-            if (Track(hands, pointer)) HoverChanged?.Invoke();
+            var before = hands.Count;
+            if (Track(hands, pointer))
+            {
+                handsOnTargets += hands.Count - before;
+                HoverChanged?.Invoke();
+            }
             if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended) Selected?.Invoke();
         }
 
         private void OnGaze(PointerEvent pointer)
         {
             if (Track(gazes, pointer)) HoverChanged?.Invoke();
+            if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended) GazeSelected?.Invoke();
         }
 
         /// <summary>Records a hover or its end; returns whether that changed anything.</summary>
@@ -122,5 +148,9 @@ namespace Halcyonic.XR.Workspace
             PointerEventType.Cancel => pointers.Remove(pointer.Identifier),
             _ => false,
         };
+
+        /// <summary>Forgets the count when play mode starts without a domain reload.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void Reset() => handsOnTargets = 0;
     }
 }
