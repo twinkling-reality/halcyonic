@@ -311,6 +311,44 @@ namespace Halcyonic.Client
                 LineupFits(surface, blocking, viewer, middle.Plan, 0.5f));
         }
 
+        /// <summary>
+        /// Why no spot was chosen, one line per surface, for the log: the surface's kind, how far below
+        /// the eyes it is, how far away and how far to the side it reaches, how many objects stand on
+        /// it, and the first rule the lineup breaks there. Numbers only; nothing from the room's labels.
+        /// </summary>
+        public static IReadOnlyList<string> Explain(IEnumerable<RoomSurface> surfaces, IEnumerable<RoomObstacle> obstacles, Viewer viewer)
+        {
+            if (surfaces == null) throw new ArgumentNullException(nameof(surfaces));
+            if (obstacles == null) throw new ArgumentNullException(nameof(obstacles));
+            var blocking = obstacles.ToList();
+            var eyes = viewer.Eyes.Plan;
+            var facing = viewer.Facing.Heading;
+            var lines = new List<string>();
+            foreach (var surface in surfaces)
+            {
+                var kind = surface.Kind == SurfaceKind.Desk ? "desk or table" : "other furniture";
+                if (surface.Outline.Count < 3)
+                {
+                    lines.Add(kind + ": no outline");
+                    continue;
+                }
+                var drop = viewer.Eyes.Y - surface.Height;
+                var nearest = Polygon.Contains(surface.Outline, eyes) ? 0f : Polygon.DistanceToEdge(surface.Outline, eyes);
+                var farthest = surface.Outline.Max(corner => PlanPoint.Distance(corner, eyes));
+                var turns = surface.Outline.Select(corner => TurnBetween(facing, (corner - eyes).Heading)).ToList();
+                var onSurface = blocking.Where(obstacle => Stands(obstacle, surface.Height)).ToList();
+                string reason;
+                if (drop < LeastDrop || drop > MostDrop) reason = FormattableString.Invariant($"not {LeastDrop:0.00} to {MostDrop:0.00} m below the eyes");
+                else if (BestOn(surface, onSurface, viewer, drop).Spot != null) reason = "the lineup fits";
+                else if (BestOn(surface, new List<RoomObstacle>(), viewer, drop).Spot != null) reason = "the lineup would fit without the objects standing on it";
+                else if (BestOn(surface, new List<RoomObstacle>(), viewer, drop, 0f).Spot != null) reason = "the lineup fits only without its margin from the edges";
+                else reason = "the lineup's arc does not fit on it within reach and view";
+                lines.Add(FormattableString.Invariant(
+                    $"{kind}, {drop:0.00} m below the eyes, {nearest:0.00} to {farthest:0.00} m away, {turns.Min():0} to {turns.Max():0} degrees from where the person faces, {onSurface.Count} objects on it: {reason}"));
+            }
+            return lines;
+        }
+
         /// <summary>The signed difference between two headings, in degrees between -180 and 180.</summary>
         public static float TurnBetween(float fromHeading, float toHeading)
         {
@@ -320,7 +358,7 @@ namespace Halcyonic.Client
             return turn;
         }
 
-        private static (StageSpot? Spot, float Cost) BestOn(RoomSurface surface, List<RoomObstacle> obstacles, Viewer viewer, float drop)
+        private static (StageSpot? Spot, float Cost) BestOn(RoomSurface surface, List<RoomObstacle> obstacles, Viewer viewer, float drop, float marginScale = 1f)
         {
             var eyes = viewer.Eyes.Plan;
             var facing = viewer.Facing.Heading;
@@ -340,7 +378,7 @@ namespace Halcyonic.Client
                         + MathF.Abs(turn) / 10f
                         + MathF.Max(0f, down - ComfortableDownDegrees) / SteepnessDegreesPerCost;
                     if (cost >= bestCost) continue;
-                    if (!ArcFits(surface, obstacles, eyes, facing + turn, reach, Margin(reach))) continue;
+                    if (!ArcFits(surface, obstacles, eyes, facing + turn, reach, Margin(reach) * marginScale)) continue;
                     var middle = eyes + PlanPoint.Toward(facing + turn) * reach;
                     best = new StageSpot(surface, new RoomPoint(middle.X, surface.Height, middle.Z), reach, turn, drop);
                     bestCost = cost;
