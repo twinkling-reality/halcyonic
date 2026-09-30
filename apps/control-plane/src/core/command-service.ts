@@ -4,6 +4,7 @@ import type {
   CommandResult,
   CommandView,
   ExecutionId,
+  Principal,
   ProjectId,
   ReceivedVia,
   RuntimeDescriptor,
@@ -72,7 +73,15 @@ export class CommandService {
     this.#deps = deps;
   }
 
-  submit(command: CommandEnvelope, via: ReceivedVia): SubmitOutcome {
+  /**
+   * `principal` is who the control plane authenticated: the local access token or a paired device.
+   * It is null only for commands from inside the control plane, such as a fixture recorder.
+   */
+  submit(
+    command: CommandEnvelope,
+    via: ReceivedVia,
+    principal: Principal | null = null,
+  ): SubmitOutcome {
     const known = this.#deps.projection.commandEnvelope(command.command_id);
     if (known !== undefined) {
       return canonicalJson(known) === canonicalJson(command)
@@ -87,7 +96,7 @@ export class CommandService {
         controlPlaneDraft(
           'command.rejected',
           admission.scope,
-          { command, rejection: admission.rejection, received_via: via },
+          { command, rejection: admission.rejection, received_via: via, principal },
           this.#now(),
           cause,
         ),
@@ -107,7 +116,7 @@ export class CommandService {
       controlPlaneDraft(
         'command.accepted',
         admission.scope,
-        { command, policy: admission.policy, received_via: via },
+        { command, policy: admission.policy, received_via: via, principal },
         this.#now(),
         cause,
       ),

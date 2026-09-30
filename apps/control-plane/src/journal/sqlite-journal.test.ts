@@ -145,6 +145,32 @@ describe('SQLite journal', () => {
     assert.throws(() => openSqliteJournal({ path, originIfNew: 'live', ids }), JournalError);
   });
 
+  test('a command event journaled before principals were recorded reads with a null principal', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const accepted = TRACE.find((event) => event.event_type === 'command.accepted');
+    assert.ok(accepted && accepted.event_type === 'command.accepted');
+    const { principal: _principal, ...older } = accepted.payload;
+    journal.append({ ...accepted, payload: older } as unknown as EventEnvelope);
+    journal.close();
+
+    const db = new DatabaseSync(path);
+    const version = db.prepare('PRAGMA user_version').get() as { user_version: number };
+    assert.equal(version.user_version, 2);
+    const stored = db.prepare('SELECT envelope FROM events').get() as { envelope: string };
+    assert.equal(stored.envelope.includes('principal'), false, 'the stored text is not rewritten');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const [read] = [...reopened.readAll()];
+    assert.equal(read?.event.event_type, 'command.accepted');
+    assert.equal(
+      read?.event.event_type === 'command.accepted' && read.event.payload.principal,
+      null,
+    );
+    reopened.close();
+  });
+
   test('a stored event that no longer matches the contract is reported, not trusted', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
