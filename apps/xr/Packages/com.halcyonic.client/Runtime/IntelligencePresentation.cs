@@ -142,7 +142,11 @@ namespace Halcyonic.Client
 
             var verdict = understanding.Verdict;
             var because = IntelligenceText.Plain(verdict.Because);
-            Add(0, 0, new SectionLine(Word(verdict.Epistemic), Sentence(IntelligenceText.Plain(verdict.Headline), because), ToneOf(verdict.Tone)));
+            var runs = understanding.Verification.LatestByMethod;
+            // A reason that is a run's own label is said once, on the run's line.
+            var runLabels = new HashSet<string>(runs.Select(run => IntelligenceText.Plain(run.Label)));
+            var reason = runLabels.Contains(because) ? "" : because;
+            Add(0, 0, new SectionLine(Word(verdict.Epistemic), Sentence(IntelligenceText.Plain(verdict.Headline), reason), ToneOf(verdict.Tone)));
 
             var waiting = understanding.Waiting;
             if (waiting != null && IntelligenceText.Plain(waiting.Summary) != because)
@@ -168,7 +172,6 @@ namespace Halcyonic.Client
                 Add(4, 5, new SectionLine("inferred", coverage, unverified.Count == 0 ? SectionTone.Normal : SectionTone.Attention));
             }
 
-            var runs = understanding.Verification.LatestByMethod;
             if (runs.Count == 0)
             {
                 Add(5, 3, new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary));
@@ -190,9 +193,8 @@ namespace Halcyonic.Client
             if (explanation != null) Add(7, 7, explanation);
 
             // A failing check the source also lists as remaining is the run already shown.
-            var shownRuns = new HashSet<string>(runs.Select(run => IntelligenceText.Plain(run.Label)));
             var remaining = understanding.Remaining.Items
-                .Where(item => item.Source != UnderstandingRemainingItemSource.Verification || !shownRuns.Contains(IntelligenceText.Plain(item.Text)))
+                .Where(item => item.Source != UnderstandingRemainingItemSource.Verification || !runLabels.Contains(IntelligenceText.Plain(item.Text)))
                 .ToList();
             for (var index = 0; index < remaining.Count && index < 2; index++)
             {
@@ -409,7 +411,7 @@ namespace Halcyonic.Client
                     state = "available";
                     break;
                 case EvaluationAvailabilityState.Partial:
-                    state = "partly available" + (availability.Reason is EvaluationAvailabilityReason partly ? " (" + Reason(partly) + ")" : "");
+                    state = "partly available" + (availability.Reason is EvaluationAvailabilityReason partly ? ": " + Reason(partly) : "");
                     tone = SectionTone.Attention;
                     break;
                 default:
@@ -417,9 +419,13 @@ namespace Halcyonic.Client
                     tone = SectionTone.Attention;
                     break;
             }
-            var covers = "covers " + coverage.IncludedSessions.ToString(CultureInfo.InvariantCulture) + " of "
+            var covers = coverage.IncludedSessions.ToString(CultureInfo.InvariantCulture) + " of "
                 + IntelligenceText.Plural(coverage.MatchedSessions, "session");
-            if (!coverage.Complete)
+            if (coverage.Complete)
+            {
+                covers += ", complete";
+            }
+            else
             {
                 covers += ", incomplete" + (coverage.Omissions.Count == 0 ? "" : ": " + string.Join(", ", coverage.Omissions.Select(Omission)));
                 tone = SectionTone.Attention;
@@ -437,10 +443,10 @@ namespace Halcyonic.Client
                 {
                     EvaluationFreshnessState.Fresh => "fresh",
                     EvaluationFreshnessState.Stale => "stale",
-                    _ => "being recomputed",
+                    _ => "recomputing",
                 };
                 current += freshness.DataThrough != null && IntelligenceText.TryParse(freshness.DataThrough, out var through)
-                    ? ", data through " + IntelligenceText.Clock(through, zone, seconds: true)
+                    ? ", data to " + IntelligenceText.Clock(through, zone, seconds: true)
                     : ", no data yet";
                 if (freshness.State == EvaluationFreshnessState.Stale) tone = SectionTone.Attention;
             }
@@ -487,7 +493,7 @@ namespace Halcyonic.Client
 
         private static string Uncommitted(EvaluationUncommitted? uncommitted)
         {
-            if (uncommitted == null) return "uncommitted changes: measured when it ends";
+            if (uncommitted == null) return "uncommitted: known once it ends";
             var text = "uncommitted: " + IntelligenceText.Plural(uncommitted.FilesTouched, "file") + ", +"
                 + uncommitted.LinesAdded.ToString(CultureInfo.InvariantCulture) + " −" + uncommitted.LinesRemoved.ToString(CultureInfo.InvariantCulture);
             if (uncommitted.GeneratedLinesExcluded > 0)
@@ -499,7 +505,7 @@ namespace Halcyonic.Client
 
         private static string Survival(EvaluationLineSurvival? survival)
         {
-            if (survival == null) return "lines kept after 3 days: pending";
+            if (survival == null) return "3-day line survival: pending";
             var rate = survival.Rate is double fraction ? (fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "rate unknown";
             var lines = " (" + survival.LinesSurviving.ToString(CultureInfo.InvariantCulture) + " of "
                 + IntelligenceText.Plural(survival.LinesAuthored, "line") + ")";

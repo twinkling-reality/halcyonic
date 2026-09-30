@@ -411,6 +411,42 @@ public class UnderstandingPresenterTests
     }
 
     [Test]
+    public void WhatTheSourceSaysTwiceIsShownOnce()
+    {
+        var json = Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            var understanding = Intelligence.UnderstandingOf(response);
+            var run = understanding["verification"]!["latest_by_method"]![0]!;
+            run["outcome"] = "fail";
+            run["label"] = "3 of 118 tests failed (vitest)";
+            understanding["verdict"]!["headline"] = "3 tests failing";
+            understanding["verdict"]!["because"] = "3 of 118 tests failed (vitest)";
+            understanding["remaining"]!["items"] = JArray.Parse(
+                "[{\"text\":\"3 of 118 tests failed (vitest)\",\"status\":\"failing\",\"source\":\"verification\",\"epistemic\":\"observed\"},"
+                + "{\"text\":\"Document refund behaviour for support\",\"status\":\"pending\",\"source\":\"plan\",\"epistemic\":\"planned\"}]");
+        });
+        var texts = Intelligence.Texts(Present(json));
+        Assert.That(texts[0], Is.EqualTo("3 tests failing"), "the reason is the run's own label, said on the run's line");
+        Assert.That(texts.Count(text => text.Contains("3 of 118 tests failed", StringComparison.Ordinal)), Is.EqualTo(1));
+        Assert.That(texts, Does.Contain("Planned, not done: Document refund behaviour for support"));
+
+        var waiting = Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            var understanding = Intelligence.UnderstandingOf(response);
+            understanding["verdict"]!["headline"] = "Waiting for you";
+            understanding["verdict"]!["because"] = "Run: git push origin main";
+            understanding["waiting"] = JObject.Parse(
+                "{\"kind\":\"permission\",\"summary\":\"Run: git push origin main\",\"since\":\"2026-09-20T16:05:25.000Z\",\"epistemic\":\"observed\"}");
+        });
+        var shown = Intelligence.Texts(Present(waiting));
+        Assert.That(shown[0], Is.EqualTo("Waiting for you. Run: git push origin main"));
+        Assert.That(shown.Any(text => text.StartsWith("Waiting for permission", StringComparison.Ordinal)), Is.False);
+        var question = Intelligence.Edit(waiting, response => Intelligence.UnderstandingOf(response)["waiting"]!["kind"] = "question");
+        Assert.That(Intelligence.Texts(Present(Intelligence.Edit(question, response =>
+            Intelligence.UnderstandingOf(response)["waiting"]!["summary"] = "Which branch?"))), Does.Contain("Waiting for an answer: Which branch?"));
+    }
+
+    [Test]
     public void AnExplanationThatIsNotCurrentSaysSoAndOneBeingWrittenIsNotShownAsContent()
     {
         var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
@@ -524,12 +560,12 @@ public class EvaluationPresenterTests
         Assert.That(section.Lines.Select(line => (line.Tag, line.Text, line.Detail)), Is.EqualTo(new[]
         {
             ("Cost", "About $1.37. Estimated from token counts at list prices. Not a bill.", false),
-            ("", "available · covers 1 of 1 session · fresh, data through 17:58:12", true),
+            ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true),
             ("Outcome", "commits landed unknown · no tool errors · ended: the person exited", false),
-            ("", "uncommitted changes: measured when it ends · lines kept after 3 days: pending", false),
-            ("", "partly available (not yet computed) · covers 0 of 1 session, incomplete: still being computed, a gap not named · being recomputed, no data yet", true),
+            ("", "uncommitted: known once it ends · 3-day line survival: pending", false),
+            ("", "partly available: not yet computed · 0 of 1 session, incomplete: still being computed, a gap not named · recomputing, no data yet", true),
             ("Checks", "test: 4 passed of 5 runs (80%)", false),
-            ("", "available · covers 1 of 1 session · fresh, data through 17:58:12", true),
+            ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true),
         }));
         Assert.That(section.Lines.Count(line => line.Detail), Is.EqualTo(3), "one statement per part");
         Assert.That(section.Lines.Where(line => line.Detail).Select(line => line.Tone),
@@ -551,7 +587,7 @@ public class EvaluationPresenterTests
     {
         var section = Present(ControlPlaneApiTests.Available, now: "2026-11-20T10:00:00.000Z", recorded: true);
         Assert.That(section.Provenance, Is.EqualTo("From Seorak, recorded at 18:01:00"));
-        Assert.That(section.Lines[1].Text, Does.EndWith("fresh, data through 17:58:12"), "not stale on this device's later clock");
+        Assert.That(section.Lines[1].Text, Does.EndWith("fresh, data to 17:58:12"), "not stale on this device's later clock");
     }
 
     [Test]
