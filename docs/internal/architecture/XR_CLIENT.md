@@ -209,7 +209,8 @@ the same definition names, as the JSON Schema document:
   "Simulated, not from Seorak") and says the account is not identified, so no reading is tied to
   the selected runtime, account or model. Every setup problem, a missing credential, one without
   the scope, a restricted one or no source at all, reads "Usage left isn't set up on your Mac.";
-  the scope details stay in the Mac runbook. No reading reads "No usage reading yet.", never 0%.
+  the scope details stay in the Mac runbook. When the source could read only some limits, the note
+  starts "Some limits couldn't be read this time." and no missing window is inferred. No reading reads "No usage reading yet.", never 0%.
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each

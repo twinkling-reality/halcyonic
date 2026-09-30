@@ -55,6 +55,7 @@ describe('usage limits read through a stub Seorak', () => {
     assert.deepEqual(body, {
       availability: 'available',
       source: { system: 'seorak', synthetic: false, api_version: 'v1' },
+      complete: true,
       readings: [
         {
           agent: 'codex',

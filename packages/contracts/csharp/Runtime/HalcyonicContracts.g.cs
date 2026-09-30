@@ -3183,6 +3183,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("source", Required = Required.Always)]
         public EvaluationSource Source { get; set; } = default!;
 
+        [JsonProperty("complete", Required = Required.Always)]
+        public bool Complete { get; set; }
+
         [JsonProperty("readings", Required = Required.Always)]
         public List<UsageLimit> Readings { get; set; } = new List<UsageLimit>();
     }

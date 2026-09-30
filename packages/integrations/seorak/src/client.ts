@@ -153,10 +153,19 @@ function toUsageLimits(document: WireUsageLimits, now: number): UsageLimitsRespo
       account: { state: 'unidentified' },
     });
   }
+  // Partial: Seorak's read stopped at a budget (`result-limit`). What it returned is exact; a
+  // window it did not return is unknown, never zero, and is not inferred.
+  const partial = document.availability.state === 'partial';
   const [first, ...rest] = readings;
   if (first === undefined)
     return document.readings.length === 0
-      ? fail('unavailable', 'not_captured', 'Seorak has not captured a provider limit.')
+      ? partial
+        ? fail(
+            'unavailable',
+            'result_limit',
+            'Seorak stopped reading provider limits at a result limit and returned none.',
+          )
+        : fail('unavailable', 'not_captured', 'Seorak has not captured a provider limit.')
       : fail(
           'unavailable',
           'no_current_reading',
@@ -165,6 +174,7 @@ function toUsageLimits(document: WireUsageLimits, now: number): UsageLimitsRespo
   return {
     availability: 'available',
     source: { system: 'seorak', synthetic: false, api_version: 'v1' },
+    complete: !partial,
     readings: [first, ...rest],
   };
 }
