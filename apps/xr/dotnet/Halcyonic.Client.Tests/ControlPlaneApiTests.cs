@@ -19,13 +19,13 @@ public class ControlPlaneApiTests
     /// What the control plane serves for a session Seorak has measured but that has not matured: an
     /// estimated cost, an outcome whose unknowns stay null beside a measured zero, and one kind of check.
     /// </summary>
-    private const string Available = """
+    internal const string Available = """
         {
           "execution_id": "01a0dcf1-5a80-7000-8000-0000000000e1",
           "result": {
             "availability": "available",
             "evaluation": {
-              "source": { "system": "seorak", "api_version": "v1" },
+              "source": { "system": "seorak", "synthetic": false, "api_version": "v1" },
               "cost": {
                 "availability": { "state": "available", "reason": null },
                 "coverage": {
@@ -137,6 +137,7 @@ public class ControlPlaneApiTests
         Assert.That(response.Result, Is.TypeOf<AvailableEvaluation>());
         var evaluation = ((AvailableEvaluation)response.Result).Evaluation;
         Assert.That(evaluation.Source.System, Is.EqualTo("seorak"));
+        Assert.That(evaluation.Source.Synthetic, Is.False, "read from Seorak itself");
         Assert.That(evaluation.Cost.EstimatedUsd, Is.EqualTo(1.37));
         Assert.That(evaluation.Cost.Note, Is.EqualTo("Estimated from token counts at list prices. Not a bill."));
         Assert.That(evaluation.Cost.Freshness.StaleAt, Is.EqualTo("2026-09-26T18:05:00.000Z"));

@@ -74,6 +74,20 @@
   through the font asset's material in `Resources`.
 - For the 3D `TextMeshPro` component, one point is a tenth of a unit: font size 0.25 is a 25 mm em.
 - `enableWordWrapping` is obsolete in this version; `textWrappingMode` replaces it.
+- Turning rich text off stops markup, not escapes (read in `TMP_Text.PopulateTextProcessingArray`
+  and checked on a real label on 2026-09-29): a label turns `\uXXXX` and `\UXXXXXXXX` in its text
+  into characters whatever `richText` and `parseCtrlCharacters` say, and `\n`, `\r`, `\t`, `\v` and
+  `\\` while `parseCtrlCharacters` is on, its default; the check that once limited this to text typed
+  in the inspector is commented out. 45 characters of such sequences showed as 22 on a label with
+  rich text off, and as 45 with every backslash doubled and escape parsing on, which is how the
+  Understanding and Evaluation sections show source text
+  ([understanding-and-evaluation.md](understanding-and-evaluation.md)). The workspace's other
+  labels set rich text off and do not escape.
+- A line in italics cut short by the ellipsis overflow ended in its last letter, not an ellipsis;
+  the same line upright ended in one.
+- Drawing a character outside the static atlas in the editor adds its glyph to the dynamic fallback
+  asset and writes that committed asset (`TMP_EditorResourceManager.AddTextureToAsset`), even when
+  its dirty flag is cleared afterwards.
 
 ### System keyboard
 

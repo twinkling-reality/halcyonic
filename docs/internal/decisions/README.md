@@ -29,3 +29,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0014](0014-hand-interaction-through-the-interaction-sdk.md) | Open work in place with hands, through Meta's Interaction SDK | Accepted |
 | [0015](0015-the-stage-stands-on-the-persons-desk.md) | The stage stands on the person's desk, found with MRUK and kept with a spatial anchor | Accepted |
 | [0017](0017-pair-a-headset-over-the-local-network.md) | Pair a headset over the local network with a code, SRP and a pinned certificate | Proposed |
+| [0019](0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md) | The demonstration reads simulated understanding and evaluation sources through the real contracts and routes, and says so | Accepted |

@@ -1953,6 +1953,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("system", Required = Required.Always)]
         public string System { get; set; } = "salidium";
 
+        [JsonProperty("synthetic", Required = Required.Always)]
+        public bool Synthetic { get; set; }
+
         [JsonProperty("version", Required = Required.Always)]
         public string Version { get; set; } = default!;
 
@@ -2580,6 +2583,9 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("system", Required = Required.Always)]
         public string System { get; set; } = "seorak";
+
+        [JsonProperty("synthetic", Required = Required.Always)]
+        public bool Synthetic { get; set; }
 
         [JsonProperty("api_version", Required = Required.Always)]
         public string ApiVersion { get; set; } = "v1";

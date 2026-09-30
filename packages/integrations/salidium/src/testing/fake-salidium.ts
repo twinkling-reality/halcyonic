@@ -48,6 +48,8 @@ export class FakeSalidium {
   /** Replaces the answer to one path. */
   readonly overrides = new Map<string, (response: ServerResponse) => void>();
   instanceId = randomBytes(16).toString('hex');
+  /** The version its discovery document reports, or the retained fixture's when null. */
+  version: string | null = null;
   /** Whether a new feed connection starts with `resync`, as the contract requires. */
   resyncOnConnect = true;
   feedConnections = 0;
@@ -79,6 +81,7 @@ export class FakeSalidium {
   discovery(): Json {
     return {
       ...fixture('consumer-discovery'),
+      ...(this.version === null ? {} : { salidium: { version: this.version } }),
       instanceId: this.instanceId,
       contracts: [this.contract()],
     };

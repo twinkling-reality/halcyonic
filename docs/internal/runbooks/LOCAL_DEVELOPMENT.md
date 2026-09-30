@@ -239,7 +239,7 @@ first or set `HALCYONIC_PORT`.
 | --- | --- | --- |
 | A contract in `packages/contracts` | `pnpm contracts:emit` | Review the schema and C# diffs, then `pnpm test:csharp` |
 | Contracts, the pipeline, the mock runtime or a scenario | `pnpm fixtures:record` | Review the trace diff |
-| Contracts, the pipeline, the mock runtime, a scenario it plays, or its plan | `pnpm demonstration:record` | Review the demonstration diff, then `pnpm test:csharp` |
+| Contracts, the pipeline, the mock runtime, a scenario it plays, its plan, the routes, the Salidium or Seorak clients, or the stand-ins' stories | `pnpm demonstration:record` | Review the demonstration diff, then `pnpm test:csharp` |
 
 `pnpm check` fails when any generated file is stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
 checks the trace alone, and `node apps/control-plane/src/cli/record-demonstration.ts --check` the
@@ -254,7 +254,14 @@ The recorder runs the real control plane with the mock runtime under virtual tim
 identifiers, once for the beginning and again from the start for every answer the recording offers:
 approve, deny, and stop the turn wherever a workspace would offer them, and each recorded
 instruction. The runs share their beginning exactly, and it writes them as one tree into
-`apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json`, about 490 KiB. Where a path would
+`apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json`, about 720 KiB. Beside the tree it
+records the control plane's answers about each execution's understanding and evaluation wherever
+the playback can stand: for each node, a control plane without runtimes is given the journal up to
+there and serves its routes on loopback, reading through Halcyonic's Salidium and Seorak clients
+from stand-ins that speak the products' contracts with content written for the story
+(`apps/control-plane/src/fixtures/demonstration-sources.ts`), and every answer is marked synthetic
+([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)).
+Where a path would
 leave work open to an action it has no answer for, it ends with its control plane started again
 without runtimes, as a replay serves a journal. The recorder names the two runtimes for the
 demonstration, "Simulated agent (demonstration)" and "Simulated agent (demonstration, watch only)";

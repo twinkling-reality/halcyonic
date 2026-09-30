@@ -150,6 +150,26 @@ public class PinnedTransportTests
     }
 
     [Test]
+    public void ATargetIsTheSameOnlyWithTheSameEndpointCredentialAndPin()
+    {
+        var endpoint = new Uri("ws://127.0.0.1:47800/realtime");
+        var local = ControlPlaneTarget.Local(endpoint, "token");
+        Assert.That(local.SameAs(ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:47800/realtime"), "token")), Is.True);
+        Assert.That(local.SameAs(ControlPlaneTarget.Local(endpoint, "another token")), Is.False);
+        Assert.That(local.SameAs(ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:47810/realtime"), "token")), Is.False);
+
+        var pairing = new PairedControlPlane("192.168.1.23", 47801, new string('c', 64), "01a0f0a0-0000-7000-8000-000000000001", "hlcd_" + new string('A', 43));
+        var paired = ControlPlaneTarget.Paired(pairing);
+        Assert.That(paired.SameAs(ControlPlaneTarget.Paired(pairing.At("192.168.1.23", 47801))), Is.True);
+        Assert.That(paired.SameAs(local), Is.False);
+        Assert.That(paired.SameAs(ControlPlaneTarget.Paired(pairing.At("192.168.1.24", 47801))), Is.False, "another address");
+        var repaired = new PairedControlPlane("192.168.1.23", 47801, new string('c', 64), "01a0f0a0-0000-7000-8000-000000000002", "hlcd_" + new string('B', 43));
+        Assert.That(paired.SameAs(ControlPlaneTarget.Paired(repaired)), Is.False, "another credential");
+        var anotherCertificate = new PairedControlPlane("192.168.1.23", 47801, new string('d', 64), pairing.DeviceId, pairing.Credential);
+        Assert.That(paired.SameAs(ControlPlaneTarget.Paired(anotherCertificate)), Is.False, "another pin");
+    }
+
+    [Test]
     public void KeepsAPairingInAFileAndForgetsIt()
     {
         var directory = Directory.CreateTempSubdirectory("halcyonic-pairing-").FullName;

@@ -14,7 +14,7 @@ namespace Halcyonic.Client
     /// The control plane's REST API, for what the realtime stream does not carry: journal history and
     /// what the understanding and evaluation providers say about an execution.
     /// </summary>
-    public sealed class ControlPlaneApi : IEventHistory, IDisposable
+    public sealed class ControlPlaneApi : IEventHistory, IIntelligenceReader, IDisposable
     {
         private readonly HttpClient http;
         private readonly Uri baseUri;
@@ -67,6 +67,20 @@ namespace Halcyonic.Client
             var body = await GetAsync("api/executions/" + Uri.EscapeDataString(executionId) + "/evaluation", cancellationToken)
                 .ConfigureAwait(false);
             return HalcyonicJson.Deserialize<EvaluationResponse>(body);
+        }
+
+        /// <summary>The understanding answer, with when this device received it.</summary>
+        public async Task<IntelligenceRead<UnderstandingResponse>> ReadUnderstandingAsync(string executionId, CancellationToken cancellationToken = default)
+        {
+            var response = await GetUnderstandingAsync(executionId, cancellationToken).ConfigureAwait(false);
+            return new IntelligenceRead<UnderstandingResponse>(response, DateTimeOffset.UtcNow, recorded: false);
+        }
+
+        /// <summary>The evaluation answer, with when this device received it. Ask on demand, never on a timer.</summary>
+        public async Task<IntelligenceRead<EvaluationResponse>> ReadEvaluationAsync(string executionId, CancellationToken cancellationToken = default)
+        {
+            var response = await GetEvaluationAsync(executionId, cancellationToken).ConfigureAwait(false);
+            return new IntelligenceRead<EvaluationResponse>(response, DateTimeOffset.UtcNow, recorded: false);
         }
 
         public void Dispose() => http.Dispose();

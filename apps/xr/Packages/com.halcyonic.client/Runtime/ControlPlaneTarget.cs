@@ -93,6 +93,15 @@ namespace Halcyonic.Client
                 ? new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential)
                 : new ControlPlaneApi(ControlPlaneApi.BaseUriFor(Endpoint), Credential, new PinnedHttpHandler(Pairing.CertificateSha256));
 
+        /// <summary>
+        /// Whether another target reaches the same endpoint with the same credential and pin, so a
+        /// client made for one serves the other; pairing, forgetting or a new token changes it.
+        /// </summary>
+        public bool SameAs(ControlPlaneTarget other) =>
+            Endpoint == other.Endpoint
+            && string.Equals(Credential, other.Credential, StringComparison.Ordinal)
+            && string.Equals(Pairing?.CertificateSha256, other.Pairing?.CertificateSha256, StringComparison.Ordinal);
+
         /// <summary>A certificate pin: a SHA-256 in lowercase hex.</summary>
         public static string CheckPin(string pin) =>
             Sha256.IsMatch(pin) ? pin : throw new ArgumentException("A certificate pin is a SHA-256 in lowercase hex.", nameof(pin));
