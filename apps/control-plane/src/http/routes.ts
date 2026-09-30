@@ -146,17 +146,20 @@ export function registerRoutes(
     return body;
   });
 
-  // Account-wide provider quota, read only when requested and never journaled.
+  // Provider usage limits, account wide: read through on request, never journaled (ADR 0010).
   app.get('/api/usage-limits', async (request): Promise<UsageLimitsResponse> => {
-    const answer = await sources.evaluation.usageLimits?.() ?? {
-      availability: 'unavailable' as const,
-      reason: { code: 'not_configured', message: 'Usage limits are not configured.' },
+    const answer: UsageLimitsResponse = (await sources.evaluation.usageLimits?.()) ?? {
+      availability: 'unavailable',
+      reason: { code: 'not_configured', message: 'No usage limit source is configured.' },
     };
     if (validateUsageLimitsResponse(answer).ok) return answer;
     request.log.warn('usage limits do not match the contract');
     return {
       availability: 'incompatible',
-      reason: { code: 'invalid_usage_limits', message: 'The usage source returned data outside the contract.' },
+      reason: {
+        code: 'invalid_usage_limits',
+        message: 'The usage limit source returned data outside the contract.',
+      },
     };
   });
 

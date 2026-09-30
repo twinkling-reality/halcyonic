@@ -149,6 +149,42 @@ function defaultRows(): Json[] {
   return [verificationRow('test', 5, 4, 0.8), verificationRow('typecheck', 2, 2, 1)];
 }
 
+/**
+ * One provider-reported limit reading in the form Seorak's usage-limits read serves (the Seorak
+ * provider limits lane's final format, 2026-09-30), observed a minute ago and reset a day away.
+ */
+export function usageReading(overrides: Json = {}): Json {
+  const now = Date.now();
+  return {
+    agent: 'codex',
+    window: 'weekly',
+    usedPercent: 62,
+    resetsAt: new Date(now + 86_400_000).toISOString(),
+    observedAt: new Date(now - 60_000).toISOString(),
+    freshness: 'fresh',
+    source: 'provider-reported',
+    account: { state: 'unidentified', ref: null },
+    ...overrides,
+  };
+}
+
+/** The usage-limits answer: available with `readings`, or unavailable for `reason` with none. */
+export function usageLimitsDocument(readings: Json[] = [usageReading()], reason?: string): Json {
+  const now = Date.now();
+  const generatedAt = new Date(now).toISOString();
+  return {
+    apiVersion: 'v1',
+    availability: reason === undefined ? { state: 'available', reason: null } : { state: 'unavailable', reason },
+    freshness: {
+      state: readings.some((reading) => reading.freshness === 'stale') ? 'stale' : 'fresh',
+      generatedAt,
+      dataThrough: readings.length === 0 ? null : generatedAt,
+      staleAt: new Date(now + 300_000).toISOString(),
+    },
+    readings: reason === undefined ? readings : [],
+  };
+}
+
 export interface RecordedRequest {
   readonly method: string;
   /** The path and query. */
@@ -190,6 +226,8 @@ export class FakeSeorak {
   scopes = new Set(['sessions:read', 'replay:read']);
   readonly requests: RecordedRequest[] = [];
   readonly sessions: CapturedSession[] = [];
+  /** The answer to the account-wide usage-limits read. */
+  usageLimits: Json = usageLimitsDocument();
   /** Replaces the answer to one path. */
   readonly overrides = new Map<string, (response: ServerResponse) => void>();
   readonly #server = createServer((request, response) => this.#receive(request, response));
@@ -269,6 +307,13 @@ export class FakeSeorak {
     if (request.headers.authorization !== `Bearer ${this.token}`) {
       response.setHeader('WWW-Authenticate', 'Bearer error="invalid_token"');
       return json(response, 401, { error: 'unauthorized' });
+    }
+    if (method === 'GET' && url.pathname === '/api/v1/usage-limits') {
+      if (!this.scopes.has('limits:read')) {
+        response.setHeader('WWW-Authenticate', 'Bearer error="insufficient_scope", scope="limits:read"');
+        return json(response, 403, { error: 'insufficient_scope', scope: 'limits:read' });
+      }
+      return json(response, 200, this.usageLimits);
     }
     if (method === 'POST' && url.pathname === '/api/v1/sessions/resolve')
       return this.#resolve(request, body, response);

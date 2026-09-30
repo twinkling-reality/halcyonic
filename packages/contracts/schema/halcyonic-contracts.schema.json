@@ -7443,29 +7443,55 @@
       },
       "additionalProperties": false
     },
+    "UsageLimitAccount": {
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "unidentified"
+        }
+      },
+      "additionalProperties": false
+    },
     "UsageLimit": {
       "type": "object",
       "required": [
-        "provider",
+        "agent",
+        "label",
         "window",
-        "remaining_percent",
+        "used_percent",
         "resets_at",
-        "observed_at"
+        "observed_at",
+        "freshness",
+        "account"
       ],
       "properties": {
-        "provider": {
-          "enum": [
-            "codex",
-            "claude-code"
-          ]
+        "agent": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "\\S"
         },
         "window": {
-          "enum": [
-            "rolling-5h",
-            "weekly"
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "rolling-5h"
+            },
+            {
+              "type": "string",
+              "const": "weekly"
+            }
           ]
         },
-        "remaining_percent": {
+        "used_percent": {
           "type": "number",
           "minimum": 0,
           "maximum": 100
@@ -7477,6 +7503,21 @@
         "observed_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "freshness": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "fresh"
+            },
+            {
+              "type": "string",
+              "const": "stale"
+            }
+          ]
+        },
+        "account": {
+          "$ref": "#/$defs/UsageLimitAccount"
         }
       },
       "additionalProperties": false
@@ -7498,7 +7539,8 @@
               "type": "array",
               "items": {
                 "$ref": "#/$defs/UsageLimit"
-              }
+              },
+              "minItems": 1
             }
           },
           "additionalProperties": false
