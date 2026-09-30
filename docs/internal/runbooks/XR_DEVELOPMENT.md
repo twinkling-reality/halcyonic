@@ -110,6 +110,20 @@ scene, and leaves the committed TextMeshPro font assets as they were, which draw
 editor would otherwise upgrade and save; characters the static atlas lacks, such as the minus sign
 in a change summary, are drawn from it as look-alikes for the render only, and the log names them.
 
+The project rail and the entry panel render the same way, **Halcyonic > Render the Entry Panel
+Over the Stage**, or in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.EntryRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-entry-render.log
+```
+
+It saves the rail alone and every screen of the entry panel (welcome, Connect projects, More work,
+Create a project, the guided questions, the recap with and without Needs you, More options, the
+review's first and last pages, a refused start and a request that may have run) over both stages in
+`apps/xr/Builds/EntryRenders`, each with a close-up, and logs where the rail and the panel stand
+(`Halcyonic: entry render ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
+"Scene".
+
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
 shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
@@ -525,6 +539,33 @@ the end of text character (in the JSON, a backslash, `u0003`) followed by more w
   nothing colored or resized by it. Its line leans as a claim, and where it is cut short it ends in
   "…". The character's notes under it, and the peek, show the command with its line break as a
   space.
+
+The entry, seated, in the virtual space and at a desk, with a live control plane that knows at
+least three projects and more than six workstreams (for example `pnpm demo` more than once):
+
+- **Welcome.** On a fresh install, once connected: "Welcome", one line, Connect projects and Create
+  a project, and Not now. It does not come back after any of them.
+- **Rail.** Low in front of you, below the characters and clear of the room and pairing controls
+  to either side, readable without leaning in. Press a project: its characters leave the stage and
+  its chip reads "Hidden"; a character there that needs you still counts in More work. Press it
+  again: they return. Note whether anything of the rail sits over a character, its label or a
+  system window.
+- **More work.** Press it: every workstream without a character, what needs you first. Press one:
+  it stands on the stage and opens. Collapse it: the list comes back where it was.
+- **Create, precise.** Create a project, Type my idea, type a sentence: the recap names the project
+  from its first words and shows where its files live as not chosen here yet. Choose how it runs
+  with the mock runtime, Start building, read the parts, Yes, start building: each step reads sent,
+  then confirmed; a character appears and reads Starting, then its status.
+- **Create, vague.** Help me figure it out: four fixed questions, said to be fixed questions and
+  not an AI; answer with choices, type one, and skip the name. The recap reads the same for the same
+  answers.
+- **Needs you while creating.** While on the recap, run `pnpm demo | sed '/approval requested/q'`:
+  the line under the title names the work that needs you, with Open now and Keep creating. Open
+  now: the workspace opens on What do you need from me?; collapse it: the recap returns as it was.
+- **Questions.** In an opened workspace the four questions read whole on their tabs; What do you
+  need from me? shows only while an approval waits.
+- **Move and Reset position.** Move steps the panel right, left and back; turn in the chair and
+  press Reset position: the panel and the rail come in front of you.
 
 With Virtual Display showing the Mac, in the virtual space (the characters 2.4 m away), following
 the stage in the log:

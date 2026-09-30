@@ -16,9 +16,16 @@ namespace Halcyonic.Client
         public const int LineCharacters = 24;
         private const int PageLines = 12;
         private readonly List<string> pages = new List<string>();
+        private readonly int lineCharacters;
 
-        public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective)
+        /// <param name="lineCharacters">The longest line, in ASCII characters, that the panel draws in full.</param>
+        /// <param name="pageLines">How many lines a page holds.</param>
+        public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
+            int lineCharacters = LineCharacters, int pageLines = PageLines)
         {
+            if (lineCharacters < 12) throw new ArgumentOutOfRangeException(nameof(lineCharacters), lineCharacters, "A line holds at least 12 characters.");
+            if (pageLines < 1) throw new ArgumentOutOfRangeException(nameof(pageLines), pageLines, "A page holds at least one line.");
+            this.lineCharacters = lineCharacters;
             var lines = new List<string>();
             Add(lines, "Project: " + Safe(project));
             Add(lines, "Workstream title: " + Safe(title));
@@ -28,9 +35,9 @@ namespace Halcyonic.Client
             Add(lines, "Model reference: " + Safe(modelRef));
             Add(lines, "Objective:");
             Add(lines, Safe(objective));
-            for (var index = 0; index < lines.Count; index += PageLines)
+            for (var index = 0; index < lines.Count; index += pageLines)
             {
-                pages.Add(string.Join("\n", lines.Skip(index).Take(PageLines)));
+                pages.Add(string.Join("\n", lines.Skip(index).Take(pageLines)));
             }
         }
 
@@ -72,14 +79,14 @@ namespace Halcyonic.Client
             return result.ToString();
         }
 
-        private static void Add(List<string> lines, string text)
+        private void Add(List<string> lines, string text)
         {
             if (text.Length == 0)
             {
                 lines.Add("");
                 return;
             }
-            var line = new StringBuilder(LineCharacters);
+            var line = new StringBuilder(lineCharacters);
             for (var index = 0; index < text.Length;)
             {
                 var length = 1;
@@ -92,7 +99,7 @@ namespace Halcyonic.Client
                         if (end >= 0) length = end + 1 - index;
                     }
                 }
-                if (line.Length + length > LineCharacters)
+                if (line.Length + length > lineCharacters)
                 {
                     lines.Add(line.ToString());
                     line.Clear();

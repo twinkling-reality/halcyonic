@@ -1,0 +1,267 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace Halcyonic.Client
+{
+    /// <summary>One of the fixed questions of Help me figure it out.</summary>
+    public sealed class GuidedQuestion
+    {
+        public GuidedQuestion(string prompt, IReadOnlyList<string> choices, string typeLabel, string? skipLabel)
+        {
+            Prompt = prompt;
+            Choices = choices;
+            TypeLabel = typeLabel;
+            SkipLabel = skipLabel;
+        }
+
+        public string Prompt { get; }
+
+        /// <summary>Answers offered as buttons; the first-task question offers some for the kind chosen.</summary>
+        public IReadOnlyList<string> Choices { get; }
+
+        /// <summary>The button that opens the keyboard for an answer of the person's own.</summary>
+        public string TypeLabel { get; }
+
+        /// <summary>The button that leaves the question unanswered, or null when it needs an answer.</summary>
+        public string? SkipLabel { get; }
+    }
+
+    /// <summary>
+    /// What the person wants to make, before anything is sent: an idea in their own words, or the
+    /// answers to a few fixed questions (Help me figure it out). Both end in the same editable recap,
+    /// a project name and a first task, which the person can change until they choose Start building.
+    /// Only then does the entry panel send the ordinary project, workstream and execution commands.
+    /// </summary>
+    /// <remarks>
+    /// No model is involved: the questions, the answers offered and the way answers become the first
+    /// task are fixed here, so the same answers always give the same recap. It is never presented as
+    /// an assistant's reply. A precise idea goes straight to the recap; a vague one is shaped by the
+    /// questions. The idea is kept in memory only: an app restart loses it.
+    /// </remarks>
+    public sealed class ProjectIdea
+    {
+        /// <summary>The longest project name the control plane accepts.</summary>
+        public const int NameLimit = 200;
+
+        /// <summary>The longest first task, sent as the workstream's objective and first instruction.</summary>
+        public const int TaskLimit = 4000;
+
+        /// <summary>How long a name taken from an idea's first words may be.</summary>
+        public const int SuggestedNameLength = 40;
+
+        public const int KindQuestion = 0;
+        public const int AudienceQuestion = 1;
+        public const int FirstStepQuestion = 2;
+        public const int NameQuestion = 3;
+
+        private static readonly string[] Kinds = { "A website", "An app", "A tool or script" };
+        private static readonly string[] Audiences = { "Just me", "My team", "Other people" };
+
+        private static readonly IReadOnlyDictionary<string, string[]> FirstSteps = new Dictionary<string, string[]>
+        {
+            ["A website"] = new[] { "Show one page that says what it is", "Let visitors leave their email" },
+            ["An app"] = new[] { "Do its main job on one screen", "Keep a list that I can add to" },
+            ["A tool or script"] = new[] { "Read a file and print a summary", "Rename files by a pattern" },
+        };
+
+        private static readonly IReadOnlyList<GuidedQuestion> Fixed = new[]
+        {
+            new GuidedQuestion("What kind of thing is it?", Kinds, "Something else", null),
+            new GuidedQuestion("Who is it for?", Audiences, "Someone else", null),
+            new GuidedQuestion("What should it do first?", Array.Empty<string>(), "Type it myself", null),
+            new GuidedQuestion("What should it be called?", Array.Empty<string>(), "Type a name", "Name it later"),
+        };
+
+        private readonly string?[] answers = new string?[Fixed.Count];
+
+        /// <param name="existingProjectId">The project to add work to, or null to create one.</param>
+        /// <param name="existingProjectName">That project's name, shown as it is; never sent.</param>
+        public ProjectIdea(string? existingProjectId = null, string? existingProjectName = null)
+        {
+            ExistingProjectId = existingProjectId;
+            if (existingProjectId != null) Name = existingProjectName ?? "";
+        }
+
+        /// <summary>The fixed questions, in order.</summary>
+        public static IReadOnlyList<GuidedQuestion> Questions => Fixed;
+
+        /// <summary>The project the work goes to, or null when Start building creates one.</summary>
+        public string? ExistingProjectId { get; }
+
+        /// <summary>The project's name: typed, taken from the idea, or from the answers. Fixed for an existing project.</summary>
+        public string Name { get; private set; } = "";
+
+        /// <summary>The first task, sent as the workstream's objective and the execution's first instruction.</summary>
+        public string FirstTask { get; private set; } = "";
+
+        /// <summary>The person typed the name, so a later idea does not replace it.</summary>
+        public bool NameTyped { get; private set; }
+
+        /// <summary>Guided questions were started, so Back returns to them.</summary>
+        public bool Guided { get; private set; }
+
+        /// <summary>The question being asked, from 0, or <see cref="Questions"/>' count once all are answered.</summary>
+        public int Question { get; private set; }
+
+        /// <summary>The recap exists: an idea was typed or every question was answered.</summary>
+        public bool HasRecap => FirstTask.Length > 0;
+
+        /// <summary>The answer given to a question, or null.</summary>
+        public string? AnswerTo(int question) => answers[question];
+
+        /// <summary>The answers offered as buttons for the question being asked.</summary>
+        public IReadOnlyList<string> Choices
+        {
+            get
+            {
+                if (Question >= Fixed.Count) return Array.Empty<string>();
+                if (Question != FirstStepQuestion) return Fixed[Question].Choices;
+                return answers[KindQuestion] is string kind && FirstSteps.TryGetValue(kind, out var steps) ? steps : Array.Empty<string>();
+            }
+        }
+
+        /// <summary>Takes an idea in the person's own words as the first task, and names the project from it unless they typed a name.</summary>
+        public void UseIdea(string idea)
+        {
+            FirstTask = (idea ?? "").Trim();
+            if (!NameTyped && ExistingProjectId == null) Name = NameFrom(FirstTask);
+        }
+
+        /// <summary>Starts the fixed questions from the first, keeping any answers already given.</summary>
+        public void BeginGuide()
+        {
+            Guided = true;
+            Question = 0;
+        }
+
+        /// <summary>
+        /// Answers the question being asked, with a choice or typed text, and moves to the next. A
+        /// blank answer is refused, except to a question that can be skipped. Once the last question
+        /// is answered, the recap is composed from the answers.
+        /// </summary>
+        public bool Answer(string? answer)
+        {
+            if (Question >= Fixed.Count) return false;
+            var text = (answer ?? "").Trim();
+            if (text.Length == 0 && Fixed[Question].SkipLabel == null) return false;
+            // A new kind changes the first steps offered, so an earlier first step no longer fits.
+            if (Question == KindQuestion && answers[KindQuestion] != text) answers[FirstStepQuestion] = null;
+            answers[Question] = text.Length == 0 ? null : text;
+            Question++;
+            // The name is asked only when creating a project.
+            if (Question == NameQuestion && ExistingProjectId != null) Question++;
+            if (Question >= Fixed.Count) Compose();
+            return true;
+        }
+
+        /// <summary>Leaves a question that can be skipped unanswered.</summary>
+        public bool Skip() => Question < Fixed.Count && Fixed[Question].SkipLabel != null && Answer(null);
+
+        /// <summary>Returns to the previous question. Returns false at the first.</summary>
+        public bool Back()
+        {
+            if (Question == 0) return false;
+            Question--;
+            if (Question == NameQuestion && ExistingProjectId != null) Question--;
+            return true;
+        }
+
+        /// <summary>Changes the project's name in the recap; a blank name is refused.</summary>
+        public bool Rename(string? name)
+        {
+            if (ExistingProjectId != null) return false;
+            var text = (name ?? "").Trim();
+            if (text.Length == 0) return false;
+            Name = text;
+            NameTyped = true;
+            return true;
+        }
+
+        /// <summary>Changes the first task in the recap; a blank task is refused.</summary>
+        public bool Rewrite(string? task)
+        {
+            var text = (task ?? "").Trim();
+            if (text.Length == 0) return false;
+            FirstTask = text;
+            return true;
+        }
+
+        /// <summary>Why Start building cannot go ahead yet, or null.</summary>
+        public string? Problem
+        {
+            get
+            {
+                if (ExistingProjectId == null && (Name.Length == 0 || Name.Length > NameLimit)) return "Name the project in at most 200 characters.";
+                if (FirstTask.Length == 0) return "Describe the first task.";
+                if (FirstTask.Length > TaskLimit) return "Shorten the first task to at most 4,000 characters.";
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// A name from an idea's first words: its first line, cut at a word within
+        /// <see cref="SuggestedNameLength"/> characters, without closing punctuation.
+        /// </summary>
+        public static string NameFrom(string idea)
+        {
+            var line = (idea ?? "").Trim().Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+            var words = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            var name = new StringBuilder();
+            foreach (var word in words)
+            {
+                if (name.Length > 0 && name.Length + 1 + word.Length > SuggestedNameLength) break;
+                if (name.Length == 0 && word.Length > SuggestedNameLength)
+                {
+                    var end = char.IsHighSurrogate(word[SuggestedNameLength - 1]) ? SuggestedNameLength - 1 : SuggestedNameLength;
+                    name.Append(word, 0, end);
+                    break;
+                }
+                if (name.Length > 0) name.Append(' ');
+                name.Append(word);
+            }
+            var text = name.ToString().TrimEnd('.', ',', ';', ':', '!', '?');
+            return text.Length == 0 ? "New project" : text;
+        }
+
+        /// <summary>
+        /// The recap from the answers: for example "Make a website for my team. First, show one page
+        /// that says what it is." Typed answers go in as typed.
+        /// </summary>
+        private void Compose()
+        {
+            var kind = answers[KindQuestion] ?? "something";
+            var audience = answers[AudienceQuestion] switch
+            {
+                "Just me" => "me",
+                "My team" => "my team",
+                "Other people" => "other people",
+                null => null,
+                var typed => typed,
+            };
+            var first = answers[FirstStepQuestion];
+            // Only the fixed answers are made lowercase; what the person typed goes in as typed.
+            var task = new StringBuilder("Make ").Append(Kinds.Contains(kind) ? LowerFirst(kind) : kind);
+            if (audience != null) task.Append(" for ").Append(audience);
+            task.Append('.');
+            if (first != null)
+            {
+                var offered = FirstSteps.Values.Any(steps => steps.Contains(first));
+                task.Append(" First, ").Append(offered ? LowerFirst(first) : first.TrimEnd('.')).Append('.');
+            }
+            FirstTask = task.ToString();
+            if (ExistingProjectId != null || NameTyped) return;
+            Name = answers[NameQuestion] ?? kind switch
+            {
+                "A website" => "New website",
+                "An app" => "New app",
+                "A tool or script" => "New tool",
+                _ => "New project",
+            };
+        }
+
+        private static string LowerFirst(string text) => char.ToLowerInvariant(text[0]) + text.Substring(1);
+    }
+}
