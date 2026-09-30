@@ -12,7 +12,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Mock runtime: scripted scenarios, synthetic | `packages/integrations/mock` | Built |
 | Control plane: journal, commands, REST, WebSocket, CLIs | `apps/control-plane` | Built, loopback only |
 | Scenarios and recorded traces | `fixtures/` | Built |
-| The XR client's demonstration, recorded from a trace by the control plane | `apps/xr/Assets/Halcyonic/Resources` | Built; proposed in [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) |
+| The XR client's demonstration, recorded by the control plane from mock scenarios with a branch for every answer a person can give | `apps/xr/Assets/Halcyonic/Resources` | Built; [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) |
 | Architecture boundary tests | `tooling/` | Built |
 | XR client core: realtime session, client projection, character and workspace presentation, steering, recorded demonstration, room placement choices (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
 | XR client Unity layer (Unity, OpenXR, Meta XR SDK, MR Utility Kit) | `apps/xr` | Placeholder characters that run on a Meta Quest 3 against a live control plane; the workspace (peek, open, act and collapse by hand) and the room placement (passthrough, the characters on the person's desk, kept with a spatial anchor) compile and build, not yet verified on a headset; the Simulator renders nothing on the development Mac |

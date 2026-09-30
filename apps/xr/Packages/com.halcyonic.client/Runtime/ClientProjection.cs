@@ -74,6 +74,10 @@ namespace Halcyonic.Client
         /// <summary>Replaces the whole state.</summary>
         public void ApplySnapshot(Snapshot snapshot, StateChanges changes)
         {
+            if (Journal != null && Journal.JournalId == snapshot.Journal.JournalId && snapshot.Position < Position)
+            {
+                changes.Rewound = true;
+            }
             Journal = snapshot.Journal;
             Position = snapshot.Position;
             Replace(projects, snapshot.Projects, project => project.ProjectId);
@@ -129,6 +133,13 @@ namespace Halcyonic.Client
     {
         /// <summary>A snapshot replaced the whole state, so everything should be redrawn.</summary>
         public bool Resynchronized { get; internal set; }
+
+        /// <summary>
+        /// A snapshot took the state back to an earlier position of the same journal, as the recorded
+        /// demonstration does each time it starts again: activity and commands seen after that
+        /// position no longer apply, although the journal is the same. A control plane never does this.
+        /// </summary>
+        public bool Rewound { get; internal set; }
 
         /// <summary>The connection status changed.</summary>
         public bool ConnectionChanged { get; internal set; }

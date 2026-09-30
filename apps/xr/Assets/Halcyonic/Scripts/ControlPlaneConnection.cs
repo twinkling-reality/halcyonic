@@ -1,6 +1,6 @@
 #nullable enable
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
@@ -24,6 +24,8 @@ namespace Halcyonic.XR
         private ConnectionStatus loggedControlPlane = ConnectionStatus.Stopped;
         private ConnectionStatus loggedDemonstration = ConnectionStatus.Stopped;
         private DemonstrationReason? loggedReason;
+        private int loggedPlays;
+        private bool loggedEnded;
 
         /// <summary>Raised on the main thread after received messages were applied, or another session is shown.</summary>
         public event Action<StateChanges>? Changed;
@@ -32,13 +34,22 @@ namespace Halcyonic.XR
         public RealtimeSession? Session => sessions?.Current;
 
         /// <summary>
-        /// What the line above the stage says while the demonstration is shown: that it is recorded,
-        /// not live, and that nothing done reaches an agent. Null while the control plane is shown.
+        /// What the line above the stage says while the demonstration is shown: that it is recorded
+        /// and simulated, not live, that it follows the person's answers, and that nothing reaches an
+        /// agent. Null while the control plane is shown.
         /// </summary>
         public string? DemonstrationLine => sessions?.Line;
 
         /// <summary>Why no session could be started, for display.</summary>
         public string? SetupProblem { get; private set; }
+
+        /// <summary>
+        /// While the demonstration is shown, the instructions it recorded for this execution where it
+        /// stands, to offer instead of a keyboard; empty otherwise. Typed text is answered with one of
+        /// these, and says so.
+        /// </summary>
+        public IReadOnlyList<PresetInstruction> DemonstrationInstructions(string executionId) =>
+            sessions?.InstructionsFor(executionId) ?? Array.Empty<PresetInstruction>();
 
         private void OnEnable()
         {
@@ -74,10 +85,16 @@ namespace Halcyonic.XR
             LogShown(sessions.Reason);
             LogStatus("connection", sessions.ControlPlane, ref loggedControlPlane);
             LogStatus("demonstration", sessions.Demonstration, ref loggedDemonstration);
+            LogPlayback(sessions.Player);
             if (!changes.IsEmpty) Changed?.Invoke(changes);
         }
 
-        private static RealtimeSession? LoadDemonstration(ClientInfo client)
+        /// <summary>
+        /// Loads the text asset on the main thread, as Unity requires, and reads it on another thread,
+        /// so the half megabyte of recording never holds up a frame; the demonstration's session opens
+        /// once it has been read.
+        /// </summary>
+        private static DemonstrationPlayer? LoadDemonstration(ClientInfo client)
         {
             var asset = Resources.Load<TextAsset>(DemonstrationResource);
             if (asset == null)
@@ -85,15 +102,12 @@ namespace Halcyonic.XR
                 Debug.LogError("Halcyonic: the demonstration is missing from the build.");
                 return null;
             }
-            try
-            {
-                return DemonstrationTransport.CreateSession(DemonstrationRecording.Parse(asset.text), client);
-            }
-            catch (InvalidDataException error)
-            {
-                Debug.LogError("Halcyonic: the demonstration cannot be played. " + error.Message);
-                return null;
-            }
+            var text = asset.text;
+            var reading = Task.Run(() => DemonstrationRecording.Parse(text));
+            _ = reading.ContinueWith(
+                failed => Debug.LogError("Halcyonic: the demonstration cannot be played. " + failed.Exception?.GetBaseException().Message),
+                TaskContinuationOptions.OnlyOnFaulted);
+            return new DemonstrationPlayer(reading, client);
         }
 
         private void LogShown(DemonstrationReason? reason)
@@ -120,13 +134,30 @@ namespace Halcyonic.XR
             Log(session + " " + (logged.Detail == null ? logged.Phase.ToString() : logged.Phase + ": " + logged.Detail));
         }
 
+        /// <summary>Each start of the recording from its beginning, and each of its ends, with no content.</summary>
+        private void LogPlayback(DemonstrationPlayer? player)
+        {
+            if (player == null) return;
+            if (player.Plays != loggedPlays)
+            {
+                loggedPlays = player.Plays;
+                Log("demonstration plays from its beginning (" + loggedPlays + ")");
+            }
+            if (player.Ended != loggedEnded)
+            {
+                loggedEnded = player.Ended;
+                if (loggedEnded) Log("demonstration reached an end; it starts again after holding it");
+            }
+        }
+
         private void Log(string message) =>
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", message);
 
         private void OnApplicationPause(bool paused)
         {
             // A sleeping headset loses its sockets: the session stops, then resumes from the last
-            // position. Unity also reports resumes without a pause, which the session ignores.
+            // position; the demonstration plays from its beginning. Unity also reports resumes
+            // without a pause, which the session ignores.
             if (sessions != null) Report(sessions.SetPausedAsync(paused));
         }
 

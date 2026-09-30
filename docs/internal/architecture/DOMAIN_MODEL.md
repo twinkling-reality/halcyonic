@@ -67,7 +67,7 @@ and attention only; clients decide presentation (animation, material, sound, pla
 
 | Kind | Runtime | Synthetic |
 | --- | --- | --- |
-| `mock` | Scripted scenarios for development | yes |
+| `mock` | Scripted scenarios for development and for the recorded demonstration, whose runtimes are named for it | yes |
 | `claude-agent` | Claude Code through the Claude Agent SDK, displayed as "Claude Agent" | no |
 | `opencode` | OpenCode's v2 server API, pinned version | no |
 | `codex` | Codex's app-server, stable surface, pinned version | no |
