@@ -2,11 +2,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { createVirtualTime, type RuntimeAdapter, type VirtualTime } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
+import type { LogLevel } from '../config.ts';
 import { ControlPlane } from '../core/control-plane.ts';
 import { createCommandFactory } from '../demo-plan.ts';
+import { registerDeviceRoutes } from '../http/device-routes.ts';
 import { registerRealtime } from '../http/realtime.ts';
 import { registerRoutes } from '../http/routes.ts';
 import { loadOrCreateAccessToken } from '../http/security.ts';
@@ -17,6 +20,11 @@ import { salidiumUnderstanding, type UnderstandingSource } from '../intelligence
 import type { EventJournal } from '../journal/journal.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import type { Logger } from '../logger.ts';
+import { createNetworkIdentity, type NetworkIdentity } from '../network/certificate.ts';
+import { DeviceAccess } from '../network/devices.ts';
+import { Pairing, type PairingLimits } from '../network/pairing.ts';
+import { createNetworkServer } from '../network/server.ts';
+import type { TlsTarget } from './tls-client.ts';
 
 /** Test support only. Not used by the running control plane. */
 export const SCENARIOS_DIR = fileURLToPath(
@@ -85,13 +93,36 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
   return { time, controlPlane, commands, journal };
 }
 
-/** Serves a test control plane over real HTTP and WebSocket on an ephemeral loopback port. */
-export async function startTestServer(options: TestControlPlaneOptions = {}) {
+export interface TestServerOptions extends TestControlPlaneOptions {
+  /** Also serve the network listener, on 127.0.0.1, with a certificate of its own (ADR 0017). */
+  readonly network?: { readonly limits?: PairingLimits };
+  readonly logLevel?: LogLevel;
+  /** Receives both listeners' log lines, for tests that check what is logged. */
+  readonly logStream?: NodeJS.WritableStream;
+}
+
+export interface TestNetworkListener {
+  readonly server: FastifyInstance;
+  readonly pairing: Pairing;
+  readonly identity: NetworkIdentity;
+  readonly target: TlsTarget;
+  readonly listener: NetworkListener;
+}
+
+/**
+ * Serves a test control plane over real HTTP and WebSocket on an ephemeral loopback port, and with
+ * `network`, its network listener over TLS on another.
+ */
+export async function startTestServer(options: TestServerOptions = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'halcyonic-server-'));
   const { token } = await loadOrCreateAccessToken(dataDir);
-  const app: FastifyInstance = await createHttpServer({ logLevel: 'silent', token });
+  const app: FastifyInstance = await createHttpServer({
+    logLevel: options.logLevel ?? 'silent',
+    token,
+    ...(options.logStream === undefined ? {} : { logStream: options.logStream }),
+  });
   const harness = createTestControlPlane(options);
-  registerRoutes(app, harness.controlPlane, {
+  const sources = {
     understanding:
       options.understanding ??
       salidiumUnderstanding({
@@ -101,8 +132,24 @@ export async function startTestServer(options: TestControlPlaneOptions = {}) {
     evaluation:
       options.evaluation ??
       seorakEvaluation({ credentialPath: join(dataDir, 'seorak-credential') }),
+  };
+  const devices = new DeviceAccess({
+    controlPlane: harness.controlPlane,
+    ids: createUuidV7Generator({ now: () => harness.time.now().getTime() }),
+    logger: app.log,
   });
+  const network =
+    options.network === undefined
+      ? null
+      : await startNetworkListener(app, harness, devices, sources, options.network.limits);
+  registerRoutes(app, harness.controlPlane, sources);
   registerRealtime(app, harness.controlPlane);
+  registerDeviceRoutes(app, {
+    controlPlane: harness.controlPlane,
+    devices,
+    pairing: network?.pairing ?? null,
+    listener: () => network?.listener ?? null,
+  });
   await app.listen({ host: '127.0.0.1', port: 0 });
   const address = app.server.address();
   if (address === null || typeof address === 'string') throw new Error('server has no port');
@@ -111,13 +158,58 @@ export async function startTestServer(options: TestControlPlaneOptions = {}) {
     ...harness,
     app,
     token,
+    devices,
+    network,
     port: address.port,
     baseUrl: `http://${origin}`,
     wsUrl: `ws://${origin}/realtime`,
     async stop() {
+      await network?.server.close();
       await app.close();
       await harness.controlPlane.close();
       rmSync(dataDir, { recursive: true, force: true });
+    },
+  };
+}
+
+async function startNetworkListener(
+  app: FastifyInstance,
+  harness: ReturnType<typeof createTestControlPlane>,
+  devices: DeviceAccess,
+  sources: Parameters<typeof createNetworkServer>[0]['sources'],
+  limits: PairingLimits | undefined,
+): Promise<TestNetworkListener> {
+  const identity = createNetworkIdentity(harness.time.now());
+  const pairing = new Pairing({
+    clock: harness.time,
+    devices,
+    describe: (deviceId) => harness.controlPlane.projection.device(deviceId),
+    certificateSha256: identity.certificateSha256,
+    logger: app.log,
+    ...(limits === undefined ? {} : { limits }),
+  });
+  const server = await createNetworkServer({
+    logger: app.log.child({ listener: 'network' }),
+    identity,
+    controlPlane: harness.controlPlane,
+    sources,
+    devices,
+    pairing,
+    clock: harness.time,
+  });
+  await server.listen({ host: '127.0.0.1', port: 0 });
+  const bound = server.server.address();
+  if (bound === null || typeof bound === 'string') throw new Error('network server has no port');
+  return {
+    server,
+    pairing,
+    identity,
+    target: { host: '127.0.0.1', port: bound.port },
+    listener: {
+      host: '127.0.0.1',
+      port: bound.port,
+      addresses: ['127.0.0.1'],
+      certificate_sha256: identity.certificateSha256,
     },
   };
 }

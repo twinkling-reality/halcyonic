@@ -20,6 +20,39 @@ describe('configuration', () => {
     assert.throws(() => loadConfig({ HALCYONIC_HOST: '0.0.0.0' }), ConfigError);
   });
 
+  test('serves nothing on the network unless the owner names an address to listen on', () => {
+    assert.equal(loadConfig({}).network, null);
+    assert.equal(loadConfig({ HALCYONIC_NETWORK_HOST: '' }).network, null);
+    assert.throws(() => loadConfig({ HALCYONIC_NETWORK_PORT: '47801' }), /network listener is off/);
+    assert.deepEqual(loadConfig({ HALCYONIC_NETWORK_HOST: '0.0.0.0' }).network, {
+      host: '0.0.0.0',
+      port: 47801,
+    });
+    assert.deepEqual(
+      loadConfig({ HALCYONIC_NETWORK_HOST: '192.168.1.23', HALCYONIC_NETWORK_PORT: '48001' })
+        .network,
+      { host: '192.168.1.23', port: 48001 },
+    );
+    assert.deepEqual(loadConfig({ HALCYONIC_NETWORK_HOST: '::' }).network, {
+      host: '::',
+      port: 47801,
+    });
+  });
+
+  test('the network listener takes an IP address and a port of its own', () => {
+    for (const host of ['localhost', 'my-mac.local', '192.168.1', ' 0.0.0.0']) {
+      assert.throws(() => loadConfig({ HALCYONIC_NETWORK_HOST: host }), ConfigError, host);
+    }
+    assert.throws(
+      () => loadConfig({ HALCYONIC_NETWORK_HOST: '0.0.0.0', HALCYONIC_NETWORK_PORT: '47800' }),
+      /must differ/,
+    );
+    assert.throws(
+      () => loadConfig({ HALCYONIC_NETWORK_HOST: '0.0.0.0', HALCYONIC_NETWORK_PORT: '70000' }),
+      ConfigError,
+    );
+  });
+
   test('reads several project roots', () => {
     const first = join(base, 'first');
     const second = join(base, 'second');

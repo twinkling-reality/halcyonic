@@ -1,4 +1,5 @@
 import { statSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,14 +8,24 @@ export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', '
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 /**
- * Only loopback addresses are accepted. Serving on a LAN interface needs device pairing and
- * encrypted transport, which do not exist yet (see docs/internal/architecture/SECURITY.md).
+ * The main listener serves loopback only. Paired devices reach the control plane through the
+ * separate network listener, which is TLS only and off unless configured (ADR 0017,
+ * docs/internal/architecture/SECURITY.md).
  */
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
+/** The listener for paired devices: TLS, pairing and device credentials only (ADR 0017). */
+export interface NetworkListenerConfig {
+  /** An IP address: one interface's, or `0.0.0.0` or `::` for every interface. */
+  readonly host: string;
+  readonly port: number;
+}
 
 export interface ControlPlaneConfig {
   readonly host: string;
   readonly port: number;
+  /** Null unless the owner turned the network listener on with HALCYONIC_NETWORK_HOST. */
+  readonly network: NetworkListenerConfig | null;
   readonly dataDir: string;
   readonly logLevel: LogLevel;
   readonly commandTimeoutMs: number;
@@ -51,6 +62,7 @@ export class ConfigError extends Error {
 }
 
 export const DEFAULT_PORT = 47800;
+export const DEFAULT_NETWORK_PORT = 47801;
 
 export function defaultDataDir(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.HALCYONIC_DATA_DIR ?? join(homedir(), '.halcyonic'));
@@ -60,12 +72,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
   const host = env.HALCYONIC_HOST ?? '127.0.0.1';
   if (!LOOPBACK_HOSTS.has(host)) {
     throw new ConfigError(
-      `HALCYONIC_HOST=${host} is not a loopback address. Serving beyond this machine needs device pairing and encrypted transport, which are not implemented yet.`,
+      `HALCYONIC_HOST=${host} is not a loopback address. Devices on the network reach the control plane through the network listener instead: set HALCYONIC_NETWORK_HOST.`,
     );
   }
+  const port = parseInteger('HALCYONIC_PORT', env.HALCYONIC_PORT, DEFAULT_PORT, 0, 65535);
   return {
     host,
-    port: parseInteger('HALCYONIC_PORT', env.HALCYONIC_PORT, DEFAULT_PORT, 0, 65535),
+    port,
+    network: parseNetwork(env, port),
     dataDir: defaultDataDir(env),
     logLevel: parseLogLevel(env.HALCYONIC_LOG_LEVEL),
     commandTimeoutMs: parseInteger(
@@ -90,6 +104,34 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
   };
+}
+
+function parseNetwork(env: NodeJS.ProcessEnv, loopbackPort: number): NetworkListenerConfig | null {
+  const host = env.HALCYONIC_NETWORK_HOST;
+  if (host === undefined || host === '') {
+    if (env.HALCYONIC_NETWORK_PORT !== undefined && env.HALCYONIC_NETWORK_PORT !== '') {
+      throw new ConfigError(
+        'HALCYONIC_NETWORK_PORT is set, but the network listener is off; set HALCYONIC_NETWORK_HOST to turn it on.',
+      );
+    }
+    return null;
+  }
+  if (isIP(host) === 0) {
+    throw new ConfigError(
+      `HALCYONIC_NETWORK_HOST must be an IP address, such as 0.0.0.0 for every interface, got "${host}".`,
+    );
+  }
+  const port = parseInteger(
+    'HALCYONIC_NETWORK_PORT',
+    env.HALCYONIC_NETWORK_PORT,
+    DEFAULT_NETWORK_PORT,
+    0,
+    65535,
+  );
+  if (port !== 0 && port === loopbackPort) {
+    throw new ConfigError('HALCYONIC_NETWORK_PORT must differ from HALCYONIC_PORT.');
+  }
+  return { host, port };
 }
 
 function parseSwitch(name: string, raw: string | undefined): boolean {

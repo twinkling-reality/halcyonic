@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -13,6 +13,7 @@ import type { Readable } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { tlsRequest } from './testing/tls-client.ts';
 
 const MAIN = fileURLToPath(new URL('./main.ts', import.meta.url));
 const LAUNCHER = fileURLToPath(new URL('./testing/launcher.ts', import.meta.url));
@@ -122,8 +123,8 @@ async function start(t: TestContext, extra: Record<string, string>) {
     await until(() => exited(child), 'the control plane to be killed');
     rmSync(root, { recursive: true, force: true });
   });
-  const port = portOf(await ready(output));
-  return { child, output, port };
+  const line = await ready(output);
+  return { child, output, port: portOf(line), ready: line, dataDir: env.HALCYONIC_DATA_DIR };
 }
 
 /**
@@ -197,5 +198,53 @@ describe('the control plane process', () => {
     await until(() => exited(child) && output.ended(), 'the control plane to exit');
     assert.equal(child.exitCode, 0, `exit status; stderr: ${output.stderr()}`);
     assert.deepEqual(shutdowns(output), [{ signal: 'SIGTERM' }]);
+  });
+
+  test('serves nothing on the network unless HALCYONIC_NETWORK_HOST is set', async (t) => {
+    const { ready: line } = await start(t, {});
+    assert.equal(line.network, null);
+  });
+
+  test('with HALCYONIC_NETWORK_HOST, it also serves TLS for devices, with an identity it keeps', async (t) => {
+    const network = { HALCYONIC_NETWORK_HOST: '127.0.0.1', HALCYONIC_NETWORK_PORT: '0' };
+    const { child, output, ready: line, dataDir } = await start(t, network);
+    const listener = line.network as { port: number; certificate_sha256: string };
+    const health = await tlsRequest(
+      { host: '127.0.0.1', port: listener.port },
+      { method: 'GET', path: '/api/health', pin: listener.certificate_sha256 },
+    );
+    assert.equal(health.status, 200);
+    assert.ok(dataDir !== undefined);
+    for (const file of ['network-key.pem', 'network-certificate.pem']) {
+      assert.equal(statSync(join(dataDir, file)).mode & 0o777, 0o600, file);
+    }
+    assert.ok(
+      output.lines.some((entry) => entry.msg === 'created the network listener certificate'),
+    );
+    child.kill('SIGTERM');
+    await until(() => exited(child) && output.ended(), 'the control plane to exit');
+
+    // The same data directory keeps the same certificate, so paired devices still trust it.
+    const again = spawn(process.execPath, [MAIN], {
+      env: {
+        PATH: process.env.PATH ?? '',
+        HOME: join(dataDir, '..'),
+        HALCYONIC_DATA_DIR: dataDir,
+        HALCYONIC_PORT: '0',
+        HALCYONIC_LOG_LEVEL: 'info',
+        ...network,
+      },
+      stdio: 'pipe',
+    });
+    t.after(async () => {
+      again.kill('SIGKILL');
+      await until(() => exited(again), 'the second control plane to be killed');
+    });
+    const restarted = await ready(collect(again.stdout, again.stderr));
+    const kept = restarted.network as { certificate_sha256: string };
+    assert.equal(kept.certificate_sha256, listener.certificate_sha256);
+    // Stopped here, before the first start's cleanup removes the directory it uses.
+    again.kill('SIGTERM');
+    await until(() => exited(again), 'the second control plane to exit');
   });
 });
