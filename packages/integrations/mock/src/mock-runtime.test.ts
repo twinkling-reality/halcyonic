@@ -39,6 +39,7 @@ function setup(context: ExecutionContext = execution) {
       instruction: 'Do the work.',
       options: { scenario },
       model_ref: null,
+      directory: null,
       emit: (observation) => observed.push(observation),
     });
   const types = () => observed.map((observation) => observation.type);
@@ -54,6 +55,7 @@ describe('mock runtime scenarios', () => {
       instruction: 'Check the headset start flow.',
       options: {},
       model_ref: null,
+      directory: null,
       emit: (observation) => observed.push(observation),
     });
     await time.runUntilIdle();
@@ -302,6 +304,7 @@ describe('mock runtime actions', () => {
       instruction: 'Do the work.',
       options: { scenario: 'successful_feature' },
       model_ref: 'mock/fast',
+      directory: null,
       emit: (observation) => observed.push(observation),
     });
     assert.deepEqual(
@@ -321,6 +324,7 @@ describe('mock runtime actions', () => {
         instruction: 'Do the work.',
         options: { scenario: 'successful_feature' },
         model_ref: 'mock/gone',
+        directory: null,
         emit: () => undefined,
       }),
       actionError('model_unavailable'),

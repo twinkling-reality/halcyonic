@@ -140,7 +140,8 @@ async function harness(
       const result = await runtime.startExecution({
         execution: execution.context,
         instruction,
-        options: { directory: sandbox.project, ...options },
+        options: { ...options },
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });
@@ -255,6 +256,68 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     ]);
     assert.equal(record.pid, pid);
   });
+
+  /**
+   * Starts an execution whose folder the host's policy allows `allowed` times and then refuses, as
+   * when the folder is swapped meanwhile, and records every request the adapter sends OpenCode.
+   */
+  async function swappedAfter(t: TestContext, allowed: number) {
+    let asked = 0;
+    const { runtime, sandbox } = await harness(t, {
+      runtime: {
+        directoryPolicy: (path) => {
+          asked += 1;
+          return asked <= allowed
+            ? { ok: true, directory: path }
+            : { ok: false, code: 'location_missing', message: `${path} was swapped.` };
+        },
+      },
+    });
+    const requests: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      requests.push(`${init?.method ?? 'GET'} ${String(input)}`);
+      return original(input, init);
+    }) as typeof fetch;
+    t.after(() => {
+      globalThis.fetch = original;
+    });
+    const execution = new Execution();
+    await assert.rejects(
+      runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Say hello.',
+        options: {},
+        directory: sandbox.project,
+        model_ref: null,
+        emit: execution.emit,
+      }),
+      actionError('location_missing'),
+    );
+    assert.equal(asked, allowed + 1);
+    assert.ok(runtime.serverPid !== null, 'the server was launched first');
+    assert.deepEqual(execution.observations, [], 'no session exists');
+    assert.ok(
+      !requests.some((request) => request.startsWith('POST') && request.endsWith('/api/session')),
+    );
+    return requests.filter((request) => request.includes('location%5Bdirectory%5D'));
+  }
+
+  test(
+    'a folder swapped before OpenCode reads its models there is refused, with nothing read from it',
+    SLOW_TEST,
+    async (t) => {
+      assert.deepEqual(await swappedAfter(t, 1), [], 'no model read carried the folder');
+    },
+  );
+
+  test(
+    'a folder swapped while OpenCode lists its models is refused before a session is made there',
+    SLOW_TEST,
+    async (t) => {
+      assert.ok((await swappedAfter(t, 2)).length > 0, 'the models were read in the folder first');
+    },
+  );
 
   test('an approved request lets the tool run and the turn finish', SLOW_TEST, async (t) => {
     const { runtime, start } = await harness(t);
@@ -498,7 +561,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello.',
-        options: { directory: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: 'fake/fake-model-2',
         emit: execution.emit,
       });
@@ -516,7 +580,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         runtime.startExecution({
           execution: gone.context,
           instruction: 'Hello.',
-          options: { directory: sandbox.project },
+          options: {},
+          directory: sandbox.project,
           model_ref: 'fake/removed-model',
           emit: gone.emit,
         }),
@@ -550,7 +615,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
           runtime.startExecution({
             execution: execution.context,
             instruction: 'Hello.',
-            options: { directory: sandbox.project, model },
+            options: { model },
+            directory: sandbox.project,
             model_ref: null,
             emit: execution.emit,
           }),
@@ -567,7 +633,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello.',
-        options: { directory: sandbox.project, model: 'fake/fake-model' },
+        options: { model: 'fake/fake-model' },
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });
@@ -701,7 +768,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
-        options: { directory: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });

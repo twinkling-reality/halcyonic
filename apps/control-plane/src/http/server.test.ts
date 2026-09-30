@@ -92,7 +92,10 @@ describe('REST', () => {
     assert.equal(accepted.status, 202);
     assert.equal(accepted.body.disposition, 'accepted');
     assert.equal((await post(command)).status, 200);
-    assert.equal((await post({ ...command, payload: { name: 'Other' } })).status, 409);
+    assert.equal(
+      (await post({ ...command, payload: { name: 'Other', location: null } })).status,
+      409,
+    );
 
     const rejected = await post(
       server.commands.createWorkstream('01920000-0000-7000-8000-00000000ffff' as never, APPROVAL),
@@ -162,7 +165,8 @@ describe('realtime protocol', () => {
     const policies = new Map(
       welcome.command_policies.map((entry) => [entry.command_type, entry.policy]),
     );
-    assert.equal(policies.size, 6);
+    assert.equal(policies.size, 7);
+    assert.equal(policies.get('project.set_location'), 'low_consequence');
     assert.equal(policies.get('execution.respond_to_approval'), 'review_required');
     assert.equal(policies.get('execution.interrupt'), 'review_required');
     assert.equal(policies.get('execution.send_instruction'), 'low_consequence');

@@ -1,11 +1,8 @@
-import { statSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
 import type { RuntimeOptions } from '@halcyonic/contracts';
-import type { DirectoryPolicy } from '@halcyonic/runtime-core';
 import type { ApprovalPolicy, SandboxMode } from './protocol.ts';
 
 export interface StartOptions {
-  /** The directory the thread works in: the real path the host's directory policy returned. */
+  /** The project's folder, where the thread works, as the host's directory policy confirmed it. */
   readonly cwd: string;
   /** A model Codex is configured to reach; undefined keeps Codex's configured model. */
   readonly model: string | undefined;
@@ -27,11 +24,10 @@ export interface StartOptions {
 }
 
 export type ParsedStartOptions =
-  | { readonly ok: true; readonly value: StartOptions }
+  | { readonly ok: true; readonly value: Omit<StartOptions, 'cwd'> }
   | { readonly ok: false; readonly message: string };
 
 const SUPPORTED = [
-  'cwd',
   'model',
   'model_provider',
   'context_window',
@@ -50,7 +46,8 @@ const PROVIDER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const MAX_TOKENS = 10_000_000;
 
 /**
- * Checks the start options of a Codex execution, then asks the host's directory policy. Every
+ * Checks the start options of a Codex execution. Where the thread works is not an option: it is
+ * the project's folder, which the host resolves and checks (`confirmProjectLocation`). Every
  * thread gets an explicit sandbox and approval policy, so the developer's Codex configuration can
  * never start one that asks nobody. Refused, because approvals would stop reaching the person:
  *
@@ -62,17 +59,15 @@ const MAX_TOKENS = 10_000_000;
  */
 export function parseStartOptions(
   options: RuntimeOptions,
-  policy: DirectoryPolicy,
   modelRef: string | null = null,
 ): ParsedStartOptions {
   const unknown = Object.keys(options).filter((key) => !SUPPORTED.includes(key));
   if (unknown.length > 0) {
     return fail(
-      `Unknown Codex runtime options: ${unknown.join(', ')}. Supported: ${SUPPORTED.join(', ')}.`,
+      `Unknown Codex runtime options: ${unknown.join(', ')}. Supported: ${SUPPORTED.join(', ')}. The thread works in the project's folder.`,
     );
   }
   const {
-    cwd,
     model,
     model_provider,
     context_window,
@@ -80,17 +75,6 @@ export function parseStartOptions(
     sandbox = 'workspace-write',
     approval_policy = 'on-request',
   } = options;
-  if (typeof cwd !== 'string' || cwd === '') {
-    return fail('Option "cwd" is required: the absolute path of an existing directory.');
-  }
-  if (!isAbsolute(cwd)) return fail(`Option "cwd" must be an absolute path, got "${cwd}".`);
-  let isDirectory: boolean;
-  try {
-    isDirectory = statSync(cwd).isDirectory();
-  } catch {
-    return fail(`Option "cwd" does not exist: ${cwd}`);
-  }
-  if (!isDirectory) return fail(`Option "cwd" is not a directory: ${cwd}`);
   if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
     return fail('Option "model" must be a model name, such as "gpt-5.5".');
   }
@@ -140,19 +124,9 @@ export function parseStartOptions(
       'Option "sandbox" "danger-full-access" needs "approval_policy" "untrusted": with "on-request" Codex runs commands without asking.',
     );
   }
-  let decision: ReturnType<DirectoryPolicy>;
-  try {
-    decision = policy(cwd);
-  } catch (error) {
-    return fail(
-      `The directory policy could not decide on ${cwd}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  if (!decision.ok) return fail(decision.message);
   return {
     ok: true,
     value: {
-      cwd: decision.directory,
       model: chosen?.model ?? model,
       modelProvider: chosen?.provider ?? model_provider,
       contextWindow,

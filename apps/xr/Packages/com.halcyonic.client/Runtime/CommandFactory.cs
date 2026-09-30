@@ -21,8 +21,23 @@ namespace Halcyonic.Client
             this.now = now ?? (() => DateTimeOffset.UtcNow);
         }
 
-        public ProjectCreateCommand CreateProject(string name) =>
-            Stamp(new ProjectCreateCommand { Payload = new ProjectCreatePayload { Name = name } });
+        /// <summary>
+        /// Creates a project in the folder <paramref name="location"/> chooses from what the host lists
+        /// (<see cref="ControlPlaneApi.GetLocationsAsync"/>, ADR 0020), or with none: then only a runtime
+        /// that does not use the project's location, such as the mock runtime, can start work in it.
+        /// </summary>
+        public ProjectCreateCommand CreateProject(string name, ProjectLocationChoice? location = null) =>
+            Stamp(new ProjectCreateCommand { Payload = new ProjectCreatePayload { Name = name, Location = location } });
+
+        /// <summary>
+        /// Binds a project to another folder, for example after its folder was moved or renamed on the
+        /// Mac. Work already started keeps the folder it started in.
+        /// </summary>
+        public ProjectSetLocationCommand SetProjectLocation(string projectId, ProjectLocationChoice location) =>
+            Stamp(new ProjectSetLocationCommand
+            {
+                Payload = new ProjectSetLocationPayload { ProjectId = projectId, Location = location },
+            });
 
         public WorkstreamCreateCommand CreateWorkstream(string projectId, string title, string? objective) =>
             Stamp(new WorkstreamCreateCommand

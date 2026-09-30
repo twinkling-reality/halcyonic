@@ -49,6 +49,19 @@ export function admitCommand(
     case 'project.create':
       return { admitted: true, policy, scope: NO_SCOPE, runtime: null };
 
+    case 'project.set_location': {
+      const projectId = command.payload.project_id;
+      if (projection.project(projectId) === undefined) {
+        return reject(NO_SCOPE, 'project_not_found', `Project ${projectId} does not exist.`);
+      }
+      return {
+        admitted: true,
+        policy,
+        scope: { ...NO_SCOPE, project_id: projectId },
+        runtime: null,
+      };
+    }
+
     case 'workstream.create': {
       const projectId = command.payload.project_id;
       if (projection.project(projectId) === undefined) {
@@ -91,6 +104,14 @@ export function admitCommand(
           scope,
           'capability_unsupported',
           `Runtime ${runtime.runtime_id} does not offer a choice of model.`,
+        );
+      }
+      const location = projection.project(workstream.project_id)?.location ?? null;
+      if (runtime.uses_project_location && location === null) {
+        return reject(
+          scope,
+          'location_required',
+          `Runtime ${runtime.runtime_id} works in the project's folder, and the project has none. Choose a folder for the project first.`,
         );
       }
       return { admitted: true, policy, scope, runtime };

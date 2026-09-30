@@ -67,6 +67,24 @@ const MIGRATIONS: readonly string[] = [
   WHERE event_type IN ('command.accepted', 'command.rejected')
     AND json_type(envelope, '$.payload.principal') IS NULL;
   `,
+  // ADR 0020: a project is bound to a folder. A project stored before was created without one, and
+  // a project.create command stored before asked for none. An execution stored before recorded no
+  // folder, so its null means not recorded rather than none.
+  `
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.location', json('null'))
+  WHERE event_type = 'project.created'
+    AND json_type(envelope, '$.payload.location') IS NULL;
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.command.payload.location', json('null'))
+  WHERE event_type IN ('command.accepted', 'command.rejected')
+    AND json_extract(envelope, '$.payload.command.command_type') = 'project.create'
+    AND json_type(envelope, '$.payload.command.payload.location') IS NULL;
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.directory', json('null'))
+  WHERE event_type = 'execution.created'
+    AND json_type(envelope, '$.payload.directory') IS NULL;
+  `,
 ];
 
 export const JOURNAL_SCHEMA_VERSION = MIGRATIONS.length;

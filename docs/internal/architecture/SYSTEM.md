@@ -99,7 +99,7 @@ Environment variables, all optional:
 | `HALCYONIC_COMMAND_TIMEOUT_MS` | `30000` | How long to wait for a runtime to confirm an action |
 | `HALCYONIC_MOCK_SCENARIOS_DIR` | `fixtures/scenarios` | Mock runtime scenarios |
 | `SALIDIUM_HOME` | `~/.salidium` | Where Salidium publishes its discovery file, as Salidium itself resolves it |
-| `HALCYONIC_PROJECT_ROOTS` | none | Directories agents may work in, with everything below them, separated by `:`; with none, no real runtime can start |
+| `HALCYONIC_PROJECT_ROOTS` | none | Directories agents may work in, with everything below them, separated by `:`. Clients bind projects to a root or a folder directly inside one, and the host may make new folders there ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)); with none, no real runtime can start |
 | `HALCYONIC_CLAUDE_AGENT` | `0` | `1` registers the Claude Agent runtime; it then needs `ANTHROPIC_API_KEY` or a cloud provider in the environment |
 | `HALCYONIC_CLAUDE_EXECUTABLE` | bundled | A Claude Code executable to use instead of the one the Agent SDK bundles |
 | `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |

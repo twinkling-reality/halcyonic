@@ -19,6 +19,7 @@ import { type EvaluationSource, seorakEvaluation } from '../intelligence/evaluat
 import { salidiumUnderstanding, type UnderstandingSource } from '../intelligence/understanding.ts';
 import type { EventJournal } from '../journal/journal.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
+import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { createNetworkIdentity, type NetworkIdentity } from '../network/certificate.ts';
 import { DeviceAccess } from '../network/devices.ts';
@@ -68,6 +69,8 @@ export interface TestControlPlaneOptions {
   readonly evaluation?: EvaluationSource;
   /** How long a runtime has to list its models. */
   readonly modelListTimeoutMs?: number;
+  /** Where projects may live; by default nowhere, as with no project roots configured. */
+  readonly locations?: HostLocations;
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -90,6 +93,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     scheduler: time,
     logger: options.logger ?? capturingLogger().logger,
     commandTimeoutMs: options.commandTimeoutMs ?? 30_000,
+    ...(options.locations !== undefined && { locations: options.locations }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

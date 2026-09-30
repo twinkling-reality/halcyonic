@@ -14,6 +14,7 @@ import type {
   ExecutionStatus,
   ExecutionView,
   ProjectId,
+  ProjectLocation,
   ProjectView,
   RuntimeEvent,
   StoredEvent,
@@ -65,6 +66,7 @@ const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
 interface ProjectState {
   readonly projectId: ProjectId;
   readonly name: string;
+  location: ProjectLocation | null;
   readonly createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -222,9 +224,21 @@ export class Projection {
         this.#projects.set(event.project_id, {
           projectId: event.project_id,
           name: event.payload.name,
+          location: event.payload.location,
           createdAt: event.occurred_at,
           updatedAt: event.ingested_at,
         });
+        changes.projects.add(event.project_id);
+        return;
+      }
+      case 'project.location_set': {
+        const project = this.#projects.get(event.project_id);
+        if (project === undefined) {
+          notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        project.location = event.payload.location;
+        project.updatedAt = event.ingested_at;
         changes.projects.add(event.project_id);
         return;
       }
@@ -276,6 +290,7 @@ export class Projection {
             projectId: event.project_id,
             runtime: event.payload.runtime,
             instruction: event.payload.instruction,
+            directory: event.payload.directory,
             createdAt: event.occurred_at,
           }),
         );
@@ -549,6 +564,7 @@ function toProjectView(state: ProjectState): ProjectView {
   return {
     project_id: state.projectId,
     name: state.name,
+    location: state.location,
     created_at: state.createdAt,
     updated_at: state.updatedAt,
   };
