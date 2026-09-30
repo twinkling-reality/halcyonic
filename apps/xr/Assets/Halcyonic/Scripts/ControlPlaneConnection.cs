@@ -51,6 +51,9 @@ namespace Halcyonic.XR
         public IReadOnlyList<PresetInstruction> DemonstrationInstructions(string executionId) =>
             sessions?.InstructionsFor(executionId) ?? Array.Empty<PresetInstruction>();
 
+        /// <summary>While the demonstration is shown, its recorded understanding and evaluation answers; null otherwise.</summary>
+        public DemonstrationReads? DemonstrationReads => sessions?.Player?.Reads;
+
         private void OnEnable()
         {
             var client = new ClientInfo

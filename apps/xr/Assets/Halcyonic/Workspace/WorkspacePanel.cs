@@ -47,9 +47,11 @@ namespace Halcyonic.XR.Workspace
 
     /// <summary>
     /// The expanded workspace: the same workstream as its character, with its objective, execution,
-    /// what needs the person, the actions offered, how requests are going, and recent activity. The
-    /// layout is fixed, so nothing jumps while the work changes. It shows words it is given and
-    /// derives nothing; <see cref="WorkspaceDirector"/> fills it from the client core.
+    /// what needs the person and the actions offered, and under them tabs for the details: how
+    /// requests are going and the recent activity, or the Understanding or Evaluation section
+    /// (<see cref="WorkspaceSections"/>). The layout is fixed, so nothing jumps while the work
+    /// changes. It shows words it is given and derives nothing; <see cref="WorkspaceDirector"/> fills
+    /// it from the client core.
     ///
     /// At its design distance (<see cref="WorkspaceVisuals.PanelDistance"/>) it spans about 34 by 27
     /// degrees, and it keeps that angular size wherever it opens: all of it fits the comfortable
@@ -69,8 +71,25 @@ namespace Halcyonic.XR.Workspace
         private const float Gap = 0.02f;
         private const float ActionsTop = 0.056f;
         private const int MaxFeedback = 2;
-        private const int MaxActivity = 5;
+        private const int MaxActivity = 4;
         private const float LineHeight = 0.029f;
+
+        /// <summary>The row under the actions for the tabs that choose the details (<see cref="WorkspaceSections"/>): its top and height.</summary>
+        public const float TabsTop = -0.026f;
+
+        public const float TabsHeight = 0.056f;
+
+        /// <summary>
+        /// Under the tabs, the details they choose between: the requests and recent activity, or the
+        /// Understanding or Evaluation section. In the panel's coordinates.
+        /// </summary>
+        public const float DetailsTop = -0.094f;
+
+        public const float DetailsBottom = -Height / 2f + 0.014f;
+
+        public const float DetailsLeft = Left;
+
+        public const float DetailsWidth = ContentWidth;
 
         private readonly List<PanelButton> actionButtons = new List<PanelButton>();
         private readonly List<PanelButton> presetButtons = new List<PanelButton>();
@@ -84,7 +103,6 @@ namespace Halcyonic.XR.Workspace
         private TextMeshPro objective = null!;
         private TextMeshPro attention = null!;
         private TextMeshPro controlsText = null!;
-        private TextMeshPro feedbackCaption = null!;
         private TextMeshPro activityCaption = null!;
         private PanelButton collapse = null!;
         private PanelButton confirm = null!;
@@ -127,16 +145,16 @@ namespace Halcyonic.XR.Workspace
             attention = Line("Attention", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, Top - 0.16f, ContentWidth, 0.058f, wrap: true);
             controlsText = Line("Controls text", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor, ActionsTop, ContentWidth, PanelButton.Height, wrap: true);
             controlsText.alignment = TextAlignmentOptions.MidlineLeft;
-            feedbackCaption = Line("Requests caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, -0.03f, ContentWidth, 0.024f);
-            feedbackCaption.text = "Requests";
+            // Under the tabs: the requests, then the recent activity, unless a section shows there.
             for (var index = 0; index < MaxFeedback; index++)
             {
-                feedbackLines.Add(Line("Request " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, -0.054f - index * LineHeight, ContentWidth, LineHeight));
+                feedbackLines.Add(Line("Request " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, DetailsTop - index * LineHeight, ContentWidth, LineHeight));
             }
-            activityCaption = Line("Activity caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, -0.118f, ContentWidth, 0.024f);
+            var activityTop = DetailsTop - MaxFeedback * LineHeight - 0.004f;
+            activityCaption = Line("Activity caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, activityTop, ContentWidth, 0.024f);
             for (var index = 0; index < MaxActivity; index++)
             {
-                activityLines.Add(Line("Activity " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, -0.142f - index * LineHeight, ContentWidth, LineHeight));
+                activityLines.Add(Line("Activity " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, activityTop - 0.024f - index * LineHeight, ContentWidth, LineHeight));
             }
 
             collapse = Button("Collapse", () => CollapsePressed?.Invoke());
@@ -178,7 +196,7 @@ namespace Halcyonic.XR.Workspace
             var feedback = new List<(string Text, Color Color)>();
             if (content.Notice != null) feedback.Add((content.Notice, WorkspaceVisuals.AttentionColor));
             foreach (var line in content.Feedback) feedback.Add((line, WorkspaceVisuals.TextColor));
-            feedbackCaption.text = feedback.Count == 0 ? "Requests: none yet" : "Requests";
+            if (feedback.Count == 0) feedback.Add(("Requests: none yet", WorkspaceVisuals.SecondaryColor));
             for (var index = 0; index < feedbackLines.Count; index++)
             {
                 feedbackLines[index].text = index < feedback.Count ? feedback[index].Text : "";
@@ -202,6 +220,14 @@ namespace Halcyonic.XR.Workspace
                 line.fontStyle = claim ? FontStyles.Italic : FontStyles.Normal;
                 line.color = claim ? WorkspaceVisuals.ClaimColor : WorkspaceVisuals.TextColor;
             }
+        }
+
+        /// <summary>Shows the requests and recent activity under the tabs, or hides them while a section shows there.</summary>
+        public void ShowActivity(bool shown)
+        {
+            foreach (var line in feedbackLines) line.gameObject.SetActive(shown);
+            activityCaption.gameObject.SetActive(shown);
+            foreach (var line in activityLines) line.gameObject.SetActive(shown);
         }
 
         /// <summary>

@@ -59,6 +59,13 @@ export const UnderstandingStatement = Type.Object(
 export const UnderstandingSource = Type.Object(
   {
     system: Type.Literal('salidium'),
+    /**
+     * True when a stand-in Halcyonic wrote produced these conclusions from invented content, as the
+     * recorded demonstration's sources do, speaking Salidium's contract (ADR 0019); false for
+     * everything read from Salidium itself. The fields below are then the stand-in's own, never a
+     * real Salidium's. Clients must say "simulated" wherever they name a synthetic source.
+     */
+    synthetic: Type.Boolean(),
     /** The source's product version. */
     version: Text(64),
     contract: Type.Object({ name: Text(64), major: Type.Integer(), minor: Type.Integer() }, strict),

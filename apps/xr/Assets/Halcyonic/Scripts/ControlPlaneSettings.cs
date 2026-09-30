@@ -22,6 +22,8 @@ namespace Halcyonic.XR
         private const string PairingFileName = "halcyonic-pairing.json";
 
         private static IPairingStore? pairingStore;
+        private static ControlPlaneApi? api;
+        private static ControlPlaneTarget? apiTarget;
 
         public static Uri Endpoint => new Uri(Environment.GetEnvironmentVariable("HALCYONIC_ENDPOINT") ?? DefaultEndpoint);
 
@@ -35,6 +37,21 @@ namespace Halcyonic.XR
             if (pairing != null) return ControlPlaneTarget.Paired(pairing);
             var token = ReadAccessToken();
             return token == null ? null : ControlPlaneTarget.Local(Endpoint, token);
+        }
+
+        /// <summary>
+        /// The REST client for the control plane <see cref="Target"/> names now, shared, and made again
+        /// once pairing, forgetting or a new token changes it; null when there is none. Call it on the
+        /// main thread.
+        /// </summary>
+        public static ControlPlaneApi? Api()
+        {
+            var target = Target();
+            if (target != null && apiTarget != null && target.SameAs(apiTarget)) return api;
+            api?.Dispose();
+            apiTarget = target;
+            api = target?.CreateApi();
+            return api;
         }
 
         /// <summary>

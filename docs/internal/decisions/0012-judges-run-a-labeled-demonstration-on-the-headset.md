@@ -212,8 +212,18 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
   - *The runtime's name.* The recorder names the recorded runtimes "Simulated agent
     (demonstration)" and "Simulated agent (demonstration, watch only)"; both are the synthetic mock
     runtime, so every surface still labels the work as simulated.
+- *Understanding and Evaluation* (milestone 5) show in the demonstration too, through the same
+  contracts, routes, clients and client code as live: the recording also holds the control plane's
+  REST answers about each execution's understanding and evaluation wherever the playback can stand,
+  read through its own routes from stand-ins for Salidium and Seorak that speak their real contracts
+  with invented content, and every answer is marked synthetic, so the workspace says "Simulated, not
+  from Salidium" and "recorded at" in the provenance line
+  ([ADR 0019](0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)). The
+  recording grows to about 720 KiB and keeps its format version; a reader that does not know the
+  answers plays the rest.
 - Still required before a competition build: checking the scripted demonstration on a headset
-  with hands only, and the release build that leaves Meta's development tools out
+  with hands only, its Understanding and Evaluation sections included, and the release build that
+  leaves Meta's development tools out
   ([horizon-store-release.md](../validation/horizon-store-release.md)).
 - Revisit if the organizers accept a hosted service and the owner wants the control loop shown, or
   once device pairing and encrypted transport exist.

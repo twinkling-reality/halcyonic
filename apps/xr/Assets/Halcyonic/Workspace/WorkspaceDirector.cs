@@ -269,6 +269,7 @@ namespace Halcyonic.XR.Workspace
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
+            WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader);
             panel.Accepting = () => opened == workspace && transition.Open;
             panel.ActionPressed += action => Steer(workspace, s => s.Press(action, workspace.Now!));
             panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
@@ -479,6 +480,13 @@ namespace Halcyonic.XR.Workspace
             workspace.Keyboard = null;
         }
 
+        /// <summary>Where the workspace's sections read: the recorded demonstration while it is shown, else the control plane.</summary>
+        private IIntelligenceReader? IntelligenceReader()
+        {
+            if (connection.DemonstrationReads is DemonstrationReads recorded) return recorded;
+            return ControlPlaneSettings.Api();
+        }
+
         /// <summary>Reads the workstream's history, which a snapshot does not carry, into the activity.</summary>
         private void ReadHistory(Opened workspace) => Report(ReadHistoryAsync(workspace));
 
@@ -498,8 +506,7 @@ namespace Halcyonic.XR.Workspace
             try
             {
                 // The control plane configured now, over the pinned transport when paired (ADR 0017).
-                using var api = ControlPlaneSettings.Target()?.CreateApi()
-                    ?? throw new ControlPlaneRequestException("no control plane is configured.");
+                var api = ControlPlaneSettings.Api() ?? throw new ControlPlaneRequestException("no control plane is configured.");
                 workspace.HistoryNote = " · reading history…";
                 RefreshPanel();
                 var events = await api.ReadAllAsync(workstreamId, journal);

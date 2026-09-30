@@ -125,6 +125,13 @@ const Read = {
 export const EvaluationSource = Type.Object(
   {
     system: Type.Literal('seorak'),
+    /**
+     * True when a stand-in Halcyonic wrote produced these measurements from invented content, as
+     * the recorded demonstration's sources do, speaking Seorak's integration API (ADR 0019); false
+     * for everything read from Seorak itself. Clients must say "simulated" wherever they name a
+     * synthetic source.
+     */
+    synthetic: Type.Boolean(),
     /** The version of the source's integration API these measurements were read through. */
     api_version: Type.Literal('v1'),
   },
