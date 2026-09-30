@@ -602,10 +602,10 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   side of the person's current view to expose the stage; headset usability is not yet verified,
   and it is not a grab gesture. The mock runtime uses its generic `simulated_start` scenario when
   the panel sends no runtime options. That scenario explicitly says no software work was performed.
-  Codex and OpenCode still need an
-  existing working directory in their runtime options. The panel does not yet collect one, so a
-  start through either will be rejected after creating the workstream. The question of how projects
-  bind to directories remains in `OPEN_QUESTIONS.md`.
+  Codex and OpenCode work in the project's
+  folder ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)), which the
+  panel does not yet choose: a project it creates has none, so a start through either is refused
+  with `location_required` after the workstream is created.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
