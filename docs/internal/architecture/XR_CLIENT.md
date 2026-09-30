@@ -19,7 +19,8 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             CharacterIdentity, CharacterLineup,
         │                             WorkspacePresenter, WorkspaceText, LabelText,
         │                             WorkspaceSteering, CommandSubmissions,
-        │                             NewWorkDraft,
+        │                             NewWorkDraft, NewWorkReview,
+        │                             NewWorkSubmission,
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, CommandFactory,
@@ -203,6 +204,13 @@ the same definition names, as the JSON Schema document:
   current list, builds a workstream with a short title from the objective, and sends the objective
   as the first instruction. The model's opaque reference goes back unchanged. A runtime whose
   `ModelChoice` is `None` leaves the choice to that runtime.
+- **`NewWorkReview`** divides the full project, runtime, model, model reference and typed objective
+  into short lines and pages. Line breaks and tabs in the objective are named, and invisible
+  characters show by `LabelText`'s rule. The final action appears only on the last page, after the
+  person has advanced through every preceding page. **`NewWorkSubmission`** looks up the command id
+  in projected state before interpreting an acknowledgement: a completed event still counts when
+  its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
+  terminal record arrives or the person deliberately clears it after checking the workstreams.
 - **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
   never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
   when it is shown for an execution it holds no answer about, and when the person refreshes; the
@@ -365,7 +373,9 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the new work draft refusing a blank or oversized objective, dropping a model after a runtime
   change, refusing a model outside the runtime's list, leaving a choice to a runtime that does not
   list models, and sending the chosen opaque reference unchanged; its create and start commands
-  through a real control plane with the mock runtime's list;
+  through a real control plane with the mock runtime's list; the full request paged without cuts,
+  confirmation possible only on its final page, and projected completion winning over a lost
+  acknowledgement while an unresolved outcome keeps the command id;
 - the one rule for text Halcyonic did not write: line breaks, tabs and other white space as one
   space and spaces as written; every control, format and default ignorable character and every
   half of a surrogate pair as its code point, including the end of text character that would end
@@ -569,11 +579,16 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   fetched once on runtime selection through `GET /api/runtimes/:runtime_id/models`; it is not
   polled. Each model's own display name, serving location and tool calling declaration show in
   the choice. An unavailable or empty list leaves Start unavailable, and the person can choose the
-  runtime again to retry. A runtime that does not list models uses its own choice. A second press
-  confirms the whole request. The panel then sends `project.create` if needed,
+  runtime again to retry. A runtime that does not list models uses its own choice. Start opens a
+  paged review of the full project, runtime, model choice and objective; the button that sends the
+  request appears only on the last page. The panel then sends `project.create` if needed,
   `workstream.create`, and `execution.start` in order, waiting for each command's completed record
-  before sending the next. A rejected or failed command stops the sequence and says why. If an
-  acknowledgement is lost, it says the outcome is unknown and does not send a replacement command.
+  before sending the next. A rejected or failed command stops the sequence and says why. It looks
+  for a projected command result before treating a missing acknowledgement as unknown. If the
+  outcome remains unknown, the command id is kept in device storage and blocks another start even
+  after the panel closes or the app restarts. The person can clear it only through a separate two
+  press recovery control that asks them to inspect the workstreams first; clearing starts a blank
+  draft, never a retry of the prior objective.
   The control plane checks the selected model again at start. The panel offers live work only while
   a real control plane is connected; the recorded demonstration does not stand in for creation.
 
