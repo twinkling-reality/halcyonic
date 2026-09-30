@@ -16,13 +16,18 @@ namespace Halcyonic.XR.Workspace
         private const float OpenSeconds = 0.32f;
         private const float CollapseSeconds = 0.22f;
         private const float StartScale = 0.04f;
-        private const float RingRadius = 0.17f;
+        /// <summary>Just outside the sphere that holds the body, in the character's units.</summary>
+        private const float RingRadius = CharacterView.BodyRadius * 1.4f;
         private const int RingPoints = 48;
         private const float LinkWidth = 0.003f;
+
+        /// <summary>How quickly an open panel glides to a new place, per second.</summary>
+        private const float Follow = 8f;
         private const float RingWidth = 0.004f;
 
         private CharacterTarget character = null!;
         private Pose target;
+        private Pose placed;
         private float scale = 1f;
         private float progress;
         private float direction = 1f;
@@ -54,6 +59,7 @@ namespace Halcyonic.XR.Workspace
             transition.target = place;
             transition.scale = scale;
             transition.PlacedBeside = from.BodyPosition;
+            transition.placed = place;
             // Lines are not children of the panel, whose scale changes while it grows.
             transition.decorations = new GameObject("Workspace link").transform;
             transition.decorations.SetParent(panel.transform.parent, false);
@@ -81,6 +87,11 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             progress = Mathf.Clamp01(progress + direction * Time.unscaledDeltaTime / (direction > 0f ? OpenSeconds : CollapseSeconds));
+            // A panel moved to a new place glides there instead of jumping.
+            var glide = 1f - Mathf.Exp(-Follow * Time.unscaledDeltaTime);
+            placed = new Pose(
+                Vector3.Lerp(placed.position, target.position, glide),
+                Quaternion.Slerp(placed.rotation, target.rotation, glide));
             Apply();
             if (direction < 0f && progress <= 0f) Finish();
         }
@@ -89,7 +100,7 @@ namespace Halcyonic.XR.Workspace
         {
             var eased = Mathf.SmoothStep(0f, 1f, progress);
             var body = character.BodyPosition;
-            transform.SetPositionAndRotation(Vector3.Lerp(body, target.position, eased), target.rotation);
+            transform.SetPositionAndRotation(Vector3.Lerp(body, placed.position, eased), placed.rotation);
             transform.localScale = Vector3.one * (scale * Mathf.Lerp(StartScale, 1f, eased));
 
             var color = WorkspaceVisuals.LinkColor;

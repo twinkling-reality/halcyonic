@@ -201,9 +201,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 877332659b9f44d48b2413aca6783d66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Halcyonic.XR::Halcyonic.XR.CharacterStage
-  radius: 1.6
-  height: 1.1
-  arcDegrees: 100
+  distance: 2.4
+  heightFromEyes: -0.45
+  spanDegrees: 60
   maxCharacters: 6
 --- !u!114 &247873108
 MonoBehaviour:

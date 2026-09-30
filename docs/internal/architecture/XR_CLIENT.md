@@ -273,9 +273,11 @@ Interaction SDK. Three levels of detail show the same work, all in place
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
 
-`WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to each character the stage
-creates: a sphere around the body for the ray and the gaze, and a surface in front of it, facing the
-person, for a poke. Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the
+`WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
+character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
+the ray and the gaze, which neighbours on the arc never share, and a surface just in front of it,
+facing the person, for a poke. While a character is peeked at or open it looks at the person
+(`CharacterView.LookAtPerson`). Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the
 panel, whose background takes the ray so nothing behind it is pointed at. The director keeps an
 `ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
 it opens and after a resynchronization (saying so in the activity caption while it reads, or why
