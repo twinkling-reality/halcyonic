@@ -216,8 +216,8 @@ So ([XR_CLIENT.md](XR_CLIENT.md), "Words"):
 
 Not covered: characters that only look alike, such as a Cyrillic letter for a Latin one or a
 no-break space for a space, show as they look. And the client shows a request as the control plane
-recorded it, which the contract limits to 2000 characters: the Codex and OpenCode adapters end a
-longer one with "[truncated]", while the Claude Code adapter cuts it without saying so
+recorded it, which the contract limits to 2000 characters: the Codex, OpenCode and Claude Code
+adapters end a longer one with "[truncated]"
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
 ## Not yet built
