@@ -33,7 +33,8 @@ const runtime = new CodexRuntimeAdapter({
 await runtime.startExecution({
   execution: TEST_EXECUTION,
   instruction: options.instruction,
-  options: { cwd: options.directory },
+  options: {},
+  directory: options.directory,
   model_ref: null,
   emit: (observation) => {
     if (observation.type === 'runtime.tool.started') {

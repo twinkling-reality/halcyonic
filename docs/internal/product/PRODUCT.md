@@ -137,8 +137,11 @@ provider-neutral backend.
 3. **The defining interaction (built, device refinement ongoing).** Open a character into its
    workspace, act, collapse it back. A real approval has been observed on Quest.
 4. **Real work (partly built).** OpenCode, Claude Code and Codex adapters exist; Salidium and
-   Seorak read-through exists. A real Codex execution was read through both local daemons. The
-   headset still needs a safe project directory path and a complete live-start walkthrough.
+   Seorak read-through exists. A real Codex execution was read through both local daemons. Each
+   project binds to one folder the host approves, and a client that never names a path has started
+   real OpenCode and Codex work on a local model in a new folder through the control plane
+   ([project-location.md](../validation/project-location.md)). The headset still needs to choose a
+   folder and a complete live-start walkthrough.
 
 The minimum viable product needs three characters, hands-only interaction, the compressed to
 expanded transition, one real runtime, one real safe action with a runtime-confirmed result, and

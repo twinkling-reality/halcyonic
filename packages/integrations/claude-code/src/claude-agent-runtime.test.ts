@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -343,12 +343,13 @@ function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
     ...options,
   });
   const observed: RuntimeObservation[] = [];
-  const start = (startOptions: RuntimeOptions = { cwd: WORKDIR }) =>
+  const start = (startOptions: RuntimeOptions = {}, directory: string | null = WORKDIR) =>
     adapter.startExecution({
       execution,
       instruction: 'Fix the flaky checkout test.',
       options: startOptions,
       model_ref: null,
+      directory,
       emit: (observation) => observed.push(observation),
     });
   const run = (): ScriptedRun => {
@@ -459,7 +460,7 @@ describe('starting an execution', () => {
 
   test('the SDK is asked for streaming input with Halcyonic options and every settings source', async () => {
     const { start, run } = setup({ pathToClaudeCodeExecutable: '/opt/claude/bin/claude' });
-    void start({ cwd: WORKDIR, model: 'claude-sonnet-5', permission_mode: 'acceptEdits' });
+    void start({ model: 'claude-sonnet-5', permission_mode: 'acceptEdits' });
     const options = run().options;
     assert.equal(options.cwd, WORKDIR);
     assert.match(options.sessionId ?? '', UUID);
@@ -489,8 +490,9 @@ describe('starting an execution', () => {
       void adapter.startExecution({
         execution: { ...execution, execution_id: executionId as ExecutionId },
         instruction: `Task ${index}`,
-        options: { cwd: WORKDIR },
+        options: {},
         model_ref: null,
+        directory: WORKDIR,
         emit: () => {},
       });
     }
@@ -640,8 +642,9 @@ describe('model choice', () => {
     const starting = adapter.startExecution({
       execution,
       instruction: 'Fix the flaky checkout test.',
-      options: { cwd: WORKDIR },
+      options: {},
       model_ref: 'claude-opus-5',
+      directory: WORKDIR,
       emit: () => {},
     });
     await settle();
@@ -656,8 +659,9 @@ describe('model choice', () => {
       adapter.startExecution({
         execution: other as typeof execution,
         instruction: 'Fix it.',
-        options: { cwd: WORKDIR },
+        options: {},
         model_ref: 'claude-retired-1',
+        directory: WORKDIR,
         emit: () => {},
       }),
       (error: unknown) =>
@@ -670,15 +674,12 @@ describe('model choice', () => {
 
   test('a model from the list replaces the model option, never goes with it', () => {
     const { adapter } = setup();
-    assert.deepEqual(adapter.validateStartOptions({ cwd: WORKDIR }, 'claude-opus-5'), { ok: true });
-    assert.deepEqual(
-      adapter.validateStartOptions({ cwd: WORKDIR, model: 'claude-sonnet-5' }, 'claude-opus-5'),
-      {
-        ok: false,
-        message: 'Choose the model either with model_ref or with the "model" option, not both.',
-      },
-    );
-    assert.deepEqual(adapter.validateStartOptions({ cwd: WORKDIR }, '-flag'), {
+    assert.deepEqual(adapter.validateStartOptions({}, 'claude-opus-5'), { ok: true });
+    assert.deepEqual(adapter.validateStartOptions({ model: 'claude-sonnet-5' }, 'claude-opus-5'), {
+      ok: false,
+      message: 'Choose the model either with model_ref or with the "model" option, not both.',
+    });
+    assert.deepEqual(adapter.validateStartOptions({}, '-flag'), {
       ok: false,
       message: '-flag is not a model Claude Code lists.',
     });
@@ -1080,44 +1081,65 @@ describe('closing', () => {
 });
 
 describe('start options', () => {
-  test('the host directory policy decides which cwd a session may use, and its real path is used', async () => {
+  test("the host directory policy is asked about the project's folder before anything is launched", async () => {
     const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-claude-elsewhere-')));
     try {
-      const { adapter, start, runs } = setup({
+      const { start, runs } = setup({
         directoryPolicy: (path) =>
           path === WORKDIR
             ? { ok: true, directory: WORKDIR }
-            : { ok: false, message: `${path} is outside the project roots.` },
+            : {
+                ok: false,
+                code: 'location_not_allowed',
+                message: `${path} is outside the project roots.`,
+              },
       });
-      assert.deepEqual(adapter.validateStartOptions({ cwd: elsewhere }, null), {
-        ok: false,
-        message: `${elsewhere} is outside the project roots.`,
-      });
-      await assert.rejects(start({ cwd: elsewhere }), actionError('invalid_runtime_options'));
+      await assert.rejects(
+        start({}, elsewhere),
+        (error: unknown) =>
+          actionError('location_not_allowed')(error) &&
+          (error as Error).message === `${elsewhere} is outside the project roots.`,
+      );
+      await assert.rejects(start({}, null), actionError('location_required'));
       assert.equal(runs.length, 0, 'no session was launched');
-      assert.equal(adapter.validateStartOptions({ cwd: WORKDIR }, null).ok, true);
+      void start();
+      assert.equal(runs.at(-1)?.options.cwd, WORKDIR);
     } finally {
       rmSync(elsewhere, { recursive: true, force: true });
     }
   });
 
-  test('cwd is required and must be an existing absolute directory; unknown options are refused', () => {
+  test('the folder is asked about again right before a session is launched in it', async () => {
+    let asked = 0;
+    const { start, runs } = setup({
+      directoryPolicy: (path) => {
+        asked += 1;
+        return asked === 1
+          ? { ok: true, directory: path }
+          : { ok: false, code: 'location_missing', message: `${path} was removed.` };
+      },
+    });
+    await assert.rejects(start(), actionError('location_missing'));
+    assert.equal(asked, 2);
+    assert.equal(runs.length, 0, 'no session was launched');
+  });
+
+  test('a folder is not an option: the session works in the project folder; unknown options are refused', () => {
     const { adapter } = setup();
-    const file = join(WORKDIR, 'a-file.txt');
-    writeFileSync(file, 'not a directory');
     const valid = (options: RuntimeOptions) => adapter.validateStartOptions(options, null).ok;
-    assert.equal(valid({ cwd: WORKDIR }), true);
-    assert.equal(valid({}), false);
-    assert.equal(valid({ cwd: 'relative/path' }), false);
-    assert.equal(valid({ cwd: join(WORKDIR, 'missing') }), false);
-    assert.equal(valid({ cwd: file }), false);
-    assert.equal(valid({ cwd: WORKDIR, scenario: 'successful_feature' }), false);
+    assert.equal(adapter.descriptor.uses_project_location, true);
+    assert.equal(valid({}), true);
+    assert.equal(valid({ cwd: WORKDIR }), false);
+    assert.equal(valid({ scenario: 'successful_feature' }), false);
+    assert.match(
+      JSON.stringify(adapter.validateStartOptions({ cwd: WORKDIR }, null)),
+      /project's folder/,
+    );
   });
 
   test('model and permission_mode are checked', () => {
     const { adapter } = setup();
-    const valid = (options: RuntimeOptions) =>
-      adapter.validateStartOptions({ cwd: WORKDIR, ...options }, null).ok;
+    const valid = (options: RuntimeOptions) => adapter.validateStartOptions(options, null).ok;
     assert.equal(valid({ model: 'claude-opus-5-5' }), true);
     assert.equal(valid({ model: 'opus[1m]' }), true);
     assert.equal(valid({ model: 'us.anthropic.claude-sonnet-5:0' }), true);

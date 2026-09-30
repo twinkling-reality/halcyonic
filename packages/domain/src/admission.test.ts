@@ -22,6 +22,7 @@ const FULL: RuntimeCapabilities = {
 function catalog(
   capabilities: RuntimeCapabilities = FULL,
   modelChoice: RuntimeDescriptor['model_choice'] = 'none',
+  usesProjectLocation = false,
 ): RuntimeCatalog {
   const descriptor: RuntimeDescriptor = {
     runtime_id: 'mock' as RuntimeId,
@@ -30,6 +31,7 @@ function catalog(
     synthetic: true,
     capabilities,
     model_choice: modelChoice,
+    uses_project_location: usesProjectLocation,
   };
   return { get: (id) => (id === 'mock' ? descriptor : undefined) };
 }
@@ -117,6 +119,58 @@ describe('command admission', () => {
     assert.equal(admitted.admitted, true);
     // Whether the model is still listed is the runtime's to check, at the start itself.
     assert.equal(admitCommand(start, projection, catalog(FULL, 'listed')).admitted, true);
+  });
+
+  test('a runtime that works in the project folder is refused for a project without one', () => {
+    const { b, projection, commands, workstream } = setup();
+    const refused = admitCommand(
+      commands.start(workstream.workstreamId),
+      projection,
+      catalog(FULL, 'none', true),
+    );
+    assert.equal(refused.admitted ? null : refused.rejection.code, 'location_required');
+    assert.equal(refused.scope.workstream_id, workstream.workstreamId);
+    // A runtime that uses no folder starts anywhere, as before.
+    assert.equal(
+      admitCommand(commands.start(workstream.workstreamId), projection, catalog()).admitted,
+      true,
+    );
+
+    const located = b.project('Located', { path: '/work/app', name: 'app', created: false });
+    const inside = b.workstream(located.projectId);
+    projection.apply(located.event);
+    projection.apply(inside.event);
+    const admitted = admitCommand(
+      commands.start(inside.workstreamId),
+      projection,
+      catalog(FULL, 'none', true),
+    );
+    // The folder itself is the host's to check; the domain knows only that there is one.
+    assert.equal(admitted.admitted, true);
+  });
+
+  test('setting a location is admitted only for a known project', () => {
+    const { projection, scope } = setup();
+    const setLocation = (projectId: string): CommandEnvelope => ({
+      schema_version: 1,
+      command_id: '00000000-0000-4000-8000-0000000000aa' as CommandId,
+      issued_at: '2026-09-26T10:00:00.000Z',
+      client: { name: 'test', version: null, device_label: null },
+      command_type: 'project.set_location',
+      payload: {
+        project_id: projectId as never,
+        location: { kind: 'existing_folder', root: '/work', folder_name: 'app' },
+      },
+    });
+    const admitted = admitCommand(setLocation(scope.projectId), projection, catalog());
+    assert.equal(admitted.admitted && admitted.policy, 'low_consequence');
+    assert.equal(admitted.scope.project_id, scope.projectId);
+    const missing = admitCommand(
+      setLocation('01920000-0000-7000-8000-00000000ffff'),
+      projection,
+      catalog(),
+    );
+    assert.equal(missing.admitted ? null : missing.rejection.code, 'project_not_found');
   });
 
   test('unknown targets and runtimes are rejected with the scope that did resolve', () => {

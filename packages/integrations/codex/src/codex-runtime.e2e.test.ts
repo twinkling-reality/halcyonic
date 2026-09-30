@@ -181,7 +181,8 @@ async function harness(
       const result = await runtime.startExecution({
         execution: execution.context,
         instruction,
-        options: { cwd: sandbox.project, ...options },
+        options: { ...options },
+        directory: sandbox.project,
         model_ref: modelRef,
         emit: execution.emit,
       });
@@ -674,7 +675,8 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
           runtime.startExecution({
             execution: gone.context,
             instruction: 'Hello.',
-            options: { cwd: sandbox.project },
+            options: {},
+            directory: sandbox.project,
             model_ref: modelRef,
             emit: gone.emit,
           }),
@@ -819,7 +821,8 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
-        options: { cwd: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });

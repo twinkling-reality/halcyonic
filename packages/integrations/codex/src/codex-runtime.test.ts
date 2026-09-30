@@ -6,7 +6,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
-  writeFileSync,
+  symlinkSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
@@ -32,7 +32,8 @@ import { assertValidObservations, TEST_EXECUTION } from './testing/observations.
 const FAKE_CODEX = fileURLToPath(new URL('./testing/fake-codex.mjs', import.meta.url));
 
 function temporary(t: TestContext): string {
-  const directory = mkdtempSync(join(tmpdir(), 'halcyonic-codex-unit-'));
+  // A real path, as the host binds a project's folder; macOS's temporary directory is a link.
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-codex-unit-')));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   return directory;
 }
@@ -89,8 +90,9 @@ function fake(
     runtime.startExecution({
       execution: TEST_EXECUTION,
       instruction,
-      options: { cwd: directory },
+      options: {},
       model_ref: null,
+      directory,
       emit: (observation) => observations.push(observation),
     });
   return { runtime, directory, recordFile, observations, received, start };
@@ -147,49 +149,47 @@ describe('Codex runtime descriptor', () => {
 });
 
 describe('Codex start options', () => {
-  test('require an existing absolute cwd and accept a model, sandbox and approval policy', (t) => {
+  test('accept a model, sandbox and approval policy, and no folder: the thread works in the project folder', (t) => {
     const { runtime, directory } = adapter(t);
-    const file = join(directory, 'a-file');
-    writeFileSync(file, 'x');
     const invalid: Record<string, unknown>[] = [
-      {},
-      { cwd: '' },
-      { cwd: 'relative/path' },
-      { cwd: join(directory, 'missing') },
-      { cwd: file },
-      { cwd: directory, directory },
-      { cwd: directory, model: '' },
-      { cwd: directory, model: '-flag' },
-      { cwd: directory, model: 42 },
-      { cwd: directory, sandbox: 'none' },
-      { cwd: directory, sandbox: null },
-      { cwd: directory, approval_policy: 'on-failure' },
-      { cwd: directory, approval_policy: { granular: { sandbox_approval: false } } },
-      { cwd: directory, model_provider: '' },
-      { cwd: directory, model_provider: 'ollama/local' },
-      { cwd: directory, model_provider: 7 },
-      { cwd: directory, context_window: 0 },
-      { cwd: directory, context_window: 65536.5 },
-      { cwd: directory, context_window: '65536' },
-      { cwd: directory, auto_compact_token_limit: -1 },
-      { cwd: directory, context_window: 65536, auto_compact_token_limit: 65536 },
+      { cwd: directory },
+      { directory },
+      { model: '' },
+      { model: '-flag' },
+      { model: 42 },
+      { sandbox: 'none' },
+      { sandbox: null },
+      { approval_policy: 'on-failure' },
+      { approval_policy: { granular: { sandbox_approval: false } } },
+      { model_provider: '' },
+      { model_provider: 'ollama/local' },
+      { model_provider: 7 },
+      { context_window: 0 },
+      { context_window: 65536.5 },
+      { context_window: '65536' },
+      { auto_compact_token_limit: -1 },
+      { context_window: 65536, auto_compact_token_limit: 65536 },
     ];
     for (const options of invalid) {
       const result = runtime.validateStartOptions(options, null);
       assert.equal(result.ok, false, JSON.stringify(options));
       assert.ok(!result.ok && result.message.length > 0);
     }
+    assert.match(
+      JSON.stringify(runtime.validateStartOptions({ cwd: directory }, null)),
+      /project's folder/,
+    );
     for (const options of [
-      { cwd: directory },
-      { cwd: directory, model: 'gpt-5.5' },
-      { cwd: directory, model: 'openrouter/vendor/model:free' },
-      { cwd: directory, sandbox: 'read-only', approval_policy: 'on-request' },
-      { cwd: directory, sandbox: 'workspace-write', approval_policy: 'untrusted' },
-      { cwd: directory, sandbox: 'danger-full-access', approval_policy: 'untrusted' },
-      { cwd: directory, model_provider: 'ollama', model: 'qwen3.6:35b-a3b-nvfp4' },
-      { cwd: directory, model_provider: 'my-gateway_2' },
-      { cwd: directory, context_window: 65536, auto_compact_token_limit: 52000 },
-      { cwd: directory, auto_compact_token_limit: 52000 },
+      {},
+      { model: 'gpt-5.5' },
+      { model: 'openrouter/vendor/model:free' },
+      { sandbox: 'read-only', approval_policy: 'on-request' },
+      { sandbox: 'workspace-write', approval_policy: 'untrusted' },
+      { sandbox: 'danger-full-access', approval_policy: 'untrusted' },
+      { model_provider: 'ollama', model: 'qwen3.6:35b-a3b-nvfp4' },
+      { model_provider: 'my-gateway_2' },
+      { context_window: 65536, auto_compact_token_limit: 52000 },
+      { auto_compact_token_limit: 52000 },
     ]) {
       assert.deepEqual(
         runtime.validateStartOptions(options, null),
@@ -200,19 +200,15 @@ describe('Codex start options', () => {
   });
 
   test('refuse any combination that would stop approvals reaching the person', (t) => {
-    const { runtime, directory } = adapter(t);
-    assert.deepEqual(
-      runtime.validateStartOptions({ cwd: directory, approval_policy: 'never' }, null),
-      {
-        ok: false,
-        message:
-          'Option "approval_policy" cannot be "never": the person supervising the execution would never be asked.',
-      },
-    );
+    const { runtime } = adapter(t);
+    assert.deepEqual(runtime.validateStartOptions({ approval_policy: 'never' }, null), {
+      ok: false,
+      message:
+        'Option "approval_policy" cannot be "never": the person supervising the execution would never be asked.',
+    });
     for (const approval of [undefined, 'on-request']) {
       const result = runtime.validateStartOptions(
         {
-          cwd: directory,
           sandbox: 'danger-full-access',
           ...(approval !== undefined && { approval_policy: approval }),
         },
@@ -221,46 +217,71 @@ describe('Codex start options', () => {
       assert.match(result.ok ? '' : result.message, /needs "approval_policy" "untrusted"/);
     }
   });
+});
 
-  test('a directory the host policy refuses is refused, with the policy message', async (t) => {
-    const { runtime } = adapter(t);
+describe("Codex and the project's folder", () => {
+  const start = (runtime: CodexRuntimeAdapter, directory: string | null) =>
+    runtime.startExecution({
+      execution: TEST_EXECUTION,
+      instruction: 'Do the work.',
+      options: {},
+      model_ref: null,
+      directory,
+      emit: () => undefined,
+    });
+
+  test('declares that it works in the project folder', (t) => {
+    assert.equal(adapter(t).runtime.descriptor.uses_project_location, true);
+  });
+
+  // The binary cannot start, so a refusal about the folder proves nothing was launched first.
+  test('the host policy is asked again before anything is launched, and its refusal is the failure', async (t) => {
+    const { runtime, directory } = adapter(t);
+    await assert.rejects(start(runtime, null), actionError('location_required'));
     const outside = temporary(t);
-    const message = `${outside} is outside the directories this test allows.`;
-    assert.deepEqual(runtime.validateStartOptions({ cwd: outside }, null), { ok: false, message });
     await assert.rejects(
-      runtime.startExecution({
-        execution: TEST_EXECUTION,
-        instruction: 'Do the work.',
-        options: { cwd: outside },
-        model_ref: null,
-        emit: () => undefined,
-      }),
+      start(runtime, outside),
       (error: unknown) =>
-        actionError('invalid_runtime_options')(error) && (error as Error).message === message,
+        actionError('location_not_allowed')(error) &&
+        (error as Error).message === `${outside} is outside the directories this test allows.`,
+    );
+    await assert.rejects(
+      start(runtime, join(directory, 'missing')),
+      actionError('location_missing'),
+    );
+    assert.equal(runtime.serverPid, null);
+  });
+
+  test('a folder whose path now leads elsewhere through a symbolic link is refused', async (t) => {
+    const { runtime, directory } = adapter(t);
+    const other = join(directory, 'other');
+    mkdirSync(other);
+    const bound = join(directory, 'bound');
+    // The project was bound to `bound`; since then it was replaced by a link to another folder.
+    symlinkSync(other, bound);
+    await assert.rejects(
+      start(runtime, bound),
+      (error: unknown) =>
+        actionError('location_missing')(error) && (error as Error).message.includes(other),
     );
   });
 
-  test('the policy is asked for the path as given, and a policy that throws refuses', (t) => {
+  test('a policy that throws refuses', async (t) => {
     const directory = temporary(t);
-    const asked: string[] = [];
     const runtime = new CodexRuntimeAdapter({
       binaryPath: '/nonexistent/codex',
       serverRecordFile: join(directory, 'server.json'),
-      directoryPolicy: (path) => {
-        asked.push(path);
-        if (path.endsWith('boom')) throw new Error('policy failure');
-        return { ok: true, directory: path };
+      directoryPolicy: () => {
+        throw new Error('policy failure');
       },
     });
     t.after(() => runtime.close());
-    mkdirSync(join(directory, 'sub'));
-    const given = `${directory}/sub/..`;
-    assert.deepEqual(runtime.validateStartOptions({ cwd: given }, null), { ok: true });
-    assert.deepEqual(asked, [given]);
-    const boom = join(directory, 'boom');
-    mkdirSync(boom);
-    const refused = runtime.validateStartOptions({ cwd: boom }, null);
-    assert.match(refused.ok ? '' : refused.message, /policy failure/);
+    await assert.rejects(
+      start(runtime, directory),
+      (error: unknown) =>
+        actionError('location_not_allowed')(error) &&
+        /policy failure/.test((error as Error).message),
+    );
   });
 });
 
@@ -329,8 +350,9 @@ describe('Codex runtime without a server', () => {
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
-        options: { cwd: directory },
+        options: {},
         model_ref: null,
+        directory,
         emit: (observation) => observed.push(observation),
       }),
       actionError('runtime_unavailable'),
@@ -366,8 +388,9 @@ describe('Codex runtime without a server', () => {
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
-        options: { cwd: directory },
+        options: {},
         model_ref: null,
+        directory,
         emit: () => undefined,
       }),
       actionError('runtime_closed'),
@@ -443,13 +466,13 @@ describe('Codex runtime against a stand-in binary', () => {
       execution: TEST_EXECUTION,
       instruction: 'COMPLETE the work.',
       options: {
-        cwd: directory,
         model_provider: 'ollama',
         model: 'qwen3.6:35b-a3b-nvfp4',
         context_window: 65536,
         auto_compact_token_limit: 52000,
       },
       model_ref: null,
+      directory,
       emit: (observation) => observations.push(observation),
     });
     const threadStart = received().find((message) => message.method === 'thread/start');
@@ -467,6 +490,58 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
   });
 
+  test("refuses a thread Codex reports working in another folder than the project's", async (t) => {
+    const { start, observations } = fake(t, ['other-cwd']);
+    await assert.rejects(
+      start(),
+      (error: unknown) =>
+        actionError('runtime_refused')(error) &&
+        /working in "\/somewhere\/else", not in the project's folder/.test(
+          (error as Error).message,
+        ),
+    );
+    assert.deepEqual(observations, []);
+  });
+
+  test('the folder is asked about again right before it is handed to Codex', async (t) => {
+    let asked = 0;
+    const { start, received } = fake(t, [], {
+      directoryPolicy: (path) => {
+        asked += 1;
+        return asked === 1
+          ? { ok: true, directory: path }
+          : { ok: false, code: 'location_missing', message: `${path} was removed.` };
+      },
+    });
+    await assert.rejects(start(), actionError('location_missing'));
+    assert.equal(asked, 2);
+    assert.ok(!received().some((message) => message.method === 'thread/start'));
+  });
+
+  test('a thread whose folder has gone since is not resumed after a restart', async (t) => {
+    let removed = false;
+    const { runtime, start, observations, received } = fake(t, [], {
+      directoryPolicy: (path) =>
+        removed
+          ? { ok: false, code: 'location_missing', message: `${path} was removed.` }
+          : { ok: true, directory: path },
+    });
+    await start('COMPLETE the work.');
+    await until(() => observations.length === 4, 'the turn');
+    removed = true;
+    process.kill(runtime.serverPid ?? 0, 'SIGKILL');
+    await until(
+      () => observations.some((item) => item.type === 'runtime.connection.lost'),
+      'the loss',
+    );
+    const lost = observations.at(-1);
+    assert.match(
+      lost?.type === 'runtime.connection.lost' ? lost.payload.reason : '',
+      /the thread could not be resumed: .* was removed\.$/,
+    );
+    assert.ok(!received().some((message) => message.method === 'thread/resume'));
+  });
+
   test('refuses a thread Codex does not run on the requested model and provider', async (t) => {
     const { runtime, directory, observations } = fake(t, ['other-model']);
     for (const options of [
@@ -478,8 +553,9 @@ describe('Codex runtime against a stand-in binary', () => {
         runtime.startExecution({
           execution: TEST_EXECUTION,
           instruction: 'COMPLETE the work.',
-          options: { cwd: directory, ...options },
+          options,
           model_ref: null,
+          directory,
           emit: (observation) => observations.push(observation),
         }),
         (error: unknown) => {
@@ -556,8 +632,9 @@ describe('Codex runtime against a stand-in binary', () => {
     await runtime.startExecution({
       execution: TEST_EXECUTION,
       instruction: 'COMPLETE the work.',
-      options: { cwd: directory, context_window: 65536 },
+      options: { context_window: 65536 },
       model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4',
+      directory,
       emit: (observation) => observations.push(observation),
     });
     const sent = received();
@@ -576,8 +653,9 @@ describe('Codex runtime against a stand-in binary', () => {
       runtime.startExecution({
         execution: other as typeof TEST_EXECUTION,
         instruction: 'COMPLETE the work.',
-        options: { cwd: directory },
+        options: {},
         model_ref: 'ollama/removed:model',
+        directory,
         emit: () => undefined,
       }),
       (error: unknown) =>
@@ -592,19 +670,19 @@ describe('Codex runtime against a stand-in binary', () => {
   });
 
   test('a model chosen from the list replaces the model options, never goes with them', (t) => {
-    const { runtime, directory } = adapter(t);
-    assert.deepEqual(runtime.validateStartOptions({ cwd: directory }, 'ollama/qwen3.6:35b'), {
+    const { runtime } = adapter(t);
+    assert.deepEqual(runtime.validateStartOptions({}, 'ollama/qwen3.6:35b'), {
       ok: true,
     });
     for (const options of [{ model: 'gpt-5.5' }, { model_provider: 'ollama' }]) {
-      assert.deepEqual(runtime.validateStartOptions({ cwd: directory, ...options }, 'ollama/x'), {
+      assert.deepEqual(runtime.validateStartOptions(options, 'ollama/x'), {
         ok: false,
         message:
           'Choose the model either with model_ref or with the "model" and "model_provider" options, not both.',
       });
     }
     for (const modelRef of ['no-provider', 'ollama/', '/model', 'bad provider/model']) {
-      assert.deepEqual(runtime.validateStartOptions({ cwd: directory }, modelRef), {
+      assert.deepEqual(runtime.validateStartOptions({}, modelRef), {
         ok: false,
         message: `${modelRef} is not a model Codex lists.`,
       });

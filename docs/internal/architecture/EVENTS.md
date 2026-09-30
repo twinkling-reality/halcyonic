@@ -59,9 +59,10 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 
 | Event | Scope | Source | Meaning |
 | --- | --- | --- | --- |
-| `project.created` | project | control plane | A project exists |
+| `project.created` | project | control plane | A project exists; carries its location, the folder the host bound it to, or null |
+| `project.location_set` | project | control plane | The project's work runs in another folder from now on |
 | `workstream.created` | workstream | control plane | A workstream exists |
-| `execution.created` | execution | control plane | A start was accepted; the runtime has not confirmed yet |
+| `execution.created` | execution | control plane | A start was accepted; the runtime has not confirmed yet. Carries the folder the runtime was given (`directory`), null for a runtime that uses none |
 | `execution.start_failed` | execution | control plane | The runtime refused to start |
 | `execution.state_unknown` | execution | control plane | The execution can no longer be observed (`control_plane_restarted`, `start_outcome_unknown`) |
 | `command.accepted` | as resolved | control plane | Admitted; carries the full command, its policy, how it arrived and its principal |
@@ -128,6 +129,13 @@ To change a contract:
   2's update again, because builds of the pairing work from before the two met stamped version 2
   without it; both change only events without the field. A build from before either migration
   refuses a journal a newer one has opened.
+- Migration 4 gives every stored `project.created` event and `project.create` command the
+  `location: null` their contracts gained, and every stored `execution.created` event
+  `directory: null`, which there means not recorded rather than no folder
+  ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). No version
+  changed, because the only client in the field is a development build: one generated before
+  this change sends `project.create` without `location` and gets 400 `invalid_command` until it is
+  rebuilt, since the command's schema requires the explicit null.
 - Until there are external users, breaking changes are acceptable when coordinated: migrate
   fixtures, the journal schema, generated bindings and documentation together.
 
@@ -135,6 +143,7 @@ To change a contract:
 
 Conclusions from Salidium and Seorak are read through on request and never journaled or replayed
 ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)). Neither is the list of
+folders the host allows (`GET /api/locations`), nor the list of
 models a runtime offers, which changes whenever a model is pulled, removed or configured; only the
 choice, in the `execution.start` command, and the model the runtime reports using are journaled
 ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).

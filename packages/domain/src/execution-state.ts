@@ -25,6 +25,8 @@ export interface ExecutionState {
   readonly projectId: ProjectId;
   readonly runtime: RuntimeRef;
   readonly instruction: string;
+  /** The folder the runtime was given; null for none, or not recorded. */
+  readonly directory: string | null;
   readonly createdAt: Timestamp;
   nativeId: string | null;
   /** The model the runtime last reported using, as its model list names it. */
@@ -53,6 +55,7 @@ export function createExecutionState(init: {
   projectId: ProjectId;
   runtime: RuntimeRef;
   instruction: string;
+  directory: string | null;
   createdAt: Timestamp;
 }): ExecutionState {
   return {
@@ -117,6 +120,7 @@ export function toExecutionView(state: ExecutionState): ExecutionView {
     native_id: state.nativeId,
     model_ref: state.modelRef,
     instruction: state.instruction,
+    directory: state.directory,
     status: deriveExecutionStatus(state),
     status_reason: deriveStatusReason(state),
     pending_approvals: [...state.pendingApprovals.values()],
