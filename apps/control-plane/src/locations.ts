@@ -67,7 +67,7 @@ export function createHostLocations(roots: readonly string[]): HostLocations {
       message:
         known.length === 0
           ? 'This computer lets agents work in no folder yet: its owner has to allow one first (HALCYONIC_PROJECT_ROOTS).'
-          : `${path} is not one of the folders this computer lets agents work in.`,
+          : `${shown(path)} is not one of the folders this computer lets agents work in.`,
     };
 
   const target = (
@@ -88,13 +88,16 @@ export function createHostLocations(roots: readonly string[]): HostLocations {
       return {
         ok: false,
         code: 'location_not_allowed',
-        message: `${JSON.stringify(name)} is not the name of a folder directly inside ${root.real}.`,
+        message: `${JSON.stringify(shown(name))} is not the name of a folder directly inside ${root.real}.`,
       };
     }
     return { root, path: join(root.real, name) };
   };
 
-  const check = (choice: ProjectLocationChoice): { ok: true } | LocationRefusal => {
+  const check = (choice: ProjectLocationChoice): { ok: true } | LocationRefusal =>
+    unreadable(() => checkReadable(choice));
+
+  const checkReadable = (choice: ProjectLocationChoice): { ok: true } | LocationRefusal => {
     const found = target(choice);
     if ('ok' in found) return found;
     const entry = entryAt(found.path);
@@ -143,38 +146,62 @@ export function createHostLocations(roots: readonly string[]): HostLocations {
     policy,
     list: () => ({ roots: known.map(listRoot) }),
     check,
-    bind(choice) {
-      const checked = check(choice);
-      if (!checked.ok) return checked;
-      const found = target(choice);
-      if ('ok' in found) return found;
-      if (choice.kind === 'existing_folder') {
-        return {
-          ok: true,
-          location: { path: found.path, name: nameOf(found.path), created: false },
-        };
-      }
-      try {
-        // Not recursive, so it fails rather than follow or reuse anything already at the path.
-        mkdirSync(found.path);
-      } catch (error) {
-        return notCreated(found.path, error);
-      }
-      const decision = policy(found.path);
-      if (!decision.ok || decision.directory !== found.path) {
-        return {
-          ok: false,
-          code: 'location_not_created',
-          message: `The folder ${found.path} was made, but is not usable as it is: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
-        };
-      }
-      return { ok: true, location: { path: found.path, name: nameOf(found.path), created: true } };
-    },
+    bind: (choice) => unreadable(() => bindReadable(choice)),
   };
+
+  function bindReadable(choice: ProjectLocationChoice): LocationBinding {
+    const checked = check(choice);
+    if (!checked.ok) return checked;
+    const found = target(choice);
+    if ('ok' in found) return found;
+    if (choice.kind === 'existing_folder') {
+      return {
+        ok: true,
+        location: { path: found.path, name: nameOf(found.path), created: false },
+      };
+    }
+    try {
+      // Not recursive, so it fails rather than follow or reuse anything already at the path.
+      mkdirSync(found.path);
+    } catch (error) {
+      return notCreated(found.path, error);
+    }
+    const decision = policy(found.path);
+    if (!decision.ok || decision.directory !== found.path) {
+      return {
+        ok: false,
+        code: 'location_not_created',
+        message: `The folder ${found.path} was made, but is not usable as it is: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
+      };
+    }
+    return { ok: true, location: { path: found.path, name: nameOf(found.path), created: true } };
+  }
+}
+
+/**
+ * Runs a check that reads the file system, turning anything it throws, such as a root that became
+ * unreadable after startup, into a refusal instead of an exception in the command's path.
+ */
+function unreadable<T>(read: () => T | LocationRefusal): T | LocationRefusal {
+  try {
+    return read();
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    return {
+      ok: false,
+      code: 'location_missing',
+      message: `The folder could not be read${typeof code === 'string' ? ` (${code})` : ''}.`,
+    };
+  }
+}
+
+/** A client's text as a message quotes it: at most 200 characters. */
+function shown(text: string): string {
+  return text.length <= 200 ? text : `${text.slice(0, 199)}…`;
 }
 
 function listRoot(root: Root): LocationRoot {
-  const available = isDirectory(root.real);
+  let available = isDirectory(root.real);
   let folders: LocationFolder[] = [];
   if (available) {
     try {
@@ -183,6 +210,8 @@ function listRoot(root: Root): LocationRoot {
         .filter((entry) => entry.isDirectory() && singleVisibleSegment(entry.name))
         .map((entry) => ({ name: entry.name, path: join(root.real, entry.name) }));
     } catch {
+      // A root that cannot be read lists as missing: nothing in it can be used.
+      available = false;
       folders = [];
     }
   }
@@ -238,8 +267,13 @@ function entryAt(path: string): Stats | undefined {
   }
 }
 
+/** Whether a folder is there and readable as one; false for anything the file system refuses. */
 function isDirectory(path: string): boolean {
-  return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
+  try {
+    return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
+  } catch {
+    return false;
+  }
 }
 
 function nameOf(path: string): string {

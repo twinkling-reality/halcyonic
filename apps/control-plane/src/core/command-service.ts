@@ -106,7 +106,16 @@ export class CommandService {
         controlPlaneDraft(
           'command.rejected',
           admission.scope,
-          { command, rejection: admission.rejection, received_via: via, principal },
+          {
+            command,
+            // Messages can quote what the client sent; the contract caps them, so they are cut.
+            rejection: {
+              code: admission.rejection.code,
+              message: clip(admission.rejection.message, 'The command was refused.'),
+            },
+            received_via: via,
+            principal,
+          },
           this.#now(),
           cause,
         ),
@@ -513,7 +522,11 @@ export class CommandService {
       controlPlaneDraft(
         'command.failed',
         scope,
-        { command_id: command.command_id, command_type: command.command_type, failure },
+        {
+          command_id: command.command_id,
+          command_type: command.command_type,
+          failure: { ...failure, message: clip(failure.message, 'The command failed.') },
+        },
         this.#now(),
         causedBy(command.command_id),
       ),
@@ -623,9 +636,14 @@ function toFailure(error: unknown): CommandFailure {
   };
 }
 
+/** A message the contract accepts: at most 2000 characters, cut with an ellipsis, never empty. */
 function clip(message: string, fallback: string): string {
   const trimmed = message.trim();
-  return trimmed.length === 0 ? fallback : trimmed.slice(0, 2000);
+  if (trimmed.length === 0) return fallback;
+  if (trimmed.length <= 2000) return trimmed;
+  // One character short of the limit for the ellipsis, without splitting a surrogate pair.
+  const end = /[\uD800-\uDBFF]/.test(trimmed.charAt(1998)) ? 1998 : 1999;
+  return `${trimmed.slice(0, end)}…`;
 }
 
 /** JSON with object keys sorted, so equal commands compare equal regardless of key order. */

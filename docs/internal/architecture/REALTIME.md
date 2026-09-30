@@ -114,7 +114,11 @@ client                                   server
   stored before it read as `model_ref: null`
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 - **Errors.** `error {error: {code, message, issues}, fatal}`. Invalid JSON or an invalid message
-  after `hello` is not fatal. Fatal errors close with code 1008.
+  after `hello` is not fatal. Fatal errors close with code 1008. A command the control plane fails
+  to handle is answered with the non-fatal `command_not_handled` instead of an acknowledgement;
+  whatever it recorded before failing stays journaled, so a client reads the command's record
+  before sending it again. A rejection's or failure's message quotes at most the start of what the
+  client sent, and is cut to the contract's 2000 characters with an ellipsis.
 - **Liveness.** The server pings every 15 seconds and drops a client that misses a pong.
 - **Backpressure.** A client more than 8 MiB behind is closed with code 1013 and must reconnect
   and resynchronize.

@@ -233,7 +233,24 @@ class RealtimeConnection {
   }
 
   #command(command: CommandEnvelope): void {
-    const outcome = this.#controlPlane.commands.submit(command, 'websocket', this.#principal);
+    let outcome: ReturnType<ControlPlane['commands']['submit']>;
+    try {
+      outcome = this.#controlPlane.commands.submit(command, 'websocket', this.#principal);
+    } catch (error) {
+      // A command that cannot be handled must not take the control plane, and every running agent,
+      // down with it. Whatever it managed to record before failing stays journaled.
+      this.#log.error(
+        { err: error, command_id: command.command_id, command_type: command.command_type },
+        'a realtime command could not be handled',
+      );
+      this.#sendError(
+        'command_not_handled',
+        `The control plane could not handle command ${command.command_id}. Read its record before sending it again.`,
+        [],
+        false,
+      );
+      return;
+    }
     this.#send({
       type: 'command_ack',
       command_id: command.command_id,
