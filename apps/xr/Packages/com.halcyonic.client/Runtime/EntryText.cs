@@ -109,8 +109,21 @@ namespace Halcyonic.Client
             return project.Work == 0 ? "no work yet" : Count(project.Work) + " at rest";
         }
 
-        /// <summary>A project's line in Connect projects and on its rail chip: whether it shows, then its work.</summary>
+        /// <summary>A project's line in Connect projects: whether it shows, then its work.</summary>
         public static string ProjectDetail(ProjectSummary project) => (project.Shown ? "Shown" : "Hidden") + " · " + Counts(project);
+
+        /// <summary>
+        /// A project's rail chip, short enough for its small button: hidden or not, then only what
+        /// matters most, what needs the person first. Connect projects shows every count.
+        /// </summary>
+        public static string ChipDetail(ProjectSummary project)
+        {
+            var most = project.NeedsYou > 0 ? Count(project.NeedsYou) + " needs you"
+                : project.Notice > 0 ? Count(project.Notice) + " to check"
+                : project.Active > 0 ? Count(project.Active) + " active"
+                : project.Work == 0 ? "no work yet" : "at rest";
+            return project.Shown ? most : "Hidden · " + most;
+        }
 
         /// <summary>The rail's Connect projects detail: how many projects show.</summary>
         public static string ConnectDetail(WorkOverview overview)
@@ -121,12 +134,11 @@ namespace Halcyonic.Client
             return shown == known ? (known == 1 ? "1 shown" : "all " + Count(known) + " shown") : Count(shown) + " of " + Count(known) + " shown";
         }
 
-        /// <summary>The rail's More work detail: how much has no character, and how much of it needs the person.</summary>
+        /// <summary>The rail's More work detail: how much of the work without a character needs the person, else how much there is.</summary>
         public static string MoreWorkDetail(WorkOverview overview)
         {
-            var line = Count(overview.OffStage.Count) + " off the stage";
             var needing = overview.NeedsYouOffStage;
-            return needing > 0 ? line + " · " + Count(needing) + " needs you" : line;
+            return needing > 0 ? Count(needing) + " needs you" : Count(overview.OffStage.Count) + " off the stage";
         }
 
         /// <summary>A More work row's second line: its status, its project, and why it has no character.</summary>
@@ -184,13 +196,25 @@ namespace Halcyonic.Client
         /// <summary>A runtime as a choice: its name as it arrives, and whether its work is simulated.</summary>
         public static string RuntimeName(RuntimeDescriptor runtime) => LabelText.Plain(runtime.DisplayName) + (runtime.Synthetic ? " (simulated)" : "");
 
-        /// <summary>How the work runs, for the recap: the runtime and the model, or what is still to choose.</summary>
-        public static string RunsWith(NewWorkDraft draft)
+        /// <summary>What runs the work, for the recap: the runtime, or that it is still to choose.</summary>
+        public static string RunsWith(NewWorkDraft draft) =>
+            draft.Runtime == null ? "Runs with: not chosen yet" : "Runs with: " + RuntimeName(draft.Runtime);
+
+        /// <summary>
+        /// The model under the runtime in the recap, and what choosing it means: where it runs, which
+        /// decides where the person's code and instructions go, and whether it declares tool calling.
+        /// </summary>
+        public static string ModelLine(NewWorkDraft draft)
         {
-            if (draft.Runtime == null) return "Runs with: not chosen yet";
-            var line = "Runs with: " + RuntimeName(draft.Runtime);
-            if (draft.Runtime.ModelChoice == ModelChoice.None) return line + ", its own model choice";
-            return draft.Model == null ? line + ", " + (draft.ModelProblem ?? "choose a model") : line + ", " + LabelText.Plain(draft.Model.DisplayName);
+            var runtime = draft.Runtime;
+            if (runtime == null) return "Choose what runs it in More options. Nothing is chosen for you.";
+            if (runtime.ModelChoice == ModelChoice.None)
+            {
+                return "Model: the runtime's own choice." + (runtime.Synthetic ? " Simulated: no software work is done." : "");
+            }
+            var model = draft.Model;
+            if (model == null) return "Model: " + (draft.ModelProblem ?? "choose one in More options.");
+            return "Model: " + LabelText.Plain(model.DisplayName) + ". " + Served(model.Served) + "; " + Tools(model.ToolCalling) + ".";
         }
 
         private static string Count(int value) => value.ToString(CultureInfo.InvariantCulture);

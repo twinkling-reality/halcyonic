@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using UnityEngine;
@@ -7,11 +8,14 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// The workspace's details, chosen with tabs under its actions: Activity, the requests and recent
-    /// activity the panel shows; Understanding, what the understanding source concluded about the
-    /// execution; and Evaluation, what the evaluation source measured about it. The tabs are the
-    /// workspace's buttons, pointed at and pinched, or poked, and ignore input while the app lacks
-    /// focus. A section reads when it is shown for an execution it holds nothing about, and again
+    /// The workspace's details, chosen with the person's questions as tabs under its actions: What is
+    /// it doing?, the requests and recent activity the panel shows; Help me understand, what the
+    /// understanding source concluded about the execution; What was checked?, what the evaluation
+    /// source measured about it; and, only while a request waits, What do you need from me?, the
+    /// request and what each answer does (<see cref="WorkspaceText.NeedFromYou"/>). Each question
+    /// shows whole, in two lines on its tab. The source's name stays in the answer's provenance line,
+    /// never on a tab. The tabs are the workspace's buttons, pointed at and pinched, or poked, and
+    /// ignore input while the app lacks focus. A workspace opens on the request when one waits. A section reads when it is shown for an execution it holds nothing about, and again
     /// when the person presses Refresh. Understanding also follows the execution as it changes, at
     /// most every two seconds; Evaluation, whose reads spend the evaluation source's budget, never
     /// reads by itself again. Reads go to the control plane, or to the recorded demonstration while
@@ -23,6 +27,9 @@ namespace Halcyonic.XR.Workspace
     public sealed class WorkspaceSections : MonoBehaviour
     {
         private const float TabGap = 0.016f;
+
+        /// <summary>A tab's margin beside its words: four whole questions and Refresh share one row.</summary>
+        private const float TabMargin = 0.03f;
         private const float FollowSeconds = 2f;
 
         /// <summary>How often a section is written again anyway, since "2 minutes ago" and staleness move with time.</summary>
@@ -36,54 +43,78 @@ namespace Halcyonic.XR.Workspace
         private WorkspacePanel panel = null!;
         private Func<WorkspacePresentation?> presentation = () => null;
         private Func<IIntelligenceReader?> reader = () => null;
-        private PanelButton activityTab = null!;
-        private PanelButton understandingTab = null!;
-        private PanelButton evaluationTab = null!;
+        private readonly PanelButton[] tabs = new PanelButton[4];
         private PanelButton refresh = null!;
         private SpriteRenderer chosenMark = null!;
         private SectionView view = null!;
+        private NeedView need = null!;
         private RequestView request = null!;
         private IntelligenceFeed<UnderstandingResponse> understanding = null!;
         private IntelligenceFeed<EvaluationResponse> evaluation = null!;
-        private SectionKind? shown;
+        private WorkspaceQuestion question;
+        private bool offersNeed;
         private int drawn = -1;
         private float redrawAt;
         private bool fixedContent;
 
-        /// <summary>The section shown, or null while the details show the activity.</summary>
-        public SectionKind? Shown => shown;
+        /// <summary>The question whose answer shows under the tabs.</summary>
+        public WorkspaceQuestion Question => question;
 
         /// <summary>
         /// Adds the tabs and sections to a workspace panel. <paramref name="presentation"/> is the open
         /// workstream as last presented; <paramref name="reader"/> is where to read, null when there is
-        /// nowhere to, as without a control plane or demonstration.
+        /// nowhere to, as without a control plane or demonstration; <paramref name="first"/> is the
+        /// question it opens on.
         /// </summary>
-        public static WorkspaceSections Attach(WorkspacePanel panel, Func<WorkspacePresentation?> presentation, Func<IIntelligenceReader?> reader)
+        public static WorkspaceSections Attach(WorkspacePanel panel, Func<WorkspacePresentation?> presentation, Func<IIntelligenceReader?> reader,
+            WorkspaceQuestion first = WorkspaceQuestion.Doing)
         {
             var sections = panel.gameObject.AddComponent<WorkspaceSections>();
             sections.panel = panel;
             sections.presentation = presentation;
             sections.reader = reader;
-            sections.Build();
+            sections.offersNeed = first == WorkspaceQuestion.NeedFromYou;
+            sections.Build(first);
             return sections;
         }
 
-        /// <summary>Shows the requests and recent activity under the tabs.</summary>
-        public void ShowActivity() => Choose(null);
-
-        /// <summary>Shows a section, reading it if it holds nothing about the execution yet.</summary>
-        public void Show(SectionKind kind) => Choose(kind);
+        /// <summary>Shows the answer to a question, reading a section if it holds nothing about the execution yet.</summary>
+        public void Show(WorkspaceQuestion shown) => Choose(shown);
 
         /// <summary>Shows a section with content given as it is, reading nothing: for the editor's renders.</summary>
         public void ShowFixed(SectionPresentation section)
         {
             fixedContent = true;
-            Choose(section.Kind);
+            Choose(section.Kind == SectionKind.Understanding ? WorkspaceQuestion.Understand : WorkspaceQuestion.Checked);
             view.Show(section);
+        }
+
+        /// <summary>Shows What do you need from me? with lines given as they are: for the editor's renders.</summary>
+        public void ShowFixedNeed(NeedAnswer answer)
+        {
+            fixedContent = true;
+            offersNeed = true;
+            Choose(WorkspaceQuestion.NeedFromYou);
+            need.Show(answer);
         }
 
         /// <summary>Every label the sections draw, for the editor's check that none interprets what it shows.</summary>
         public SectionView View => view;
+
+        /// <summary>The answer to What do you need from me?, for the editor's checks.</summary>
+        public NeedView Need => need;
+
+        /// <summary>The tab of each question offered now, for the editor's check that every question shows whole.</summary>
+        public IEnumerable<PanelButton> Tabs
+        {
+            get
+            {
+                foreach (var tab in tabs)
+                {
+                    if (tab.gameObject.activeSelf) yield return tab;
+                }
+            }
+        }
 
         /// <summary>The whole request an armed approval or denial answers, while it shows.</summary>
         public RequestView Request => request;
@@ -106,26 +137,29 @@ namespace Halcyonic.XR.Workspace
         {
             if (!request.gameObject.activeSelf) return;
             request.Hide();
-            Choose(null);
+            Choose(WorkspaceQuestion.Doing);
         }
 
-        private void Build()
+        private void Build(WorkspaceQuestion first)
         {
             understanding = new IntelligenceFeed<UnderstandingResponse>((id, cancel) => Reader().ReadUnderstandingAsync(id, cancel));
             evaluation = new IntelligenceFeed<EvaluationResponse>((id, cancel) => Reader().ReadEvaluationAsync(id, cancel));
-            activityTab = Tab("Activity tab", () => Choose(null));
-            understandingTab = Tab("Understanding tab", () => Choose(SectionKind.Understanding));
-            evaluationTab = Tab("Evaluation tab", () => Choose(SectionKind.Evaluation));
+            foreach (WorkspaceQuestion each in Enum.GetValues(typeof(WorkspaceQuestion)))
+            {
+                var asked = each;
+                tabs[(int)asked] = Tab(WorkspaceText.Question(asked), () => Choose(asked));
+            }
             refresh = Tab("Refresh", Refresh);
             // A shape as well as a color marks the tab chosen.
             chosenMark = WorkspaceVisuals.Plate(transform, "Chosen tab", new Vector2(0.1f, 0.004f), WorkspaceVisuals.TextColor, WorkspaceVisuals.PanelControlOrder);
             view = SectionView.Create(transform);
+            need = NeedView.Create(transform);
             request = RequestView.Create(transform, () => panel.Accepting());
             request.Turned += () => RequestTurned?.Invoke();
-            panel.ActionPressed += _ => Choose(null);
-            panel.ConfirmPressed += () => Choose(null);
-            panel.PresetPressed += _ => Choose(null);
-            Choose(null);
+            panel.ActionPressed += _ => Choose(WorkspaceQuestion.Doing);
+            panel.ConfirmPressed += () => Choose(WorkspaceQuestion.Doing);
+            panel.PresetPressed += _ => Choose(WorkspaceQuestion.Doing);
+            Choose(first);
         }
 
         private IIntelligenceReader Reader() =>
@@ -139,38 +173,45 @@ namespace Halcyonic.XR.Workspace
             return button;
         }
 
-        private void Choose(SectionKind? kind)
+        private void Choose(WorkspaceQuestion asked)
         {
-            shown = kind;
+            if (asked == WorkspaceQuestion.NeedFromYou && !offersNeed) asked = WorkspaceQuestion.Doing;
+            question = asked;
             drawn = -1;
             Arrange();
         }
+
+        /// <summary>The section a question reads, or null for the ones the workspace answers itself.</summary>
+        private static SectionKind? KindOf(WorkspaceQuestion question) => question switch
+        {
+            WorkspaceQuestion.Understand => SectionKind.Understanding,
+            WorkspaceQuestion.Checked => SectionKind.Evaluation,
+            _ => null,
+        };
 
         /// <summary>The tabs and the details they choose, or, while it shows, the whole request in their place.</summary>
         private void Arrange()
         {
             var reading = request.gameObject.activeSelf;
-            var kind = shown;
-            panel.ShowActivity(!reading && kind == null);
+            var kind = KindOf(question);
+            panel.ShowActivity(!reading && question == WorkspaceQuestion.Doing);
             view.gameObject.SetActive(!reading && kind != null);
+            need.gameObject.SetActive(!reading && question == WorkspaceQuestion.NeedFromYou);
             chosenMark.gameObject.SetActive(!reading);
             var x = WorkspacePanel.DetailsLeft;
             var center = WorkspacePanel.TabsTop - WorkspacePanel.TabsHeight / 2f;
-            foreach (var (button, label, tab) in new[]
+            foreach (WorkspaceQuestion each in Enum.GetValues(typeof(WorkspaceQuestion)))
             {
-                (activityTab, "Activity", (SectionKind?)null),
-                (understandingTab, IntelligenceText.UnderstandingTitle, SectionKind.Understanding),
-                (evaluationTab, IntelligenceText.EvaluationTitle, SectionKind.Evaluation),
-            })
-            {
-                if (reading)
+                var button = tabs[(int)each];
+                if (reading || (each == WorkspaceQuestion.NeedFromYou && !offersNeed))
                 {
                     button.Hide();
                     continue;
                 }
-                var width = button.Measure(label, 0.12f);
-                button.Show(label, new Vector2(x + width / 2f, center), width);
-                if (tab == kind)
+                var lines = WorkspaceText.TabLines(each);
+                var width = button.MeasureLines(lines, 0.1f, TabMargin);
+                button.ShowLines(lines, new Vector2(x + width / 2f, center), width);
+                if (each == question)
                 {
                     chosenMark.size = new Vector2(width - 0.02f, 0.004f);
                     chosenMark.transform.localPosition = new Vector3(x + width / 2f, WorkspacePanel.TabsTop - WorkspacePanel.TabsHeight - 0.005f, -0.004f);
@@ -182,7 +223,7 @@ namespace Halcyonic.XR.Workspace
                 refresh.Hide();
                 return;
             }
-            var refreshWidth = refresh.Measure("Refresh", 0.12f);
+            var refreshWidth = refresh.Measure("Refresh", 0.1f, TabMargin);
             refresh.Show("Refresh", new Vector2(WorkspacePanel.DetailsLeft + WorkspacePanel.DetailsWidth - refreshWidth / 2f, center), refreshWidth);
         }
 
@@ -190,26 +231,34 @@ namespace Halcyonic.XR.Workspace
         {
             var execution = presentation()?.Execution;
             var now = DateTimeOffset.UtcNow;
-            if (shown == SectionKind.Understanding) understanding.Refresh(execution?.UpdatedAt, now);
-            else if (shown == SectionKind.Evaluation) evaluation.Refresh(execution?.UpdatedAt, now);
+            if (question == WorkspaceQuestion.Understand) understanding.Refresh(execution?.UpdatedAt, now);
+            else if (question == WorkspaceQuestion.Checked) evaluation.Refresh(execution?.UpdatedAt, now);
         }
 
         private void Update()
         {
             if (fixedContent) return;
             var now = DateTimeOffset.UtcNow;
-            var execution = presentation()?.Execution;
-            if (shown == SectionKind.Understanding)
+            var current = presentation();
+            var execution = current?.Execution;
+            if (current != null) FollowRequest(current);
+            if (question == WorkspaceQuestion.Understand)
             {
                 understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, now, TimeSpan.FromSeconds(FollowSeconds));
             }
-            else if (shown == SectionKind.Evaluation)
+            else if (question == WorkspaceQuestion.Checked)
             {
                 evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, now);
             }
             understanding.Poll();
             evaluation.Poll();
-            if (shown is not SectionKind kind || request.gameObject.activeSelf) return;
+            if (question == WorkspaceQuestion.NeedFromYou && current != null && !request.gameObject.activeSelf && (drawn < 0 || Time.unscaledTime >= redrawAt))
+            {
+                drawn = 0;
+                redrawAt = Time.unscaledTime + RedrawSeconds;
+                if (WorkspaceText.NeedFromYou(current) is NeedAnswer answer) need.Show(answer);
+            }
+            if (KindOf(question) is not SectionKind kind || request.gameObject.activeSelf) return;
             var version = kind == SectionKind.Understanding ? understanding.Version : evaluation.Version;
             if (version == drawn && Time.unscaledTime < redrawAt) return;
             drawn = version;
@@ -217,6 +266,19 @@ namespace Halcyonic.XR.Workspace
             view.Show(kind == SectionKind.Understanding
                 ? UnderstandingPresenter.Present(understanding, now, Zone, UnderstandingLines)
                 : EvaluationPresenter.Present(evaluation, now, Zone));
+        }
+
+        /// <summary>
+        /// Offers What do you need from me? while a real request waits, and only then: when the request
+        /// is answered, the tab goes, and an answer showing returns to What is it doing?.
+        /// </summary>
+        private void FollowRequest(WorkspacePresentation current)
+        {
+            var waiting = current.ApprovalToAnswer != null;
+            if (waiting == offersNeed) return;
+            offersNeed = waiting;
+            if (!waiting && question == WorkspaceQuestion.NeedFromYou) Choose(WorkspaceQuestion.Doing);
+            else Arrange();
         }
 
         private void OnDestroy()

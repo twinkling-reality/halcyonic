@@ -39,6 +39,26 @@ namespace Halcyonic.Client
         NeedFromYou,
     }
 
+    /// <summary>What the work needs from the person, as What do you need from me? answers it.</summary>
+    public sealed class NeedAnswer
+    {
+        public NeedAnswer(string asks, string? request, IReadOnlyList<string> notes)
+        {
+            Asks = asks;
+            Request = request;
+            Notes = notes;
+        }
+
+        /// <summary>What it asks for, for example "It asks for approval to use bash:".</summary>
+        public string Asks { get; }
+
+        /// <summary>The request as the runtime reported it, one line by the one rule, or null when it named no tool.</summary>
+        public string? Request { get; }
+
+        /// <summary>How many requests wait, and what each answer does.</summary>
+        public IReadOnlyList<string> Notes { get; }
+    }
+
     /// <summary>
     /// The words of the peek and of the expanded workspace, so the XR layer only lays them out. Agent
     /// text is always marked as a claim, every state is written out, never left to color, and text
@@ -102,26 +122,24 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The answer to What do you need from me?: the request the work waits on, as the runtime
-        /// reported it, and what each answer does. Empty while no request is pending. The whole
+        /// reported it, and what each answer does; null while no request is pending. The whole
         /// request, never shortened, shows again when Approve or Deny is chosen, before either is sent.
         /// </summary>
-        public static IReadOnlyList<string> NeedFromYou(WorkspacePresentation workspace)
+        public static NeedAnswer? NeedFromYou(WorkspacePresentation workspace)
         {
             var approval = workspace.ApprovalToAnswer;
-            if (approval == null) return Array.Empty<string>();
-            var lines = new List<string>();
-            if (approval.Subject is ToolUseSubject tool)
-            {
-                lines.Add("It asks for approval to use " + OneLine(tool.ToolName) + ":");
-                lines.Add(OneLine(tool.Summary));
-            }
-            else lines.Add("It asks for approval.");
+            if (approval == null) return null;
+            var tool = approval.Subject as ToolUseSubject;
+            var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
-            if (waiting > 1) lines.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests wait; this is the oldest.");
-            lines.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
-            lines.Add("Either answer counts once the runtime confirms it.");
-            lines.Add("Approve or Deny shows the whole request before you confirm.");
-            return lines;
+            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests wait; this is the oldest.");
+            notes.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
+            notes.Add("Either answer counts once the runtime confirms it.");
+            notes.Add("Approve or Deny shows the whole request before you confirm.");
+            return new NeedAnswer(
+                tool == null ? "It asks for approval." : "It asks for approval to use " + OneLine(tool.ToolName) + ":",
+                tool == null ? null : OneLine(tool.Summary),
+                notes);
         }
 
         /// <summary>The longest peek, in characters: one line at the characters' distance.</summary>

@@ -1,0 +1,603 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Halcyonic.Client;
+using Halcyonic.Contracts;
+using TMPro;
+using UnityEngine;
+
+namespace Halcyonic.XR.Workspace
+{
+    /// <summary>
+    /// Create a project, and Add work to a known one. The person types an idea in their own words or
+    /// answers a few fixed questions (<see cref="ProjectIdea"/>); both lead to the same editable recap:
+    /// the project's name, its first task, where its files live, and how it runs. More options chooses
+    /// the runtime and, from its own list, the model, with where each model runs; nothing is chosen for
+    /// the person. Start building shows the whole request in parts (<see cref="NewWorkReview"/>), and
+    /// only its last part offers Yes, start building, in a place where no button was. Then
+    /// <see cref="BuildSequence"/> sends the ordinary commands one at a time, and every step says how
+    /// it went; the character that appears reads Starting until the runtime confirms.
+    /// </summary>
+    /// <remarks>
+    /// The draft lives in memory while the app runs: closing the panel, opening a character, or Open
+    /// now keeps it exactly, and the rail offers Continue creating. An app restart loses it. A request
+    /// whose outcome is unknown keeps its command id on the device and blocks another start, even
+    /// after a restart, until the person checks the work and clears it with two separate presses.
+    /// Where the project's files live cannot be chosen from the headset yet: the recap says so in one
+    /// line, and a runtime that needs a folder refuses the start, which the steps then show.
+    /// </remarks>
+    public sealed partial class EntryPanel
+    {
+        private const string UnresolvedCommandPreference = "halcyonic.new-work.unresolved-command-id";
+        private const float ReviewSize = 0.19f;
+
+        /// <summary>The whole request's lines and pages at <see cref="ReviewSize"/>: 38 of the widest letter fit the panel's width.</summary>
+        private const int ReviewLine = 38;
+        private const int ReviewLines = 12;
+        private const float ChangeWidth = 0.14f;
+
+        private NewWorkDraft draft = null!;
+        private ProjectIdea? idea;
+        private NewWorkReview? review;
+        private BuildSequence? sequence;
+        private Task<CommandAckMessage>? pendingAck;
+        private string? unresolved;
+        private bool recoveryArmed;
+        private bool showModels;
+        private string? notice;
+        private string? shownProject;
+        private CancellationTokenSource? modelCancellation;
+        private Task<RuntimeModelsResponse>? modelRead;
+        private string? modelRuntimeId;
+        private TextMeshPro reviewText = null!;
+        private TextMeshPro recapProject = null!;
+        private TextMeshPro recapTask = null!;
+        private TextMeshPro recapLocation = null!;
+        private TextMeshPro recapRuns = null!;
+        private TextMeshPro recapServed = null!;
+        private Slot changeName = null!;
+        private Slot changeTask = null!;
+        private Slot moreOptions = null!;
+
+        /// <summary>A creation draft waits: the rail offers Continue creating.</summary>
+        public bool HasDraft => idea != null && (idea.HasRecap || idea.Guided) && sequence?.Started != true;
+
+        private void AwakeCreate()
+        {
+            draft = new NewWorkDraft(commands);
+            unresolved = PlayerPrefs.GetString(UnresolvedCommandPreference, "");
+            if (unresolved.Length == 0) unresolved = null;
+            reviewText = Label("Whole request", ReviewSize, WorkspaceVisuals.TextColor, wrap: false);
+            reviewText.overflowMode = TextOverflowModes.Overflow;
+            recapProject = Label("Project", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, wrap: false);
+            recapTask = Label("First task", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: true);
+            recapLocation = Label("Where its files live", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
+            recapRuns = Label("Runs with", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: false);
+            recapServed = Label("Model", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
+            changeName = MakeSlot("Change name", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
+            changeTask = MakeSlot("Change task", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
+            moreOptions = MakeSlot("More options", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
+        }
+
+        private void DestroyCreate()
+        {
+            modelCancellation?.Cancel();
+            modelCancellation?.Dispose();
+        }
+
+        /// <summary>
+        /// Opens Create a project, or Add work to <paramref name="projectId"/>: where the draft stands
+        /// if one waits for the same place, else a new one. A request whose outcome is unknown comes
+        /// first.
+        /// </summary>
+        public void ShowCreate(string? projectId, string? projectName)
+        {
+            if (unresolved != null && sequence == null)
+            {
+                Open(Screen.Previous);
+                return;
+            }
+            if (sequence != null && !sequence.Started && (sequence.Current != null || sequence.Unresolved != null))
+            {
+                Open(Screen.Sending);
+                return;
+            }
+            var fresh = idea == null || sequence?.Started == true || (projectId != null && idea.ExistingProjectId != projectId);
+            if (fresh)
+            {
+                idea = new ProjectIdea(projectId, projectName);
+                draft.ProjectId = projectId;
+                review = null;
+                sequence = null;
+                notice = null;
+            }
+            var now = state();
+            if (now != null) watch.Begin(now);
+            Open(idea!.HasRecap ? Screen.Recap : idea.Guided ? Screen.Guide : Screen.CreateStart);
+        }
+
+        private string CreateTitle() => screen switch
+        {
+            Screen.CreateStart => EntryText.CreateTitle(idea?.ExistingProjectId == null ? null : idea.Name),
+            Screen.Guide => EntryText.HelpMe,
+            Screen.Recap => idea?.ExistingProjectId == null ? EntryText.RecapTitle : EntryText.WorkRecapTitle,
+            Screen.Options => EntryText.OptionsTitle,
+            Screen.Review => "Check before starting",
+            Screen.Sending => EntryText.SendingTitle,
+            _ => EntryText.PreviousRequestTitle,
+        };
+
+        private void LayoutCreate()
+        {
+            if (idea == null && screen != Screen.Previous)
+            {
+                screen = Screen.CreateStart;
+                idea = new ProjectIdea();
+            }
+            var banner = screen != Screen.Previous && Banner();
+            switch (screen)
+            {
+                case Screen.CreateStart:
+                    if (!banner) SayLine(EntryText.NothingStartsYet);
+                    LayoutStart();
+                    break;
+                case Screen.Guide:
+                    if (!banner) SayLine(EntryText.GuideNote);
+                    LayoutGuide();
+                    break;
+                case Screen.Recap:
+                    if (!banner) SayLine(notice ?? "Change anything before you start building.");
+                    LayoutRecap();
+                    break;
+                case Screen.Options:
+                    if (!banner) SayLine(EntryText.OptionsLine);
+                    LayoutOptions();
+                    break;
+                case Screen.Review:
+                    if (!banner) SayLine("Part " + (review!.Page + 1) + " of " + review.PageCount + ". This is exactly what is sent.");
+                    LayoutReview();
+                    break;
+                case Screen.Sending:
+                    if (!banner) SayLine("Work already running keeps going.");
+                    LayoutSending();
+                    break;
+                default:
+                    LayoutPrevious();
+                    break;
+            }
+        }
+
+        private void LayoutStart()
+        {
+            var prompt = idea!.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt;
+            Say(body, prompt, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.04f));
+            var width = (ContentWidth - Gap) / 2f;
+            Put(bigs[0], EntryText.TypeIdea, new Vector2(Left + width / 2f, -0.04f), width, TypeIdea, detail: EntryText.TypeIdeaInvite);
+            Put(bigs[1], EntryText.HelpMe, new Vector2(Right - width / 2f, -0.04f), width, () =>
+            {
+                idea.BeginGuide();
+                Open(Screen.Guide);
+            }, detail: EntryText.HelpMeInvite);
+            if (notice != null) Say(note, notice, new Vector2(Left, -0.16f), new Vector2(ContentWidth, 0.05f));
+        }
+
+        private void TypeIdea()
+        {
+            var current = idea!;
+            OpenKeyboard(current.HasRecap ? current.FirstTask : "", current.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt, text =>
+            {
+                if (text.Trim().Length == 0) return;
+                current.UseIdea(text);
+                notice = null;
+                screen = Screen.Recap;
+            });
+        }
+
+        /// <summary>
+        /// One fixed question at a time: its offered answers as rows, typing an answer of one's own,
+        /// skipping where it can be skipped, and Back. Said to be fixed questions, not an AI.
+        /// </summary>
+        private void LayoutGuide()
+        {
+            var current = idea!;
+            if (current.Question >= ProjectIdea.Questions.Count)
+            {
+                screen = Screen.Recap;
+                LayoutRecap();
+                return;
+            }
+            var question = ProjectIdea.Questions[current.Question];
+            Say(pageCaption, EntryText.Question(current.Question, ProjectIdea.Questions.Count), new Vector2(Left, BodyTop), new Vector2(0.3f, 0.03f));
+            pageCaption.alignment = TextAlignmentOptions.TopLeft;
+            Say(body, question.Prompt, new Vector2(Left, BodyTop - 0.03f), new Vector2(ContentWidth, 0.04f));
+            var choices = current.Choices;
+            for (var index = 0; index < choices.Count && index < 3; index++)
+            {
+                var choice = choices[index];
+                var chosen = current.AnswerTo(current.Question) == choice;
+                Put(rows[index], choice, new Vector2(0f, BodyTop - 0.12f - index * RowPitch), ContentWidth, () =>
+                {
+                    current.Answer(choice);
+                    Layout();
+                }, detail: chosen ? "Your answer" : null);
+            }
+            PutRightAligned(bottomRight, question.TypeLabel, Right, BottomCenter, () =>
+            {
+                var at = current.Question;
+                OpenKeyboard(current.AnswerTo(at) ?? "", question.Prompt, text =>
+                {
+                    if (current.Question == at) current.Answer(text);
+                });
+            });
+            if (question.SkipLabel != null)
+            {
+                PutRightAligned(bottomMiddle, question.SkipLabel, Right - 0.25f, BottomCenter, () =>
+                {
+                    current.Skip();
+                    Layout();
+                });
+            }
+            Put(bottomLeft, EntryText.Back, new Vector2(Left + 0.07f, BottomCenter), 0.14f, () =>
+            {
+                if (!current.Back()) screen = Screen.CreateStart;
+                Layout();
+            });
+        }
+
+        /// <summary>
+        /// The editable recap: the project's name and first task, each with Change; where its files
+        /// live, which the headset cannot choose yet; and how it runs, with More options. Start
+        /// building shows the whole request first, and is offered once nothing is missing.
+        /// </summary>
+        private void LayoutRecap()
+        {
+            var current = idea!;
+            var textWidth = ContentWidth - ChangeWidth - Gap;
+            var y = BodyTop;
+            Say(recapProject, EntryText.ProjectLine(current.Name.Length == 0 ? "not named yet" : current.Name), new Vector2(Left, y), new Vector2(textWidth, 0.04f));
+            if (current.ExistingProjectId == null)
+            {
+                Put(changeName, EntryText.Change, new Vector2(Right - ChangeWidth / 2f, y - 0.02f), ChangeWidth, () =>
+                    OpenKeyboard(current.Name, "Name the project", text => current.Rename(text)));
+            }
+            y -= 0.055f;
+            Say(recapTask, EntryText.TaskLine(current.FirstTask), new Vector2(Left, y), new Vector2(textWidth, 0.056f));
+            Put(changeTask, EntryText.Change, new Vector2(Right - ChangeWidth / 2f, y - 0.028f), ChangeWidth, () =>
+                OpenKeyboard(current.FirstTask, "What should the first task be?", text => current.Rewrite(text)));
+            y -= 0.072f;
+            // The one line that choosing a location will replace.
+            Say(recapLocation, EntryText.LocationNotBuilt, new Vector2(Left, y), new Vector2(ContentWidth, 0.05f));
+            y -= 0.06f;
+            var optionsWidth = moreOptions.Button.Measure(EntryText.MoreOptions, 0.18f);
+            Say(recapRuns, EntryText.RunsWith(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.034f));
+            Put(moreOptions, draft.Runtime == null ? EntryText.ChooseHowItRuns : EntryText.MoreOptions,
+                new Vector2(Right - optionsWidth / 2f, y - 0.017f), optionsWidth, () =>
+                {
+                    page = 0;
+                    showModels = draft.Runtime?.ModelChoice == ModelChoice.Listed;
+                    Open(Screen.Options);
+                });
+            y -= 0.04f;
+            Say(recapServed, EntryText.ModelLine(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.05f));
+            var problem = StartProblem();
+            if (problem != null) Say(note, problem, new Vector2(Left, -0.17f), new Vector2(ContentWidth, 0.03f));
+            Put(bottomLeft, "Start over", new Vector2(Left + 0.1f, BottomCenter), 0.2f, () =>
+            {
+                idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
+                review = null;
+                sequence = null;
+                notice = null;
+                Open(Screen.CreateStart);
+            });
+            if (problem == null) PutRightAligned(bottomRight, EntryText.StartBuilding, Right, BottomCenter, StartBuilding);
+        }
+
+        /// <summary>Why Start building cannot go ahead now, or null.</summary>
+        private string? StartProblem()
+        {
+            if (demonstration() != null) return "The interactive example cannot start work. Connect to your Mac.";
+            var now = state();
+            if (now == null || !connected()) return "Waiting for your Mac.";
+            if (idea?.Problem is string ideaProblem) return ideaProblem;
+            if (draft.Runtime == null) return "Choose how it runs.";
+            if (!now.Runtimes.Any(runtime => runtime.RuntimeId == draft.Runtime.RuntimeId)) return "That runtime is not available now. Choose another.";
+            if (draft.Runtime.ModelChoice == ModelChoice.Listed && draft.Model == null) return draft.ModelProblem ?? "Choose a model.";
+            if (idea?.ExistingProjectId != null && !now.Projects.ContainsKey(idea.ExistingProjectId)) return "That project is not known here any more.";
+            return null;
+        }
+
+        private void StartBuilding()
+        {
+            if (StartProblem() != null || idea == null) return;
+            draft.Objective = idea.FirstTask;
+            var model = draft.Model;
+            review = new NewWorkReview(
+                idea.Name,
+                draft.Title,
+                EntryText.RuntimeName(draft.Runtime!),
+                model?.DisplayName ?? "Chosen by the runtime",
+                model == null ? "The runtime does not list models" : EntryText.ServedShort(model.Served) + ", " + EntryText.Tools(model.ToolCalling),
+                model?.ModelRef ?? "No model selected",
+                idea.FirstTask,
+                ReviewLine,
+                ReviewLines);
+            Open(Screen.Review);
+        }
+
+        /// <summary>
+        /// The runtimes that can start work, or the chosen runtime's own models with where each runs.
+        /// Choosing is all this does; nothing is chosen for the person.
+        /// </summary>
+        private void LayoutOptions()
+        {
+            var now = state();
+            if (showModels && draft.Runtime?.ModelChoice == ModelChoice.Listed)
+            {
+                if (draft.Models.Count == 0)
+                {
+                    Say(body, draft.ModelProblem ?? "This runtime lists no models.", new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.1f));
+                }
+                var models = Paged(draft.Models);
+                for (var index = 0; index < models.Count; index++)
+                {
+                    var model = models[index];
+                    var chosen = draft.Model?.ModelRef == model.ModelRef;
+                    Put(rows[index], LabelText.Plain(model.DisplayName), new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth, () =>
+                    {
+                        draft.ChooseModel(model);
+                        Layout();
+                    }, detail: (chosen ? "Chosen · " : "") + EntryText.ServedShort(model.Served) + " · " + EntryText.Tools(model.ToolCalling),
+                        detailColor: model.Served == ModelServed.Remote ? WorkspaceVisuals.AttentionColor : (Color?)null);
+                }
+                Pager(draft.Models.Count);
+                Put(bottomLeft, "Change runtime", new Vector2(Left + 0.12f, BottomCenter), 0.24f, () =>
+                {
+                    showModels = false;
+                    page = 0;
+                    Layout();
+                });
+            }
+            else
+            {
+                var runtimes = now?.Runtimes.Where(runtime => runtime.Capabilities.StartExecution)
+                    .OrderBy(runtime => runtime.DisplayName, StringComparer.Ordinal).ToList() ?? new List<RuntimeDescriptor>();
+                if (runtimes.Count == 0) Say(body, EntryText.NoRuntimes, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.1f));
+                var shown = Paged(runtimes);
+                for (var index = 0; index < shown.Count; index++)
+                {
+                    var runtime = shown[index];
+                    var chosen = draft.Runtime?.RuntimeId == runtime.RuntimeId;
+                    var detail = runtime.Synthetic ? "simulated work" : runtime.ModelChoice == ModelChoice.Listed ? "lists its models" : "chooses its own model";
+                    Put(rows[index], EntryText.RuntimeName(runtime), new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth,
+                        () => ChooseRuntime(runtime), detail: (chosen ? "Chosen · " : "") + detail);
+                }
+                Pager(runtimes.Count);
+            }
+            PutRightAligned(bottomRight, EntryText.Done, Right, BottomCenter, () => Open(Screen.Recap));
+        }
+
+        private void ChooseRuntime(RuntimeDescriptor runtime)
+        {
+            modelCancellation?.Cancel();
+            modelCancellation?.Dispose();
+            modelCancellation = null;
+            modelRead = null;
+            draft.ChooseRuntime(runtime);
+            review = null;
+            page = 0;
+            if (runtime.ModelChoice == ModelChoice.Listed)
+            {
+                // Listing may start the runtime, so it is read when the person chooses it, never on a timer.
+                var api = ControlPlaneSettings.Api();
+                if (api == null) draft.ModelReadFailed("No control plane is configured.");
+                else
+                {
+                    modelRuntimeId = runtime.RuntimeId;
+                    modelCancellation = new CancellationTokenSource();
+                    modelRead = api.GetRuntimeModelsAsync(runtime.RuntimeId, modelCancellation.Token);
+                }
+                showModels = true;
+            }
+            Layout();
+        }
+
+        private void PollModels()
+        {
+            var read = modelRead;
+            if (read == null || !read.IsCompleted) return;
+            modelRead = null;
+            if (draft.Runtime?.RuntimeId != modelRuntimeId || read.IsCanceled) return;
+            if (read.IsFaulted) draft.ModelReadFailed(read.Exception?.GetBaseException().Message ?? "The request failed.");
+            else draft.SetModels(read.Result);
+            if (visible) Layout();
+        }
+
+        /// <summary>
+        /// The whole request, a page at a time, as it will be sent. Yes, start building shows on the
+        /// last page only, in the bottom row's middle, where Start building never was.
+        /// </summary>
+        private void LayoutReview()
+        {
+            var current = review!;
+            reviewText.textWrappingMode = TextWrappingModes.NoWrap;
+            // Each line is already made plain by NewWorkReview; TextMeshPro only needs its backslashes doubled.
+            reviewText.text = current.Text.Replace("\\", "\\\\");
+            reviewText.rectTransform.localPosition = new Vector3(Left, BodyTop, -0.001f);
+            reviewText.rectTransform.sizeDelta = new Vector2(ContentWidth, 0.29f);
+            reviewText.gameObject.SetActive(true);
+            used.Add(reviewText);
+            if (current.Page > 0) Put(pagePrevious, WorkspaceText.PreviousPart, new Vector2(Left + 0.1f, -0.18f), 0.2f, () => { current.Previous(); Layout(); });
+            if (!current.CanConfirm) Put(pageNext, WorkspaceText.NextPart, new Vector2(Right - 0.1f, -0.18f), 0.2f, () => { current.Next(); Layout(); });
+            Put(bottomLeft, EntryText.Change, new Vector2(Left + 0.08f, BottomCenter), 0.16f, () =>
+            {
+                review = null;
+                Open(Screen.Recap);
+            });
+            if (current.CanConfirm && StartProblem() == null)
+            {
+                // Clear of where Start building was, on the recap's right, so pressing twice never confirms.
+                Put(bottomMiddle, EntryText.ConfirmStart, new Vector2(-0.02f, BottomCenter), 0.3f, ConfirmReviewed, confirm: true);
+            }
+        }
+
+        private void ConfirmReviewed()
+        {
+            if (review?.CanConfirm != true || StartProblem() != null || idea == null) return;
+            review = null;
+            var newProject = idea.ExistingProjectId == null ? idea.Name : null;
+            if (sequence != null && sequence.CanRetry) Send(sequence.Retry(newProject));
+            else if (sequence == null)
+            {
+                draft.ProjectId = idea.ExistingProjectId;
+                sequence = new BuildSequence(draft, commands, newProject);
+                Send(sequence.Begin());
+            }
+            Open(Screen.Sending);
+        }
+
+        private void Send(CommandEnvelope command)
+        {
+            var session = connection != null ? connection.Session : null;
+            if (session == null)
+            {
+                sequence?.AcknowledgementLost(new SessionUnavailableException("Not connected."));
+                return;
+            }
+            Remember(sequence?.Unresolved);
+            pendingAck = session.SubmitAsync(command);
+        }
+
+        /// <summary>Keeps the command whose outcome may be unknown on the device, so a restart still blocks a blind retry.</summary>
+        private void Remember(string? commandId)
+        {
+            if (commandId == unresolved) return;
+            unresolved = commandId;
+            if (commandId == null) PlayerPrefs.DeleteKey(UnresolvedCommandPreference);
+            else PlayerPrefs.SetString(UnresolvedCommandPreference, commandId);
+            PlayerPrefs.Save();
+        }
+
+        private void UpdateCreate()
+        {
+            PollModels();
+            var current = sequence;
+            if (current == null) return;
+            var ack = pendingAck;
+            if (ack != null && ack.IsCompleted)
+            {
+                pendingAck = null;
+                if (ack.IsFaulted || ack.IsCanceled) current.AcknowledgementLost(ack.Exception?.GetBaseException() ?? new InvalidOperationException("The acknowledgement was lost."));
+                else current.Acknowledged(ack.Result);
+            }
+            var wasStarted = current.Started;
+            var next = current.Advance(state());
+            if (next != null) Send(next);
+            Remember(current.Unresolved);
+            // A project made here shows on the stage, whatever the person chose to show before.
+            if (current.ProjectId != null && current.ProjectId != shownProject && idea?.ExistingProjectId == null)
+            {
+                shownProject = current.ProjectId;
+                rail?.ShowProject(current.ProjectId);
+            }
+            if ((next != null || current.Started != wasStarted) && visible && screen == Screen.Sending) Layout();
+        }
+
+        /// <summary>
+        /// Each step and how it went, in words: sent is not done, and a step is confirmed only by its
+        /// completed record. A refusal says why and offers Try again or Change; an unknown outcome
+        /// offers only checking the work first.
+        /// </summary>
+        private void LayoutSending()
+        {
+            var current = sequence;
+            if (current == null)
+            {
+                screen = Screen.Recap;
+                LayoutRecap();
+                return;
+            }
+            var newProject = current.Steps[0].Kind == BuildStepKind.CreateProject;
+            var lines = current.Steps.Select(step => EntryText.StepName(step.Kind, newProject) + ": " + EntryText.StepStatus(step)).ToList();
+            if (current.Started) lines.Add(EntryText.Started);
+            SayLines(body, lines, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.3f));
+            body.fontSize = WorkspaceVisuals.DetailSize;
+            if (current.Started)
+            {
+                PutRightAligned(bottomRight, EntryText.Done, Right, BottomCenter, () =>
+                {
+                    idea = null;
+                    sequence = null;
+                    shownProject = null;
+                    Hide();
+                });
+            }
+            else if (current.CanRetry)
+            {
+                PutRightAligned(bottomRight, EntryText.TryAgain, Right, BottomCenter, () =>
+                {
+                    if (StartProblem() == null && sequence?.CanRetry == true) Send(sequence.Retry(idea?.ExistingProjectId == null ? idea?.Name : null));
+                    Layout();
+                });
+                Put(bottomLeft, EntryText.Change, new Vector2(Left + 0.08f, BottomCenter), 0.16f, () => Open(Screen.Recap));
+            }
+            else if (current.Stopped || current.Steps.Any(step => step.Status == BuildStepStatus.Unknown))
+            {
+                PutRightAligned(bottomRight, EntryText.ICheckedTheWork, Right, BottomCenter, () =>
+                {
+                    recoveryArmed = false;
+                    Open(Screen.Previous);
+                });
+            }
+        }
+
+        /// <summary>
+        /// A request that may have run: its command id, and the control plane's record of it when one
+        /// arrives. Clearing it takes two separate presses, the second where the first was not, and
+        /// asks the person to check the work shown first. Clearing starts a blank draft, never a retry.
+        /// </summary>
+        private void LayoutPrevious()
+        {
+            var id = unresolved ?? sequence?.Unresolved;
+            if (id == null)
+            {
+                screen = Screen.CreateStart;
+                LayoutCreate();
+                return;
+            }
+            var record = state()?.Commands.TryGetValue(id, out var found) == true ? found : null;
+            SayLine("A request may have run. Check the work shown before starting more; starting again could do it twice.");
+            SayLines(body, new[]
+            {
+                "Command: " + id,
+                record == null ? "No result has arrived yet." : "Recorded status: " + record.Status.ToString().ToLowerInvariant(),
+                recoveryArmed ? "Clear it only after checking the work." : "Clear it once you have checked the work.",
+            }, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.2f));
+            body.fontSize = WorkspaceVisuals.DetailSize;
+            if (!Live) return;
+            if (!recoveryArmed)
+            {
+                PutRightAligned(bottomRight, EntryText.ICheckedTheWork, Right, BottomCenter, () =>
+                {
+                    recoveryArmed = true;
+                    Layout();
+                });
+            }
+            else
+            {
+                Put(bottomMiddle, EntryText.ClearAfterChecking, new Vector2(-0.02f, BottomCenter), 0.34f, () =>
+                {
+                    recoveryArmed = false;
+                    pendingAck = null;
+                    sequence = null;
+                    Remember(null);
+                    idea = new ProjectIdea();
+                    notice = "Cleared after your check. Start again from your idea.";
+                    Open(Screen.CreateStart);
+                }, confirm: true);
+            }
+        }
+    }
+}

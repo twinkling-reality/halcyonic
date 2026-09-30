@@ -54,6 +54,7 @@ namespace Halcyonic.XR.Workspace
         private string? journalId;
         private int shownSubmissions = -1;
         private float nextRefresh;
+        private string? pendingOpen;
 
         /// <summary>
         /// Raised with the workstream when the person opens its workspace, collapses it, or sends a
@@ -61,6 +62,18 @@ namespace Halcyonic.XR.Workspace
         /// session: sent, not confirmed, since the runtime's answer arrives later in the state.
         /// </summary>
         public event Action<string, WorkspaceAct>? Acted;
+
+        /// <summary>Raised with the workstream when its workspace opens, however it was opened.</summary>
+        public event Action<string>? WorkOpened;
+
+        /// <summary>Raised with the workstream when its workspace closes, however it was closed.</summary>
+        public event Action<string>? WorkClosed;
+
+        /// <summary>The workstream whose workspace is open, or null.</summary>
+        public string? OpenWorkstream => opened?.WorkstreamId;
+
+        /// <summary>Every character's target, for placing other panels clear of them.</summary>
+        public IEnumerable<CharacterTarget> Targets => targets.Values;
 
         private void Awake()
         {
@@ -94,7 +107,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Start()
         {
-            if (GetComponent<NewWorkPanel>() == null) gameObject.AddComponent<NewWorkPanel>();
+            if (GetComponent<ProjectRail>() == null) gameObject.AddComponent<ProjectRail>();
             gaze = GazeHover.Create(transform, () => (peekChoice.PinchTarget, peekChoice.PinchBlock));
             if (gaze == null)
             {
@@ -121,6 +134,43 @@ namespace Halcyonic.XR.Workspace
             target.Ray.Selected += () => OnSelected(target);
             target.Poke.Selected += () => OnSelected(target);
             target.Ray.GazeSelected += () => OnLookAndPinch(target);
+        }
+
+        /// <summary>
+        /// Opens a workstream's workspace whether or not it has a character now, as More work and
+        /// Open now ask: the stage gives it one first (<see cref="CharacterStage.Request"/>), and the
+        /// workspace opens beside it on the next frame, once it stands in its slot. Nothing is sent.
+        /// </summary>
+        public void OpenWork(string workstreamId)
+        {
+            if (FocusGuard.InputSuspended) return;
+            if (opened?.WorkstreamId == workstreamId) return;
+            Close(immediately: false);
+            pendingOpen = workstreamId;
+            stage.Request(workstreamId);
+        }
+
+        /// <summary>Opens the work <see cref="OpenWork"/> asked for once its character stands on the stage, or forgets it once it is gone.</summary>
+        private void OpenPending()
+        {
+            var id = pendingOpen;
+            if (id == null) return;
+            if (connection.Session?.State.Workstreams.ContainsKey(id) != true)
+            {
+                pendingOpen = null;
+                return;
+            }
+            if (!targets.TryGetValue(id, out var target) || target == null) return;
+            pendingOpen = null;
+            if (opened?.Character != target) Open(target);
+        }
+
+        /// <summary>Collapses the open workspace, if one is open, as the entry panel does before it opens in the same place.</summary>
+        public void CloseWork()
+        {
+            if (opened == null) return;
+            Acted?.Invoke(opened.WorkstreamId, WorkspaceAct.Collapse);
+            Close(immediately: false);
         }
 
         private void OnChanged(StateChanges changes)
@@ -156,6 +206,7 @@ namespace Halcyonic.XR.Workspace
                 opened.Transition.MoveTo(place, scale);
             }
             PollKeyboard();
+            OpenPending();
             if (submissions.Version != shownSubmissions || Time.unscaledTime >= nextRefresh) Refresh();
             UpdatePeek();
         }
@@ -316,7 +367,7 @@ namespace Halcyonic.XR.Workspace
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
-            workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader);
+            workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader, WorkspaceText.FirstQuestion(presentation));
             workspace.Sections.RequestTurned += () =>
             {
                 if (opened == workspace) RefreshPanel();
@@ -345,6 +396,7 @@ namespace Halcyonic.XR.Workspace
             FacePerson(target, true);
             ReadHistory(workspace);
             RefreshPanel();
+            if (opened == workspace) WorkOpened?.Invoke(target.WorkstreamId);
             return opened == workspace;
         }
 
@@ -370,6 +422,7 @@ namespace Halcyonic.XR.Workspace
             if (closing.Character != null) FacePerson(closing.Character, closing.Character == facing);
             // Gone already when its character left the stage.
             if (closing.Transition != null) closing.Transition.Collapse(immediately || closing.Character == null);
+            WorkClosed?.Invoke(closing.WorkstreamId);
         }
 
         private void RefreshPanel()
@@ -418,9 +471,10 @@ namespace Halcyonic.XR.Workspace
                 Status = WorkspaceText.StatusLine(character),
                 StatusColor = ToneOf(character.Activity),
                 Execution = WorkspaceText.Execution(presentation),
-                Objective = "Objective: " + WorkspaceText.Objective(presentation),
-                Attention = WorkspaceText.Attention(presentation),
-                AttentionColor = character.Attention == AttentionLevel.ActionRequired ? WorkspaceVisuals.AttentionColor : ToneOf(character.Activity),
+                Goal = WorkspaceText.Goal(presentation),
+                Answer = WorkspaceText.Answer(presentation),
+                AnswerColor = character.AttentionNotes.Count == 0 ? WorkspaceVisuals.SecondaryColor
+                    : character.Attention == AttentionLevel.ActionRequired ? WorkspaceVisuals.AttentionColor : ToneOf(character.Activity),
                 Actions = presentation.Actions.ToList(),
                 WhyNoActions = WorkspaceText.WhyNoActions(presentation),
                 Notice = workspace.Notice,
@@ -630,12 +684,16 @@ namespace Halcyonic.XR.Workspace
             public Opened(CharacterTarget character, WorkspacePanel panel, WorkspaceTransition transition, WorkspaceSteering steering)
             {
                 Character = character;
+                WorkstreamId = character.WorkstreamId;
                 Panel = panel;
                 Transition = transition;
                 Steering = steering;
             }
 
             public CharacterTarget Character { get; }
+
+            /// <summary>Kept apart from the character, which the stage may destroy while it is open.</summary>
+            public string WorkstreamId { get; }
 
             public WorkspacePanel Panel { get; }
 

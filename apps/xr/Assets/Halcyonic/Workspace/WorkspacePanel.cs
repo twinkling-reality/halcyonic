@@ -30,9 +30,13 @@ namespace Halcyonic.XR.Workspace
         public string Status = "";
         public Color StatusColor = WorkspaceVisuals.TextColor;
         public string Execution = "";
-        public string Objective = "";
-        public IReadOnlyList<string> Attention = Array.Empty<string>();
-        public Color AttentionColor = WorkspaceVisuals.TextColor;
+
+        /// <summary>The work's goal: its objective.</summary>
+        public string Goal = "";
+
+        /// <summary>One plain answer: what needs the person, else that nothing does and what it did last.</summary>
+        public IReadOnlyList<string> Answer = Array.Empty<string>();
+        public Color AnswerColor = WorkspaceVisuals.SecondaryColor;
         public ControlsMode Mode;
         public IReadOnlyList<WorkspaceAction> Actions = Array.Empty<WorkspaceAction>();
         public string? WhyNoActions;
@@ -49,10 +53,10 @@ namespace Halcyonic.XR.Workspace
     }
 
     /// <summary>
-    /// The expanded workspace: the same workstream as its character, with its objective, execution,
-    /// what needs the person and the actions offered, and under them tabs for the details: how
-    /// requests are going and the recent activity, or the Understanding or Evaluation section
-    /// (<see cref="WorkspaceSections"/>). The layout is fixed, so nothing jumps while the work
+    /// The expanded workspace: the same workstream as its character, leading with its goal and one
+    /// plain answer (what needs the person, else what it did last), then the actions offered, and
+    /// under them the person's questions as tabs: What is it doing?, Help me understand, What was
+    /// checked?, and, while a request waits, What do you need from me? (<see cref="WorkspaceSections"/>). The layout is fixed, so nothing jumps while the work
     /// changes. It shows words it is given and derives nothing; <see cref="WorkspaceDirector"/> fills
     /// it from the client core.
     ///
@@ -109,8 +113,8 @@ namespace Halcyonic.XR.Workspace
         private TextMeshPro title = null!;
         private TextMeshPro status = null!;
         private TextMeshPro execution = null!;
-        private TextMeshPro objective = null!;
-        private TextMeshPro attention = null!;
+        private TextMeshPro goal = null!;
+        private TextMeshPro answer = null!;
         private TextMeshPro controlsText = null!;
         private TextMeshPro activityCaption = null!;
         private PanelButton collapse = null!;
@@ -148,10 +152,10 @@ namespace Halcyonic.XR.Workspace
             title = Line("Title", WorkspaceVisuals.TitleSize, WorkspaceVisuals.TextColor, Top, HeaderWidth, 0.045f);
             status = Line("Status", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, Top - 0.048f, HeaderWidth, 0.034f);
             execution = Line("Execution", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor, Top - 0.084f, ContentWidth, 0.028f);
-            objective = Line("Objective", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, Top - 0.114f, ContentWidth, 0.028f);
+            goal = Line("Goal", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, Top - 0.114f, ContentWidth, 0.028f);
             var divider = WorkspaceVisuals.Plate(transform, "Divider", new Vector2(ContentWidth, 0.002f), WorkspaceVisuals.DividerColor, WorkspaceVisuals.PanelControlOrder);
             divider.transform.localPosition = new Vector3(0f, Top - 0.15f, -0.001f);
-            attention = Line("Attention", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, Top - 0.16f, ContentWidth, 0.058f, wrap: true);
+            answer = Line("Answer", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, Top - 0.16f, ContentWidth, 0.058f, wrap: true);
             controlsText = Line("Controls text", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor, ActionsTop, ContentWidth, PanelButton.Height, wrap: true);
             controlsText.alignment = TextAlignmentOptions.MidlineLeft;
             // Under the tabs: the requests, then the recent activity, unless a section shows there.
@@ -200,9 +204,9 @@ namespace Halcyonic.XR.Workspace
             WorkspaceVisuals.SetLiteral(status, content.Status);
             status.color = content.StatusColor;
             WorkspaceVisuals.SetLiteral(execution, content.Execution);
-            WorkspaceVisuals.SetLiteral(objective, content.Objective);
-            WorkspaceVisuals.SetLiteralLines(attention, content.Attention.Count == 0 ? new[] { "Nothing needs you right now." } : content.Attention);
-            attention.color = content.Attention.Count == 0 ? WorkspaceVisuals.SecondaryColor : content.AttentionColor;
+            WorkspaceVisuals.SetLiteral(goal, content.Goal);
+            WorkspaceVisuals.SetLiteralLines(answer, content.Answer);
+            answer.color = content.AnswerColor;
 
             // The collapse control sits in the top right corner, away from every action.
             var collapseWidth = collapse.Measure("Collapse", 0.17f);
