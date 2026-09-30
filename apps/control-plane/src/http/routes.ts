@@ -186,7 +186,7 @@ export function registerRoutes(
           errorBody('invalid_command', 'The command does not match the contract.', parsed.issues),
         );
     }
-    const outcome = controlPlane.commands.submit(parsed.value, 'http');
+    const outcome = controlPlane.commands.submit(parsed.value, 'http', request.principal);
     if (outcome.disposition === 'conflict') {
       return reply
         .code(409)
