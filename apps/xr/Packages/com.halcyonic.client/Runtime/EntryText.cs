@@ -87,7 +87,8 @@ namespace Halcyonic.Client
             if (refusal == RejectionCode.LocationRequired || failure == "location_required")
                 return "This project has no folder on your Mac yet. Choose where its files live, then try again.";
             if (refusal == RejectionCode.LocationMissing || failure == "location_missing")
-                return "That folder isn't on your Mac any more: moved, renamed or deleted. Choose it again, or put it back on your Mac.";
+                // The host also answers this for a folder or place that is there but cannot be read.
+                return "Your Mac can't use that folder right now: it may have been moved, renamed or deleted, or can't be read. Choose it again, or fix it on your Mac.";
             if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed")
                 return "Your Mac doesn't let agents work there. Choose a folder it lists.";
             if (refusal == RejectionCode.LocationExists || failure == "location_exists")
