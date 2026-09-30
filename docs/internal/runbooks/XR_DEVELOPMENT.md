@@ -56,6 +56,8 @@ files fix asset identities, so commit new ones and keep them.
 - the Hand Tracking building block, which keeps tracking but no longer draws the hands;
 - Meta's comprehensive interaction rig under the camera rig: hand data, the hands that are drawn,
   and the hand ray and poke interactors, with its locomotion deactivated;
+- Meta's eye gaze with a gaze conecaster beside the rig's HMD, emulating gaze with the head's
+  direction;
 - the Halcyonic stage object, with the connection, the characters, the focus guard and the
   workspace director.
 
@@ -70,8 +72,8 @@ without hand visuals to hide and without hand interaction.
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.StageSetup.Apply -logFile ~/Library/Logs/Unity/halcyonic-xr-setup.log
 ```
 
-It adds the rig the way the Interaction SDK's "Interactions Rig" building block does, and changes
-nothing when run again. If a newer SDK renames the objects it adjusts, it stops and logs the rig's
+It adds the rig the way the Interaction SDK's "Interactions Rig" building block does, and the gaze
+the way the SDK's gaze quick action does, and changes nothing when run again. If a newer SDK renames the objects it adjusts, it stops and logs the rig's
 hierarchy instead of saving the scene.
 
 Text in the workspace is TextMeshPro. Its essential resources are committed in
@@ -308,16 +310,22 @@ with a broken pipe error before it answers:
 pnpm demo | sed '/approval requested/q'
 ```
 
-Run it again for each approval you need. Then, in the headset:
+Run it again for each approval you need. Check seated as well as standing, and never pick up a
+controller. Then, in the headset:
 
-- **Peek.** Point an open hand at a character until its ray touches it: one line appears beside
-  it, what it needs from you ("Approval needed to use bash: …") or what it did last, agent text as
-  "Agent says: “…”". It goes when the ray leaves.
-- **Open.** Pinch while pointing: the workspace grows out of the character to its side, a ring
-  marks the character and a line joins them. It shows the title, the status in words, the
-  execution and its runtime, the objective, the approval explained, the buttons offered, and the
-  recent activity, including what happened before the app started (otherwise the activity caption
-  says why the history is unavailable).
+- **First time.** On a fresh install, above the character that needs you: a thumb and finger
+  closing into a pinch, and "Pinch to open". It goes after the first open and does not come back.
+- **Peek by looking.** Look at a character without raising a hand: after a moment one line
+  appears beside it, what it needs from you ("Approval needed to use bash: …") or what it did
+  last, agent text as "Agent says: “…”". It goes when you look away.
+- **Peek by pointing.** Point an open hand at a character until its ray touches it: the same line.
+- **Open.** Pinch while pointing: the workspace grows out of the character to about two feet in
+  front of you, below the character when you sit (above it when the characters are below your
+  eyes), a ring marks the character and a line joins them. All of it is in the middle of your
+  view. It shows the title, the status in words, the execution and its runtime, the objective,
+  the approval explained, the buttons offered, and the recent activity, including what happened
+  before the app started (otherwise the activity caption says why the history is unavailable).
+  Looking at other characters while it is open peeks nothing; pointing at them still does.
 - **Approve.** Pinch Approve: the row asks "Approve this request? bash: …", with Cancel and "Yes,
   approve" at the far right. Pinch "Yes, approve": Requests reads "Sending to the control
   plane…", then "Answering the approval…", then "Approval answered" once the runtime confirmed;
@@ -332,8 +340,8 @@ Run it again for each approval you need. Then, in the headset:
   with hands.
 - **Collapse.** Pinch Collapse, top right, or pinch the character again: the workspace shrinks back
   into the character.
-- **Poke.** Step up to a character and push a fingertip into the front of its body: it opens. Poke
-  the workspace's buttons.
+- **Poke.** Seated, poke the workspace's buttons without leaning. Step up to a character and push a
+  fingertip into the front of its body: it opens.
 - **Focus.** With the workspace open, open the system menu: hands, rays and the peek go, nothing
   can be pressed; close it and they return.
 - **Disconnected.** Stop `pnpm dev`: the status adds "last known", and the buttons give way to

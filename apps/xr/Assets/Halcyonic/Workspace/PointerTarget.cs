@@ -8,24 +8,32 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// Something a hand can point at with a ray and pinch, or reach and poke, through the Meta
-    /// Interaction SDK's interactables. The SDK's ray and poke interactors are on the rig in
-    /// Stage.unity; this adds the targets they look for. The SDK components check their
-    /// dependencies in Start, so they are injected right after being added, in the same frame.
-    /// Pointer events are ignored while <see cref="FocusGuard.InputSuspended"/>.
+    /// Something a hand can point at with a ray and pinch, or reach and poke, and, for characters,
+    /// look at, through the Meta Interaction SDK's interactables. The SDK's ray and poke interactors
+    /// are on the rig in Stage.unity, and <see cref="GazeHover"/> adds a gaze interactor; this adds
+    /// the targets they look for. The SDK components check their dependencies in Start, so they are
+    /// injected right after being added, in the same frame. Pointer events are ignored while
+    /// <see cref="FocusGuard.InputSuspended"/>.
     /// </summary>
     public sealed class PointerTarget : MonoBehaviour
     {
-        private readonly HashSet<int> hovering = new HashSet<int>();
+        private readonly HashSet<int> hands = new HashSet<int>();
+        private readonly HashSet<int> gazes = new HashSet<int>();
         private BoundsClipper? clipper;
 
-        /// <summary>A pointer started hovering, or the last one stopped.</summary>
-        public event Action<bool>? HoverChanged;
+        /// <summary>A hand or the gaze started or stopped hovering.</summary>
+        public event Action? HoverChanged;
 
-        /// <summary>A pinch on the ray, or a poke that pressed through the surface.</summary>
+        /// <summary>A pinch on the ray, or a poke that pressed through the surface. Gaze only hovers.</summary>
         public event Action? Selected;
 
-        public bool Hovered => hovering.Count > 0;
+        /// <summary>A hand ray or a finger is on it.</summary>
+        public bool HandHovered => hands.Count > 0;
+
+        /// <summary>The person is looking at it.</summary>
+        public bool GazeHovered => gazes.Count > 0;
+
+        public bool Hovered => HandHovered || GazeHovered;
 
         /// <summary>
         /// A flat rectangle on <paramref name="host"/>'s XY plane, facing the way text does (the
@@ -45,19 +53,22 @@ namespace Halcyonic.XR.Workspace
             {
                 var rayInteractable = host.AddComponent<RayInteractable>();
                 rayInteractable.InjectAllRayInteractable(patch);
-                rayInteractable.WhenPointerEventRaised += target.OnPointer;
+                rayInteractable.WhenPointerEventRaised += target.OnHand;
             }
             if (poke)
             {
                 var pokeInteractable = host.AddComponent<PokeInteractable>();
                 pokeInteractable.InjectAllPokeInteractable(patch);
-                pokeInteractable.WhenPointerEventRaised += target.OnPointer;
+                pokeInteractable.WhenPointerEventRaised += target.OnHand;
             }
             return target;
         }
 
-        /// <summary>A sphere that a ray can point at; a poke needs a flat surface, so it gets a <see cref="Rectangle"/>.</summary>
-        public static PointerTarget Sphere(GameObject host, float radius)
+        /// <summary>
+        /// A sphere that a ray can point at and, with <paramref name="gaze"/>, the gaze can rest on;
+        /// a poke needs a flat surface, so it gets a <see cref="Rectangle"/>.
+        /// </summary>
+        public static PointerTarget Sphere(GameObject host, float radius, bool gaze)
         {
             var target = host.AddComponent<PointerTarget>();
             // ColliderSurface raycasts this collider alone. It has no rigidbody, so it never moves
@@ -68,7 +79,13 @@ namespace Halcyonic.XR.Workspace
             surface.InjectAllColliderSurface(collider);
             var ray = host.AddComponent<RayInteractable>();
             ray.InjectAllRayInteractable(surface);
-            ray.WhenPointerEventRaised += target.OnPointer;
+            ray.WhenPointerEventRaised += target.OnHand;
+            if (gaze)
+            {
+                var gazeInteractable = host.AddComponent<GazeInteractable>();
+                gazeInteractable.InjectAllGazeInteractable(surface);
+                gazeInteractable.WhenPointerEventRaised += target.OnGaze;
+            }
             return target;
         }
 
@@ -80,28 +97,30 @@ namespace Halcyonic.XR.Workspace
         private void OnDisable()
         {
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
-            if (hovering.Count == 0) return;
-            hovering.Clear();
-            HoverChanged?.Invoke(false);
+            if (hands.Count == 0 && gazes.Count == 0) return;
+            hands.Clear();
+            gazes.Clear();
+            HoverChanged?.Invoke();
         }
 
-        private void OnPointer(PointerEvent pointer)
+        private void OnHand(PointerEvent pointer)
         {
-            switch (pointer.Type)
-            {
-                case PointerEventType.Hover:
-                    if (FocusGuard.InputSuspended) return;
-                    if (hovering.Add(pointer.Identifier) && hovering.Count == 1) HoverChanged?.Invoke(true);
-                    break;
-                case PointerEventType.Unhover:
-                case PointerEventType.Cancel:
-                    if (hovering.Remove(pointer.Identifier) && hovering.Count == 0) HoverChanged?.Invoke(false);
-                    break;
-                case PointerEventType.Select:
-                    if (FocusGuard.InputSuspended) return;
-                    Selected?.Invoke();
-                    break;
-            }
+            if (Track(hands, pointer)) HoverChanged?.Invoke();
+            if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended) Selected?.Invoke();
         }
+
+        private void OnGaze(PointerEvent pointer)
+        {
+            if (Track(gazes, pointer)) HoverChanged?.Invoke();
+        }
+
+        /// <summary>Records a hover or its end; returns whether that changed anything.</summary>
+        private static bool Track(HashSet<int> pointers, PointerEvent pointer) => pointer.Type switch
+        {
+            PointerEventType.Hover => !FocusGuard.InputSuspended && pointers.Add(pointer.Identifier),
+            PointerEventType.Unhover => pointers.Remove(pointer.Identifier),
+            PointerEventType.Cancel => pointers.Remove(pointer.Identifier),
+            _ => false,
+        };
     }
 }

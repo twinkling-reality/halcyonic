@@ -9,7 +9,10 @@ Milestone 3 is the defining interaction ([PRODUCT.md](../product/PRODUCT.md)): o
 into its workspace, understand and act, collapse it back, with hands only. After trying the stage
 on a Quest 3, the owner set three levels of detail, all in place: ambient characters; a one-line
 peek while a hand ray points at one, without a pinch; and a pinch that opens the workspace beside
-that character, never in a separate scene.
+that character, never in a separate scene. The competition then asked for gaze interactions with
+the Interaction SDK v207, a layout that suits a narrower field of view, hands first throughout, a
+first five minutes without a wall of text, and everything within about two feet of a seated
+person.
 
 The pinned manifest already has the Meta Interaction SDK 207 (`com.meta.xr.sdk.interaction` and
 `.ovr`), and Stage.unity had Meta's camera rig and hand tracking building blocks but no
@@ -26,12 +29,18 @@ headset.
   rig's locomotion and its locomotor are deactivated, because the stage is stationary, and
   `FocusGuard` deactivates its interactors and hides its hands when the app loses focus.
 - **Targets.** The workspace builds its interactables in code at runtime with the SDK's inject
-  methods: a ray sphere and a person-facing poke plane on each character the stage creates, and ray
-  and poke planes for each button. Characters are not changed; `CharacterStage` only announces
-  them and looks them up.
+  methods: a ray and gaze sphere and a person-facing poke plane on each character the stage
+  creates, and ray and poke planes for each button. Characters are not changed; `CharacterStage`
+  only announces them and looks them up.
+- **Gaze.** The SDK's gaze (its eye gaze with camera pose emulation, which is head gaze on a
+  Quest 3, and a gaze conecaster) drives a gaze interactor that only hovers: the gaze peeks,
+  selection stays with the hand ray's pinch and the poke.
 - **Levels of detail.** Ambient, peek and open, all in place, as the owner set them. The open
-  workspace is a world-space panel beside its character, grown out of it and linked to it while
-  open, and scaled by its distance so it keeps one angular size.
+  workspace is a world-space panel next to its character in view, grown out of it and linked to it
+  while open: 0.6 m from the eyes, within a seated person's reach, at about 34 by 27 degrees, near
+  the middle of the view.
+- **First time.** A pinch cue with three words above the character that needs the person, until the
+  first open.
 - **Words and decisions in the client core.** Everything shown is written by `WorkspaceText`;
   presses become commands in `WorkspaceSteering`; `CommandSubmissions` describes a command this
   client sent until the control plane's record of it takes over. A command the policy marks for
@@ -60,6 +69,10 @@ headset.
 - **Unity's legacy TextMesh.** Bitmap glyphs that blur at a distance, and no wrapping.
 - **Opening the workspace in a separate view or scene.** Ruled out by the owner: the same work must
   read as the same object at a different level of detail.
+- **Opening the workspace at the character's distance, beside it.** Out of reach for a poke at 1.6
+  to 2.4 m, and at the edge of the view for a character at the end of the arc.
+- **Look and pinch to open (the SDK's hand gaze interactor).** A second way to select that would
+  compete with the hand ray's pinch for the same gesture; left for a headset trial.
 - **Preset instructions only.** Always usable, but cannot say anything specific.
 
 ## Consequences
@@ -69,7 +82,7 @@ headset.
 - The development APK grows from about 65 MB to 81.5 MB.
 - The repository carries TextMeshPro's essential resources: Unity's shaders and settings, and
   Liberation Sans under the SIL Open Font License, whose text is included.
-- Runtime behavior is verified only on the headset: rays, pinches and pokes on these targets, the
-  system keyboard under OpenXR and its focus change, `HttpClient` under IL2CPP for history, and
-  legibility. Revisit the input choice if the rig costs too much frame time, and the keyboard
+- Runtime behavior is verified only on the headset: rays, pinches, pokes and gaze on these
+  targets, the system keyboard under OpenXR and its focus change, `HttpClient` under IL2CPP for
+  history, and legibility. Revisit the input choice if the rig costs too much frame time, and the keyboard
   choice if the system keyboard is unusable with hands.

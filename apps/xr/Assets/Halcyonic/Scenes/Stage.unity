@@ -433,7 +433,10 @@ PrefabInstance:
       objectReference: {fileID: 1731683463}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 4397664628265918113, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
+      insertIndex: 1
+      addedObject: {fileID: 1494558384}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
 --- !u!1 &369637003 stripped
@@ -658,6 +661,17 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!114 &741642638 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6267690530596161800, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
+  m_PrefabInstance: {fileID: 369637002}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7b47e36715521d4e8a30d2c5b6e83e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &760467958
 GameObject:
   m_ObjectHideFlags: 0
@@ -951,6 +965,147 @@ Transform:
   m_Children: []
   m_Father: {fileID: 260183961}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1285143267
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1285143268}
+  - component: {fileID: 1285143269}
+  m_Layer: 0
+  m_Name: GazeConecaster
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1285143268
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1285143267}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1494558384}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1285143269
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1285143267}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8e240aac4e3f53478ee4734c567b858, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Oculus.Interaction::Oculus.Interaction.GazeConecaster
+  _coneAngle: 2
+  _coneLength: 10
+  _defaultComparer:
+    _comparerType: 0
+    _equalDistanceThreshold: 0.001
+    _equalAngleThreshold: 0.001
+  _gaze: {fileID: 1494558385}
+  _dwellTimespanSeconds: 0.2
+  _enableDebugVisuals: 0
+--- !u!1001 &1494558383
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 369637004}
+    m_Modifications:
+    - target: {fileID: 2529359386335530127, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: _emulateGazeWithCameraPose
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4543263012387010445, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: m_Name
+      value: OVREyeGaze
+      objectReference: {fileID: 0}
+    - target: {fileID: 8870769942649136631, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: _cameraRigRef
+      value: 
+      objectReference: {fileID: 741642638}
+    - target: {fileID: 8870769942649136631, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      propertyPath: _centerEyeCamera
+      value: 
+      objectReference: {fileID: 1759795128}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1285143268}
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+--- !u!4 &1494558384 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3455626818535041390, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+  m_PrefabInstance: {fileID: 1494558383}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1494558385 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2529359386335530127, guid: fa67d7a229b4f944ebe85912157d8d30, type: 3}
+  m_PrefabInstance: {fileID: 1494558383}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c692bbb15169409aac50cef61e827851, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1731683459
 GameObject:
   m_ObjectHideFlags: 0

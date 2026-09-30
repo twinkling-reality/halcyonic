@@ -41,9 +41,9 @@ namespace Halcyonic.XR.Workspace
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<PanelButton>();
-            button.plate = WorkspaceVisuals.Plate(go.transform, "Plate", new Vector2(0.1f, Height), WorkspaceVisuals.ButtonColor, WorkspaceVisuals.ControlOrder);
+            button.plate = WorkspaceVisuals.Plate(go.transform, "Plate", new Vector2(0.1f, Height), WorkspaceVisuals.ButtonColor, WorkspaceVisuals.PanelControlOrder);
             button.label = WorkspaceVisuals.Text(go.transform, "Label", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor,
-                new Vector2(0.1f, Height), TextAlignmentOptions.Center);
+                new Vector2(0.1f, Height), TextAlignmentOptions.Center, order: WorkspaceVisuals.PanelTextOrder);
             button.target = PointerTarget.Rectangle(go, new Vector2(0.1f, Height), ray: true, poke: true);
             button.target.Selected += button.OnSelected;
             go.SetActive(false);

@@ -32,9 +32,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>At <see cref="PeekDistance"/>, a 30 mm em keeps a 14 pixel x-height.</summary>
         public const float PeekSize = 0.30f;
 
+        // Transparent renderers draw in sorting order before distance. The workspace, the nearest
+        // thing to the person, draws after everything at the characters' distance, so a peek or a
+        // character's label behind it never shows through.
         public const int PlateOrder = 0;
         public const int ControlOrder = 1;
         public const int TextOrder = 2;
+        public const int PanelPlateOrder = 10;
+        public const int PanelControlOrder = 11;
+        public const int PanelTextOrder = 12;
 
         public static readonly Color PanelColor = new Color(0.06f, 0.08f, 0.11f, 0.95f);
         public static readonly Color TextColor = new Color(0.93f, 0.95f, 0.96f);
@@ -75,7 +81,8 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>World-space text that never interprets markup, since it shows text from agents and tools.</summary>
-        public static TextMeshPro Text(Transform parent, string name, float size, Color color, Vector2 box, TextAlignmentOptions alignment, bool wrap = false)
+        public static TextMeshPro Text(Transform parent, string name, float size, Color color, Vector2 box, TextAlignmentOptions alignment,
+            bool wrap = false, int order = TextOrder)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -88,7 +95,7 @@ namespace Halcyonic.XR.Workspace
             text.alignment = alignment;
             text.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
             text.overflowMode = TextOverflowModes.Ellipsis;
-            text.sortingOrder = TextOrder;
+            text.sortingOrder = order;
             return text;
         }
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Oculus.Interaction;
 using Oculus.Interaction.Editor;
 using Oculus.Interaction.Input;
 using UnityEditor;
@@ -12,10 +13,11 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
-    /// Sets up hand interaction in Stage.unity: Meta's comprehensive interaction rig, added the way
-    /// the Interaction SDK's "Interactions Rig" building block adds it, then adapted to the stage.
-    /// Running it again changes nothing. In the editor: Halcyonic > Set Up Stage Interaction. In
-    /// batch mode, with the editor closed, see docs/internal/runbooks/XR_DEVELOPMENT.md.
+    /// Sets up hand and gaze interaction in Stage.unity: Meta's comprehensive interaction rig, added
+    /// the way the Interaction SDK's "Interactions Rig" building block adds it, then adapted to the
+    /// stage, and the SDK's gaze, as its gaze quick action builds it. Running it again changes
+    /// nothing. In the editor: Halcyonic > Set Up Stage Interaction. In batch mode, with the editor
+    /// closed, see docs/internal/runbooks/XR_DEVELOPMENT.md.
     /// </summary>
     public static class StageSetup
     {
@@ -25,6 +27,9 @@ namespace Halcyonic.XR.Workspace.Editor
         private const string RigPrefabGuid = "0a7d2469f24041c4284c66706f84c45e";
 
         private const string RigName = "OVRComprehensiveInteractionRig";
+
+        /// <summary>OVREyeGaze.prefab in com.meta.xr.sdk.interaction.ovr, as the SDK's gaze quick action names it.</summary>
+        private const string EyeGazePrefabGuid = "fa67d7a229b4f944ebe85912157d8d30";
 
         /// <summary>
         /// The stage is stationary. The rig's locomotion would turn, slide or teleport the person
@@ -65,6 +70,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var group in groups) group.SetActive(false);
             }
             GuardFocus(rig);
+            AddGaze(rig);
             var stage = UnityEngine.Object.FindAnyObjectByType<CharacterStage>()
                 ?? throw new InvalidOperationException(ScenePath + " has no character stage.");
             if (stage.GetComponent<WorkspaceDirector>() == null) stage.gameObject.AddComponent<WorkspaceDirector>();
@@ -115,6 +121,35 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 visuals.GetArrayElementAtIndex(index).objectReferenceValue = guarded[index];
             }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// The gaze the workspace's gaze interactor follows, built as the SDK's gaze quick action
+        /// builds it: the eye gaze prefab beside the rig's HMD, with a gaze conecaster. A Quest 3 has
+        /// no eye tracking, and the app does not ask for it, so the gaze is the head's direction: the
+        /// SDK's camera pose emulation.
+        /// </summary>
+        private static void AddGaze(GameObject rig)
+        {
+            var eyeGaze = rig.GetComponentInChildren<EyeGaze>(true);
+            if (eyeGaze == null)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(EyeGazePrefabGuid))
+                    ?? throw new InvalidOperationException("The Interaction SDK's eye gaze prefab is missing.");
+                var hmd = rig.GetComponentInChildren<Hmd>(true)
+                    ?? throw new InvalidOperationException("The interaction rig has no HMD.");
+                var gaze = (GameObject)PrefabUtility.InstantiatePrefab(prefab, hmd.transform.parent);
+                gaze.name = "OVREyeGaze";
+                gaze.transform.SetSiblingIndex(hmd.transform.GetSiblingIndex() + 1);
+                eyeGaze = gaze.GetComponent<EyeGaze>();
+                var conecaster = new GameObject("GazeConecaster");
+                conecaster.transform.SetParent(gaze.transform, false);
+                conecaster.AddComponent<GazeConecaster>().InjectGaze(eyeGaze);
+                UnityObjectAddedBroadcaster.HandleObjectWasAdded(gaze);
+            }
+            var serialized = new SerializedObject(eyeGaze);
+            serialized.FindProperty("_emulateGazeWithCameraPose").boolValue = true;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

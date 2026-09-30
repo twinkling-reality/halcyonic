@@ -7,9 +7,9 @@ namespace Halcyonic.XR.Workspace
     /// <summary>
     /// Makes the character and its workspace read as the same work at two levels of detail
     /// (docs/internal/product/PRODUCT.md): the panel grows out of the character's body to its place
-    /// beside it, a ring marks the opened character, and a line links the two while open. Collapsing
-    /// reverses it into the body. The character itself stays where the stage put it. Kept separate
-    /// from the panel so the characters lane can refine it.
+    /// next to it, within the person's reach, a ring marks the opened character, and a line links the
+    /// two while open. Collapsing reverses it into the body. The character itself stays where the
+    /// stage put it. Kept separate from the panel so the characters lane can refine it.
     /// </summary>
     public sealed class WorkspaceTransition : MonoBehaviour
     {
@@ -97,17 +97,20 @@ namespace Halcyonic.XR.Workspace
             link.startColor = link.endColor = color;
             ring.startColor = ring.endColor = color;
 
-            // The link joins the body to the nearest point of the panel's edge on the character's side.
+            // The link joins the body to the nearest point of the panel's outline: its top or bottom
+            // when the character is above or below it, a side when it is beside it.
             var local = transform.InverseTransformPoint(body);
             var edge = new Vector3(
-                Mathf.Sign(local.x) * WorkspacePanel.Width / 2f,
-                Mathf.Clamp(local.y, -WorkspacePanel.Height / 2f + 0.03f, WorkspacePanel.Height / 2f - 0.03f),
+                Mathf.Clamp(local.x, -WorkspacePanel.Width / 2f, WorkspacePanel.Width / 2f),
+                Mathf.Clamp(local.y, -WorkspacePanel.Height / 2f, WorkspacePanel.Height / 2f),
                 0f);
             link.SetPosition(0, body);
             link.SetPosition(1, transform.TransformPoint(edge));
 
-            link.widthMultiplier = LinkWidth * scale;
-            ring.widthMultiplier = RingWidth * scale;
+            // The link spans from the character's distance to the panel's, so it keeps one width;
+            // the ring is sized like the character it surrounds.
+            link.widthMultiplier = LinkWidth;
+            ring.widthMultiplier = RingWidth * character.Scale;
             var facing = WorkspaceVisuals.FacingPerson(body);
             var radius = RingRadius * character.Scale;
             for (var index = 0; index < RingPoints; index++)
