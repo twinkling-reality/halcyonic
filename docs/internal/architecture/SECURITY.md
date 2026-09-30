@@ -37,7 +37,8 @@ ab.chatgpt.com when `analytics.enabled = true`, and saved rules that let matchin
 without asking. Halcyonic sets only what keeps the person in control: the working directory, the
 sandbox mode, an approval policy that asks (`on-request` or `untrusted`), and approvals routed to
 the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
-settings. Every request Codex sends to the model provider carries the originator `halcyonic`, a
+settings. When a start names a model provider or a model, a thread Codex reports running on
+another is refused too, so work meant for a local model never reaches a hosted one. Every request Codex sends to the model provider carries the originator `halcyonic`, a
 user agent with the Codex version and the operating system, and turn metadata with the
 installation id, the thread and session ids, the sandbox mode, whether analytics is on and, for a
 workspace that is a git repository, its path, latest commit hash and whether it has uncommitted
@@ -45,6 +46,32 @@ changes; the working directory also reaches the provider in the conversation's e
 context. Codex writes each thread's rollout to the developer's `CODEX_HOME`, tagged `halcyonic`. The
 adapter writes no logs; when a server fails to start, the end of its error output becomes part of
 the start failure's message.
+
+When the OpenCode runtime is enabled, its server gets the same kind of allowlist, plus the names in
+`HALCYONIC_AGENT_ENV`, and uses the developer's own OpenCode configuration and providers. What
+OpenCode 2.0.18 itself sends off the Mac, whatever model runs ([local-models.md](../validation/local-models.md)):
+its model catalog, fetched from `models.opencode.ai` at launch and every five minutes unless
+`OPENCODE_DISABLE_MODELS_FETCH=true` reaches it through `HALCYONIC_AGENT_ENV`; and ripgrep,
+downloaded from GitHub the first time an agent searches files when no `rg` is on the PATH it
+inherits. Its configuration decides the rest, and its defaults do not keep work local: without a
+configured model it uses a free hosted model of its own service (OpenCode Zen) even when local
+models are listed, and it runs every tool without asking, `webfetch` and `websearch` included,
+unless its permissions say otherwise. Halcyonic does not yet impose permission rules on OpenCode
+sessions ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+
+A runtime's list of models (`GET /api/runtimes/:runtime_id/models`,
+[ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)) is read from
+the runtime at each request and never cached or journaled; a failure is logged with the runtime id
+and its code only. Adapters read each model field by field, so a provider's settings, keys and
+headers never reach a client: OpenCode's `GET /api/model` carries each provider's settings, API
+key included, of which only the model's own fields are kept, and `/api/provider` is never read.
+Where a model is served is decided from the address the runtime sends its requests to, never from
+the model's name, because a local model may carry a hosted model's name (this Mac's Ollama serves
+`llama3.2:1b` as `gpt-4o:latest`), and each name says what serves the model. Listing launches the
+OpenCode or Codex server when none runs. Listing Claude Code's models starts a short-lived Claude
+Code process with an execution's environment, key included, in a temporary directory, so it may
+reach Anthropic; the tests never list against the real CLI. A chosen model is checked against a
+fresh list before anything runs, so a start never falls back to another model.
 
 The control plane also holds one credential for each product whose conclusions it reads through.
 Each is read from its file on every request, refused when other users can read the file, and never

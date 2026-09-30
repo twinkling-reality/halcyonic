@@ -19,7 +19,7 @@ import {
   Timestamp,
   WorkstreamId,
 } from './primitives.ts';
-import { RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import { ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -149,6 +149,11 @@ export const ExecutionView = Type.Object(
     runtime: RuntimeRef,
     /** The runtime's own session or thread id, kept for correlation with other tools. */
     native_id: Nullable(NativeId),
+    /**
+     * The model the runtime last reported using, as its model list names it; null until it
+     * reports one (ADR 0016).
+     */
+    model_ref: Nullable(ModelRef),
     instruction: Text(32000),
     status: ExecutionStatus,
     /** Why the execution is `failed`, `interrupted` or `unknown`, when known. */

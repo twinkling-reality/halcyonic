@@ -86,6 +86,7 @@ export function createCommandFactory(ids: IdGenerator, clock: Clock, client: Cli
         runtime_id: runtimeId,
         instruction: workstream.instruction,
         options: { scenario: workstream.scenario },
+        model_ref: null,
       },
     }),
     approve: (

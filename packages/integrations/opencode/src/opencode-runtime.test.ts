@@ -44,11 +44,13 @@ describe('OpenCode runtime descriptor', () => {
     assert.deepEqual(capabilityProblems(runtime), []);
     assert.equal(runtime.descriptor.kind, 'opencode');
     assert.equal(runtime.descriptor.synthetic, false);
+    assert.equal(runtime.descriptor.model_choice, 'listed');
+    assert.equal(typeof runtime.listModels, 'function');
     assert.deepEqual(runtime.descriptor.capabilities, OPENCODE_CAPABILITIES);
     assert.deepEqual(OPENCODE_CAPABILITIES, {
       start_execution: true,
       instruct_at_rest: true,
-      instruct_while_running: false,
+      instruct_while_running: true,
       respond_to_approval: true,
       interrupt: true,
     });
@@ -73,7 +75,7 @@ describe('OpenCode start options', () => {
       { directory, model: 42 },
     ];
     for (const options of invalid) {
-      const result = runtime.validateStartOptions(options);
+      const result = runtime.validateStartOptions(options, null);
       assert.equal(result.ok, false, JSON.stringify(options));
       assert.ok(!result.ok && result.message.length > 0);
     }
@@ -83,10 +85,33 @@ describe('OpenCode start options', () => {
       { directory, model: 'openrouter/vendor/model-1' },
     ]) {
       assert.deepEqual(
-        runtime.validateStartOptions(options),
+        runtime.validateStartOptions(options, null),
         { ok: true },
         JSON.stringify(options),
       );
+    }
+  });
+
+  test('a model chosen from the list is taken instead of the model option, never with it', (t) => {
+    const { runtime, directory } = adapter(t);
+    assert.deepEqual(runtime.validateStartOptions({ directory }, 'ollama/qwen3.6:35b-a3b-nvfp4'), {
+      ok: true,
+    });
+    assert.deepEqual(runtime.validateStartOptions({ directory, model: null }, 'ollama/x:y'), {
+      ok: true,
+    });
+    assert.deepEqual(
+      runtime.validateStartOptions({ directory, model: 'fake/fake-model' }, 'ollama/x:y'),
+      {
+        ok: false,
+        message: 'Choose the model either with model_ref or with the "model" option, not both.',
+      },
+    );
+    for (const modelRef of ['no-slash', '/model', 'provider/', 'provider/a b']) {
+      assert.deepEqual(runtime.validateStartOptions({ directory }, modelRef), {
+        ok: false,
+        message: `${modelRef} is not a model OpenCode lists.`,
+      });
     }
   });
 
@@ -94,12 +119,16 @@ describe('OpenCode start options', () => {
     const { runtime } = adapter(t);
     const outside = temporary(t);
     const message = `${outside} is outside the directories this test allows.`;
-    assert.deepEqual(runtime.validateStartOptions({ directory: outside }), { ok: false, message });
+    assert.deepEqual(runtime.validateStartOptions({ directory: outside }, null), {
+      ok: false,
+      message,
+    });
     await assert.rejects(
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { directory: outside },
+        model_ref: null,
         emit: () => undefined,
       }),
       (error: unknown) =>
@@ -107,7 +136,7 @@ describe('OpenCode start options', () => {
     );
     // The adapter's own checks come first; the policy decides only on an existing directory.
     const missing = join(outside, 'missing');
-    const result = runtime.validateStartOptions({ directory: missing });
+    const result = runtime.validateStartOptions({ directory: missing }, null);
     assert.deepEqual(result, {
       ok: false,
       message: `Option "directory" does not exist: ${missing}`,
@@ -129,11 +158,11 @@ describe('OpenCode start options', () => {
     t.after(() => runtime.close());
     mkdirSync(join(directory, 'sub'));
     const given = `${directory}/sub/..`;
-    assert.deepEqual(runtime.validateStartOptions({ directory: given }), { ok: true });
+    assert.deepEqual(runtime.validateStartOptions({ directory: given }, null), { ok: true });
     assert.deepEqual(asked, [given]);
     const boom = join(directory, 'boom');
     mkdirSync(boom);
-    const refused = runtime.validateStartOptions({ directory: boom });
+    const refused = runtime.validateStartOptions({ directory: boom }, null);
     assert.equal(refused.ok, false);
     assert.match(refused.ok ? '' : refused.message, /policy failure/);
   });
@@ -195,6 +224,7 @@ describe('OpenCode runtime without a server', () => {
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { directory },
+        model_ref: null,
         emit: (observation) => observed.push(observation),
       }),
       actionError('runtime_unavailable'),
@@ -211,6 +241,7 @@ describe('OpenCode runtime without a server', () => {
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { directory: '/definitely/not/here' },
+        model_ref: null,
         emit: () => undefined,
       }),
       actionError('invalid_runtime_options'),
@@ -249,6 +280,7 @@ describe('OpenCode runtime without a server', () => {
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { directory },
+        model_ref: null,
         emit: () => undefined,
       }),
       actionError('runtime_closed'),

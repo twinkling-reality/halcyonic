@@ -17,7 +17,7 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
-import { MockRuntimeAdapter } from './mock-runtime.ts';
+import { MOCK_MODELS, MockRuntimeAdapter } from './mock-runtime.ts';
 import { loadScenarios, parseScenario, ScenarioError } from './scenario.ts';
 
 const SCENARIOS_DIR = fileURLToPath(new URL('../../../../fixtures/scenarios', import.meta.url));
@@ -38,6 +38,7 @@ function setup(context: ExecutionContext = execution) {
       execution: context,
       instruction: 'Do the work.',
       options: { scenario },
+      model_ref: null,
       emit: (observation) => observed.push(observation),
     });
   const types = () => observed.map((observation) => observation.type);
@@ -237,13 +238,73 @@ describe('mock runtime actions', () => {
 
   test('start options are validated before anything starts', async () => {
     const { runtime } = setup();
-    assert.deepEqual(runtime.validateStartOptions({}).ok, false);
-    assert.deepEqual(runtime.validateStartOptions({ scenario: 'nope' }).ok, false);
+    assert.deepEqual(runtime.validateStartOptions({}, null).ok, false);
+    assert.deepEqual(runtime.validateStartOptions({ scenario: 'nope' }, null).ok, false);
     assert.deepEqual(
-      runtime.validateStartOptions({ scenario: 'runtime_error', model: 'x' }).ok,
+      runtime.validateStartOptions({ scenario: 'runtime_error', model: 'x' }, null).ok,
       false,
     );
-    assert.deepEqual(runtime.validateStartOptions({ scenario: 'runtime_error' }).ok, true);
+    assert.deepEqual(runtime.validateStartOptions({ scenario: 'runtime_error' }, null).ok, true);
+  });
+
+  test('without models it offers no choice; with synthetic ones it lists and uses them', async () => {
+    const plain = new MockRuntimeAdapter({ scenarios: SCENARIOS });
+    assert.equal(plain.descriptor.model_choice, 'none');
+    assert.equal(plain.listModels, undefined);
+
+    const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
+    const listing = new MockRuntimeAdapter({
+      scenarios: SCENARIOS,
+      models: MOCK_MODELS,
+      clock: time,
+      scheduler: time,
+    });
+    assert.equal(listing.descriptor.model_choice, 'listed');
+    assert.deepEqual(await listing.listModels?.(), MOCK_MODELS);
+    // Every synthetic model says so in its name.
+    assert.ok(
+      MOCK_MODELS.every((model) => /Simulated .*development fixture/.test(model.display_name)),
+    );
+    assert.deepEqual(listing.validateStartOptions({ scenario: 'runtime_error' }, 'mock/fast'), {
+      ok: true,
+    });
+    assert.deepEqual(listing.validateStartOptions({ scenario: 'runtime_error' }, 'mock/gone'), {
+      ok: false,
+      message: 'The mock runtime lists no model mock/gone.',
+    });
+    // A runtime without models refuses any choice.
+    assert.equal(plain.validateStartOptions({ scenario: 'runtime_error' }, 'mock/fast').ok, false);
+
+    const observed: RuntimeObservation[] = [];
+    await listing.startExecution({
+      execution,
+      instruction: 'Do the work.',
+      options: { scenario: 'successful_feature' },
+      model_ref: 'mock/fast',
+      emit: (observation) => observed.push(observation),
+    });
+    assert.deepEqual(
+      observed.slice(0, 3).map((observation) => [observation.type, observation.payload]),
+      [
+        ['runtime.execution.started', { native_id: `mock-session-${execution.execution_id}` }],
+        ['runtime.model.used', { model_ref: 'mock/fast' }],
+        ['runtime.turn.started', { turn_id: `mock-session-${execution.execution_id}-turn-1` }],
+      ],
+    );
+    await assert.rejects(
+      listing.startExecution({
+        execution: {
+          ...execution,
+          execution_id: '01920000-0000-7000-8000-0000000000a9' as ExecutionId,
+        },
+        instruction: 'Do the work.',
+        options: { scenario: 'successful_feature' },
+        model_ref: 'mock/gone',
+        emit: () => undefined,
+      }),
+      actionError('model_unavailable'),
+    );
+    await listing.close();
   });
 
   test('actions on an execution the runtime never started are refused', async () => {

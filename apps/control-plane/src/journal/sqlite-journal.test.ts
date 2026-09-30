@@ -145,6 +145,55 @@ describe('SQLite journal', () => {
     assert.throws(() => openSqliteJournal({ path, originIfNew: 'live', ids }), JournalError);
   });
 
+  test('execution.start commands stored before model choice are migrated to choose no model', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    journal.close();
+    // What a journal of schema version 1 holds: the command as sent then, without model_ref.
+    const db = new DatabaseSync(path);
+    const starts = db
+      .prepare(
+        `SELECT position, envelope FROM events WHERE event_type IN ('command.accepted', 'command.rejected')
+           AND json_extract(envelope, '$.payload.command.command_type') = 'execution.start'`,
+      )
+      .all() as { position: number; envelope: string }[];
+    assert.ok(starts.length > 0);
+    for (const { position, envelope } of starts) {
+      const event = JSON.parse(envelope) as { payload: { command: { payload: object } } };
+      const { model_ref: _dropped, ...payload } = event.payload.command.payload as {
+        model_ref?: unknown;
+      };
+      event.payload.command.payload = payload;
+      db.prepare('UPDATE events SET envelope = ? WHERE position = ?').run(
+        JSON.stringify(event),
+        position,
+      );
+    }
+    db.exec('PRAGMA user_version = 1');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const events = [...reopened.readAll()].map((stored) => stored.event);
+    assert.deepEqual(
+      events.map((event) => event.event_id),
+      TRACE.map((event) => event.event_id),
+    );
+    const migrated = events.flatMap((event) =>
+      event.event_type === 'command.accepted' &&
+      event.payload.command.command_type === 'execution.start'
+        ? [event.payload.command.payload.model_ref]
+        : [],
+    );
+    assert.equal(migrated.length, starts.length);
+    assert.ok(migrated.every((modelRef) => modelRef === null));
+    reopened.close();
+    const check = new DatabaseSync(path);
+    const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
+    assert.equal(version.user_version, 2);
+    check.close();
+  });
+
   test('a stored event that no longer matches the contract is reported, not trusted', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });

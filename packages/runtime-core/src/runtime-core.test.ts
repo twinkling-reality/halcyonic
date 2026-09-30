@@ -47,7 +47,10 @@ describe('virtual time', () => {
 });
 
 describe('runtime adapter capabilities', () => {
-  const descriptor = (interrupt: boolean): RuntimeDescriptor => ({
+  const descriptor = (
+    interrupt: boolean,
+    modelChoice: RuntimeDescriptor['model_choice'] = 'none',
+  ): RuntimeDescriptor => ({
     runtime_id: 'test' as RuntimeId,
     kind: 'test',
     display_name: 'Test',
@@ -59,6 +62,7 @@ describe('runtime adapter capabilities', () => {
       respond_to_approval: false,
       interrupt,
     },
+    model_choice: modelChoice,
   });
   const base = {
     validateStartOptions: () => ({ ok: true }) as const,
@@ -81,5 +85,17 @@ describe('runtime adapter capabilities', () => {
     };
     assert.deepEqual(capabilityProblems(adapter), []);
     assert.deepEqual(capabilityProblems({ ...base, descriptor: descriptor(false) }), []);
+  });
+
+  test('a model choice without its list is reported, and one with it is consistent', () => {
+    assert.deepEqual(capabilityProblems({ ...base, descriptor: descriptor(false, 'listed') }), [
+      'model_choice listed is declared but listModels is not implemented',
+    ]);
+    const listing: RuntimeAdapter = {
+      ...base,
+      descriptor: descriptor(false, 'listed'),
+      listModels: async () => [],
+    };
+    assert.deepEqual(capabilityProblems(listing), []);
   });
 });
