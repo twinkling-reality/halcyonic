@@ -96,6 +96,9 @@ namespace Halcyonic.XR
         /// <summary>The height of the surface the characters stand on, in world space, or null while they stand in front of the person.</summary>
         public float? SurfaceHeight => onSurface ? arc.position.y : (float?)null;
 
+        /// <summary>The slot a workstream's character stands in, numbered from the person's left, or -1 without one.</summary>
+        public int SlotOf(string workstreamId) => lineup.SlotOf(workstreamId);
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();

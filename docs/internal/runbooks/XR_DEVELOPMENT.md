@@ -550,4 +550,50 @@ Where things are missing:
   track of your desk, so your agents stand in front of you."; once the anchor is tracked again,
   the characters return to the desk.
 
+### Sound checks on a Quest
+
+The Glaze cues ([XR_CLIENT.md](../architecture/XR_CLIENT.md), under "Sound"), through the headset's
+own speakers, seated at the desk, hands only. Set the headset's volume where you would keep it for
+hours. Follow the cues in the log, which names each cue, its place and its note, never a workstream:
+
+```bash
+adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
+```
+
+- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 79 clips rendered at 48000 Hz in
+  ... ms on a worker thread, 17.7 MiB of samples, ...`. Record the milliseconds and the rate: the
+  Quest 3's render time is not measured yet. `adb logcat -s VrApi` stays at 72 fps while it renders.
+- **Silence while work goes well.** With the demonstration, nothing sounds while characters work,
+  run tests or wait, except a soft double tap when work starts and four muted taps when a test run
+  starts. Nothing loops, and a character that keeps working stays silent.
+- **Needs you.** Two strikes rising, the second ringing on, from the character that rises and turns
+  to you. It is the loudest cue, yet not alarming.
+- **Finished.** The pair falling onto the character's own note, with nothing celebratory about it,
+  also when its tests failed.
+- **Your actions.** Open a character (pinch, or look and pinch): a chord unfolding in front of you.
+  Approve, and confirm: two notes struck together in front of you, then later, from the character,
+  the soft double tap as it works again. Collapse: the chord folding back. Instruct and Stop the
+  turn sound too; Stop's result is the character's own caught strike once the recording or the
+  runtime confirms it. An instruction typed on the system keyboard sounds its three light taps as
+  the keyboard closes and the app has focus again.
+- **Where each sounds from.** Turn your head: each character's cues come from where it stands, on
+  the desk and after "Show a virtual space" 2.4 m away, at about the same level in both. Characters
+  on the left sound from the left, and each keeps its own note while it is shown, the lowest on the
+  left when they first appear.
+- **Together.** At the demonstration's beginning two characters start at once: their cues come one
+  after the other, never on top of each other.
+- **Last known.** With the control plane live (`pnpm dev` and `adb reverse`), stop `pnpm dev`: once,
+  all six notes as if through a wall, from the whole stage; nothing more while it retries.
+  Restart it: nothing sounds for coming back. Changes the resumed session delivers sound, such as
+  work the restart left in an unknown state; a session that starts from a snapshot instead is
+  silent.
+- **Starting again and sleep.** When the demonstration starts again, and after the headset slept
+  and woke, nothing sounds for the jump back: no Last known, no burst of cues.
+- **Focus.** Open the system menu while a character is about to change: no cue plays while the menu
+  has focus, and none plays late after you close it. Open Virtual Display and work on the Mac: the
+  characters are silent while its windows have focus. Note whether that silence is what you want
+  while you work beside them ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- **Over time.** After an hour beside the characters: were the cues noticed, never annoying, and
+  distinct enough to tell which character spoke by its place and note?
+
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).
