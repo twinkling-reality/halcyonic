@@ -3218,6 +3218,129 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "execution_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "runtime.model.used"
+            },
+            "source": {
+              "$ref": "#/$defs/RuntimeSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "model_ref"
+              ],
+              "properties": {
+                "model_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "pattern": "^\\S+$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },
@@ -3553,7 +3676,8 @@
                 "workstream_id",
                 "runtime_id",
                 "instruction",
-                "options"
+                "options",
+                "model_ref"
               ],
               "properties": {
                 "workstream_id": {
@@ -3576,6 +3700,19 @@
                     "^.*$": {}
                   },
                   "maxProperties": 32
+                },
+                "model_ref": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "^\\S+$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "additionalProperties": false
@@ -3952,7 +4089,8 @@
         "kind",
         "display_name",
         "synthetic",
-        "capabilities"
+        "capabilities",
+        "model_choice"
       ],
       "properties": {
         "runtime_id": {
@@ -3973,6 +4111,9 @@
         },
         "capabilities": {
           "$ref": "#/$defs/RuntimeCapabilities"
+        },
+        "model_choice": {
+          "$ref": "#/$defs/ModelChoice"
         }
       },
       "additionalProperties": false
@@ -4004,6 +4145,92 @@
         }
       },
       "additionalProperties": false
+    },
+    "RuntimeModel": {
+      "type": "object",
+      "required": [
+        "model_ref",
+        "display_name",
+        "served",
+        "tool_calling",
+        "context_tokens"
+      ],
+      "properties": {
+        "model_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^\\S+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "served": {
+          "$ref": "#/$defs/ModelServed"
+        },
+        "tool_calling": {
+          "$ref": "#/$defs/ModelToolCalling"
+        },
+        "context_tokens": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ModelChoice": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "none"
+        },
+        {
+          "type": "string",
+          "const": "listed"
+        }
+      ]
+    },
+    "ModelServed": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "this_mac"
+        },
+        {
+          "type": "string",
+          "const": "remote"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "ModelToolCalling": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "declared"
+        },
+        {
+          "type": "string",
+          "const": "not_declared"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
     },
     "JournalInfo": {
       "type": "object",
@@ -4399,6 +4626,7 @@
         "project_id",
         "runtime",
         "native_id",
+        "model_ref",
         "instruction",
         "status",
         "status_reason",
@@ -4433,6 +4661,19 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^\\S+$"
             },
             {
               "type": "null"
@@ -5110,6 +5351,64 @@
         }
       },
       "additionalProperties": false
+    },
+    "RuntimeModelsResponse": {
+      "type": "object",
+      "required": [
+        "runtime_id",
+        "result"
+      ],
+      "properties": {
+        "runtime_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "result": {
+          "$ref": "#/$defs/RuntimeModelsResult"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RuntimeModelsResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "models"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RuntimeModel"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "EventsResponse": {
       "type": "object",

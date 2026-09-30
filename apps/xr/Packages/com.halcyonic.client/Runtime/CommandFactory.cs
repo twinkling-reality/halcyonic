@@ -30,11 +30,18 @@ namespace Halcyonic.Client
                 Payload = new WorkstreamCreatePayload { ProjectId = projectId, Title = title, Objective = objective },
             });
 
+        /// <summary>
+        /// Starts work on a runtime. <paramref name="modelRef"/> is a model's reference exactly as the
+        /// runtime's own list gave it (<see cref="ControlPlaneApi.GetRuntimeModelsAsync"/>), or null to
+        /// leave the choice to the runtime; only a runtime whose <c>model_choice</c> is <c>listed</c>
+        /// accepts one.
+        /// </summary>
         public ExecutionStartCommand StartExecution(
             string workstreamId,
             string runtimeId,
             string instruction,
-            IDictionary<string, JToken>? options = null) =>
+            IDictionary<string, JToken>? options = null,
+            string? modelRef = null) =>
             Stamp(new ExecutionStartCommand
             {
                 Payload = new ExecutionStartPayload
@@ -43,6 +50,7 @@ namespace Halcyonic.Client
                     RuntimeId = runtimeId,
                     Instruction = instruction,
                     Options = options == null ? new Dictionary<string, JToken>() : new Dictionary<string, JToken>(options),
+                    ModelRef = modelRef,
                 },
             });
 

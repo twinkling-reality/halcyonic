@@ -19,13 +19,17 @@ const FULL: RuntimeCapabilities = {
   interrupt: true,
 };
 
-function catalog(capabilities: RuntimeCapabilities = FULL): RuntimeCatalog {
+function catalog(
+  capabilities: RuntimeCapabilities = FULL,
+  modelChoice: RuntimeDescriptor['model_choice'] = 'none',
+): RuntimeCatalog {
   const descriptor: RuntimeDescriptor = {
     runtime_id: 'mock' as RuntimeId,
     kind: 'mock',
     display_name: 'Mock',
     synthetic: true,
     capabilities,
+    model_choice: modelChoice,
   };
   return { get: (id) => (id === 'mock' ? descriptor : undefined) };
 }
@@ -81,6 +85,7 @@ function setup() {
         runtime_id: runtimeId as RuntimeId,
         instruction: 'Go.',
         options: {},
+        model_ref: null,
       },
     }),
   };
@@ -94,6 +99,24 @@ describe('command admission', () => {
     assert.equal(admission.admitted, true);
     assert.equal(admission.admitted && admission.policy, 'low_consequence');
     assert.equal(admission.scope.workstream_id, workstream.workstreamId);
+  });
+
+  test('a chosen model is admitted only for a runtime that lists its models', () => {
+    const { projection, commands, workstream } = setup();
+    const start = commands.start(workstream.workstreamId);
+    const choosing = {
+      ...start,
+      payload: { ...(start.payload as object), model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' },
+    } as typeof start;
+    const refused = admitCommand(choosing, projection, catalog());
+    assert.deepEqual(refused.admitted ? null : refused.rejection, {
+      code: 'capability_unsupported',
+      message: 'Runtime mock does not offer a choice of model.',
+    });
+    const admitted = admitCommand(choosing, projection, catalog(FULL, 'listed'));
+    assert.equal(admitted.admitted, true);
+    // Whether the model is still listed is the runtime's to check, at the start itself.
+    assert.equal(admitCommand(start, projection, catalog(FULL, 'listed')).admitted, true);
   });
 
   test('unknown targets and runtimes are rejected with the scope that did resolve', () => {

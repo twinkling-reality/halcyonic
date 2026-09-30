@@ -62,6 +62,8 @@ export interface TestControlPlaneOptions {
   readonly understanding?: UnderstandingSource;
   /** Defaults to Seorak without a credential, so it is never sent a request. */
   readonly evaluation?: EvaluationSource;
+  /** How long a runtime has to list its models. */
+  readonly modelListTimeoutMs?: number;
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -132,6 +134,9 @@ export async function startTestServer(options: TestServerOptions = {}) {
     evaluation:
       options.evaluation ??
       seorakEvaluation({ credentialPath: join(dataDir, 'seorak-credential') }),
+    ...(options.modelListTimeoutMs !== undefined && {
+      modelListTimeoutMs: options.modelListTimeoutMs,
+    }),
   };
   const devices = new DeviceAccess({
     controlPlane: harness.controlPlane,

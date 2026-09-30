@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { isAbsolute } from 'node:path';
 import {
   type CanUseTool,
+  type ModelInfo,
   type Options,
   type PermissionMode,
   type PermissionResult,
@@ -23,6 +25,7 @@ import type {
   RuntimeDescriptor,
   RuntimeEventType,
   RuntimeId,
+  RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
 import {
@@ -38,7 +41,7 @@ import {
   type StartExecutionResult,
   systemClock,
 } from '@halcyonic/runtime-core';
-import { buildEnvironment } from './environment.ts';
+import { buildEnvironment, type ModelHost, modelHost } from './environment.ts';
 import { ProcessGuard, type StaleProcess } from './process-guard.ts';
 
 /**
@@ -54,7 +57,8 @@ export const CLAUDE_AGENT_CAPABILITIES: RuntimeCapabilities = {
 };
 
 /** The part of a running SDK query the adapter uses. The SDK's `Query` satisfies it. */
-export type QueryHandle = AsyncIterable<SDKMessage> & Pick<Query, 'interrupt' | 'close'>;
+export type QueryHandle = AsyncIterable<SDKMessage> &
+  Pick<Query, 'interrupt' | 'close' | 'supportedModels'>;
 
 /**
  * The shape of the SDK's `query()` as the adapter calls it: streaming input, explicit options.
@@ -119,6 +123,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   readonly #clock: Clock;
   readonly #query: QueryFunction;
   readonly #guard: ProcessGuard;
+  /** Who serves Claude Code's models in this environment, and where. */
+  readonly #modelHost: ModelHost;
   readonly #sessions = new Map<ExecutionId, ClaudeSession>();
   #closed = false;
 
@@ -128,6 +134,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       options.environment ?? {},
     );
     this.#guard = new ProcessGuard(options.processRecordFile);
+    this.#modelHost = modelHost(this.#environment);
     this.#directoryPolicy = options.directoryPolicy;
     this.#executable = options.pathToClaudeCodeExecutable;
     this.#clock = options.clock ?? systemClock;
@@ -138,6 +145,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       display_name: 'Claude Agent',
       synthetic: false,
       capabilities: CLAUDE_AGENT_CAPABILITIES,
+      model_choice: 'listed',
     };
   }
 
@@ -146,9 +154,51 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     return this.#guard.watchdogPid;
   }
 
-  validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy);
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
     return parsed.ok ? { ok: true } : parsed;
+  }
+
+  /**
+   * The models Claude Code offers, from the Agent SDK's `supportedModels()`, which answers once a
+   * Claude Code process has started. The process gets no prompt and is closed at once; it runs
+   * guarded like any other. Each model is named by the concrete model it resolves to where the SDK
+   * says, which is also how Claude Code reports the model a session uses.
+   */
+  async listModels(): Promise<readonly RuntimeModel[]> {
+    if (this.#closed) throw closedError();
+    const input = new InputQueue();
+    let handle: QueryHandle;
+    try {
+      const label = randomUUID();
+      handle = this.#query({
+        prompt: input,
+        options: {
+          cwd: tmpdir(),
+          env: { ...this.#environment },
+          spawnClaudeCodeProcess: (options) => this.#guard.spawn(options, label),
+          systemPrompt: { type: 'preset', preset: 'claude_code' },
+          ...(this.#executable !== undefined && { pathToClaudeCodeExecutable: this.#executable }),
+        },
+      });
+    } catch (error) {
+      throw new RuntimeActionError(
+        'runtime_start_failed',
+        clip(errorText(error), 2000) ?? 'The SDK refused to start Claude Code.',
+      );
+    }
+    try {
+      return toRuntimeModels(await handle.supportedModels(), this.#modelHost);
+    } catch (error) {
+      throw new RuntimeActionError(
+        'runtime_unavailable',
+        clip(`Claude Code could not list its models: ${errorText(error)}`, 2000) ??
+          'Claude Code could not list its models.',
+      );
+    } finally {
+      input.end();
+      handle.close();
+    }
   }
 
   /**
@@ -163,8 +213,18 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closed) throw closedError();
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    // A chosen model is checked against a fresh list before a session is launched for it.
+    if (request.model_ref !== null) {
+      const listed = await this.listModels();
+      if (!listed.some((model) => model.model_ref === request.model_ref)) {
+        throw new RuntimeActionError(
+          'model_unavailable',
+          `Claude Code does not list the model ${request.model_ref}.`,
+        );
+      }
+    }
     const executionId = request.execution.execution_id;
     if (this.#sessions.has(executionId)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
@@ -255,6 +315,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
 function parseStartOptions(
   options: RuntimeOptions,
   directoryPolicy: DirectoryPolicy,
+  modelRef: string | null = null,
 ):
   | { readonly ok: true; readonly value: StartOptions }
   | { readonly ok: false; readonly message: string } {
@@ -274,11 +335,20 @@ function parseStartOptions(
   if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
     return invalid('Option "model" must be a Claude model name or id.');
   }
+  if (modelRef !== null) {
+    if (model !== undefined) {
+      return invalid(
+        'Choose the model either with model_ref or with the "model" option, not both.',
+      );
+    }
+    if (!MODEL_PATTERN.test(modelRef))
+      return invalid(`${modelRef} is not a model Claude Code lists.`);
+  }
   const permissionMode = PERMISSION_MODES.find((mode) => mode === permission_mode);
   if (permission_mode !== undefined && permissionMode === undefined) {
     return invalid(`Option "permission_mode" must be one of ${PERMISSION_MODES.join(', ')}.`);
   }
-  return { ok: true, value: { cwd: allowed.directory, model, permissionMode } };
+  return { ok: true, value: { cwd: allowed.directory, model: modelRef ?? model, permissionMode } };
 }
 
 function invalid(message: string): { readonly ok: false; readonly message: string } {
@@ -295,6 +365,30 @@ function isDirectory(path: string): boolean {
 
 function closedError(): RuntimeActionError {
   return new RuntimeActionError('runtime_closed', 'The Claude Agent runtime is closed.');
+}
+
+/**
+ * Claude Code's models as the contract describes them (ADR 0016). Anthropic or a cloud provider
+ * serves every one, so all are remote. The SDK's list says nothing about tools. A row whose alias
+ * resolves to a model already listed is not listed twice.
+ */
+export function toRuntimeModels(models: readonly ModelInfo[], host: ModelHost): RuntimeModel[] {
+  const listed = new Map<string, RuntimeModel>();
+  for (const model of models) {
+    const modelRef = model.resolvedModel ?? model.value;
+    if (typeof modelRef !== 'string' || !MODEL_PATTERN.test(modelRef) || listed.has(modelRef)) {
+      continue;
+    }
+    const name = clip(model.displayName, 180) ?? modelRef;
+    listed.set(modelRef, {
+      model_ref: modelRef,
+      display_name: `${name} (${host.name})`,
+      served: host.served,
+      tool_calling: 'unknown',
+      context_tokens: null,
+    });
+  }
+  return [...listed.values()];
 }
 
 interface Turn {
@@ -338,6 +432,9 @@ class ClaudeSession {
   #nativeId: string | null = null;
   #state: 'open' | 'lost' | 'closed' = 'open';
   #sequence = 0;
+  /** The model Claude Code last reported for the session, and how many times it reported one. */
+  #model: string | null = null;
+  #modelReports = 0;
 
   constructor(id: string, emit: ObservationSink, clock: Clock) {
     this.id = id;
@@ -504,6 +601,7 @@ class ClaudeSession {
       case 'system':
         if (message.subtype === 'init') {
           this.#evidence(message.session_id, 'system.init', message.uuid);
+          this.#reportModel(message.model);
         }
         return;
       case 'assistant':
@@ -554,6 +652,20 @@ class ClaudeSession {
       `${turn.key}:started`,
     );
     turn.confirmation.resolve();
+  }
+
+  /** Reports the model Claude Code says the session uses, when it is new for the session. */
+  #reportModel(model: unknown): void {
+    if (typeof model !== 'string' || model === this.#model || !MODEL_PATTERN.test(model)) return;
+    if (this.#nativeId === null) return;
+    this.#model = model;
+    this.#modelReports += 1;
+    this.#emit(
+      'runtime.model.used',
+      { model_ref: model },
+      observed('system.init'),
+      `model:${this.#modelReports}`,
+    );
   }
 
   #assistant(message: SDKAssistantMessage): void {

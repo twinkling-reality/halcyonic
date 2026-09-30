@@ -79,6 +79,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.agent_message` | execution | runtime | Agent text (`reported`) |
 | `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome |
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
+| `runtime.model.used` | execution | runtime | The model the runtime says the execution runs on (`observed`), by the `model_ref` of the runtime's list; reported when it starts and whenever it changes |
 | `device.paired` | none | control plane | A device proved it saw the pairing code; carries its id, its self-declared label, the SHA-256 of its credential and of the certificate it pinned ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)) |
 | `device.revoked` | none | control plane | The device's credential is no longer accepted; carries who revoked it |
 
@@ -117,16 +118,24 @@ To change a contract:
 - Envelope, command and realtime protocol versions are independent integers.
 - The journal schema is versioned by `PRAGMA user_version` with forward-only migrations, each in
   its own transaction. A journal written by a newer build is refused rather than misread.
-- Schema 2 recorded no change to the tables: command events gained `principal`. Stored events are
-  never rewritten; a command event journaled before it reads with a null principal, and schema 2
-  makes an older build refuse the journal instead of failing on the newer events.
+- Migration 2 gives every stored `execution.start` command, in `command.accepted` and
+  `command.rejected`, the `model_ref: null` its contract gained, which is what it meant; no
+  version changed, because no client in the field sent the command
+  ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
+- Migration 3 gives every stored `command.accepted` and `command.rejected` the `principal: null`
+  its contract gained: who sent a command journaled before principals were recorded is not known
+  ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)). A build from before
+  either migration refuses a journal a newer one has opened.
 - Until there are external users, breaking changes are acceptable when coordinated: migrate
   fixtures, the journal schema, generated bindings and documentation together.
 
 ## What is not journaled
 
 Conclusions from Salidium and Seorak are read through on request and never journaled or replayed
-([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)).
+([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)). Neither is the list of
+models a runtime offers, which changes whenever a model is pulled, removed or configured; only the
+choice, in the `execution.start` command, and the model the runtime reports using are journaled
+([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 
 ## Traces
 

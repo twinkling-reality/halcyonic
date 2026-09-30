@@ -203,7 +203,10 @@ export class CommandService {
     const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
     if (!admission.admitted || command.command_type !== 'execution.start') return admission;
     const adapter = this.#deps.registry.adapter(command.payload.runtime_id);
-    const options = adapter?.validateStartOptions(command.payload.options);
+    const options = adapter?.validateStartOptions(
+      command.payload.options,
+      command.payload.model_ref,
+    );
     if (options === undefined || options.ok) return admission;
     return {
       admitted: false,
@@ -288,6 +291,7 @@ export class CommandService {
               execution,
               instruction: command.payload.instruction,
               options: command.payload.options,
+              model_ref: command.payload.model_ref,
               emit,
             }),
           {

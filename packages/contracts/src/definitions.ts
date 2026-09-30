@@ -6,6 +6,8 @@ import {
   EventsResponse,
   HealthResponse,
   ProjectsResponse,
+  RuntimeModelsResponse,
+  RuntimeModelsResult,
   RuntimesResponse,
   UnderstandingResponse,
   ValidationIssueSchema,
@@ -73,7 +75,15 @@ import {
   ResumeCursor,
   ServerMessage,
 } from './realtime.ts';
-import { RuntimeCapabilities, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
+import {
+  ModelChoice,
+  ModelServed,
+  ModelToolCalling,
+  RuntimeCapabilities,
+  RuntimeDescriptor,
+  RuntimeModel,
+  RuntimeRef,
+} from './runtime.ts';
 import {
   Understanding,
   UnderstandingEpistemic,
@@ -125,6 +135,10 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeRef,
+  RuntimeModel,
+  ModelChoice,
+  ModelServed,
+  ModelToolCalling,
   JournalInfo,
   Attention,
   AttentionReason,
@@ -148,6 +162,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   ProjectsResponse,
   WorkstreamsResponse,
   RuntimesResponse,
+  RuntimeModelsResponse,
+  RuntimeModelsResult,
   EventsResponse,
   CommandSubmissionResponse,
   ErrorResponse,

@@ -161,9 +161,9 @@ headset can do what its owner could over that network until the owner revokes it
   the certificate) and `device.revoked` (device id, who revoked it) are journaled through
   `Recorder`; the device registry is part of the projection. `command.accepted` and
   `command.rejected` record the principal (`local`, `device` with its id, or null for commands
-  from inside the control plane and for commands recorded before principals existed, which read
-  as null). Device events are not sent to realtime clients, and a paired device does not read
-  them from the event history.
+  from inside the control plane and for commands recorded before principals existed, which journal
+  migration 3 gives a null principal). Device events are not sent to realtime clients, and a
+  paired device does not read them from the event history.
 - **Headset.** The client core holds the SRP client, the pinned transports and the pairing
   client, with no engine reference; `Halcyonic.XR.Pairing` adds a small pairing panel at runtime,
   in development builds.
@@ -185,7 +185,8 @@ security.
 - Halcyonic now carries a WebSocket upgrade, an HTTP/1.1 client and an SRP implementation of its
   own, each tested against a real control plane and SRP's published vectors.
 - Every command event gained `principal`, so the traces and the recorded demonstration were
-  recorded again; journals written before this change read as before.
+  recorded again, and a journal written before this change is migrated when it opens, after
+  which an older build refuses it.
 - Still to verify on a Quest 3: the pinned transports under IL2CPP and UnityTLS, reaching the Mac
   over Wi-Fi, and the pairing panel with the system keyboard.
 - Revisit for a remote relay, for more than one person per control plane, for mDNS, for the
