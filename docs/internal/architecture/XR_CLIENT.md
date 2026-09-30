@@ -583,11 +583,14 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   the choice. An unavailable or empty list leaves Start unavailable, and the person can choose the
   runtime again to retry. A runtime that does not list models uses its own choice. Start opens a
   paged review of the full project, derived workstream title, runtime, model choice and objective;
-  the button that sends the request appears only on the last page. The panel then sends
+  the button that sends the request appears only on the last page. The review spells every
+  non-ASCII character and control character as an ASCII `\u{HEX}` code point because the bundled
+  headset font cannot draw every glyph. A typed backslash is doubled, so literal marker text
+  cannot be mistaken for an encoded character. The original text is sent. The panel then sends
   `project.create` if needed, `workstream.create`, and `execution.start` in order. It waits for each
-  command's completed record before sending the next. A rejected or failed command stops the sequence
-  and says why. A completed
-  command with an unexpected result leaves the request guarded for inspection. It looks
+  command's completed record before sending the next. A rejected or failed command stops the
+  sequence and says why. A completed command with an unexpected result leaves the request guarded
+  for inspection. It looks
   for a projected command result before treating a missing acknowledgement as unknown. If the
   outcome remains unknown, the command id is kept in device storage and blocks another start even
   after the panel closes or the app restarts. The person can clear it only through a separate two

@@ -49,21 +49,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 label.color = Color.white;
                 label.sortingOrder = 12;
 
-                var review = new NewWorkReview(new string('P', 200), "Workstream", "OpenCode", "Local model",
-                    "on this Mac, tools declared", "ollama/local:latest", new string('W', 4000));
-                foreach (var page in review.Pages)
+                var reviews = new[]
+                {
+                    new NewWorkReview(new string('P', 200), "Workstream", "OpenCode", "Local model",
+                        "on this Mac, tools declared", "ollama/local:latest", new string('W', 4000)),
+                    new NewWorkReview("Project", "Workstream", "OpenCode", "Local model",
+                        "on this Mac, tools declared", "ollama/local:latest", new string('W', 24) + " 中かな🙂 \\u{4E2D}"),
+                };
+                foreach (var page in reviews.SelectMany(review => review.Pages))
                 {
                     foreach (var line in page.Split('\n'))
                     {
                         if (line.Length > NewWorkReview.LineCharacters)
                             throw new InvalidOperationException("A review line exceeded its character limit.");
-                        if (label.GetPreferredValues(line).x > NewWorkPanel.ReviewWidth)
+                        if (label.GetPreferredValues(line.Replace("\\", "\\\\")).x > NewWorkPanel.ReviewWidth)
                             throw new InvalidOperationException("A review line draws past the panel: " + line);
                     }
-                    if (label.GetPreferredValues(page).y > NewWorkPanel.ReviewHeight)
+                    if (label.GetPreferredValues(page.Replace("\\", "\\\\")).y > NewWorkPanel.ReviewHeight)
                         throw new InvalidOperationException("A review page is too tall for the panel.");
                 }
-                label.text = review.Pages.First(page => page.Contains(new string('W', NewWorkReview.LineCharacters)));
+                label.text = reviews[1].Pages.First(page => page.Contains(new string('W', NewWorkReview.LineCharacters)))
+                    .Replace("\\", "\\\\");
                 label.ForceMeshUpdate();
                 Button(root.transform, "Previous part", -0.20f, -0.34f);
                 Button(root.transform, "Next part", 0.20f, -0.34f);

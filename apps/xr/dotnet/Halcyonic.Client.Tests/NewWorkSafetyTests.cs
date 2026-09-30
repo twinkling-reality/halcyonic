@@ -37,14 +37,26 @@ public class NewWorkSafetyTests
     }
 
     [Test]
-    public void ReviewMakesLineBreaksAndInvisibleTextVisible()
+    public void ReviewShowsUnicodeAsCodePointsAndDistinguishesTypedMarkers()
     {
         var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref",
-            "First\nsecond\tthird\u202E");
-        var shown = string.Concat(review.Pages);
-        Assert.That(shown, Does.Contain("‹line break›"));
-        Assert.That(shown, Does.Contain("‹tab›"));
-        Assert.That(shown, Does.Contain("‹U+202E›"));
+            "中かな🙂 \\u{4E2D}\nsecond\tthird\u202E");
+        var shown = string.Concat(review.Pages).Replace("\n", "");
+        Assert.That(shown, Does.Contain("\\u{4E2D}\\u{304B}\\u{306A}\\u{1F642}"));
+        Assert.That(shown, Does.Contain("\\\\u{4E2D}"));
+        Assert.That(shown, Does.Contain("\\u{A}second\\u{9}third\\u{202E}"));
+        Assert.That(shown.All(value => value >= 0x20 && value <= 0x7E), Is.True);
+        Assert.That(review.Pages.All(page => page.Split('\n').All(line => line.Length <= 24)), Is.True);
+    }
+
+    [Test]
+    public void ReviewKeepsEscapedCharactersTogetherAtLineBoundaries()
+    {
+        var review = new NewWorkReview(new string('A', 14) + "\\中", "Title", "Runtime", "Model",
+            "unknown", "ref", "Objective");
+        var lines = review.Pages.SelectMany(page => page.Split('\n')).ToArray();
+        Assert.That(lines, Does.Contain("\\\\\\u{4E2D}"));
+        Assert.That(lines.Any(line => line.EndsWith("\\") && !line.EndsWith("\\\\")), Is.False);
     }
 
     [Test]
