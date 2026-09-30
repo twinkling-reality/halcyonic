@@ -215,9 +215,10 @@ So ([XR_CLIENT.md](XR_CLIENT.md), "Words"):
   and the pairing line go through the same code but are not rendered by it.
 
 Not covered: characters that only look alike, such as a Cyrillic letter for a Latin one or a
-no-break space for a space, show as they look. And the client shows a request as the control plane
-recorded it, which the contract limits to 2000 characters: the Codex, OpenCode and Claude Code
-adapters end a longer one with "[truncated]"
+no-break space for a space, show as they look. The client shows an approval summary as the control
+plane recorded it, which the contract limits to 2000 characters. The Codex, OpenCode and Claude
+Code adapters end a summary cut to that limit with "[truncated]". A summary may select one field
+from the runtime's request and omit others without a truncation mark
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
 ## Not yet built
