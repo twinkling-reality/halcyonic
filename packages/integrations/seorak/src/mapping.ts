@@ -95,7 +95,8 @@ export function toEvaluation(
 ): Evaluation {
   const measure = outcome.outcome;
   return {
-    source: { system: 'seorak', api_version: 'v1' },
+    // Read from Seorak. The recorded demonstration marks its stand-in's answers synthetic.
+    source: { system: 'seorak', synthetic: false, api_version: 'v1' },
     cost: { ...read(resolved), estimated_usd: costUsd, note: ESTIMATED_COST_NOTE },
     outcome: {
       ...read(outcome),

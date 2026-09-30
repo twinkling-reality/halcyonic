@@ -17,6 +17,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | The demonstration holds at its approval until someone answers. Should it continue on its own after a while, with an answer the recording names as its own, for a judge who never opens the character? | A judge who does not find the workspace sees the story stop at "Needs you" until the headset sleeps | The owner, after watching someone new to the app use it on a headset |
 | Do judges read the demonstration's watch-only characters as a limit of the recording rather than of the product? Only one of its three workstreams can be directed ([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)). | A judge who tries a watched character first finds no action | Headset sessions with people new to the app |
 | Would the competition accept an entry that depends on a service the entrant runs? The FAQ speaks only of devices. | Decides whether a hosted control plane is an option for judges at all | A written answer from the organizers |
+| Should the characters' cues play while a system window, Virtual Display's above all, has input focus? No cue starts without focus today, and in the second headset session Halcyonic stayed unfocused while Virtual Display was in use, so the characters are silent exactly while the person works on their Mac beside them. Meta's focus requirement asks apps to hide hands and ignore their input, not to mute ([meta-xr-platform.md](../validation/meta-xr-platform.md)). | Hearing "Needs you" at the side while coding is what the sound is for ([XR_CLIENT.md](../architecture/XR_CLIENT.md), "Sound") | The owner, after a headset session with Virtual Display: whether cues then help or intrude |
+| Should "Needs you" repeat once, softer, when nobody has looked at the character for two minutes, as the soundbook proposed? It plays once today. | An approval nobody noticed stalls the work | Hardware user sessions |
 
 ## Integrations
 
@@ -38,6 +40,8 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Question | Why it matters | Resolved by |
 | --- | --- | --- |
 | Does a sustained WebSocket survive Quest focus changes, sleep and headset removal? | Multitasking is a kill condition | Hardware validation record |
+| Does a recenter with the palm gesture come with an input focus change? The stage in front of the person comes to the person after a recenter only when no focus change comes with it, since the reference space changes that come with focus changes are ignored ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)). | A person who recenters to find the stage could find it stays where it was | The recenter check in the milestone 3 runbook |
+| With system windows open over the app, can a person return input focus to Halcyonic with hands by pinching at its content, as Meta's requirements describe, also after minimizing the windows? And do the windows, drawn over the app, hide the workspace where they overlap it? | In the second headset session Halcyonic stayed unfocused until `adb` brought it to the front | The Virtual Display checks in the milestone 3 runbook |
 | Does `System.Net.WebSockets.ClientWebSocket` work on Quest (Android, IL2CPP), including `wss://`? | The XR transport | First-week device test; keep a native fallback |
 | Microphone behavior during multitasking and media playback | Voice interaction | Hardware validation |
 | How do XR clients find the control plane on a LAN? | Local mode | Design plus hardware test |

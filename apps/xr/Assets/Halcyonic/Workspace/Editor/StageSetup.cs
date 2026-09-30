@@ -15,9 +15,10 @@ namespace Halcyonic.XR.Workspace.Editor
     /// <summary>
     /// Sets up hand and gaze interaction in Stage.unity: Meta's comprehensive interaction rig, added
     /// the way the Interaction SDK's "Interactions Rig" building block adds it, then adapted to the
-    /// stage, and the SDK's gaze, as its gaze quick action builds it. Running it again changes
-    /// nothing. In the editor: Halcyonic > Set Up Stage Interaction. In batch mode, with the editor
-    /// closed, see docs/internal/runbooks/XR_DEVELOPMENT.md.
+    /// stage (no locomotion, hands hidden without focus, hand rays for a seated person), and the
+    /// SDK's gaze, as its gaze quick action builds it. Running it again changes nothing. In the
+    /// editor: Halcyonic > Set Up Stage Interaction. In batch mode, with the editor closed, see
+    /// docs/internal/runbooks/XR_DEVELOPMENT.md.
     /// </summary>
     public static class StageSetup
     {
@@ -71,6 +72,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             GuardFocus(rig);
             AddGaze(rig);
+            SeatHandRays(rig);
             var stage = UnityEngine.Object.FindAnyObjectByType<CharacterStage>()
                 ?? throw new InvalidOperationException(ScenePath + " has no character stage.");
             if (stage.GetComponent<WorkspaceDirector>() == null) stage.gameObject.AddComponent<WorkspaceDirector>();
@@ -151,6 +153,57 @@ namespace Halcyonic.XR.Workspace.Editor
             var serialized = new SerializedObject(eyeGaze);
             serialized.FindProperty("_emulateGazeWithCameraPose").boolValue = true;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// Gives each hand ray of the rig a <see cref="SeatedHandRay"/> in place of the SDK's
+        /// <see cref="HandPointerPose"/>, so a seated person points from a relaxed posture. In the
+        /// SDK's hand ray the ray interactor is on while its active state group says so: the pointer
+        /// pose is valid (the headset's shoulder-to-hand ray) or it holds a selection. The seated ray
+        /// takes the pointer pose's place in that group and moves the same transform, the ray's
+        /// origin; the SDK's pointer pose is disabled so it no longer moves it.
+        /// </summary>
+        private static void SeatHandRays(GameObject rig)
+        {
+            var hmd = rig.GetComponentInChildren<Hmd>(true)
+                ?? throw new InvalidOperationException("The interaction rig has no HMD.");
+            var seated = 0;
+            foreach (var interactor in rig.GetComponentsInChildren<RayInteractor>(true))
+            {
+                // A controller's ray has no hand.
+                if (!interactor.TryGetComponent<HandRef>(out var handRef)) continue;
+                var pointer = interactor.GetComponentInChildren<HandPointerPose>(true)
+                    ?? throw new InvalidOperationException(interactor.name + " has no hand pointer pose:\n" + Describe(interactor.transform, 0, 6));
+                var group = interactor.GetComponent<ActiveStateGroup>()
+                    ?? throw new InvalidOperationException(interactor.name + " has no active state group.");
+                var hand = new SerializedObject(handRef).FindProperty("_hand").objectReferenceValue
+                    ?? throw new InvalidOperationException(interactor.name + " is not linked to a hand.");
+
+                var ray = pointer.GetComponent<SeatedHandRay>() ?? pointer.gameObject.AddComponent<SeatedHandRay>();
+                var serializedRay = new SerializedObject(ray);
+                serializedRay.FindProperty("_hand").objectReferenceValue = hand;
+                serializedRay.FindProperty("_hmd").objectReferenceValue = hmd;
+                serializedRay.ApplyModifiedPropertiesWithoutUndo();
+
+                var serializedPointer = new SerializedObject(pointer);
+                serializedPointer.FindProperty("m_Enabled").boolValue = false;
+                serializedPointer.ApplyModifiedPropertiesWithoutUndo();
+
+                var serializedGroup = new SerializedObject(group);
+                var states = serializedGroup.FindProperty("_activeStates");
+                var replaced = false;
+                for (var index = 0; index < states.arraySize; index++)
+                {
+                    var state = states.GetArrayElementAtIndex(index);
+                    if (state.objectReferenceValue != pointer && state.objectReferenceValue != ray) continue;
+                    state.objectReferenceValue = ray;
+                    replaced = true;
+                }
+                if (!replaced) throw new InvalidOperationException(interactor.name + "'s active states do not include its pointer pose.");
+                serializedGroup.ApplyModifiedPropertiesWithoutUndo();
+                seated++;
+            }
+            if (seated != 2) throw new InvalidOperationException("Expected two hand rays in the interaction rig, found " + seated + ":\n" + Describe(rig.transform, 0, 12));
         }
 
         private static GameObject? Find(GameObject root, string name) => FindAll(root, name).FirstOrDefault();

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Halcyonic.Contracts;
 using Newtonsoft.Json.Linq;
@@ -156,6 +157,16 @@ public class LiveControlPlaneTests
         Assert.That(((UnavailableEvaluation)evaluation.Result).Reason.Code, Is.EqualTo("runtime_not_observed"));
         Json.AssertRoundTrips<EvaluationResponse>(
             await raw.GetStringAsync(new Uri(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), "api/executions/" + executionId + "/evaluation")));
+
+        // What the workspace's two sections say about it, read through the same interface as the demonstration's answers.
+        IIntelligenceReader reader = history;
+        var read = await reader.ReadUnderstandingAsync(executionId, CancellationToken.None);
+        Assert.That(read.Recorded, Is.False);
+        Assert.That(UnderstandingPresenter.Present(executionId, read, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, 7).Provenance,
+            Is.EqualTo("Understanding unavailable: Salidium does not observe sessions of the mock runtime."));
+        var measured = await reader.ReadEvaluationAsync(executionId, CancellationToken.None);
+        Assert.That(EvaluationPresenter.Present(executionId, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc).Provenance,
+            Is.EqualTo("Evaluation unavailable: Seorak does not observe sessions of the mock runtime."));
 
         var position = session.State.Position;
         connections.Last().Abort();

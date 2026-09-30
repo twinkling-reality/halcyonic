@@ -172,6 +172,7 @@ describe('mapping a Salidium report onto an understanding', () => {
   test('names the Salidium instance, contract and evidence the conclusions came from', () => {
     assert.deepEqual(understand(fixture('session-report-verified')).source, {
       system: 'salidium',
+      synthetic: false,
       version: '0.5.0',
       contract: { name: 'salidium.consumer', major: 1, minor: 0 },
       instance_id: '5f0e2b7c9a1d4e3f8b6a0c2d4e6f8a1b',

@@ -5551,6 +5551,7 @@
       "type": "object",
       "required": [
         "system",
+        "synthetic",
         "version",
         "contract",
         "instance_id",
@@ -5561,6 +5562,9 @@
         "system": {
           "type": "string",
           "const": "salidium"
+        },
+        "synthetic": {
+          "type": "boolean"
         },
         "version": {
           "type": "string",
@@ -6560,12 +6564,16 @@
       "type": "object",
       "required": [
         "system",
+        "synthetic",
         "api_version"
       ],
       "properties": {
         "system": {
           "type": "string",
           "const": "seorak"
+        },
+        "synthetic": {
+          "type": "boolean"
         },
         "api_version": {
           "type": "string",

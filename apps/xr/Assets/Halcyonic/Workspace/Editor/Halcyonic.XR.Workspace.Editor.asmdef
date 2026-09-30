@@ -2,12 +2,15 @@
   "name": "Halcyonic.XR.Workspace.Editor",
   "rootNamespace": "Halcyonic.XR.Workspace.Editor",
   "references": [
+    "Halcyonic.Client",
+    "Halcyonic.Contracts",
     "Halcyonic.XR",
     "Halcyonic.XR.Workspace",
     "Oculus.VR",
     "Oculus.Interaction",
     "Oculus.Interaction.OVR",
-    "Oculus.Interaction.Editor"
+    "Oculus.Interaction.Editor",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],

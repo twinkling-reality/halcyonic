@@ -6,9 +6,12 @@ import {
   type CommandEnvelope,
   compileValidator,
   type EntityChanges,
+  ESTIMATED_COST_NOTE,
+  EvaluationResponse,
   type EventEnvelope,
   type RuntimeDescriptor,
   ServerMessage,
+  UnderstandingResponse,
 } from '@halcyonic/contracts';
 import { admitCommand, Projection } from '@halcyonic/domain';
 import { loadScenarios } from '@halcyonic/integration-mock';
@@ -26,16 +29,96 @@ import {
   DIRECTED_RUNTIME_NAME,
   demonstrationPrologue,
   END_HOLD_MS,
+  type RecordedAnswers,
   recordDemonstration,
   WATCHED_RUNTIME_ID,
   WATCHED_RUNTIME_NAME,
 } from './demonstration.ts';
+import { SIMULATED_INSTANCE_ID, SIMULATED_VERSION } from './demonstration-sources.ts';
 
 const SCENARIOS = loadScenarios(fileURLToPath(DEMONSTRATION_SCENARIOS));
 const COMMITTED = readFileSync(DEMONSTRATION_FILE, 'utf8');
 const DEMONSTRATION = JSON.parse(COMMITTED) as Demonstration;
 const PROLOGUE = await demonstrationPrologue(SCENARIOS);
 const validateServerMessage = compileValidator(ServerMessage);
+const validateUnderstanding = compileValidator(UnderstandingResponse);
+const validateEvaluation = compileValidator(EvaluationResponse);
+
+/** Where the playback stands: the nodes on the way from the beginning, and how far each played. */
+type Point = readonly { readonly node: number; readonly played: number }[];
+
+/** Every point where an instant of the recording ends, on every path through the tree. */
+function points(): Point[] {
+  const found: Point[] = [];
+  const walk = (index: number, way: Point) => {
+    const node = DEMONSTRATION.nodes[index] as DemonstrationNode;
+    node.events.forEach(({ at_ms }, played) => {
+      const next = node.events[played + 1];
+      if (next === undefined || next.at_ms !== at_ms) {
+        found.push([...way, { node: index, played: played + 1 }]);
+      }
+    });
+    for (const { after, node: child } of node.answers) {
+      walk(child, [...way, { node: index, played: after }]);
+    }
+  };
+  walk(0, []);
+  return found;
+}
+
+/** The answer in force for an execution at a point: the latest recorded on the way there. */
+function inForce<T>(answers: RecordedAnswers<T>, executionId: string, point: Point): T | undefined {
+  for (let step = point.length - 1; step >= 0; step -= 1) {
+    const { node, played } = point[step] as Point[number];
+    const found = (answers[executionId] ?? []).filter(
+      (answer) => answer.node === node && answer.after <= played,
+    );
+    const latest = found.at(-1);
+    if (latest !== undefined) return latest.response;
+  }
+  return undefined;
+}
+
+/** The executions a client holds at a point, from the changes played on the way there. */
+function executionsAt(point: Point): string[] {
+  const ids = new Set<string>();
+  for (const { node, played } of point) {
+    const events = (DEMONSTRATION.nodes[node] as DemonstrationNode).events.slice(0, played);
+    for (const { message } of events) {
+      for (const execution of message.changes.executions) ids.add(execution.execution_id);
+    }
+  }
+  return [...ids];
+}
+
+/** The directed work's execution, which every path shares. */
+function directedExecution(): string {
+  const executions = DEMONSTRATION.nodes.flatMap((node) =>
+    node.events.flatMap(({ message }) => message.changes.executions),
+  );
+  const directed = executions.find(({ runtime }) => runtime.runtime_id === DIRECTED_RUNTIME_ID);
+  if (directed === undefined) throw new Error('no directed execution');
+  return directed.execution_id;
+}
+
+/** The understanding and evaluation in force for the directed work once a node has played. */
+function directedAt(way: Point) {
+  const executionId = directedExecution();
+  const understanding = inForce<UnderstandingResponse>(
+    DEMONSTRATION.understanding,
+    executionId,
+    way,
+  );
+  const evaluation = inForce<EvaluationResponse>(DEMONSTRATION.evaluation, executionId, way);
+  assert.equal(understanding?.result.availability, 'available');
+  assert.equal(evaluation?.result.availability, 'available');
+  if (understanding?.result.availability !== 'available') throw new Error('no understanding');
+  if (evaluation?.result.availability !== 'available') throw new Error('no evaluation');
+  return {
+    understanding: understanding.result.understanding,
+    evaluation: evaluation.result.evaluation,
+  };
+}
 
 /** One way through the tree: the nodes from the beginning, and the events played on the way. */
 interface Path {
@@ -350,6 +433,156 @@ describe('the XR client demonstration', () => {
     } finally {
       await server.stop();
     }
+  });
+
+  test('its understanding and evaluation answers are the stand-ins’, marked synthetic, as the REST contract says', () => {
+    const executions = new Set(points().flatMap(executionsAt));
+    assert.deepEqual(Object.keys(DEMONSTRATION.understanding).sort(), [...executions].sort());
+    assert.deepEqual(Object.keys(DEMONSTRATION.evaluation).sort(), [...executions].sort());
+    for (const [executionId, answers] of Object.entries(DEMONSTRATION.understanding)) {
+      for (const { response, read_at } of answers) {
+        assert.ok(validateUnderstanding(response).ok, executionId);
+        assert.equal(response.execution_id, executionId);
+        assert.ok(Date.parse(read_at) > 0);
+        if (response.result.availability !== 'available') assert.fail('only available answers');
+        const { source } = response.result.understanding;
+        assert.equal(source.synthetic, true, 'never taken for a real Salidium');
+        assert.equal(source.version, SIMULATED_VERSION);
+        assert.equal(source.instance_id, SIMULATED_INSTANCE_ID);
+      }
+    }
+    for (const [executionId, answers] of Object.entries(DEMONSTRATION.evaluation)) {
+      for (const { response } of answers) {
+        assert.ok(validateEvaluation(response).ok, executionId);
+        assert.equal(response.execution_id, executionId);
+        if (response.result.availability !== 'available') assert.fail('only available answers');
+        const { source, cost } = response.result.evaluation;
+        assert.deepEqual(source, { system: 'seorak', synthetic: true, api_version: 'v1' });
+        assert.equal(cost.note, ESTIMATED_COST_NOTE);
+      }
+    }
+  });
+
+  test('wherever the playback stands, each execution it shows has the answer the control plane gave there', () => {
+    let checked = 0;
+    for (const point of points()) {
+      for (const executionId of executionsAt(point)) {
+        const where = point.map(({ node, played }) => `${node}@${played}`).join(' > ');
+        assert.ok(inForce(DEMONSTRATION.understanding, executionId, point), where);
+        assert.ok(inForce(DEMONSTRATION.evaluation, executionId, point), where);
+        checked += 1;
+      }
+    }
+    assert.ok(checked > 100);
+    // An answer is recorded where it changed, never twice in a row on one path.
+    for (const answers of [DEMONSTRATION.understanding, DEMONSTRATION.evaluation]) {
+      for (const recorded of Object.values(answers)) {
+        for (const [index, answer] of recorded.entries()) {
+          const node = DEMONSTRATION.nodes[answer.node] as DemonstrationNode;
+          assert.ok(answer.after >= 1 && answer.after <= node.events.length);
+          const previous = recorded[index - 1];
+          if (previous?.node === answer.node) {
+            assert.ok(previous.after < answer.after);
+            assert.notDeepEqual(previous.response, answer.response);
+          }
+        }
+      }
+    }
+  });
+
+  test('the directed work reads as the story goes: waiting, then failing tests, then verified', () => {
+    const beginning = DEMONSTRATION.nodes[0] as DemonstrationNode;
+    const answer = (of: DemonstrationNode, kind: string) =>
+      of.answers.find(({ answer: { kind: candidate } }) => candidate === kind);
+    const approve = answer(beginning, 'approve');
+    if (approve === undefined) throw new Error('no approval');
+    const approved = DEMONSTRATION.nodes[approve.node] as DemonstrationNode;
+    const instruct = approved.answers.find(
+      ({ answer: { text } }) => text === DEMONSTRATION_PLAN.instructions.approve[0]?.text,
+    );
+    if (instruct === undefined) throw new Error('no instruction');
+    const instructed = DEMONSTRATION.nodes[instruct.node] as DemonstrationNode;
+
+    const atApproval = directedAt([{ node: 0, played: beginning.events.length }]);
+    assert.equal(atApproval.understanding.verdict.headline, 'Waiting for you');
+    assert.equal(atApproval.understanding.verdict.epistemic, 'observed');
+    assert.match(atApproval.understanding.waiting?.summary ?? '', /^Run make migrate/);
+    assert.equal(atApproval.understanding.latest_statement?.epistemic, 'reported');
+    assert.deepEqual(atApproval.understanding.verification.latest_by_method, []);
+    assert.equal(atApproval.evaluation.outcome.availability.state, 'unavailable');
+    assert.equal(atApproval.evaluation.outcome.availability.reason, 'not_yet_computed');
+    assert.equal(atApproval.evaluation.outcome.measure, null);
+    assert.deepEqual(atApproval.evaluation.verification.lens?.by_kind, []);
+    assert.ok(atApproval.evaluation.verification.lens?.empty_reason);
+
+    const failing = directedAt([
+      { node: 0, played: approve.after },
+      { node: approve.node, played: approved.events.length },
+    ]);
+    assert.equal(failing.understanding.verdict.headline, '1 test failing');
+    assert.equal(failing.understanding.verdict.tone, 'fail');
+    const run = failing.understanding.verification.latest_by_method[0];
+    assert.equal(run?.outcome, 'fail');
+    assert.deepEqual(
+      run?.exit,
+      { code: null, observation: 'inferred_failure' },
+      'no exit code was observed',
+    );
+    assert.equal(failing.understanding.explanation.status, 'generated');
+    assert.equal(failing.understanding.explanation.epistemic, 'explained');
+    const measure = failing.evaluation.outcome.measure;
+    assert.equal(measure?.uncommitted, null, 'unknown until the session ends, never zero');
+    assert.equal(measure?.line_survival, null, 'pending for three days');
+    assert.equal(measure?.error_count, 0, 'a measured zero');
+    assert.deepEqual(failing.evaluation.verification.lens?.by_kind, [
+      { label: 'test', runs: 1, passed: 0, pass_rate: 0 },
+    ]);
+
+    const verified = directedAt([
+      { node: 0, played: approve.after },
+      { node: approve.node, played: instruct.after },
+      { node: instruct.node, played: instructed.events.length },
+    ]);
+    assert.equal(verified.understanding.verdict.headline, '2 files changed, verified');
+    assert.equal(verified.understanding.verdict.epistemic, 'inferred');
+    assert.ok(
+      verified.understanding.changes.files.every(({ coverage }) => coverage.verified_after),
+    );
+    assert.deepEqual(verified.evaluation.verification.lens?.by_kind, [
+      { label: 'test', runs: 2, passed: 1, pass_rate: 0.5 },
+    ]);
+    assert.ok(
+      (verified.evaluation.cost.estimated_usd ?? 0) > (failing.evaluation.cost.estimated_usd ?? 0),
+      'the estimate grows with the tokens the session used',
+    );
+  });
+
+  test('its answers show every epistemic class the understanding source uses', () => {
+    const classes = new Set<string>();
+    const collect = (value: unknown): void => {
+      if (Array.isArray(value)) value.forEach(collect);
+      else if (value !== null && typeof value === 'object') {
+        for (const [key, inner] of Object.entries(value)) {
+          if (key === 'epistemic' && typeof inner === 'string') classes.add(inner);
+          else collect(inner);
+        }
+      }
+    };
+    for (const answers of Object.values(DEMONSTRATION.understanding)) {
+      for (const { response } of answers) {
+        if (response.result.availability !== 'available') continue;
+        const { explanation, ...claims } = response.result.understanding;
+        collect(claims);
+        if (explanation.status === 'generated') classes.add(explanation.epistemic);
+      }
+    }
+    assert.deepEqual([...classes].sort(), [
+      'explained',
+      'inferred',
+      'observed',
+      'planned',
+      'reported',
+    ]);
   });
 
   test('a plan that offers an instruction its scenario does not script records nothing', async () => {
