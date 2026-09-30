@@ -21,8 +21,8 @@ namespace Halcyonic.XR.Workspace
     /// is left free (<see cref="UsageLeftRoom"/>) for an optional Usage left glance added separately;
     /// the rail adds no floating control of its own. It keeps within about 18 degrees of where the
     /// person faced, clear of the room and pairing controls that rest 26 degrees to either side, and
-    /// it steps out of the way while the entry panel or a workspace is open, since those open where
-    /// it would be in view: one foreground surface at a time. Every button ignores input while the
+    /// it steps out of the way while the entry panel, a workspace or Usage left is open, since
+    /// those open where it would be in view: one foreground surface at a time. Every button ignores input while the
     /// app lacks focus. It stays where it was put, in front of the person when the app starts, and
     /// again when the stage moves onto or off a desk, or when Reset position is pressed.
     /// </remarks>
@@ -56,6 +56,7 @@ namespace Halcyonic.XR.Workspace
         private CharacterStage? stage;
         private WorkspaceDirector? director;
         private EntryPanel? entry;
+        private UsageLeftGlance? glance;
         private Transform root = null!;
         private PanelButton connect = null!;
         private PanelButton more = null!;
@@ -156,7 +157,8 @@ namespace Halcyonic.XR.Workspace
         {
             if (!placed || surface().HasValue != placedOnSurface) ResetPosition();
             // One foreground surface at a time: the entry panel and a workspace open where the rail would show.
-            var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
+            if (glance == null) glance = GetComponent<UsageLeftGlance>();
+            var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null) || (glance != null && glance.Open);
             if (root.gameObject.activeSelf == foreground) root.gameObject.SetActive(!foreground);
             if (Time.unscaledTime < nextRefresh) return;
             Refresh();

@@ -303,7 +303,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// another comes to need the person, for the banner; <paramref name="hostile"/> names every
         /// project and titles every workstream with text from outside at its worst.
         /// </summary>
-        private static ClientProjection Portfolio(bool hostile, bool needsYouNow)
+        internal static ClientProjection Portfolio(bool hostile, bool needsYouNow)
         {
             string Named(string plain, string field) => hostile ? WorkspaceRender.Hostile(field) : plain;
             var projects = new List<ProjectView>
@@ -426,7 +426,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Nothing showing is cut short, with the render's short names and titles: only a first task
         /// longer than its two rows may end in an ellipsis, as the recap of a long idea does.
         /// </summary>
-        private static IEnumerable<string> NothingOfOursCut(IEnumerable<Component> parts, string what)
+        internal static IEnumerable<string> NothingOfOursCut(IEnumerable<Component> parts, string what)
         {
             var failures = new List<string>();
             foreach (var part in parts)
@@ -495,10 +495,10 @@ namespace Halcyonic.XR.Workspace.Editor
             return Rect.MinMaxRect(minX, minY, maxX, maxY);
         }
 
-        private static bool Overlap(Rect a, Rect b) => a.xMin < b.xMax && a.xMax > b.xMin && a.yMin < b.yMax && a.yMax > b.yMin;
+        internal static bool Overlap(Rect a, Rect b) => a.xMin < b.xMax && a.xMax > b.xMin && a.yMin < b.yMax && a.yMax > b.yMin;
 
         /// <summary>World bounds on the render, as a rectangle.</summary>
-        private static Rect ScreenBounds(Camera camera, Bounds bounds)
+        internal static Rect ScreenBounds(Camera camera, Bounds bounds)
         {
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
             for (var corner = 0; corner < 8; corner++)

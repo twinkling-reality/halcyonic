@@ -102,6 +102,15 @@ public class UsageLeftTests
         Assert.That(glance.Rows[1].Title, Is.EqualTo(LabelText.Plain("<b>Agent</b>") + ", weekly"));
     }
 
+    [Test]
+    public void CutsALongAgentNameShort()
+    {
+        var name = new string('A', 80);
+        var glance = Present(Available.Replace("\"label\": \"Codex\", \"window\": \"weekly\"", "\"label\": \"" + name + "\", \"window\": \"weekly\""));
+        Assert.That(glance.Rows[1].Title, Is.EqualTo(IntelligenceText.Truncate(name, UsageLeftPresenter.LabelLimit) + ", weekly"));
+        Assert.That(glance.Rows[1].Title.Length, Is.LessThan(45));
+    }
+
     [TestCase("unauthorized", "insufficient_scope")]
     [TestCase("unauthorized", "credential_missing")]
     [TestCase("unauthorized", "outside_credential_restriction")]

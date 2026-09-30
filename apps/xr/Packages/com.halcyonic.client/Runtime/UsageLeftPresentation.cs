@@ -49,6 +49,9 @@ namespace Halcyonic.Client
     /// </summary>
     public static class UsageLeftPresenter
     {
+        /// <summary>The most of an agent's name a row shows; the rest ends in an ellipsis.</summary>
+        public const int LabelLimit = 32;
+
         public const string NotSetUp = "Usage left isn't set up on your Mac.";
         public const string Reading = "Reading usage left…";
         public const string Unidentified = "Account not identified: these may come from any account used on your Mac.";
@@ -92,7 +95,7 @@ namespace Halcyonic.Client
                 // Rounded up, so that "at most" stays true.
                 var left = (int)Math.Ceiling(100 - reading.UsedPercent);
                 rows.Add(new UsageLeftRow(
-                    IntelligenceText.Plain(reading.Label) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly"),
+                    IntelligenceText.Truncate(IntelligenceText.Plain(reading.Label), LabelLimit) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly"),
                     "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left, seen " + When(observed, now, zone)
                         + ", resets " + When(resets, now, zone)));
             }

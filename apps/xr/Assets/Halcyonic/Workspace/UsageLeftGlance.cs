@@ -12,63 +12,111 @@ namespace Halcyonic.XR.Workspace
 {
     /// <summary>
     /// The optional Usage left glance: a chip in the room the project rail leaves at its lower row's
-    /// right end (<see cref="ProjectRail.UsageLeftRoom"/>), and, when pressed, a small panel above the
-    /// rail with the provider limits the Mac last saw. It reads the control plane only when opened or
-    /// when Read again is pressed, never on its own, and shows nothing that belongs to a Workstream.
+    /// right end (<see cref="ProjectRail.UsageLeftRoom"/>) that opens a small panel with the provider
+    /// limits the Mac last saw. It reads the control plane only when opened or when Read again is
+    /// pressed, never on its own, and shows nothing that belongs to a Workstream.
     /// </summary>
     /// <remarks>
-    /// It lives on the rail, so it steps away with it while the entry panel or a workspace is open, and
-    /// it closes then too: one foreground surface at a time. While the app lacks focus, as when a 2D
-    /// window has it, the chip and the panel hide and the panel closes, so returning is deliberate.
+    /// The panel opens where the entry panel would (<see cref="WorkspaceLayout.PlaceForeground"/>),
+    /// clear of every character, and the rail steps aside while it shows: one foreground surface at a
+    /// time. It closes by its own Close or the chip, when the entry panel or a workspace opens, and while the app lacks focus, as when a 2D window has it, so returning is deliberate.
     /// Without a rail it shows nothing.
     /// </remarks>
     public sealed class UsageLeftGlance : MonoBehaviour
     {
         private const string Label = "Usage left";
-        private const float PanelWidth = ProjectRail.RailWidth;
+        /// <summary>Narrower than the workspace, whose space it opens in, and wide enough that a reading takes one line.</summary>
+        private const float Width = 0.7f;
         private const float Padding = 0.03f;
         private const float ButtonHeight = 0.06f;
 
+        private readonly List<BodyInView> scratch = new List<BodyInView>();
         private ControlPlaneConnection? connection;
         private ProjectRail? rail;
+        private EntryPanel? entry;
+        private WorkspaceDirector? director;
+        private CharacterStage? stage;
         private PanelButton chip = null!;
-        private GameObject panel = null!;
+        private Transform panel = null!;
         private SpriteRenderer plate = null!;
+        private PointerTarget target = null!;
+        private TextMeshPro title = null!;
         private TextMeshPro body = null!;
         private TextMeshPro note = null!;
+        private PanelButton close = null!;
         private PanelButton again = null!;
         private CancellationTokenSource? cancellation;
         private Task<UsageLimitsResponse>? read;
         private UsageLeftPresentation? shown;
         private UsageLimitsResponse? answer;
+        private Pose placed;
+        private bool placedAbove;
         private bool open;
         private bool built;
         private float nextLayout;
 
-        /// <summary>The chip, for the editor's renders.</summary>
+        /// <summary>The chip on the rail, for the editor's renders.</summary>
         public PanelButton Chip => chip;
 
-        /// <summary>Whether the panel is open.</summary>
+        /// <summary>The panel is open; the rail steps aside meanwhile.</summary>
         public bool Open => open;
 
+        /// <summary>The panel, for the editor's renders.</summary>
+        public Transform Panel => panel;
+
+        /// <summary>Everything the glance shows now, for the editor's checks.</summary>
+        public IEnumerable<Component> Shown
+        {
+            get
+            {
+                if (chip.gameObject.activeInHierarchy) yield return chip;
+                if (!panel.gameObject.activeInHierarchy) yield break;
+                yield return title;
+                yield return close;
+                if (body.gameObject.activeSelf) yield return body;
+                yield return note;
+                yield return again;
+            }
+        }
+
         /// <summary>
-        /// Builds a glance on <paramref name="projectRail"/> that shows <paramref name="presentation"/>
-        /// as it is, open, for the editor's renders: nothing reads the control plane.
+        /// Builds a closed glance on <paramref name="projectRail"/> for the editor's renders: nothing
+        /// reads the control plane, and <see cref="ShowForRender"/> sets what it shows.
         /// </summary>
-        public static UsageLeftGlance ForRender(ProjectRail projectRail, UsageLeftPresentation presentation)
+        public static UsageLeftGlance ForRender(ProjectRail projectRail)
         {
             var glance = projectRail.gameObject.AddComponent<UsageLeftGlance>();
             glance.rail = projectRail;
             glance.Build();
-            glance.open = true;
-            glance.shown = presentation;
-            glance.Layout();
             return glance;
         }
 
-        private void Awake() => connection = GetComponent<ControlPlaneConnection>();
+        /// <summary>
+        /// Opens the panel showing <paramref name="presentation"/> as it is, where it would open among
+        /// <paramref name="characters"/>, or closes it for null.
+        /// </summary>
+        public void ShowForRender(UsageLeftPresentation? presentation, IEnumerable<CharacterTarget> characters, float? surfaceHeight)
+        {
+            open = presentation != null;
+            answer = null;
+            shown = presentation;
+            if (open) Place(characters, surfaceHeight);
+            Layout();
+        }
 
-        private void OnDestroy() => Cancel();
+        private void Awake()
+        {
+            connection = GetComponent<ControlPlaneConnection>();
+            entry = GetComponent<EntryPanel>();
+            director = GetComponent<WorkspaceDirector>();
+            stage = GetComponent<CharacterStage>();
+        }
+
+        private void OnDestroy()
+        {
+            Cancel();
+            if (panel != null) Destroy(panel.gameObject);
+        }
 
         private void Update()
         {
@@ -76,12 +124,13 @@ namespace Halcyonic.XR.Workspace
             {
                 // The workspace director adds the rail in its Start; without one there is no glance.
                 if (connection == null || (rail = GetComponent<ProjectRail>()) == null) return;
+                if (entry == null) entry = GetComponent<EntryPanel>();
                 Build();
             }
-            var railShown = rail!.Root.gameObject.activeInHierarchy;
-            if (FocusGuard.InputSuspended || !railShown)
+            var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
+            if (open && (FocusGuard.InputSuspended || foreground)) Close();
+            if (FocusGuard.InputSuspended)
             {
-                if (open) Close();
                 if (chip.gameObject.activeSelf) chip.Hide();
                 return;
             }
@@ -93,22 +142,27 @@ namespace Halcyonic.XR.Workspace
 
         private void Build()
         {
-            var root = rail!.Root;
-            chip = PanelButton.Create(root, Label, ProjectRail.ChipHeight, ProjectRail.ChipText);
+            chip = PanelButton.Create(rail!.Root, Label, ProjectRail.ChipHeight, ProjectRail.ChipText);
             chip.Accepting = () => !FocusGuard.InputSuspended;
             chip.Pressed += Toggle;
-            panel = new GameObject("Usage left panel");
-            panel.transform.SetParent(root, false);
-            plate = WorkspaceVisuals.Plate(panel.transform, "Background", new Vector2(PanelWidth, 0.2f),
-                WorkspaceVisuals.PanelColor, WorkspaceVisuals.PanelPlateOrder);
-            body = WorkspaceVisuals.Text(panel.transform, "Readings", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor,
-                new Vector2(PanelWidth - 2 * Padding, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
-            note = WorkspaceVisuals.Text(panel.transform, "Note", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor,
-                new Vector2(PanelWidth - 2 * Padding, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
-            again = PanelButton.Create(panel.transform, "Read again", ButtonHeight, WorkspaceVisuals.CaptionSize);
+            panel = new GameObject("Usage left panel").transform;
+            panel.SetParent(transform, false);
+            plate = WorkspaceVisuals.Plate(panel, "Background", new Vector2(Width, 0.2f), WorkspaceVisuals.PanelColor, WorkspaceVisuals.PanelPlateOrder);
+            target = PointerTarget.Rectangle(panel.gameObject, new Vector2(Width, 0.2f), ray: true, poke: false);
+            title = WorkspaceVisuals.Text(panel, "Title", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor,
+                new Vector2(Width / 2f, ButtonHeight), TextAlignmentOptions.MidlineLeft, order: WorkspaceVisuals.PanelTextOrder);
+            WorkspaceVisuals.SetLiteral(title, Label);
+            body = WorkspaceVisuals.Text(panel, "Readings", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor,
+                new Vector2(Width - 2 * Padding, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
+            note = WorkspaceVisuals.Text(panel, "Note", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor,
+                new Vector2(Width - 2 * Padding, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
+            close = PanelButton.Create(panel, "Close", ButtonHeight, WorkspaceVisuals.CaptionSize);
+            close.Accepting = () => !FocusGuard.InputSuspended;
+            close.Pressed += Close;
+            again = PanelButton.Create(panel, "Read again", ButtonHeight, WorkspaceVisuals.CaptionSize);
             again.Accepting = () => !FocusGuard.InputSuspended && read == null;
             again.Pressed += Read;
-            panel.SetActive(false);
+            panel.gameObject.SetActive(false);
             built = true;
             Layout();
         }
@@ -122,6 +176,7 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             open = true;
+            Place(director != null ? director.Targets : Array.Empty<CharacterTarget>(), stage != null ? stage.SurfaceHeight : null);
             Read();
         }
 
@@ -168,25 +223,34 @@ namespace Halcyonic.XR.Workspace
             cancellation?.Dispose();
             cancellation = null;
             if (finished.IsCanceled) return;
-            if (finished.IsFaulted)
-            {
-                shown = UsageLeftPresenter.Unreachable();
-            }
-            else
-            {
-                answer = finished.Result;
-            }
+            if (finished.IsFaulted) shown = UsageLeftPresenter.Unreachable();
+            else answer = finished.Result;
             Layout();
         }
 
-        /// <summary>The chip in the rail's free room; the panel, when open, above the rail at its right edge.</summary>
+        /// <summary>
+        /// Where the entry panel would open, clear of every character, facing the eyes, at the
+        /// workspace's scale. The panel is shorter than the space kept for it, so <see cref="Layout"/>
+        /// puts it at the edge of that space away from the characters, clear of their label plates too.
+        /// </summary>
+        private void Place(IEnumerable<CharacterTarget> characters, float? surfaceHeight)
+        {
+            var eyes = WorkspaceVisuals.HeadPosition;
+            var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : Vector3.forward;
+            var (pose, direction) = WorkspaceLayout.PlaceForeground(characters, eyes, looking, surfaceHeight, scratch);
+            placed = pose;
+            placedAbove = direction.Above;
+            panel.localScale = Vector3.one * WorkspaceLayout.Scale;
+        }
+
+        /// <summary>The chip in the rail's free room; the panel, when open: its title and Close, the readings, the note, and Read again.</summary>
         private void Layout()
         {
             nextLayout = Time.unscaledTime + 15f;
             var room = ProjectRail.UsageLeftRoom - ProjectRail.Gap;
             var lower = -(ProjectRail.ChipHeight / 2f + ProjectRail.Gap / 2f);
             chip.Show(Label, new Vector2(ProjectRail.RailWidth / 2f - room / 2f, lower), room);
-            panel.SetActive(open);
+            panel.gameObject.SetActive(open);
             if (!open) return;
 
             if (answer != null) shown = UsageLeftPresenter.Present(answer, DateTimeOffset.UtcNow, TimeZoneInfo.Local);
@@ -197,7 +261,7 @@ namespace Halcyonic.XR.Workspace
                 lines.Add(row.Title);
                 lines.Add(row.Text);
             }
-            var width = PanelWidth - 2 * Padding;
+            var width = Width - 2 * Padding;
             body.gameObject.SetActive(lines.Count > 0);
             var bodyHeight = 0f;
             if (lines.Count > 0)
@@ -209,23 +273,24 @@ namespace Halcyonic.XR.Workspace
             WorkspaceVisuals.SetLiteral(note, presentation.Note);
             var noteHeight = note.GetPreferredValues(note.text, width, 0f).y;
             var gap = lines.Count > 0 ? Padding / 2f : 0f;
-            var height = Padding + bodyHeight + gap + noteHeight + Padding / 2f + ButtonHeight + Padding;
+            var height = Padding + ButtonHeight + Padding / 2f + bodyHeight + gap + noteHeight + Padding / 2f + ButtonHeight + Padding;
 
-            // Above the rail's upper row, its right edge on the rail's.
-            var bottom = ProjectRail.ChipHeight + ProjectRail.Gap * 2f;
-            panel.transform.localPosition = new Vector3(0f, bottom + height / 2f, 0f);
-            plate.size = new Vector2(PanelWidth, height);
-            var target = panel.GetComponent<PointerTarget>();
-            if (target == null) PointerTarget.Rectangle(panel, new Vector2(PanelWidth, height), ray: true, poke: false);
-            else target.Resize(new Vector2(PanelWidth, height));
+            var away = (placedAbove ? 1f : -1f) * Mathf.Max(0f, WorkspacePanel.Height - height) / 2f * WorkspaceLayout.Scale;
+            panel.SetPositionAndRotation(placed.position + placed.rotation * Vector3.up * away, placed.rotation);
+            plate.size = new Vector2(Width, height);
+            target.Resize(new Vector2(Width, height));
             var top = height / 2f - Padding;
-            var left = -PanelWidth / 2f + Padding;
+            var left = -Width / 2f + Padding;
+            title.rectTransform.localPosition = new Vector3(left, top, -0.003f);
+            var closeWidth = close.Measure("Close", 0.14f);
+            close.Show("Close", new Vector2(Width / 2f - Padding - closeWidth / 2f, top - ButtonHeight / 2f), closeWidth);
+            top -= ButtonHeight + Padding / 2f;
             body.rectTransform.sizeDelta = new Vector2(width, bodyHeight);
             body.rectTransform.localPosition = new Vector3(left, top, -0.003f);
             note.rectTransform.sizeDelta = new Vector2(width, noteHeight);
             note.rectTransform.localPosition = new Vector3(left, top - bodyHeight - gap, -0.003f);
-            var buttonWidth = again.Measure("Read again", 0.16f);
-            again.Show("Read again", new Vector2(PanelWidth / 2f - Padding - buttonWidth / 2f, -height / 2f + Padding + ButtonHeight / 2f), buttonWidth);
+            var againWidth = again.Measure("Read again", 0.16f);
+            again.Show("Read again", new Vector2(Width / 2f - Padding - againWidth / 2f, -height / 2f + Padding + ButtonHeight / 2f), againWidth);
         }
     }
 }

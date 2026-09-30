@@ -124,6 +124,21 @@ review's first and last pages, a refused start and a request that may have run) 
 (`Halcyonic: entry render ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
 "Scene".
 
+The Usage left glance renders the same way, **Halcyonic > Render Usage Left Over the Stage**, or in
+batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.UsageLeftRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-usage-left-render.log
+```
+
+It saves the chip on the rail, then the panel with two readings, not set up, no reading yet, while
+reading and with an agent name from outside, over both stages in `apps/xr/Builds/UsageLeftRenders`,
+each with a close-up, and logs how far below eye level the panel spans (`Halcyonic: usage left
+render ...`). It fails if the chip leaves the rail's free room or comes near a rail button, if the
+panel covers a character's body or label plate or reaches beyond the space the workspace may take,
+if one of its own words is cut short, or if outside text does not show as written. It reads no
+control plane.
+
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
 shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
