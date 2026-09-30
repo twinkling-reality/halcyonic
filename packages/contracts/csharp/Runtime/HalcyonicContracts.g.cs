@@ -2157,6 +2157,46 @@ namespace Halcyonic.Contracts
         public RuntimeModelsResult Result { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum LocationRootStatus
+    {
+        [EnumMember(Value = "available")] Available,
+        [EnumMember(Value = "missing")] Missing,
+    }
+
+    public sealed class LocationFolder
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+    }
+
+    public sealed class LocationRoot
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("status", Required = Required.Always)]
+        public LocationRootStatus Status { get; set; }
+
+        [JsonProperty("folders", Required = Required.Always)]
+        public List<LocationFolder> Folders { get; set; } = new List<LocationFolder>();
+
+        [JsonProperty("folders_truncated", Required = Required.Always)]
+        public bool FoldersTruncated { get; set; }
+    }
+
+    public sealed class LocationsResponse
+    {
+        [JsonProperty("roots", Required = Required.Always)]
+        public List<LocationRoot> Roots { get; set; } = new List<LocationRoot>();
+    }
+
     public sealed class StoredEvent
     {
         [JsonProperty("position", Required = Required.Always)]

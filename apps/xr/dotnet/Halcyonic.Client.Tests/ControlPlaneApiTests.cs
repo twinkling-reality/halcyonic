@@ -249,6 +249,48 @@ public class ControlPlaneApiTests
     }
 
     [Test]
+    public async Task ReadsWhereProjectsMayLive()
+    {
+        const string body = """
+            {
+              "roots": [
+                {
+                  "path": "/Users/you/dev",
+                  "name": "dev",
+                  "status": "available",
+                  "folders": [{ "name": "storefront", "path": "/Users/you/dev/storefront" }],
+                  "folders_truncated": false
+                },
+                { "path": "/Volumes/Work", "name": "Work", "status": "missing", "folders": [], "folders_truncated": false }
+              ]
+            }
+            """;
+        var handler = new CannedHandler(HttpStatusCode.OK, body);
+        using var api = Api(handler);
+        var response = await api.GetLocationsAsync();
+
+        Assert.That(handler.Requests.Single().RequestUri, Is.EqualTo(new Uri("http://127.0.0.1:47800/api/locations")));
+        Assert.That(response.Roots.Select(root => root.Status), Is.EqualTo(new[] { LocationRootStatus.Available, LocationRootStatus.Missing }));
+        Assert.That(response.Roots[0].Folders.Single().Name, Is.EqualTo("storefront"));
+        Json.AssertRoundTrips<LocationsResponse>(body);
+    }
+
+    [Test]
+    public void ChoicesOfWhereAProjectLivesNameARootAndAFolderOnly()
+    {
+        var commands = new CommandFactory(Samples.Client);
+        var existing = HalcyonicJson.Serialize(commands.CreateProject(
+            "Storefront", new ExistingFolderChoice { Root = "/Users/you/dev", FolderName = "storefront" }));
+        Assert.That(existing, Does.Contain(
+            "\"location\":{\"kind\":\"existing_folder\",\"root\":\"/Users/you/dev\",\"folder_name\":\"storefront\"}"));
+        var root = HalcyonicJson.Serialize(commands.SetProjectLocation(
+            "01a0dcf1-5a80-7000-8000-0000000000a1", new ExistingFolderChoice { Root = "/Users/you/dev", FolderName = null }));
+        Assert.That(root, Does.Contain("\"folder_name\":null"));
+        var none = HalcyonicJson.Serialize(commands.CreateProject("Mock only"));
+        Assert.That(none, Does.Contain("\"location\":null"));
+    }
+
+    [Test]
     public void ReportsARefusalWithTheControlPlanesReason()
     {
         var body = "{\"error\":{\"code\":\"execution_not_found\",\"message\":\"Execution " + ExecutionId
