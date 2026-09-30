@@ -199,6 +199,14 @@ the same definition names, as the JSON Schema document:
   where a model runs from `Served`, never from its name. **`CommandFactory.StartExecution`**
   sends the chosen `ModelRef` back unchanged (`modelRef`, null to leave the choice to the
   runtime), and the execution's `ModelRef` then holds the model the runtime reports using.
+- **`ControlPlaneApi.GetLocationsAsync`** reads where projects may live on the Mac: each project
+  root and the visible folders directly inside it
+  ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)), on request.
+  **`CommandFactory.CreateProject`** takes an optional `ProjectLocationChoice`, an
+  `ExistingFolderChoice` or a `NewFolderChoice` naming a listed root's `Path` and a folder's
+  `Name` (null for the root itself), and **`SetProjectLocation`** binds a project again; the
+  client never composes a path. A runtime whose descriptor has `UsesProjectLocation` starts work
+  only in a project with a folder. Folder names are untrusted text, shown through `LabelText`.
 - **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A
   runtime change drops its previous model. It accepts a model only from the selected runtime's
   current list, builds a workstream with a short title from the objective, and sends the objective

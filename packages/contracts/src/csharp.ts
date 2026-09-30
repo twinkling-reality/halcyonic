@@ -44,6 +44,7 @@ const ROOTS: readonly string[] = [
   'WorkstreamsResponse',
   'RuntimesResponse',
   'RuntimeModelsResponse',
+  'LocationsResponse',
   'EventsResponse',
   'CommandSubmissionResponse',
   'ErrorResponse',
