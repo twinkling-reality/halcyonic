@@ -83,11 +83,36 @@ export HALCYONIC_CLAUDE_AGENT=1              # register the Claude Agent runtime
 pnpm dev
 ```
 
-Start an execution on it with the runtime id `claude-agent` and options such as
-`{"cwd": "/Users/you/dev/app", "permission_mode": "default"}`; `model` is optional. A `cwd` outside
-the project roots is rejected. Every run spends model credit. The runtime's sessions appear in
+Real runtimes work in the project's folder, so first give the project one (below). Then start an
+execution on it with the runtime id `claude-agent` and options such as
+`{"permission_mode": "default"}`; `model` is optional. Every run spends model credit. The runtime's sessions appear in
 Salidium and Seorak like any other Claude Code session, because Halcyonic keeps your home and Claude
 configuration directories.
+
+### Where projects live
+
+Every real execution runs in its project's folder, a folder inside one of the project roots
+([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). No start option
+names a folder. `GET /api/locations` lists each root, as its real path, and the folders directly
+inside it. Give a project its folder when you create it:
+
+```json
+{"name": "Storefront", "location": {"kind": "existing_folder", "root": "/Users/you/dev", "folder_name": "storefront"}}
+```
+
+or have the control plane make a new, empty folder for it, which needs no git repository:
+
+```json
+{"name": "Greeting card", "location": {"kind": "new_folder", "root": "/Users/you/dev", "folder_name": "greeting-card"}}
+```
+
+`folder_name: null` with `existing_folder` binds the root itself. A project created with
+`location: null` can run only on the mock runtime until it gets one:
+`project.set_location` with `{"project_id": "...", "location": {...}}` binds it, and also rebinds
+a project whose folder you moved or renamed. Refusals: `location_not_allowed` (not a root, or not
+directly inside one), `location_missing` (not there, or the folder moved), `location_exists` (a new
+folder's name is taken; choose it as an existing folder instead), and `location_required` (a start
+in a project without a folder).
 
 ### OpenCode
 
@@ -105,9 +130,8 @@ Then point the control plane at the binary for your platform, for example on an 
 export HALCYONIC_OPENCODE_BIN="$HOME/.halcyonic/runtimes/opencode-2.0.18/node_modules/@opencode/cli-darwin-arm64/bin/opencode"
 ```
 
-Start executions with the runtime id `opencode` and options such as
-`{"directory": "/Users/you/dev/app", "model": "provider/model"}`; the directory must be under
-`HALCYONIC_PROJECT_ROOTS`. OpenCode uses your own OpenCode configuration and providers.
+Start executions with the runtime id `opencode` in a project with a folder, and options such as
+`{"model": "provider/model"}`. OpenCode uses your own OpenCode configuration and providers.
 
 #### Local models through Ollama
 
@@ -176,9 +200,10 @@ export HALCYONIC_CODEX_BIN="$HOME/.halcyonic/runtimes/codex-0.157.0/node_modules
 shasum -a 256 "$HALCYONIC_CODEX_BIN"   # ad0be20d04e2ba6146ecdb51d7f8b7b0fe15420a15dc9b0057518d858f1f3714 on darwin arm64
 ```
 
-Start executions with the runtime id `codex` and options such as
-`{"cwd": "/Users/you/dev/app", "sandbox": "workspace-write", "approval_policy": "on-request"}`, the
-defaults of the last two; `model` is optional. The `cwd` must be under `HALCYONIC_PROJECT_ROOTS`.
+Start executions with the runtime id `codex` in a project with a folder, and options such as
+`{"sandbox": "workspace-write", "approval_policy": "on-request"}`, their defaults; `model` is
+optional. A new, empty folder that is not a git repository works
+([project-location.md](../validation/project-location.md)).
 `approval_policy` `never` is refused, and `danger-full-access` needs `untrusted`. Codex uses your own
 `CODEX_HOME` (`~/.codex` by default): your configuration, your sign-in or API key, and your model
 providers. It writes each thread's rollout there like any other Codex session, where Salidium and
@@ -195,7 +220,6 @@ gives the model, since Codex has no metadata for it and assumes 272,000 tokens:
 
 ```json
 {
-  "cwd": "/Users/you/dev/app",
   "model_provider": "ollama",
   "model": "qwen3.6:35b-a3b-nvfp4",
   "context_window": 65536,

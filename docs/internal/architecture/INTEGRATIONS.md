@@ -138,10 +138,15 @@ Neither read is a runtime capability, a journal event or a source of Workstream 
    sessions, and never pass `SALIDIUM_INTERNAL` to a launched agent: it makes Salidium drop the
    session's hooks.
 7. Record fixtures from real runs, sanitized, for contract tests.
-8. Accept a working directory only through the host's `DirectoryPolicy`
-   (`packages/runtime-core/src/adapter.ts`) and use the real path it returns. The control plane
-   allows only directories under `HALCYONIC_PROJECT_ROOTS`, so a client cannot point an agent
-   anywhere else on the machine.
+8. Take the working directory from the project, never from start options. Declare
+   `uses_project_location` for a runtime whose agents work in a folder; the control plane then
+   refuses a start in a project without one and passes the project's folder, a real path the host
+   resolved, as `StartExecutionRequest.directory`. Call `confirmProjectLocation` with the host's
+   `DirectoryPolicy` (`packages/runtime-core/src/adapter.ts`) before launching anything, so a
+   folder that has gone, left the roots or now leads elsewhere through a symbolic link fails the
+   start with effect `none`, and run the agent there and nowhere else. The control plane allows
+   only folders under `HALCYONIC_PROJECT_ROOTS`, so a client cannot point an agent anywhere else on
+   the machine ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
 9. Make sure an agent process cannot outlive the control plane unsupervised: stop it on close and on
    the control plane's exit, and say plainly in the validation record what a hard kill leaves
    running.

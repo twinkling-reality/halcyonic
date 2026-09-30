@@ -18,6 +18,7 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | `GET /api/projects` | Projects at the current position |
 | `GET /api/workstreams?project_id=` | Workstreams, optionally for one project |
 | `GET /api/runtimes` | Runtime descriptors with capabilities; clients show only supported actions |
+| `GET /api/locations` | `LocationsResponse`: where projects may live on the host, read from the file system on request and never journaled ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). Each project root (`HALCYONIC_PROJECT_ROOTS`, as its real path) with its own `name`, `status` (`available`, or `missing` when it is no longer a folder), the visible folders directly inside it (`{name, path}`, no hidden folders or symbolic links, sorted, at most 200) and `folders_truncated`. `roots: []` means the host allows no folder yet. Paths and names are for display, and names are untrusted text |
 | `GET /api/runtimes/:runtime_id/models` | `RuntimeModelsResponse`: the models the runtime lists now, from its own list, read through and never journaled ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)); always 200 with an availability (`unavailable` carries the reason in words: `timeout` after 30 s, `invalid_models` for a list outside the contract, or the adapter's own code), 404 `models_not_listed` for a runtime whose `model_choice` is `none`, 404 `runtime_not_found` for an unknown one. Listing may start the runtime, so it can take seconds: fetch it when a person opens the choice, and never poll |
 | `GET /api/events?after=&limit=&workstream_id=` | Journal history after a position (limit 1 to 1000, default 200); a paired device's reads leave device events out |
 | `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. An available answer's `source.synthetic` is true only for a stand-in's, as in the recorded demonstration ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)) |
@@ -91,6 +92,19 @@ client                                   server
   and the message says how the recording continues. It was added without a new protocol version
   because no control plane sends it, so no client of an older version can receive it
   ([XR_CLIENT.md](XR_CLIENT.md)).
+- **Choosing where a project lives.** `project.create` carries `location`: null, or a choice of
+  `{kind: 'existing_folder', root, folder_name}` (`folder_name` null for the root itself) or
+  `{kind: 'new_folder', root, folder_name}`, where `root` is a root's `path` exactly as
+  `GET /api/locations` gave it and `folder_name` a folder directly inside it. A new folder's name
+  matches `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; an existing folder's is one visible path segment.
+  Anything else is a 400 `invalid_command`. `project.set_location` `{project_id, location}` binds a
+  project to another folder. The project's `location` then reads `{path, name, created}`. The host
+  refuses a location with `location_not_allowed`, `location_missing` or `location_exists`, and a
+  runtime whose descriptor has `uses_project_location` refuses a start in a project without one with
+  `location_required`, or whose folder has gone with `location_missing`. Runtimes take no folder in
+  their options; the execution's `directory` says where it runs ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
+  `location` was added as an explicit null without a new protocol or schema version: a development
+  build generated before it sends `project.create` without it and gets 400 until it is rebuilt.
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A choice for a runtime whose `model_choice` is
   `none` is rejected with `capability_unsupported`, and one the runtime does not list with
