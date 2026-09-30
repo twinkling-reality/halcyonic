@@ -77,6 +77,10 @@ export interface SessionState {
    * events, still in the stream after a reconnect, were settled already and are ignored.
    */
   settledThrough: number | null;
+  /** Inbox item ids of instructions steered into a running turn that OpenCode has not delivered yet. */
+  readonly steered: Set<string>;
+  /** The `provider/model` OpenCode last reported using, which outlives turns. */
+  model: string | null;
   /** Pending permission requests. */
   readonly approvals: Set<string>;
   /** Decisions OpenCode confirmed with a 204, kept until `permission.replied` arrives. */
@@ -92,6 +96,8 @@ export function createSessionState(): SessionState {
     pendingInboxId: null,
     since: null,
     settledThrough: null,
+    steered: new Set(),
+    model: null,
     approvals: new Set(),
     replies: new Map(),
     tools: new Set(),
@@ -134,6 +140,11 @@ export function observeEvent(
     }),
   ];
   const data = event.data;
+  // A steered instruction reached the model's context; it is no longer waiting in the inbox.
+  if (event.type === 'session.inbox.delivered' && typeof data.inboxID === 'string') {
+    state.steered.delete(data.inboxID);
+    return [];
+  }
   // Agent text is history, not state, so it is reported even from a settled stretch.
   if (
     state.settledThrough !== null &&
@@ -145,6 +156,17 @@ export function observeEvent(
   }
 
   switch (event.type) {
+    case 'session.step.started': {
+      // Each step names the model it asks, as OpenCode's `Model.Ref`; a change is reported.
+      const model = isRecord(data.model) ? data.model : {};
+      const providerID = nonBlank(model.providerID);
+      const id = nonBlank(model.id);
+      if (providerID === null || id === null) return [];
+      const ref = `${providerID}/${id}`;
+      if (ref === state.model || !/^\S{1,256}$/.test(ref)) return [];
+      state.model = ref;
+      return make('runtime.model.used', { model_ref: ref });
+    }
     case 'session.execution.started': {
       state.awaitingStart = false;
       state.pendingInboxId = null;

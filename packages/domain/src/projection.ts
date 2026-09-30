@@ -343,6 +343,7 @@ export class Projection {
       case 'runtime.test_run.started':
       case 'runtime.test_run.completed':
       case 'runtime.connection.lost':
+      case 'runtime.model.used':
         this.#applyRuntime(event, changes, notes);
         return;
       default: {
@@ -462,6 +463,9 @@ export class Projection {
           code: 'runtime_connection_lost',
           message: event.payload.reason,
         };
+        break;
+      case 'runtime.model.used':
+        execution.modelRef = event.payload.model_ref;
         break;
       default: {
         const unhandled: never = event;

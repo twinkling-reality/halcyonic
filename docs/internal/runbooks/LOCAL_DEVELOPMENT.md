@@ -51,6 +51,18 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:47800/api/events?aft
 Commands are posted as JSON `CommandEnvelope`s to `/api/commands`. The shape is in
 `packages/contracts/schema/halcyonic-contracts.schema.json` under `$defs/CommandEnvelope`.
 
+A runtime whose descriptor says `"model_choice": "listed"` lists the models it can run now; the
+mock runtime of `pnpm dev` lists three synthetic ones (`mock/fast`, `mock/hosted`, `mock/no-tools`):
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:47800/api/runtimes/mock/models
+```
+
+To start work on one, put its `model_ref` in the `execution.start` payload exactly as listed; the
+payload's `model_ref` is null otherwise, and a runtime's own `model` option cannot be combined with
+it. The execution's `model_ref` then shows the model the runtime reports running on
+([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
+
 ## Run real agents
 
 Real runtimes work only inside directories you list, and are off until enabled. The Claude Agent
@@ -96,6 +108,50 @@ export HALCYONIC_OPENCODE_BIN="$HOME/.halcyonic/runtimes/opencode-2.0.18/node_mo
 Start executions with the runtime id `opencode` and options such as
 `{"directory": "/Users/you/dev/app", "model": "provider/model"}`; the directory must be under
 `HALCYONIC_PROJECT_ROOTS`. OpenCode uses your own OpenCode configuration and providers.
+
+#### Local models through Ollama
+
+OpenCode lists the models an Ollama server on 127.0.0.1:11434 offers without any configuration;
+name one as `ollama/<tag>`, for example `ollama/qwen3.6:35b-a3b-nvfp4`. A start waits up to 10 s
+for OpenCode to discover it. OpenCode's defaults do not keep work on the Mac, so for local-only
+work put this in `~/.config/opencode/opencode.json` (one `models` entry per model you use):
+
+```json
+{
+  "model": "ollama/qwen3.6:35b-a3b-nvfp4",
+  "permissions": [
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "webfetch", "resource": "*", "effect": "deny" },
+    { "action": "websearch", "resource": "*", "effect": "deny" }
+  ],
+  "providers": {
+    "ollama": {
+      "models": {
+        "qwen3.6:35b-a3b-nvfp4": { "limit": { "context": 65536, "output": 16384 } }
+      }
+    }
+  }
+}
+```
+
+The `model` makes a start without one use the local model instead of OpenCode's free hosted
+default. The permissions make shell commands ask the person, which is how approvals reach
+Halcyonic, and keep the agent from fetching the web. The `limit` tells OpenCode the context Ollama
+actually gives the model (`OLLAMA_CONTEXT_LENGTH`), where it would otherwise assume the model's full
+context. Then, in the control plane's environment:
+
+```bash
+export OPENCODE_DISABLE_MODELS_FETCH=true              # OpenCode fetches its model catalog otherwise
+export HALCYONIC_AGENT_ENV=OPENCODE_DISABLE_MODELS_FETCH
+brew install ripgrep                                   # OpenCode downloads it from GitHub otherwise
+```
+
+What each does, and the speed and memory of the models tried, are in
+[local-models.md](../validation/local-models.md).
+
+The local models appear in `GET /api/runtimes/opencode/models` beside OpenCode Zen's hosted ones,
+for example as `ollama/qwen3.6:35b-a3b-nvfp4`, named "qwen3.6:35b-a3b-nvfp4 (Ollama)" and served on
+this Mac, and a start may carry one as its `model_ref` in place of the `model` option.
 Its end to end tests run against a binary and a fake provider when `OPENCODE_BIN` is set:
 
 ```bash
@@ -129,6 +185,33 @@ providers. It writes each thread's rollout there like any other Codex session, w
 Seorak read Codex sessions; that they show a thread Halcyonic started is not yet verified. A
 provider that reads its key from an environment variable (`env_key` in `config.toml`) needs that
 variable named in `HALCYONIC_AGENT_ENV`. Every run spends model credit.
+
+#### Local models through Ollama
+
+Codex reaches Ollama through its built-in `ollama` provider, on port 11434 of this Mac, over the
+Responses API. Name the provider and the model as start options, and tell Codex the context Ollama
+gives the model, since Codex has no metadata for it and assumes 272,000 tokens:
+
+```json
+{
+  "cwd": "/Users/you/dev/app",
+  "model_provider": "ollama",
+  "model": "qwen3.6:35b-a3b-nvfp4",
+  "context_window": 65536,
+  "auto_compact_token_limit": 52000
+}
+```
+
+The thread is refused if Codex reports another provider or model for it. Codex takes any model
+name without checking it: a name Ollama does not have fails the first turn. Codex cannot list what
+Ollama serves, so `GET /api/runtimes/codex/models` holds the model your `config.toml` names, under
+its provider, and OpenAI's catalog only when that provider is OpenAI's: with
+`model_provider = "ollama"` and `model = "qwen3.6:35b-a3b-nvfp4"` there, a start may carry
+`"model_ref": "ollama/qwen3.6:35b-a3b-nvfp4"` in place of the two options, with the context
+options as before. The runs, the rollouts
+and what reaches the network are in [local-models.md](../validation/local-models.md). Your own
+`config.toml` still applies: turn off `features.plugins` and `analytics` there for work that stays
+on the Mac.
 
 Its end to end tests run the binary against a fake provider when `CODEX_BIN` is set. They use
 temporary homes, never your `~/.codex`, and fail if Codex tries to reach anything beyond loopback:

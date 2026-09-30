@@ -1,4 +1,5 @@
 import { delimiter, dirname } from 'node:path';
+import type { ModelServed } from '@halcyonic/contracts';
 
 /**
  * The variables a launched agent inherits from the control plane, when they are set there.
@@ -124,9 +125,63 @@ function withDirectory(path: string | undefined, directory: string): string {
     : [...entries, directory].join(delimiter);
 }
 
+/** Who serves Claude Code's models, and where its requests for them go. */
+export interface ModelHost {
+  /** Names the host in a model's display name: "Anthropic", a cloud provider, or a gateway. */
+  readonly name: string;
+  readonly served: ModelServed;
+}
+
+const CLOUD_PROVIDERS = [
+  {
+    switch: 'CLAUDE_CODE_USE_BEDROCK',
+    name: 'Amazon Bedrock',
+    baseUrl: 'ANTHROPIC_BEDROCK_BASE_URL',
+  },
+  {
+    switch: 'CLAUDE_CODE_USE_ANTHROPIC_AWS',
+    name: 'Claude Platform on AWS',
+    baseUrl: 'ANTHROPIC_AWS_BASE_URL',
+  },
+  {
+    switch: 'CLAUDE_CODE_USE_VERTEX',
+    name: 'Google Vertex AI',
+    baseUrl: 'ANTHROPIC_VERTEX_BASE_URL',
+  },
+  {
+    switch: 'CLAUDE_CODE_USE_FOUNDRY',
+    name: 'Microsoft Foundry',
+    baseUrl: 'ANTHROPIC_FOUNDRY_BASE_URL',
+  },
+] as const;
+
+/**
+ * Who serves the models of a Claude Code launched with `environment`: Anthropic, or the cloud
+ * provider a switch selects, served remotely; or, when a base URL sends the requests to a gateway,
+ * that gateway, served where its address is. What a gateway forwards to is not known. The name
+ * carries the gateway's host and port only, never credentials or a path.
+ */
+export function modelHost(environment: Readonly<Record<string, string>>): ModelHost {
+  const provider = CLOUD_PROVIDERS.find((candidate) => isTrue(environment[candidate.switch]));
+  const name = provider?.name ?? 'Anthropic';
+  const base = (environment[provider?.baseUrl ?? 'ANTHROPIC_BASE_URL'] ?? '').trim();
+  if (base === '') return { name, served: 'remote' };
+  const gateway = provider === undefined ? 'gateway' : `${name} gateway`;
+  let url: URL;
+  try {
+    url = new URL(base);
+  } catch {
+    return { name: gateway, served: 'unknown' };
+  }
+  const loopback = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/i.test(url.hostname);
+  return { name: `${gateway} at ${url.host}`, served: loopback ? 'this_mac' : 'remote' };
+}
+
+function isTrue(value: string | undefined): boolean {
+  return TRUE_VALUES.has((value ?? '').trim().toLowerCase());
+}
+
 function authenticatesSupportedWay(environment: Readonly<Record<string, string>>): boolean {
   if ((environment.ANTHROPIC_API_KEY ?? '').trim() !== '') return true;
-  return PROVIDER_SWITCHES.some((name) =>
-    TRUE_VALUES.has((environment[name] ?? '').trim().toLowerCase()),
-  );
+  return PROVIDER_SWITCHES.some((name) => isTrue(environment[name]));
 }

@@ -8,9 +8,15 @@
  * - `version=<v>`: the version `--version` prints (default 0.157.0);
  * - `agent=<v>`: the version in the user agent `initialize` answers (default 0.157.0);
  * - `never`: `thread/start` answers that the thread's approval policy is `never`;
+ * - `other-model`: `thread/start` and `thread/resume` answer that the thread runs `gpt-5.5` from
+ *   `openai`, whatever was asked (otherwise they answer the model and provider asked for, or those
+ *   defaults);
  * - `silent-interrupt`: `turn/interrupt` is never answered;
  * - `writer-held`: `thread/resume` fails as when another Codex process holds the thread;
  * - `ask`: every turn raises an `item/tool/requestUserInput` request.
+ *
+ * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
+ * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page.
  *
  * A turn runs until it is interrupted, unless its text contains COMPLETE. Every message received
  * is appended to FAKE_CODEX_LOG when it is set.
@@ -66,11 +72,30 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       counter += 1;
       respond({
         thread: { id: params.threadId ?? `thread-${process.pid}-${counter}` },
+        model: flags.has('other-model') ? 'gpt-5.5' : (params.model ?? 'gpt-5.5'),
+        modelProvider: flags.has('other-model') ? 'openai' : (params.modelProvider ?? 'openai'),
         approvalPolicy: flags.has('never') ? 'never' : params.approvalPolicy,
         approvalsReviewer: params.approvalsReviewer,
         sandbox: { type: SANDBOX_TYPES[params.sandbox] },
       });
       return;
+    case 'config/read':
+      respond({
+        config: JSON.parse(process.env.FAKE_CODEX_CONFIG ?? '{}'),
+        origins: {},
+        layers: null,
+      });
+      return;
+    case 'model/list': {
+      // Pages of one model, to exercise the adapter's paging.
+      const catalog = JSON.parse(process.env.FAKE_CODEX_CATALOG ?? '[]');
+      const index = params.cursor === null ? 0 : Number(params.cursor);
+      respond({
+        data: catalog.slice(index, index + 1),
+        nextCursor: index + 1 < catalog.length ? String(index + 1) : null,
+      });
+      return;
+    }
     case 'thread/turns/list':
       respond({ data: [], nextCursor: null, backwardsCursor: null });
       return;

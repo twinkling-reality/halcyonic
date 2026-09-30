@@ -11,7 +11,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import type { ExecutionId, RuntimeEventType } from '@halcyonic/contracts';
+import {
+  compileValidator,
+  type ExecutionId,
+  type RuntimeEventType,
+  RuntimeModel,
+} from '@halcyonic/contracts';
 import {
   type ExecutionContext,
   RuntimeActionError,
@@ -144,7 +149,11 @@ function assertStayedLocal(sandbox: CodexSandbox): void {
 interface Harness {
   readonly sandbox: CodexSandbox;
   readonly runtime: CodexRuntimeAdapter;
-  start(instruction: string, options?: Record<string, unknown>): Promise<Execution>;
+  start(
+    instruction: string,
+    options?: Record<string, unknown>,
+    modelRef?: string | null,
+  ): Promise<Execution>;
 }
 
 async function harness(
@@ -167,12 +176,13 @@ async function harness(
   return {
     sandbox,
     runtime,
-    async start(instruction, options = {}) {
+    async start(instruction, options = {}, modelRef = null) {
       const execution = new Execution();
       const result = await runtime.startExecution({
         execution: execution.context,
         instruction,
         options: { cwd: sandbox.project, ...options },
+        model_ref: modelRef,
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-/);
@@ -274,14 +284,18 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       await execution.next('runtime.turn.completed');
       assert.deepEqual(execution.types(), [
         'runtime.execution.started',
+        'runtime.model.used',
         'runtime.turn.started',
         'runtime.agent_message',
         'runtime.turn.completed',
       ]);
-      const [started, turn, message, completed] = execution.observations;
+      const [started, model, turn, message, completed] = execution.observations;
       assert.ok(started?.type === 'runtime.execution.started');
       const threadId = started.payload.native_id ?? '';
       assert.equal(turnId(completed), turnId(turn));
+      // The model and provider Codex says the thread runs on, from the configuration.
+      assert.deepEqual(model?.payload, { model_ref: 'fake/gpt-5.5' });
+      assert.equal(model?.provenance.epistemic, 'observed');
       assert.match(
         message?.type === 'runtime.agent_message' ? message.payload.text : '',
         /^Fake reply \d+: acknowledged\.$/,
@@ -324,6 +338,56 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     },
   );
 
+  test(
+    'a thread on a named provider and model runs there, and its rollout records both',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start('Hello from a model Codex has no metadata for.', {
+        model_provider: 'fake',
+        model: 'local-model:tag',
+        context_window: 65536,
+        auto_compact_token_limit: 52000,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.at(-1)?.body?.model, 'local-model:tag');
+      assert.deepEqual(
+        execution.observations
+          .filter((item) => item.type === 'runtime.model.used')
+          .map((item) => item.payload),
+        [{ model_ref: 'fake/local-model:tag' }],
+      );
+      const started = execution.observations[0];
+      assert.ok(started?.type === 'runtime.execution.started');
+      const threadId = started.payload.native_id ?? '';
+      await runtime.close();
+
+      // What Salidium and Seorak read: the rollout's session_meta names the provider, and each
+      // turn_context the model; the token counts carry the context window the thread was given.
+      const thread = await readThread(sandbox, threadId);
+      assert.ok(typeof thread.path === 'string');
+      const rows = readFileSync(thread.path, 'utf8')
+        .split('\n')
+        .filter((line) => line !== '')
+        .map((line) => JSON.parse(line) as { type: string; payload: Record<string, unknown> });
+      const meta = rows.find((row) => row.type === 'session_meta')?.payload ?? {};
+      assert.equal(meta.id, threadId);
+      assert.equal(meta.model_provider, 'fake');
+      assert.equal(meta.thread_source, 'halcyonic');
+      assert.equal(meta.originator, 'halcyonic');
+      assert.equal('forked_from_id' in meta && meta.forked_from_id !== null, false);
+      const context = rows.find((row) => row.type === 'turn_context')?.payload ?? {};
+      assert.equal(context.model, 'local-model:tag');
+      const counts = rows
+        .filter((row) => row.type === 'event_msg' && row.payload.type === 'token_count')
+        .map((row) => row.payload.info)
+        .filter(isRecord);
+      assert.ok(counts.length > 0, 'no token count');
+      // Codex keeps 5% of the window in reserve (0.157.0 reports 258,400 of 272,000).
+      assert.equal(counts.at(-1)?.model_context_window, Math.floor(65536 * 0.95));
+    },
+  );
+
   test('an approved command runs, and the turn finishes', SLOW_TEST, async (t) => {
     const { runtime, sandbox, start } = await harness(t);
     const execution = await start('CMD_ESC:touch approved.txt && echo created-approved');
@@ -344,6 +408,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     await execution.next('runtime.turn.completed');
     assert.deepEqual(execution.types(), [
       'runtime.execution.started',
+      'runtime.model.used',
       'runtime.turn.started',
       'runtime.tool.started',
       'runtime.approval.requested',
@@ -353,9 +418,9 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       'runtime.turn.completed',
     ]);
     const payloads = execution.observations.map((observation) => observation.payload);
-    assert.deepEqual(payloads[4], { approval_id: approvalId(requested), decision: 'approved' });
-    assert.equal((payloads[5] as { outcome: string }).outcome, 'succeeded');
-    assert.match((payloads[6] as { text: string }).text, /Output: created-approved/);
+    assert.deepEqual(payloads[5], { approval_id: approvalId(requested), decision: 'approved' });
+    assert.equal((payloads[6] as { outcome: string }).outcome, 'succeeded');
+    assert.match((payloads[7] as { text: string }).text, /Output: created-approved/);
     assert.ok(existsSync(`${sandbox.project}/approved.txt`));
     assertValidObservations(execution.observations, execution.context);
   });
@@ -519,11 +584,11 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         provider: { slowChunkMs: 100, slowChunks: 15 },
       });
       const execution = await start('SLOW_TEXT that the steer follows.');
-      await execution.next('runtime.turn.started');
+      const started = await execution.next('runtime.turn.started');
       await until(() => sandbox.provider.streaming === 1, 10_000, 'the model stream');
       await runtime.sendInstruction({ execution: execution.context, text: 'STEER: wrap it up' });
       const completed = await execution.next('runtime.turn.completed');
-      assert.equal(turnId(completed), turnId(execution.observations[1]));
+      assert.equal(turnId(completed), turnId(started));
       assert.equal(execution.types().filter((type) => type === 'runtime.turn.started').length, 1);
       const texts = execution.observations
         .filter((item) => item.type === 'runtime.agent_message')
@@ -571,6 +636,58 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     await execution.next('runtime.turn.completed');
     assert.equal(sandbox.provider.requests.at(-1)?.body?.model, 'gpt-5.4');
   });
+
+  test(
+    'the list holds the configured model under the configured provider, and a start from it runs there',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      // The built-in catalog is OpenAI's, so it stays out of a list for another provider.
+      const models = await runtime.listModels();
+      assert.deepEqual(models, [
+        {
+          model_ref: 'fake/gpt-5.5',
+          display_name: 'gpt-5.5 (Fake provider (Halcyonic tests))',
+          served: 'this_mac',
+          tool_calling: 'unknown',
+          context_tokens: null,
+        },
+      ]);
+      assert.ok(models.every((model) => compileValidator(RuntimeModel)(model).ok));
+      assert.equal(JSON.stringify(models).includes(sandbox.provider.baseUrl), false);
+
+      const execution = await start('Hello.', {}, 'fake/gpt-5.5');
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.at(-1)?.body?.model, 'gpt-5.5');
+      assert.deepEqual(
+        execution.observations
+          .filter((item) => item.type === 'runtime.model.used')
+          .map((item) => item.payload),
+        [{ model_ref: 'fake/gpt-5.5' }],
+      );
+
+      // A model the list no longer holds, or one of another provider, starts nothing.
+      const requests = sandbox.provider.requests.length;
+      for (const modelRef of ['fake/removed-model', 'openai/gpt-5.5']) {
+        const gone = new Execution();
+        await assert.rejects(
+          runtime.startExecution({
+            execution: gone.context,
+            instruction: 'Hello.',
+            options: { cwd: sandbox.project },
+            model_ref: modelRef,
+            emit: gone.emit,
+          }),
+          (error: unknown) =>
+            error instanceof RuntimeActionError &&
+            error.code === 'model_unavailable' &&
+            error.effect === 'none',
+        );
+        assert.deepEqual(gone.types(), [], modelRef);
+      }
+      assert.equal(sandbox.provider.requests.length, requests);
+    },
+  );
 
   test(
     'a server killed mid-turn is relaunched: the turn reads interrupted and the thread goes on',
@@ -703,6 +820,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
         options: { cwd: sandbox.project },
+        model_ref: null,
         emit: execution.emit,
       });
       await execution.next('runtime.turn.completed');

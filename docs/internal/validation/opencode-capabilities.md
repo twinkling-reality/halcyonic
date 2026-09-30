@@ -152,3 +152,28 @@ fake provider (15 end to end scenarios, five consecutive green runs):
 
 The adapter refuses any server that does not report version 2.0.18. The configured binary's
 checksum is not verified yet.
+
+## Local models and steering (2026-09-29)
+
+Found while running the pinned binary with open models that Ollama serves on the Mac, through
+the control plane; the runs, the network and the measurements are in
+[local-models.md](local-models.md).
+
+- **Steering.** A prompt with `delivery: "steer"` sent while a turn runs is accepted into the
+  session's inbox and reaches the model when the running step ends, in the same turn. One still in
+  the inbox when the turn is interrupted is not delivered then; it reaches the model with the next
+  prompt, and no turn starts for it on its own. The adapter now declares `instruct_while_running`.
+- **Rejecting cascades.** With two permission requests pending, a rejection without a message
+  resolved both as rejected and interrupted the turn.
+- **The model list settles late.** `GET /api/model` and `GET /api/model/default` take a `location`
+  deep object (`?location%5Bdirectory%5D=...`), and each location settles separately. Right after
+  launch they list nothing, then the models of the built-in catalog, then those discovered from
+  local servers such as Ollama; a session prompted before its model is listed fails with
+  `provider.no-route`. The adapter waits for a named model to be listed. Each listed model carries
+  its provider's settings, API key included, its headers and its request body, so the adapter reads
+  only the fields it needs.
+- **Defaults.** The default agent allows every action except reading `.env` files and working
+  outside the project directory. Sessions accept their own `permissions` ruleset at creation.
+- **Network.** The model catalog fetch from `models.opencode.ai` and the download of ripgrep from
+  GitHub are described in the local models record; `OPENCODE_DISABLE_MODELS_FETCH=true` stops the
+  first, and a ripgrep on the PATH prevents the second.

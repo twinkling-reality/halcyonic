@@ -34,6 +34,10 @@ export interface ThreadState {
   readonly fileChanges: Map<string, string>;
   /** Approvals Codex asked for and has not resolved, by approval id. */
   readonly approvals: Map<string, PendingApproval>;
+  /** The model provider Codex reported for the thread, from `thread/start` or `thread/resume`. */
+  provider: string | null;
+  /** The model Codex last reported for the thread, there or in `model/rerouted`. */
+  model: string | null;
   /** The sequence of the last observation. */
   sequence: number;
 }
@@ -46,6 +50,8 @@ export function createThreadState(): ThreadState {
     tools: new Set(),
     fileChanges: new Map(),
     approvals: new Map(),
+    provider: null,
+    model: null,
     sequence: 0,
   };
 }
@@ -114,6 +120,21 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
   const none: Observed = { observations: [], settled: [] };
 
   switch (message.method) {
+    case 'model/rerouted': {
+      // Codex moved the thread to another model; the provider stays the thread's.
+      const to = nonBlank(params.toModel);
+      if (to === null || to === state.model || state.provider === null) return none;
+      state.model = to;
+      const ref = `${state.provider}/${to}`;
+      if (!/^\S{1,256}$/.test(ref)) return none;
+      const turnId = nonBlank(params.turnId) ?? 'thread';
+      return {
+        observations: [
+          make('runtime.model.used', { model_ref: ref }, `${turnId}:model/rerouted:${to}`),
+        ],
+        settled: [],
+      };
+    }
     case 'turn/started': {
       const turn = isRecord(params.turn) ? params.turn : {};
       const id = nonBlank(turn.id);
