@@ -51,20 +51,17 @@ keeps its identity across executions and runtimes. Details: [DOMAIN_MODEL.md](..
 The intended first choice is simple: **Connect projects** or **Create a project**. These are
 product goals, not a description of the current headset build.
 
-- **Connect projects.** Bring in existing projects and work already running on the user's machines.
-  Choose which projects and work are visible, and how they appear. Meaningful work appears as
-  characters.
-- **Create a project.** A person and an AI companion develop a shared vision together in the
-  headset. The person can arrive with an idea and parameters, or explore possibilities with the
-  companion. The companion asks useful questions, offers choices and makes its current
-  interpretation visible and correctable. The person can start building on the spot once the
-  vision is clear enough, then continue refining it while work progresses. The result is an
-  ordinary Project with Workstreams, not a separate "idea" architecture.
+- **Connect projects.** Choose existing projects, which active work to show and how to show it.
+  The chosen work appears as characters.
+- **Create a project.** Make a project in the headset with an AI companion. Bring an idea and any
+  parameters already in mind, or work them out together through conversation and simple choices.
+  Start building on the spot when ready. This creates an ordinary Project and its first Workstream;
+  there is no separate "idea" object.
 
-The default path uses language about the thing being made. Runtime, model and working-directory
-choices must not be a prerequisite to expressing an idea; people who want those controls can
-reach them. How the companion appears, how the shared vision is represented, and which safe
-defaults can start real work remain open design questions.
+Both paths lead to the same place: the person's projects and their work, represented by characters
+that can be opened and directed. Creation should ask for the details needed to start real work in
+ordinary language, with technical controls available to people who want them. It does not require
+a separate "shared vision" screen or artifact. Which settings can safely default remains open.
 
 ## Collaboration policies (future)
 
@@ -104,8 +101,8 @@ prototypes cannot dictate the backend.
 
 The minimum viable product needs three characters, hands-only interaction, the compressed to
 expanded transition, one real runtime, one real safe action with a runtime-confirmed result, and
-real Salidium and Seorak value. It also needs a small, credible new-project loop from a shared
-vision to first work. This does not require open-ended idea generation, a full IDE, multiplayer,
+real Salidium and Seorak value. It also needs a simple path to create a project and begin its first
+work in the headset. This does not require open-ended idea generation, a full IDE, multiplayer,
 full learning, a cloud relay, every runtime, elaborate customization, autonomous merge or deploy,
 or a complex voice assistant. How much of the new-project path fits in the first competition
 release remains open.
@@ -128,8 +125,8 @@ release remains open.
 
 - **Existing project:** a user understands and intervenes in autonomous work without
   reconstructing context from several terminals and tools.
-- **New project:** a user and companion form a visible, revisable shared vision and turn it into
-  active software work without first assembling a desktop workflow.
+- **New project:** a user and companion create a project and begin software work in the headset
+  without first assembling a desktop workflow.
 - **Learner (future):** a user builds real software while understanding what the agents did.
 
 ## Kill or pivot conditions
