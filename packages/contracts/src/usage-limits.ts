@@ -1,4 +1,5 @@
 import Type, { type Static } from 'typebox';
+import { EvaluationSource } from './evaluation.ts';
 import { ErrorInfo, Text } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -40,7 +41,12 @@ export type UsageLimit = Static<typeof UsageLimit>;
  */
 export const UsageLimitsResponse = Type.Union([
   Type.Object(
-    { availability: Type.Literal('available'), readings: Type.Array(UsageLimit, { minItems: 1 }) },
+    {
+      availability: Type.Literal('available'),
+      /** Where the readings come from; `synthetic` as for an evaluation (ADR 0019). */
+      source: EvaluationSource,
+      readings: Type.Array(UsageLimit, { minItems: 1 }),
+    },
     strict,
   ),
   Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),

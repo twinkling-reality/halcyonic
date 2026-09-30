@@ -25,6 +25,7 @@ describe('provider usage limits', () => {
     const result = await read();
     assert.deepEqual(result, {
       availability: 'available',
+      source: { system: 'seorak', synthetic: false, api_version: 'v1' },
       readings: [
         {
           agent: 'codex', label: 'Codex', window: 'rolling-5h', used_percent: 40,

@@ -15,6 +15,7 @@ public class UsageLeftTests
     private const string Available = """
         {
           "availability": "available",
+          "source": { "system": "seorak", "synthetic": false, "api_version": "v1" },
           "readings": [
             { "agent": "codex", "label": "Codex", "window": "rolling-5h", "used_percent": 40.2,
               "resets_at": "2026-09-30T21:05:00.000Z", "observed_at": "2026-09-30T19:08:00.000Z",
@@ -57,6 +58,13 @@ public class UsageLeftTests
         Assert.That(words, Does.Not.Contain("remaining").IgnoreCase);
         Assert.That(words, Does.Not.Contain(" now").IgnoreCase);
         Assert.That(words, Does.Not.Contain("—"));
+    }
+
+    [Test]
+    public void SaysSimulatedForAStandInsReadings()
+    {
+        var glance = Present(Available.Replace("\"synthetic\": false", "\"synthetic\": true"));
+        Assert.That(glance.Note, Does.StartWith("Simulated."));
     }
 
     [Test]
