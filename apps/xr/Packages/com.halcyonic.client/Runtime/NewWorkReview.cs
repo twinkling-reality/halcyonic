@@ -20,14 +20,25 @@ namespace Halcyonic.Client
 
         /// <param name="lineCharacters">The longest line, in ASCII characters, that the panel draws in full.</param>
         /// <param name="pageLines">How many lines a page holds.</param>
+        /// <param name="folder">Where the project's files will live, in words, or null when it is not part of the request.</param>
+        /// <param name="folderBefore">
+        /// An existing project's folder now, when the request moves it to <paramref name="folder"/>:
+        /// both show, since all later work in the project runs in the new one.
+        /// </param>
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
-            int lineCharacters = LineCharacters, int pageLines = PageLines)
+            int lineCharacters = LineCharacters, int pageLines = PageLines, string? folder = null, string? folderBefore = null)
         {
             if (lineCharacters < 12) throw new ArgumentOutOfRangeException(nameof(lineCharacters), lineCharacters, "A line holds at least 12 characters.");
             if (pageLines < 1) throw new ArgumentOutOfRangeException(nameof(pageLines), pageLines, "A page holds at least one line.");
             this.lineCharacters = lineCharacters;
             var lines = new List<string>();
             Add(lines, "Project: " + Safe(project));
+            if (folderBefore != null && folder != null)
+            {
+                Add(lines, "Folder now: " + Safe(folderBefore));
+                Add(lines, "Folder from now on: " + Safe(folder));
+            }
+            else if (folder != null) Add(lines, "Where its files live: " + Safe(folder));
             Add(lines, "Workstream title: " + Safe(title));
             Add(lines, "Runtime: " + Safe(runtime));
             Add(lines, "Model: " + Safe(model));

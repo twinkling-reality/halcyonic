@@ -637,7 +637,7 @@ public class EntryWordsTests
             EntryText.MoreWorkLine, EntryText.AllOnStage, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
             EntryText.TypeIdeaInvite, EntryText.HelpMe, EntryText.HelpMeInvite, EntryText.NothingStartsYet, EntryText.GuideNote,
             EntryText.Back, EntryText.RecapTitle, EntryText.WorkRecapTitle, EntryText.StartBuilding, EntryText.MoreOptions,
-            EntryText.ChooseHowItRuns, EntryText.LocationNotBuilt, EntryText.OptionsTitle, EntryText.OptionsLine, EntryText.NoRuntimes,
+            EntryText.ChooseHowItRuns, EntryText.FolderTitle, EntryText.FolderLine, EntryText.ReadingFolders, EntryText.NoFolders, EntryText.FoldersCut, EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.ChooseFolder, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder, EntryText.RebindWarning, EntryText.OptionsTitle, EntryText.OptionsLine, EntryText.NoRuntimes,
             EntryText.Done, EntryText.ConfirmStart, EntryText.Change, EntryText.SendingTitle, EntryText.TryAgain, EntryText.Started,
             EntryText.PreviousRequestTitle, EntryText.ICheckedTheWork, EntryText.ClearAfterChecking, EntryText.OpenNow,
             EntryText.KeepCreating, EntryText.ResetPosition, EntryText.Close, EntryText.Move(0), EntryText.Move(1), EntryText.Move(-1),

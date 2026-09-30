@@ -53,11 +53,52 @@ namespace Halcyonic.Client
         public const string MoreOptions = "More options";
         public const string ChooseHowItRuns = "Choose how it runs";
 
+        public const string FolderTitle = "Where its files live";
+        public const string FolderLine = "Folders your Mac lets Halcyonic use. A new folder starts empty.";
+        public const string ReadingFolders = "Reading the folders your Mac allows.";
+        public const string NoFolders = "Your Mac doesn't allow any folder yet. Allow one on your Mac, then choose again.";
+        public const string FoldersCut = "Your Mac lists only the first 200 folders in a place.";
+        public const string NewFolderPrompt = "Name the new folder";
+        public const string NewFolderRule = "Use letters, digits, dots, dashes or underscores, starting with a letter or digit, up to 64.";
+        public const string ChooseFolder = "Choose";
+        public const string UseThatFolder = "Use that folder";
+        public const string ChooseAnotherFolder = "Choose where its files live";
+        public const string RebindWarning = "All later work in this project runs in the new folder. Work already running keeps its folder.";
+
         /// <summary>
-        /// Where the project's files live cannot be chosen from the headset yet; runtimes that need a
-        /// folder refuse to start without one. One line, so choosing a location replaces it alone.
+        /// Where the project's files live, for the recap: the folder chosen, the project's own, or
+        /// what is still to choose. <paramref name="current"/> is an existing project's folder;
+        /// <paramref name="needed"/> says whether the chosen runtime works in a project folder.
         /// </summary>
-        public const string LocationNotBuilt = "Where its files live: not chosen here yet. A runtime that needs a folder will refuse to start.";
+        public static string FolderRecap(ProjectLocation? current, ProjectFolder? chosen, bool needed)
+        {
+            if (chosen != null && current != null) return "Where its files live: " + LabelText.Plain(current.Name) + " now; " + chosen.Describe() + " after this";
+            if (chosen != null) return "Where its files live: " + chosen.Describe();
+            if (current != null) return "Where its files live: " + LabelText.Plain(current.Name) + ", the project's folder";
+            return needed ? "Where its files live: not chosen yet" : "Where its files live: none needed for this runtime";
+        }
+
+        /// <summary>
+        /// What to do after a refusal or failure about a folder, from its code, never from the control
+        /// plane's own message; null for any other code.
+        /// </summary>
+        public static string? FolderProblem(RejectionCode? refusal, string? failure)
+        {
+            if (refusal == RejectionCode.LocationRequired || failure == "location_required")
+                return "This project has no folder on your Mac yet. Choose where its files live, then try again.";
+            if (refusal == RejectionCode.LocationMissing || failure == "location_missing")
+                return "That folder isn't on your Mac any more: moved, renamed or deleted. Choose it again, or put it back on your Mac.";
+            if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed")
+                return "Your Mac doesn't let agents work there. Choose a folder it lists.";
+            if (refusal == RejectionCode.LocationExists || failure == "location_exists")
+                return "There's already a folder with that name. Use that folder, or choose another name.";
+            if (failure == "location_not_created")
+                return "Your Mac couldn't make that folder, so nothing was created. Choose another name or place.";
+            return null;
+        }
+
+        /// <summary>The step stopped over its folder, so choosing another is the next action.</summary>
+        public static bool AboutFolder(BuildStep step) => !step.EffectUnknown && FolderProblem(step.Refusal, step.Failure) != null;
 
         public const string OptionsTitle = "How it runs";
         public const string OptionsLine = "Choose what runs the work. Where each model runs is shown beside it.";
@@ -153,19 +194,26 @@ namespace Halcyonic.Client
         public static string StepName(BuildStepKind kind, bool newProject) => kind switch
         {
             BuildStepKind.CreateProject => "Create the project",
+            BuildStepKind.BindFolder => "Move the project to its folder",
             BuildStepKind.CreateWorkstream => newProject ? "Create its first work" : "Create the work",
             _ => "Start the work",
         };
 
-        /// <summary>How a step of Start building went: sent is not done, and only a completed record confirms.</summary>
+        /// <summary>
+        /// How a step of Start building went: sent is not done, and only a completed record confirms.
+        /// A refusal or failure about a folder says what to do, from its code; any other shows the
+        /// control plane's reason, as <see cref="LabelText.Plain"/> shows it.
+        /// </summary>
         public static string StepStatus(BuildStep step) => step.Status switch
         {
             BuildStepStatus.NotYet => "Not yet",
             BuildStepStatus.Waiting => "Sent, waiting for the result",
             BuildStepStatus.Confirmed => "Confirmed",
-            BuildStepStatus.Refused => "Could not do that: " + (step.Reason ?? "no reason given"),
-            BuildStepStatus.Failed => "Could not do that: " + (step.Reason ?? "no reason given")
-                + (step.EffectUnknown ? " It may have taken effect anyway; check the work before trying again." : ""),
+            BuildStepStatus.Refused => "Could not do that: " + (FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
+            // A failure that may have had an effect is never put in words that say nothing happened.
+            BuildStepStatus.Failed when step.EffectUnknown => "Could not do that: " + LabelText.Plain(step.Reason ?? "no reason given")
+                + " It may have taken effect anyway; check the work before trying again.",
+            BuildStepStatus.Failed => "Could not do that: " + (FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
             BuildStepStatus.Unknown => "Effect unknown. Check the work before trying again.",
             BuildStepStatus.NotSent => "Not sent: your Mac is not connected.",
             _ => "Unexpected result. Check the work before trying again.",

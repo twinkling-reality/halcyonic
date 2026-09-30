@@ -106,6 +106,15 @@ namespace Halcyonic.Client
         /// <summary>The question being asked, from 0, or <see cref="Questions"/>' count once all are answered.</summary>
         public int Question { get; private set; }
 
+        /// <summary>
+        /// Where its files live, chosen from what the host listed, or null while not chosen: for a new
+        /// project, the folder it is created in; for an existing one, the folder it moves to.
+        /// </summary>
+        public ProjectFolder? Folder { get; private set; }
+
+        /// <summary>Chooses where the project's files live, or clears the choice with null.</summary>
+        public void ChooseFolder(ProjectFolder? folder) => Folder = folder;
+
         /// <summary>The recap exists: an idea was typed or every question was answered.</summary>
         public bool HasRecap => FirstTask.Length > 0;
 
