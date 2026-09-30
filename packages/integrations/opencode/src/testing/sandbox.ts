@@ -96,7 +96,6 @@ export async function createSandbox(options: FakeProviderOptions = {}): Promise<
       https_proxy: proxy,
       NO_PROXY: loopback,
       no_proxy: loopback,
-      OPENCODE_DISABLE_MODELS_FETCH: 'true',
     },
     provider,
     egress,
