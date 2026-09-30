@@ -292,8 +292,9 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
     const connection = await this.#connection();
+    // Asked again before each model read that carries the folder (in #awaitModel), and right
+    // before the session is made there: launching and waiting take seconds.
     await this.#awaitModel(connection, directory, parsed.value.model);
-    // Asked again right before the folder is handed over: launching and waiting take seconds.
     confirmProjectLocation(this.#directoryPolicy, directory);
     const body: Record<string, unknown> = {
       title: `Halcyonic execution ${request.execution.execution_id}`,
@@ -651,6 +652,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     const deadline = Date.now() + this.#modelWaitMs;
     for (;;) {
       if (connection.halted.signal.aborted) throw unreachableError();
+      // Each read sends the folder to OpenCode, which reads that folder's own configuration.
+      confirmProjectLocation(this.#directoryPolicy, directory);
       let found: boolean;
       try {
         found =
