@@ -4,7 +4,7 @@
   what the evaluation source (Seorak) measured about an execution, each with its provenance and
   availability, from a control plane and in the recorded demonstration; and what of that is
   verified?
-- **Date:** 2026-09-29.
+- **Date:** 2026-09-29; real-source check on 2026-09-30.
 - **Environment:** an Apple M5 Max with macOS 26.7; Node.js 24.15.0; .NET SDK 10.0.401; Unity
   6000.3.25f1 in batch mode with `com.unity.ugui` 2.0.0; Halcyonic on top of `d3fd5ca`. On the same
   Mac: Salidium 0.6.0 installed, its menu bar app running and its daemon not; Seorak's local plane
@@ -15,8 +15,8 @@
   real sources read only: Salidium's discovery file, and Seorak's opt-in live test with the owner's
   credential read inside the test process; TextMeshPro's source in the Unity installation.
 - **Status:** Verified from the contracts to rendered labels with stand-in sources, and against a
-  real control plane process. Not verified: a real execution's answers end to end (pending, below),
-  and anything on a headset.
+  real control plane process. One real Codex execution was read through both sources on 2026-09-30.
+  The real answers have not been checked on a headset.
 
 ## Findings
 
@@ -38,17 +38,29 @@
   Salidium does not observe sessions of the mock runtime." and "Evaluation unavailable: Seorak does
   not observe sessions of the mock runtime."
 
-### A real execution end to end: pending
+### A real execution end to end
 
-A real check needs a Claude Code or Codex execution that Salidium and Seorak observe. Model spend is
-not allowed, and running Codex on local models is another lane's work, not yet done. Whether both
-products observe a Codex thread Halcyonic starts on a local model is not verified. When one runs,
-with Salidium's daemon running and a consumer credential and Seorak's credential in a scratch data
-directory: open its workspace in the XR client and check that Understanding reads "From Salidium
-0.6.0, …" with the verdict, the agent's statement as a quote, the changes, the coverage and the
-checks, each with Salidium's class, and that Evaluation reads "From Seorak, read …" with the cost as
-an estimate and its note, and each part's own availability, coverage and freshness. Record the
-answers' shapes, not their content, here.
+On 2026-09-30, a scratch control plane started one Codex 0.157.0 execution on the local Ollama
+`qwen3.6:35b-a3b-nvfp4` model. It created a file and checked its contents in an ignored scratch
+directory. The control plane and both reads used a separate data directory. Salidium's 0.6.0
+daemon read its normal Codex hooks and rollout, with `SALIDIUM_EXPLAINER=off` to prevent optional
+model calls; its read-only consumer credential was created for this check and revoked afterward.
+The already running Seorak local daemon used the owner's existing read-only integration credential.
+Neither answer was synthetic.
+
+- The execution and its workstream completed. `GET /api/executions/:id/understanding` returned
+  `available`, with Salidium 0.6.0 as source, a verdict, a `reported` agent statement, changes,
+  verification, review and remaining sections. It reported "No files changed" and "No checks yet":
+  the scratch file was inside the repository's ignored `.private` directory, and no test framework
+  ran. Its explanation status was `disabled`, as intended to avoid model spend.
+- `GET /api/executions/:id/evaluation` returned `available` with a nonsynthetic Seorak source.
+  Cost, outcome and verification each reported available, complete coverage for one matched and
+  included session, and fresh data. The cost field `estimated_usd` was null. Seorak's known Ollama
+  token parsing gap may explain this, but this run did not isolate the cause. The verification lens
+  existed and had no verification run to describe.
+- The real answers were read through Halcyonic's routes, not rendered in the headset. The live
+  source sections, a nonempty change report, a verification run and a numeric cost estimate remain
+  to be checked in the workspace after the Seorak parser fix.
 
 ### The demonstration's answers
 

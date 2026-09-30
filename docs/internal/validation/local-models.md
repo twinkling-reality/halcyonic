@@ -325,7 +325,10 @@ tokens a second; the cause was not found.
 - Codex with a model name Ollama does not have: not run against the real Ollama, to rule out any
   path to a pull.
 - openai/codex#48870, which needs a server that refuses an oversized prompt.
-- Salidium and Seorak showing these threads live: the runs kept Codex away from the developer's
-  `~/.codex`.
+- The initial local-model runs kept Codex away from the developer's `~/.codex`. A later scratch
+  control plane using the normal Codex home produced one local-model thread that both Salidium and
+  Seorak returned through Halcyonic's routes
+  ([understanding-and-evaluation.md](understanding-and-evaluation.md)); its Seorak cost estimate
+  was null, so the token accounting remains unverified.
 - Claude Code's list of models against the real CLI, which starts a Claude Code process that may
   reach Anthropic: checked only against the Agent SDK's types and a fake.
