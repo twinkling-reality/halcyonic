@@ -64,7 +64,9 @@ const OUTCOMES = new Set(['succeeded', 'failed', 'interrupted']);
  * lost connection.
  *
  * Only Halcyonic starts turns on the server it launched, one at a time and only at rest, so at
- * most the turn it knew about, or the one its last prompt started, can have run meanwhile.
+ * most the turn it knew about, or the one its last prompt started, can have run meanwhile. An
+ * instruction steered into a running turn never starts one: OpenCode delivers it into that turn,
+ * or keeps it for the next prompt.
  */
 export function reconcileSession(
   state: SessionState,

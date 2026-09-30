@@ -46,6 +46,18 @@ context. Codex writes each thread's rollout to the developer's `CODEX_HOME`, tag
 adapter writes no logs; when a server fails to start, the end of its error output becomes part of
 the start failure's message.
 
+When the OpenCode runtime is enabled, its server gets the same kind of allowlist, plus the names in
+`HALCYONIC_AGENT_ENV`, and uses the developer's own OpenCode configuration and providers. What
+OpenCode 2.0.18 itself sends off the Mac, whatever model runs ([local-models.md](../validation/local-models.md)):
+its model catalog, fetched from `models.opencode.ai` at launch and every five minutes unless
+`OPENCODE_DISABLE_MODELS_FETCH=true` reaches it through `HALCYONIC_AGENT_ENV`; and ripgrep,
+downloaded from GitHub the first time an agent searches files when no `rg` is on the PATH it
+inherits. Its configuration decides the rest, and its defaults do not keep work local: without a
+configured model it uses a free hosted model of its own service (OpenCode Zen) even when local
+models are listed, and it runs every tool without asking, `webfetch` and `websearch` included,
+unless its permissions say otherwise. Halcyonic does not yet impose permission rules on OpenCode
+sessions ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+
 The control plane also holds one credential for each product whose conclusions it reads through.
 Each is read from its file on every request, refused when other users can read the file, and never
 logged or passed to launched agents:

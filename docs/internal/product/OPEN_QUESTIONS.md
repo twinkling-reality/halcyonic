@@ -31,6 +31,7 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Claude Code: can a background task raise an approval after its turn ended? The domain clears pending approvals when a turn ends. | Approvals must never vanish | A smoke test with a real model |
 | Claude Code: `AskUserQuestion` arrives as an ordinary approval, and approving it gives no answers. How should questions reach the person? | Clarifying questions from agents | Adapter design after a real-model smoke test |
 | Seorak: can a client prove that the process on the plane's port is Seorak before it sends the credential, as Salidium's discovery file allows? Seorak has no such mechanism yet and has recorded the request as deferred. | While Seorak is stopped, another local account could receive the credential ([SECURITY.md](../architecture/SECURITY.md)) | A discovery mechanism in Seorak |
+| OpenCode: should Halcyonic give each session permission rules that ask before shell commands and refuse `webfetch` and `websearch`, as the Codex adapter imposes an asking approval policy? OpenCode 2.0.18 allows every action by default, so with a default configuration nobody is asked and an agent may fetch from the network. Session rules win over the person's own, so they would also turn a rule the person set to deny into one that asks. | Approvals are Halcyonic's defining interaction, and local models are chosen to keep work on the Mac ([local-models.md](../validation/local-models.md)) | Security design |
 
 ## Platform and security
 
