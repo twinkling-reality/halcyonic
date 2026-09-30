@@ -132,7 +132,7 @@ batch mode:
 ```
 
 It saves the chip on the rail, then the panel with two readings, not set up, no reading yet, while
-reading and with an agent name from outside, over both stages in `apps/xr/Builds/UsageLeftRenders`,
+reading, a partial answer and with an agent name from outside, over both stages in `apps/xr/Builds/UsageLeftRenders`,
 each with a close-up, and logs how far below eye level the panel spans (`Halcyonic: usage left
 render ...`). It fails if the chip leaves the rail's free room or comes near a rail button, if the
 panel covers a character's body or label plate or reaches beyond the space the workspace may take,

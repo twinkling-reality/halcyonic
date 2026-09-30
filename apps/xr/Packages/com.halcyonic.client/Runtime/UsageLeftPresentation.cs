@@ -54,6 +54,9 @@ namespace Halcyonic.Client
 
         public const string NotSetUp = "Usage left isn't set up on your Mac.";
         public const string Reading = "Reading usage left…";
+
+        /// <summary>Said when the source read only some limits; a window not shown is unknown, never zero.</summary>
+        public const string Incomplete = "Some limits couldn't be read this time.";
         public const string Unidentified = "Account not identified: these may come from any account used on your Mac.";
 
         public static UsageLeftPresentation Present(UsageLimitsResponse response, DateTimeOffset now, TimeZoneInfo zone)
@@ -61,7 +64,7 @@ namespace Halcyonic.Client
             switch (response)
             {
                 case AvailableUsageLimits available:
-                    return Present(available.Readings, available.Source.Synthetic, now, zone);
+                    return Present(available.Readings, available.Source.Synthetic, available.Complete, now, zone);
                 case UnauthorizedUsageLimits:
                     return Problem(NotSetUp);
                 case UnavailableUsageLimits unavailable:
@@ -82,7 +85,7 @@ namespace Halcyonic.Client
 
         public static UsageLeftPresentation Message(string text) => Quiet(text);
 
-        private static UsageLeftPresentation Present(IEnumerable<UsageLimit> readings, bool synthetic, DateTimeOffset now, TimeZoneInfo zone)
+        private static UsageLeftPresentation Present(IEnumerable<UsageLimit> readings, bool synthetic, bool complete, DateTimeOffset now, TimeZoneInfo zone)
         {
             var rows = new List<UsageLeftRow>();
             foreach (var reading in readings)
@@ -101,7 +104,8 @@ namespace Halcyonic.Client
             }
             return rows.Count == 0
                 ? Quiet("No reading since the last reset. Read again later.")
-                : new UsageLeftPresentation(rows, (synthetic ? "Simulated, not from Seorak. " : "From Seorak, as the provider reported. ") + Unidentified, problem: false);
+                : new UsageLeftPresentation(rows, (complete ? "" : Incomplete + " ")
+                    + (synthetic ? "Simulated, not from Seorak. " : "From Seorak, as the provider reported. ") + Unidentified, problem: false);
         }
 
         /// <summary>"today at 15:18" in the person's zone, or "6 Oct at 09:00" on another day, so a time never reads as today when it is not.</summary>

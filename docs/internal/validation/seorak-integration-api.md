@@ -172,6 +172,14 @@ What Halcyonic reads:
   `unavailable`, `not_captured`) or `outside-credential-restriction`, which Seorak gives any
   project- or date-restricted credential (Halcyonic: `unauthorized`, since it is a setup problem).
   An unknown reason reads as `unavailable` (`unknown_reason`).
+- A partial answer (Seorak's final build, added after the first specification): availability
+  `partial` with reason `result-limit` when a read reaches Seorak's result budget. The readings it
+  returns are exact, and a window missing from them is unknown, not zero. Halcyonic answers
+  `available` with `complete: false`, and the headset adds "Some limits couldn't be read this
+  time."; it never infers a missing window. A partial answer with no readings is `unavailable`
+  (`result_limit`).
+- The route takes no query string, and Seorak answers 404 to one; Halcyonic sends none, which a
+  test pins.
 - Seorak computes no remaining share. Halcyonic shows `100 - usedPercent`, rounded up, as "at
   most X% left" as of the observation, never as a current value. Seorak's team reports that on
   the owner's history newer readings can only understate use in the weekly window, that one

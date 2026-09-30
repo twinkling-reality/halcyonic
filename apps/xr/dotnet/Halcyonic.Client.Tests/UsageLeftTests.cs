@@ -16,6 +16,7 @@ public class UsageLeftTests
         {
           "availability": "available",
           "source": { "system": "seorak", "synthetic": false, "api_version": "v1" },
+          "complete": true,
           "readings": [
             { "agent": "codex", "label": "Codex", "window": "rolling-5h", "used_percent": 40.2,
               "resets_at": "2026-09-30T21:05:00.000Z", "observed_at": "2026-09-30T19:08:00.000Z",
@@ -58,6 +59,15 @@ public class UsageLeftTests
         Assert.That(words, Does.Not.Contain("remaining").IgnoreCase);
         Assert.That(words, Does.Not.Contain(" now").IgnoreCase);
         Assert.That(words, Does.Not.Contain("\u2014"));
+    }
+
+    [Test]
+    public void SaysWhenSomeLimitsCouldNotBeReadAndShowsOnlyWhatWas()
+    {
+        var glance = Present(Available.Replace("\"complete\": true", "\"complete\": false"));
+        Assert.That(glance.Rows, Has.Count.EqualTo(2), "only the readings returned, nothing inferred");
+        Assert.That(glance.Note, Does.StartWith("Some limits couldn't be read this time. From Seorak"));
+        Assert.That(Present(Available).Note, Does.Not.Contain("couldn't be read"));
     }
 
     [Test]

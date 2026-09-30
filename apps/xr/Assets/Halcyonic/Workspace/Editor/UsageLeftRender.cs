@@ -85,11 +85,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 Reason = new ErrorInfo { Code = "not_captured", Message = "Seorak has not captured a provider limit." },
             }, now, zone), false);
             yield return ("reading", UsageLeftPresenter.Message(UsageLeftPresenter.Reading), false);
+            yield return ("partial", UsageLeftPresenter.Present(Available(now, "Codex", "codex", complete: false), now, zone), false);
             yield return ("untrusted", UsageLeftPresenter.Present(Available(now, WorkspaceRender.Hostile("agent"), "render-agent"), now, zone), true);
         }
 
         /// <summary>Two Codex windows: the five-hour one seen minutes ago, the weekly one two days ago.</summary>
-        private static UsageLimitsResponse Available(DateTimeOffset now, string label, string agent)
+        private static UsageLimitsResponse Available(DateTimeOffset now, string label, string agent, bool complete = true)
         {
             string At(TimeSpan offset) => now.Add(offset).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
             UsageLimit Reading(UsageLimitWindow window, double used, TimeSpan seen, TimeSpan resets) => new UsageLimit
@@ -106,6 +107,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return new AvailableUsageLimits
             {
                 Source = new EvaluationSource { System = "seorak", Synthetic = false, ApiVersion = "v1" },
+                Complete = complete,
                 Readings = new List<UsageLimit>
                 {
                     Reading(UsageLimitWindow.Rolling5h, 40.2, TimeSpan.FromMinutes(-12), TimeSpan.FromHours(2)),

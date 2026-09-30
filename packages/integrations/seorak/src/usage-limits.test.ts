@@ -26,6 +26,7 @@ describe('provider usage limits', () => {
     assert.deepEqual(result, {
       availability: 'available',
       source: { system: 'seorak', synthetic: false, api_version: 'v1' },
+      complete: true,
       readings: [
         {
           agent: 'codex',
@@ -90,6 +91,37 @@ describe('provider usage limits', () => {
       result.readings.map((reading) => reading.window),
       ['rolling-5h'],
     );
+  });
+
+  test('a partial answer keeps its exact readings, says it is incomplete, and infers no missing window', async () => {
+    const fiveHour = usageReading({ window: 'rolling-5h' });
+    fake.usageLimits = {
+      ...usageLimitsDocument([fiveHour]),
+      availability: { state: 'partial', reason: 'result-limit' },
+    };
+    const result = await read();
+    assert.equal(result.availability, 'available');
+    if (result.availability !== 'available') return;
+    assert.equal(result.complete, false);
+    assert.deepEqual(
+      result.readings.map((reading) => reading.window),
+      ['rolling-5h'],
+    );
+    fake.usageLimits = {
+      ...usageLimitsDocument([]),
+      availability: { state: 'partial', reason: 'result-limit' },
+    };
+    const none = await read();
+    assert.equal(none.availability, 'unavailable');
+    assert.equal('reason' in none ? none.reason.code : '', 'result_limit');
+  });
+
+  test('sends no query string, which Seorak refuses on this route', async () => {
+    await read();
+    const request = fake.requests.at(-1);
+    assert.equal(request?.path, '/api/v1/usage-limits');
+    assert.equal(request?.path.includes('?'), false);
+    assert.equal(request?.body, '');
   });
 
   test('an unavailable answer is never a 0% reading', async () => {

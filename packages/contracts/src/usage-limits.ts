@@ -45,6 +45,11 @@ export const UsageLimitsResponse = Type.Union([
       availability: Type.Literal('available'),
       /** Where the readings come from; `synthetic` as for an evaluation (ADR 0019). */
       source: EvaluationSource,
+      /**
+       * False when the source could read only some limits, as when it stops at a result limit.
+       * The readings are exact; a window missing from them is unknown, never zero.
+       */
+      complete: Type.Boolean(),
       readings: Type.Array(UsageLimit, { minItems: 1 }),
     },
     strict,

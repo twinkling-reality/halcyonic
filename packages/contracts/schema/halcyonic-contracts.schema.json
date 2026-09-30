@@ -7529,6 +7529,7 @@
           "required": [
             "availability",
             "source",
+            "complete",
             "readings"
           ],
           "properties": {
@@ -7538,6 +7539,9 @@
             },
             "source": {
               "$ref": "#/$defs/EvaluationSource"
+            },
+            "complete": {
+              "type": "boolean"
             },
             "readings": {
               "type": "array",
