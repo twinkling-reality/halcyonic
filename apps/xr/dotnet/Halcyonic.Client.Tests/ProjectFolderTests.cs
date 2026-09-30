@@ -207,7 +207,8 @@ public class FolderRefusalTests
             Assert.That(EntryText.FolderProblem(code, null), Is.Not.Null, code.ToString());
         }
         Assert.That(EntryText.FolderProblem(null, "location_not_created"), Does.Contain("nothing was created"));
-        Assert.That(EntryText.FolderProblem(null, "location_missing"), Does.Contain("isn't on your Mac"));
+        Assert.That(EntryText.FolderProblem(null, "location_missing"), Does.Contain("can't use that folder right now").And.Contain("can't be read"),
+            "the host also answers location_missing for a folder it cannot read, so the words never claim it is gone");
         Assert.That(EntryText.FolderProblem(RejectionCode.InvalidState, "other"), Is.Null);
 
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
