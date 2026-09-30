@@ -141,7 +141,7 @@ only at debug level. The same demo on a fresh data directory completed.
 
 ## Second session: characters and the workspace (2026-09-29, evening)
 
-The build from `b3b5f1a` (the characters of ADR 0013 and the workspace of ADR 0014), against a
+The build from `43cc7c3` (the characters of ADR 0013 and the workspace of ADR 0014), against a
 control plane on a clean data directory, driven by `pnpm demo` held at its approval. The owner
 wore the headset with Meta's Virtual Display showing their Mac.
 
