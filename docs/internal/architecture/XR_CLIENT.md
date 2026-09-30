@@ -155,12 +155,12 @@ the same definition names, as the JSON Schema document:
   first, and an empty text sends nothing.
 - **`PeekChoice`** decides, frame by frame, which one character shows its peek, how visible it is,
   and what a look and pinch opens. A hand pointing at a character, or a finger about to poke it,
-  peeks at once. The gaze peeks only after resting half a second on one character within 7 degrees
+  peeks at once. The gaze peeks only after resting 0.4 s on one character within 10 degrees
   of where the head faces, and starts over while the head turns faster than 20 degrees a second,
   so turning the head across the stage brings up nothing. A peek fades in over 0.25 s and out over
-  0.15 s, only one shows at a time, and a glance aside keeps it 0.3 s. The open character is never
+  0.15 s, only one shows at a time, and a glance aside keeps it 0.45 s. The open character is never
   peeked, and while a workspace is open only hands peek. A pinch of either hand opens a character
-  only while its gaze peek is at least half visible, no hand ray or finger is on any target, no
+  only while its gaze peek is at least a quarter visible, no hand ray or finger is on any target, no
   workspace is open, and the app has focus.
 - **`WorkspacePlacement`** chooses where the workspace opens, seen from the eyes: toward its
   character, at most 15 degrees to the side of where the person looks, and clear of every
@@ -171,7 +171,7 @@ the same definition names, as the JSON Schema document:
 - **`SeatedPointing`** makes a hand ray for a seated person: through the index knuckle from a pivot
   0.40 m below the eyes, 0.10 m behind them and 0.13 m to the hand's side, so a hand resting a
   little above a desk points ahead; on only while the hand is tracked with high confidence, in
-  front of the eyes, its palm neither facing the floor (resting or typing) nor facing the eyes (the
+  front of the eyes, its palm at least 20 degrees from facing the floor (resting or typing) and not facing the eyes (the
   system gesture) ([workspace-interaction.md](../validation/workspace-interaction.md)).
 - **`InFrontPlacement`** decides when the stage, standing in front of the person, is placed again:
   when the session starts and the head is tracked, after a real pause, when the person recenters,
@@ -384,7 +384,7 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   handling, is exactly the plain text; its table covers every control and format character .NET 10
   knows, and its whitespace is exactly .NET's;
 - the peek at 72 frames a second: nothing while the head sweeps the stage or turns slowly, a peek
-  after half a second of rest near the middle of the view, a glance aside kept, one peek at a time
+  after 0.4 s of rest near the middle of the view, a glance aside kept, one peek at a time
   fading out before the next fades in, hands at once and first, nothing for the open character or
   from the gaze while a workspace is open or focus is lost, and a look and pinch only on a showing
   gaze peek with no hand on a target; the seated ray reaching the arc 2.4 m away and a desk
@@ -562,7 +562,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   the middle of the view: `WorkspaceText.Peek`. `PeekChoice` decides which and when: turning the
   head across the stage peeks nothing, one peek shows at a time, a hand pointing wins over the
   gaze, and while a workspace is open only a hand peeks, so reading the workspace never brings up
-  peeks behind it.
+  peeks behind it. A small head gaze reticle shows where the head points while no workspace is
+  open. The peek plate sits in front of its own body and any neighboring body that overlaps its
+  projected words.
 - **Open:** a pinch on the ray, a poke, or, while a gaze peek shows and no hand ray or finger is on
   a target, a pinch of either hand at any height (look and pinch) opens `WorkspacePanel` next to
   that character, within reach and clear of the other characters, facing the eyes. It shows the title and status, the execution and its runtime,
@@ -644,20 +646,23 @@ both distances.
 
 **Gaze, and look and pinch.** `GazeHover` adds an Interaction SDK gaze interactor
 (`GazeInteractor`, v207) that hovers the `GazeInteractable` on each character. It follows the
-scene's `GazeConecaster` (a 2 degree cone, 0.2 s dwell) on Meta's `EyeGaze`, whose camera pose
+scene's `GazeConecaster` (a 3.5 degree cone, 0.2 s dwell) on Meta's `EyeGaze`, whose camera pose
 emulation makes it head gaze: a Quest 3 has no eye tracking, and the app does not ask for it.
 `GazeHover` is also the interactor's selector, as the SDK's hand gaze interactor pairs gaze with a
 pinch: an `IndexPinchSelector` on each hand selects, but only while `PeekChoice` says a gaze peek
 shows and no hand ray or finger is on a target, and never while the pinching palm faces the eyes,
 the headset's menu gesture; the director opens the character only if it is the one the pinch was
-for. A look alone never acts, and where there is no gaze the hand ray still peeks. Verified in the
-SDK's source and in the editor, not yet on a headset
+for. A look alone never acts, and where there is no gaze the hand ray still peeks. The interaction
+log records peek changes, ray target entry and exit, and look pinch acceptance or refusal with a
+reason, using target ids and control instance numbers rather than message text. The adjusted cone,
+reticle and pinch timing are verified in code and tests, not yet on a headset
 ([workspace-interaction.md](../validation/workspace-interaction.md)).
 
 **Seated rays.** The rig's hand rays are `SeatedHandRay`s (`SeatedPointing`): through the index
 knuckle from a pivot below the shoulder, so a person seated with a forearm resting points at the
 characters without raising a hand to shoulder height, which the headset's own ray needs; a palm
-facing the floor, resting or typing, has no ray.
+within 20 degrees of facing the floor, resting or typing, has no ray. This smaller palm exclusion
+is a device trial, not yet verified to separate pointing from typing on a desk.
 
 **Seated, and within reach, clear of the stage.** The workspace opens 0.6 m from the eyes, about
 two feet, so a seated person pokes its buttons without leaning or standing. It is scaled to keep

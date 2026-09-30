@@ -150,6 +150,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 conecaster.AddComponent<GazeConecaster>().InjectGaze(eyeGaze);
                 UnityObjectAddedBroadcaster.HandleObjectWasAdded(gaze);
             }
+            var gazeCone = eyeGaze.GetComponentInChildren<GazeConecaster>(true);
+            if (gazeCone != null) gazeCone.ConeAngle = 3.5f;
             var serialized = new SerializedObject(eyeGaze);
             serialized.FindProperty("_emulateGazeWithCameraPose").boolValue = true;
             serialized.ApplyModifiedPropertiesWithoutUndo();
