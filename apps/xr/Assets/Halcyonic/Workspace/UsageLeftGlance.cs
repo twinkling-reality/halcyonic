@@ -30,6 +30,9 @@ namespace Halcyonic.XR.Workspace
         private const float Padding = 0.03f;
         private const float ButtonHeight = 0.06f;
 
+        /// <summary>Space between two readings.</summary>
+        private const float ReadingGap = 0.015f;
+
         private readonly List<BodyInView> scratch = new List<BodyInView>();
         private ControlPlaneConnection? connection;
         private ProjectRail? rail;
@@ -41,7 +44,7 @@ namespace Halcyonic.XR.Workspace
         private SpriteRenderer plate = null!;
         private PointerTarget target = null!;
         private TextMeshPro title = null!;
-        private TextMeshPro body = null!;
+        private readonly List<TextMeshPro> readings = new List<TextMeshPro>();
         private TextMeshPro note = null!;
         private PanelButton close = null!;
         private PanelButton again = null!;
@@ -73,7 +76,10 @@ namespace Halcyonic.XR.Workspace
                 if (!panel.gameObject.activeInHierarchy) yield break;
                 yield return title;
                 yield return close;
-                if (body.gameObject.activeSelf) yield return body;
+                foreach (var reading in readings)
+                {
+                    if (reading.gameObject.activeSelf) yield return reading;
+                }
                 yield return note;
                 yield return again;
             }
@@ -152,8 +158,6 @@ namespace Halcyonic.XR.Workspace
             title = WorkspaceVisuals.Text(panel, "Title", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor,
                 new Vector2(Width / 2f, ButtonHeight), TextAlignmentOptions.MidlineLeft, order: WorkspaceVisuals.PanelTextOrder);
             WorkspaceVisuals.SetLiteral(title, Label);
-            body = WorkspaceVisuals.Text(panel, "Readings", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor,
-                new Vector2(Width - 2 * Padding, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
             note = WorkspaceVisuals.Text(panel, "Note", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor,
                 new Vector2(Width - 2 * Padding, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
             close = PanelButton.Create(panel, "Close", ButtonHeight, WorkspaceVisuals.CaptionSize);
@@ -255,24 +259,30 @@ namespace Halcyonic.XR.Workspace
 
             if (answer != null) shown = UsageLeftPresenter.Present(answer, DateTimeOffset.UtcNow, TimeZoneInfo.Local);
             var presentation = shown ?? UsageLeftPresenter.Message(UsageLeftPresenter.Reading);
-            var lines = new List<string>();
-            foreach (var row in presentation.Rows)
-            {
-                lines.Add(row.Title);
-                lines.Add(row.Text);
-            }
+            // One label per reading, with a gap between readings so each title leads its own line.
             var width = Width - 2 * Padding;
-            body.gameObject.SetActive(lines.Count > 0);
-            var bodyHeight = 0f;
-            if (lines.Count > 0)
+            while (readings.Count < presentation.Rows.Count)
             {
-                WorkspaceVisuals.SetLiteralLines(body, lines);
-                bodyHeight = body.GetPreferredValues(body.text, width, 0f).y;
+                readings.Add(WorkspaceVisuals.Text(panel, "Reading " + readings.Count, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor,
+                    new Vector2(width, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder));
             }
+            var heights = new List<float>();
+            for (var index = 0; index < readings.Count; index++)
+            {
+                var shows = index < presentation.Rows.Count;
+                readings[index].gameObject.SetActive(shows);
+                if (!shows) continue;
+                var row = presentation.Rows[index];
+                WorkspaceVisuals.SetLiteralLines(readings[index], new[] { row.Title, row.Text });
+                heights.Add(readings[index].GetPreferredValues(readings[index].text, width, 0f).y);
+            }
+            var bodyHeight = 0f;
+            foreach (var each in heights) bodyHeight += each;
+            bodyHeight += Mathf.Max(0, heights.Count - 1) * ReadingGap;
             note.color = presentation.Problem ? WorkspaceVisuals.ProblemColor : WorkspaceVisuals.SecondaryColor;
             WorkspaceVisuals.SetLiteral(note, presentation.Note);
             var noteHeight = note.GetPreferredValues(note.text, width, 0f).y;
-            var gap = lines.Count > 0 ? Padding / 2f : 0f;
+            var gap = heights.Count > 0 ? Padding / 2f : 0f;
             var height = Padding + ButtonHeight + Padding / 2f + bodyHeight + gap + noteHeight + Padding / 2f + ButtonHeight + Padding;
 
             var away = (placedAbove ? 1f : -1f) * Mathf.Max(0f, WorkspacePanel.Height - height) / 2f * WorkspaceLayout.Scale;
@@ -285,8 +295,13 @@ namespace Halcyonic.XR.Workspace
             var closeWidth = close.Measure("Close", 0.14f);
             close.Show("Close", new Vector2(Width / 2f - Padding - closeWidth / 2f, top - ButtonHeight / 2f), closeWidth);
             top -= ButtonHeight + Padding / 2f;
-            body.rectTransform.sizeDelta = new Vector2(width, bodyHeight);
-            body.rectTransform.localPosition = new Vector3(left, top, -0.003f);
+            var y = top;
+            for (var index = 0; index < heights.Count; index++)
+            {
+                readings[index].rectTransform.sizeDelta = new Vector2(width, heights[index]);
+                readings[index].rectTransform.localPosition = new Vector3(left, y, -0.003f);
+                y -= heights[index] + ReadingGap;
+            }
             note.rectTransform.sizeDelta = new Vector2(width, noteHeight);
             note.rectTransform.localPosition = new Vector3(left, top - bodyHeight - gap, -0.003f);
             var againWidth = again.Measure("Read again", 0.16f);
