@@ -3180,6 +3180,9 @@ namespace Halcyonic.Contracts
     {
         protected override string Discriminator => "available";
 
+        [JsonProperty("source", Required = Required.Always)]
+        public EvaluationSource Source { get; set; } = default!;
+
         [JsonProperty("readings", Required = Required.Always)]
         public List<UsageLimit> Readings { get; set; } = new List<UsageLimit>();
     }

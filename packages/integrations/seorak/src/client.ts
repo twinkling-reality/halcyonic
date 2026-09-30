@@ -145,7 +145,11 @@ function toUsageLimits(document: WireUsageLimits, now: number): UsageLimitsRespo
     return document.readings.length === 0
       ? fail('unavailable', 'not_captured', 'Seorak has not captured a provider limit.')
       : fail('unavailable', 'no_current_reading', 'Every provider limit Seorak holds has reset since it was observed.');
-  return { availability: 'available', readings: [first, ...rest] };
+  return {
+    availability: 'available',
+    source: { system: 'seorak', synthetic: false, api_version: 'v1' },
+    readings: [first, ...rest],
+  };
 }
 
 type Miss = readonly [Availability, string, string];

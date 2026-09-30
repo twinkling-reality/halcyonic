@@ -7528,12 +7528,16 @@
           "type": "object",
           "required": [
             "availability",
+            "source",
             "readings"
           ],
           "properties": {
             "availability": {
               "type": "string",
               "const": "available"
+            },
+            "source": {
+              "$ref": "#/$defs/EvaluationSource"
             },
             "readings": {
               "type": "array",

@@ -58,7 +58,7 @@ namespace Halcyonic.Client
             switch (response)
             {
                 case AvailableUsageLimits available:
-                    return Present(available.Readings, now, zone);
+                    return Present(available.Readings, available.Source.Synthetic, now, zone);
                 case UnauthorizedUsageLimits:
                     return Problem(NotSetUp);
                 case UnavailableUsageLimits unavailable:
@@ -79,7 +79,7 @@ namespace Halcyonic.Client
 
         public static UsageLeftPresentation Message(string text) => Quiet(text);
 
-        private static UsageLeftPresentation Present(IEnumerable<UsageLimit> readings, DateTimeOffset now, TimeZoneInfo zone)
+        private static UsageLeftPresentation Present(IEnumerable<UsageLimit> readings, bool synthetic, DateTimeOffset now, TimeZoneInfo zone)
         {
             var rows = new List<UsageLeftRow>();
             foreach (var reading in readings)
@@ -98,7 +98,7 @@ namespace Halcyonic.Client
             }
             return rows.Count == 0
                 ? Quiet("No reading since the last reset. Read again later.")
-                : new UsageLeftPresentation(rows, Unidentified, problem: false);
+                : new UsageLeftPresentation(rows, (synthetic ? "Simulated. " : "") + Unidentified, problem: false);
         }
 
         /// <summary>"at 15:18" today in the person's zone, "6 Oct at 09:00" on another day.</summary>
