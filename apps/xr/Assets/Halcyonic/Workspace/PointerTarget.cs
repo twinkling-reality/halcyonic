@@ -21,6 +21,7 @@ namespace Halcyonic.XR.Workspace
         private static int handsOnTargets;
 
         private readonly HashSet<int> hands = new HashSet<int>();
+        private readonly HashSet<int> rays = new HashSet<int>();
         private readonly HashSet<int> gazes = new HashSet<int>();
         private BoundsClipper? clipper;
         private PokeInteractable? poke;
@@ -63,7 +64,7 @@ namespace Halcyonic.XR.Workspace
             {
                 var rayInteractable = host.AddComponent<RayInteractable>();
                 rayInteractable.InjectAllRayInteractable(patch);
-                rayInteractable.WhenPointerEventRaised += target.OnHand;
+                rayInteractable.WhenPointerEventRaised += target.OnRay;
             }
             if (poke)
             {
@@ -90,7 +91,7 @@ namespace Halcyonic.XR.Workspace
             surface.InjectAllColliderSurface(collider);
             var ray = host.AddComponent<RayInteractable>();
             ray.InjectAllRayInteractable(surface);
-            ray.WhenPointerEventRaised += target.OnHand;
+            ray.WhenPointerEventRaised += target.OnRay;
             if (gaze)
             {
                 var gazeInteractable = host.AddComponent<GazeInteractable>();
@@ -116,6 +117,7 @@ namespace Halcyonic.XR.Workspace
         private void OnDisable()
         {
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
+            rays.Clear();
             if (hands.Count == 0 && gazes.Count == 0) return;
             handsOnTargets -= hands.Count;
             hands.Clear();
@@ -132,6 +134,19 @@ namespace Halcyonic.XR.Workspace
                 HoverChanged?.Invoke();
             }
             if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended) Selected?.Invoke();
+        }
+
+        private void OnRay(PointerEvent pointer)
+        {
+            var changed = Track(rays, pointer);
+            OnHand(pointer);
+            if (!changed) return;
+            var character = GetComponent<CharacterTarget>();
+            var kind = character != null ? "character" : "control";
+            var id = character != null ? character.WorkstreamId : GetInstanceID().ToString();
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                "Halcyonic interaction: ray target {0} {1} {2}",
+                pointer.Type == PointerEventType.Hover ? "entered" : "left", kind, id);
         }
 
         private void OnGaze(PointerEvent pointer)

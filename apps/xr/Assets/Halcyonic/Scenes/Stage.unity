@@ -1031,7 +1031,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8e240aac4e3f53478ee4734c567b858, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Oculus.Interaction::Oculus.Interaction.GazeConecaster
-  _coneAngle: 2
+  _coneAngle: 3.5
   _coneLength: 10
   _defaultComparer:
     _comparerType: 0

@@ -285,3 +285,27 @@ rest of the arc. The hands looked like grey outlines.
   text off and, in TextMeshPro, escape parsing on and every backslash doubled; no label uses
   TextMeshPro's italics or bold; and an approval is confirmed only once its whole request has
   shown, in pages of the details area ([XR_CLIENT.md](../architecture/XR_CLIENT.md), [SECURITY.md](../architecture/SECURITY.md)).
+
+## Changes after the third Quest 3 session (2026-09-30)
+
+The owner could open and approve by touching a character on the desk, but could not reliably look
+and pinch; the seated ray appeared only at some hand angles; and a peek could go behind a neighbor
+([quest-3-device.md](quest-3-device.md)). These changes are design trials pending another device
+session, not findings already verified on the headset.
+
+- **Head gaze:** the scene's cone grows from 2 to 3.5 degrees. The v207 package source at
+  `Runtime/Scripts/Interaction/Conecasting/Conecaster.cs` exposes the public `ConeAngle` setter;
+  `StageSetup` sets it when the scene is rebuilt. `PeekChoice` now waits 0.4 s within 10 degrees,
+  keeps the peek within 14 degrees and for 0.45 s after a glance, and accepts a pinch once it is a
+  quarter visible. A small reticle marks the head's exact forward direction while no workspace is
+  open. The reticle has no pointer or selection behavior.
+- **Seated ray:** the palm down exclusion shrinks from 35 to 20 degrees. A hand almost flat still
+  suppresses the ray; a more modest turn can point. The palm toward the eyes still excludes the
+  system gesture. The new boundary has unit tests, but its effect while typing is unknown until
+  tried on the desk.
+- **Peek depth:** the peek plate moves in front of its own body and of another body when that body's
+  projected circle overlaps its words. A unit test covers a closer neighbor on a desk and an
+  unrelated body outside the label. The headset's stereo depth and legibility need a device check.
+- **Diagnostics:** interaction logs record a peek when it appears, ray target entry and exit, and
+  accepted or refused look pinches with a reason. They identify characters by workstream id and
+  controls by Unity instance number. They do not print the peek's text, agent messages or commands.

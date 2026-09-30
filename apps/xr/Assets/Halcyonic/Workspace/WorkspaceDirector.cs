@@ -39,11 +39,14 @@ namespace Halcyonic.XR.Workspace
         private CharacterStage stage = null!;
         private CommandFactory commands = null!;
         private PeekLabel peek = null!;
+        private SpriteRenderer reticle = null!;
         private OnboardingHint hint = null!;
         private readonly PeekChoice peekChoice = new PeekChoice();
         private readonly List<BodyInView> bodies = new List<BodyInView>();
         private GazeHover? gaze;
         private CharacterTarget? pointed;
+        private string? loggedPointed;
+        private string? loggedPeek;
         private CharacterTarget? facing;
         private string? peekLineFor;
         private string peekLine = "";
@@ -71,6 +74,9 @@ namespace Halcyonic.XR.Workspace
                 DeviceLabel = SystemInfo.deviceModel,
             });
             peek = PeekLabel.Create(transform);
+            reticle = WorkspaceVisuals.Plate(transform, "Head gaze reticle", Vector2.one * 0.008f,
+                new Color(0.93f, 0.95f, 0.96f, 0.8f), WorkspaceVisuals.ControlOrder);
+            reticle.gameObject.SetActive(false);
             hint = OnboardingHint.Create(transform);
         }
 
@@ -89,7 +95,7 @@ namespace Halcyonic.XR.Workspace
         private void Start()
         {
             if (GetComponent<NewWorkPanel>() == null) gameObject.AddComponent<NewWorkPanel>();
-            gaze = GazeHover.Create(transform, () => peekChoice.PinchTarget);
+            gaze = GazeHover.Create(transform, () => (peekChoice.PinchTarget, peekChoice.PinchBlock));
             if (gaze == null)
             {
                 Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", "no gaze in this scene, so only hands peek");
@@ -189,6 +195,22 @@ namespace Halcyonic.XR.Workspace
                 if (pointed == null && target.HandHovered) pointed = target;
                 if (gazed == null && target.GazeHovered) gazed = target;
             }
+            var pointedId = pointed?.WorkstreamId;
+            if (pointedId != loggedPointed)
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                    "Halcyonic interaction: hand character target {0}", pointedId ?? "none");
+                loggedPointed = pointedId;
+            }
+            if (head != null && !FocusGuard.InputSuspended && opened == null)
+            {
+                var depth = gazed == null ? 1f : Mathf.Clamp(
+                    Vector3.Distance(head.position, gazed.BodyPosition) - CharacterView.BodyRadius * gazed.Scale - 0.03f,
+                    0.4f, 2f);
+                reticle.transform.SetPositionAndRotation(head.position + headForward * depth, head.rotation);
+                reticle.gameObject.SetActive(true);
+            }
+            else reticle.gameObject.SetActive(false);
             var input = new PeekInput
             {
                 Suspended = FocusGuard.InputSuspended,
@@ -200,7 +222,6 @@ namespace Halcyonic.XR.Workspace
                 HeadForward = new System.Numerics.Vector3(headForward.x, headForward.y, headForward.z),
             };
             peekChoice.Update(input, Time.unscaledTime);
-
             var shown = peekChoice.Shown != null && targets.TryGetValue(peekChoice.Shown, out var peeked) ? peeked : null;
             if (shown != null && peekLineFor != shown.WorkstreamId)
             {
@@ -208,8 +229,21 @@ namespace Halcyonic.XR.Workspace
                 peekLineFor = shown.WorkstreamId;
                 peekLine = presentation == null ? "" : WorkspaceText.Peek(presentation);
             }
-            if (shown == null || peekLine.Length == 0) peek.Hide();
-            else peek.Show(shown, peekLine, peekChoice.Opacity);
+            if (shown == null || peekLine.Length == 0 || peekChoice.Opacity <= 0f)
+            {
+                peek.Hide();
+                loggedPeek = null;
+            }
+            else
+            {
+                peek.Show(shown, targets.Values, peekLine, peekChoice.Opacity);
+                if (shown.WorkstreamId != loggedPeek)
+                {
+                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                        "Halcyonic interaction: peek shown {0} source {1}", shown.WorkstreamId, peekChoice.Source);
+                    loggedPeek = shown.WorkstreamId;
+                }
+            }
 
             // The character whose peek is wanted looks at the person, as does the open one.
             var wanted = peekChoice.Wanted != null && targets.TryGetValue(peekChoice.Wanted, out var looking) ? looking : null;
@@ -222,8 +256,20 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A look and pinch: the gaze interactor selected a character on a pinch, while its gaze peek showed.</summary>
         private void OnLookAndPinch(CharacterTarget target)
         {
-            if (opened != null || gaze == null || gaze.Armed != target.WorkstreamId) return;
-            Open(target);
+            if (opened != null || gaze == null || gaze.Armed != target.WorkstreamId)
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                    "Halcyonic interaction: look pinch refused for {0}: selection changed", target.WorkstreamId);
+                return;
+            }
+            if (!Open(target))
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                    "Halcyonic interaction: look pinch refused for {0}: no presentation", target.WorkstreamId);
+                return;
+            }
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                "Halcyonic interaction: look pinch accepted for {0}", target.WorkstreamId);
         }
 
         /// <summary>
@@ -255,10 +301,10 @@ namespace Halcyonic.XR.Workspace
             else Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
         }
 
-        private void Open(CharacterTarget target)
+        private bool Open(CharacterTarget target)
         {
             var presentation = Present(target.WorkstreamId);
-            if (presentation == null) return;
+            if (presentation == null) return false;
             OnboardingHint.Learned();
             hint.Hide();
 
@@ -299,6 +345,7 @@ namespace Halcyonic.XR.Workspace
             FacePerson(target, true);
             ReadHistory(workspace);
             RefreshPanel();
+            return opened == workspace;
         }
 
         /// <summary>
