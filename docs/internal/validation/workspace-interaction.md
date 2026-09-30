@@ -3,13 +3,15 @@
 - **Question:** What do the Meta Interaction SDK 207, TextMeshPro in Unity 6000.3 and the Quest
   system keyboard provide for the expanded workspace (milestone 3), and how do they behave when
   set up and built in batch mode?
-- **Date:** 2026-09-29.
+- **Date:** 2026-09-29; text from outside on labels, 2026-09-30.
 - **Environment:** Unity 6000.3.25f1 in batch mode on an Apple M5 Max with macOS 26.7; the Meta XR
   Core and Interaction SDKs 207.0.0 and `com.unity.ugui` 2.0.0 as resolved by the pinned manifest;
   the control plane from this repository on a private port and data directory.
 - **Method:** Meta's documentation for the system keyboard; the SDK and package sources in the
   project's package cache; batch runs that set up the scene, compile and build the APK; the built
-  APK's manifest read with `aapt2`; a private control plane driven by `pnpm demo`.
+  APK's manifest read with `aapt2`; a private control plane driven by `pnpm demo`; for text from
+  outside, TextMeshPro's text processing, layout and font asset sources, `LiberationSans.ttf`'s
+  character map, and real labels, TextMeshPro and `TextMesh`, laid out and measured in a batch run.
 - **Status:** Verified in the editor and in the build. Not verified on a headset: every behavior
   below that happens at runtime (rays, pokes, gaze, the keyboard, focus, REST history).
 
@@ -81,10 +83,52 @@
   in the inspector is commented out. 45 characters of such sequences showed as 22 on a label with
   rich text off, and as 45 with every backslash doubled and escape parsing on, which is how the
   Understanding and Evaluation sections show source text
-  ([understanding-and-evaluation.md](understanding-and-evaluation.md)). The workspace's other
-  labels set rich text off and do not escape.
+  ([understanding-and-evaluation.md](understanding-and-evaluation.md)). Since 2026-09-30 every
+  label that can show text from outside escapes it too.
 - A line in italics cut short by the ellipsis overflow ended in its last letter, not an ellipsis;
-  the same line upright ended in one.
+  the same line upright ended in one. The cause, read in the source and checked on real labels on
+  2026-09-30: `GetEllipsisSpecialCharacter` looks the ellipsis up in the label's own style only,
+  and `TMP_FontAssetUtilities` looks an italic or bold character up only in the font weight table's
+  italic or bold typeface and the fallbacks, never in the regular one; Liberation Sans SDF has
+  neither. So a label in italics or bold with the ellipsis overflow logs "The character used for
+  Ellipsis is not available" and sets its own `overflowMode` to `Truncate`, which stays when the
+  style is set back to normal: every line it shows afterwards is cut short with no ellipsis.
+- The end of text character U+0003 ends a label (read in `TextMeshPro.GenerateTextMesh` and
+  `TMP_FontAsset.AddSynthesizedCharactersAndFaceMetrics`, checked on 2026-09-30). The font asset
+  gives U+0003, the tab, line feed, vertical tab and carriage return, U+061C, U+200B, U+200E,
+  U+200F, U+2028, U+2029 and U+2060 an empty glyph where its font has none, and layout stops at
+  U+0003: "safe", U+0003 and " hidden tail" laid out as "safe" and no more, with
+  `isTextTruncated` false and no ellipsis, whether the character was typed or written as a
+  backslash, "u0003", and with rich text and escape parsing off alike. An agent could end its own
+  approval request that way wherever it shows.
+- Other characters TextMeshPro changes: a carriage return takes the line back to its start, so what
+  follows draws over it; line feeds, vertical tabs and the line and paragraph separators break the
+  line; a tab moves to the next tab stop; a soft hyphen draws only where a line breaks; a variation
+  selector after a character is dropped; and a character neither the atlas nor `LiberationSans.ttf`
+  has, such as U+001A, draws as the missing glyph "□" (the TMP Settings' missing glyph character is
+  0, so U+25A1), with a warning naming its code point. `LiberationSans.ttf` maps none of the C0
+  control characters.
+- Zero width and bidirectional control characters: TextMeshPro has no bidirectional algorithm, so a
+  right-to-left override reorders nothing. The static atlas holds glyphs with a size but no advance
+  for U+200C to U+200F, U+202A to U+202E and U+206A to U+206F, laid out over the letters beside
+  them;
+  U+200B and the synthesized characters draw nothing; U+2066 to U+2069, U+FEFF and the tag
+  characters are in neither the atlas nor the font file, so they draw as "□". None of them reads as
+  what it is, and in a command each still changes what runs. The client therefore shows each of
+  them, every other control or format character, every default ignorable code point and half a
+  surrogate pair as its code point, in characters the static atlas holds: "‹U+202E›" laid out as
+  its 10 characters on a real label ([XR_CLIENT.md](../architecture/XR_CLIENT.md), `LabelText`).
+- A world space label with `TextOverflowModes.Page` lays its text out in pages of its height:
+  `textInfo.pageCount` counts them, each character carries its `pageNumber`, and only the
+  characters of `pageToDisplay` are visible. Sixty words in a box four lines tall took two pages, 333
+  visible characters on the first and 18 on the second.
+- Unity's `TextMesh`, with the built-in font (Arial as `LegacyRuntime.ttf`, which has "‹", "›",
+  "…" and "□"), parses no backslash escapes: text with a backslash and "u0041", or a backslash and
+  "n", drew every character, exactly as wide as their advances. With rich text on, its default, it
+  takes tags as markup: "<b>b</b>x" drew 0.53 units wide for 2.30 of characters, and
+  "<color=#ff000000>hidden</color>x" 1.70 for 7.48, the tags taken as markup that colors the word
+  fully transparent; with rich text off both drew as wide as their characters. A line feed breaks
+  its line and a tab widens it.
 - Drawing a character outside the static atlas in the editor adds its glyph to the dynamic fallback
   asset and writes that committed asset (`TMP_EditorResourceManager.AddTextureToAsset`), even when
   its dirty flag is cleared afterwards.
@@ -237,3 +281,7 @@ rest of the arc. The hands looked like grey outlines.
   ([quest-3-device.md](quest-3-device.md)).
 - The controller visuals are most of the APK's growth. A hands-only build could drop them from the
   rig; nothing needs a controller.
+- Every label that can show text from outside gets it through one rule, `LabelText`, with rich
+  text off and, in TextMeshPro, escape parsing on and every backslash doubled; no label uses
+  TextMeshPro's italics or bold; and an approval is confirmed only once its whole request has
+  shown, in pages of the details area ([XR_CLIENT.md](../architecture/XR_CLIENT.md), [SECURITY.md](../architecture/SECURITY.md)).

@@ -127,6 +127,37 @@ and through which transport, its policy category, the admission decision, and th
 confirmed outcome or failure (including whether the effect is unknown). Instructions are work
 content and are journaled locally; they are never logged.
 
+## Untrusted text in the client
+
+The XR client shows text Halcyonic did not write: workstream titles and objectives, which come
+from commands; anything an agent or a tool wrote, such as messages, activity and approval requests
+naming a shell command or a file path; refusals and failures; setup problems carrying exception
+text; what Salidium and Seorak say; and names from runtimes. TextMeshPro interprets text even with
+rich text off: a backslash with u and four hex digits becomes that character whatever its
+settings, a backslash with n, r, t or v a control character while escape parsing is on, the end of
+text character U+0003, typed or escaped, ends a label there without an ellipsis, a carriage return
+draws what follows over the start of the line, and zero width and bidirectional control characters
+draw nothing or a mark over their neighbors ([workspace-interaction.md](../validation/workspace-interaction.md)).
+An agent could hide the end of its own approval request that way, or make two commands read alike.
+So ([XR_CLIENT.md](XR_CLIENT.md), "Words"):
+
+- Every label that can show such text gets it through one rule in the client core (`LabelText`):
+  no markup, in TextMeshPro and in Unity's `TextMesh` alike; every backslash doubled for
+  TextMeshPro's escape parsing, so a backslash sequence shows as written; line breaks and tabs as
+  spaces; and every control, format or default ignorable character, and half a surrogate pair,
+  shown as its code point, as ‹U+202E›, so nothing is hidden or reordered.
+- Nothing is cut short silently: a label cut short ends in an ellipsis, and no label uses
+  TextMeshPro's italics or bold, which lose it. An approval is confirmed only once the whole
+  request it answers has shown, in parts when it is long.
+- The editor's render check puts hostile text on every such label and fails if one interprets any
+  of it or cuts it short without an ellipsis.
+
+Not covered: characters that only look alike, such as a Cyrillic letter for a Latin one or a
+no-break space for a space, show as they look. And the client shows a request as the control plane
+recorded it, which the contract limits to 2000 characters: the Codex and OpenCode adapters end a
+longer one with "[truncated]", while the Claude Code adapter cuts it without saying so
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+
 ## Not yet built
 
 Required before Halcyonic serves anything beyond this machine:
