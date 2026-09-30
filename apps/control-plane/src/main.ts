@@ -1,5 +1,5 @@
 import { chmod, mkdir } from 'node:fs/promises';
-import { networkInterfaces } from 'node:os';
+import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MockRuntimeAdapter } from '@halcyonic/integration-mock';
@@ -184,14 +184,14 @@ function describeListener(
   const bound = server.server.address();
   const port = bound !== null && typeof bound === 'object' ? bound.port : config.port;
   const wildcard = config.host === '0.0.0.0' || config.host === '::';
+  const reachable = (entry: NetworkInterfaceInfo) =>
+    !entry.internal &&
+    (entry.family === 'IPv4' || (config.host === '::' && !entry.address.startsWith('fe80:')));
   const addresses = wildcard
     ? Object.values(networkInterfaces())
-        .flat()
-        .filter((entry) => entry !== undefined && !entry.internal)
-        .filter((entry) => entry?.family === 'IPv4' || config.host === '::')
-        .filter((entry) => !(entry?.family === 'IPv6' && entry.address.startsWith('fe80:')))
-        .map((entry) => entry?.address ?? '')
-        .filter((address) => address !== '')
+        .flatMap((entries) => entries ?? [])
+        .filter(reachable)
+        .map((entry) => entry.address)
     : [config.host];
   return { host: config.host, port, addresses, certificate_sha256: certificateSha256 };
 }
