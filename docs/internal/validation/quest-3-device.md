@@ -167,3 +167,60 @@ wore the headset with Meta's Virtual Display showing their Mac.
 - The log line `Hands: failed to remap HAND_TRACKER ... missing runtime permission(s)` refers to
   `horizonos.permission.internal.ACCESS_HAND_TRACKING`, an internal permission third-party apps are
   not granted; hand tracking itself worked.
+
+## Third session: the room, sound and the loop on a real desk (2026-09-30, morning)
+
+Builds from main between `5388bbb` and `863f73b`, against a control plane on a clean data
+directory. Mock executions were started through REST so that an approval waited for the wearer.
+The owner wore the headset at their desk.
+
+- **Room access and scan:** the owner allowed the spatial data prompt. The first read found no
+  room ("NotSetUp, NoRoomsFound"). "Set up this room" started the system's space setup, and the next
+  read found 7 surfaces and 8 objects.
+- **No surface fit at first.** The per-surface explanation (logged since `40581cc`) showed why:
+  - The desk was in reach, 0.30 to 1.21 m away and about 0.5 m below the eyes.
+  - A monitor 0.59 m tall stood over most of its middle.
+  - With the owner seated about 50 cm back, the free strip in front of the monitor was about 18 cm
+    deep. A margin of half a label plate from every edge left no room on it.
+- **On the desk after a second scan.** The owner cleared the desk and ran space setup again. The app
+  then chose the desk 0.55 m away, 10 degrees left and 0.37 m below the eyes, and kept the spot with
+  a spatial anchor.
+- **Reads while not worn:** reads made while the headset was asleep, or lying on the desk, found no
+  room, or no surface below the eyes. The room must be read with the person seated and the headset
+  tracking.
+- **Room fixes not yet tried on the device** (`e27aa01`): the client reads the room again on resume
+  after a read that found none, and the margin is now a quarter of a label plate plus 1 cm.
+- **Sound:** 79 clips rendered at 24,000 Hz in 0.64 to 0.71 s on a worker thread, holding 8.8 MiB of
+  samples. The owner heard the cues. The log recorded:
+  - Working, Verifying, Needs you and Turn finished from their characters;
+  - Last known from the whole stage when the connection dropped;
+  - Open, Collapse and Approve from the workspace.
+- **Interaction:**
+  - **Worked:**
+    - The gaze peek stayed calm as the head swept.
+    - Touching a character on the desk opened its workspace.
+    - Everything was readable.
+  - **Did not work, or worked badly:**
+    - Look and pinch did not work for the owner. The gaze is the head's direction (the Quest 3 has no
+      eye tracking), and a peek needs the head within 7 degrees of a character, with nothing showing
+      where the head points.
+    - The seated hand ray appeared only at some hand angles, because the palm's direction gates it.
+    - A peek label could overlap, or go behind, a neighbouring character on the desk.
+- **Approval on the desk:** the owner opened the character by touch and approved. The runtime
+  resumed, its tests passed and the turn finished; then the owner collapsed the workspace. Each step
+  played its cue.
+- **Operations:**
+  - **Control plane restarts:** `pnpm dev` runs `node --watch`, so merging code into the checkout
+    restarted the session's control plane. An execution waiting at its approval became "unknown: the
+    control plane restarted", and the workspace rightly offered no action. Headset sessions now run
+    the control plane with `node apps/control-plane/src/main.ts`.
+  - **adb restarts:** Unity Android batch runs, in any worktree or session on the Mac, restart the
+    adb server, which drops `adb reverse`. A loop that re-applies it every 2 s restored the
+    connection within about 3 s, and the client played Last known once.
+- **Not checked:**
+  - the judges' demonstration on the desk;
+  - instructing through the keyboard;
+  - the system menu;
+  - Virtual Display alongside the stage;
+  - paging through a long approval request;
+  - pairing over Wi-Fi.

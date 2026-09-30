@@ -317,6 +317,9 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 The token survives reinstalls. The control plane logs `realtime client connected` for
 `halcyonic-xr`.
 
+- **Run the control plane without `--watch` for a headset session:**
+  `node apps/control-plane/src/main.ts`, not `pnpm dev`. `pnpm dev` restarts it whenever code in the
+  checkout changes, as a merge does, and that leaves every running execution in an unknown state.
 - **Run `adb reverse` again after any Unity run for Android.** Every Unity run with the Android
   target kills the adb server as it exits, an import as well as a build, which drops the rule. Until
   the rule is back, an app that has not yet been live plays the recorded demonstration; it keeps
