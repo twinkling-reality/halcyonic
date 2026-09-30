@@ -647,7 +647,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   left glance added separately; the rail adds no floating control. It rests 0.43 m ahead of the eyes
   and 0.42 m below them, about 44 degrees down, within about 17 degrees to either side, clear of the
   room and pairing controls 26 degrees out; over a desk, 0.36 m ahead and never into the desk, below
-  the lineup's label plates. It is placed in front of the person when the app starts and when the
+  the lineup's label plates, about 48 degrees down and 18 to either side. It is placed in front of the person when the app starts and when the
   stage moves onto or off a surface, and again by Reset position, and it steps out of the way while
   the entry panel or a workspace is open. Which projects show is kept on the device for each
   journal (`StageVisibility`); hiding a project hides its characters only.
@@ -685,8 +685,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     the work. A project made here is shown on the stage whatever was chosen before. While a
     command's outcome is unknown its id stays in device storage and blocks another start, even after
     a restart, until two separate presses clear it after the person checks the work; clearing
-    starts a blank idea, never a retry. The draft stays in memory while the app runs, through
-    Close, opening a character and Open now; an app restart loses it. Live work only while a real
+    starts a blank idea, never a retry. Each place keeps its own draft in memory while the app
+    runs, a new project's and each project's Add work, with how far its start got, so going back
+    never makes a project twice; Close, opening a character, Open now and working elsewhere keep it,
+    and Create a project without a project returns to the one last worked on. An app restart loses
+    it. Live work only while a real
     control plane is connected; the recorded demonstration does not stand in for creation.
   - **Needs you while creating:** work that comes to need the person while a Create screen shows
     (`AttentionWatch`), hidden projects included, appears in the line under the title with Open now

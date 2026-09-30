@@ -22,8 +22,10 @@ namespace Halcyonic.XR.Workspace
     /// it went; the character that appears reads Starting until the runtime confirms.
     /// </summary>
     /// <remarks>
-    /// The draft lives in memory while the app runs: closing the panel, opening a character, or Open
-    /// now keeps it exactly, and the rail offers Continue creating. An app restart loses it. A request
+    /// The draft lives in memory while the app runs, one for a new project and one for each project
+    /// work is added to: closing the panel, opening a character, Open now, or starting work elsewhere
+    /// keeps it exactly, with how far its start got, and the rail offers Continue creating. An app
+    /// restart loses it. A request
     /// whose outcome is unknown keeps its command id on the device and blocks another start, even
     /// after a restart, until the person checks the work and clears it with two separate presses.
     /// Where the project's files live cannot be chosen from the headset yet: the recap says so in one
@@ -39,6 +41,8 @@ namespace Halcyonic.XR.Workspace
         private const int ReviewLines = 12;
         private const float ChangeWidth = 0.14f;
 
+        private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence)> drafts = new Dictionary<string, (ProjectIdea, BuildSequence?)>();
+        private string draftKey = "";
         private NewWorkDraft draft = null!;
         private ProjectIdea? idea;
         private NewWorkReview? review;
@@ -63,7 +67,8 @@ namespace Halcyonic.XR.Workspace
         private Slot moreOptions = null!;
 
         /// <summary>A creation draft waits: the rail offers Continue creating.</summary>
-        public bool HasDraft => idea != null && (idea.HasRecap || idea.Guided) && sequence?.Started != true;
+        public bool HasDraft => (idea != null && (idea.HasRecap || idea.Guided) && sequence?.Started != true)
+            || drafts.Values.Any(other => other.Idea != idea && (other.Idea.HasRecap || other.Idea.Guided) && other.Sequence?.Started != true);
 
         private void AwakeCreate()
         {
@@ -89,9 +94,9 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Opens Create a project, or Add work to <paramref name="projectId"/>: where the draft stands
-        /// if one waits for the same place, else a new one. A request whose outcome is unknown comes
-        /// first.
+        /// Opens Create a project, or Add work to <paramref name="projectId"/>: the draft for that place
+        /// where it stands, or a new one; without a project, the draft last worked on. A request whose
+        /// outcome is unknown comes first.
         /// </summary>
         public void ShowCreate(string? projectId, string? projectName)
         {
@@ -105,15 +110,22 @@ namespace Halcyonic.XR.Workspace
                 Open(Screen.Sending);
                 return;
             }
-            var fresh = idea == null || sequence?.Started == true || (projectId != null && idea.ExistingProjectId != projectId);
-            if (fresh)
+            var key = projectId == null && idea != null ? draftKey : projectId ?? "";
+            if (idea == null || key != draftKey)
             {
-                idea = new ProjectIdea(projectId, projectName);
-                draft.ProjectId = projectId;
+                // Each place keeps its own draft, with how far its start got, so nothing is made twice.
+                if (idea != null) drafts[draftKey] = (idea, sequence);
+                draftKey = key;
+                (idea, sequence) = drafts.TryGetValue(key, out var kept) ? kept : (new ProjectIdea(projectId, projectName), null);
                 review = null;
-                sequence = null;
                 notice = null;
             }
+            if (sequence?.Started == true)
+            {
+                idea = new ProjectIdea(idea!.ExistingProjectId, idea.ExistingProjectId == null ? null : idea.Name);
+                sequence = null;
+            }
+            draft.ProjectId = idea!.ExistingProjectId;
             var now = state();
             if (now != null) watch.Begin(now);
             Open(idea!.HasRecap ? Screen.Recap : idea.Guided ? Screen.Guide : Screen.CreateStart);
@@ -221,6 +233,7 @@ namespace Halcyonic.XR.Workspace
                 Put(rows[index], choice, new Vector2(0f, BodyTop - 0.12f - index * RowPitch), ContentWidth, () =>
                 {
                     current.Answer(choice);
+                    if (current.Question >= ProjectIdea.Questions.Count) screen = Screen.Recap;
                     Layout();
                 }, detail: chosen ? "Your answer" : null);
             }
@@ -230,6 +243,7 @@ namespace Halcyonic.XR.Workspace
                 OpenKeyboard(current.AnswerTo(at) ?? "", question.Prompt, text =>
                 {
                     if (current.Question == at) current.Answer(text);
+                    if (current.Question >= ProjectIdea.Questions.Count) screen = Screen.Recap;
                 });
             });
             if (question.SkipLabel != null)
@@ -237,6 +251,7 @@ namespace Halcyonic.XR.Workspace
                 PutRightAligned(bottomMiddle, question.SkipLabel, Right - 0.25f, BottomCenter, () =>
                 {
                     current.Skip();
+                    if (current.Question >= ProjectIdea.Questions.Count) screen = Screen.Recap;
                     Layout();
                 });
             }
@@ -528,6 +543,7 @@ namespace Halcyonic.XR.Workspace
             {
                 PutRightAligned(bottomRight, EntryText.Done, Right, BottomCenter, () =>
                 {
+                    drafts.Remove(draftKey);
                     idea = null;
                     sequence = null;
                     shownProject = null;
