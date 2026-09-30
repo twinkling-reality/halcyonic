@@ -202,7 +202,12 @@ core Unity APIs:
   they face, when the session starts and the head is tracked, when the tracking origin changes
   (a recenter or a new boundary, through `XRInputSubsystem.trackingOriginUpdated`), when the app
   resumes, and when the head seems to jump farther in one frame than a person can move; the log
-  says why each time. The stage keeps animating and updating while the app lacks input focus.
+  says why each time. An `IStagePlacementSource` on the stage object, such as a room placement
+  that found the person's desk, can give it a surface instead: the pose's position is where the
+  middle of the lineup stands, the arc curves around the person's side of it at their distance
+  when the pose arrived, and every label plate rests on the surface. While that pose is set, only
+  the source moves the stage, and recenters leave it. The stage keeps animating and updating while
+  the app lacks input focus.
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one

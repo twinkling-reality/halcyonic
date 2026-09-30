@@ -132,6 +132,12 @@ namespace Halcyonic.XR
         /// <summary>The person's head, which a character that needs them turns to. Set by the stage.</summary>
         internal Transform? Person { get; set; }
 
+        /// <summary>
+        /// The lowest point of the character at rest, the bottom of its label plate, in its own units
+        /// below its origin: what rests on a surface.
+        /// </summary>
+        internal float Footing { get; private set; } = LabelTop;
+
         public static CharacterView Create(Transform parent, string workstreamId)
         {
             var root = new GameObject("Character " + workstreamId);
@@ -536,6 +542,7 @@ namespace Halcyonic.XR
                 y -= noteLines * Labels.LineHeight(notes);
             }
             var bottom = y - LabelPadding;
+            Footing = bottom;
 
             title.color = new Color(0.97f, 0.98f, 1f);
             status.color = nextCues.Halo == CharacterHalo.NeedsYou ? new Color(1f, 0.8f, 0.47f)
