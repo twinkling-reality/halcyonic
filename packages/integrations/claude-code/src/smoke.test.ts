@@ -85,8 +85,9 @@ describe('Claude Agent against the real Claude Code CLI', {
         execution,
         instruction:
           'Use the Bash tool to run `touch smoke-marker.txt` in the current directory, then reply with the single word done.',
-        options: { cwd: workdir, ...(model !== undefined && { model }) },
+        options: { ...(model !== undefined && { model }) },
         model_ref: null,
+        directory: workdir,
         emit: (observation) => observed.push(observation),
       });
       // The CLI honors the session id Halcyonic chose at launch.

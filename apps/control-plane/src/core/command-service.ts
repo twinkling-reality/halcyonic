@@ -6,7 +6,9 @@ import type {
   ExecutionId,
   Principal,
   ProjectId,
+  ProjectLocation,
   ReceivedVia,
+  RejectionCode,
   RuntimeDescriptor,
   RuntimeRef,
   Timestamp,
@@ -20,12 +22,14 @@ import {
 } from '@halcyonic/domain';
 import {
   type Clock,
+  checkProjectLocation,
   type ExecutionContext,
   RuntimeActionError,
   type RuntimeAdapter,
   type Scheduler,
 } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
+import type { HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import {
   type Cause,
@@ -45,6 +49,8 @@ export interface CommandServiceDeps {
   readonly projection: Projection;
   readonly recorder: Recorder;
   readonly registry: RuntimeRegistry;
+  /** Where projects may live on the host, and the directory policy runtimes ask. */
+  readonly locations: HostLocations;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly scheduler: Scheduler;
@@ -199,38 +205,108 @@ export class CommandService {
     };
   }
 
+  /**
+   * The domain's admission, then what only the host can check: the folder a project is to be bound
+   * to, the folder a start would run in, and the runtime's own options.
+   */
   #admit(command: CommandEnvelope): Admission {
     const admission = admitCommand(command, this.#deps.projection, this.#deps.registry);
-    if (!admission.admitted || command.command_type !== 'execution.start') return admission;
-    const adapter = this.#deps.registry.adapter(command.payload.runtime_id);
-    const options = adapter?.validateStartOptions(
-      command.payload.options,
-      command.payload.model_ref,
-    );
-    if (options === undefined || options.ok) return admission;
-    return {
+    if (!admission.admitted) return admission;
+    const refuse = (code: RejectionCode, message: string): Admission => ({
       admitted: false,
       scope: admission.scope,
-      rejection: { code: 'invalid_runtime_options', message: options.message },
-    };
+      rejection: { code, message },
+    });
+    switch (command.command_type) {
+      case 'project.create':
+      case 'project.set_location': {
+        const choice = command.payload.location;
+        if (choice === null) return admission;
+        const checked = this.#deps.locations.check(choice);
+        return checked.ok ? admission : refuse(checked.code, checked.message);
+      }
+      case 'execution.start': {
+        if (admission.runtime?.uses_project_location === true) {
+          const directory = this.#projectDirectory(admission.scope);
+          const decision =
+            directory === null
+              ? null
+              : checkProjectLocation(this.#deps.locations.policy, directory);
+          if (decision === null) {
+            return refuse('location_required', 'The project has no folder to work in.');
+          }
+          if (!decision.ok) return refuse(decision.code, decision.message);
+        }
+        const adapter = this.#deps.registry.adapter(command.payload.runtime_id);
+        const options = adapter?.validateStartOptions(
+          command.payload.options,
+          command.payload.model_ref,
+        );
+        if (options === undefined || options.ok) return admission;
+        return refuse('invalid_runtime_options', options.message);
+      }
+      default:
+        return admission;
+    }
+  }
+
+  /** The folder the admitted command's project is bound to, or null for none. */
+  #projectDirectory(scope: CommandScope): string | null {
+    if (scope.project_id === null) return null;
+    return this.#deps.projection.project(scope.project_id)?.location?.path ?? null;
   }
 
   #dispatch(command: CommandEnvelope, admission: Admitted, cause: Cause): void {
     const { recorder } = this.#deps;
     switch (command.command_type) {
       case 'project.create': {
+        let location: ProjectLocation | null = null;
+        if (command.payload.location !== null) {
+          const bound = this.#deps.locations.bind(command.payload.location);
+          if (!bound.ok) {
+            this.#fail(command, admission.scope, {
+              code: bound.code,
+              message: bound.message,
+              effect: 'none',
+            });
+            return;
+          }
+          location = bound.location;
+        }
         const projectId = this.#deps.ids.next() as ProjectId;
         const scope = { project_id: projectId, workstream_id: null, execution_id: null };
         recorder.record(
           controlPlaneDraft(
             'project.created',
             scope,
-            { name: command.payload.name },
+            { name: command.payload.name, location },
             this.#now(),
             cause,
           ),
         );
         this.#complete(command, scope, { kind: 'project_created', project_id: projectId });
+        return;
+      }
+      case 'project.set_location': {
+        const bound = this.#deps.locations.bind(command.payload.location);
+        if (!bound.ok) {
+          this.#fail(command, admission.scope, {
+            code: bound.code,
+            message: bound.message,
+            effect: 'none',
+          });
+          return;
+        }
+        recorder.record(
+          controlPlaneDraft(
+            'project.location_set',
+            { project_id: command.payload.project_id, workstream_id: null, execution_id: null },
+            { location: bound.location },
+            this.#now(),
+            cause,
+          ),
+        );
+        this.#complete(command, admission.scope, null);
         return;
       }
       case 'workstream.create': {
@@ -264,11 +340,15 @@ export class CommandService {
           project_id,
         };
         const scope = { project_id, workstream_id, execution_id: execution.execution_id };
+        // Admission checked it; the adapter asks the host's policy again before anything runs.
+        const directory = runtime.uses_project_location
+          ? this.#projectDirectory(admission.scope)
+          : null;
         recorder.record(
           controlPlaneDraft(
             'execution.created',
             scope,
-            { runtime: toRuntimeRef(runtime), instruction: command.payload.instruction },
+            { runtime: toRuntimeRef(runtime), instruction: command.payload.instruction, directory },
             this.#now(),
             cause,
           ),
@@ -292,6 +372,7 @@ export class CommandService {
               instruction: command.payload.instruction,
               options: command.payload.options,
               model_ref: command.payload.model_ref,
+              directory,
               emit,
             }),
           {

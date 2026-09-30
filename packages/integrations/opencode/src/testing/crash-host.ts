@@ -32,7 +32,8 @@ const runtime = new OpenCodeRuntimeAdapter({
 await runtime.startExecution({
   execution: TEST_EXECUTION,
   instruction: 'SLOW turn in a process that is about to crash.',
-  options: { directory: options.directory },
+  options: {},
+  directory: options.directory,
   model_ref: null,
   emit: (observation) => {
     if (observation.type === 'runtime.turn.started') {

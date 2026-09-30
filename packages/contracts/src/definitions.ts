@@ -67,6 +67,13 @@ import {
   RuntimeSource,
   StoredEvent,
 } from './events.ts';
+import {
+  LocationFolder,
+  LocationRoot,
+  LocationsResponse,
+  ProjectLocation,
+  ProjectLocationChoice,
+} from './locations.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
 import {
   ClientMessage,
@@ -147,6 +154,12 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   TestRunView,
   TestRunResultView,
   ProjectView,
+  ProjectLocation,
+  ProjectLocationChoice,
+  LocationsResponse,
+  LocationRoot,
+  LocationFolder,
+  LocationRootStatus: LocationRoot.properties.status,
   WorkstreamView,
   ExecutionView,
   CommandView,

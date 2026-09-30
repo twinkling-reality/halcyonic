@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute } from 'node:path';
 import {
   type CanUseTool,
   type ModelInfo,
@@ -30,6 +28,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
@@ -70,7 +69,10 @@ export type QueryFunction = (params: {
 }) => QueryHandle;
 
 export interface ClaudeAgentRuntimeOptions {
-  /** Which directories sessions may work in, decided by the host. A `cwd` it refuses is rejected. */
+  /**
+   * Which directories sessions may work in, decided by the host, asked again about the project's
+   * folder before a session starts there.
+   */
   readonly directoryPolicy: DirectoryPolicy;
   /**
    * File listing the Claude Code processes this adapter launched while they run, so that a later
@@ -88,7 +90,7 @@ export interface ClaudeAgentRuntimeOptions {
   readonly query?: QueryFunction;
 }
 
-const START_OPTIONS = ['cwd', 'model', 'permission_mode'];
+const START_OPTIONS = ['model', 'permission_mode'];
 
 /**
  * Permission modes a start may choose. `bypassPermissions` and `auto` are refused because they
@@ -100,6 +102,7 @@ const PERMISSION_MODES: readonly PermissionMode[] = ['default', 'acceptEdits', '
 const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@[\]-]{0,255}$/;
 
 interface StartOptions {
+  /** The project's folder, where the session works, as the host's directory policy confirmed it. */
   readonly cwd: string;
   readonly model: string | undefined;
   readonly permissionMode: PermissionMode | undefined;
@@ -146,6 +149,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       synthetic: false,
       capabilities: CLAUDE_AGENT_CAPABILITIES,
       model_choice: 'listed',
+      uses_project_location: true,
     };
   }
 
@@ -155,7 +159,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
+    const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : parsed;
   }
 
@@ -213,8 +217,10 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closed) throw closedError();
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
+    const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    // Asked again before anything is launched: the folder may have changed since admission.
+    const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
     // A chosen model is checked against a fresh list before a session is launched for it.
     if (request.model_ref !== null) {
       const listed = await this.listModels();
@@ -235,7 +241,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     try {
       started = session.start(
         this.#query,
-        this.#options(parsed.value, session),
+        this.#options({ ...parsed.value, cwd }, session),
         request.instruction,
       );
     } catch (error) {
@@ -312,26 +318,23 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
   }
 }
 
+/**
+ * Checks the start options of a Claude Agent execution. Where the session works is not an option:
+ * it is the project's folder, which the host resolves and checks (`confirmProjectLocation`).
+ */
 function parseStartOptions(
   options: RuntimeOptions,
-  directoryPolicy: DirectoryPolicy,
   modelRef: string | null = null,
 ):
-  | { readonly ok: true; readonly value: StartOptions }
+  | { readonly ok: true; readonly value: Omit<StartOptions, 'cwd'> }
   | { readonly ok: false; readonly message: string } {
   const unknown = Object.keys(options).filter((key) => !START_OPTIONS.includes(key));
   if (unknown.length > 0) {
     return invalid(
-      `Unknown Claude Agent options: ${unknown.join(', ')}. Supported: ${START_OPTIONS.join(', ')}.`,
+      `Unknown Claude Agent options: ${unknown.join(', ')}. Supported: ${START_OPTIONS.join(', ')}. The session works in the project's folder.`,
     );
   }
-  const { cwd, model, permission_mode } = options;
-  if (typeof cwd !== 'string' || !isAbsolute(cwd)) {
-    return invalid('Option "cwd" is required and must be an absolute path.');
-  }
-  if (!isDirectory(cwd)) return invalid(`Option "cwd" must name an existing directory: ${cwd}`);
-  const allowed = directoryPolicy(cwd);
-  if (!allowed.ok) return invalid(allowed.message);
+  const { model, permission_mode } = options;
   if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
     return invalid('Option "model" must be a Claude model name or id.');
   }
@@ -348,19 +351,11 @@ function parseStartOptions(
   if (permission_mode !== undefined && permissionMode === undefined) {
     return invalid(`Option "permission_mode" must be one of ${PERMISSION_MODES.join(', ')}.`);
   }
-  return { ok: true, value: { cwd: allowed.directory, model: modelRef ?? model, permissionMode } };
+  return { ok: true, value: { model: modelRef ?? model, permissionMode } };
 }
 
 function invalid(message: string): { readonly ok: false; readonly message: string } {
   return { ok: false, message };
-}
-
-function isDirectory(path: string): boolean {
-  try {
-    return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
-  } catch {
-    return false;
-  }
 }
 
 function closedError(): RuntimeActionError {

@@ -140,7 +140,8 @@ async function harness(
       const result = await runtime.startExecution({
         execution: execution.context,
         instruction,
-        options: { directory: sandbox.project, ...options },
+        options: { ...options },
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });
@@ -498,7 +499,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello.',
-        options: { directory: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: 'fake/fake-model-2',
         emit: execution.emit,
       });
@@ -516,7 +518,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         runtime.startExecution({
           execution: gone.context,
           instruction: 'Hello.',
-          options: { directory: sandbox.project },
+          options: {},
+          directory: sandbox.project,
           model_ref: 'fake/removed-model',
           emit: gone.emit,
         }),
@@ -550,7 +553,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
           runtime.startExecution({
             execution: execution.context,
             instruction: 'Hello.',
-            options: { directory: sandbox.project, model },
+            options: { model },
+            directory: sandbox.project,
             model_ref: null,
             emit: execution.emit,
           }),
@@ -567,7 +571,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello.',
-        options: { directory: sandbox.project, model: 'fake/fake-model' },
+        options: { model: 'fake/fake-model' },
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });
@@ -701,7 +706,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
-        options: { directory: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });

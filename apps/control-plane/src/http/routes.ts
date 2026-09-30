@@ -8,6 +8,7 @@ import {
   type EventsResponse,
   ExecutionId,
   type HealthResponse,
+  type LocationsResponse,
   ProjectId,
   type ProjectsResponse,
   parseCommandEnvelope,
@@ -81,6 +82,10 @@ export function registerRoutes(
     '/api/runtimes',
     async (): Promise<RuntimesResponse> => ({ runtimes: controlPlane.registry.descriptors() }),
   );
+
+  // Where projects may live, read from the file system each time and never journaled. A paired
+  // device sees the folder names an agent it starts could read anyway.
+  app.get('/api/locations', async (): Promise<LocationsResponse> => controlPlane.locations.list());
 
   // Read through to the runtime's own list of models; nothing here is journaled (ADR 0016).
   app.get('/api/runtimes/:runtime_id/models', async (request, reply) => {

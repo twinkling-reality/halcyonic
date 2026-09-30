@@ -4,6 +4,7 @@ import {
   type EventOf,
   type ExecutionId,
   type ProjectId,
+  type ProjectLocation,
   parseEventEnvelope,
   type RuntimeEventType,
   type RuntimeId,
@@ -30,7 +31,10 @@ export class EventBuilder {
     return `01920000-0000-7000-8000-${this.#ids.toString(16).padStart(12, '0')}`;
   }
 
-  project(name = 'Project'): { projectId: ProjectId; event: StoredEvent } {
+  project(
+    name = 'Project',
+    location: ProjectLocation | null = null,
+  ): { projectId: ProjectId; event: StoredEvent } {
     const projectId = this.id() as ProjectId;
     return {
       projectId,
@@ -39,7 +43,7 @@ export class EventBuilder {
         project_id: projectId,
         workstream_id: null,
         execution_id: null,
-        payload: { name },
+        payload: { name, location },
       }),
     };
   }
@@ -73,7 +77,7 @@ export class EventBuilder {
         project_id: projectId,
         workstream_id: workstreamId,
         execution_id: executionId,
-        payload: { runtime: this.runtime, instruction: 'Do the work.' },
+        payload: { runtime: this.runtime, instruction: 'Do the work.', directory: null },
       }),
     };
   }

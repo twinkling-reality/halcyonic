@@ -7,7 +7,6 @@ import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
 import { loadConfig, type NetworkListenerConfig } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
-import { createDirectoryPolicy } from './directory-policy.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
 import { registerRealtime } from './http/realtime.ts';
 import { registerRoutes } from './http/routes.ts';
@@ -17,6 +16,7 @@ import { createUuidV7Generator } from './ids.ts';
 import { seorakEvaluationFor } from './intelligence/evaluation.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
+import { createHostLocations } from './locations.ts';
 import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
@@ -28,13 +28,14 @@ async function main(): Promise<void> {
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
+  const locations = createHostLocations(config.projectRoots);
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
     mock: new MockRuntimeAdapter({
       scenarios: loadScenarios(config.scenariosDir),
       models: MOCK_MODELS,
     }),
-    directoryPolicy: createDirectoryPolicy(config.projectRoots),
+    directoryPolicy: locations.policy,
     environment: process.env,
     dataDir: config.dataDir,
   });
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
     scheduler: systemScheduler,
     logger: app.log,
     commandTimeoutMs: config.commandTimeoutMs,
+    locations,
   });
   controlPlane.reconcile();
   const sources = {
