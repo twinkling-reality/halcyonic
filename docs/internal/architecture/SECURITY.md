@@ -192,7 +192,8 @@ fill the listener's 32, a connection that sends no request for at most 10 second
 The XR client shows text Halcyonic did not write: workstream titles and objectives, which come
 from commands; anything an agent or a tool wrote, such as messages, activity and approval requests
 naming a shell command or a file path; refusals and failures; setup problems carrying exception
-text; what Salidium and Seorak say; and names from runtimes. TextMeshPro interprets text even with
+text; what Salidium and Seorak say; names from runtimes; and, while pairing, a refusal in the words
+of whatever answers at the typed address. TextMeshPro interprets text even with
 rich text off: a backslash with u and four hex digits becomes that character whatever its
 settings, a backslash with n, r, t or v a control character while escape parsing is on, the end of
 text character U+0003, typed or escaped, ends a label there without an ellipsis, a carriage return
@@ -209,8 +210,9 @@ So ([XR_CLIENT.md](XR_CLIENT.md), "Words"):
 - Nothing is cut short silently: a label cut short ends in an ellipsis, and no label uses
   TextMeshPro's italics or bold, which lose it. An approval is confirmed only once the whole
   request it answers has shown, in parts when it is long.
-- The editor's render check puts hostile text on every such label and fails if one interprets any
-  of it or cuts it short without an ellipsis.
+- The editor's render check puts hostile text on every workspace label and on a character's, and
+  fails if one interprets any of it or cuts it short without an ellipsis. The line above the stage
+  and the pairing line go through the same code but are not rendered by it.
 
 Not covered: characters that only look alike, such as a Cyrillic letter for a Latin one or a
 no-break space for a space, show as they look. And the client shows a request as the control plane

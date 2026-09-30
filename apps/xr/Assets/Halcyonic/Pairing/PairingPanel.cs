@@ -276,8 +276,10 @@ namespace Halcyonic.XR.Pairing
             var shown = LineShown(Time.unscaledTime);
             lineRoot.gameObject.SetActive(shown);
             if (!shown) return;
-            line.text = shownLine;
-            var size = line.GetPreferredValues(shownLine, LineWidth, 0f);
+            // A refusal can carry the words of whatever answered at the typed address, and a failure an
+            // exception's: shown by the one rule for text Halcyonic did not write.
+            line.text = LabelText.ForTextMeshPro(shownLine);
+            var size = line.GetPreferredValues(line.text, LineWidth, 0f);
             var textHeight = Mathf.Min(size.y, 0.2f);
             line.rectTransform.sizeDelta = new Vector2(LineWidth, textHeight);
             var plateSize = new Vector2(Mathf.Min(size.x, LineWidth) + 2f * LinePadding, textHeight + 2f * LinePadding);
