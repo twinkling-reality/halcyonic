@@ -105,6 +105,22 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
   starts. Link rather than merge: keep each execution's `native_id` so their records can be
   correlated.
 
+## Requested reads that do not exist yet
+
+- **Provider usage left.** Seorak captures a provider-reported Codex quota ratio, but its
+  released integration API does not expose an account-wide limit read to Halcyonic. Claude Code
+  token counts do not supply a limit percentage. Any new Seorak read must state window, reset,
+  observation time, source and unavailability; an account-wide read must not leak through a
+  project- or date-restricted credential. Halcyonic would fetch it only when the person opens
+  Usage left. Seorak currently has no account/profile identity in that reading, so Halcyonic
+  cannot associate it with a selected model or signed-in account.
+- **Codebase architecture.** Salidium's released consumer contract v1 explains and reports one
+  execution. It has no project-wide graph. A future codebase map belongs to Salidium only after
+  validating repository nodes, links and evidence at a pinned revision; Halcyonic would render
+  that versioned read without making its own parallel index.
+
+Neither read is a runtime capability, a journal event or a source of Workstream status.
+
 ## Rules for a new adapter
 
 1. Verify the runtime's current official surface and write a validation record, including a

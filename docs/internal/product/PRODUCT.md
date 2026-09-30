@@ -63,6 +63,39 @@ that can be opened and directed. Creation should ask for the details needed to s
 ordinary language, with technical controls available to people who want them. It does not require
 a separate "shared vision" screen or artifact. Which settings can safely default remains open.
 
+## Intended experience
+
+The first live visit needs a short greeting after the Mac host is connected. **Connect projects**
+chooses which existing projects and work to show. **Create a project** lets a person describe a
+specific idea or work it out with a companion, edit a short recap, then start its first real task.
+The companion is a guide, not a Workstream character. These actions share one living space:
+existing work stays visible and continues while a project is being created. On return visits the
+space resumes selected projects without replaying onboarding.
+
+The person's next move is usually to open a character and ask **What is it doing?**, **Help me
+understand**, **What was checked?**, or **What do you need from me?** One clear next action follows
+the answer. Salidium and Seorak remain named as sources of evidence inside the answer; they are
+not the first navigation choices. Opening and closing keep the same Workstream identity. A turn
+ending is not a claim that the project is complete or correct.
+
+The primary ambient setting is passthrough with Halcyonic's full 3D characters in the room beside
+an ordinary 2D media or Mac window. The person can watch or work in that window while the Mac's
+agent work continues. When the window has input focus, Halcyonic's controls do not take hand
+input. The person deliberately returns focus to open a character and act. The exact video-window
+composition and hand focus return still need a Quest test. Another immersive app replaces
+Halcyonic's 3D scene; a small 2D companion there is a later, separately validated capability.
+
+An optional **Usage left** glance can show provider-reported limits through Seorak with the
+window, reset and observation time. It is neither a Workstream status nor a required creation
+step. A selected account's limit cannot be claimed until Seorak can identify that account.
+Project architecture exploration is a later Salidium capability: its current consumer contract
+covers an execution, not a codebase graph. Its existing Why and How explanation may support a
+navigable execution flow when one was generated, clearly labeled as an explanation.
+
+These paragraphs are target behavior. The detailed screen states, current implementation gaps,
+and acceptance checks are in the owner's private experience blueprint. The current New work
+panel is a technical prototype, not this target interaction.
+
 ## Collaboration policies (future)
 
 "Build for me", "build with me" and "teach me while we build" are behavioral goals over the same
@@ -72,32 +105,35 @@ model reasoning. It is not part of the first vertical slice.
 
 ## Neighbouring products
 
-Halcyonic consumes their intelligence without absorbing their ownership. What each actually
-provides was audited on 2026-09-26; see the validation records.
+Halcyonic consumes their intelligence without absorbing their ownership. The dated integration
+facts and checks are in the validation records.
 
-- **Salidium** understands and visualizes what agent work did: evidence-linked reports, changed
-  files, verification state, rewind, and model-written Why and How diagrams. It observes Claude
-  Code and Codex; it does not control them. Its local API is private and unversioned, so no
-  integration is built yet ([audit](../validation/salidium-integration-audit.md)).
+- **Salidium** provides per-execution evidence, changed files, verification state and optional
+  model-written Why and How explanation. It observes Claude Code and Codex; it does not control
+  them. Halcyonic reads its versioned consumer contract v1 through the control plane
+  ([validation](../validation/salidium-consumer-contract.md)). It does not yet provide a
+  project-wide architecture graph.
 - **Seorak** tracks the performance of agentic development: usage, cost estimates, reliability
-  and outcomes. It deliberately does not grade quality. Halcyonic reads it through Seorak's
-  versioned integration API, joined to the sessions Halcyonic launched.
+  and outcomes. It deliberately does not grade quality. Halcyonic reads per-execution cost,
+  outcome and verification through Seorak's versioned integration API, joined to sessions
+  Halcyonic launched. Provider limits are not yet exposed to Halcyonic.
 - **Halcyonic** owns spatial representation, workstream navigation, runtime control, the
   compressed and expanded interaction, permissions and connectivity.
 
 ## First milestones
 
-The foundation (the provider-neutral truth layer) comes before anything visual, so that XR
-prototypes cannot dictate the backend.
+The foundation was built before the XR prototype, so headset presentation does not dictate the
+provider-neutral backend.
 
 1. **Truth layer (built).** Contracts, domain, journal, projection, command lifecycle, mock
    runtime, fixture replay, REST and WebSocket.
-2. **XR shell (next).** A Unity client consumes the realtime stream and renders three workstream
-   characters that react to status and attention, hands first.
-3. **The defining interaction.** Open a character into its workspace, act, collapse it back.
-4. **Real work.** One real runtime end to end, one real Salidium capability and one real Seorak
-   capability, each only after its integration contract is settled
-   ([OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
+2. **XR shell (built, device refinement ongoing).** A Unity client consumes the realtime stream
+   and renders workstream characters that react to status and attention, hands first.
+3. **The defining interaction (built, device refinement ongoing).** Open a character into its
+   workspace, act, collapse it back. A real approval has been observed on Quest.
+4. **Real work (partly built).** OpenCode, Claude Code and Codex adapters exist; Salidium and
+   Seorak read-through exists. A real Codex execution was read through both local daemons. The
+   headset still needs a safe project directory path and a complete live-start walkthrough.
 
 The minimum viable product needs three characters, hands-only interaction, the compressed to
 expanded transition, one real runtime, one real safe action with a runtime-confirmed result, and
