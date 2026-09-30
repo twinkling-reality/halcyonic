@@ -293,6 +293,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     const connection = await this.#connection();
     await this.#awaitModel(connection, directory, parsed.value.model);
+    // Asked again right before the folder is handed over: launching and waiting take seconds.
+    confirmProjectLocation(this.#directoryPolicy, directory);
     const body: Record<string, unknown> = {
       title: `Halcyonic execution ${request.execution.execution_id}`,
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a

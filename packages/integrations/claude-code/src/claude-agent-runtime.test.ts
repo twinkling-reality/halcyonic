@@ -1109,6 +1109,21 @@ describe('start options', () => {
     }
   });
 
+  test('the folder is asked about again right before a session is launched in it', async () => {
+    let asked = 0;
+    const { start, runs } = setup({
+      directoryPolicy: (path) => {
+        asked += 1;
+        return asked === 1
+          ? { ok: true, directory: path }
+          : { ok: false, code: 'location_missing', message: `${path} was removed.` };
+      },
+    });
+    await assert.rejects(start(), actionError('location_missing'));
+    assert.equal(asked, 2);
+    assert.equal(runs.length, 0, 'no session was launched');
+  });
+
   test('a folder is not an option: the session works in the project folder; unknown options are refused', () => {
     const { adapter } = setup();
     const valid = (options: RuntimeOptions) => adapter.validateStartOptions(options, null).ok;
