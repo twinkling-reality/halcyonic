@@ -53,6 +53,13 @@ namespace Halcyonic.XR.Workspace
         private int shownSubmissions = -1;
         private float nextRefresh;
 
+        /// <summary>
+        /// Raised with the workstream when the person opens its workspace, collapses it, or sends a
+        /// command from it; the stage's sound follows it. A command raises it once handed to the
+        /// session: sent, not confirmed, since the runtime's answer arrives later in the state.
+        /// </summary>
+        public event Action<string, WorkspaceAct>? Acted;
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
@@ -247,6 +254,7 @@ namespace Halcyonic.XR.Workspace
             var reopen = opened?.Character != target;
             Close(immediately: false);
             if (reopen) Open(target);
+            else Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
         }
 
         private void Open(CharacterTarget target)
@@ -263,6 +271,7 @@ namespace Halcyonic.XR.Workspace
             var transition = WorkspaceTransition.Begin(root, target, place, scale);
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
+            Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
             panel.Accepting = () => opened == workspace && transition.Open;
             panel.ActionPressed += action => Steer(workspace, s => s.Press(action, workspace.Now!));
             panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
@@ -279,7 +288,11 @@ namespace Halcyonic.XR.Workspace
                 workspace.Presets = false;
                 RefreshPanel();
             };
-            panel.CollapsePressed += () => Close(immediately: false);
+            panel.CollapsePressed += () =>
+            {
+                Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
+                Close(immediately: false);
+            };
             FacePerson(target, true);
             ReadHistory(workspace);
             RefreshPanel();
@@ -408,6 +421,7 @@ namespace Halcyonic.XR.Workspace
             }
             workspace.Notice = null;
             Report(submissions.SubmitAsync(sent => session.SubmitAsync(sent), command, execution.ExecutionId));
+            if (WorkspaceActs.Of(command) is WorkspaceAct act) Acted?.Invoke(workspace.Character.WorkstreamId, act);
         }
 
         private static void Notify(Opened workspace, string notice)
