@@ -22,7 +22,18 @@ namespace Halcyonic.XR.Workspace
 
         private static readonly Vector2 PokeSize = Vector2.one * (2f * CharacterView.BodyRadius);
 
+        /// <summary>
+        /// How near a fingertip must come to the poke surface to hover it, in the character's units,
+        /// and at most the Interaction SDK's default of 0.15 m: a character on a desk, within reach of
+        /// hands that type, is hovered only by a finger about to touch it.
+        /// </summary>
+        private const float PokeReach = 0.6f * CharacterView.BodyRadius;
+
+        private const float SdkPokeEnter = 0.15f;
+        private const float SdkPokeExit = 0.2f;
+
         private Transform pokeSurface = null!;
+        private float pokeScale = -1f;
 
         public string WorkstreamId { get; private set; } = "";
 
@@ -67,8 +78,16 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The poke surface stays between the body and the person, wherever the person stands.</summary>
         private void FacePerson()
         {
+            var scale = Scale;
             var rotation = WorkspaceVisuals.FacingPerson(BodyPosition);
-            pokeSurface.SetPositionAndRotation(BodyPosition - rotation * Vector3.forward * (PokeDistance * Scale), rotation);
+            pokeSurface.SetPositionAndRotation(BodyPosition - rotation * Vector3.forward * (PokeDistance * scale), rotation);
+            if (Mathf.Abs(scale - pokeScale) > 0.01f)
+            {
+                // The stage moved it between the arc and a desk: the fingertip's reach follows its size.
+                pokeScale = scale;
+                var enter = Mathf.Min(SdkPokeEnter, PokeReach * scale);
+                Poke.SetPokeReach(enter, Mathf.Min(SdkPokeExit, enter * SdkPokeExit / SdkPokeEnter));
+            }
         }
     }
 }
