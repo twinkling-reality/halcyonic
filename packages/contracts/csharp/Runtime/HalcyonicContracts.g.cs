@@ -18,6 +18,7 @@ namespace Halcyonic.Contracts
         public const int EventSchema = 1;
         public const int CommandSchema = 1;
         public const int RealtimeProtocol = 1;
+        public const int PairingProtocol = 1;
     }
 
     /// <summary>
@@ -482,6 +483,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "invalid_state")] InvalidState,
         [EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
         [EnumMember(Value = "demonstration")] Demonstration,
+        [EnumMember(Value = "device_revoked")] DeviceRevoked,
     }
 
     public sealed class CommandRejection
@@ -1061,6 +1063,64 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "internal")] Internal,
     }
 
+    [JsonConverter(typeof(PrincipalConverter))]
+    public abstract class Principal
+    {
+        [JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class PrincipalConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(Principal).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            Principal value = tag switch
+            {
+                "local" => new LocalPrincipal(),
+                "device" => new DevicePrincipal(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "Principal has no string kind."
+                    : "Unknown kind \"" + tag + "\" for Principal."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class LocalPrincipal : Principal
+    {
+        protected override string Discriminator => "local";
+    }
+
+    public sealed class DevicePrincipal : Principal
+    {
+        protected override string Discriminator => "device";
+
+        [JsonProperty("device_id", Required = Required.Always)]
+        public string DeviceId { get; set; } = default!;
+    }
+
     public sealed class CommandAcceptedPayload
     {
         [JsonProperty("command", Required = Required.Always)]
@@ -1071,6 +1131,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("received_via", Required = Required.Always)]
         public ReceivedVia ReceivedVia { get; set; }
+
+        [JsonProperty("principal", Required = Required.AllowNull)]
+        public Principal? Principal { get; set; }
     }
 
     public sealed class CommandRejectedPayload
@@ -1083,6 +1146,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("received_via", Required = Required.Always)]
         public ReceivedVia ReceivedVia { get; set; }
+
+        [JsonProperty("principal", Required = Required.AllowNull)]
+        public Principal? Principal { get; set; }
     }
 
     public sealed class CommandCompletedPayload
@@ -1107,6 +1173,30 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("failure", Required = Required.Always)]
         public CommandFailure Failure { get; set; } = default!;
+    }
+
+    public sealed class DevicePairedPayload
+    {
+        [JsonProperty("device_id", Required = Required.Always)]
+        public string DeviceId { get; set; } = default!;
+
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("credential_sha256", Required = Required.Always)]
+        public string CredentialSha256 { get; set; } = default!;
+
+        [JsonProperty("certificate_sha256", Required = Required.Always)]
+        public string CertificateSha256 { get; set; } = default!;
+    }
+
+    public sealed class DeviceRevokedPayload
+    {
+        [JsonProperty("device_id", Required = Required.Always)]
+        public string DeviceId { get; set; } = default!;
+
+        [JsonProperty("revoked_by", Required = Required.Always)]
+        public Principal RevokedBy { get; set; } = default!;
     }
 
     public sealed class RuntimeExecutionStartedPayload
@@ -1305,6 +1395,8 @@ namespace Halcyonic.Contracts
                 "command.rejected" => new CommandRejectedEvent(),
                 "command.completed" => new CommandCompletedEvent(),
                 "command.failed" => new CommandFailedEvent(),
+                "device.paired" => new DevicePairedEvent(),
+                "device.revoked" => new DeviceRevokedEvent(),
                 "runtime.execution.started" => new RuntimeExecutionStartedEvent(),
                 "runtime.turn.started" => new RuntimeTurnStartedEvent(),
                 "runtime.turn.completed" => new RuntimeTurnCompletedEvent(),
@@ -1409,6 +1501,22 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public CommandFailedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class DevicePairedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "device.paired";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public DevicePairedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class DeviceRevokedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "device.revoked";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public DeviceRevokedPayload Payload { get; set; } = default!;
     }
 
     public sealed class RuntimeExecutionStartedEvent : EventEnvelope
@@ -2972,5 +3080,154 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("result", Required = Required.Always)]
         public EvaluationResult Result { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(PairingClientMessageConverter))]
+    public abstract class PairingClientMessage
+    {
+        [JsonProperty("type", Order = -2)]
+        public string Type => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class PairingClientMessageConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(PairingClientMessage).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["type"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            PairingClientMessage value = tag switch
+            {
+                "pair_request" => new PairRequestMessage(),
+                "pair_proof" => new PairProofMessage(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "PairingClientMessage has no string type."
+                    : "Unknown type \"" + tag + "\" for PairingClientMessage."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but type is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class PairRequestMessage : PairingClientMessage
+    {
+        protected override string Discriminator => "pair_request";
+
+        [JsonProperty("protocol", Required = Required.Always)]
+        public long Protocol { get; set; } = 1;
+
+        [JsonProperty("device_label", Required = Required.Always)]
+        public string DeviceLabel { get; set; } = default!;
+    }
+
+    public sealed class PairProofMessage : PairingClientMessage
+    {
+        protected override string Discriminator => "pair_proof";
+
+        [JsonProperty("client_public", Required = Required.Always)]
+        public string ClientPublic { get; set; } = default!;
+
+        [JsonProperty("proof", Required = Required.Always)]
+        public string Proof { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(PairingServerMessageConverter))]
+    public abstract class PairingServerMessage
+    {
+        [JsonProperty("type", Order = -2)]
+        public string Type => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class PairingServerMessageConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(PairingServerMessage).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["type"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            PairingServerMessage value = tag switch
+            {
+                "pair_challenge" => new PairChallengeMessage(),
+                "pair_accepted" => new PairAcceptedMessage(),
+                "pair_refused" => new PairRefusedMessage(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "PairingServerMessage has no string type."
+                    : "Unknown type \"" + tag + "\" for PairingServerMessage."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but type is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class PairChallengeMessage : PairingServerMessage
+    {
+        protected override string Discriminator => "pair_challenge";
+
+        [JsonProperty("salt", Required = Required.Always)]
+        public string Salt { get; set; } = default!;
+
+        [JsonProperty("server_public", Required = Required.Always)]
+        public string ServerPublic { get; set; } = default!;
+    }
+
+    public sealed class PairAcceptedMessage : PairingServerMessage
+    {
+        protected override string Discriminator => "pair_accepted";
+
+        [JsonProperty("device_id", Required = Required.Always)]
+        public string DeviceId { get; set; } = default!;
+
+        [JsonProperty("credential", Required = Required.Always)]
+        public string Credential { get; set; } = default!;
+
+        [JsonProperty("proof", Required = Required.Always)]
+        public string Proof { get; set; } = default!;
+    }
+
+    public sealed class PairRefusedMessage : PairingServerMessage
+    {
+        protected override string Discriminator => "pair_refused";
+
+        [JsonProperty("error", Required = Required.Always)]
+        public ErrorInfo Error { get; set; } = default!;
+
+        [JsonProperty("attempts_left", Required = Required.AllowNull)]
+        public long? AttemptsLeft { get; set; }
     }
 }

@@ -265,6 +265,51 @@ HALCYONIC_SEORAK_SESSION_ID=<session id> \
 node --test packages/integrations/seorak/src/live-seorak.test.ts
 ```
 
+## Pair a headset over Wi-Fi
+
+Devices on the local network reach the control plane through a second listener, TLS only, which
+is off unless you turn it on ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md),
+[SECURITY.md](../architecture/SECURITY.md)). Loopback serves as before.
+
+```bash
+HALCYONIC_NETWORK_HOST=0.0.0.0 pnpm dev
+```
+
+`0.0.0.0` listens on every IPv4 interface; name one address, such as `192.168.1.23`, to listen on
+that one only. The port is 47801 (`HALCYONIC_NETWORK_PORT`). The first start creates the listener's
+TLS identity, `network-key.pem` and `network-certificate.pem` in the data directory, and logs its
+certificate's SHA-256, which is not secret; the `control plane ready` line names the listener. If
+macOS asks whether `node` may accept incoming connections, allow it: the listener serves nothing
+without a paired credential or an open pairing window. With the firewall set to block all incoming
+connections, no device can reach it.
+
+Then, with the control plane running:
+
+```bash
+pnpm pair                          # the Mac's addresses and an eight-digit code
+pnpm devices                       # every device paired: id, label, when, connected or revoked
+pnpm devices revoke <device id>    # stops accepting it at once and ends what it has open
+```
+
+`pnpm pair` opens a pairing window for five minutes, for one device; three wrong codes close it.
+Enter the address and the code on the headset ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md)). It prints
+each refused code, ends when a device pairs, naming it, and closes pairing on `Ctrl-C`. The code
+appears only in its output, never in a log or the journal. Running it again replaces the window
+and its code.
+
+It also prints each pairing connection it turned away or cut short without checking a code, with
+the address it came from: while another exchange was in progress, too many from one address in a
+minute, an exchange that sent no code within 30 seconds or closed before sending one, or one that
+did not follow the protocol. None of them costs an attempt, but a device other than your headset
+that keeps appearing there is holding pairing up: `Ctrl-C`, and pair when it has gone.
+
+- Pairing again adds another device; revoke the one it replaces.
+- A device that forgets the Mac revokes itself when it can reach it.
+- To replace the TLS identity, stop the control plane and delete both files; every device then
+  pairs again. Keep them with the rest of the data directory, readable only by you.
+- The CLI reads the data directory and port like the control plane (`HALCYONIC_DATA_DIR`,
+  `HALCYONIC_PORT`), so run it with the same environment.
+
 ## Replay a recorded trace
 
 ```bash
@@ -343,8 +388,13 @@ all history and the access token; clients need the new token afterwards.
 
 ## Troubleshooting
 
-- **`HALCYONIC_HOST ... is not a loopback address`**: intended. Serving beyond this machine needs
-  device pairing, which does not exist yet.
+- **`HALCYONIC_HOST ... is not a loopback address`**: intended. The main listener is loopback
+  only; devices on the network use the network listener (`HALCYONIC_NETWORK_HOST`).
+- **`The network listener is off`** from `pnpm pair`: start the control plane with
+  `HALCYONIC_NETWORK_HOST` set.
+- **A headset cannot reach the Mac over Wi-Fi**: same network, and not one that isolates its
+  clients; the address as `pnpm pair` printed it; the macOS firewall; `curl -k
+  https://<address>:47801/api/health` from another machine answers `{"status":"ok"}`.
 - **`EADDRINUSE`**: another control plane or replay is running on the port. Stop it or set
   `HALCYONIC_PORT`.
 - **Executions show `unknown` after a restart**: intended. Their runtime sessions did not survive

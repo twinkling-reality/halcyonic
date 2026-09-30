@@ -20,6 +20,10 @@ in `packages/domain`.
 - **Command**: a request to change state. It is admitted or rejected, and if admitted it later
   completes or fails. Sending a command is never proof that it happened.
 - **Event**: an immutable fact in the journal. See [EVENTS.md](EVENTS.md).
+- **Principal**: who sent a command, as the control plane authenticated it: `local`, whoever holds
+  the access token on the control plane's machine, or a paired **device**, such as a headset on
+  the same network. Devices belong to no project; the owner pairs them with a code and revokes
+  them ([SECURITY.md](SECURITY.md)).
 
 A **model provider** (Anthropic, OpenAI, Ollama and so on) sits below the runtime and is not a
 Halcyonic concept; runtimes such as OpenCode already manage providers. A **model** is known only

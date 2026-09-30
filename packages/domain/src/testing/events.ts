@@ -115,11 +115,13 @@ export class EventBuilder {
           command,
           policy: 'low_consequence',
           received_via: 'internal',
+          principal: null,
         })
       : this.controlPlane('command.rejected', scope, {
           command,
           rejection: { code: 'invalid_state', message: 'Rejected in a test.' },
           received_via: 'internal',
+          principal: null,
         });
   }
 

@@ -64,8 +64,8 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `execution.created` | execution | control plane | A start was accepted; the runtime has not confirmed yet |
 | `execution.start_failed` | execution | control plane | The runtime refused to start |
 | `execution.state_unknown` | execution | control plane | The execution can no longer be observed (`control_plane_restarted`, `start_outcome_unknown`) |
-| `command.accepted` | as resolved | control plane | Admitted; carries the full command, its policy and how it arrived |
-| `command.rejected` | as resolved | control plane | Refused; carries the full command and the reason |
+| `command.accepted` | as resolved | control plane | Admitted; carries the full command, its policy, how it arrived and its principal |
+| `command.rejected` | as resolved | control plane | Refused; carries the full command, the reason and its principal |
 | `command.completed` | as resolved | control plane | Done, confirmed by the runtime where one was involved |
 | `command.failed` | as resolved | control plane | Not done; `effect` says whether it may have happened anyway |
 | `runtime.execution.started` | execution | runtime | The native session or thread exists |
@@ -80,9 +80,19 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome |
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
 | `runtime.model.used` | execution | runtime | The model the runtime says the execution runs on (`observed`), by the `model_ref` of the runtime's list; reported when it starts and whenever it changes |
+| `device.paired` | none | control plane | A device proved it saw the pairing code; carries its id, its self-declared label, the SHA-256 of its credential and of the certificate it pinned ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)) |
+| `device.revoked` | none | control plane | The device's credential is no longer accepted; carries who revoked it |
 
-The command events carry the full command, which is the audit record: who asked (as the client
-declared itself), through which transport, under which policy, and with what outcome.
+The command events carry the full command, which is the audit record: who asked, as the client
+declared itself and as the control plane authenticated it (`principal`: `local` for the access
+token, `device` with the device's id, null from inside the control plane), through which
+transport, under which policy, and with what outcome.
+
+Device events belong to no project, so their scope is null throughout. The device registry is part
+of the projection, and a credential is known only by its SHA-256. Realtime clients never receive
+device events, and paired devices do not read them from the history ([REALTIME.md](REALTIME.md)).
+A command from a device revoked after its request or connection was authenticated is journaled as
+`command.rejected` with `device_revoked`.
 
 ## Contracts: one source of truth
 
@@ -112,6 +122,12 @@ To change a contract:
   `command.rejected`, the `model_ref: null` its contract gained, which is what it meant; no
   version changed, because no client in the field sent the command
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
+- Migration 3 gives every stored `command.accepted` and `command.rejected` the `principal: null`
+  its contract gained: who sent a command journaled before principals were recorded is not known
+  ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)). It also runs migration
+  2's update again, because builds of the pairing work from before the two met stamped version 2
+  without it; both change only events without the field. A build from before either migration
+  refuses a journal a newer one has opened.
 - Until there are external users, breaking changes are acceptable when coordinated: migrate
   fixtures, the journal schema, generated bindings and documentation together.
 

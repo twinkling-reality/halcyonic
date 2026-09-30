@@ -179,6 +179,13 @@ namespace Halcyonic.XR.Room
                 Log("room access was allowed in the settings");
                 Apply();
             }
+            // A read while the headset was off the head, or before it found its surroundings again,
+            // finds no room even where one is set up: read again when the person comes back.
+            else if (Status.Shown == RoomSpace.Room && (Status.Scan is RoomScan.NotSetUp or RoomScan.OutsideRooms))
+            {
+                Log("reading the room again, since the last read found none");
+                Apply();
+            }
         }
 
         /// <summary>
@@ -269,6 +276,7 @@ namespace Halcyonic.XR.Room
                 if (spot == null)
                 {
                     Log("found no surface that fits the lineup in comfortable reach and view");
+                    foreach (var line in StageSurfaces.Explain(read.Surfaces, read.Obstacles, viewer)) Log("surface: " + line);
                     Clear("the room has no suitable surface");
                     SetStatus(Status.With(placement: StagePlacement.NoSurface, clearSurface: true));
                     controls?.Present();

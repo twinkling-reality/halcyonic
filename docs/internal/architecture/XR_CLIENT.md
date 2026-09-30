@@ -8,9 +8,10 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
         │                             workspace: gaze and hand peek, panel,           the workspace, the
-        │                             sections, transition, first-time hint;          room and the sound
-        │                             Meta's rig; room: passthrough, MRUK, stage      are not verified on
-        │                             anchor; sound: the characters' voices           a headset
+        │                             sections, transition, first-time hint;          room, the sound and
+        │                             Meta's rig; room: passthrough, MRUK, stage      pairing are not
+        │                             anchor; sound: the characters' voices;          verified on a
+        │                             pairing: panel, development builds              headset
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
@@ -26,7 +27,11 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             DemonstrationTransport, DemonstrationReads,
         │                             DemonstrationFallback,
         │                             StageSurfaces, PlacementMemory, RoomStatus,
-        │                             GlazeSynthesizer, SoundCueSelector
+        │                             GlazeSynthesizer, SoundCueSelector,
+        │                             PairingClient, Srp6a, PairingCrypto,
+        │                             PinnedConnection, PinnedWebSocketTransport,
+        │                             PinnedHttpHandler, ControlPlaneTarget,
+        │                             FilePairingStore
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -221,8 +226,34 @@ the same definition names, as the JSON Schema document:
   character in it shows as its code point and markup as written.
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
-  ([quest-3-device.md](../validation/quest-3-device.md)); `wss://` is not verified there yet, and
-  the interface remains the seam for a native replacement.
+  ([quest-3-device.md](../validation/quest-3-device.md)), over `ws://`, the USB path. It cannot pin
+  a certificate on the headset, so paired connections use the pinned transports below.
+- **Pairing over the network**
+  ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md),
+  [network-pairing.md](../validation/network-pairing.md)). `PairingClient.PairAsync` takes the
+  address the person typed and the eight-digit code `pnpm pair` shows, and runs the exchange of
+  [REALTIME.md](REALTIME.md) on the network listener's `/pair`: SRP-6a (`Srp6a`, `SrpClient`) and
+  the proofs and sealed credential (`PairingCrypto`), bound to the certificate its connection saw,
+  which it returns as the pin with the device id and credential in a `PairedControlPlane`. It
+  keeps nothing unless the control plane proves it knew the code. `RevokeAsync` asks the control
+  plane to stop accepting the credential, as forgetting it does. Refusals arrive as a
+  `PairingException` with the control plane's code and the attempts left.
+- **The pinned transports.** `PinnedConnection` opens TCP and TLS with `SslStream`, whose own
+  validation callback compares the certificate's SHA-256 with the pin, so another certificate ends
+  the handshake before anything is sent (`CertificateMismatchException`); without a pin, for
+  pairing only, it records the certificate. `PinnedWebSocketTransport` performs the WebSocket
+  upgrade over it with the device credential and hands the stream to `WebSocket.CreateFromStream`;
+  a refused upgrade reports the control plane's code, such as `device_revoked`.
+  `PinnedHttpHandler` sends each REST request as HTTP/1.1 on a connection of its own, for
+  `ControlPlaneApi`. They exist because Unity's Android class libraries ignore
+  `ClientWebSocketOptions.RemoteCertificateValidationCallback` and throw inside
+  `HttpClientHandler.ServerCertificateCustomValidationCallback`.
+- **`ControlPlaneTarget`** is where a session connects and how it proves itself: `Local`, the
+  access token over `ClientWebSocketTransport` as over USB, or `Paired`, the device credential over
+  the pinned transports. It creates the session's transports and the `ControlPlaneApi`, and
+  `SameAs` tells whether a client made for one target serves another.
+- **`IPairingStore`** keeps the pairing, credential included; `FilePairingStore` writes it as one
+  JSON file, replaced whole. The Unity layer chooses where.
 - **The recorded demonstration** is what a device with no control plane shows, so that
   competition judges can run the app with nothing else and act in it: the scripted interactive
   demonstration of [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md).
@@ -406,7 +437,16 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the real control plane process stopping by itself once its standard input closes, which the
   operating system does when the test host dies: the tests start every control plane with
   `HALCYONIC_EXIT_ON_STDIN_END=1` and a standard input only the test host holds, so none outlives
-  a test host that is killed, crashes or is ended by a runner's timeout.
+  a test host that is killed, crashes or is ended by a runner's timeout;
+- pairing: SRP-6a against RFC 5054's test vectors, and the whole exchange against the vectors the
+  control plane computed; the pinned transports against TLS servers of their own (the pin decides
+  the handshake and an impostor receives nothing, HTTP bodies by length, chunks and to the end, a
+  refused upgrade's code, a wrong accept key, an upgrade never answered); the pairing file; and
+  against a real control plane serving its network listener on a loopback address: pairing,
+  directing an approval to a finished turn as the device over pinned TLS with every command
+  journaled with the device as its principal, history over the pinned REST handler, wrong codes
+  closing the window, a relay in the middle refused, revocation ending the session, forgetting,
+  and another identity on the same port refused with nothing sent.
 
 Run `pnpm test:csharp` (the .NET 10 SDK and Node.js must be on `PATH`).
 
@@ -419,7 +459,8 @@ scripts use only long-stable core Unity APIs:
 - `HalcyonicBootstrap` adds the stage to any scene that lacks one. The stage scene carries its own,
   so that its `FocusGuard` can reference the rig's hands.
 - `ControlPlaneConnection` owns what is shown through a `DemonstrationFallback`: the session with
-  the control plane when an access token is found, and the demonstration, loaded from the text asset
+  the control plane `ControlPlaneSettings.Target()` names, the one this device paired with or else
+  the one its access token is for, and the demonstration, loaded from the text asset
   `Resources/HalcyonicDemonstration.json` when first needed, while no control plane is configured or
   reachable. It loads the asset on the main thread and reads it on another, so the recording's
   half megabyte never holds up a frame, and logs once if it cannot be read. It pumps both every
@@ -539,7 +580,8 @@ distance (26 mm at the workspace's reach), pointed at and pinched or poked like 
 a bar under the chosen tab marks it besides its color. Look and pinch opens a character, never a
 tab. A section reads through the director's `IIntelligenceReader`: the demonstration's
 `DemonstrationReads` while it is shown, else `ControlPlaneApi` for the configured control plane
-(`HttpClient`, the same instance that reads history). `SectionView` draws the provenance line,
+(`ControlPlaneSettings.Api()`, the same instance that reads history, made again when pairing,
+forgetting or a new token changes the control plane). `SectionView` draws the provenance line,
 wrapping to up to four rows, then each line with its tag in a column beside it, a part's
 availability, coverage and freshness smaller and in at most two rows; seven lines fit under the
 provenance. Every label shows its text by the one rule, as every workspace label does (under
@@ -830,6 +872,36 @@ away convincingly, and whether a spread widens a mono clip as it does a stereo o
 menu and Virtual Display reach the app as focus changes that stop cues; and the render time and
 memory on a Quest 3. The checks are in [XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md).
 
+### Pairing
+
+`Assets/Halcyonic/Pairing` is its own assembly, `Halcyonic.XR.Pairing`, added only to development
+builds and the editor: `PairingBootstrap` adds `PairingPanel` to the stage object at runtime, as
+the room's and the sound's bootstraps do, so neither the scene nor the stage refers to it. A
+release build, such as the one judges run, offers no pairing
+([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
+
+- **The panel** is one of the workspace's `PanelButton`s, low and 26 degrees to the person's left,
+  mirroring the room controls, with a line above it that comes up in front of the person while
+  something is in progress or has just changed. Like every button, it ignores input while
+  `FocusGuard.InputSuspended`.
+- **Pairing.** "Pair with a Mac" opens the system keyboard for the Mac's address, as `pnpm pair`
+  prints it (the last one typed is offered, and the port may be left out), then the number pad for
+  the code. The exchange runs in the background; its answer is shown in words, with the attempts
+  left after a wrong code. On success the pairing is saved through
+  `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
+  again, so it connects to the paired control plane as at startup.
+- **Forgetting.** Once paired, the button reads "Forget this Mac", and a second, deliberate press
+  within six seconds ("Yes, forget this Mac") asks the Mac to revoke this headset, deletes the
+  pairing, and connects again as before pairing. If the Mac cannot be reached, the line says to
+  revoke the headset there.
+- **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` in app-internal
+  storage on Android (`Context.getFilesDir()`, which no other app can read and which `adb` reaches
+  only through `run-as` on a debuggable build), and in the persistent data directory elsewhere. A
+  pairing takes the place of a pushed access token; forgetting it returns to the token.
+- **Logs.** `Halcyonic: pairing with the control plane at <address>`, `paired; connecting over the
+  network`, `pairing refused: <code>` and whether forgetting revoked the headset on the Mac, never
+  the code or the credential. The connection logs the paired address it connects to.
+
 ### Scene
 
 Stage.unity carries Meta's comprehensive interaction rig, added the way the Interaction SDK's
@@ -892,8 +964,9 @@ changed file, every review item, the explanation's diagrams), which it summarize
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
 starting work from the headset, with a choice of the runtime's models, which the client core can
-read and send but no panel offers; token provisioning on a headset; `wss://`; the
-soundbook's softer repeat of "Needs you" once nobody has looked at the character for two minutes,
-and a volume and mute for sound in the headset. On a Quest,
-the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there
-is no LAN serving yet ([SECURITY.md](SECURITY.md)).
+read and send but no panel offers; the soundbook's softer repeat of "Needs you" once nobody has
+looked at the character for two minutes, and a volume and mute for sound in the headset; finding
+the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
+and keeping the credential under an Android Keystore key. On a Quest, the control plane is
+reachable over USB with `adb reverse tcp:47800 tcp:47800` and the pushed token, or over Wi-Fi once
+paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).

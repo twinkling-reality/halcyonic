@@ -25,6 +25,19 @@ import {
   RejectionCode,
 } from './commands.ts';
 import {
+  DevicesResponse,
+  DeviceView,
+  NetworkListener,
+  PairingClientMessage,
+  PairingOpenedResponse,
+  PairingRefusalReason,
+  PairingRefusalTally,
+  PairingServerMessage,
+  PairingState,
+  PairingStatus,
+  Principal,
+} from './devices.ts';
+import {
   Evaluation,
   EvaluationAvailability,
   EvaluationCost,
@@ -207,6 +220,17 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   StateUnknownCode: ExecutionStateUnknown.properties.payload.properties.code,
   CommandAckDisposition: CommandAckMessage.properties.disposition,
   SubmissionDisposition: CommandSubmissionResponse.properties.disposition,
+  Principal,
+  DeviceView,
+  DevicesResponse,
+  PairingState,
+  PairingRefusalReason,
+  PairingRefusalTally,
+  PairingStatus,
+  NetworkListener,
+  PairingOpenedResponse,
+  PairingClientMessage,
+  PairingServerMessage,
 };
 
 export interface DefinitionIndex {

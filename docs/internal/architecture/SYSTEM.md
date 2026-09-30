@@ -10,18 +10,19 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Domain: projection, status and attention rules, command admission | `packages/domain` | Built |
 | Runtime port: adapter interface, capability checks, clocks | `packages/runtime-core` | Built |
 | Mock runtime: scripted scenarios, synthetic | `packages/integrations/mock` | Built |
-| Control plane: journal, commands, REST, WebSocket, CLIs | `apps/control-plane` | Built, loopback only |
+| Control plane: journal, commands, REST, WebSocket, CLIs | `apps/control-plane` | Built; loopback, and an opt-in TLS listener for paired devices |
 | Scenarios and recorded traces | `fixtures/` | Built |
 | The XR client's demonstration, recorded by the control plane from mock scenarios with a branch for every answer a person can give, and its understanding and evaluation answers read through its routes from simulated stand-ins for Salidium and Seorak | `apps/xr/Assets/Halcyonic/Resources` | Built; [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md), [ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md) |
 | Architecture boundary tests | `tooling/` | Built |
-| XR client core: realtime session, client projection, character and workspace presentation, steering, recorded demonstration, room placement choices (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
-| XR client Unity layer (Unity, OpenXR, Meta XR SDK, MR Utility Kit) | `apps/xr` | Placeholder characters that run on a Meta Quest 3 against a live control plane; the workspace (peek, open, act and collapse by hand, with its Understanding and Evaluation sections) and the room placement (passthrough, the characters on the person's desk, kept with a spatial anchor) compile and build, not yet verified on a headset; the Simulator renders nothing on the development Mac |
+| XR client core: realtime session, client projection, character and workspace presentation, steering, recorded demonstration, room placement choices, pairing and pinned transports (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
+| XR client Unity layer (Unity, OpenXR, Meta XR SDK, MR Utility Kit) | `apps/xr` | Placeholder characters that run on a Meta Quest 3 against a live control plane; the workspace (peek, open, act and collapse by hand, with its Understanding and Evaluation sections), the room placement (passthrough, the characters on the person's desk, kept with a spatial anchor) and, in development builds, the pairing panel compile and build, not yet verified on a headset; the Simulator renders nothing on the development Mac |
 | Claude Agent runtime (Claude Code through the Agent SDK) | `packages/integrations/claude-code` | Built; registered when enabled |
 | OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
 | Codex runtime (app-server, stable surface, pinned 0.157.0) | `packages/integrations/codex` | Built; registered when its binary is configured |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
 | Seorak client: integration API v1, evaluation per execution | `packages/integrations/seorak` | Built; verified against `seorak` 0.3.0 |
-| Device pairing, LAN serving, remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
+| Device pairing and serving paired devices on the local network: SRP with a code, pinned TLS, per-device credentials, `pnpm pair` and `pnpm devices` | `apps/control-plane/src/network`, the client core, `apps/xr/Assets/Halcyonic/Pairing` | Built, verified off the headset; [ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), [SECURITY.md](SECURITY.md) |
+| Remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
 ## Dependency rules
 
@@ -90,6 +91,8 @@ Environment variables, all optional:
 | --- | --- | --- |
 | `HALCYONIC_HOST` | `127.0.0.1` | Must be a loopback address; anything else is refused |
 | `HALCYONIC_PORT` | `47800` | HTTP and WebSocket port |
+| `HALCYONIC_NETWORK_HOST` | none | An IP address, such as `0.0.0.0` for every interface, turns on the TLS listener for paired devices ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); unset, nothing listens beyond loopback |
+| `HALCYONIC_NETWORK_PORT` | `47801` | The network listener's port; must differ from `HALCYONIC_PORT` |
 | `HALCYONIC_DATA_DIR` | `~/.halcyonic` | Journal, access token |
 | `HALCYONIC_LOG_LEVEL` | `info` | `fatal` to `trace`, or `silent` |
 | `HALCYONIC_EXIT_ON_STDIN_END` | `0` | `1` shuts the control plane down, as SIGTERM does, when its standard input ends; for a launcher that holds that input open, so that the control plane stops when the launcher exits, however it exits |
@@ -109,7 +112,9 @@ Files in the data directory besides the journal and the access token, all option
 `anthropic-api-key`, used by the Claude Agent runtime when `ANTHROPIC_API_KEY` is not set, and
 `opencode-server.json`, `codex-server.json` and `claude-agent-processes.json`, the records of the
 running OpenCode and Codex servers and Claude Code processes (no secrets) that let the next start
-stop anything a crash left behind.
+stop anything a crash left behind, and `network-key.pem` and `network-certificate.pem`, the network
+listener's TLS identity, created when the listener is first turned on; paired devices pin the
+certificate, so deleting the two makes every device pair again.
 
 ## Toolchain
 

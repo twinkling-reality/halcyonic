@@ -57,7 +57,8 @@ internal sealed class ControlPlaneProcess : IDisposable
         }
     }
 
-    public static async Task<ControlPlaneProcess> StartAsync(string dataDir, int port)
+    /// <param name="networkPort">With a port, the network listener for paired devices serves on 127.0.0.1 there.</param>
+    public static async Task<ControlPlaneProcess> StartAsync(string dataDir, int port, int? networkPort = null)
     {
         var start = new ProcessStartInfo("node")
         {
@@ -73,6 +74,11 @@ internal sealed class ControlPlaneProcess : IDisposable
         start.Environment["HALCYONIC_PORT"] = port.ToString(CultureInfo.InvariantCulture);
         start.Environment["HALCYONIC_LOG_LEVEL"] = "warn";
         start.Environment["HALCYONIC_EXIT_ON_STDIN_END"] = "1";
+        if (networkPort != null)
+        {
+            start.Environment["HALCYONIC_NETWORK_HOST"] = "127.0.0.1";
+            start.Environment["HALCYONIC_NETWORK_PORT"] = networkPort.Value.ToString(CultureInfo.InvariantCulture);
+        }
         Process process;
         try
         {
