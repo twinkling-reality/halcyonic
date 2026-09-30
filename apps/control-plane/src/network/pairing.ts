@@ -1,11 +1,14 @@
 import { randomBytes } from 'node:crypto';
-import type {
-  DeviceId,
-  DeviceView,
-  PairingClientMessage,
-  PairingServerMessage,
-  PairingState,
-  PairingStatus,
+import {
+  type DeviceId,
+  type DeviceView,
+  MAX_PAIRING_REFUSAL_TALLIES,
+  type PairingClientMessage,
+  type PairingRefusalReason,
+  type PairingRefusalTally,
+  type PairingServerMessage,
+  type PairingState,
+  type PairingStatus,
 } from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
@@ -20,7 +23,7 @@ import {
   sealCredential,
   serverProof,
 } from './pairing-protocol.ts';
-import { fromBytes, PAIRING_GROUP, PAIRING_IDENTITY, pad, SrpServer } from './srp.ts';
+import { fromBytes, PAIRING_GROUP, PAIRING_IDENTITY, pad, SrpServer, verifier } from './srp.ts';
 
 export interface PairingLimits {
   /** How long a window stays open. */
@@ -52,11 +55,25 @@ export interface PairingRefusal {
 }
 
 interface Window {
-  readonly code: string;
   readonly expiresAt: number;
+  /**
+   * The salt and SRP verifier every attempt in the window uses, derived from the code once when
+   * the window opens, so an attempt's work depends only on its own random secret and never on the
+   * code. The code itself is not kept.
+   */
+  readonly salt: Buffer;
+  readonly verifier: bigint;
   state: PairingState;
   failures: number;
   deviceId: DeviceId | null;
+  /** Connections refused or cut short without a code checked, by reason and address, oldest first. */
+  readonly refusals: Map<string, PairingRefusalTally>;
+}
+
+/** What an exchange answers a message with, and whether that ends it. */
+export interface PairingAnswer {
+  readonly reply: PairingServerMessage;
+  readonly done: boolean;
 }
 
 /**
@@ -101,19 +118,23 @@ export class Pairing {
   /** Opens a window with a new code, closing any window still open. */
   open(): { code: string; status: PairingStatus } {
     if (this.#current()?.state === 'open') this.#end('closed', 'another window replaced it');
+    const code = createPairingCode();
+    const salt = randomBytes(16);
     const window: Window = {
-      code: createPairingCode(),
       expiresAt: this.#now() + this.limits.windowMs,
+      salt,
+      verifier: verifier(PAIRING_GROUP, PAIRING_IDENTITY, codePassword(code), salt),
       state: 'open',
       failures: 0,
       deviceId: null,
+      refusals: new Map(),
     };
     this.#window = window;
     this.#logger.info(
       { expires_at: new Date(window.expiresAt).toISOString() },
       'pairing window opened',
     );
-    return { code: window.code, status: this.status() };
+    return { code, status: this.status() };
   }
 
   /** Closes the window, if it is open. */
@@ -131,6 +152,7 @@ export class Pairing {
       failed_attempts: window?.failures ?? 0,
       max_failed_attempts: this.limits.maxFailedAttempts,
       device: device ?? null,
+      refusals: window === null ? [] : [...window.refusals.values()],
     };
   }
 
@@ -144,6 +166,7 @@ export class Pairing {
       };
     }
     if (!this.#perAddress.take(address)) {
+      this.tally(this.#window, address, 'too_many_requests');
       return {
         status: 429,
         code: 'too_many_requests',
@@ -160,6 +183,7 @@ export class Pairing {
     let total = 0;
     for (const count of this.#active.values()) total += count;
     if (total >= this.limits.maxConcurrentAttempts || (this.#active.get(address) ?? 0) > 0) {
+      this.tally(window, address, 'busy');
       return {
         status: 429,
         code: 'busy',
@@ -168,11 +192,37 @@ export class Pairing {
     }
     this.#active.set(address, 1);
     let ended = false;
-    return new PairingAttempt(this, window, () => {
+    return new PairingAttempt(this, window, address, () => {
       if (ended) return;
       ended = true;
       this.#active.delete(address);
     });
+  }
+
+  /**
+   * Counts a connection `window` refused or cut short without checking a code, so the owner can
+   * see something hold pairing up. Only an open window counts; the first of each reason from an
+   * address is logged.
+   */
+  tally(window: Window | null, address: string, reason: PairingRefusalReason): void {
+    if (window === null || !this.isOpen(window)) return;
+    const from = address === '' ? 'unknown' : address.slice(0, 64);
+    const key = `${reason} ${from}`;
+    const previous = window.refusals.get(key);
+    window.refusals.delete(key);
+    window.refusals.set(key, {
+      address: from,
+      reason,
+      count: (previous?.count ?? 0) + 1,
+      last_at: this.#clock.now().toISOString(),
+    });
+    for (const oldest of window.refusals.keys()) {
+      if (window.refusals.size <= MAX_PAIRING_REFUSAL_TALLIES) break;
+      window.refusals.delete(oldest);
+    }
+    if (previous === undefined) {
+      this.#logger.warn({ address: from, reason }, 'pairing connection refused');
+    }
   }
 
   /** Answers a device's proof for `window`: records the device, or counts a failure. */
@@ -228,41 +278,37 @@ export class Pairing {
 }
 
 /**
- * One exchange on one `/pair` connection: `pair_request`, then `pair_proof`. A fresh salt and SRP
- * secret for every attempt make a recorded exchange useless to replay.
+ * One exchange on one `/pair` connection: `pair_request`, then `pair_proof`. The window's salt and
+ * verifier with a fresh SRP secret for every attempt make a recorded exchange useless to replay.
  */
 export class PairingAttempt {
   readonly #pairing: Pairing;
   readonly #window: Window;
+  readonly #address: string;
   readonly #release: () => void;
   #phase: 'request' | 'proof' | 'done' = 'request';
   #label = '';
-  #salt: Buffer = Buffer.alloc(0);
   #server: SrpServer | null = null;
 
-  constructor(pairing: Pairing, window: Window, release: () => void) {
+  constructor(pairing: Pairing, window: Window, address: string, release: () => void) {
     this.#pairing = pairing;
     this.#window = window;
+    this.#address = address;
     this.#release = release;
   }
 
   /** The answer to one message, and whether the exchange is over. */
-  receive(message: PairingClientMessage): { reply: PairingServerMessage; done: boolean } {
+  receive(message: PairingClientMessage): PairingAnswer {
+    if (this.#phase === 'done') return this.#after();
     if (!this.#pairing.isOpen(this.#window)) return this.#finish(refused(closedRefusal()));
     if (message.type === 'pair_request' && this.#phase === 'request') {
       this.#label = message.device_label;
-      this.#salt = randomBytes(16);
-      this.#server = SrpServer.create(
-        PAIRING_GROUP,
-        PAIRING_IDENTITY,
-        codePassword(this.#window.code),
-        this.#salt,
-      );
+      this.#server = SrpServer.forVerifier(PAIRING_GROUP, this.#window.verifier);
       this.#phase = 'proof';
       return {
         reply: {
           type: 'pair_challenge',
-          salt: this.#salt.toString('base64'),
+          salt: this.#window.salt.toString('base64'),
           server_public: pad(PAIRING_GROUP, this.#server.B).toString('base64'),
         },
         done: false,
@@ -271,18 +317,38 @@ export class PairingAttempt {
     if (message.type === 'pair_proof' && this.#phase === 'proof' && this.#server !== null) {
       return this.#finish(this.#prove(this.#server, message));
     }
+    return this.reject('invalid_message', 'Send pair_request, then pair_proof, once each.');
+  }
+
+  /** Refuses a message outside the protocol, and counts it against the address. */
+  reject(reason: 'invalid_message' | 'unsupported_protocol', message: string): PairingAnswer {
+    if (this.#phase === 'done') return this.#after();
+    return this.#finish(refused({ code: reason, message }), reason);
+  }
+
+  /** Ends an exchange whose time ran out, and counts it against the address. */
+  timeOut(): PairingAnswer {
+    if (this.#phase === 'done') return this.#after();
     return this.#finish(
-      refused({
-        code: 'invalid_message',
-        message: 'Send pair_request, then pair_proof, once each.',
-      }),
+      refused({ code: 'timeout', message: 'Pairing took too long; start again on the device.' }),
+      'timeout',
     );
   }
 
-  /** Ends the exchange, for example when its connection closes. */
-  end(): void {
+  /** Ends an exchange the control plane failed; the window stays as it was. */
+  fail(): PairingAnswer {
+    if (this.#phase === 'done') return this.#after();
+    return this.#finish(
+      refused({ code: 'internal_error', message: 'The control plane failed to pair.' }),
+    );
+  }
+
+  /** The connection closed: ends the exchange, counting it when it closed before its answer. */
+  closed(): void {
+    if (this.#phase === 'done') return;
     this.#phase = 'done';
     this.#release();
+    this.#pairing.tally(this.#window, this.#address, 'abandoned');
   }
 
   #prove(
@@ -292,7 +358,7 @@ export class PairingAttempt {
     const A = fromBytes(Buffer.from(message.client_public, 'base64'));
     const key = server.sessionKey(A);
     const certificate = Buffer.from(this.#pairing.certificateSha256, 'hex');
-    const transcript = pairingTranscript(this.#label, this.#salt, A, server.B, certificate);
+    const transcript = pairingTranscript(this.#label, this.#window.salt, A, server.B, certificate);
     const proof = Buffer.from(message.proof, 'base64');
     // An invalid A is an attack, not a typo; it counts as a failed attempt all the same.
     const verified = key !== null && sameMac(clientProof(key, transcript), proof);
@@ -319,9 +385,19 @@ export class PairingAttempt {
     };
   }
 
-  #finish(reply: PairingServerMessage): { reply: PairingServerMessage; done: boolean } {
-    this.end();
+  #finish(reply: PairingServerMessage, counted?: PairingRefusalReason): PairingAnswer {
+    this.#phase = 'done';
+    this.#release();
+    if (counted !== undefined) this.#pairing.tally(this.#window, this.#address, counted);
     return { reply, done: true };
+  }
+
+  /** A message after the exchange ended, which only the closing connection can still carry. */
+  #after(): PairingAnswer {
+    return {
+      reply: refused({ code: 'invalid_message', message: 'This pairing exchange has ended.' }),
+      done: true,
+    };
   }
 }
 

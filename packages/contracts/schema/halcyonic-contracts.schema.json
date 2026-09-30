@@ -7337,6 +7337,10 @@
         {
           "type": "string",
           "const": "demonstration"
+        },
+        {
+          "type": "string",
+          "const": "device_revoked"
         }
       ]
     },
@@ -7606,6 +7610,63 @@
         }
       ]
     },
+    "PairingRefusalReason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "busy"
+        },
+        {
+          "type": "string",
+          "const": "too_many_requests"
+        },
+        {
+          "type": "string",
+          "const": "timeout"
+        },
+        {
+          "type": "string",
+          "const": "abandoned"
+        },
+        {
+          "type": "string",
+          "const": "invalid_message"
+        },
+        {
+          "type": "string",
+          "const": "unsupported_protocol"
+        }
+      ]
+    },
+    "PairingRefusalTally": {
+      "type": "object",
+      "required": [
+        "address",
+        "reason",
+        "count",
+        "last_at"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "reason": {
+          "$ref": "#/$defs/PairingRefusalReason"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
     "PairingStatus": {
       "type": "object",
       "required": [
@@ -7613,7 +7674,8 @@
         "expires_at",
         "failed_attempts",
         "max_failed_attempts",
-        "device"
+        "device",
+        "refusals"
       ],
       "properties": {
         "state": {
@@ -7648,6 +7710,13 @@
               "type": "null"
             }
           ]
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PairingRefusalTally"
+          },
+          "maxItems": 20
         }
       },
       "additionalProperties": false

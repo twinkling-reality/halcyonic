@@ -65,6 +65,38 @@ export const PairingState = Type.Union([
 ]);
 export type PairingState = Static<typeof PairingState>;
 
+/**
+ * Why a pairing window turned a connection away, or ended its exchange, without checking a code:
+ * `busy`, every exchange slot or the address's one was taken; `too_many_requests`, the address
+ * opened too many connections in a minute; `timeout`, the exchange held its slot until its time
+ * ran out; `abandoned`, it closed before sending a proof; `invalid_message` and
+ * `unsupported_protocol`, it did not follow the pairing protocol.
+ */
+export const PairingRefusalReason = Type.Union([
+  Type.Literal('busy'),
+  Type.Literal('too_many_requests'),
+  Type.Literal('timeout'),
+  Type.Literal('abandoned'),
+  Type.Literal('invalid_message'),
+  Type.Literal('unsupported_protocol'),
+]);
+export type PairingRefusalReason = Static<typeof PairingRefusalReason>;
+
+/** How many connections from one address a pairing window refused for one reason. */
+export const PairingRefusalTally = Type.Object(
+  {
+    address: Type.String({ minLength: 1, maxLength: 64 }),
+    reason: PairingRefusalReason,
+    count: Type.Integer({ minimum: 1 }),
+    last_at: Timestamp,
+  },
+  strict,
+);
+export type PairingRefusalTally = Static<typeof PairingRefusalTally>;
+
+/** The most refusal tallies a pairing status carries: the ones counted most recently. */
+export const MAX_PAIRING_REFUSAL_TALLIES = 20;
+
 /** The pairing window, for the owner on loopback. The code is never part of it. */
 export const PairingStatus = Type.Object(
   {
@@ -74,6 +106,11 @@ export const PairingStatus = Type.Object(
     max_failed_attempts: Type.Integer({ minimum: 1 }),
     /** The device that paired through this window. */
     device: Nullable(DeviceView),
+    /**
+     * Connections this window refused or cut short without checking a code, so the owner sees
+     * something on the network holding pairing up. Wrong codes are `failed_attempts`.
+     */
+    refusals: Type.Array(PairingRefusalTally, { maxItems: MAX_PAIRING_REFUSAL_TALLIES }),
   },
   strict,
 );
@@ -143,7 +180,7 @@ export const PAIRING_SERVER_MESSAGE_VARIANTS = [
   Type.Object(
     {
       type: Type.Literal('pair_challenge'),
-      /** 16 random bytes, fresh for every attempt. */
+      /** 16 random bytes, drawn when the pairing window opened. */
       salt: Base64(16),
       /** SRP's B = k * v + g^b mod N. */
       server_public: SrpPublic,

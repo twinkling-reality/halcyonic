@@ -7,14 +7,28 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { PassThrough } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
-import { createServer, connect as tlsConnect } from 'node:tls';
-import type { EventEnvelope, PairingOpenedResponse, PairingStatus } from '@halcyonic/contracts';
+import { createServer, type TLSSocket, connect as tlsConnect } from 'node:tls';
+import type {
+  EventEnvelope,
+  EventsResponse,
+  PairingOpenedResponse,
+  PairingRefusalReason,
+  PairingStatus,
+} from '@halcyonic/contracts';
 import { RealtimeClient } from '../client/realtime-client.ts';
 import { PairingRefused, pairDevice, replay } from '../testing/device.ts';
 import { startTestServer, TEST_CLIENT, type TestServerOptions } from '../testing/harness.ts';
-import { TlsWebSocket, tlsRequest, WebSocketRefused } from '../testing/tls-client.ts';
+import {
+  openTls,
+  stageRequest,
+  TlsWebSocket,
+  tlsRequest,
+  WebSocketRefused,
+} from '../testing/tls-client.ts';
 import { createNetworkIdentity } from './certificate.ts';
+import { MAX_REALTIME_CONNECTIONS_PER_DEVICE } from './devices.ts';
 import { credentialSha256 } from './pairing-protocol.ts';
+import { MAX_NETWORK_CONNECTIONS } from './server.ts';
 
 type Server = Awaited<ReturnType<typeof startTestServer>>;
 
@@ -71,6 +85,27 @@ const bearer = (credential: string) => ({ authorization: `Bearer ${credential}` 
 function journal(server: Server): EventEnvelope[] {
   return [...server.journal.readAll()].map((stored) => stored.event);
 }
+
+/** What the pairing window turned away or cut short from this machine, by reason. */
+async function refusals(server: Server): Promise<Partial<Record<PairingRefusalReason, number>>> {
+  const status = await loopback<PairingStatus>(server, 'GET', '/api/pairing');
+  return Object.fromEntries(
+    status.body.refusals
+      .filter((tally) => tally.address === '127.0.0.1')
+      .map((tally) => [tally.reason, tally.count]),
+  );
+}
+
+/** Resolves when `done` does, or fails the test after `ms`. */
+function within<T>(ms: number, done: Promise<T>, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} took longer than ${ms} ms`)), ms);
+  });
+  return Promise.race([done, late]).finally(() => clearTimeout(timer));
+}
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('pairing a device over the network', () => {
   test('a device that knows the code pairs, pins the certificate and gets a working credential', async (t) => {
@@ -218,9 +253,13 @@ describe('pairing a device over the network', () => {
       TlsWebSocket.connect(target, '/pair'),
       (error) => error instanceof WebSocketRefused && error.status === 429,
     );
-    await server.time.advance(60_000);
     // The last connection's exchange ends when the control plane sees it close.
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await pause(100);
+    const counted = await refusals(server);
+    assert.equal(counted.busy, 1);
+    assert.equal(counted.too_many_requests, 1);
+    assert.equal(counted.abandoned, 5, 'the exchanges that closed before a proof');
+    await server.time.advance(60_000);
     await pairDevice(target, code);
   });
 
@@ -241,6 +280,8 @@ describe('pairing a device over the network', () => {
     const answer = await socket.message(0);
     assert.equal((answer.error as { code: string }).code, 'timeout');
     await socket.closed;
+    await pause(50);
+    assert.deepEqual(await refusals(server), { timeout: 1 }, 'a timeout is not also abandoned');
   });
 
   test('a request of another protocol version, or out of order, is refused', async (t) => {
@@ -263,6 +304,35 @@ describe('pairing a device over the network', () => {
     });
     assert.equal(((await early.message(0)).error as { code: string }).code, 'invalid_message');
     await early.closed;
+    await pause(50);
+    assert.deepEqual(await refusals(server), { unsupported_protocol: 1, invalid_message: 1 });
+    assert.equal(
+      (await loopback<PairingStatus>(server, 'GET', '/api/pairing')).body.failed_attempts,
+      0,
+      'neither spent an attempt',
+    );
+  });
+
+  test('every exchange in a window gets the salt drawn when it opened, and a fresh server secret', async (t) => {
+    const server = await start(t);
+    const challenge = async () => {
+      const socket = await TlsWebSocket.connect(network(server).target, '/pair');
+      socket.sendJson({ type: 'pair_request', protocol: 1, device_label: 'Quest 3' });
+      const message = await socket.message(0);
+      await socket.close();
+      // The exchange ends when the control plane sees the connection close.
+      await pause(100);
+      assert.equal(message.type, 'pair_challenge');
+      return message as { salt: string; server_public: string };
+    };
+    await openWindow(server);
+    const first = await challenge();
+    const second = await challenge();
+    assert.equal(second.salt, first.salt, 'the window derived its salt and verifier once');
+    assert.notEqual(second.server_public, first.server_public, 'each attempt has its own b');
+    await openWindow(server);
+    const third = await challenge();
+    assert.notEqual(third.salt, first.salt, 'a new window, a new salt');
   });
 
   test('an A of 0 mod N, which would fix the session key, counts as a failed attempt', async (t) => {
@@ -542,6 +612,51 @@ describe('the network listener', () => {
     await client.close();
   });
 
+  test('a paired device reads no device events from the history, whose limit counts only what it returns', async (t) => {
+    const server = await start(t);
+    const { target } = network(server);
+    const first = await pairDevice(target, await openWindow(server), { label: 'Owner headset' });
+    const second = await pairDevice(target, await openWindow(server), { label: 'Other device' });
+    await loopback(server, 'POST', `/api/devices/${first.deviceId}/revoke`);
+    const command = server.commands.createProject('After the devices');
+    const submitted = await fetch(`${server.baseUrl}/api/commands`, {
+      method: 'POST',
+      headers: { ...bearer(server.token), 'content-type': 'application/json' },
+      body: JSON.stringify(command),
+    });
+    assert.equal(submitted.status, 202);
+
+    const read = async (query: string) => {
+      const answer = await onNetwork(
+        server,
+        'GET',
+        `/api/events?${query}`,
+        bearer(second.credential),
+      );
+      assert.equal(answer.status, 200);
+      return { text: answer.body, body: JSON.parse(answer.body) as EventsResponse };
+    };
+    const one = await read('after=0&limit=1');
+    assert.equal(one.body.events.length, 1);
+    assert.equal(one.body.events[0]?.position, 4, 'positions 1 to 3 are the device events');
+    assert.equal(one.body.events[0]?.event.event_type, 'command.accepted');
+    const all = await read('after=0&limit=200');
+    assert.equal(
+      all.body.events.some((stored) => stored.event.event_type.startsWith('device.')),
+      false,
+    );
+    for (const hidden of [credentialSha256(first.credential), 'Owner headset', first.deviceId]) {
+      assert.equal(all.text.includes(hidden), false, 'nothing about another device');
+    }
+
+    const owner = await loopback<EventsResponse>(server, 'GET', '/api/events?after=0&limit=200');
+    assert.equal(
+      owner.body.events.filter((stored) => stored.event.event_type.startsWith('device.')).length,
+      3,
+      'the owner on loopback still reads them',
+    );
+  });
+
   test('nothing it logs holds the code, the credential or the access token', async (t) => {
     const lines = new PassThrough();
     let logged = '';
@@ -563,5 +678,151 @@ describe('the network listener', () => {
     }
     const hashOfCredential = createHash('sha256').update(paired.credential).digest('hex');
     assert.equal(logged.includes(hashOfCredential), false);
+  });
+});
+
+describe('what revocation stops, and how long the listener waits', () => {
+  test('a command whose body arrives after its device is revoked is rejected, journaled and answered as revoked', async (t) => {
+    const server = await start(t);
+    const paired = await pairDevice(network(server).target, await openWindow(server));
+    const command = server.commands.createProject('Staged before revocation');
+    const staged = await stageRequest(network(server).target, {
+      method: 'POST',
+      path: '/api/commands',
+      headers: { ...bearer(paired.credential), 'content-type': 'application/json' },
+      body: JSON.stringify(command),
+      pin: paired.certificateSha256,
+    });
+    // The head arrives, and is authenticated, while the device is still paired.
+    await pause(300);
+    const revoked = await loopback(server, 'POST', `/api/devices/${paired.deviceId}/revoke`);
+    assert.equal(revoked.status, 200);
+    staged.sendBody();
+
+    const answer = await within(5_000, staged.answer, 'the answer');
+    assert.equal(answer?.status, 401);
+    assert.match(answer?.body ?? '', /device_revoked/);
+    const events = journal(server);
+    const revokedAt = events.findIndex((event) => event.event_type === 'device.revoked');
+    const outcomes = events.filter((event) => JSON.stringify(event).includes(command.command_id));
+    assert.equal(outcomes.length, 1, 'rejected, and nothing else');
+    const [outcome] = outcomes;
+    assert.ok(outcome?.event_type === 'command.rejected');
+    assert.ok(events.indexOf(outcome) > revokedAt);
+    assert.equal(outcome.payload.rejection.code, 'device_revoked');
+    assert.deepEqual(outcome.payload.principal, { kind: 'device', device_id: paired.deviceId });
+    assert.equal(server.controlPlane.projection.projects().length, 0, 'nothing was created');
+  });
+
+  test('a revoked device that ignores the close frame is cut off, and nothing it sends is handled', async (t) => {
+    const server = await start(t);
+    const paired = await pairDevice(network(server).target, await openWindow(server));
+    const socket = await TlsWebSocket.connect(network(server).target, '/realtime', {
+      headers: bearer(paired.credential),
+      pin: paired.certificateSha256,
+      hostile: true,
+    });
+    t.after(() => socket.destroy());
+    socket.sendJson({ type: 'hello', protocol: 1, client: TEST_CLIENT, resume: null });
+    await socket.waitFor((text) => text.includes('"welcome"'));
+
+    const revokedAt = Date.now();
+    const revoked = await loopback(server, 'POST', `/api/devices/${paired.deviceId}/revoke`);
+    assert.equal(revoked.status, 200);
+    assert.deepEqual(
+      (await loopback<{ connected: string[] }>(server, 'GET', '/api/devices')).body.connected,
+      [],
+    );
+    // The client does not answer the close frame, keeps its connection, and sends a command.
+    const after = server.commands.createProject('Sent after revocation');
+    socket.sendJson({ type: 'command', command: after });
+    assert.equal((await socket.closed).code, 1008);
+    await within(5_000, socket.disconnected, 'cutting the connection off');
+    assert.ok(Date.now() - revokedAt < 5_000, 'not the 30 seconds ws waits for a close frame');
+
+    assert.equal(
+      journal(server).some((event) => JSON.stringify(event).includes(after.command_id)),
+      false,
+      'the command was not handled at all',
+    );
+    assert.equal(
+      socket.messages.some((text) => text.includes('"command_ack"')),
+      false,
+    );
+  });
+
+  test('a request that holds back its body, or a connection that sends nothing, is cut off', async (t) => {
+    const server = await start(t, {
+      network: { timeouts: { requestMs: 300, idleMs: 600, keepAliveMs: 300, checkEveryMs: 50 } },
+    });
+    const paired = await pairDevice(network(server).target, await openWindow(server));
+    const staged = await stageRequest(network(server).target, {
+      method: 'POST',
+      path: '/api/commands',
+      headers: { ...bearer(paired.credential), 'content-type': 'application/json' },
+      body: JSON.stringify(server.commands.createProject('Never sent')),
+      pin: paired.certificateSha256,
+    });
+    const answer = await within(3_000, staged.answer, 'cutting off the request');
+    assert.ok(answer === null || answer.status === 408, `answered ${answer?.status}`);
+
+    const { socket } = await openTls(network(server).target, paired.certificateSha256);
+    await within(
+      3_000,
+      new Promise((resolve) => {
+        socket.once('close', resolve);
+        socket.resume();
+      }),
+      'closing a silent connection',
+    );
+    assert.equal(server.controlPlane.projection.projects().length, 0);
+  });
+
+  test('the listener holds a bounded number of connections, and a device a few realtime ones', async (t) => {
+    const server = await start(t);
+    const { target, identity } = network(server);
+    const paired = await pairDevice(target, await openWindow(server));
+    const realtime = async () => {
+      const socket = await TlsWebSocket.connect(target, '/realtime', {
+        headers: bearer(paired.credential),
+        pin: paired.certificateSha256,
+      });
+      socket.sendJson({ type: 'hello', protocol: 1, client: TEST_CLIENT, resume: null });
+      return socket;
+    };
+    const held: TlsWebSocket[] = [];
+    for (let index = 0; index < MAX_REALTIME_CONNECTIONS_PER_DEVICE; index += 1) {
+      const socket = await realtime();
+      await socket.waitFor((text) => text.includes('"welcome"'));
+      held.push(socket);
+    }
+    const extra = await realtime();
+    const refused = await extra.message(0);
+    assert.equal((refused.error as { code: string }).code, 'too_many_connections');
+    assert.equal((await extra.closed).code, 1008);
+    await held.pop()?.close();
+    await pause(50);
+    const again = await realtime();
+    await again.waitFor((text) => text.includes('"welcome"'));
+    held.push(again);
+
+    const sockets: TLSSocket[] = [];
+    for (let index = held.length; index < MAX_NETWORK_CONNECTIONS; index += 1) {
+      sockets.push((await openTls(target, identity.certificateSha256)).socket);
+    }
+    t.after(() => {
+      for (const socket of sockets) socket.destroy();
+      for (const socket of held) socket.destroy();
+    });
+    await assert.rejects(openTls(target, identity.certificateSha256), 'one connection too many');
+    sockets.pop()?.destroy();
+    await pause(50);
+    // A request, rather than a connection left open: the server has taken it up when it answers.
+    const health = await tlsRequest(target, {
+      method: 'GET',
+      path: '/api/health',
+      pin: identity.certificateSha256,
+    });
+    assert.equal(health.status, 200, 'a connection that closes makes room for another');
   });
 });

@@ -76,6 +76,10 @@ export class CommandService {
   /**
    * `principal` is who the control plane authenticated: the local access token or a paired device.
    * It is null only for commands from inside the control plane, such as a fixture recorder.
+   *
+   * A device is authorized here, where the command would act, and not only when its request or
+   * connection was opened: a device revoked since then has its command rejected (ADR 0017). A
+   * duplicate changes nothing, so it is answered as one whoever sends it.
    */
   submit(
     command: CommandEnvelope,
@@ -89,7 +93,7 @@ export class CommandService {
         : { disposition: 'conflict', command: null };
     }
 
-    const admission = this.#admit(command);
+    const admission = this.#authorize(principal, this.#admit(command));
     const cause = causedBy(command.command_id);
     if (!admission.admitted) {
       this.#deps.recorder.record(
@@ -177,6 +181,22 @@ export class CommandService {
       );
     }
     return { executions: executions.length, commands: commands.length };
+  }
+
+  /** Rejects a command from a device that is no longer paired, whatever its admission. */
+  #authorize(principal: Principal | null, admission: Admission): Admission {
+    if (principal?.kind !== 'device') return admission;
+    const device = this.#deps.projection.device(principal.device_id);
+    if (device !== undefined && device.revoked_at === null) return admission;
+    return {
+      admitted: false,
+      scope: admission.scope,
+      rejection: {
+        code: 'device_revoked',
+        message:
+          'This device is not, or no longer, paired with the control plane, so its commands are not carried out.',
+      },
+    };
   }
 
   #admit(command: CommandEnvelope): Admission {

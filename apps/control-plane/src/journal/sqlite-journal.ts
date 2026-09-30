@@ -143,6 +143,8 @@ class SqliteJournal implements EventJournal {
   readonly #head: StatementSync;
   readonly #readAfter: StatementSync;
   readonly #readWorkstreamAfter: StatementSync;
+  readonly #readAfterExcluding: StatementSync;
+  readonly #readWorkstreamAfterExcluding: StatementSync;
   #closed = false;
 
   constructor(db: DatabaseSync, info: JournalInfo) {
@@ -165,6 +167,13 @@ class SqliteJournal implements EventJournal {
     );
     this.#readWorkstreamAfter = db.prepare(
       'SELECT position, envelope FROM events WHERE workstream_id = ? AND position > ? ORDER BY position LIMIT ?',
+    );
+    // The types to leave out arrive as one JSON array, so one statement serves any list.
+    this.#readAfterExcluding = db.prepare(
+      'SELECT position, envelope FROM events WHERE position > ? AND event_type NOT IN (SELECT value FROM json_each(?)) ORDER BY position LIMIT ?',
+    );
+    this.#readWorkstreamAfterExcluding = db.prepare(
+      'SELECT position, envelope FROM events WHERE workstream_id = ? AND position > ? AND event_type NOT IN (SELECT value FROM json_each(?)) ORDER BY position LIMIT ?',
     );
   }
 
@@ -201,10 +210,26 @@ class SqliteJournal implements EventJournal {
   }
 
   read(options: ReadOptions): StoredEvent[] {
-    const rows =
-      options.workstreamId === undefined || options.workstreamId === null
-        ? this.#readAfter.all(options.after, options.limit)
-        : this.#readWorkstreamAfter.all(options.workstreamId, options.after, options.limit);
+    const workstreamId = options.workstreamId ?? null;
+    const excluded = options.excludeEventTypes ?? [];
+    let rows: unknown[];
+    if (excluded.length === 0) {
+      rows =
+        workstreamId === null
+          ? this.#readAfter.all(options.after, options.limit)
+          : this.#readWorkstreamAfter.all(workstreamId, options.after, options.limit);
+    } else {
+      const types = JSON.stringify(excluded);
+      rows =
+        workstreamId === null
+          ? this.#readAfterExcluding.all(options.after, types, options.limit)
+          : this.#readWorkstreamAfterExcluding.all(
+              workstreamId,
+              options.after,
+              types,
+              options.limit,
+            );
+    }
     return rows.map((row) => toStoredEvent(row as { position: number; envelope: string }));
   }
 

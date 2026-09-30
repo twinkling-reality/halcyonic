@@ -3,9 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
+import type { PairingRefusalReason } from '@halcyonic/contracts';
 import { PairingRefused, pairDevice } from '../testing/device.ts';
 import { startTestServer, type TestServerOptions } from '../testing/harness.ts';
-import { printable, runDevicesCli } from './devices.ts';
+import { TlsWebSocket } from '../testing/tls-client.ts';
+import { describeRefusal, printable, RefusalReport, runDevicesCli } from './devices.ts';
 
 type Server = Awaited<ReturnType<typeof startTestServer>>;
 
@@ -62,6 +64,71 @@ describe('pnpm pair and pnpm devices', () => {
     assert.equal(await status, 0);
     assert.ok(lines.includes('A code was refused (2 attempts left).'), lines.join('\n'));
     assert.ok(lines.includes(`Paired "Quest 3" as device ${paired.deviceId}.`), lines.join('\n'));
+  });
+
+  test('pair shows the connections it turned away or cut short, which spend no attempt', async (t) => {
+    const { server, env } = await start(t);
+    let stop = () => {};
+    const interrupted = new Promise<void>((resolve) => {
+      stop = resolve;
+    });
+    const { lines, status } = run(env, ['pair'], interrupted);
+    await shownCode(lines);
+    // Something holds an exchange open, so the next connection from the address is turned away.
+    const holding = await TlsWebSocket.connect(target(server), '/pair');
+    const turnedAway = await TlsWebSocket.connect(target(server), '/pair');
+    await turnedAway.closed;
+    await holding.close();
+    const shown = async (line: string) => {
+      for (let tries = 0; tries < 500 && !lines.includes(line); tries += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      assert.ok(lines.includes(line), `${line}\n---\n${lines.join('\n')}`);
+    };
+    await shown(
+      'Turned away 1 pairing connection from 127.0.0.1, because another exchange was in progress.',
+    );
+    await shown('1 pairing exchange from 127.0.0.1 closed before sending a code.');
+    await shown(
+      'If that was not your headset, something else on this network is holding pairing up. Ctrl-C closes pairing.',
+    );
+    assert.equal(lines.filter((line) => line.startsWith('If that was not')).length, 1);
+    assert.equal(
+      lines.some((line) => line.startsWith('A code was refused')),
+      false,
+      'no attempt was spent',
+    );
+    stop();
+    assert.equal(await status, 130);
+  });
+
+  test('a refusal report prints each count once, and a tally that returns', () => {
+    const lines: string[] = [];
+    const report = new RefusalReport((line) => lines.push(line));
+    const tally = (reason: PairingRefusalReason, count: number) => ({
+      address: '192.168.1.50',
+      reason,
+      count,
+      last_at: '2026-09-29T10:00:00.000Z',
+    });
+    report.report([tally('timeout', 1)]);
+    report.report([tally('timeout', 1)]);
+    report.report([tally('timeout', 3), tally('too_many_requests', 2)]);
+    report.report([tally('unsupported_protocol', 1)]);
+    // Dropped for newer tallies, it comes back counting from one.
+    report.report([tally('timeout', 1)]);
+    assert.deepEqual(lines, [
+      'Ended 1 pairing exchange from 192.168.1.50 that sent no code in time.',
+      'If that was not your headset, something else on this network is holding pairing up. Ctrl-C closes pairing.',
+      'Ended 2 pairing exchanges from 192.168.1.50 that sent no code in time.',
+      'Turned away 2 pairing connections from 192.168.1.50, which opened too many in a minute.',
+      "Turned away 1 pairing connection from 192.168.1.50 that speaks another pairing protocol; update the headset's app or the control plane.",
+      'Ended 1 pairing exchange from 192.168.1.50 that sent no code in time.',
+    ]);
+    assert.equal(
+      describeRefusal('invalid_message', '192.168.1.50', 1),
+      'Turned away 1 pairing connection from 192.168.1.50 that did not follow the pairing protocol.',
+    );
   });
 
   test('Ctrl-C closes pairing, and the code no longer pairs', async (t) => {

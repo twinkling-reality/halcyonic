@@ -83,5 +83,6 @@ function noWindow(): PairingStatus {
     failed_attempts: 0,
     max_failed_attempts: DEFAULT_PAIRING_LIMITS.maxFailedAttempts,
     device: null,
+    refusals: [],
   };
 }

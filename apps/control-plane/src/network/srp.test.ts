@@ -99,6 +99,26 @@ describe('SRP-6a', () => {
     assert.notDeepEqual(server.sessionKey(wrong.A), wrongKey);
   });
 
+  test('attempts against one verifier each draw their own b, and agree with the client', () => {
+    const salt = randomBytes(16);
+    const code = Buffer.from('48210937', 'utf8');
+    const v = verifier(PAIRING_GROUP, PAIRING_IDENTITY, code, salt);
+    const first = SrpServer.forVerifier(PAIRING_GROUP, v);
+    const second = SrpServer.forVerifier(PAIRING_GROUP, v);
+    assert.notEqual(first.B, second.B);
+    for (const server of [first, second]) {
+      const client = new SrpClient(
+        PAIRING_GROUP,
+        PAIRING_IDENTITY,
+        code,
+        fromBytes(randomBytes(32)),
+      );
+      const key = client.sessionKey(salt, server.B);
+      assert.ok(key);
+      assert.deepEqual(server.sessionKey(client.A), key);
+    }
+  });
+
   test('the server refuses an A of 0 mod N, which would fix the key whatever the code', () => {
     const salt = randomBytes(16);
     const server = SrpServer.create(PAIRING_GROUP, PAIRING_IDENTITY, Buffer.from('1'), salt);

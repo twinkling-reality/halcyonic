@@ -81,6 +81,49 @@ export async function tlsRequest(
   };
 }
 
+/**
+ * A request whose head is sent at once and whose body waits for `sendBody`, as a slow or hostile
+ * client's does. `answer` is what the server answered, or null when it closed the connection
+ * without answering.
+ */
+export async function stageRequest(
+  target: TlsTarget,
+  request: {
+    readonly method: string;
+    readonly path: string;
+    readonly headers?: Record<string, string>;
+    readonly body: string;
+    readonly pin: string | null;
+  },
+): Promise<{ sendBody(): void; readonly answer: Promise<HttpAnswer | null> }> {
+  const { socket, certificateSha256 } = await openTls(target, request.pin);
+  const body = Buffer.from(request.body, 'utf8');
+  socket.write(
+    head(`${request.method} ${request.path} HTTP/1.1`, {
+      host: `${target.host}:${target.port}`,
+      connection: 'close',
+      'content-length': String(body.length),
+      ...request.headers,
+    }),
+  );
+  const answer = readToEnd(socket).then((received) => {
+    const parsed = parseHead(received);
+    if (parsed === null) return null;
+    return {
+      status: parsed.status,
+      headers: parsed.headers,
+      body: received.subarray(parsed.length).toString('utf8'),
+      certificateSha256,
+    };
+  });
+  return {
+    sendBody: () => {
+      if (!socket.destroyed) socket.write(body);
+    },
+    answer,
+  };
+}
+
 export class WebSocketRefused extends Error {
   readonly status: number;
   readonly body: string;
@@ -92,23 +135,38 @@ export class WebSocketRefused extends Error {
   }
 }
 
-/** A text-only WebSocket client, enough for the pairing and realtime protocols. */
+/**
+ * A text-only WebSocket client, enough for the pairing and realtime protocols. With `hostile`, it
+ * answers neither pings nor a close frame and keeps its connection open, as a client that means
+ * to keep using a revoked credential would.
+ */
 export class TlsWebSocket {
   readonly messages: string[] = [];
+  /** The close frame's code and reason, or 1006 when the connection ended without one. */
   readonly closed: Promise<{ code: number; reason: string }>;
+  /** When the connection itself has ended, whoever ended it. */
+  readonly disconnected: Promise<void>;
   readonly certificateSha256: string;
   readonly #socket: TLSSocket;
+  readonly #hostile: boolean;
   #buffer: Buffer;
   #waiters: { predicate: (text: string) => boolean; resolve: (text: string) => void }[] = [];
   #closedWith: ((value: { code: number; reason: string }) => void) | null = null;
 
-  private constructor(socket: TLSSocket, leftover: Buffer, certificateSha256: string) {
+  private constructor(
+    socket: TLSSocket,
+    leftover: Buffer,
+    certificateSha256: string,
+    hostile: boolean,
+  ) {
     this.#socket = socket;
     this.#buffer = leftover;
     this.certificateSha256 = certificateSha256;
+    this.#hostile = hostile;
     this.closed = new Promise((resolve) => {
       this.#closedWith = resolve;
     });
+    this.disconnected = new Promise((resolve) => socket.once('close', () => resolve()));
     socket.on('data', (chunk: Buffer) => {
       this.#buffer = Buffer.concat([this.#buffer, chunk]);
       this.#drain();
@@ -123,7 +181,11 @@ export class TlsWebSocket {
   static async connect(
     target: TlsTarget,
     path: string,
-    options: { readonly headers?: Record<string, string>; readonly pin?: string | null } = {},
+    options: {
+      readonly headers?: Record<string, string>;
+      readonly pin?: string | null;
+      readonly hostile?: boolean;
+    } = {},
   ): Promise<TlsWebSocket> {
     const { socket, certificateSha256 } = await openTls(target, options.pin ?? null);
     const key = randomBytes(16).toString('base64');
@@ -155,7 +217,12 @@ export class TlsWebSocket {
         socket.destroy();
         throw new Error('the server answered the upgrade with the wrong key');
       }
-      return new TlsWebSocket(socket, received.subarray(parsed.length), certificateSha256);
+      return new TlsWebSocket(
+        socket,
+        received.subarray(parsed.length),
+        certificateSha256,
+        options.hostile === true,
+      );
     }
   }
 
@@ -203,6 +270,11 @@ export class TlsWebSocket {
     return this.closed;
   }
 
+  /** Ends the connection from this side at once. */
+  destroy(): void {
+    this.#socket.destroy();
+  }
+
   /** A masked frame, as a client must send. */
   #write(opcode: number, payload: Buffer): void {
     if (this.#socket.destroyed) return;
@@ -231,10 +303,11 @@ export class TlsWebSocket {
           waiter.resolve(text);
         }
       } else if (frame.opcode === 0x9) {
-        this.#write(0xa, frame.payload);
+        if (!this.#hostile) this.#write(0xa, frame.payload);
       } else if (frame.opcode === 0x8) {
         const code = frame.payload.length >= 2 ? frame.payload.readUInt16BE(0) : 1005;
         this.#finish(code, frame.payload.subarray(2).toString('utf8'));
+        if (this.#hostile) continue;
         this.#socket.end();
         return;
       }

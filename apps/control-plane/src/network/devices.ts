@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto';
 import type { DeviceId, Principal } from '@halcyonic/contracts';
-import type { WebSocket } from 'ws';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import type { TrackConnection } from '../http/realtime.ts';
@@ -27,17 +26,22 @@ export type Authentication =
 
 export type Revocation = 'revoked' | 'not_found' | 'already_revoked';
 
+/** Realtime connections one device may hold at once; a reconnect can briefly overlap its last. */
+export const MAX_REALTIME_CONNECTIONS_PER_DEVICE = 4;
+
 /**
  * Paired devices' credentials (ADR 0017). Pairing and revocation are journaled through the
  * recorder, and the projection is what every credential is checked against, so a revocation
- * applies to the next request at once. A revoked device's open realtime connections are closed.
- * Credentials are never logged; log lines name devices by id.
+ * applies to the next request at once. It also applies to what is already open: a revoked device's
+ * realtime connections end at once, and the network listener and the command service check again
+ * before they answer or act. Credentials are never logged; log lines name devices by id.
  */
 export class DeviceAccess {
   readonly #controlPlane: ControlPlane;
   readonly #ids: IdGenerator;
   readonly #logger: Logger;
-  readonly #sockets = new Map<DeviceId, Set<WebSocket>>();
+  /** What ends each open realtime connection, by device. */
+  readonly #connections = new Map<DeviceId, Set<() => void>>();
 
   constructor(options: { controlPlane: ControlPlane; ids: IdGenerator; logger: Logger }) {
     this.#controlPlane = options.controlPlane;
@@ -88,7 +92,13 @@ export class DeviceAccess {
     return { ok: true, principal: { kind: 'device', device_id: device.device_id } };
   }
 
-  /** Stops accepting the device's credential and closes its open connections. */
+  /** Whether a device is paired and not revoked, for a request authenticated a moment ago. */
+  isActive(deviceId: string): boolean {
+    const device = this.#controlPlane.projection.device(deviceId);
+    return device !== undefined && device.revoked_at === null;
+  }
+
+  /** Stops accepting the device's credential and ends its open connections. */
   revoke(deviceId: string, by: Principal): Revocation {
     const device = this.#controlPlane.projection.device(deviceId);
     if (device === undefined) return 'not_found';
@@ -102,33 +112,60 @@ export class DeviceAccess {
         NO_CAUSE,
       ),
     );
-    const sockets = this.#sockets.get(device.device_id);
-    this.#sockets.delete(device.device_id);
-    for (const socket of sockets ?? []) socket.close(1008, 'device revoked');
+    // Synchronously, in the step that journaled the revocation: no message a connection has
+    // already received is handled after this, and nothing more is sent to it.
+    const connections = this.#connections.get(device.device_id);
+    this.#connections.delete(device.device_id);
+    for (const end of connections ?? []) end();
     this.#logger.info(
-      { device_id: device.device_id, revoked_by: by.kind, closed_connections: sockets?.size ?? 0 },
+      {
+        device_id: device.device_id,
+        revoked_by: by.kind,
+        closed_connections: connections?.size ?? 0,
+      },
       'device revoked',
     );
     return 'revoked';
   }
 
-  /** For the realtime stream: remembers a device's connection so revoking the device closes it. */
-  readonly track: TrackConnection = (principal, socket) => {
-    if (principal.kind !== 'device') return () => {};
+  /**
+   * For the realtime stream: remembers a device's connection so revoking the device ends it, and
+   * refuses one from a device revoked since its upgrade was authenticated, or past the device's cap.
+   */
+  readonly track: TrackConnection = (principal, end) => {
+    if (principal.kind !== 'device') return { ok: true, untrack: () => {} };
     const deviceId = principal.device_id;
-    const sockets = this.#sockets.get(deviceId) ?? new Set<WebSocket>();
-    sockets.add(socket);
-    this.#sockets.set(deviceId, sockets);
-    return () => {
-      const current = this.#sockets.get(deviceId);
-      current?.delete(socket);
-      if (current?.size === 0) this.#sockets.delete(deviceId);
+    if (!this.isActive(deviceId)) {
+      return {
+        ok: false,
+        code: 'device_revoked',
+        message: 'This device was revoked on the control plane; pair it again.',
+      };
+    }
+    const connections = this.#connections.get(deviceId) ?? new Set<() => void>();
+    if (connections.size >= MAX_REALTIME_CONNECTIONS_PER_DEVICE) {
+      this.#logger.warn({ device_id: deviceId }, 'device has too many realtime connections');
+      return {
+        ok: false,
+        code: 'too_many_connections',
+        message: `A device may hold ${MAX_REALTIME_CONNECTIONS_PER_DEVICE} realtime connections at once; close one first.`,
+      };
+    }
+    connections.add(end);
+    this.#connections.set(deviceId, connections);
+    return {
+      ok: true,
+      untrack: () => {
+        const current = this.#connections.get(deviceId);
+        current?.delete(end);
+        if (current?.size === 0) this.#connections.delete(deviceId);
+      },
     };
   };
 
   /** Devices with a realtime connection open now. */
   connected(): DeviceId[] {
-    return [...this.#sockets.keys()];
+    return [...this.#connections.keys()];
   }
 
   #now(): string {

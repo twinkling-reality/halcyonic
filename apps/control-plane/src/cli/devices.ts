@@ -16,6 +16,8 @@ import type {
   DeviceView,
   ErrorResponse,
   PairingOpenedResponse,
+  PairingRefusalReason,
+  PairingRefusalTally,
   PairingStatus,
 } from '@halcyonic/contracts';
 import { loadConfig } from '../config.ts';
@@ -102,6 +104,7 @@ async function pair(api: Api, io: CliIo): Promise<number> {
     stopped = true;
   });
   let failures = 0;
+  const refusals = new RefusalReport(io.print);
   for (;;) {
     if (stopped) {
       await api.request<PairingStatus>('DELETE', '/api/pairing');
@@ -114,6 +117,7 @@ async function pair(api: Api, io: CliIo): Promise<number> {
       return 1;
     }
     const window = current.body;
+    refusals.report(window.refusals);
     if (window.failed_attempts > failures) {
       failures = window.failed_attempts;
       const left = window.max_failed_attempts - failures;
@@ -147,6 +151,73 @@ async function pair(api: Api, io: CliIo): Promise<number> {
     }
     await Promise.race([delay(io.pollMs ?? 500), io.interrupted]);
   }
+}
+
+/** Reasons that mean something may be holding pairing up rather than guessing the code. */
+const HOLDING_UP: ReadonlySet<PairingRefusalReason> = new Set([
+  'busy',
+  'too_many_requests',
+  'timeout',
+  'abandoned',
+]);
+
+/**
+ * Prints the connections a pairing window turned away or cut short without checking a code, each
+ * once, so the owner sees another device holding pairing up, which spends none of its attempts.
+ */
+export class RefusalReport {
+  readonly #print: (line: string) => void;
+  readonly #shown = new Map<string, number>();
+  #warned = false;
+
+  constructor(print: (line: string) => void) {
+    this.#print = print;
+  }
+
+  report(tallies: readonly PairingRefusalTally[]): void {
+    for (const tally of tallies) {
+      const key = `${tally.reason} ${tally.address}`;
+      const shown = this.#shown.get(key) ?? 0;
+      // A tally dropped for newer ones starts again from one when it comes back.
+      const added = tally.count >= shown ? tally.count - shown : tally.count;
+      this.#shown.set(key, tally.count);
+      if (added === 0) continue;
+      this.#print(describeRefusal(tally.reason, tally.address, added));
+      if (!this.#warned && HOLDING_UP.has(tally.reason)) {
+        this.#warned = true;
+        this.#print(
+          'If that was not your headset, something else on this network is holding pairing up. Ctrl-C closes pairing.',
+        );
+      }
+    }
+  }
+}
+
+export function describeRefusal(
+  reason: PairingRefusalReason,
+  address: string,
+  count: number,
+): string {
+  const connections = counted(count, 'pairing connection');
+  const exchanges = counted(count, 'pairing exchange');
+  switch (reason) {
+    case 'busy':
+      return `Turned away ${connections} from ${address}, because another exchange was in progress.`;
+    case 'too_many_requests':
+      return `Turned away ${connections} from ${address}, which opened too many in a minute.`;
+    case 'timeout':
+      return `Ended ${exchanges} from ${address} that sent no code in time.`;
+    case 'abandoned':
+      return `${exchanges} from ${address} closed before sending a code.`;
+    case 'invalid_message':
+      return `Turned away ${connections} from ${address} that did not follow the pairing protocol.`;
+    case 'unsupported_protocol':
+      return `Turned away ${connections} from ${address} that speaks another pairing protocol; update the headset's app or the control plane.`;
+  }
+}
+
+function counted(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 async function list(api: Api, io: CliIo): Promise<number> {

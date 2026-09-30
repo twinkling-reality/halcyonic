@@ -42,7 +42,10 @@ export const PAIRING_GROUP: SrpGroup = srpGroup(
 /** The SRP user name for pairing. The code is the password; there is no account. */
 export const PAIRING_IDENTITY = Buffer.from('halcyonic pairing', 'utf8');
 
-/** The control plane's side: it holds the code for the length of one pairing attempt. */
+/**
+ * The control plane's side of one attempt. It holds the verifier, which a pairing window derives
+ * from the code once, and a secret `b` of its own.
+ */
 export class SrpServer {
   readonly #group: SrpGroup;
   readonly #v: bigint;
@@ -58,13 +61,20 @@ export class SrpServer {
     this.B = serverPublic(group, v, b);
   }
 
-  /** A server for one attempt, with a fresh 256-bit b and a B that is not 0 mod N. */
-  static create(group: SrpGroup, identity: Uint8Array, password: Uint8Array, salt: Uint8Array) {
-    const v = verifier(group, identity, password, salt);
+  /**
+   * A server for one attempt against a verifier, with a fresh 256-bit b and a B that is not 0 mod
+   * N. Its work depends on b alone, never on the code.
+   */
+  static forVerifier(group: SrpGroup, v: bigint): SrpServer {
     for (;;) {
       const server = new SrpServer(group, v, fromBytes(randomBytes(32)));
       if (server.B !== 0n) return server;
     }
+  }
+
+  /** A server for one attempt, deriving the verifier from the password and salt first. */
+  static create(group: SrpGroup, identity: Uint8Array, password: Uint8Array, salt: Uint8Array) {
+    return SrpServer.forVerifier(group, verifier(group, identity, password, salt));
   }
 
   /**
