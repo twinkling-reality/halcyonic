@@ -321,6 +321,26 @@ public class SoundCueSelectorTests
     }
 
     [Test]
+    public void AnActSentAsTheKeyboardClosesSoundsOnceFocusReturns()
+    {
+        Stand(("w1", 1));
+        Observe(Snapshot(W("w1", WorkstreamStatus.Completed)), 0);
+
+        // The system keyboard closes with the instruction a moment before the app has focus again.
+        Assert.That(selector.Act(WorkspaceAct.Instruct, "w1", 10, audible: false), Is.Null);
+        var cue = selector.HeardAgain(10.4)!;
+        Assert.That((cue.Cue, cue.Place, cue.WorkstreamId, cue.Bot, cue.At), Is.EqualTo((SoundCue.Instruct, CuePlace.Workspace, "w1", 1, 10.4)));
+        Assert.That(selector.HeardAgain(11), Is.Null, "it sounds once");
+
+        // Focus back later than that is for something else, and an act heard at once waits for nothing.
+        selector.Act(WorkspaceAct.Instruct, "w1", 20, audible: false);
+        Assert.That(selector.HeardAgain(20 + SoundCueSelector.ActWaitsForFocus + 0.1), Is.Null);
+        selector.Act(WorkspaceAct.Open, "w1", 30, audible: false);
+        Assert.That(selector.Act(WorkspaceAct.Collapse, "w1", 31, audible: true), Is.Not.Null);
+        Assert.That(selector.HeardAgain(31.5), Is.Null);
+    }
+
+    [Test]
     public void ACommandSentFromTheWorkspaceIsTheActItStandsFor()
     {
         var commands = new CommandFactory(Samples.Client);

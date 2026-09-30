@@ -27,9 +27,10 @@ namespace Halcyonic.XR.Sound
     /// dropped connection's one cue from the middle of the stage, spread across it. Unity's built-in
     /// panning places them; nothing else is needed. No cue starts while the app lacks focus, as while
     /// the system menu or a window such as Virtual Display's has it, and cues scheduled but not yet
-    /// started are cancelled when focus goes. The recorded demonstration sounds as live work does:
-    /// the same data, the same flow. Once the clips are made nothing runs per frame: cues are
-    /// scheduled on the audio clock as the state changes.
+    /// started are cancelled when focus goes; the person's act that arrives just before focus
+    /// returns, as the system keyboard's result does, waits for it. The recorded demonstration
+    /// sounds as live work does: the same data, the same flow. Once the clips are made nothing runs
+    /// per frame: cues are scheduled on the audio clock as the state changes.
     /// </remarks>
     [RequireComponent(typeof(ControlPlaneConnection), typeof(CharacterStage))]
     public sealed class StageSound : MonoBehaviour
@@ -70,8 +71,14 @@ namespace Halcyonic.XR.Sound
         private Voice whole = null!;
         private bool ready;
 
+        /// <summary>When the last cue was scheduled to start, on the audio clock.</summary>
+        private double lastStart = double.NegativeInfinity;
+
         /// <summary>No cue starts while the app lacks focus or its input is suspended.</summary>
         private bool Audible => ready && Application.isFocused && !FocusGuard.InputSuspended;
+
+        /// <summary>The selector's clock: real time, which moves on while the audio output is idle.</summary>
+        private static double Now => Time.realtimeSinceStartupAsDouble;
 
         private void Awake()
         {
@@ -118,7 +125,14 @@ namespace Halcyonic.XR.Sound
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus) CancelPending();
+            if (!hasFocus)
+            {
+                CancelPending();
+                return;
+            }
+            // An act that came as focus was returning, as the system keyboard's result does, sounds now.
+            var cue = selector.HeardAgain(Now);
+            if (cue != null) Play(cue);
         }
 
         private void OnApplicationPause(bool paused)
@@ -162,7 +176,7 @@ namespace Halcyonic.XR.Sound
                 yield break;
             }
             ready = true;
-            Log($"sound ready: {count} cues rendered at {rate} Hz in {renderMilliseconds} ms on a worker thread, "
+            Log($"sound ready: {count} clips rendered at {rate} Hz in {renderMilliseconds} ms on a worker thread, "
                 + $"{samples * sizeof(float) / 1048576.0:F1} MiB of samples, ready {since.ElapsedMilliseconds} ms after it began");
         }
 
@@ -171,7 +185,7 @@ namespace Halcyonic.XR.Sound
             var session = connection.Session;
             if (session == null) return;
             ForgetSilentVoices();
-            foreach (var cue in selector.Observe(changes, session.State, session.Status, slotOf, AudioSettings.dspTime, Audible))
+            foreach (var cue in selector.Observe(changes, session.State, session.Status, slotOf, Now, Audible))
             {
                 Play(cue);
             }
@@ -179,7 +193,8 @@ namespace Halcyonic.XR.Sound
 
         private void OnActed(string workstreamId, WorkspaceAct act)
         {
-            var cue = selector.Act(act, workstreamId, AudioSettings.dspTime, Audible);
+            // Without focus the act waits for it, briefly (SoundCueSelector.HeardAgain).
+            var cue = selector.Act(act, workstreamId, Now, Audible);
             if (cue != null) Play(cue);
         }
 
@@ -210,7 +225,11 @@ namespace Halcyonic.XR.Sound
                     break;
             }
             if (voice == null) return;
-            voice.Play(clip, Math.Max(cue.At, AudioSettings.dspTime) + Lead);
+            // The selector keeps time on the real-time clock, since the audio clock may stand still
+            // while the output is suspended; on the audio clock onsets keep their gap too.
+            var start = Math.Max(AudioSettings.dspTime + Math.Max(0, cue.At - Now) + Lead, lastStart + SoundCueSelector.MinimumGap);
+            lastStart = start;
+            voice.Play(clip, start);
             Log("sound " + cue.Cue + " from " + (cue.Place == CuePlace.Character ? "its character" : cue.Place == CuePlace.Workspace ? "the workspace" : "the whole stage")
                 + (cue.Bot >= 0 ? ", note " + cue.Bot : ""));
         }

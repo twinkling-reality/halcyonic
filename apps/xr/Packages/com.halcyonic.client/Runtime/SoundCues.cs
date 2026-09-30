@@ -144,7 +144,9 @@ namespace Halcyonic.Client
     /// <see cref="RepeatWindow"/> is dropped, unless the person acted on that character in between,
     /// so the result of their act is always heard. A snapshot, a resynchronization or a rewind only sets
     /// what later changes are compared with, and makes no sound. Nothing is chosen while the caller
-    /// says the stage cannot be heard, and nothing it missed then plays later.
+    /// says the stage cannot be heard, and nothing it missed then plays later, except the person's
+    /// own act just before it can be heard again, as the system keyboard's result comes just before
+    /// focus returns.
     /// </summary>
     /// <remarks>
     /// Each character on the stage keeps one of <see cref="GlazeSynthesizer.Bots"/> notes for as long
@@ -159,6 +161,12 @@ namespace Halcyonic.Client
 
         /// <summary>A character's cue repeated within this many seconds is dropped.</summary>
         public const double RepeatWindow = 10;
+
+        /// <summary>
+        /// How long the person's act waits for the stage to be heard again, in seconds. The system
+        /// keyboard's result arrives as the keyboard closes, just before the app has focus again.
+        /// </summary>
+        public const double ActWaitsForFocus = 2;
 
         /// <summary>The note of a workspace whose character has none, which should not happen: the page's middle bot.</summary>
         private const int MiddleBot = 2;
@@ -183,6 +191,7 @@ namespace Halcyonic.Client
         private bool primed;
         private bool live;
         private double lastOnset = double.NegativeInfinity;
+        private (WorkspaceAct Act, string WorkstreamId, double At)? waiting;
 
         /// <summary>The bot whose note a workstream's character plays, while it stands on the stage.</summary>
         public int? BotOf(string workstreamId) => bots.TryGetValue(workstreamId, out var bot) ? bot : (int?)null;
@@ -265,10 +274,12 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The person did something with a workstream's workspace: the cue for it, in front of them, or
-        /// null while cues cannot be heard. A command's cue says it was sent, never that it succeeded.
-        /// Acting on a character also clears what it sounded recently, so the result of the act, which
-        /// arrives later as the character's own cue, is never dropped as a repeat.
+        /// The person did something with a workstream's workspace: the cue for it, in front of them. A
+        /// command's cue says it was sent, never that it succeeded. While cues cannot be heard the act
+        /// waits, for <see cref="ActWaitsForFocus"/> at most, and sounds only through
+        /// <see cref="HeardAgain"/>. Acting on a character also clears what it sounded recently, so the
+        /// result of the act, which arrives later as the character's own cue, is never dropped as a
+        /// repeat.
         /// </summary>
         public CueOnset? Act(WorkspaceAct act, string workstreamId, double now, bool audible)
         {
@@ -279,8 +290,22 @@ namespace Halcyonic.Client
                 if (key.Item2 == workstreamId) forgotten.Add(key);
             }
             foreach (var key in forgotten) heard.Remove(key);
+            waiting = audible ? ((WorkspaceAct, string, double)?)null : (act, workstreamId, now);
             if (!audible) return null;
             return Schedule(CueOf(act), workstreamId, bots.TryGetValue(workstreamId, out var bot) ? bot : MiddleBot, now);
+        }
+
+        /// <summary>
+        /// Cues can be heard again, as when the app has focus again: the person's act that waited for
+        /// it sounds now, if it came within <see cref="ActWaitsForFocus"/>; nothing else missed does.
+        /// </summary>
+        public CueOnset? HeardAgain(double now)
+        {
+            var act = waiting;
+            waiting = null;
+            if (act == null || now - act.Value.At > ActWaitsForFocus) return null;
+            var (what, workstreamId, _) = act.Value;
+            return Schedule(CueOf(what), workstreamId, bots.TryGetValue(workstreamId, out var bot) ? bot : MiddleBot, now);
         }
 
         /// <summary>
