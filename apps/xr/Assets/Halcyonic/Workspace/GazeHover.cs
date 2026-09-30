@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using Halcyonic.Client;
 using Oculus.Interaction;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ namespace Halcyonic.XR.Workspace
     public sealed class GazeHover : MonoBehaviour, ISelector
     {
         private readonly List<Pincher> hands = new List<Pincher>();
-        private Func<string?> pinchTarget = () => null;
+        private Func<(string? Target, PinchRefusal Block)> pinchDecision = () => (null, PinchRefusal.NoGazePeek);
         private Pincher? selectingWith;
 
         public event Action? WhenSelected;
@@ -32,7 +33,7 @@ namespace Halcyonic.XR.Workspace
         public int Hands => hands.Count;
 
         /// <summary>The gaze interactor, or null when the scene has no gaze conecaster or no camera.</summary>
-        public static GazeHover? Create(Transform parent, Func<string?> pinchTarget)
+        public static GazeHover? Create(Transform parent, Func<(string? Target, PinchRefusal Block)> pinchDecision)
         {
             var conecaster = FindAnyObjectByType<GazeConecaster>();
             var head = WorkspaceVisuals.Head;
@@ -41,7 +42,7 @@ namespace Halcyonic.XR.Workspace
             go.SetActive(false);
             go.transform.SetParent(parent, false);
             var hover = go.AddComponent<GazeHover>();
-            hover.pinchTarget = pinchTarget;
+            hover.pinchDecision = pinchDecision;
             // The hands the rays use; found while the app lacks focus too, when the rays are hidden.
             foreach (var ray in FindObjectsByType<SeatedHandRay>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -70,13 +71,36 @@ namespace Halcyonic.XR.Workspace
 
         private void Pinched(Pincher hand)
         {
-            if (selectingWith != null || FocusGuard.InputSuspended || hand.Ray.PalmFacesHead) return;
-            var target = pinchTarget();
-            if (target == null) return;
+            if (selectingWith != null)
+            {
+                LogRefusal("another pinch is selecting");
+                return;
+            }
+            if (FocusGuard.InputSuspended)
+            {
+                LogRefusal("input focus lost");
+                return;
+            }
+            if (hand.Ray.PalmFacesHead)
+            {
+                LogRefusal("palm faces head");
+                return;
+            }
+            var (target, block) = pinchDecision();
+            if (target == null)
+            {
+                LogRefusal(block.ToString());
+                return;
+            }
             Armed = target;
             selectingWith = hand;
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                "Halcyonic interaction: look pinch accepted by gate for {0}", target);
             WhenSelected?.Invoke();
         }
+
+        private void LogRefusal(string reason) => Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+            "Halcyonic interaction: look pinch refused: {0}", reason);
 
         private void Released(Pincher hand)
         {

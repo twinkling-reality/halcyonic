@@ -1,4 +1,6 @@
 #nullable enable
+using System.Collections.Generic;
+using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
 
@@ -16,10 +18,12 @@ namespace Halcyonic.XR.Workspace
         private const float LineHeight = 0.045f;
         private const float Beside = 0.19f;
         private const float Forward = 0.08f;
+        private readonly List<PeekObstacle> obstacles = new List<PeekObstacle>();
 
         private TextMeshPro text = null!;
         private SpriteRenderer plate = null!;
         private CharacterTarget? character;
+        private IEnumerable<CharacterTarget>? neighbors;
         private string shownLine = "";
         private float width;
         private float side = 1f;
@@ -37,7 +41,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Shows <paramref name="line"/> beside <paramref name="target"/>, as visible as <paramref name="opacity"/>, from 0 to 1.</summary>
-        public void Show(CharacterTarget target, string line, float opacity)
+        public void Show(CharacterTarget target, IEnumerable<CharacterTarget> neighbors, string line, float opacity)
         {
             if (opacity <= 0f)
             {
@@ -50,6 +54,7 @@ namespace Halcyonic.XR.Workspace
                 side = SideFacingTheMiddle(target.BodyPosition);
             }
             character = target;
+            this.neighbors = neighbors;
             if (line != shownLine)
             {
                 shownLine = line;
@@ -67,6 +72,7 @@ namespace Halcyonic.XR.Workspace
         public void Hide()
         {
             character = null;
+            neighbors = null;
             gameObject.SetActive(false);
         }
 
@@ -101,9 +107,26 @@ namespace Halcyonic.XR.Workspace
             var rotation = WorkspaceVisuals.FacingPerson(body);
             // The same angular size at any distance, like the characters themselves.
             var scale = WorkspaceVisuals.ScaleFor(body, WorkspaceVisuals.PeekDistance);
-            transform.localScale = Vector3.one * scale;
-            transform.SetPositionAndRotation(body - rotation * Vector3.forward * (Forward * scale), rotation);
             var left = side > 0f ? Beside : -Beside - width;
+            obstacles.Clear();
+            if (neighbors != null)
+            {
+                var rightward = rotation * Vector3.right;
+                var upward = rotation * Vector3.up;
+                var away = rotation * Vector3.forward;
+                foreach (var neighbor in neighbors)
+                {
+                    if (neighbor == null || neighbor == character) continue;
+                    var difference = neighbor.BodyPosition - body;
+                    obstacles.Add(new PeekObstacle(Vector3.Dot(difference, rightward), Vector3.Dot(difference, upward),
+                        Vector3.Dot(difference, away), CharacterView.BodyRadius * neighbor.Scale));
+                }
+            }
+            var offset = PeekPlacement.FrontOffset(CharacterView.BodyRadius * character.Scale, Forward * scale,
+                (left - 0.025f) * scale, (left + width + 0.025f) * scale,
+                (LineHeight + 0.02f) * scale / 2f, obstacles);
+            transform.localScale = Vector3.one * scale;
+            transform.SetPositionAndRotation(body - rotation * Vector3.forward * offset, rotation);
             text.rectTransform.localPosition = new Vector3(left, LineHeight / 2f, -0.001f);
             text.rectTransform.sizeDelta = new Vector2(width, LineHeight);
             plate.transform.localPosition = new Vector3(left + width / 2f, 0f, 0f);

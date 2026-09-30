@@ -14,6 +14,17 @@ namespace Halcyonic.Client
         Gaze,
     }
 
+    /// <summary>Why a pinch cannot open a gaze peek in this frame.</summary>
+    public enum PinchRefusal
+    {
+        None,
+        FocusLost,
+        WorkspaceOpen,
+        HandOnTarget,
+        NoGazePeek,
+        PeekNotReady,
+    }
+
     /// <summary>What the XR layer knows in one frame, for <see cref="PeekChoice"/>.</summary>
     public struct PeekInput
     {
@@ -54,26 +65,26 @@ namespace Halcyonic.Client
     public sealed class PeekChoice
     {
         /// <summary>How long the gaze must rest on a character, calmly and near the middle of the view, before it peeks.</summary>
-        public const float DwellSeconds = 0.5f;
+        public const float DwellSeconds = 0.4f;
 
         /// <summary>Above this head speed the gaze is not resting: the dwell starts again once the head slows.</summary>
         public const float TurningDegreesPerSecond = 20f;
 
         /// <summary>A gaze peek starts only for a character this close to where the head faces.</summary>
-        public const float CenterDegrees = 7f;
+        public const float CenterDegrees = 10f;
 
         /// <summary>A gaze peek stays while its character is this close to where the head faces.</summary>
-        public const float KeepDegrees = 11f;
+        public const float KeepDegrees = 14f;
 
         /// <summary>How long a gaze peek stays after the gaze has left its character, so a glance aside does not flicker it.</summary>
-        public const float LingerSeconds = 0.3f;
+        public const float LingerSeconds = 0.45f;
 
         public const float FadeInSeconds = 0.25f;
 
         public const float FadeOutSeconds = 0.15f;
 
         /// <summary>A gaze peek at least this visible counts as showing, for a look and pinch.</summary>
-        public const float PinchOpacity = 0.5f;
+        public const float PinchOpacity = 0.25f;
 
         /// <summary>How quickly the head speed follows each frame's turn, so one jittery frame does not count as turning.</summary>
         private const float SpeedSmoothingSeconds = 0.08f;
@@ -111,6 +122,9 @@ namespace Halcyonic.Client
         /// </summary>
         public string? PinchTarget { get; private set; }
 
+        /// <summary>The first reason a look and pinch is refused now, for interaction diagnostics.</summary>
+        public PinchRefusal PinchBlock { get; private set; }
+
         /// <summary>Advances to <paramref name="now"/>, in seconds, with what the XR layer sees in this frame.</summary>
         public void Update(in PeekInput input, float now)
         {
@@ -137,10 +151,13 @@ namespace Halcyonic.Client
             Wanted = wanted;
             Fade(wanted, source, elapsed);
 
-            PinchTarget = !input.Suspended && input.Open == null && !input.HandOnTarget && Shown != null && Shown == wanted
-                && Source == PeekSource.Gaze && Opacity >= PinchOpacity
-                ? Shown
-                : null;
+            PinchBlock = input.Suspended ? PinchRefusal.FocusLost
+                : input.Open != null ? PinchRefusal.WorkspaceOpen
+                : input.HandOnTarget ? PinchRefusal.HandOnTarget
+                : Shown == null || Shown != wanted || Source != PeekSource.Gaze ? PinchRefusal.NoGazePeek
+                : Opacity < PinchOpacity ? PinchRefusal.PeekNotReady
+                : PinchRefusal.None;
+            PinchTarget = PinchBlock == PinchRefusal.None ? Shown : null;
         }
 
         private void TrackHeadSpeed(Vector3 forward, float elapsed)
