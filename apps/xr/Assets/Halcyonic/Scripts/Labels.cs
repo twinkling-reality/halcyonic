@@ -96,6 +96,14 @@ namespace Halcyonic.XR
             return pixels * label.characterSize * UnitsPerPixel;
         }
 
+        /// <summary>The width of the widest line a label shows, in its parent's units.</summary>
+        public static float WidestLine(TextMesh label)
+        {
+            var widest = 0f;
+            foreach (var line in label.text.Split('\n')) widest = Mathf.Max(widest, Width(label, line));
+            return widest;
+        }
+
         /// <summary>
         /// Breaks text into lines no wider than <paramref name="width"/>, at spaces where it can, and
         /// keeps at most <paramref name="maxLines"/> lines, ending with an ellipsis when some text had

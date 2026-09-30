@@ -98,11 +98,42 @@ public class CharacterLineupTests
         var before = Slots(lineup);
 
         Change(workstreams[0], WorkstreamStatus.Running, 20);
-        Change(workstreams[3], WorkstreamStatus.WaitingForHuman, 21, AttentionLevel.ActionRequired);
-        Change(workstreams[5], WorkstreamStatus.Failed, 22, AttentionLevel.Notice);
+        Change(workstreams[3], WorkstreamStatus.Verifying, 21);
+        Change(workstreams[5], WorkstreamStatus.Completed, 22);
         Assert.That(lineup.Update(workstreams), Is.False, "nothing moved");
 
         Assert.That(Slots(lineup), Is.EqualTo(before));
+    }
+
+    [Test]
+    public void ACharacterThatComesToNeedAttentionTradesPlacesWithTheMiddle()
+    {
+        var lineup = new CharacterLineup(6);
+        var workstreams = Enumerable.Range(0, 6).Select(i => Workstream("w" + i, WorkstreamStatus.Running, 50 - i)).ToList();
+        lineup.Update(workstreams);
+        Assert.That(Slots(lineup), Is.EqualTo(new[] { "w4", "w2", "w0", "w1", "w3", "w5" }));
+
+        // The outermost on the right comes to need its person.
+        Change(workstreams[5], WorkstreamStatus.WaitingForHuman, 55, AttentionLevel.ActionRequired);
+        Assert.That(lineup.Update(workstreams), Is.True);
+
+        Assert.That(Slots(lineup), Is.EqualTo(new[] { "w4", "w2", "w5", "w1", "w3", "w0" }), "only the two that traded moved");
+    }
+
+    [Test]
+    public void CharactersThatNeedAttentionDoNotTradePlacesAmongThemselves()
+    {
+        var lineup = new CharacterLineup(6);
+        var workstreams = Enumerable.Range(0, 6).Select(i => Workstream("w" + i, WorkstreamStatus.Running, 50 - i)).ToList();
+        lineup.Update(workstreams);
+
+        // The one in the middle fails, and one farther out comes to need its person.
+        Change(workstreams[0], WorkstreamStatus.Failed, 51, AttentionLevel.Notice);
+        Change(workstreams[2], WorkstreamStatus.WaitingForHuman, 52, AttentionLevel.ActionRequired);
+        lineup.Update(workstreams);
+
+        // The failed one keeps the middle slot; the other takes the next one in.
+        Assert.That(Slots(lineup), Is.EqualTo(new[] { "w4", "w1", "w0", "w2", "w3", "w5" }));
     }
 
     [Test]
@@ -115,7 +146,7 @@ public class CharacterLineupTests
         var before = Slots(lineup);
         var stalest = lineup.SlotOf("w1");
 
-        Change(workstreams[0], WorkstreamStatus.WaitingForHuman, 30, AttentionLevel.ActionRequired);
+        Change(workstreams[0], WorkstreamStatus.Running, 30);
         Assert.That(lineup.Update(workstreams), Is.True);
 
         var after = Slots(lineup);
@@ -124,6 +155,23 @@ public class CharacterLineupTests
         {
             if (slot != stalest) Assert.That(after[slot], Is.EqualTo(before[slot]), "nobody else moves");
         }
+    }
+
+    [Test]
+    public void ANewcomerThatNeedsAttentionStandsInTheMiddle()
+    {
+        var lineup = new CharacterLineup(6);
+        var workstreams = Enumerable.Range(0, 7).Select(i => Workstream("w" + i, WorkstreamStatus.Completed, 10 + i)).ToList();
+        lineup.Update(workstreams);
+        var middle = Slots(lineup)[2];
+
+        Change(workstreams[0], WorkstreamStatus.Failed, 30, AttentionLevel.Notice);
+        lineup.Update(workstreams);
+
+        var after = Slots(lineup);
+        Assert.That(after[2], Is.EqualTo("w0"));
+        Assert.That(lineup.SlotOf("w1"), Is.EqualTo(-1), "the least recently changed one made way");
+        Assert.That(after, Does.Contain(middle), "the one it moved aside stays on the stage");
     }
 
     [Test]

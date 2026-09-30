@@ -84,10 +84,12 @@ the same definition names, as the JSON Schema document:
   state colors: amber for needs you, red for failed, green for a finished turn.
 - **`CharacterLineup`** chooses which workstreams have a character and where each stands: needs
   you first, then failed, unknown or failing tests, then active work, then the most recently
-  changed. A shown workstream keeps its slot for as long as it stays shown; a newcomer takes the
-  free slot nearest the middle, or the slot of the one it replaces. A waiting workstream replaces
-  a shown one only from a more important tier, or, at rest, when it changed more recently, because
-  working ones change every few seconds and would otherwise swap in and out.
+  changed. Characters that need attention stand nearest the middle of the person's view; every
+  other character keeps its slot for as long as it stays shown. A newcomer takes the free slot
+  nearest the middle, or the slot of the one it replaces, and a character that comes to need
+  attention trades places with the one nearest the middle that does not. A waiting workstream
+  replaces a shown one only from a more important tier, or, at rest, when it changed more
+  recently, because working ones change every few seconds and would otherwise swap in and out.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
@@ -191,8 +193,12 @@ core Unity APIs:
   `DemonstrationLine`. The arc is 2.4 m away, beyond the system windows, such as Virtual Display's
   screens, that open within about 2 m
   ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); 0.45 m below the eyes;
-  and 100 degrees wide. All three are serialized settings, and characters and labels scale with the
-  distance, so they keep their apparent size. The arc is placed at the person's head, facing where
+  and 60 degrees between its outermost characters, so every character and its labels stay within
+  about 36 degrees of where the person faced, a comfortable field on narrower headsets too. All
+  three are serialized settings, and characters and labels scale with the distance, so they keep
+  their apparent size. A character the lineup moves glides along the arc, swinging out behind the
+  others. Everything is looked at and pointed at from the seat; nothing needs the person to stand
+  or reach. The arc is placed at the person's head, facing where
   they face, when the session starts and the head is tracked, when the tracking origin changes
   (a recenter or a new boundary, through `XRInputSubsystem.trackingOriginUpdated`), when the app
   resumes, and when the head seems to jump farther in one frame than a person can move; the log
@@ -201,7 +207,7 @@ core Unity APIs:
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
   shader, a halo and a testing ring behind and around it, and the title, the status and the
-  attention notes on a plate underneath, wrapped to the slot's width. `Body` is the moving visual
+  attention notes on a plate underneath, wrapped to 11 degrees, less than the 12 between slots. `Body` is the moving visual
   root, and `LookAtPerson` turns the character to the person for the workspace. Per-character
   values go through `MaterialPropertyBlock`s, so nothing allocates per frame. Labels use Unity's
   built-in font through `TextMesh`, rasterized at 48 pixels, close to their size on the headset.
@@ -214,7 +220,7 @@ core Unity APIs:
   ([character-rendering.md](../validation/character-rendering.md)): the body shader is one pass
   without keywords, about 160 to 185 arithmetic operations and at most two texture reads per
   pixel in any state, from a 128 by 128 noise texture baked at startup. Six bodies cover about
-  380,000 pixels a frame across both eyes. The lookbook computed fractal noise per pixel, about ten
+  240,000 pixels a frame across both eyes. The lookbook computed fractal noise per pixel, about ten
   times the arithmetic. Edges are anti-aliased in the shaders, because the Android quality level
   has no MSAA.
 - `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.

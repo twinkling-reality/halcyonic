@@ -26,9 +26,11 @@ namespace Halcyonic.Client
     /// </summary>
     /// <remarks>
     /// Workstreams that need attention come first, then active ones, then the most recently changed.
-    /// Each shown workstream keeps its slot for as long as it stays shown, so characters never move
-    /// to make room: a newcomer takes a free slot, the one nearest the middle, or the slot of the
-    /// workstream it replaces. A waiting workstream replaces a shown one only if it is in a more
+    /// Characters that need attention (needs you, failed, unknown, failing tests) stand nearest the
+    /// middle of the person's view; every other character keeps its slot for as long as it stays
+    /// shown. A newcomer takes the free slot nearest the middle, or the slot of the workstream it
+    /// replaces; a character that comes to need attention trades places with the character nearest
+    /// the middle that does not. A waiting workstream replaces a shown one only if it is in a more
     /// important tier, or if both are at rest and the waiting one changed more recently. Active and
     /// attention workstreams change every few seconds while they work, so ranking them by recency
     /// would swap characters in and out; within those tiers the ones already shown stay.
@@ -115,7 +117,7 @@ namespace Halcyonic.Client
                 slots[weakest] = waiting[next++].WorkstreamId;
                 changed = true;
             }
-            return changed;
+            return BringAttentionToTheMiddle() || changed;
         }
 
         /// <summary>The tier a workstream's character belongs to, from its attention and status.</summary>
@@ -157,6 +159,41 @@ namespace Halcyonic.Client
             var shownTier = TierOf(shown);
             if (waitingTier != shownTier) return waitingTier < shownTier;
             return waitingTier == LineupTier.AtRest && string.CompareOrdinal(waiting.UpdatedAt, shown.UpdatedAt) > 0;
+        }
+
+        /// <summary>
+        /// Lets every character that needs attention stand nearer the middle than every character
+        /// that does not. Going outward from the middle, a slot without an attention character trades
+        /// with the most important attention character standing farther out. Attention characters
+        /// never trade among themselves, so no one moves without a reason.
+        /// </summary>
+        private bool BringAttentionToTheMiddle()
+        {
+            var changed = false;
+            for (var i = 0; i < fillOrder.Length; i++)
+            {
+                var inner = fillOrder[i];
+                if (NeedsAttention(inner)) continue;
+                var outer = -1;
+                for (var j = i + 1; j < fillOrder.Length; j++)
+                {
+                    var candidate = fillOrder[j];
+                    if (!NeedsAttention(candidate)) continue;
+                    if (outer < 0 || Rank(present[slots[candidate]!], present[slots[outer]!]) < 0) outer = candidate;
+                }
+                if (outer < 0) break;
+                var moving = slots[outer];
+                slots[outer] = slots[inner];
+                slots[inner] = moving;
+                changed = true;
+            }
+            return changed;
+        }
+
+        private bool NeedsAttention(int slot)
+        {
+            var id = slots[slot];
+            return id != null && TierOf(present[id]) <= LineupTier.Notice;
         }
 
         /// <summary>The occupied slot whose workstream ranks last. Only called when every slot is occupied.</summary>
