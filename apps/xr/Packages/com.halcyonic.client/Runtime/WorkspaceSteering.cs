@@ -52,7 +52,9 @@ namespace Halcyonic.Client
     /// <summary>
     /// Turns presses in an open workspace into commands. Only actions the workspace offers are taken,
     /// and those the control plane's policy marks for review wait for a second, deliberate press that
-    /// names exactly what will be sent. A confirmation lapses when it is not given in time, or when
+    /// names exactly what will be sent. An approval is confirmed only once the whole request it
+    /// answers has been shown, part by part when it is long (<see cref="RequestShown"/>), so nobody
+    /// approves what they could not read. A confirmation lapses when it is not given in time, or when
     /// the state it was asked about changes, so an old question is never answered by accident. One
     /// instance serves one open workspace; not thread safe.
     /// </summary>
@@ -64,6 +66,7 @@ namespace Halcyonic.Client
         private readonly Func<DateTimeOffset> now;
         private readonly TimeSpan window;
         private DateTimeOffset armedAt;
+        private int shownPart;
 
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
         {
@@ -83,6 +86,18 @@ namespace Halcyonic.Client
 
         /// <summary>The keyboard is open for an instruction.</summary>
         public bool Typing { get; private set; }
+
+        /// <summary>
+        /// Every part of the request the armed approval or denial answers has been shown
+        /// (<see cref="RequestShown"/>).
+        /// </summary>
+        public bool WholeRequestShown { get; private set; }
+
+        /// <summary>
+        /// The armed action can be confirmed now: an approval only once its whole request has been
+        /// shown; anything else at once.
+        /// </summary>
+        public bool CanConfirm => Armed != null && (Armed != WorkspaceAction.Approve || WholeRequestShown);
 
         /// <summary>The person pressed an action.</summary>
         public SteeringOutcome Press(WorkspaceAction action, WorkspacePresentation workspace)
@@ -107,11 +122,15 @@ namespace Halcyonic.Client
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, null));
         }
 
-        /// <summary>The person confirmed the armed action.</summary>
+        /// <summary>
+        /// The person confirmed the armed action. An approval whose whole request has not been shown
+        /// sends nothing and stays armed, so the rest can still be read.
+        /// </summary>
         public SteeringOutcome Confirm(WorkspacePresentation workspace)
         {
             if (Armed == null) return SteeringOutcome.Nothing;
             var lapse = Lapse(workspace);
+            if (lapse == null && !CanConfirm) return SteeringOutcome.Explain(WorkspaceText.RequestNotRead);
             var action = Armed.Value;
             var approvalId = ArmedApprovalId;
             var instruction = Instruction;
@@ -147,6 +166,32 @@ namespace Halcyonic.Client
             Armed = null;
             ArmedApprovalId = null;
             Instruction = null;
+            WholeRequestShown = false;
+            shownPart = 0;
+        }
+
+        /// <summary>
+        /// The workspace shows <paramref name="part"/> of the <paramref name="parts"/> the request of
+        /// the armed approval or denial takes, which it steps through in order: once the last has
+        /// shown, the whole has. Turning to another part is deliberate, so the confirmation's time
+        /// starts again with it; showing the same part again changes nothing.
+        /// </summary>
+        public void RequestShown(int part, int parts)
+        {
+            if (Armed == null || !IsAnswer(Armed.Value) || part < 1) return;
+            if (part != shownPart) armedAt = now();
+            shownPart = part;
+            if (part >= parts) WholeRequestShown = true;
+        }
+
+        /// <summary>
+        /// The whole request the armed approval or denial answers, as the workspace shows it below
+        /// the question, or null while neither is armed.
+        /// </summary>
+        public string? Request(WorkspacePresentation workspace)
+        {
+            if (Armed == null || !IsAnswer(Armed.Value)) return null;
+            return WorkspaceText.Request(workspace.Execution?.PendingApprovals.FirstOrDefault(pending => pending.ApprovalId == ArmedApprovalId));
         }
 
         /// <summary>
@@ -161,12 +206,14 @@ namespace Halcyonic.Client
             return lapse;
         }
 
-        /// <summary>The question the armed confirmation asks, or null when nothing is armed.</summary>
+        /// <summary>
+        /// The question the armed confirmation asks, or, for an approval whose whole request has not
+        /// been shown yet, that it must be read first; null when nothing is armed.
+        /// </summary>
         public string? Prompt(WorkspacePresentation workspace)
         {
             if (Armed == null) return null;
-            var approval = workspace.Execution?.PendingApprovals.FirstOrDefault(pending => pending.ApprovalId == ArmedApprovalId);
-            return WorkspaceText.ConfirmationPrompt(Armed.Value, approval, Instruction);
+            return CanConfirm ? WorkspaceText.ConfirmationPrompt(Armed.Value, Instruction) : WorkspaceText.ReadRequestFirst;
         }
 
         private void Arm(WorkspaceAction action, string? approvalId, string? instruction)
@@ -174,6 +221,8 @@ namespace Halcyonic.Client
             Armed = action;
             ArmedApprovalId = approvalId;
             Instruction = instruction;
+            WholeRequestShown = false;
+            shownPart = 0;
             armedAt = now();
         }
 

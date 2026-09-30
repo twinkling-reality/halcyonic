@@ -72,7 +72,9 @@ answers' shapes, not their content, here.
   escape parsing ([workspace-interaction.md](workspace-interaction.md)). On a real label, 45
   characters of such sequences, markup and control characters from a source showed as 22 characters
   as they were, and as exactly 45 once the client core made them plain and doubled every backslash.
-  The sections do that for every label.
+  The sections do that for every label. Since 2026-09-30 the one rule for text from outside shows
+  control and format characters by their code points instead of dropping them, so the same text
+  shows as 61 characters ([workspace-interaction.md](workspace-interaction.md)).
 - A quote cut short in italics ended without its ellipsis, so the sections set claims apart by tag
   and color instead; the check confirms a quote cut short ends in "…".
 - The minus sign U+2212 in Salidium's change summaries is not in the static atlas of Liberation Sans

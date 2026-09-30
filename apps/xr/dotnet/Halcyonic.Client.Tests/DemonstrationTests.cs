@@ -479,8 +479,10 @@ public class DemonstrationSessionTests
             Assert.That(WorkspaceText.Execution(beside), Does.StartWith("On Simulated agent (demonstration, watch only)"));
         }
 
-        // Approving needs the deliberate second press, as it does live.
+        // Approving needs the deliberate second press, as it does live, once the whole request has shown.
         Assert.That(steering.Press(WorkspaceAction.Approve, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
+        Assert.That(steering.Request(workspace), Does.StartWith("shell: Run make migrate"));
+        steering.RequestShown(1, 1);
         var approving = steering.Confirm(workspace);
         Assert.That(approving.Step, Is.EqualTo(SteeringStep.Send));
         await submissions.SubmitAsync(c => session.SubmitAsync(c), approving.Command!, workspace.Execution!.ExecutionId);

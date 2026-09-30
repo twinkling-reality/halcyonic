@@ -56,6 +56,7 @@ namespace Halcyonic.Client
 
         public string WorkstreamId { get; }
 
+        /// <summary>The workstream's title, as <see cref="LabelText.Plain"/> shows it.</summary>
         public string Title { get; }
 
         public CharacterActivity Activity { get; }
@@ -64,7 +65,7 @@ namespace Halcyonic.Client
 
         public AttentionLevel Attention { get; }
 
-        /// <summary>Why the character needs attention, one note per reason.</summary>
+        /// <summary>Why the character needs attention, one line per reason, as <see cref="LabelText.Plain"/> shows it.</summary>
         public IReadOnlyList<string> AttentionNotes { get; }
 
         public int PendingApprovals { get; }
@@ -86,10 +87,10 @@ namespace Halcyonic.Client
             var execution = state.CurrentExecution(workstream);
             var activity = ActivityOf(workstream.Status);
             var notes = new List<string>();
-            foreach (var reason in workstream.Attention.Reasons) notes.Add(Explain(reason, state));
+            foreach (var reason in workstream.Attention.Reasons) notes.Add(LabelText.Plain(Explain(reason, state)));
             return new CharacterPresentation(
                 workstream.WorkstreamId,
-                workstream.Title,
+                LabelText.Plain(workstream.Title),
                 activity,
                 LabelOf(activity),
                 workstream.Attention.Level,
