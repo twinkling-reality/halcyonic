@@ -200,12 +200,19 @@ export function createHostLocations(
     const decision = policy(found.path);
     if (!decision.ok || decision.directory !== found.path) {
       // Something changed between the check and the folder being made: it exists, and is left
-      // where it is, but no project is bound to it.
+      // where it is, but no project is bound to it. Where it really is, not the path through a
+      // link that may have replaced the root, is what the person needs to find it.
+      let made = found.path;
+      try {
+        made = realpathSync.native(found.path);
+      } catch {
+        made = found.path;
+      }
       return {
         ok: false,
         code: 'location_not_created',
         effect: 'unknown',
-        message: `A folder was made at ${found.path}, but it cannot be used, so no project was created and the folder was left in place: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
+        message: `A folder was made at ${made}, but it cannot be used, so no project was created and the folder was left in place: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
       };
     }
     return { ok: true, location: { path: found.path, name: nameOf(found.path), created: true } };
@@ -224,7 +231,7 @@ function unreadable<T>(read: () => T | LocationRefusal): T | LocationRefusal {
     return {
       ok: false,
       code: 'location_missing',
-      message: `The folder could not be read${typeof code === 'string' ? ` (${code})` : ''}.`,
+      message: `The folder cannot be read${typeof code === 'string' ? ` (${code})` : ''}.`,
     };
   }
 }
@@ -312,7 +319,17 @@ function notCreated(path: string, error: unknown): LocationBinding {
  * it; restarting the control plane takes the roots as they are then.
  */
 function rootChanged(root: Root): LocationRefusal | null {
-  const entry = entryAt(root.real);
+  let entry: Stats | undefined;
+  try {
+    entry = entryAt(root.real);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    return {
+      ok: false,
+      code: 'location_missing',
+      message: `The folder ${root.real}, where projects live, cannot be read${typeof code === 'string' ? ` (${code})` : ''}.`,
+    };
+  }
   if (entry === undefined || (!entry.isDirectory() && !entry.isSymbolicLink())) {
     return {
       ok: false,
@@ -351,13 +368,12 @@ function singleVisibleSegment(name: string): boolean {
   );
 }
 
-/** What is at the path itself, without following a symbolic link; undefined for nothing readable. */
+/**
+ * What is at the path itself, without following a symbolic link; undefined for nothing there. A
+ * path the file system will not read (EACCES, EPERM) throws, and callers say it cannot be read.
+ */
 function entryAt(path: string): Stats | undefined {
-  try {
-    return lstatSync(path, { throwIfNoEntry: false });
-  } catch {
-    return undefined;
-  }
+  return lstatSync(path, { throwIfNoEntry: false });
 }
 
 function nameOf(path: string): string {
