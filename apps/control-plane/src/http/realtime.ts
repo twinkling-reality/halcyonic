@@ -26,11 +26,20 @@ export const DEFAULT_REALTIME_OPTIONS: RealtimeOptions = {
   maxBufferedBytes: 8 * 1024 * 1024,
 };
 
+/** How long an ended connection's client has to answer the close frame before it is cut off. */
+const CLOSE_GRACE_MS = 1_000;
+
 /**
- * Called with each connection a guard authenticated; returns what to call when it closes. The
- * network listener uses it to close a revoked device's connections.
+ * Called with each connection a guard authenticated and what ends it at once. It returns what to
+ * call when the connection closes, or why the connection may not stay. The network listener uses
+ * it to end a revoked device's connections and to cap each device's.
  */
-export type TrackConnection = (principal: Principal, socket: WebSocket) => () => void;
+export type TrackConnection = (
+  principal: Principal,
+  end: () => void,
+) =>
+  | { readonly ok: true; readonly untrack: () => void }
+  | { readonly ok: false; readonly code: string; readonly message: string };
 
 /** The realtime stream: snapshot on connect, then every journaled event with its effects. */
 export function registerRealtime(
@@ -41,9 +50,22 @@ export function registerRealtime(
 ): void {
   app.get('/realtime', { websocket: true }, (socket, request) => {
     const { principal } = request;
-    const untrack = principal !== null && track !== undefined ? track(principal, socket) : null;
-    if (untrack !== null) socket.on('close', untrack);
-    new RealtimeConnection(socket, controlPlane, request.log, options, principal).start();
+    const connection = new RealtimeConnection(
+      socket,
+      controlPlane,
+      request.log,
+      options,
+      principal,
+    );
+    connection.start();
+    const tracked =
+      principal !== null && track !== undefined ? track(principal, () => connection.end()) : null;
+    if (tracked === null) return;
+    if (!tracked.ok) {
+      connection.refuse(tracked.code, tracked.message);
+      return;
+    }
+    socket.on('close', tracked.untrack);
   });
 }
 
@@ -100,7 +122,25 @@ class RealtimeConnection {
     this.#heartbeat.unref();
   }
 
+  /**
+   * Ends the connection now, for a device just revoked: it handles nothing more, including what
+   * the socket has already received, and is sent nothing more but a close frame. The socket is
+   * destroyed a moment later whether or not the client answers the close frame, which a hostile
+   * client never does.
+   */
+  end(): void {
+    this.#dispose();
+    this.#socket.close(1008, 'device revoked');
+    setTimeout(() => this.#socket.terminate(), CLOSE_GRACE_MS).unref();
+  }
+
+  /** Turns the connection away before it has handled anything, saying why. */
+  refuse(code: string, message: string): void {
+    this.#sendError(code, message, [], true);
+  }
+
   #onMessage(data: RawData, isBinary: boolean): void {
+    if (this.#phase === 'closed') return;
     if (isBinary) {
       this.#sendError('binary_not_supported', 'Messages must be JSON text.', [], false);
       return;

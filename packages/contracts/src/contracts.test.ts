@@ -7,6 +7,7 @@ import {
   buildSchemaDocument,
   COMMAND_VARIANTS,
   compileValidator,
+  DEVICE_EVENT_TYPES,
   ESTIMATED_COST_NOTE,
   EVENT_VARIANTS,
   EvaluationResult,
@@ -98,6 +99,13 @@ describe('event envelopes', () => {
       (variant) => (variant.properties.event_type as { const: string }).const,
     ).filter((type) => type.startsWith('runtime.'));
     assert.deepEqual([...RUNTIME_EVENT_TYPES].sort(), runtimeVariants.sort());
+  });
+
+  test('the device event types are every device event variant', () => {
+    const deviceVariants = EVENT_VARIANTS.map(
+      (variant) => (variant.properties.event_type as { const: string }).const,
+    ).filter((type) => type.startsWith('device.'));
+    assert.deepEqual([...DEVICE_EVENT_TYPES].sort(), deviceVariants.sort());
   });
 });
 

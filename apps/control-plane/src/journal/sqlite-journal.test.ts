@@ -114,6 +114,41 @@ describe('SQLite journal', () => {
     journal.close();
   });
 
+  test('a read can leave event types out, and its limit counts only what it returns', () => {
+    const journal = openSqliteJournal({ path: ':memory:', originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    const excluded = ['command.accepted', 'command.completed'];
+    const kept = TRACE.map((event, index) => ({ type: event.event_type, position: index + 1 }))
+      .filter(({ type }) => !excluded.includes(type))
+      .map(({ position }) => position);
+    const page = journal.read({ after: 0, limit: 5, excludeEventTypes: excluded });
+    assert.deepEqual(
+      page.map((stored) => stored.position),
+      kept.slice(0, 5),
+    );
+    const all = journal.read({ after: 0, limit: 1000, excludeEventTypes: excluded });
+    assert.equal(all.length, kept.length);
+    assert.ok(all.every((stored) => !excluded.includes(stored.event.event_type)));
+
+    const workstreamId = TRACE.find((event) => event.workstream_id !== null)?.workstream_id ?? null;
+    const scoped = journal.read({
+      after: 0,
+      limit: 1000,
+      workstreamId,
+      excludeEventTypes: excluded,
+    });
+    assert.ok(scoped.length > 0);
+    assert.ok(
+      scoped.every(
+        (stored) =>
+          stored.event.workstream_id === workstreamId &&
+          !excluded.includes(stored.event.event_type),
+      ),
+    );
+    assert.deepEqual(journal.read({ after: 0, limit: 3, excludeEventTypes: [] }).length, 3);
+    journal.close();
+  });
+
   test('a file journal uses WAL, survives reopening, and keeps its identity and origin', () => {
     const path = freshPath();
     const first = openSqliteJournal({ path, originIfNew: 'live', ids });

@@ -128,6 +128,11 @@ export const RejectionCode = Type.Union([
    * demonstration answers with it; a control plane never does.
    */
   Type.Literal('demonstration'),
+  /**
+   * The command came from a paired device the owner has revoked: over a connection or in a request
+   * it opened before the revocation, as the credential is refused on every new one (ADR 0017).
+   */
+  Type.Literal('device_revoked'),
 ]);
 export type RejectionCode = Static<typeof RejectionCode>;
 

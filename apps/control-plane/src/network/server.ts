@@ -1,8 +1,4 @@
-import {
-  PAIRING_PROTOCOL_VERSION,
-  type PairingServerMessage,
-  parsePairingClientMessage,
-} from '@halcyonic/contracts';
+import { PAIRING_PROTOCOL_VERSION, parsePairingClientMessage } from '@halcyonic/contracts';
 import type { Clock } from '@halcyonic/runtime-core';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
@@ -14,7 +10,37 @@ import type { NetworkIdentity } from './certificate.ts';
 import type { DeviceAccess } from './devices.ts';
 import { checkNetworkRequest } from './guard.ts';
 import { WindowCounter } from './limits.ts';
-import { type Pairing, PairingAttempt, refused } from './pairing.ts';
+import { type Pairing, type PairingAnswer, PairingAttempt, refused } from './pairing.ts';
+
+declare module 'fastify' {
+  interface FastifyContextConfig {
+    /** The route may answer a device it has just revoked, as a device revoking itself. */
+    answersRevokedDevice?: boolean;
+  }
+}
+
+/** How long the network listener waits for a client, which may be anything on the network. */
+export interface NetworkTimeouts {
+  /** For a whole request, headers and body, from its first byte. */
+  readonly requestMs: number;
+  /** For a connection that sends nothing. An upgraded WebSocket has its own heartbeat instead. */
+  readonly idleMs: number;
+  /** For the next request on a kept-alive connection. */
+  readonly keepAliveMs: number;
+  /** How often requests are checked against `requestMs`; Node's default is 30 seconds. */
+  readonly checkEveryMs: number;
+}
+
+/** A device's requests are small: ten seconds is plenty over Wi-Fi. */
+export const DEFAULT_NETWORK_TIMEOUTS: NetworkTimeouts = {
+  requestMs: 10_000,
+  idleMs: 30_000,
+  keepAliveMs: 5_000,
+  checkEveryMs: 1_000,
+};
+
+/** Connections the network listener holds at once, from every device and address. */
+export const MAX_NETWORK_CONNECTIONS = 32;
 
 export interface NetworkServerOptions {
   readonly logger: FastifyBaseLogger;
@@ -24,6 +50,7 @@ export interface NetworkServerOptions {
   readonly devices: DeviceAccess;
   readonly pairing: Pairing;
   readonly clock: Clock;
+  readonly timeouts?: NetworkTimeouts;
 }
 
 /** Paths that answer without a device credential. The pairing path has checks of its own. */
@@ -40,13 +67,26 @@ const FAILED_CREDENTIALS_PER_MINUTE = 30;
  */
 export async function createNetworkServer(options: NetworkServerOptions): Promise<FastifyInstance> {
   const { controlPlane, devices, pairing } = options;
+  const timeouts = options.timeouts ?? DEFAULT_NETWORK_TIMEOUTS;
   // Fastify types an HTTPS server apart from an HTTP one; the routes use nothing that differs.
   const app = Fastify({
-    https: { key: options.identity.key, cert: options.identity.certificate, minVersion: 'TLSv1.2' },
+    https: {
+      key: options.identity.key,
+      cert: options.identity.certificate,
+      minVersion: 'TLSv1.2',
+      headersTimeout: timeouts.requestMs,
+      requestTimeout: timeouts.requestMs,
+      connectionsCheckingInterval: timeouts.checkEveryMs,
+    },
     loggerInstance: options.logger,
     bodyLimit: 1024 * 1024,
     forceCloseConnections: true,
+    // Fastify sets these on the server it creates, over what the https options said.
+    requestTimeout: timeouts.requestMs,
+    connectionTimeout: timeouts.idleMs,
+    keepAliveTimeout: timeouts.keepAliveMs,
   }) as unknown as FastifyInstance;
+  app.server.maxConnections = MAX_NETWORK_CONNECTIONS;
   await prepareServer(app);
   const failures = new WindowCounter(options.clock, FAILED_CREDENTIALS_PER_MINUTE, 60_000);
 
@@ -79,20 +119,37 @@ export async function createNetworkServer(options: NetworkServerOptions): Promis
     request.principal = authentication.principal;
   });
 
+  // The credential is checked again as the answer leaves: a request authenticated before its
+  // device was revoked, such as one whose body arrived later or whose read took a while, gets the
+  // refusal a new request would get, not what the route answered (ADR 0017).
+  app.addHook('onSend', async (request, reply, payload) => {
+    const principal = request.principal;
+    if (principal?.kind !== 'device' || devices.isActive(principal.device_id)) return payload;
+    if (request.routeOptions.config.answersRevokedDevice === true) return payload;
+    reply.code(401).header('www-authenticate', 'Bearer').type('application/json; charset=utf-8');
+    return JSON.stringify(
+      errorBody('device_revoked', 'This device was revoked on the control plane; pair it again.'),
+    );
+  });
+
   registerRoutes(app, controlPlane, options.sources);
   registerRealtime(app, controlPlane, DEFAULT_REALTIME_OPTIONS, devices.track);
 
   // A device forgets the control plane: its own credential stops working everywhere.
-  app.post('/api/device/revoke', async (request, reply) => {
-    const principal = request.principal;
-    if (principal?.kind !== 'device') {
-      return reply
-        .code(403)
-        .send(errorBody('forbidden', 'Only a paired device can revoke itself.'));
-    }
-    devices.revoke(principal.device_id, principal);
-    return reply.code(204).send();
-  });
+  app.post(
+    '/api/device/revoke',
+    { config: { answersRevokedDevice: true } },
+    async (request, reply) => {
+      const principal = request.principal;
+      if (principal?.kind !== 'device') {
+        return reply
+          .code(403)
+          .send(errorBody('forbidden', 'Only a paired device can revoke itself.'));
+      }
+      devices.revoke(principal.device_id, principal);
+      return reply.code(204).send();
+    },
+  );
 
   app.get(
     '/pair',
@@ -118,72 +175,54 @@ function servePairing(
   pairing: Pairing,
   log: FastifyBaseLogger,
 ): void {
-  const answer = (reply: PairingServerMessage, done: boolean) => {
+  const answer = ({ reply, done }: PairingAnswer) => {
     if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(reply));
     if (done) socket.close(1000, 'pairing ended');
   };
   if (!(attempt instanceof PairingAttempt)) {
-    answer(refused(attempt), true);
+    answer({ reply: refused(attempt), done: true });
     return;
   }
-  const timer = setTimeout(() => {
-    attempt.end();
-    answer(
-      refused({ code: 'timeout', message: 'Pairing took too long; start again on the device.' }),
-      true,
-    );
-  }, pairing.limits.attemptTimeoutMs);
+  const timer = setTimeout(() => answer(attempt.timeOut()), pairing.limits.attemptTimeoutMs);
   timer.unref();
   socket.on('close', () => {
     clearTimeout(timer);
-    attempt.end();
+    attempt.closed();
   });
   socket.on('error', (error: Error) => log.warn({ err: error }, 'pairing connection error'));
   socket.on('message', (data: RawData, isBinary: boolean) => {
-    let reply: { reply: PairingServerMessage; done: boolean };
+    let reply: PairingAnswer;
     try {
       reply = receive(attempt, data, isBinary);
     } catch (error) {
       // Never the message: it can hold a proof. The window stays as it was.
       log.error({ err: error }, 'pairing exchange failed');
-      attempt.end();
-      reply = {
-        reply: refused({ code: 'internal_error', message: 'The control plane failed to pair.' }),
-        done: true,
-      };
+      reply = attempt.fail();
     }
     if (reply.done) clearTimeout(timer);
-    answer(reply.reply, reply.done);
+    answer(reply);
   });
 }
 
-function receive(
-  attempt: PairingAttempt,
-  data: RawData,
-  isBinary: boolean,
-): { reply: PairingServerMessage; done: boolean } {
-  const end = (code: string, message: string) => {
-    attempt.end();
-    return { reply: refused({ code, message }), done: true };
-  };
-  if (isBinary) return end('invalid_message', 'Messages must be JSON text.');
+function receive(attempt: PairingAttempt, data: RawData, isBinary: boolean): PairingAnswer {
+  if (isBinary) return attempt.reject('invalid_message', 'Messages must be JSON text.');
   let value: unknown;
   try {
     value = JSON.parse(rawDataToString(data));
   } catch {
-    return end('invalid_message', 'Messages must be JSON text.');
+    return attempt.reject('invalid_message', 'Messages must be JSON text.');
   }
   const record =
     typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   if (record.type === 'pair_request' && record.protocol !== PAIRING_PROTOCOL_VERSION) {
-    return end(
+    return attempt.reject(
       'unsupported_protocol',
       `This control plane pairs with protocol ${PAIRING_PROTOCOL_VERSION}.`,
     );
   }
   const parsed = parsePairingClientMessage(value);
   if (!parsed.ok) {
-    return end('invalid_message', 'The message does not match the pairing contract.');
+    return attempt.reject('invalid_message', 'The message does not match the pairing contract.');
   }
   return attempt.receive(parsed.value);
 }

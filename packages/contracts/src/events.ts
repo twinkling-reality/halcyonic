@@ -450,12 +450,19 @@ export type RuntimeEvent = Extract<EventEnvelope, { source: { kind: 'runtime' } 
 export type ControlPlaneEvent = Exclude<EventEnvelope, RuntimeEvent>;
 export type DeviceEvent = Extract<EventEnvelope, { event_type: `device.${string}` }>;
 
+/** Every device event type. */
+export const DEVICE_EVENT_TYPES: readonly DeviceEvent['event_type'][] = [
+  'device.paired',
+  'device.revoked',
+];
+
 /**
- * Device events are the control plane's own record of who may reach it. They carry no work, and
- * realtime clients never receive them (docs/internal/architecture/REALTIME.md).
+ * Device events are the control plane's own record of who may reach it. They carry no work:
+ * realtime clients never receive them, and paired devices never read them
+ * (docs/internal/architecture/REALTIME.md).
  */
 export function isDeviceEvent(event: EventEnvelope): event is DeviceEvent {
-  return event.event_type === 'device.paired' || event.event_type === 'device.revoked';
+  return (DEVICE_EVENT_TYPES as readonly string[]).includes(event.event_type);
 }
 
 /** An event as stored in the journal, with the position the journal assigned to it. */

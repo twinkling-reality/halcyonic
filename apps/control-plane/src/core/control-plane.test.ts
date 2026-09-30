@@ -6,6 +6,7 @@ import { after, describe, test } from 'node:test';
 import type {
   EventEnvelope,
   ExecutionId,
+  Principal,
   RuntimeDescriptor,
   RuntimeId,
   WorkstreamId,
@@ -20,6 +21,8 @@ import {
   type StartExecutionResult,
 } from '@halcyonic/runtime-core';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
+import { createUuidV7Generator } from '../ids.ts';
+import { DeviceAccess } from '../network/devices.ts';
 import { capturingLogger, createTestControlPlane, SCENARIOS } from '../testing/harness.ts';
 
 const [FEATURE, FAILING, APPROVAL] = DEMO_WORKSTREAMS as unknown as [
@@ -144,6 +147,54 @@ describe('command lifecycle', () => {
       (stored) => stored.event.event_type === 'command.rejected',
     );
     assert.equal(rejections.length, 2);
+    await controlPlane.close();
+  });
+
+  test('a command from a device revoked since it authenticated is rejected and journaled', async () => {
+    const { controlPlane, commands } = createTestControlPlane();
+    const devices = new DeviceAccess({
+      controlPlane,
+      ids: createUuidV7Generator(),
+      logger: capturingLogger().logger,
+    });
+    const { deviceId } = devices.pair('Headset', 'c'.repeat(64));
+    const device = { kind: 'device', device_id: deviceId } as const;
+
+    const before = controlPlane.commands.submit(commands.createProject('Before'), 'http', device);
+    assert.equal(before.disposition, 'accepted');
+    devices.revoke(deviceId, { kind: 'local' });
+
+    const after = commands.createProject('After');
+    const outcome = controlPlane.commands.submit(after, 'websocket', device);
+    assert.equal(outcome.disposition, 'rejected');
+    assert.equal(outcome.command?.rejection?.code, 'device_revoked');
+    assert.equal(
+      controlPlane.projection.projects().length,
+      1,
+      'the revoked device created nothing',
+    );
+    const rejected = [...controlPlane.journal.readAll()]
+      .map((stored) => stored.event)
+      .find(
+        (event) =>
+          event.event_type === 'command.rejected' &&
+          event.payload.command.command_id === after.command_id,
+      );
+    assert.ok(rejected?.event_type === 'command.rejected');
+    assert.deepEqual(rejected.payload.principal, device);
+    assert.equal(rejected.payload.received_via, 'websocket');
+
+    const unknown = { kind: 'device', device_id: createUuidV7Generator().next() } as Principal;
+    const stranger = controlPlane.commands.submit(
+      commands.createProject('Stranger'),
+      'http',
+      unknown,
+    );
+    assert.equal(stranger.command?.rejection?.code, 'device_revoked');
+    const local = controlPlane.commands.submit(commands.createProject('Owner'), 'http', {
+      kind: 'local',
+    });
+    assert.equal(local.disposition, 'accepted', 'the owner is not affected');
     await controlPlane.close();
   });
 

@@ -480,6 +480,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "invalid_state")] InvalidState,
         [EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
         [EnumMember(Value = "demonstration")] Demonstration,
+        [EnumMember(Value = "device_revoked")] DeviceRevoked,
     }
 
     public sealed class CommandRejection
