@@ -23,7 +23,11 @@ import type { Logger } from '../logger.ts';
 import { createNetworkIdentity, type NetworkIdentity } from '../network/certificate.ts';
 import { DeviceAccess } from '../network/devices.ts';
 import { Pairing, type PairingLimits } from '../network/pairing.ts';
-import { createNetworkServer, type NetworkTimeouts } from '../network/server.ts';
+import {
+  createNetworkServer,
+  DEFAULT_NETWORK_LIMITS,
+  type NetworkLimits,
+} from '../network/server.ts';
 import type { TlsTarget } from './tls-client.ts';
 
 /** Test support only. Not used by the running control plane. */
@@ -97,7 +101,11 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
 
 export interface TestServerOptions extends TestControlPlaneOptions {
   /** Also serve the network listener, on 127.0.0.1, with a certificate of its own (ADR 0017). */
-  readonly network?: { readonly limits?: PairingLimits; readonly timeouts?: NetworkTimeouts };
+  readonly network?: {
+    readonly limits?: PairingLimits;
+    /** The listener's own limits, over the defaults. */
+    readonly listener?: Partial<NetworkLimits>;
+  };
   readonly logLevel?: LogLevel;
   /** Receives both listeners' log lines, for tests that check what is logged. */
   readonly logStream?: NodeJS.WritableStream;
@@ -182,7 +190,7 @@ async function startNetworkListener(
   harness: ReturnType<typeof createTestControlPlane>,
   devices: DeviceAccess,
   sources: Parameters<typeof createNetworkServer>[0]['sources'],
-  { limits, timeouts }: NonNullable<TestServerOptions['network']>,
+  { limits, listener }: NonNullable<TestServerOptions['network']>,
 ): Promise<TestNetworkListener> {
   const identity = createNetworkIdentity(harness.time.now());
   const pairing = new Pairing({
@@ -201,7 +209,7 @@ async function startNetworkListener(
     devices,
     pairing,
     clock: harness.time,
-    ...(timeouts === undefined ? {} : { timeouts }),
+    limits: { ...DEFAULT_NETWORK_LIMITS, ...listener },
   });
   await server.listen({ host: '127.0.0.1', port: 0 });
   const bound = server.server.address();

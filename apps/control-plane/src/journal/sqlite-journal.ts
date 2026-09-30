@@ -53,8 +53,15 @@ const MIGRATIONS: readonly string[] = [
     AND json_type(envelope, '$.payload.command.payload.model_ref') IS NULL;
   `,
   // ADR 0017: command events record who sent them. Nobody knows who sent a command stored before,
-  // which the contract says with a null principal.
+  // which the contract says with a null principal. Builds of the pairing work from before it met
+  // migration 2 stamped version 2 on their journals without running it, so this runs its update
+  // again. Both updates change only events without the field, so running one twice is harmless.
   `
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.command.payload.model_ref', json('null'))
+  WHERE event_type IN ('command.accepted', 'command.rejected')
+    AND json_extract(envelope, '$.payload.command.command_type') = 'execution.start'
+    AND json_type(envelope, '$.payload.command.payload.model_ref') IS NULL;
   UPDATE events
   SET envelope = json_set(envelope, '$.payload.principal', json('null'))
   WHERE event_type IN ('command.accepted', 'command.rejected')
