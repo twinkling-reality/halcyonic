@@ -1,6 +1,7 @@
 import {
   type CommandSubmissionResponse,
   compileValidator,
+  DEVICE_EVENT_TYPES,
   EvaluationResponse,
   type EvaluationResult,
   EventsQuery,
@@ -135,6 +136,9 @@ export function registerRoutes(
         after: parsed.value.after,
         limit: parsed.value.limit,
         workstreamId: parsed.value.workstream_id,
+        // Which devices are paired is the owner's to know: a paired device reads no device events,
+        // as no realtime client receives them, and the positions they leave out are harmless gaps.
+        excludeEventTypes: request.principal?.kind === 'device' ? DEVICE_EVENT_TYPES : [],
       }),
     };
     return body;
@@ -227,7 +231,7 @@ export function registerRoutes(
           errorBody('invalid_command', 'The command does not match the contract.', parsed.issues),
         );
     }
-    const outcome = controlPlane.commands.submit(parsed.value, 'http');
+    const outcome = controlPlane.commands.submit(parsed.value, 'http', request.principal);
     if (outcome.disposition === 'conflict') {
       return reply
         .code(409)

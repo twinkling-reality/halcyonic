@@ -7,7 +7,7 @@ import { after, describe, test } from 'node:test';
 import { type EventEnvelope, parseEventEnvelope } from '@halcyonic/contracts';
 import { createUuidV7Generator } from '../ids.ts';
 import { JournalError } from './journal.ts';
-import { openSqliteJournal } from './sqlite-journal.ts';
+import { JOURNAL_SCHEMA_VERSION, openSqliteJournal } from './sqlite-journal.ts';
 
 const TRACE: EventEnvelope[] = readFileSync(
   new URL('../../../../fixtures/traces/multiple_workstreams.jsonl', import.meta.url),
@@ -114,6 +114,41 @@ describe('SQLite journal', () => {
     journal.close();
   });
 
+  test('a read can leave event types out, and its limit counts only what it returns', () => {
+    const journal = openSqliteJournal({ path: ':memory:', originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    const excluded = ['command.accepted', 'command.completed'];
+    const kept = TRACE.map((event, index) => ({ type: event.event_type, position: index + 1 }))
+      .filter(({ type }) => !excluded.includes(type))
+      .map(({ position }) => position);
+    const page = journal.read({ after: 0, limit: 5, excludeEventTypes: excluded });
+    assert.deepEqual(
+      page.map((stored) => stored.position),
+      kept.slice(0, 5),
+    );
+    const all = journal.read({ after: 0, limit: 1000, excludeEventTypes: excluded });
+    assert.equal(all.length, kept.length);
+    assert.ok(all.every((stored) => !excluded.includes(stored.event.event_type)));
+
+    const workstreamId = TRACE.find((event) => event.workstream_id !== null)?.workstream_id ?? null;
+    const scoped = journal.read({
+      after: 0,
+      limit: 1000,
+      workstreamId,
+      excludeEventTypes: excluded,
+    });
+    assert.ok(scoped.length > 0);
+    assert.ok(
+      scoped.every(
+        (stored) =>
+          stored.event.workstream_id === workstreamId &&
+          !excluded.includes(stored.event.event_type),
+      ),
+    );
+    assert.deepEqual(journal.read({ after: 0, limit: 3, excludeEventTypes: [] }).length, 3);
+    journal.close();
+  });
+
   test('a file journal uses WAL, survives reopening, and keeps its identity and origin', () => {
     const path = freshPath();
     const first = openSqliteJournal({ path, originIfNew: 'live', ids });
@@ -190,8 +225,98 @@ describe('SQLite journal', () => {
     reopened.close();
     const check = new DatabaseSync(path);
     const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
-    assert.equal(version.user_version, 2);
+    assert.equal(version.user_version, JOURNAL_SCHEMA_VERSION);
     check.close();
+  });
+
+  test('command events a journal of schema version 2 holds without a principal are migrated to a null one', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    journal.close();
+    // What a build of schema version 2 wrote, before principals were recorded.
+    const db = new DatabaseSync(path);
+    const commandEvents = "event_type IN ('command.accepted', 'command.rejected')";
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.principal') WHERE ${commandEvents}`,
+    );
+    const count = (where: string) =>
+      (db.prepare(`SELECT COUNT(*) AS count FROM events WHERE ${where}`).get() as { count: number })
+        .count;
+    const commands = count(commandEvents);
+    assert.ok(commands > 0);
+    assert.equal(
+      count(`${commandEvents} AND json_type(envelope, '$.payload.principal') IS NOT NULL`),
+      0,
+    );
+    db.exec('PRAGMA user_version = 2');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const events = [...reopened.readAll()].map((stored) => stored.event);
+    assert.deepEqual(
+      events.map((event) => event.event_id),
+      TRACE.map((event) => event.event_id),
+    );
+    const principals = events.flatMap((event) =>
+      event.event_type === 'command.accepted' || event.event_type === 'command.rejected'
+        ? [event.payload.principal]
+        : [],
+    );
+    assert.equal(principals.length, commands);
+    assert.ok(principals.every((principal) => principal === null));
+    reopened.close();
+    const check = new DatabaseSync(path);
+    const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
+    assert.equal(version.user_version, JOURNAL_SCHEMA_VERSION);
+    check.close();
+  });
+
+  test('a version 2 journal with principals but starts without a model, as the pairing work stamped it, opens', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    journal.close();
+    // Builds of the pairing work before it merged model choice stamped version 2 for principals:
+    // their command events name who sent them, and their starts have no model_ref.
+    const db = new DatabaseSync(path);
+    const commandEvents = "event_type IN ('command.accepted', 'command.rejected')";
+    const start = "json_extract(envelope, '$.payload.command.command_type') = 'execution.start'";
+    db.exec(
+      `UPDATE events SET envelope = json_set(envelope, '$.payload.principal', json('{"kind":"local"}'))
+         WHERE ${commandEvents}`,
+    );
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.command.payload.model_ref')
+         WHERE ${commandEvents} AND ${start}`,
+    );
+    const starts = (
+      db
+        .prepare(`SELECT COUNT(*) AS count FROM events WHERE ${commandEvents} AND ${start}`)
+        .get() as { count: number }
+    ).count;
+    assert.ok(starts > 0);
+    db.exec('PRAGMA user_version = 2');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const events = [...reopened.readAll()].map((stored) => stored.event);
+    assert.equal(events.length, TRACE.length);
+    const commands = events.flatMap((event) =>
+      event.event_type === 'command.accepted' || event.event_type === 'command.rejected'
+        ? [event.payload]
+        : [],
+    );
+    assert.ok(
+      commands.every((payload) => payload.principal?.kind === 'local'),
+      'a principal already recorded stays',
+    );
+    const modelRefs = commands.flatMap((payload) =>
+      payload.command.command_type === 'execution.start' ? [payload.command.payload.model_ref] : [],
+    );
+    assert.equal(modelRefs.length, starts);
+    assert.ok(modelRefs.every((modelRef) => modelRef === null));
+    reopened.close();
   });
 
   test('a stored event that no longer matches the contract is reported, not trusted', () => {

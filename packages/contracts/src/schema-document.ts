@@ -2,6 +2,7 @@ import { indexDefinitions, NAMED_DEFINITIONS } from './definitions.ts';
 import {
   COMMAND_SCHEMA_VERSION,
   EVENT_SCHEMA_VERSION,
+  PAIRING_PROTOCOL_VERSION,
   REALTIME_PROTOCOL_VERSION,
 } from './versions.ts';
 
@@ -35,6 +36,7 @@ export function buildSchemaDocument(): Record<string, unknown> {
       event_schema: EVENT_SCHEMA_VERSION,
       command_schema: COMMAND_SCHEMA_VERSION,
       realtime_protocol: REALTIME_PROTOCOL_VERSION,
+      pairing_protocol: PAIRING_PROTOCOL_VERSION,
     },
     $defs: Object.fromEntries(
       Object.entries(NAMED_DEFINITIONS).map(([name, schema]) => [name, hoist(schema, true)]),

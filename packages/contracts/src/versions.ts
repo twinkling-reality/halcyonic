@@ -5,3 +5,5 @@
 export const EVENT_SCHEMA_VERSION = 1;
 export const COMMAND_SCHEMA_VERSION = 1;
 export const REALTIME_PROTOCOL_VERSION = 1;
+/** The pairing exchange on the network listener's `/pair` WebSocket (ADR 0017). */
+export const PAIRING_PROTOCOL_VERSION = 1;

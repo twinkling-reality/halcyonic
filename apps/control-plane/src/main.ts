@@ -1,10 +1,14 @@
 import { chmod, mkdir } from 'node:fs/promises';
+import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
+import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
-import { loadConfig } from './config.ts';
+import type { FastifyInstance } from 'fastify';
+import { loadConfig, type NetworkListenerConfig } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
+import { registerDeviceRoutes } from './http/device-routes.ts';
 import { registerRealtime } from './http/realtime.ts';
 import { registerRoutes } from './http/routes.ts';
 import { loadOrCreateAccessToken } from './http/security.ts';
@@ -13,6 +17,10 @@ import { createUuidV7Generator } from './ids.ts';
 import { seorakEvaluationFor } from './intelligence/evaluation.ts';
 import { salidiumUnderstandingFor } from './intelligence/understanding.ts';
 import { openSqliteJournal } from './journal/sqlite-journal.ts';
+import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
+import { DeviceAccess } from './network/devices.ts';
+import { Pairing } from './network/pairing.ts';
+import { createNetworkServer } from './network/server.ts';
 import { createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
 
 async function main(): Promise<void> {
@@ -58,16 +66,68 @@ async function main(): Promise<void> {
     commandTimeoutMs: config.commandTimeoutMs,
   });
   controlPlane.reconcile();
-  registerRoutes(app, controlPlane, {
+  const sources = {
     understanding: salidiumUnderstandingFor(config.dataDir),
     evaluation: seorakEvaluationFor(config.dataDir),
-  });
-  registerRealtime(app, controlPlane);
+  };
+  const devices = new DeviceAccess({ controlPlane, ids, logger: app.log });
 
-  await app.listen({ host: config.host, port: config.port });
+  // Paired devices reach the control plane only through the network listener, which is off unless
+  // the owner configured it (ADR 0017).
+  let network: { server: FastifyInstance; pairing: Pairing; certificateSha256: string } | null =
+    null;
+  if (config.network !== null) {
+    const { identity, created } = await loadOrCreateNetworkIdentity(config.dataDir, new Date());
+    if (created) {
+      app.log.info(
+        { certificate_sha256: identity.certificateSha256 },
+        'created the network listener certificate',
+      );
+    }
+    const pairing = new Pairing({
+      clock: systemClock,
+      devices,
+      describe: (deviceId) => controlPlane.projection.device(deviceId),
+      certificateSha256: identity.certificateSha256,
+      logger: app.log,
+    });
+    const server = await createNetworkServer({
+      logger: app.log.child({ listener: 'network' }),
+      identity,
+      controlPlane,
+      sources,
+      devices,
+      pairing,
+      clock: systemClock,
+    });
+    network = { server, pairing, certificateSha256: identity.certificateSha256 };
+  }
+  let listener: NetworkListener | null = null;
+  registerRoutes(app, controlPlane, sources);
+  registerRealtime(app, controlPlane);
+  registerDeviceRoutes(app, {
+    controlPlane,
+    devices,
+    pairing: network?.pairing ?? null,
+    listener: () => listener,
+  });
+
+  try {
+    await app.listen({ host: config.host, port: config.port });
+    if (network !== null && config.network !== null) {
+      await network.server.listen({ host: config.network.host, port: config.network.port });
+      listener = describeListener(config.network, network.server, network.certificateSha256);
+    }
+  } catch (error) {
+    await network?.server.close();
+    await app.close();
+    await controlPlane.close();
+    throw error;
+  }
   app.log.info(
     {
       addresses: app.addresses(),
+      network: listener,
       data_dir: config.dataDir,
       token_file: access.path,
       journal: controlPlane.journal.info,
@@ -88,6 +148,7 @@ async function main(): Promise<void> {
     app.log.info(cause, 'shutting down');
     // A stdin still being read would keep the process alive after a signal.
     if (config.exitOnStdinEnd) process.stdin.destroy();
+    await network?.server.close();
     await app.close();
     await controlPlane.close();
   };
@@ -112,6 +173,30 @@ async function main(): Promise<void> {
     process.stdin.on('error', stdinEnded);
     process.stdin.resume();
   }
+}
+
+/**
+ * Where devices on the network can reach the listener: its own address, or for a wildcard, every
+ * interface's external addresses (IPv4 for `0.0.0.0`, both families for `::`).
+ */
+function describeListener(
+  config: NetworkListenerConfig,
+  server: FastifyInstance,
+  certificateSha256: string,
+): NetworkListener {
+  const bound = server.server.address();
+  const port = bound !== null && typeof bound === 'object' ? bound.port : config.port;
+  const wildcard = config.host === '0.0.0.0' || config.host === '::';
+  const reachable = (entry: NetworkInterfaceInfo) =>
+    !entry.internal &&
+    (entry.family === 'IPv4' || (config.host === '::' && !entry.address.startsWith('fe80:')));
+  const addresses = wildcard
+    ? Object.values(networkInterfaces())
+        .flatMap((entries) => entries ?? [])
+        .filter(reachable)
+        .map((entry) => entry.address)
+    : [config.host];
+  return { host: config.host, port, addresses, certificate_sha256: certificateSha256 };
 }
 
 main().catch((error: unknown) => {

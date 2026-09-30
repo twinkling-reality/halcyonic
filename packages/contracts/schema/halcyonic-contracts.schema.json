@@ -6,7 +6,8 @@
   "x-halcyonic-versions": {
     "event_schema": 1,
     "command_schema": 1,
-    "realtime_protocol": 1
+    "realtime_protocol": 1,
+    "pairing_protocol": 1
   },
   "$defs": {
     "EventEnvelope": {
@@ -773,7 +774,8 @@
               "required": [
                 "command",
                 "policy",
-                "received_via"
+                "received_via",
+                "principal"
               ],
               "properties": {
                 "command": {
@@ -784,6 +786,16 @@
                 },
                 "received_via": {
                   "$ref": "#/$defs/ReceivedVia"
+                },
+                "principal": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Principal"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "additionalProperties": false
@@ -922,7 +934,8 @@
               "required": [
                 "command",
                 "rejection",
-                "received_via"
+                "received_via",
+                "principal"
               ],
               "properties": {
                 "command": {
@@ -933,6 +946,16 @@
                 },
                 "received_via": {
                   "$ref": "#/$defs/ReceivedVia"
+                },
+                "principal": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Principal"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "additionalProperties": false
@@ -1240,6 +1263,263 @@
                 },
                 "failure": {
                   "$ref": "#/$defs/CommandFailure"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "null"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "device.paired"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "device_id",
+                "label",
+                "credential_sha256",
+                "certificate_sha256"
+              ],
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120,
+                  "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+                },
+                "credential_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "certificate_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "null"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "device.revoked"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "device_id",
+                "revoked_by"
+              ],
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "revoked_by": {
+                  "$ref": "#/$defs/Principal"
                 }
               },
               "additionalProperties": false
@@ -7356,6 +7636,10 @@
         {
           "type": "string",
           "const": "demonstration"
+        },
+        {
+          "type": "string",
+          "const": "device_revoked"
         }
       ]
     },
@@ -7496,6 +7780,434 @@
         {
           "type": "string",
           "const": "duplicate"
+        }
+      ]
+    },
+    "Principal": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "local"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "device_id"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "device"
+            },
+            "device_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DeviceView": {
+      "type": "object",
+      "required": [
+        "device_id",
+        "label",
+        "paired_at",
+        "certificate_sha256",
+        "revoked_at"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "paired_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "certificate_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "DevicesResponse": {
+      "type": "object",
+      "required": [
+        "devices",
+        "connected"
+      ],
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeviceView"
+          }
+        },
+        "connected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PairingState": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "closed"
+        },
+        {
+          "type": "string",
+          "const": "open"
+        },
+        {
+          "type": "string",
+          "const": "paired"
+        },
+        {
+          "type": "string",
+          "const": "expired"
+        },
+        {
+          "type": "string",
+          "const": "locked"
+        }
+      ]
+    },
+    "PairingRefusalReason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "busy"
+        },
+        {
+          "type": "string",
+          "const": "too_many_requests"
+        },
+        {
+          "type": "string",
+          "const": "timeout"
+        },
+        {
+          "type": "string",
+          "const": "abandoned"
+        },
+        {
+          "type": "string",
+          "const": "invalid_message"
+        },
+        {
+          "type": "string",
+          "const": "unsupported_protocol"
+        }
+      ]
+    },
+    "PairingRefusalTally": {
+      "type": "object",
+      "required": [
+        "address",
+        "reason",
+        "count",
+        "last_at"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "reason": {
+          "$ref": "#/$defs/PairingRefusalReason"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PairingStatus": {
+      "type": "object",
+      "required": [
+        "state",
+        "expires_at",
+        "failed_attempts",
+        "max_failed_attempts",
+        "device",
+        "refusals"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/PairingState"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failed_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_failed_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "device": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PairingRefusalTally"
+          },
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "NetworkListener": {
+      "type": "object",
+      "required": [
+        "host",
+        "port",
+        "addresses",
+        "certificate_sha256"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "certificate_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PairingOpenedResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "status",
+        "listener"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[0-9]{8}$"
+        },
+        "status": {
+          "$ref": "#/$defs/PairingStatus"
+        },
+        "listener": {
+          "$ref": "#/$defs/NetworkListener"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PairingClientMessage": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "protocol",
+            "device_label"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pair_request"
+            },
+            "protocol": {
+              "type": "number",
+              "const": 1
+            },
+            "device_label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "client_public",
+            "proof"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pair_proof"
+            },
+            "client_public": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]{512}$"
+            },
+            "proof": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]{43}=$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PairingServerMessage": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "salt",
+            "server_public"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pair_challenge"
+            },
+            "salt": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]{22}==$"
+            },
+            "server_public": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]{512}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "device_id",
+            "credential",
+            "proof"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pair_accepted"
+            },
+            "device_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "credential": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]{43}=$"
+            },
+            "proof": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]{43}=$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "error",
+            "attempts_left"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "pair_refused"
+            },
+            "error": {
+              "$ref": "#/$defs/ErrorInfo"
+            },
+            "attempts_left": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       ]
     }

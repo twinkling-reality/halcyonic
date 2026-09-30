@@ -1,0 +1,164 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Halcyonic.Client
+{
+    /// <summary>The status line and headers of an HTTP/1.1 response.</summary>
+    internal sealed class Http1Head
+    {
+        public Http1Head(int status, IReadOnlyList<KeyValuePair<string, string>> headers)
+        {
+            Status = status;
+            Headers = headers;
+        }
+
+        public int Status { get; }
+
+        public IReadOnlyList<KeyValuePair<string, string>> Headers { get; }
+
+        public string? Header(string name)
+        {
+            foreach (var header in Headers)
+            {
+                if (string.Equals(header.Key, name, StringComparison.OrdinalIgnoreCase)) return header.Value;
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Just enough HTTP/1.1 for the pinned transports: one request per connection, a response read
+    /// by Content-Length, chunks or to the end of the stream. The head is read a byte at a time, so a
+    /// WebSocket upgrade never reads into the frames that follow it.
+    /// </summary>
+    internal static class Http1
+    {
+        private const int MaxHeadBytes = 32 * 1024;
+
+        public static async Task WriteRequestAsync(
+            Stream stream,
+            string method,
+            string target,
+            IEnumerable<KeyValuePair<string, string>> headers,
+            byte[]? body,
+            CancellationToken cancellationToken)
+        {
+            var head = new StringBuilder();
+            head.Append(method).Append(' ').Append(target).Append(" HTTP/1.1\r\n");
+            foreach (var header in headers)
+            {
+                if (header.Key.IndexOfAny(new[] { '\r', '\n', ':' }) >= 0 || header.Value.IndexOfAny(new[] { '\r', '\n' }) >= 0)
+                {
+                    throw new ArgumentException("A header name or value holds a line break.", nameof(headers));
+                }
+                head.Append(header.Key).Append(": ").Append(header.Value).Append("\r\n");
+            }
+            head.Append("\r\n");
+            var bytes = Encoding.ASCII.GetBytes(head.ToString());
+            await stream.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
+            if (body != null && body.Length > 0) await stream.WriteAsync(body, 0, body.Length, cancellationToken).ConfigureAwait(false);
+            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        public static async Task<Http1Head> ReadHeadAsync(Stream stream, CancellationToken cancellationToken)
+        {
+            var received = new List<byte>(512);
+            var one = new byte[1];
+            while (!EndsWithBlankLine(received))
+            {
+                if (received.Count >= MaxHeadBytes) throw new InvalidDataException("The response head is too long.");
+                var read = await stream.ReadAsync(one, 0, 1, cancellationToken).ConfigureAwait(false);
+                if (read == 0) throw new IOException("The connection closed before the response arrived.");
+                received.Add(one[0]);
+            }
+            var lines = Encoding.ASCII.GetString(received.ToArray(), 0, received.Count - 4).Split(new[] { "\r\n" }, StringSplitOptions.None);
+            var status = lines[0].Split(' ');
+            if (status.Length < 2 || !status[0].StartsWith("HTTP/1.", StringComparison.Ordinal)
+                || !int.TryParse(status[1], NumberStyles.None, CultureInfo.InvariantCulture, out var code))
+            {
+                throw new InvalidDataException("The response does not start with an HTTP/1.1 status line.");
+            }
+            var headers = new List<KeyValuePair<string, string>>();
+            for (var i = 1; i < lines.Length; i++)
+            {
+                var colon = lines[i].IndexOf(':');
+                if (colon <= 0) continue;
+                headers.Add(new KeyValuePair<string, string>(lines[i].Substring(0, colon).Trim(), lines[i].Substring(colon + 1).Trim()));
+            }
+            return new Http1Head(code, headers);
+        }
+
+        public static async Task<byte[]> ReadBodyAsync(Stream stream, Http1Head head, int maxBytes, CancellationToken cancellationToken)
+        {
+            var body = new MemoryStream();
+            var length = head.Header("Content-Length");
+            if (length != null)
+            {
+                if (!long.TryParse(length, NumberStyles.None, CultureInfo.InvariantCulture, out var expected) || expected > maxBytes)
+                {
+                    throw new InvalidDataException("The response is larger than " + maxBytes + " bytes.");
+                }
+                await CopyAsync(stream, body, expected, maxBytes, cancellationToken).ConfigureAwait(false);
+                if (body.Length != expected) throw new IOException("The connection closed before the whole response arrived.");
+            }
+            else if (string.Equals(head.Header("Transfer-Encoding"), "chunked", StringComparison.OrdinalIgnoreCase))
+            {
+                while (true)
+                {
+                    var sizeLine = await ReadLineAsync(stream, cancellationToken).ConfigureAwait(false);
+                    var semicolon = sizeLine.IndexOf(';');
+                    var size = long.Parse(semicolon < 0 ? sizeLine : sizeLine.Substring(0, semicolon), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                    if (size == 0) break;
+                    if (body.Length + size > maxBytes) throw new InvalidDataException("The response is larger than " + maxBytes + " bytes.");
+                    await CopyAsync(stream, body, size, maxBytes, cancellationToken).ConfigureAwait(false);
+                    await ReadLineAsync(stream, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                await CopyAsync(stream, body, long.MaxValue, maxBytes, cancellationToken).ConfigureAwait(false);
+            }
+            return body.ToArray();
+        }
+
+        private static async Task CopyAsync(Stream from, MemoryStream to, long count, int maxBytes, CancellationToken cancellationToken)
+        {
+            var buffer = new byte[16 * 1024];
+            var remaining = count;
+            while (remaining > 0)
+            {
+                var read = await from.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, remaining), cancellationToken).ConfigureAwait(false);
+                if (read == 0) return;
+                if (to.Length + read > maxBytes) throw new InvalidDataException("The response is larger than " + maxBytes + " bytes.");
+                to.Write(buffer, 0, read);
+                remaining -= read;
+            }
+        }
+
+        private static async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
+        {
+            var line = new StringBuilder();
+            var one = new byte[1];
+            while (true)
+            {
+                var read = await stream.ReadAsync(one, 0, 1, cancellationToken).ConfigureAwait(false);
+                if (read == 0) throw new IOException("The connection closed inside a chunked response.");
+                if (one[0] == '\n') return line.ToString().TrimEnd('\r');
+                if (line.Length > 1024) throw new InvalidDataException("A chunk line is too long.");
+                line.Append((char)one[0]);
+            }
+        }
+
+        private static bool EndsWithBlankLine(List<byte> received)
+        {
+            var n = received.Count;
+            return n >= 4 && received[n - 4] == '\r' && received[n - 3] == '\n' && received[n - 2] == '\r' && received[n - 1] == '\n';
+        }
+    }
+}
