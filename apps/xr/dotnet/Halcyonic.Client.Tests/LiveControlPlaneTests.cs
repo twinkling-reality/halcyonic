@@ -263,11 +263,14 @@ public class LiveControlPlaneTests
         Assert.That(unlisted.Command!.Rejection!.Message, Is.EqualTo("The mock runtime lists no model mock/gone."));
 
         var chosen = draft.StartExecution(workstream.WorkstreamId);
-        chosen.Payload.Options["scenario"] = options["scenario"];
+        Assert.That(chosen.Payload.Options, Is.Empty, "the headset sends no mock scenario option");
         var execution = (ExecutionCreatedResult)await RunAsync(chosen);
         await Until(
             s => s.State.Executions[execution.ExecutionId].ModelRef == "mock/fast",
             "the execution shows the model the runtime reports using");
+        await Until(
+            s => s.State.Executions[execution.ExecutionId].Status == ExecutionStatus.Completed,
+            "the default simulated turn finishes");
 
         AssertEveryServerMessageRoundTrips();
     }

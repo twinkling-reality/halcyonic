@@ -27,6 +27,7 @@ namespace Halcyonic.XR.Workspace
         private Transform root = null!;
         private GameObject details = null!;
         private PanelButton toggle = null!;
+        private PanelButton move = null!;
         private PanelButton project = null!;
         private PanelButton projectNameButton = null!;
         private PanelButton runtime = null!;
@@ -43,6 +44,7 @@ namespace Halcyonic.XR.Workspace
         private TextMeshPro note = null!;
         private TextMeshPro reviewText = null!;
         private bool expanded;
+        private int panelSide;
         private bool newProject;
         private bool finished;
         private bool recoveryArmed;
@@ -78,6 +80,8 @@ namespace Halcyonic.XR.Workspace
             root.SetParent(transform, false);
             toggle = PanelButton.Create(root, "New work");
             toggle.Pressed += Toggle;
+            move = PanelButton.Create(root, "Move panel");
+            move.Pressed += MovePanel;
             details = new GameObject("New work panel");
             details.transform.SetParent(root, false);
             WorkspaceVisuals.Plate(details.transform, "Background", new Vector2(Width, Height),
@@ -157,6 +161,14 @@ namespace Halcyonic.XR.Workspace
             review = null;
             recoveryArmed = false;
             if (unresolvedCommandId == null) notice = null;
+            Layout();
+        }
+
+        private void MovePanel()
+        {
+            if (!expanded || FocusGuard.InputSuspended) return;
+            panelSide = panelSide == 0 ? 1 : panelSide == 1 ? -1 : 0;
+            Place();
             Layout();
         }
 
@@ -475,7 +487,15 @@ namespace Halcyonic.XR.Workspace
         {
             if (root == null) return;
             var live = connection.Session?.Status.IsLive == true && connection.DemonstrationLine == null;
-            toggle.Show(expanded ? "Close new work" : "New work", Vector2.zero, expanded ? 0.30f : 0.22f);
+            toggle.Show(expanded ? "Close new work" : "New work",
+                expanded ? new Vector2(-0.20f, -0.56f) : Vector2.zero, expanded ? 0.30f : 0.22f);
+            if (expanded)
+            {
+                move.Show(panelSide == 0 ? "Move right" : panelSide == 1 ? "Move left" : "Center panel",
+                    new Vector2(0.20f, -0.56f), 0.30f);
+                move.Accepting = () => !FocusGuard.InputSuspended;
+            }
+            else move.Hide();
             details.SetActive(expanded);
             if (!expanded) return;
             if (review != null)
@@ -607,11 +627,13 @@ namespace Halcyonic.XR.Workspace
             var forward = head.forward;
             var horizontal = new Vector3(forward.x, 0f, forward.z).normalized;
             if (horizontal.sqrMagnitude < 0.01f) horizontal = Vector3.forward;
+            var right = new Vector3(head.right.x, 0f, head.right.z).normalized;
+            if (right.sqrMagnitude < 0.01f) right = Vector3.right;
             var position = head.position + horizontal * (expanded ? 0.68f : 0.43f)
+                + right * (expanded ? 0.55f * panelSide : 0f)
                 + Vector3.down * (expanded ? 0.12f : 0.42f);
             root.SetPositionAndRotation(position, Quaternion.LookRotation(position - head.position, Vector3.up));
             root.localScale = Vector3.one * (Vector3.Distance(head.position, position) / WorkspaceVisuals.PanelDistance);
-            toggle.transform.localPosition = expanded ? new Vector3(0f, -0.55f, 0f) : Vector3.zero;
             placed = true;
         }
 

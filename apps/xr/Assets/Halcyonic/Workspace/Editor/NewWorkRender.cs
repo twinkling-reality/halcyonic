@@ -75,13 +75,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 Button(root.transform, "Next part", 0.20f, -0.34f);
                 Button(root.transform, "Change choices", -0.20f, -0.43f);
                 Button(root.transform, "Yes, start work", 0.20f, -0.43f);
+                BottomButton(root.transform, "Close new work", -0.20f);
+                BottomButton(root.transform, "Move right", 0.20f);
 
                 var cameraObject = new GameObject("Review camera");
                 cameraObject.transform.SetParent(root.transform, false);
                 cameraObject.transform.SetPositionAndRotation(new Vector3(0f, 0f, -1.3f), Quaternion.identity);
                 var camera = cameraObject.AddComponent<Camera>();
                 camera.orthographic = true;
-                camera.orthographicSize = 0.61f;
+                camera.orthographicSize = 0.69f;
                 camera.clearFlags = CameraClearFlags.SolidColor;
                 camera.backgroundColor = Color.black;
                 camera.stereoTargetEye = StereoTargetEyeMask.None;
@@ -114,6 +116,17 @@ namespace Halcyonic.XR.Workspace.Editor
             if (Mathf.Abs(x) + width / 2f > NewWorkPanel.Width / 2f ||
                 Mathf.Abs(y) + ButtonHeight / 2f > NewWorkPanel.Height / 2f)
                 throw new InvalidOperationException("A review control lies outside the panel.");
+            var button = PanelButton.Create(parent, text, height: ButtonHeight, textSize: 0.20f);
+            button.Show(text, new Vector2(x, y), width);
+        }
+
+        private static void BottomButton(Transform parent, string text, float x)
+        {
+            const float width = 0.30f;
+            const float y = -0.56f;
+            if (Mathf.Abs(x) + width / 2f > NewWorkPanel.Width / 2f ||
+                y + ButtonHeight / 2f >= -NewWorkPanel.Height / 2f)
+                throw new InvalidOperationException("A bottom control overlaps the panel.");
             var button = PanelButton.Create(parent, text, height: ButtonHeight, textSize: 0.20f);
             button.Show(text, new Vector2(x, y), width);
         }

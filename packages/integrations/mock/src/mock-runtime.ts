@@ -116,6 +116,9 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
   readonly #sessions = new Map<ExecutionId, MockSession>();
   #closed = false;
 
+  /** A truthful, generic simulation when a client has no scenario picker. */
+  static readonly DEFAULT_SCENARIO = 'simulated_start';
+
   constructor(options: MockRuntimeOptions) {
     this.#scenarios = options.scenarios;
     this.#models = options.models ?? [];
@@ -144,7 +147,10 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
         message: `Unknown mock runtime options: ${unknown.join(', ')}. Only "scenario" is supported.`,
       };
     }
-    const scenario = options.scenario;
+    const scenario =
+      options.scenario === undefined && this.#scenarios.has(MockRuntimeAdapter.DEFAULT_SCENARIO)
+        ? MockRuntimeAdapter.DEFAULT_SCENARIO
+        : options.scenario;
     if (typeof scenario !== 'string') {
       return { ok: false, message: `Option "scenario" is required. Available: ${available}.` };
     }
@@ -168,7 +174,11 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     }
     const validation = this.validateStartOptions(request.options, request.model_ref);
     if (!validation.ok) throw new RuntimeActionError('invalid_runtime_options', validation.message);
-    const scenario = this.#scenarios.get(request.options.scenario as string);
+    const scenarioId =
+      request.options.scenario === undefined
+        ? MockRuntimeAdapter.DEFAULT_SCENARIO
+        : (request.options.scenario as string);
+    const scenario = this.#scenarios.get(scenarioId);
     if (scenario === undefined) {
       throw new RuntimeActionError(
         'invalid_runtime_options',
