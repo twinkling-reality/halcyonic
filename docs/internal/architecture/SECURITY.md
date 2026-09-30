@@ -2,17 +2,21 @@
 
 ## Scope today
 
-The control plane runs on the developer's own machine and serves loopback only. The threats it
-defends against now are:
+The control plane runs on the developer's own machine and serves loopback by default. When the
+owner turns it on, a second listener serves devices paired with it over the local network, TLS
+only ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), "Devices on the
+network" below). The threats it defends against now are:
 
-- web pages in a browser on the same machine (cross-site requests, DNS rebinding, cross-site
-  WebSocket hijacking);
+- web pages in a browser on the same machine, or on another machine on the network (cross-site
+  requests, DNS rebinding, cross-site WebSocket hijacking);
 - other local user accounts;
+- other devices on the same network, including one that intercepts traffic;
+- a paired device that is lost or stolen, once the owner revokes it;
 - malformed or malicious input on every interface;
 - leaking secrets or work content into logs.
 
 It is not a sandbox against other processes running as the same user; those can read the token,
-as with Salidium.
+the network listener's key and the journal, as with Salidium.
 
 When the Claude Agent runtime is enabled, the Anthropic API key (from the environment, or else
 from `<data dir>/anthropic-api-key`, refused when other users can read it) or cloud provider
@@ -68,15 +72,19 @@ logged or passed to launched agents:
 | Control | Implementation |
 | --- | --- |
 | Loopback only | `HALCYONIC_HOST` must be `127.0.0.1`, `::1` or `localhost`; anything else is refused at startup |
-| DNS rebinding | Every request's `Host` must name this server's loopback address and port, otherwise 403 |
-| Browser requests | Any `Origin` header or `Sec-Fetch-Site: cross-site` is refused with 403, which also blocks browser WebSocket upgrades |
-| Authentication | A bearer token on every request and WebSocket upgrade except `/api/health`; compared in constant time |
+| DNS rebinding | Every request's `Host` must name this server's loopback address and port, otherwise 403; on the network listener, an IP address or a `.local` name with the listener's port |
+| Browser requests | Any `Origin` header or `Sec-Fetch-Site: cross-site` is refused with 403, which also blocks browser WebSocket upgrades, on both listeners |
+| Authentication | Loopback: a bearer token on every request and WebSocket upgrade except `/api/health`; compared in constant time. Network listener: a paired device's credential, checked by its SHA-256 against the device registry, on everything except `/api/health` and `/pair`; the access token is never accepted there |
 | Token storage | 32 random bytes in `<data dir>/access-token`, mode 0600; created once; never logged; `authorization` headers are redacted from logs |
+| Network listener | Off unless `HALCYONIC_NETWORK_HOST` names an IP address; TLS only (1.2 or later), with a self-signed ECDSA P-256 certificate generated once into `<data dir>/network-key.pem` and `network-certificate.pem`, mode 0600; the key is never logged |
+| Pairing | Opened only from loopback with the access token (`pnpm pair`), one window at a time, for five minutes, closed by the first device that pairs, by three failed proofs, or by the owner; an eight-digit code, never logged or journaled; SRP-6a (RFC 5054, 3072-bit group, SHA-256) with the TLS certificate bound into both proofs; `/pair` refused outside a window before any cryptography; four exchanges at once, one per address, six connections per address a minute, 30 seconds each |
+| Device credentials | 32 random bytes per device (`hlcd_` and base64url), sent once, encrypted under the SRP session key inside TLS; the journal keeps only their SHA-256; revoked from loopback (`pnpm devices revoke`) or by the device itself, at once, closing its realtime connections |
+| Failed credentials | 30 refused credentials from one address in a minute, and it gets 429 for the rest of the minute |
 | Content types | JSON only; `text/plain` and form bodies are refused with 415 |
 | Input validation | Every command, client message and query is validated against the contracts |
 | Size limits | 1 MiB request bodies; 256 KiB WebSocket messages; slow WebSocket clients are disconnected |
 | Data at rest | Data directory mode 0700; journal, WAL and SHM files mode 0600 |
-| Logging | Log context carries identifiers only, never tokens, instructions or agent text |
+| Logging | Log context carries identifiers only, never tokens, pairing codes, device credentials or their hashes, keys, instructions or agent text |
 | Agent working directories | Only directories whose real path lies under `HALCYONIC_PROJECT_ROOTS`; `..` and symbolic links cannot escape a root; with no roots configured, no real runtime can start |
 | Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options, and so are Codex's approval policy `never`, its granular policies and `danger-full-access` with `on-request`, under which Codex runs every command it does not flag as dangerous without asking |
 | Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode and Codex servers are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal. Codex starts each command in a session of its own, beyond the reach of a signal to its server's process group: ending the server's input makes Codex stop them, and a server that has to be killed is killed with all its descendants. A Codex server killed by anything else leaves its running commands behind |
@@ -85,31 +93,78 @@ logged or passed to launched agents:
 
 ## Authorization
 
-There is one principal today: whoever holds the local token. Every accepted command records its
-policy category (`low_consequence`, `review_required`, `high_consequence`) and the client's
-self-declared identity, which is recorded for audit and never trusted. Categories do not yet
-restrict anyone. No `high_consequence` command exists; merge, deploy, delete and destructive
-commands must not be added until explicit human confirmation and per-device authorization exist.
+There are two kinds of principal: `local`, whoever holds the access token, which only loopback
+accepts, and `device`, a paired device, which only the network listener accepts. Every command
+records the principal that sent it, as the control plane authenticated it, beside the client's
+self-declared identity, which is recorded for audit and never trusted. What differs between them
+today is device management: opening a pairing window, listing devices and revoking one are served
+on loopback only, and a device can revoke no credential but its own. Commands are admitted alike
+for both. Every accepted command records its policy category (`low_consequence`,
+`review_required`, `high_consequence`); categories do not yet restrict anyone. No
+`high_consequence` command exists; merge, deploy, delete and destructive commands must not be added
+until explicit human confirmation and a policy that tells principals apart exist.
 
 A conversational model must never turn vague speech into permission for an irreversible action.
 
 ## Audit
 
-The journal is the audit log. For each command it records the full command, when it was received
-and through which transport, its policy category, the admission decision, and the runtime
-confirmed outcome or failure (including whether the effect is unknown). Instructions are work
-content and are journaled locally; they are never logged.
+The journal is the audit log. For each command it records the full command, when it was received,
+through which transport and from which principal, its policy category, the admission decision,
+and the runtime confirmed outcome or failure (including whether the effect is unknown). Commands
+journaled before principals were recorded read with a null principal. Pairing and revoking
+devices are journaled too (`device.paired`, `device.revoked`, [EVENTS.md](EVENTS.md)); pairing
+windows and failed attempts are logged, without the code. Instructions are work content and are
+journaled locally; they are never logged.
+
+## Devices on the network
+
+What each party can do with the network listener on
+([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md),
+[network-pairing.md](../validation/network-pairing.md)):
+
+- **A hostile device on the same network** sees that a TLS service listens on the port, and its
+  self-signed certificate. Without a credential it gets `/api/health` and nothing else. It cannot
+  pair outside a window the owner opened; inside one it gets three guesses at an eight-digit code
+  in all, so one chance in 33 million, and SRP gives it nothing to test offline, even when it sits
+  in the middle and relays every message: the device binds the certificate it saw into its proof,
+  and the relay's is not the control plane's. It cannot read or change a paired device's traffic,
+  because the device refuses any certificate but the one it pinned before sending anything. It can
+  deny service: flood the port, use up a window's three attempts (the owner sees the window close
+  after three failures), or block traffic.
+- **A stolen or lost headset** holds its credential in app-internal storage and can do whatever
+  its owner could over that network, until the owner revokes it with `pnpm devices revoke`, which
+  refuses the credential and closes its connections at once. It reaches the control plane only
+  where the listener is reachable, the owner's network. A development build is debuggable, so
+  anyone with `adb` access to the unlocked headset can read the credential with `run-as`; the
+  headset's own lock is the first defense. It holds no provider key, repository secret or SSH
+  key.
+- **A web page**, on this machine or another, cannot drive either listener: both refuse any
+  `Origin` and cross-site fetches, the network listener refuses `Host` names other than addresses
+  and `.local` names, and browsers refuse its self-signed certificate.
+- **Another account on this machine** can reach the network listener as a device on the network
+  can. It cannot read the data directory (mode 0700), so neither the access token nor the key.
+- **Someone who sees the code** during the five minutes it is valid, and is on the network, could
+  pair first. `pnpm pair` names the device that paired; revoke it and pair again.
+
+Remaining risks: a device that pairs again gets a second credential, and the first stays valid
+until revoked; credentials do not expire; the device's label is self-declared; nothing limits how
+many connections a paired device opens.
 
 ## Not yet built
 
-Required before Halcyonic serves anything beyond this machine:
-
-- **Device pairing**: short-lived enrollment credentials, then a persistent per-device identity.
-- **Encrypted transport** for any non-loopback connection.
-- **Per-device authorization** that enforces policy categories.
 - **Remote relay**, where the developer's machine connects outward and nothing is exposed
-  unauthenticated.
-- **Token rotation** other than deleting the token file.
+  unauthenticated. Pairing is for the local network only.
+- **Policy per principal**, for example a `high_consequence` command that only the local principal,
+  or a confirmation on the Mac, may send.
+- **Rotation**: a device credential rotates by revoking it and pairing again, and the listener's
+  certificate by deleting its key and certificate, after which every device pairs again; the
+  access token still rotates only by deleting its file. Nothing expires.
+- **Keystore protection** of the credential on the headset, and discovery without typing the
+  address (mDNS).
+
+Device pairing, encrypted transport for devices on the network, and per-device identity exist
+([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); serving anything to the
+internet still needs the relay and more.
 
 Provider credentials (Anthropic, OpenAI and others) must stay with the runtime on the machine that
 needs them. XR clients must never receive provider keys, repository secrets or SSH keys.

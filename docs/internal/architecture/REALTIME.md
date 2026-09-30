@@ -4,9 +4,10 @@ REST bootstraps, pages history and accepts commands. The WebSocket carries live 
 commands and acknowledgements. Why both, and why not SSE, polling, WebRTC or MQTT:
 [ADR 0003](../decisions/0003-rest-bootstrap-and-websocket-realtime.md).
 
-All payloads are defined in `packages/contracts` (`api.ts`, `realtime.ts`) and published in the
-generated JSON Schema. Every request needs `Authorization: Bearer <token>` except `/api/health`;
-see [SECURITY.md](SECURITY.md).
+All payloads are defined in `packages/contracts` (`api.ts`, `realtime.ts`, `devices.ts`) and
+published in the generated JSON Schema. On loopback, every request needs
+`Authorization: Bearer <token>` except `/api/health`; on the network listener, a paired device's
+credential instead (below, and [SECURITY.md](SECURITY.md)).
 
 ## REST
 
@@ -21,6 +22,11 @@ see [SECURITY.md](SECURITY.md).
 | `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution |
 | `GET /api/executions/:execution_id/evaluation` | What Seorak measured about the execution's session (estimated cost, outcome, verification runs), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. Each answer spends three of Seorak's 60 requests a minute, so fetch it on demand, for example when a workstream is opened, and never poll |
 | `POST /api/commands` | Submits a `CommandEnvelope` (JSON only) |
+| `POST /api/pairing` | Loopback only. Opens a pairing window: `PairingOpenedResponse`, with the code, the window's status and where devices reach the network listener; 409 `network_off` while the listener is off |
+| `GET /api/pairing`, `DELETE /api/pairing` | Loopback only. The window's `PairingStatus` (never the code); `DELETE` closes it |
+| `GET /api/devices` | Loopback only. `DevicesResponse`: every device paired, revoked ones included, and which have a realtime connection open |
+| `POST /api/devices/:device_id/revoke` | Loopback only. Revokes the device (again is harmless) and answers its `DeviceView`; 404 for a device never paired |
+| `POST /api/device/revoke` | Network listener only. The calling device revokes its own credential, as forgetting the control plane does; 204 |
 
 Command submission answers honestly:
 
@@ -64,6 +70,9 @@ client                                   server
 - **Resume.** If the client's cursor names this journal and the current head, the server answers
   `resumed: true` and sends no snapshot. Otherwise it sends a fresh snapshot. Missed history is
   available from `GET /api/events`.
+- **Device events stay home.** `device.paired` and `device.revoked` are journaled like every
+  event, but no client receives them over this stream: they carry no work. The gap they leave in
+  positions is harmless, as any gap is.
 - **Events carry their effects.** Each `event` message includes `changes`: the current state of
   every project, workstream, execution and command the event changed. Clients replace their copies
   wholesale and never re-implement the projection.
@@ -103,3 +112,50 @@ one only there, but the recorded demonstration sends its beginning's snapshot ag
 connection, each time it starts again. That snapshot names the same journal at an earlier position:
 the client's history and commands from after that position no longer apply, and the XR client
 core reports it as a rewind (`StateChanges.Rewound`).
+
+## The network listener
+
+With `HALCYONIC_NETWORK_HOST` set, the control plane also listens for paired devices, TLS only,
+with its own certificate ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
+It serves `GET /api/health`, the pairing WebSocket `GET /pair`, and to a paired device's credential
+the REST reads, `POST /api/commands`, `POST /api/device/revoke` and `GET /realtime`, exactly as on
+loopback, with the device as every command's principal. It serves nothing that manages devices,
+and it never accepts the access token. `Host` must be an IP address or a `.local` name with the
+listener's port.
+
+A device refuses any certificate but the one it pinned when it paired, before it sends anything.
+A refused upgrade answers with the error shape above, such as 401 `device_revoked`, so a device
+can say why.
+
+## Pairing: `GET /pair`
+
+JSON text messages on the network listener, pairing protocol version 1, one exchange per
+connection, which the control plane closes after its answer. Only while the owner has a window
+open (`pnpm pair`); otherwise the upgrade is refused with 403 `pairing_closed`, and a flood from one
+address with 429.
+
+```text
+device                                            control plane
+  │ pair_request {protocol, device_label}   ──>     │
+  │ <── pair_challenge {salt, server_public}        │  SRP-6a: fresh salt and B
+  │ pair_proof {client_public, proof}       ──>     │  A, and the device's proof
+  │ <── pair_accepted {device_id, credential, proof}│  or pair_refused {error, attempts_left}
+```
+
+- SRP-6a as RFC 5054 section 2 defines it, in its 3072-bit group with SHA-256, the user name
+  `halcyonic pairing` and the eight-digit code as the password. `A` and `B` are sent padded to
+  384 bytes, every binary value in standard base64.
+- Both proofs are HMAC-SHA-256 under `K = H(PAD(S))` over a transcript: SHA-256 of
+  `"halcyonic pairing 1\0"`, the label's length (4 bytes, big-endian) and UTF-8, the salt,
+  `PAD(A)`, `PAD(B)` and the SHA-256 of the TLS certificate (the device's as it saw it, the
+  control plane's its own). The device's proof is keyed with the label `client proof`, the control
+  plane's with `server proof` and also covers the device's proof, the device id and the sealed
+  credential. `credential` is the 32 credential bytes XORed with the HMAC labeled `credential`.
+- A wrong code, an intercepted connection, or an `A` of 0 mod N all answer `wrong_code` with the
+  attempts the window still allows; three close it. Other refusals: `pairing_closed`, `busy`,
+  `too_many_requests`, `timeout` (30 seconds per exchange), `unsupported_protocol`,
+  `invalid_message`.
+- The device keeps the credential as `hlcd_` and its base64url, and presents it as a bearer token.
+- `fixtures/pairing/vectors.json` holds a complete exchange for fixed inputs, which both
+  implementations reproduce.
+

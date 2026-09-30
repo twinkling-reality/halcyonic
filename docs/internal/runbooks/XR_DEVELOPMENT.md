@@ -288,8 +288,9 @@ adb reverse tcp:47800 tcp:47800
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
-The first launch creates the app's data directory, logs that it has no access token, and shows the
-recorded demonstration, labeled as such, which is what a headset without a control plane shows.
+The first launch creates the app's data directory, logs that it has neither a pairing nor an access
+token, and shows the recorded demonstration, labeled as such, which is what a headset without a
+control plane shows.
 Copy the token there and start the app again:
 
 ```bash
@@ -318,6 +319,68 @@ The token survives reinstalls. The control plane logs `realtime client connected
   plane or the demonstration is shown, and each change of connection status, and its
   `Halcyonic: room` lines what the room placement did and why. `adb logcat -s VrApi` reports the
   frame rate every second.
+
+### Pair over Wi-Fi
+
+A development build can pair with the control plane over the local network instead, with no cable
+([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)); release builds cannot.
+The Mac and the headset must be on the same network, and not a guest network that keeps devices
+apart. On the Mac, start the control plane with its network listener and open pairing
+([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md)):
+
+```bash
+HALCYONIC_NETWORK_HOST=0.0.0.0 pnpm dev
+pnpm pair        # in another terminal: prints the Mac's address and an eight-digit code
+```
+
+In the headset, with hands only:
+
+1. Low to your left, under the stage, pinch or poke **Pair with a Mac**.
+2. The system keyboard opens: type the address `pnpm pair` printed, such as `192.168.1.23:47801`,
+   and press Enter. The next time, the last address is already there.
+3. The number pad opens: type the eight digits and press Enter.
+4. The line above the button reads "Pairing with ...", then "Paired with the Mac at ... Connecting
+   over Wi-Fi.", and the stage connects to the control plane. `pnpm pair` names the headset and
+   ends.
+
+The pairing is kept in the app's internal storage and survives restarts and `adb install -r`; it
+takes the place of a pushed access token: with both, the app uses the pairing.
+
+- **Forget:** pinch **Forget this Mac**, then **Yes, forget this Mac** within six seconds. The Mac
+  stops accepting this headset (`pnpm devices` shows it revoked), and the app returns to the pushed
+  token, or to the demonstration.
+- **A new address:** if the Mac's address changes, forget it and pair again.
+- **Logs:** `adb logcat -s Unity | grep --line-buffered "Halcyonic: \(pairing\|paired\|forgot\|connecting over\|connection\)"`
+  shows what pairing did and each change of the connection, never the code or the credential.
+  To inspect the stored pairing on a debuggable build:
+  `adb shell run-as com.halcyonic.xr cat files/halcyonic-pairing.json` (it holds the credential;
+  keep it off screen recordings). `adb shell pm clear com.halcyonic.xr` deletes it with the rest
+  of the app's data.
+
+### Pairing checks on a Quest
+
+What the Mac cannot check ([network-pairing.md](../validation/network-pairing.md)):
+
+- **Pairing:** the steps above, seated, hands only. Both keyboards appear and can be used with
+  hands; the line is readable; the panel and the room controls do not cover the stage or each
+  other. The Mac lists the headset with a readable label (`pnpm devices`).
+- **Live over Wi-Fi:** with the USB cable unplugged, the line above the stage reads live, and
+  `pnpm demo` on the Mac moves the characters. Open a workspace: its activity includes what
+  happened before it opened, so REST works over the pinned connection. Approve something: the
+  control plane's log shows `realtime client connected` with the device id, and `pnpm devices`
+  shows the headset connected.
+- **A wrong code:** pair with a wrong code: "The code was not accepted ... 2 attempts left.", and
+  `pnpm pair` says a code was refused.
+- **Sleep and restart:** take the headset off until it sleeps and put it on again; it reconnects by
+  itself. Stop the app and start it: it reconnects over Wi-Fi without pairing again.
+- **Revoked on the Mac:** `pnpm devices revoke <id>`: the stage shows the last known state, and the
+  connection log says the device was revoked; then forget the Mac and pair again.
+- **Another identity:** stop the control plane, move `network-key.pem` and
+  `network-certificate.pem` aside in its data directory, start it again: the headset refuses to
+  connect and the connection log says the certificate is not the one it paired with. Put the files
+  back.
+- **Frame rate:** `adb logcat -s VrApi` stays at 72 fps while pairing, since the exchange runs in the
+  background.
 
 ### Captures and an unattended headset
 
@@ -435,9 +498,10 @@ adb logcat -s Unity | grep --line-buffered "Halcyonic: .*stage"
 
 ### The demonstration judges see
 
-A headset with no access token plays the recorded demonstration and follows your answers
-([XR_CLIENT.md](../architecture/XR_CLIENT.md)). To see it on a headset that has a token, move the
-token aside and start the app again; move it back afterwards:
+A headset with neither a pairing nor an access token plays the recorded demonstration and follows
+your answers ([XR_CLIENT.md](../architecture/XR_CLIENT.md)); a release build never pairs. To see it
+on a development build that has a token, move the token aside and start the app again, and on one
+that is paired, stop the Mac's control plane first; move the token back afterwards:
 
 ```bash
 adb shell mv /sdcard/Android/data/com.halcyonic.xr/files/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token.off
