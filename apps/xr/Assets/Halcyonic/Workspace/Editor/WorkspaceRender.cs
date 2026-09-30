@@ -198,6 +198,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Debug.Log("Halcyonic: workspace render " + name + ": drawn in the renders from the static atlas instead, since a headset draws them from the dynamic fallback: "
                         + string.Join(", ", swapped.Select(character => "U+" + ((int)character).ToString("X4", CultureInfo.InvariantCulture))) + ".");
                 }
+                failures.AddRange(AnswersTheQuestions(name, folder, camera, texture, root, panel, sections, characters, rect));
                 failures.AddRange(ShowsTextAsWritten(sections.View, name));
                 failures.AddRange(ShowsTheWholeRequest(name, folder, camera, texture, root, panel, sections));
                 failures.AddRange(ShowsUntrustedTextLiterally(name, folder, camera, texture, root, panel, sections, characters));
@@ -212,7 +213,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The person's eyes, looking 18 degrees down, with about a Quest 3's view.</summary>
-        private static Camera MakeCamera(Transform parent, Vector3 eyes, RenderTexture texture)
+        internal static Camera MakeCamera(Transform parent, Vector3 eyes, RenderTexture texture)
         {
             var go = new GameObject("Eyes") { tag = "MainCamera" };
             go.transform.SetParent(parent, false);
@@ -228,7 +229,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return camera;
         }
 
-        private static Texture2D Render(Camera camera, RenderTexture texture)
+        internal static Texture2D Render(Camera camera, RenderTexture texture)
         {
             camera.Render();
             var previous = RenderTexture.active;
@@ -241,7 +242,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The workspace's outline on the render, inset from its rounded edge.</summary>
-        private static RectInt ScreenRect(Camera camera, Transform panel)
+        internal static RectInt ScreenRect(Camera camera, Transform panel)
         {
             float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
             foreach (var corner in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) })
@@ -261,7 +262,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>How many pixels inside a rectangle differ between two renders, and the largest difference in any channel.</summary>
-        private static (int Changed, float Largest) Compare(Texture2D a, Texture2D b, RectInt rect)
+        internal static (int Changed, float Largest) Compare(Texture2D a, Texture2D b, RectInt rect)
         {
             var changed = 0;
             var largest = 0f;
@@ -280,7 +281,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>Whether any part of a character's body falls inside the workspace's outline on the render.</summary>
-        private static bool Covered(Camera camera, CharacterTarget target, RectInt rect)
+        internal static bool Covered(Camera camera, CharacterTarget target, RectInt rect)
         {
             var center = camera.WorldToScreenPoint(target.BodyPosition);
             var edge = camera.WorldToScreenPoint(target.BodyPosition + camera.transform.up * (CharacterView.BodyExtent * target.Scale));
@@ -294,7 +295,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The workspace as a Quest 3 shows it, to judge legibility: the eyes turned to its center, at
         /// about the headset's 25 pixels per degree near the middle of its lenses.
         /// </summary>
-        private static Texture2D CloseUp(Camera camera, RenderTexture texture, Transform panel)
+        internal static Texture2D CloseUp(Camera camera, RenderTexture texture, Transform panel)
         {
             var rotation = camera.transform.rotation;
             var fieldOfView = camera.fieldOfView;
@@ -361,6 +362,71 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             return new SectionPresentation(section.Kind, Swap(section.Provenance), section.ProvenanceTone,
                 section.Lines.Select(line => new SectionLine(Swap(line.Tag), Swap(line.Text), line.Tone, line.Detail)).ToList(), section.Simulated);
+        }
+
+        /// <summary>
+        /// What do you need from me? under the tabs, as it shows while a request waits, over the stage:
+        /// as opaque as the rest, nothing of it cut short, and then, with a section chosen, every
+        /// question whole on its tab, in two lines, with Refresh beside them in the same row.
+        /// </summary>
+        private static IEnumerable<string> AnswersTheQuestions(string name, string folder, Camera camera, RenderTexture texture, GameObject root,
+            WorkspacePanel panel, WorkspaceSections sections, List<(CharacterView View, CharacterTarget Target)> characters, RectInt rect)
+        {
+            var failures = new List<string>();
+            sections.ShowFixedNeed(new NeedAnswer("It asks for approval to use shell:", "Run make migrate", new[]
+            {
+                "Approve lets it go ahead. Deny refuses; it may try another way.",
+                "Either answer counts once the runtime confirms it.",
+                "Approve or Deny shows the whole request before you confirm.",
+            }));
+            ForceMeshes(root);
+            var withStage = Render(camera, texture);
+            foreach (var (view, _) in characters) view.gameObject.SetActive(false);
+            var alone = Render(camera, texture);
+            foreach (var (view, _) in characters) view.gameObject.SetActive(true);
+            File.WriteAllBytes(Path.Combine(folder, name + "-need.png"), withStage.EncodeToPNG());
+            var closeUp = CloseUp(camera, texture, panel.transform);
+            File.WriteAllBytes(Path.Combine(folder, name + "-need-closeup.png"), closeUp.EncodeToPNG());
+            var (changed, _) = Compare(withStage, alone, rect);
+            if (changed > 0) failures.Add(name + ": " + changed + " pixels of What do you need from me? change when the stage behind it is drawn.");
+            UnityEngine.Object.DestroyImmediate(closeUp);
+            UnityEngine.Object.DestroyImmediate(withStage);
+            UnityEngine.Object.DestroyImmediate(alone);
+            foreach (var label in sections.Need.Labels)
+            {
+                if (label.gameObject.activeInHierarchy && label.isTextTruncated) failures.Add(name + ": What do you need from me? cuts " + label.name + " short.");
+                if (label.gameObject.activeInHierarchy && label.rectTransform.localPosition.y - label.textInfo.lineCount * label.fontSize * 0.115f < WorkspacePanel.DetailsBottom - 0.002f)
+                {
+                    failures.Add(name + ": What do you need from me? runs " + label.name + " past the bottom of the workspace.");
+                }
+            }
+
+            // A section chosen while a request waits: four questions and Refresh share the row.
+            sections.ShowFixed(new SectionPresentation(SectionKind.Understanding, "From the understanding source, read just now", SectionTone.Secondary,
+                new[] { new SectionLine("observed", "Two files changed.", SectionTone.Normal) }, simulated: true));
+            ForceMeshes(root);
+            var tabs = sections.Tabs.ToList();
+            if (tabs.Count != 4) failures.Add(name + ": " + tabs.Count + " questions show on the tabs while a request waits, not four.");
+            var right = WorkspacePanel.DetailsLeft;
+            foreach (var tab in tabs)
+            {
+                tab.Label.ForceMeshUpdate();
+                if (tab.Label.isTextTruncated) failures.Add(name + ": the question " + tab.name + " is cut short on its tab.");
+                if (tab.Label.textInfo.lineCount != 2) failures.Add(name + ": the question " + tab.name + " takes " + tab.Label.textInfo.lineCount + " lines on its tab.");
+                right = Mathf.Max(right, tab.transform.localPosition.x + tab.Width / 2f);
+            }
+            var refresh = panel.transform.Find("Refresh");
+            var refreshLeft = refresh != null && refresh.gameObject.activeSelf
+                ? refresh.localPosition.x - refresh.GetComponent<PanelButton>().Width / 2f
+                : WorkspacePanel.DetailsLeft + WorkspacePanel.DetailsWidth;
+            if (refresh == null || !refresh.gameObject.activeSelf) failures.Add(name + ": Refresh does not show beside the questions.");
+            if (right > refreshLeft - 0.004f) failures.Add(name + ": the questions run into Refresh.");
+            Debug.Log("Halcyonic: workspace render " + name + ": the four questions end at " + right.ToString("0.000", CultureInfo.InvariantCulture)
+                + " and Refresh starts at " + refreshLeft.ToString("0.000", CultureInfo.InvariantCulture) + " of the panel's width.");
+            var tabsCloseUp = CloseUp(camera, texture, panel.transform);
+            File.WriteAllBytes(Path.Combine(folder, name + "-questions-closeup.png"), tabsCloseUp.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(tabsCloseUp);
+            return failures;
         }
 
         /// <summary>
@@ -472,7 +538,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (question.isTextTruncated) failures.Add(name + ": the confirmation's question is cut short: " + question.text);
                 failures.AddRange(ShowsLiterally(reader.Text, name + " request part " + part));
                 failures.AddRange(ShowsLiterally(question, name + " request part " + part));
-                failures.AddRange(ShowsLiterally(Label(panel, "Attention"), name + " request part " + part));
+                failures.AddRange(ShowsLiterally(Label(panel, "Answer"), name + " request part " + part));
                 if (part > 1 && !last) continue;
                 var suffix = last ? "approval-last" : "approval";
                 if (!last)
@@ -525,7 +591,7 @@ namespace Halcyonic.XR.Workspace.Editor
             panel.Show(HostileContent(ControlsMode.Confirm));
             sections.ShowRequest(Hostile("request"));
             failures.AddRange(AllShowLiterally(root, name + " confirming"));
-            failures.AddRange(Carry(root, name + " confirming", "Title", "Execution", "Objective", "Attention", "Controls text", "Whole request", "Line"));
+            failures.AddRange(Carry(root, name + " confirming", "Title", "Execution", "Goal", "Answer", "Controls text", "Whole request", "Line"));
             var closeUp = CloseUp(camera, texture, panel.transform);
             File.WriteAllBytes(Path.Combine(folder, name + "-untrusted-closeup.png"), closeUp.EncodeToPNG());
             UnityEngine.Object.DestroyImmediate(closeUp);
@@ -555,13 +621,17 @@ namespace Halcyonic.XR.Workspace.Editor
             failures.AddRange(AllShowLiterally(root, name + " section"));
             failures.AddRange(Carry(root, name + " section", "Provenance", "Class 0", "Line 0"));
 
+            sections.ShowFixedNeed(new NeedAnswer("It asks for approval to use " + Hostile("tool") + ":", Hostile("need"), new[] { Hostile("note") }));
+            failures.AddRange(AllShowLiterally(root, name + " need"));
+            failures.AddRange(Carry(root, name + " need", "Asks", "Request", "What answers do"));
+
             failures.AddRange(CharacterShowsLiterally(root, name, camera));
             UnityEngine.Object.DestroyImmediate(peek.gameObject);
             return failures;
         }
 
         /// <summary>Every TextMeshPro label that shows now shows its text literally.</summary>
-        private static IEnumerable<string> AllShowLiterally(GameObject root, string what)
+        internal static IEnumerable<string> AllShowLiterally(GameObject root, string what)
         {
             ForceMeshes(root);
             var failures = new List<string>();
@@ -582,7 +652,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// the first of them and an ellipsis. It never uses italics or bold, for which this font has no
         /// ellipsis, so TextMeshPro would cut text short without one for good.
         /// </summary>
-        private static IEnumerable<string> ShowsLiterally(TMP_Text label, string what)
+        internal static IEnumerable<string> ShowsLiterally(TMP_Text label, string what)
         {
             var failures = new List<string>();
             var name = what + ": " + PathOf(label.transform);
@@ -711,7 +781,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// character and half a surrogate pair. Once the rule has shown it, every character is in the
         /// font's static atlas, so the check writes no glyph into the committed fallback font.
         /// </summary>
-        private static string Hostile(string field) =>
+        internal static string Hostile(string field) =>
             Marker + " " + field + " <alpha=#00>hidden</alpha><sprite=0><br>" + Char(0x0003) + "after the end " + Backslash + "u0041" + Backslash + "n"
             + Char(0x202E) + "desrever" + Char(0x200B) + Char(0xE0041) + "\r\n" + (char)0xD800 + " tail";
 
@@ -720,9 +790,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Title = Hostile("title"),
             Status = "Needs you · simulated",
             Execution = "On " + Hostile("runtime"),
-            Objective = "Objective: " + Hostile("objective"),
-            Attention = new[] { "Approval needed to use shell: " + Hostile("command"), "Failed: " + Hostile("failure") },
-            AttentionColor = new Color(0.96f, 0.77f, 0.32f),
+            Goal = "Goal: " + Hostile("objective"),
+            Answer = new[] { "Approval needed to use shell: " + Hostile("command"), "Failed: " + Hostile("failure") },
+            AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Mode = mode,
             Prompt = "Send this instruction? “" + Hostile("instruction") + "”",
             ConfirmLabel = WorkspaceText.ConfirmLabel(WorkspaceAction.Instruct),
@@ -771,9 +841,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Title = "Release the checkout service",
             Status = "Needs you · simulated",
             Execution = "On Simulated agent (render), simulated work · 1 turn",
-            Objective = "Objective: Build every package and upload the release.",
-            Attention = new[] { "Approval needed to use shell: " + command },
-            AttentionColor = new Color(0.96f, 0.77f, 0.32f),
+            Goal = "Goal: Build every package and upload the release.",
+            Answer = new[] { "Approval needed to use shell: " + command },
+            AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Mode = ControlsMode.Confirm,
             Prompt = canConfirm ? WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null) : WorkspaceText.ReadRequestFirst,
             ConfirmLabel = WorkspaceText.ConfirmLabel(WorkspaceAction.Approve),
@@ -863,7 +933,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static TMP_Text Label(Component parent, string name) =>
             parent.GetComponentsInChildren<TMP_Text>(true).First(label => label.name == name);
 
-        private static void ForceMeshes(GameObject root)
+        internal static void ForceMeshes(GameObject root)
         {
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true)) text.ForceMeshUpdate();
         }
@@ -900,14 +970,14 @@ namespace Halcyonic.XR.Workspace.Editor
             return last;
         }
 
-        private static string Degrees(float value) => value.ToString("0.0", CultureInfo.InvariantCulture);
+        internal static string Degrees(float value) => value.ToString("0.0", CultureInfo.InvariantCulture);
 
         /// <summary>
         /// Drawing TextMeshPro text in the editor upgrades the committed font asset to the current
         /// format in memory and marks it changed, and the editor would save it on the way out: a
         /// change to Unity's resources that this check must not make.
         /// </summary>
-        private static void KeepFontAssetsAsCommitted()
+        internal static void KeepFontAssetsAsCommitted()
         {
             foreach (var font in Resources.FindObjectsOfTypeAll<TMP_FontAsset>())
             {
@@ -923,7 +993,7 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>Characters with the demonstration's kind of titles, the middle one needing the person.</summary>
-        private static CharacterPresentation Presentation(string id, int slot)
+        internal static CharacterPresentation Presentation(string id, int slot)
         {
             var titles = new[]
             {
@@ -950,9 +1020,9 @@ namespace Halcyonic.XR.Workspace.Editor
             Title = "Add rate limiting to the sign-in endpoint",
             Status = "Needs you · simulated",
             Execution = "On Simulated agent (demonstration), simulated work · 1 turn",
-            Objective = "Objective: Limit sign-in attempts per address and per account.",
-            Attention = new[] { "Approval needed to use shell: Run make migrate" },
-            AttentionColor = new Color(0.96f, 0.77f, 0.32f),
+            Goal = "Goal: Limit sign-in attempts per address and per account.",
+            Answer = new[] { "Approval needed to use shell: Run make migrate" },
+            AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Actions = new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt },
             ActivityCaption = "Recent activity",
             Activity = new[]

@@ -41,6 +41,34 @@ namespace Halcyonic.XR.Workspace
             return (new Pose(eyes + forward * Reach, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }
 
+        /// <summary>
+        /// The pose of a panel of the workspace's size that belongs to no character, such as the
+        /// entry panel: where the person looks, and clear of every character's body as the workspace
+        /// is. It is placed as if beside the character nearest where the person looks, so it goes
+        /// below the characters 2.4 m away and above a desk lineup; with no characters it opens 15
+        /// degrees below eye level.
+        /// </summary>
+        public static (Pose Pose, PanelDirection Direction) PlaceForeground(IEnumerable<CharacterTarget> all, Vector3 eyes, Vector3 looking,
+            float? surfaceHeight, List<BodyInView> scratch)
+        {
+            scratch.Clear();
+            var lookYaw = Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg;
+            var size = new PanelSize(Reach, WorkspacePanel.Width / 2f * Scale, WorkspacePanel.Height / 2f * Scale);
+            BodyInView? nearest = null;
+            foreach (var other in all)
+            {
+                if (other == null) continue;
+                var body = InView(other, eyes);
+                scratch.Add(body);
+                if (nearest == null || Mathf.Abs(Mathf.DeltaAngle(lookYaw, body.Yaw)) < Mathf.Abs(Mathf.DeltaAngle(lookYaw, nearest.Value.Yaw))) nearest = body;
+            }
+            // Without characters, a point just above where its upper edge would be at rest: it opens below it.
+            var opened = nearest ?? new BodyInView(lookYaw, WorkspacePlacement.NaturalDegrees + size.HalfHeightDegrees + WorkspacePlacement.ClearanceDegrees, 0f);
+            var direction = WorkspacePlacement.Place(lookYaw, opened, scratch, size, surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null);
+            var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
+            return (new Pose(eyes + forward * Reach, Quaternion.LookRotation(forward, Vector3.up)), direction);
+        }
+
         /// <summary>A character's body as seen from the eyes: its direction, and how far around it the body reaches.</summary>
         public static BodyInView InView(CharacterTarget target, Vector3 eyes)
         {
