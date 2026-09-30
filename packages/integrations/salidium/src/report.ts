@@ -67,6 +67,8 @@ export function toUnderstanding(
 ): Understanding {
   const source: Source = {
     system: 'salidium',
+    // Read from Salidium. The recorded demonstration marks its stand-in's answers synthetic.
+    synthetic: false,
     version: discovery.salidium.version,
     contract: { name: contract.name, major: contract.major, minor: contract.minor },
     instance_id: discovery.instanceId,

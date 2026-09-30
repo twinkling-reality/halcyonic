@@ -102,7 +102,7 @@ describe('evaluating a session through Seorak', () => {
   test('resolves the native id in a POST body, then reads the outcome and verification lens', async (t) => {
     const fake = await start(t);
     const result = evaluation(await evaluate(fake));
-    assert.deepEqual(result.source, { system: 'seorak', api_version: 'v1' });
+    assert.deepEqual(result.source, { system: 'seorak', synthetic: false, api_version: 'v1' });
 
     const bearer = `Bearer ${fake.token}`;
     assert.deepEqual(
