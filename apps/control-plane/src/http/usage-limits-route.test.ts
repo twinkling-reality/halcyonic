@@ -79,6 +79,25 @@ describe('usage limits read through a stub Seorak', () => {
     assert.equal(body.reason.code, 'insufficient_scope');
   });
 
+  test('an agent id outside the pattern is dropped, never passed through', async () => {
+    seorak.scopes.add('limits:read');
+    seorak.usageLimits = usageLimitsDocument([
+      usageReading({ agent: 'codex\u202e<b>' }),
+      usageReading({ agent: 'x'.repeat(65) }),
+      usageReading({ agent: 'codex', window: 'rolling-5h' }),
+    ]);
+    const body = (await (await get()).json()) as UsageLimitsResponse;
+    assert.equal(body.availability, 'available');
+    if (body.availability !== 'available') return;
+    assert.deepEqual(
+      body.readings.map((reading) => [reading.agent, reading.window]),
+      [['codex', 'rolling-5h']],
+    );
+    seorak.usageLimits = usageLimitsDocument([usageReading({ agent: '../codex' })]);
+    const none = (await (await get()).json()) as UsageLimitsResponse;
+    assert.equal(none.availability, 'unavailable');
+  });
+
   test('no captured limit is unavailable, never a reading of 0%', async () => {
     seorak.scopes.add('limits:read');
     seorak.usageLimits = usageLimitsDocument([], 'not-captured');

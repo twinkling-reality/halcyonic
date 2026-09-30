@@ -38,9 +38,9 @@ public class UsageLeftTests
     {
         var glance = Present(Available);
         Assert.That(glance.Problem, Is.False);
-        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex, 5-hour window", "Codex, weekly window" }));
-        Assert.That(glance.Rows[0].Text, Is.EqualTo("At most 60% left, seen at 19:08, resets at 21:05"));
-        Assert.That(glance.Rows[1].Text, Is.EqualTo("At most 39% left, seen at 19:18, resets 6 Oct at 09:00"),
+        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex, 5-hour window", "Codex, weekly" }));
+        Assert.That(glance.Rows[0].Text, Is.EqualTo("At most 60% left, seen today at 19:08, resets today at 21:05"));
+        Assert.That(glance.Rows[1].Text, Is.EqualTo("At most 39% left, seen today at 19:18, resets 6 Oct at 09:00"),
             "38.5% rounds up so that at most stays true");
     }
 
@@ -71,7 +71,7 @@ public class UsageLeftTests
     public void DropsAWindowPastItsReset()
     {
         var glance = Present(Available, DateTimeOffset.Parse("2026-09-30T21:05:00Z"));
-        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex, weekly window" }));
+        Assert.That(glance.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Codex, weekly" }));
         var later = Present(Available, DateTimeOffset.Parse("2026-10-06T09:00:01Z"));
         Assert.That(later.Rows, Is.Empty);
         Assert.That(later.Note, Is.EqualTo("No reading since the last reset. Read again later."));
@@ -85,11 +85,21 @@ public class UsageLeftTests
     }
 
     [Test]
+    public void DaysAreJudgedInThePersonsZone()
+    {
+        // 19:18 UTC on 30 Sep is already 1 Oct in Tokyo; seen from there at 08:00 on 1 Oct, it was today.
+        var tokyo = TimeZoneInfo.CreateCustomTimeZone("UTC+9", TimeSpan.FromHours(9), "UTC+9", "UTC+9");
+        var glance = UsageLeftPresenter.Present(Json.AssertRoundTrips<UsageLimitsResponse>(Available),
+            DateTimeOffset.Parse("2026-09-30T23:00:00Z"), tokyo);
+        Assert.That(glance.Rows.Single().Text, Is.EqualTo("At most 39% left, seen today at 04:18, resets 6 Oct at 18:00"));
+    }
+
+    [Test]
     public void ShowsAnAgentsLabelAsPlainText()
     {
         var json = Available.Replace("\"label\": \"Codex\", \"window\": \"weekly\"", "\"label\": \"<b>Agent</b>\", \"window\": \"weekly\"");
         var glance = Present(json);
-        Assert.That(glance.Rows[1].Title, Is.EqualTo(LabelText.Plain("<b>Agent</b>") + ", weekly window"));
+        Assert.That(glance.Rows[1].Title, Is.EqualTo(LabelText.Plain("<b>Agent</b>") + ", weekly"));
     }
 
     [TestCase("unauthorized", "insufficient_scope")]

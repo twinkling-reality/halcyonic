@@ -192,7 +192,7 @@ the same definition names, as the JSON Schema document:
   demonstration.
 - **`ControlPlaneApi.GetUsageLimitsAsync`** reads the provider usage limits Seorak last observed,
   account wide (`GET /api/usage-limits`), and **`UsageLeftPresenter`** writes every word of the
-  Usage left glance. A reading says "At most X% left, seen at 15:18, resets 6 Oct at 09:00": the
+  Usage left glance. A reading says "At most X% left, seen today at 15:18, resets 6 Oct at 09:00", with the day named whenever it is not today in the person's time zone, and each row names the agent and window ("Codex, 5-hour window", "Codex, weekly"): the
   most that was left when the provider reported it, rounded up so that "at most" stays true, never
   a current value, never an allowance. A window past its reset, by the device's clock, is not
   shown. Under the readings, a note names the source ("From Seorak, as the provider reported", or
