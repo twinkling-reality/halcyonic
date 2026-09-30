@@ -92,7 +92,7 @@ namespace Halcyonic.Client
                 // Rounded up, so that "at most" stays true.
                 var left = (int)Math.Ceiling(100 - reading.UsedPercent);
                 rows.Add(new UsageLeftRow(
-                    IntelligenceText.Plain(reading.Label) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly window"),
+                    IntelligenceText.Plain(reading.Label) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly"),
                     "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left, seen " + When(observed, now, zone)
                         + ", resets " + When(resets, now, zone)));
             }
@@ -101,13 +101,13 @@ namespace Halcyonic.Client
                 : new UsageLeftPresentation(rows, (synthetic ? "Simulated, not from Seorak. " : "From Seorak, as the provider reported. ") + Unidentified, problem: false);
         }
 
-        /// <summary>"at 15:18" today in the person's zone, "6 Oct at 09:00" on another day.</summary>
+        /// <summary>"today at 15:18" in the person's zone, or "6 Oct at 09:00" on another day, so a time never reads as today when it is not.</summary>
         public static string When(DateTimeOffset at, DateTimeOffset now, TimeZoneInfo zone)
         {
             var local = TimeZoneInfo.ConvertTime(at, zone);
             var today = TimeZoneInfo.ConvertTime(now, zone).Date;
             return local.Date == today
-                ? "at " + local.ToString("HH:mm", CultureInfo.InvariantCulture)
+                ? "today at " + local.ToString("HH:mm", CultureInfo.InvariantCulture)
                 : local.ToString("d MMM 'at' HH:mm", CultureInfo.InvariantCulture);
         }
 

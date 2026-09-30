@@ -122,6 +122,10 @@ const Read = {
   freshness: EvaluationFreshness,
 };
 
+/**
+ * Names the Seorak source of a read and whether a stand-in produced it. Both Seorak reads carry it:
+ * an execution's evaluation and the account-wide provider usage limits (`UsageLimitsResponse`).
+ */
 export const EvaluationSource = Type.Object(
   {
     system: Type.Literal('seorak'),
