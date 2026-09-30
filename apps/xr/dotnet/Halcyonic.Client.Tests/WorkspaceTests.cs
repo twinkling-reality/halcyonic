@@ -210,6 +210,17 @@ public class WorkspacePresenterTests
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused: Nothing is running."));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
             Is.EqualTo("Failed: The runtime did not confirm. It may have taken effect anyway."));
+
+        // The recorded demonstration's answer is its own words: the recording continues with the
+        // answer it recorded, so "Refused" would contradict what plays next.
+        var demonstration = Command(CommandStatus.Rejected);
+        demonstration.Rejection = new CommandRejection
+        {
+            Code = RejectionCode.Demonstration,
+            Message = "Not sent to any agent; the recording continues as recorded for stopping the turn.",
+        };
+        Assert.That(WorkspacePresenter.Feedback(demonstration).Text, Is.EqualTo(demonstration.Rejection.Message));
+        Assert.That(WorkspacePresenter.Feedback(demonstration).Status, Is.EqualTo(CommandStatus.Rejected));
     }
 }
 

@@ -478,6 +478,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "capability_unsupported")] CapabilityUnsupported,
         [EnumMember(Value = "invalid_state")] InvalidState,
         [EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
+        [EnumMember(Value = "demonstration")] Demonstration,
     }
 
     public sealed class CommandRejection

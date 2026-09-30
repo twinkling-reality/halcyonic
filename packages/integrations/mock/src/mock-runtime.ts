@@ -37,7 +37,10 @@ export const MOCK_CAPABILITIES: RuntimeCapabilities = {
   interrupt: true,
 };
 
-/** Script for turns started by `sendInstruction`. It performs no work and says so. */
+/**
+ * Script for turns started by an instruction the scenario does not script. It performs no work and
+ * says so.
+ */
 const CONTINUATION_STEPS: readonly ScenarioStep[] = [
   {
     after_ms: 400,
@@ -54,6 +57,11 @@ const CONTINUATION_STEPS: readonly ScenarioStep[] = [
 export interface MockRuntimeOptions {
   readonly scenarios: ReadonlyMap<string, Scenario>;
   readonly runtimeId?: RuntimeId;
+  /**
+   * What clients call the runtime. Whatever the name, the descriptor stays `synthetic`, so every
+   * client still labels the work as simulated.
+   */
+  readonly displayName?: string;
   readonly clock?: Clock;
   readonly scheduler?: Scheduler;
 }
@@ -78,7 +86,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('mock' as RuntimeId),
       kind: 'mock',
-      display_name: 'Mock runtime (development fixture)',
+      display_name: options.displayName ?? 'Mock runtime (development fixture)',
       synthetic: true,
       capabilities: MOCK_CAPABILITIES,
     };
@@ -125,6 +133,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       request.emit,
       this.#clock,
       this.#scheduler,
+      new Map((scenario.instructions ?? []).map(({ text, steps }) => [text, steps])),
     );
     this.#sessions.set(request.execution.execution_id, session);
     session.begin(scenario.steps);
@@ -132,7 +141,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
   }
 
   async sendInstruction(request: { execution: ExecutionContext; text: string }): Promise<void> {
-    this.#session(request.execution).instruct();
+    this.#session(request.execution).instruct(request.text);
   }
 
   async respondToApproval(request: {
@@ -176,16 +185,25 @@ class MockSession {
   readonly #emitObservation: ObservationSink;
   readonly #clock: Clock;
   readonly #scheduler: Scheduler;
+  /** Turns scripted for particular instructions, by their exact text. */
+  readonly #instructions: ReadonlyMap<string, readonly ScenarioStep[]>;
   #sequence = 0;
   #turnCount = 0;
   #turn: ActiveTurn | null = null;
   #unreachable = false;
 
-  constructor(nativeId: string, emit: ObservationSink, clock: Clock, scheduler: Scheduler) {
+  constructor(
+    nativeId: string,
+    emit: ObservationSink,
+    clock: Clock,
+    scheduler: Scheduler,
+    instructions: ReadonlyMap<string, readonly ScenarioStep[]>,
+  ) {
     this.nativeId = nativeId;
     this.#emitObservation = emit;
     this.#clock = clock;
     this.#scheduler = scheduler;
+    this.#instructions = instructions;
   }
 
   begin(steps: readonly ScenarioStep[]): void {
@@ -193,7 +211,7 @@ class MockSession {
     this.#startTurn(steps);
   }
 
-  instruct(): void {
+  instruct(text: string): void {
     this.#assertReachable();
     if (this.#turn !== null) {
       throw new RuntimeActionError(
@@ -201,7 +219,7 @@ class MockSession {
         'The mock runtime only accepts instructions between turns.',
       );
     }
-    this.#startTurn(CONTINUATION_STEPS);
+    this.#startTurn(this.#instructions.get(text) ?? CONTINUATION_STEPS);
   }
 
   resolveApproval(approvalId: string, decision: ApprovalDecision): void {

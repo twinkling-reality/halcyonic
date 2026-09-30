@@ -125,9 +125,10 @@ namespace Halcyonic.XR.Workspace
             if (changes.Resynchronized)
             {
                 var current = session.State.Journal?.JournalId;
-                if (current != journalId)
+                if (current != journalId || changes.Rewound)
                 {
-                    // Positions and commands from another journal mean nothing here.
+                    // Positions and commands from another journal, or from a demonstration that
+                    // started again, mean nothing here.
                     activity.Clear();
                     submissions.Clear();
                     journalId = current;
@@ -372,7 +373,7 @@ namespace Halcyonic.XR.Workspace
             else if (workspace.Presets)
             {
                 content.Mode = ControlsMode.Presets;
-                content.Presets = WorkspaceText.PresetInstructions;
+                content.Presets = workspace.Recorded?.Count > 0 ? workspace.Recorded : WorkspaceText.PresetInstructions;
             }
             else if (steering.Typing)
             {
@@ -439,6 +440,15 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void OpenKeyboard(Opened workspace)
         {
+            // The recorded demonstration follows only the instructions it recorded, so it offers those.
+            var execution = workspace.Now?.Execution?.ExecutionId;
+            workspace.Recorded = execution == null ? null : connection.DemonstrationInstructions(execution);
+            if (workspace.Recorded?.Count > 0)
+            {
+                workspace.Steering.StopTyping();
+                workspace.Presets = true;
+                return;
+            }
             if (TouchScreenKeyboard.isSupported)
             {
                 workspace.Keyboard = TouchScreenKeyboard.Open("", TouchScreenKeyboardType.Default, true, false, false, false,
@@ -570,6 +580,9 @@ namespace Halcyonic.XR.Workspace
             public TouchScreenKeyboard? Keyboard { get; set; }
 
             public bool Presets { get; set; }
+
+            /// <summary>The instructions the recorded demonstration offers here, shown as the presets.</summary>
+            public IReadOnlyList<PresetInstruction>? Recorded { get; set; }
 
             public string? Notice { get; set; }
 
