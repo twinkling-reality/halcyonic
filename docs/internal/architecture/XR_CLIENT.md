@@ -17,6 +17,8 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             CharacterIdentity, CharacterLineup,
         │                             WorkspacePresenter, WorkspaceText,
         │                             WorkspaceSteering, CommandSubmissions,
+        │                             PeekChoice, WorkspacePlacement, SeatedPointing,
+        │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, CommandFactory,
         │                             DemonstrationRecording, DemonstrationPlayer,
         │                             DemonstrationTransport, DemonstrationFallback,
@@ -119,6 +121,33 @@ the same definition names, as the JSON Schema document:
   a separate button whose question names what will be sent; the confirmation lapses after 15
   seconds, when the action is no longer offered, or when its approval is no longer pending, and
   says so. Instruct asks for text first, and an empty text sends nothing.
+- **`PeekChoice`** decides, frame by frame, which one character shows its peek, how visible it is,
+  and what a look and pinch opens. A hand pointing at a character, or a finger about to poke it,
+  peeks at once. The gaze peeks only after resting half a second on one character within 7 degrees
+  of where the head faces, and starts over while the head turns faster than 20 degrees a second,
+  so turning the head across the stage brings up nothing. A peek fades in over 0.25 s and out over
+  0.15 s, only one shows at a time, and a glance aside keeps it 0.3 s. The open character is never
+  peeked, and while a workspace is open only hands peek. A pinch of either hand opens a character
+  only while its gaze peek is at least half visible, no hand ray or finger is on any target, no
+  workspace is open, and the app has focus.
+- **`WorkspacePlacement`** chooses where the workspace opens, seen from the eyes: toward its
+  character, at most 15 degrees to the side of where the person looks, and clear of every
+  character's body, below the ones it passes or above them, whichever keeps its center between 30
+  degrees below and 2 degrees above eye level (the nearer to 15 degrees down when both do); never so
+  low that its lower edge comes within 5 cm of the surface the characters stand on. Where neither
+  clears, it moves the least into the band and may cover a body.
+- **`SeatedPointing`** makes a hand ray for a seated person: through the index knuckle from a pivot
+  0.40 m below the eyes, 0.10 m behind them and 0.13 m to the hand's side, so a hand resting a
+  little above a desk points ahead; on only while the hand is tracked with high confidence, in
+  front of the eyes, its palm neither facing the floor (resting or typing) nor facing the eyes (the
+  system gesture) ([workspace-interaction.md](../validation/workspace-interaction.md)).
+- **`InFrontPlacement`** decides when the stage, standing in front of the person, is placed again:
+  when the session starts and the head is tracked, after a real pause, when the person recenters,
+  and after a head jump no person makes. A reference space change counts only when the head jumps
+  within one frame, farther and faster than a head moves; one that moves nothing, as those that come
+  in bursts while system windows take and give back focus, never moves the stage. When the
+  tracking space does move, the stage moves with it at once, so it stays where it was around the
+  person, and only a move with no focus change around it counts as a recenter.
 - **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
   as a claim. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
@@ -221,6 +250,18 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the workspace's words and peek, steering with its confirmations and their lapses, and command
   submissions through a session against the in-memory server (accepted, refused, cut off, not
   connected);
+- the peek at 72 frames a second: nothing while the head sweeps the stage or turns slowly, a peek
+  after half a second of rest near the middle of the view, a glance aside kept, one peek at a time
+  fading out before the next fades in, hands at once and first, nothing for the open character or
+  from the gaze while a workspace is open or focus is lost, and a look and pinch only on a showing
+  gaze peek with no hand on a target; the seated ray reaching the arc 2.4 m away and a desk
+  lineup from a relaxed hand, where the headset's shoulder ray cannot, and off for hands resting or
+  typing palm down, for the system gesture, beside the head or untracked, with low hands pointing
+  at the floor; the workspace clear below the arc and above a desk lineup, in the band, above the
+  desk, near where the person looks, and the least move where nothing clears; the stage kept
+  through a half minute of focus flaps with reference space changes, moved with a tracking space
+  that jumps, placed in front after a recenter with no focus change, after a jump no head makes and
+  after a real pause, and never for natural head motion or a long frame;
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
   answer without one, and a refusal;
 - the room placement's choices: a desk in front taking the lineup on its near half with the whole
@@ -305,11 +346,16 @@ scripts use only long-stable core Unity APIs:
   three are serialized settings, and characters and labels scale with the distance, so they keep
   their apparent size. A character the lineup moves glides along the arc, swinging out behind the
   others. Everything is looked at and pointed at from the seat; nothing needs the person to stand
-  or reach. The arc is placed at the person's head, facing where
-  they face, when the session starts and the head is tracked, when the tracking origin changes
-  (a recenter or a new boundary, through `XRInputSubsystem.trackingOriginUpdated`), when the app
-  resumes, and when the head seems to jump farther in one frame than a person can move; the log
-  says why each time. An `IStagePlacementSource` on the stage object, such as a room placement
+  or reach. The arc is placed at the person's head, facing where they face, when
+  `InFrontPlacement` says so, fed by `PersonPlacement` with the head's pose, whether it is tracked,
+  focus changes, pauses and the runtime's reference space changes
+  (`XRInputSubsystem.trackingOriginUpdated`): at the start, after a real pause, when the person
+  recenters, and after a head jump no person makes. Reference space changes that move nothing,
+  as the bursts that come while system windows take and give back focus, never move it; a tracking
+  space that does move takes the stage with it, so it stays where it was around the person. The
+  log says which: `placed the stage in front of the person because ...`, `moved the stage with the
+  tracking space ...`, or `kept the stage where it stands: ...`. `SurfaceHeight` says how high the
+  surface the characters stand on is, for the workspace. An `IStagePlacementSource` on the stage object, such as a room placement
   that found the person's desk, can give it a surface instead: the pose's position is where the
   middle of the lineup stands, the arc curves around the person's side of it at their distance
   when the pose arrived, and every label plate rests on the surface. While that pose is set, only
@@ -345,15 +391,18 @@ targets; the room's controls reuse its `PanelButton`. Three levels of detail sho
 all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)):
 
 - **Ambient:** the characters as the stage shows them.
-- **Peek:** while the person looks at a character, or a hand ray (or a finger about to poke)
-  points at it, `PeekLabel` shows one line beside it, on the side toward the middle of the view:
-  `WorkspaceText.Peek`. A hand pointing wins over the gaze, and while a workspace is open only a
-  hand peeks, so reading the workspace never pops up peeks behind it.
-- **Open:** a pinch on the ray, or a poke, opens `WorkspacePanel` next to that character in view
-  and within reach, facing the eyes. It shows the title and status, the execution and its runtime,
+- **Peek:** once the person's gaze has rested on a character, or at once while a hand ray (or a
+  finger about to poke) points at it, `PeekLabel` fades in one line beside it, on the side toward
+  the middle of the view: `WorkspaceText.Peek`. `PeekChoice` decides which and when: turning the
+  head across the stage peeks nothing, one peek shows at a time, a hand pointing wins over the
+  gaze, and while a workspace is open only a hand peeks, so reading the workspace never brings up
+  peeks behind it.
+- **Open:** a pinch on the ray, a poke, or, while a gaze peek shows and no hand ray or finger is on
+  a target, a pinch of either hand at any height (look and pinch) opens `WorkspacePanel` next to
+  that character, within reach and clear of the other characters, facing the eyes. It shows the title and status, the execution and its runtime,
   the objective, what needs the person, the actions offered (with a confirmation step on a separate
   button where the policy asks for one), how requests are going, and the recent activity with
-  agent text in italics as a claim. Collapse, or a second pinch on the character, returns to
+  agent text in italics as a claim. Collapse, or pointing at the character and pinching again, returns to
   ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
@@ -361,8 +410,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
 the ray and the gaze, which neighbours on the arc never share, and a surface just in front of it,
-facing the person, for a poke. While a character is peeked at or open it looks at the person
-(`CharacterView.LookAtPerson`). Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the
+facing the person, for a poke; on a desk its poke hovers only for a finger within 0.06 of its
+scale, since typing hands are near. While a character's peek is wanted or it is open it looks at
+the person (`CharacterView.LookAtPerson`). Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the
 panel, whose background takes the ray so nothing behind it is pointed at. The director keeps an
 `ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
 it opens and after a resynchronization (saying so in the activity caption while it reads, or why
@@ -377,34 +427,46 @@ or a rewind it drops its activity and submissions, which no longer apply. Nothin
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
 after the keyboard closes.
 
-**Gaze.** `GazeHover` adds an Interaction SDK gaze interactor (`GazeInteractor`, v207) that hovers
-the `GazeInteractable` on each character and never selects. It follows the scene's
-`GazeConecaster` (a 2 degree cone, 0.2 s dwell) on Meta's `EyeGaze`, whose camera pose emulation
-makes it head gaze: a Quest 3 has no eye tracking, and the app does not ask for it. Opening stays
-with the hand ray's pinch and the poke, so a look never acts by itself, and where there is no gaze
-the hand ray still peeks. Verified in the SDK's source and in the editor, not yet on a headset
+**Gaze, and look and pinch.** `GazeHover` adds an Interaction SDK gaze interactor
+(`GazeInteractor`, v207) that hovers the `GazeInteractable` on each character. It follows the
+scene's `GazeConecaster` (a 2 degree cone, 0.2 s dwell) on Meta's `EyeGaze`, whose camera pose
+emulation makes it head gaze: a Quest 3 has no eye tracking, and the app does not ask for it.
+`GazeHover` is also the interactor's selector, as the SDK's hand gaze interactor pairs gaze with a
+pinch: an `IndexPinchSelector` on each hand selects, but only while `PeekChoice` says a gaze peek
+shows and no hand ray or finger is on a target, and never while the pinching palm faces the eyes,
+the headset's menu gesture; the director opens the character only if it is the one the pinch was
+for. A look alone never acts, and where there is no gaze the hand ray still peeks. Verified in the
+SDK's source and in the editor, not yet on a headset
 ([workspace-interaction.md](../validation/workspace-interaction.md)).
 
-**Seated, and within reach.** The workspace opens 0.6 m from the eyes, about two feet, so a seated
-person pokes its buttons without leaning or standing. It is scaled to keep its designed angular
-size, which puts its buttons about 33 mm tall there. It opens below the character, clear of its
-body, or above it where below would leave the comfortable band. When neither fits, as for a
-character resting just below eye level on the stage's arc, it takes the side that needs less
-moving and may cover part of the character; a character that needs the person rises toward eye
-level, and its workspace opens clear below it.
+**Seated rays.** The rig's hand rays are `SeatedHandRay`s (`SeatedPointing`): through the index
+knuckle from a pivot below the shoulder, so a person seated with a forearm resting points at the
+characters without raising a hand to shoulder height, which the headset's own ray needs; a palm
+facing the floor, resting or typing, has no ray.
+
+**Seated, and within reach, clear of the stage.** The workspace opens 0.6 m from the eyes, about
+two feet, so a seated person pokes its buttons without leaning or standing. It is scaled to keep
+its designed angular size, which puts its buttons about 33 mm tall there. `WorkspaceLayout` hands
+every character's body, as seen from the eyes, to `WorkspacePlacement`, which opens it clear of all
+of them: with the characters 2.4 m away, below them, its center 30 degrees down, over the labels of
+the characters it passes but none of their bodies; with the characters on a desk half a meter
+away, above them, its center 10 to 15 degrees down, its lower edge at least 5 cm above the desk.
+The rest of the stage stays in view. `WorkspaceRender` renders both in the editor and checks it.
 
 **Field of view.** The workspace spans about 34 by 27 degrees wherever it opens. Its center stays
-within 15 degrees of where the person looks, and between 24 degrees below and 2 degrees above eye
-level, so all of it, controls included, sits in the comfortable middle of a narrower field of view
-than the Quest 3's (as on a Quest 3S), never at an edge. The peek is one line, and the hint three
-words.
+within 15 degrees of where the person looks, and between 30 degrees below and 2 degrees above eye
+level, so all of it, controls included, sits in the middle of a narrower field of view than the
+Quest 3's (as on a Quest 3S), never at an edge; with the characters 2.4 m away, its actions row
+is about 20 degrees below them, and its activity lines, at the bottom, may need the head tilted
+down a little. The peek is one line, and the hint three words.
 
-**Hands first.** Everything works with hands alone: pointing, pinching and poking, and typing on
-the system keyboard. The rig supports controllers, but nothing needs one.
+**Hands first.** Everything works with hands alone: pointing, pinching and poking, looking and
+pinching, and typing on the system keyboard. The rig supports controllers, but nothing needs one.
 
 **First time.** Until the person first opens a workspace on the device, `OnboardingHint` shows a
-thumb and index finger closing into a pinch, with "Pinch to open", above the first character that
-needs them; opening any workspace retires it for good (a player preference, not state).
+thumb and index finger closing into a pinch, with "Look, then pinch", above the first character
+that needs them; opening any workspace, by any of the three ways, retires it for good (a player
+preference, not state).
 
 **Words.** The app's own words name no brand (a test checks them); names in the data, such as a
 runtime's display name, are shown as they arrive.
@@ -415,8 +477,9 @@ the same: body text has an x-height near 0.55 degrees (about 14 pixels), the sma
 10 pixels, buttons are about 3 degrees tall. Text is TextMeshPro with Liberation Sans SDF, never
 parsing markup, since it shows text from agents and tools. Plates and lines use `Sprites/Default`,
 an always-included shader; the TextMeshPro shader reaches the build through the font asset in
-`Resources`. The workspace draws after everything at the characters' distance, so nothing behind it
-shows through.
+`Resources`. The workspace's plate is opaque and draws after everything at the characters'
+distance, so nothing behind it shows through: at 95 percent, in the project's linear color space,
+white labels behind it read through it.
 
 Instructions are typed on the Quest system keyboard (`TouchScreenKeyboard`, with Require System
 Keyboard on in `OculusProjectConfig`, from which Meta's build step adds
@@ -627,7 +690,15 @@ longer draws, as Meta's wizard does, and the rig's locomotion (hand microgesture
 sticks, and the locomotor with its tunneling) is deactivated, because the stage is stationary.
 `FocusGuard` hides the rig's hands and controllers and deactivates its interactors. `StageSetup`
 also adds the SDK's gaze as its gaze quick action builds it, Meta's eye gaze prefab beside the
-rig's HMD with a `GazeConecaster`, and turns on its camera pose emulation.
+rig's HMD with a `GazeConecaster`, and turns on its camera pose emulation; and it seats the hand
+rays: a `SeatedHandRay` on each hand ray's pointer pose object, in the SDK's `HandPointerPose`'s
+place in the ray's active state group, with the SDK's pointer pose disabled.
+
+`WorkspaceRender` (**Halcyonic > Render the Workspace Over the Stage**, also runnable in batch mode)
+renders the workspace open over the stage with the characters 2.4 m away and on a desk, saves the
+renders in `apps/xr/Builds/WorkspaceRenders`, and fails if a pixel of the workspace changes with the
+stage drawn behind it, a character's body is behind it, or its center leaves the band. With the
+plate at its former 95 percent, it failed in both places.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
@@ -635,8 +706,10 @@ sound: `SoundBootstrap` adds `StageSound`, which puts its sources on the charact
 under the stage object.
 
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
-([quest-3-device.md](../validation/quest-3-device.md)); the workspace, the room placement and the
-sound compile and build but are not verified on a headset yet. The Meta XR Simulator fails every frame
+([quest-3-device.md](../validation/quest-3-device.md)), where opening a workspace by pointing and
+pinching, approving and the runtime-confirmed result are verified; the calm peek, look and pinch,
+the seated rays, the workspace clear of the stage, the stage's placement with system windows open,
+the room placement and the sound compile and build but are not verified on a headset yet. The Meta XR Simulator fails every frame
 on the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`,
 in an editor-only assembly, builds a development APK, and a release APK that leaves Meta's
 development tools out, except the Immersive Debugger's runtime, disabled, which MRUK needs

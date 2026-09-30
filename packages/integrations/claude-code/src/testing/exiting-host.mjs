@@ -52,21 +52,26 @@ for (let index = 0; index < count; index += 1) {
   });
 }
 
+// Listening before the ready line below, because the test sends SIGTERM as soon as it reads that
+// line, and a SIGTERM with no listener ends the process before the adapter is closed.
+if (mode === 'signal') {
+  const keepAlive = setInterval(() => {}, 60_000);
+  process.once('SIGTERM', () => {
+    // Reading stdin would keep this process alive after the close. Destroying it emits no `end`,
+    // so the close runs to its end.
+    process.stdin.destroy();
+    void adapter.close().then(() => clearInterval(keepAlive));
+  });
+}
+
 // Written before ending, since pipes to a parent are asynchronous on macOS.
+// In signal mode the interval above keeps it alive until SIGTERM closes the adapter.
 process.stdout.write(`${JSON.stringify({ watchdog: adapter.watchdogPid })}\n`, () => {
-  if (mode === 'signal') {
-    const keepAlive = setInterval(() => {}, 60_000);
-    process.once('SIGTERM', () => {
-      // Reading stdin would keep this process alive after the close. Destroying it emits no `end`,
-      // so the close runs to its end.
-      process.stdin.destroy();
-      void adapter.close().then(() => clearInterval(keepAlive));
-    });
-  } else if (mode === 'throw') {
+  if (mode === 'throw') {
     throw new Error('simulated control plane crash');
   } else if (mode === 'exit') {
     process.exit(0);
-  } else {
+  } else if (mode === 'wait') {
     setInterval(() => {}, 60_000);
   }
 });
