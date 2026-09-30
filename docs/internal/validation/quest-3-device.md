@@ -224,3 +224,31 @@ The owner wore the headset at their desk.
   - Virtual Display alongside the stage;
   - paging through a long approval request;
   - pairing over Wi-Fi.
+
+## Fourth session: new work and interaction checks (2026-09-30)
+
+- **Environment:** Quest 3 over USB, development APK built from main `fddb736`, a live control plane
+  with an isolated journal and only the mock runtime, and `adb reverse` on port 47800. The headset
+  connected as `halcyonic-xr`. No paid model was available in this session.
+- **Room:** the app reported `NotSetUp, NoRoomsFound` at launch and again on resume, and said the
+  saved placement was no longer held by the headset. The owner chose the virtual space. The prior
+  desk placement was therefore not reverified.
+- **New work:** the owner could open and read the panel, choose the mock runtime and its simulated
+  fast model, and type an objective through the system keyboard. Pressing Review and start while
+  `Project: new project` had no name left the panel in place with a small note at the bottom asking
+  for a project name. The owner initially took this as no response. Selecting the existing project
+  opened the review pages. The owner confirmed on the last page. `workstream.create` completed, but
+  `execution.start` was rejected with `invalid_runtime_options`: the panel sent no mock `scenario`.
+  Further presses of Start repeated that rejection. The headset showed the created workstream as
+  Not started, which the owner could mistake for the separate approval check character.
+- **Panel placement:** the fixed New work panel blocked a character behind it. The owner expected
+  to select and move the panel as in other VR interfaces, but this build offers no move control.
+  Closing the panel exposed the character. This is direct wearer feedback, not a capture inference.
+- **Interaction:** the device log recorded gaze and hand peeks, a look and pinch accepted for each
+  character, workspace open and collapse sounds, and a hand ray reaching controls. The owner opened
+  the separate simulated approval workstream and approved it. The control plane recorded
+  `execution.respond_to_approval` as completed, and the owner saw Turn finished (simulated). These
+  observations establish command completion and basic headset interaction, not comfort or precision
+  of the reticle, seated ray or peek depth.
+- **Still open:** system menu behavior, Virtual Display, a long approval request, real runtime
+  start from the headset, and room re-read after a valid room scan.
