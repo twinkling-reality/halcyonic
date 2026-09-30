@@ -4,7 +4,7 @@
   with what the headset's Unity player and the control plane's Node.js offer and no new
   dependency? In particular, do Unity 6000.3's `ClientWebSocket` and `HttpClient` under IL2CPP on
   Android honor a custom certificate validation callback, and if not, what does?
-- **Date:** 2026-09-29.
+- **Date:** 2026-09-29; revised 2026-09-30 after an independent security review of the branch.
 - **Environment:** macOS 26.7 on an Apple M5 Max; Node.js 24.15.0; the .NET 10.0.401 SDK;
   Unity 6000.3.25f1 with its MonoBleedingEdge class libraries and tools; OpenSSL 3.6.4 from
   Homebrew, for inspecting certificates only. No headset.
@@ -99,7 +99,8 @@ are kept in the data directory, and the tests check both.
   network listener; the principal journaled for REST and WebSocket commands; revocation closing a
   live connection and refusing the credential; a device revoking itself; a pinned client sending
   nothing to another certificate; 30 failed credentials a minute, then 429; device events kept
-  from realtime clients; nothing logged holding the code, the credential, its hash or the token.
+  from realtime clients and from devices reading the history; nothing logged holding the code, the
+  credential, its hash or the token; and what the review above added.
 - **Client core (.NET 10):** the pin decides the handshake and nothing reaches an impostor; HTTP
   bodies by length, chunks and to the end; a refused upgrade reports the control plane's code; a
   wrong accept key is refused; an upgrade never answered ends with its token; the pairing file;
@@ -121,6 +122,51 @@ are kept in the data directory, and the tests check both.
   `com.unity3d.player.UnityPlayer.currentActivity` for its files directory; the Android player's
   `UnityPlayer` constructor sets that field to the activity it runs in (`javap` of 6000.3.25f1's
   `classes.jar`).
+
+### Independent review, and what changed
+
+A security review of the implementation reproduced, on loopback ports:
+
+- **Revocation did not reach what was already open (high).** The network listener authenticated a
+  request when its head arrived, set no request or connection timeout, and used the principal it
+  found then when the command was submitted later: a command whose body arrived 70 seconds after
+  its device was revoked was accepted and journaled after `device.revoked`. On the realtime path,
+  `ws`'s `close()` only starts a closing handshake with a 30 second timer, and the connection kept
+  handling messages: a client that ignored the close frame had a command accepted 25 seconds after
+  its revocation.
+- **A paired device could read every device event (low)** from `GET /api/events`, other devices'
+  labels and credential hashes included; only the realtime stream left them out.
+- **Each pairing request derived the verifier from the code (informational):** the per-request work
+  correlated with the Hamming weight of `x` (0.13 over 3,000 samples in-process, 4 microseconds per
+  set bit), and cost two modular exponentiations for an unauthenticated request.
+- **`pnpm pair` showed only wrong codes (informational),** so four addresses could hold every
+  exchange slot for 30 seconds at a time, spending no guess, without the owner seeing it.
+
+Changes, each with tests in `network/network.test.ts` unless named otherwise:
+
+- The command service authorizes a device where a command would act: a revoked or unknown device's
+  command is rejected with the new `device_revoked` rejection code and journaled as
+  `command.rejected` (`core/control-plane.test.ts`). The network listener checks the credential
+  again as each answer leaves and replaces the answer to a revoked device with 401. Revoking ends
+  the device's realtime connections in the same step that journals it: each handles nothing more,
+  not even messages already received, gets a close frame, and is cut off a second later. Tests: a
+  command whose body arrives after its device is revoked; a revoked device that ignores the close
+  frame; the review's own probes, which now fail as they should.
+- The listener waits 10 seconds for a whole request, closes a silent connection after 30 and an
+  idle one after 5, holds 32 connections, and each device 4 realtime ones.
+- A paired device's `GET /api/events` leaves device events out in the journal query, so `limit`
+  counts only what it returns (`journal/sqlite-journal.test.ts`).
+- The window derives the salt and verifier once, when it opens; an attempt only draws `b`. Over
+  3,000 samples the per-attempt work no longer correlates with the Hamming weight of `x` (-0.005),
+  and takes half the time (about 2 ms instead of 4 on this Mac). `network/srp.test.ts` checks that
+  attempts against one verifier agree with the client and each draw their own `b`.
+- The pairing status counts connections turned away or cut short (`busy`, `too_many_requests`,
+  `timeout`, `abandoned`, `invalid_message`, `unsupported_protocol`) by address, and `pnpm pair`
+  prints each (`cli/devices.test.ts`).
+
+One thing the tests showed on the way: a connection whose TLS handshake completes while the
+listener shuts down is not yet an HTTP connection, so Fastify's forced close misses it, and the
+shutdown waits for the 30 second idle timeout; without that timeout it waited indefinitely.
 
 ## What needs a headset
 

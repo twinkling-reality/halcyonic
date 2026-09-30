@@ -76,9 +76,9 @@ logged or passed to launched agents:
 | Browser requests | Any `Origin` header or `Sec-Fetch-Site: cross-site` is refused with 403, which also blocks browser WebSocket upgrades, on both listeners |
 | Authentication | Loopback: a bearer token on every request and WebSocket upgrade except `/api/health`; compared in constant time. Network listener: a paired device's credential, checked by its SHA-256 against the device registry, on everything except `/api/health` and `/pair`; the access token is never accepted there |
 | Token storage | 32 random bytes in `<data dir>/access-token`, mode 0600; created once; never logged; `authorization` headers are redacted from logs |
-| Network listener | Off unless `HALCYONIC_NETWORK_HOST` names an IP address; TLS only (1.2 or later), with a self-signed ECDSA P-256 certificate generated once into `<data dir>/network-key.pem` and `network-certificate.pem`, mode 0600; the key is never logged |
-| Pairing | Opened only from loopback with the access token (`pnpm pair`), one window at a time, for five minutes, closed by the first device that pairs, by three failed proofs, or by the owner; an eight-digit code, never logged or journaled; SRP-6a (RFC 5054, 3072-bit group, SHA-256) with the TLS certificate bound into both proofs; `/pair` refused outside a window before any cryptography; four exchanges at once, one per address, six connections per address a minute, 30 seconds each |
-| Device credentials | 32 random bytes per device (`hlcd_` and base64url), sent once, encrypted under the SRP session key inside TLS; the journal keeps only their SHA-256; revoked from loopback (`pnpm devices revoke`) or by the device itself, at once, closing its realtime connections |
+| Network listener | Off unless `HALCYONIC_NETWORK_HOST` names an IP address; TLS only (1.2 or later), with a self-signed ECDSA P-256 certificate generated once into `<data dir>/network-key.pem` and `network-certificate.pem`, mode 0600; the key is never logged; 10 seconds for a whole request, 30 for a silent connection, 5 between requests; 32 connections at once, and 4 realtime connections per device |
+| Pairing | Opened only from loopback with the access token (`pnpm pair`), one window at a time, for five minutes, closed by the first device that pairs, by three failed proofs, or by the owner; an eight-digit code, never logged or journaled; SRP-6a (RFC 5054, 3072-bit group, SHA-256) with the TLS certificate bound into both proofs; the salt and verifier derived once per window, so no exchange's work depends on the code; `/pair` refused outside a window before any cryptography; four exchanges at once, one per address, six connections per address a minute, 30 seconds each; what it turns away or cuts short without checking a code is counted by address and shown by `pnpm pair` |
+| Device credentials | 32 random bytes per device (`hlcd_` and base64url), sent once, encrypted under the SRP session key inside TLS; the journal keeps only their SHA-256; revoked from loopback (`pnpm devices revoke`) or by the device itself, at once and for what is already open: its realtime connections handle nothing more and are cut off, its commands are rejected where they would act (`device_revoked`), and any answer to a request it opened before is replaced by 401 |
 | Failed credentials | 30 refused credentials from one address in a minute, and it gets 429 for the rest of the minute |
 | Content types | JSON only; `text/plain` and form bodies are refused with 415 |
 | Input validation | Every command, client message and query is validated against the contracts |
@@ -130,10 +130,16 @@ What each party can do with the network listener on
   and the relay's is not the control plane's. It cannot read or change a paired device's traffic,
   because the device refuses any certificate but the one it pinned before sending anything. It can
   deny service: flood the port, use up a window's three attempts (the owner sees the window close
-  after three failures), or block traffic.
+  after three failures), hold the four exchange slots open without guessing (`pnpm pair` shows
+  each connection turned away or cut short, with its address), fill the listener's 32
+  connections for the 10 seconds each may wait, or block traffic. Its timing tells it nothing
+  about the code: an exchange's work depends only on a secret it draws itself.
 - **A stolen or lost headset** holds its credential in app-internal storage and can do whatever
   its owner could over that network, until the owner revokes it with `pnpm devices revoke`, which
-  refuses the credential and closes its connections at once. It reaches the control plane only
+  refuses the credential and ends what it has open at once: a realtime connection handles nothing
+  more, even if the headset ignores the close frame, a command in a request opened earlier is
+  rejected and journaled as such, and no answer reaches it. Paired devices cannot see one another:
+  no device reads device events. It reaches the control plane only
   where the listener is reachable, the owner's network. A development build is debuggable, so
   anyone with `adb` access to the unlocked headset can read the credential with `run-as`; the
   headset's own lock is the first defense. It holds no provider key, repository secret or SSH
@@ -147,8 +153,9 @@ What each party can do with the network listener on
   pair first. `pnpm pair` names the device that paired; revoke it and pair again.
 
 Remaining risks: a device that pairs again gets a second credential, and the first stays valid
-until revoked; credentials do not expire; the device's label is self-declared; nothing limits how
-many connections a paired device opens.
+until revoked; credentials do not expire; the device's label is self-declared; a paired device can
+fill the listener's connections with REST requests, as a hostile device can for 10 seconds at a
+time.
 
 ## Not yet built
 
