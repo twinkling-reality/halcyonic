@@ -9,16 +9,19 @@ Codex and OpenCode are interchangeable executors behind that work; none of them 
 
 ## Status
 
-Foundation stage. What exists today is the provider-neutral truth layer:
+Early development. What exists today:
 
 - a local **control plane** that records every command and runtime observation in an
   append-only journal (SQLite) and serves the current state over REST and WebSocket;
-- versioned **contracts** (TypeScript, with a generated JSON Schema for other languages);
-- a **mock runtime** that plays scripted scenarios for development. Its output is labeled synthetic
-  everywhere.
+- versioned **contracts** (TypeScript, with a generated JSON Schema and C# bindings);
+- **runtime adapters**: a mock runtime that plays scripted scenarios, labeled synthetic
+  everywhere, and Claude Code (through the Agent SDK), OpenCode and Codex, each registered only
+  when configured;
+- an **XR client** for Meta Quest (Unity): characters for workstreams, and a workspace to open by
+  hand, act on and collapse back. Without a control plane it plays a labeled, recorded
+  demonstration.
 
-There is no XR client and no real runtime integration yet. `docs/internal/architecture/SYSTEM.md`
-describes what is built and what is not.
+`docs/internal/architecture/SYSTEM.md` describes what is built and what is not.
 
 ## Requirements
 
