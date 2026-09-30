@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { parseModels, sameModel } from './models.ts';
+import { parseModels, sameModel, servedBy, toRuntimeModel } from './models.ts';
 
 /** Two entries as OpenCode 2.0.18 lists them: an Ollama model it discovered, and a hosted one. */
 const LISTED = [
@@ -91,6 +91,74 @@ describe('OpenCode model listing', () => {
         baseUrl: null,
       },
     ]);
+  });
+
+  test('a local model named after a hosted one reads as local, and says what serves it', () => {
+    const [alias, hosted] = parseModels([
+      // What this Mac's Ollama serves under a hosted model's name: llama3.2:1b's weights.
+      {
+        ...LISTED[0],
+        id: 'gpt-4o:latest',
+        modelID: 'gpt-4o:latest',
+        name: 'gpt-4o:latest',
+        family: 'llama',
+        capabilities: { tools: true, input: ['text'], output: ['text'] },
+        limit: { context: 131072, output: 32000 },
+      },
+      {
+        providerID: 'openai',
+        id: 'gpt-4o',
+        name: 'GPT-4o',
+        settings: { baseURL: 'https://api.openai.com/v1' },
+        capabilities: { tools: true },
+        enabled: true,
+        limit: { context: 128000, output: 16384 },
+      },
+    ]);
+    assert.ok(alias !== undefined && hosted !== undefined);
+    assert.deepEqual(toRuntimeModel(alias), {
+      model_ref: 'ollama/gpt-4o:latest',
+      display_name: 'gpt-4o:latest (Ollama)',
+      served: 'this_mac',
+      tool_calling: 'declared',
+      context_tokens: 131072,
+    });
+    assert.deepEqual(toRuntimeModel(hosted), {
+      model_ref: 'openai/gpt-4o',
+      display_name: 'GPT-4o (openai)',
+      served: 'remote',
+      tool_calling: 'declared',
+      context_tokens: 128000,
+    });
+  });
+
+  test('where a model runs follows the address OpenCode reaches it at, not its name', () => {
+    const served = (providerID: string, id: string, baseUrl: string | null) =>
+      servedBy({ providerID, id, name: id, tools: null, contextTokens: null, baseUrl });
+    assert.equal(
+      served('ollama', 'qwen3.6:35b-a3b-nvfp4', 'http://127.0.0.1:11434/v1'),
+      'this_mac',
+    );
+    assert.equal(served('lmstudio', 'local', 'http://localhost:1234/v1'), 'this_mac');
+    assert.equal(served('vllm', 'local', 'http://[::1]:8000/v1'), 'this_mac');
+    assert.equal(served('ollama', 'qwen3.6:35b', 'http://192.168.1.20:11434/v1'), 'remote');
+    assert.equal(served('opencode', 'big-pickle', 'https://opencode.ai/zen/v1'), 'remote');
+    // Ollama serves its cloud tags from its hosted service, whatever address reaches Ollama.
+    assert.equal(served('ollama', 'gpt-oss:120b-cloud', 'http://127.0.0.1:11434/v1'), 'remote');
+    assert.equal(served('ollama', 'kimi-k2:cloud', 'http://127.0.0.1:11434/v1'), 'remote');
+    assert.equal(served('anthropic', 'claude', null), 'unknown');
+    assert.equal(served('custom', 'model', 'not a url'), 'unknown');
+    // A missing tools flag stays unknown rather than becoming a claim either way.
+    const quiet = toRuntimeModel({
+      providerID: 'custom',
+      id: 'model',
+      name: 'Model',
+      tools: null,
+      contextTokens: null,
+      baseUrl: null,
+    });
+    assert.equal(quiet.tool_calling, 'unknown');
+    assert.equal(quiet.served, 'unknown');
   });
 
   test('matches a model by provider and id, never by name', () => {

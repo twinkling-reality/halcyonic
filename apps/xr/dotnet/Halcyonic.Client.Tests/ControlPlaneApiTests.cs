@@ -175,6 +175,79 @@ public class ControlPlaneApiTests
     }
 
     [Test]
+    public async Task ReadsARuntimesModelsWithWhereEachRuns()
+    {
+        // This Mac's Ollama serves llama3.2:1b's weights under a hosted model's name: the list says
+        // Ollama serves it here, and a client shows that rather than the name.
+        const string body = """
+            {
+              "runtime_id": "opencode",
+              "result": {
+                "availability": "available",
+                "models": [
+                  {
+                    "model_ref": "ollama/gpt-4o:latest",
+                    "display_name": "gpt-4o:latest (Ollama)",
+                    "served": "this_mac",
+                    "tool_calling": "declared",
+                    "context_tokens": 131072
+                  },
+                  {
+                    "model_ref": "opencode/big-pickle",
+                    "display_name": "Big Pickle (OpenCode Zen)",
+                    "served": "remote",
+                    "tool_calling": "unknown",
+                    "context_tokens": null
+                  }
+                ]
+              }
+            }
+            """;
+        var handler = new CannedHandler(HttpStatusCode.OK, body);
+        using var api = Api(handler);
+        var response = await api.GetRuntimeModelsAsync("opencode");
+
+        var request = handler.Requests.Single();
+        Assert.That(request.RequestUri, Is.EqualTo(new Uri("http://127.0.0.1:47800/api/runtimes/opencode/models")));
+        Assert.That(request.Headers.Authorization?.ToString(), Is.EqualTo("Bearer test-token"));
+        Assert.That(response.RuntimeId, Is.EqualTo("opencode"));
+        var models = ((AvailableModels)response.Result).Models;
+        Assert.That(models.Select(model => model.ModelRef), Is.EqualTo(new[] { "ollama/gpt-4o:latest", "opencode/big-pickle" }));
+        Assert.That(models[0].Served, Is.EqualTo(ModelServed.ThisMac));
+        Assert.That(models[0].DisplayName, Is.EqualTo("gpt-4o:latest (Ollama)"));
+        Assert.That(models[0].ToolCalling, Is.EqualTo(ModelToolCalling.Declared));
+        Assert.That(models[0].ContextTokens, Is.EqualTo(131072));
+        Assert.That(models[1].Served, Is.EqualTo(ModelServed.Remote));
+        Assert.That(models[1].ToolCalling, Is.EqualTo(ModelToolCalling.Unknown));
+        Assert.That(models[1].ContextTokens, Is.Null);
+        Json.AssertRoundTrips<RuntimeModelsResponse>(body);
+    }
+
+    [Test]
+    public async Task ReadsWhyARuntimeCouldNotListItsModels()
+    {
+        const string body = """
+            {"runtime_id":"codex","result":{"availability":"unavailable","reason":{"code":"runtime_unavailable","message":"Could not start Codex."}}}
+            """;
+        using var api = Api(new CannedHandler(HttpStatusCode.OK, body));
+        var response = await api.GetRuntimeModelsAsync("codex");
+        Assert.That(response.Result, Is.TypeOf<UnavailableModels>());
+        Assert.That(((UnavailableModels)response.Result).Reason.Message, Is.EqualTo("Could not start Codex."));
+        Json.AssertRoundTrips<RuntimeModelsResponse>(body);
+    }
+
+    [Test]
+    public void ReportsARuntimeThatOffersNoChoiceOfModel()
+    {
+        const string body = """
+            {"error":{"code":"models_not_listed","message":"Runtime mock does not offer a choice of model.","issues":[]}}
+            """;
+        using var api = Api(new CannedHandler(HttpStatusCode.NotFound, body));
+        var error = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.GetRuntimeModelsAsync("mock"));
+        Assert.That(error!.Message, Does.EndWith("Runtime mock does not offer a choice of model."));
+    }
+
+    [Test]
     public void ReportsARefusalWithTheControlPlanesReason()
     {
         var body = "{\"error\":{\"code\":\"execution_not_found\",\"message\":\"Execution " + ExecutionId

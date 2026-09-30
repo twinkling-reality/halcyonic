@@ -5,6 +5,7 @@ import type {
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
+  RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
 import {
@@ -33,9 +34,12 @@ import {
   settleResumed,
   type ThreadState,
 } from './events.ts';
-import { parseStartOptions, type StartOptions } from './options.ts';
+import { modelsFromCodex } from './models.ts';
+import { parseStartOptions, type StartOptions, toModelRef } from './options.ts';
 import type {
   ApprovalDecision as CodexDecision,
+  ConfigReadParams,
+  ModelListParams,
   TextInput,
   ThreadConfigOverrides,
   ThreadResumeParams,
@@ -140,6 +144,8 @@ interface HostedThread {
 
 /** A relaunched server that exits again within this long is not relaunched again. */
 const RELAUNCH_MIN_UPTIME_MS = 30_000;
+/** Pages of `model/list` read at most; the catalog built into 0.157.0 fits in one. */
+const MAX_MODEL_PAGES = 10;
 /** Codex refuses a request as invalid with this JSON-RPC code; anything else may have acted. */
 const INVALID_REQUEST = -32600;
 const UNSUPPORTED_REQUEST = -32601;
@@ -206,6 +212,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       display_name: `Codex ${CODEX_VERSION}`,
       synthetic: false,
       capabilities: CODEX_CAPABILITIES,
+      model_choice: 'listed',
     };
   }
 
@@ -214,9 +221,44 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     return this.#current?.server.pid ?? null;
   }
 
-  validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy);
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
+  }
+
+  /**
+   * The models Codex can run a thread on, from `config/read` and `model/list` (see
+   * `modelsFromCodex`). Launches the server when none runs.
+   */
+  async listModels(): Promise<readonly RuntimeModel[]> {
+    if (this.#closing !== null) throw closedError();
+    const connection = await this.#connection();
+    const params: ConfigReadParams = { includeLayers: false };
+    const read = await send(connection, 'config/read', params, this.#requestTimeoutMs);
+    const config = isRecord(read) && isRecord(read.config) ? read.config : null;
+    if (config === null) {
+      throw new RuntimeActionError(
+        'runtime_protocol_error',
+        'Codex answered config/read without a configuration.',
+      );
+    }
+    const catalog: unknown[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < MAX_MODEL_PAGES; page += 1) {
+      const list: ModelListParams = { cursor, limit: 100, includeHidden: false };
+      const result = await send(connection, 'model/list', list, this.#requestTimeoutMs);
+      const data = isRecord(result) && Array.isArray(result.data) ? result.data : null;
+      if (data === null) {
+        throw new RuntimeActionError(
+          'runtime_protocol_error',
+          'Codex answered model/list without a list of models.',
+        );
+      }
+      catalog.push(...data);
+      cursor = isRecord(result) && typeof result.nextCursor === 'string' ? result.nextCursor : null;
+      if (cursor === null) break;
+    }
+    return modelsFromCodex(config, catalog, this.#environment);
   }
 
   /**
@@ -235,21 +277,32 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
     // Checked again here: the directory may have changed since admission.
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     if (this.#threads.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
     const options = parsed.value;
+    // A chosen model is checked against a fresh list: Codex itself would take any name.
+    if (request.model_ref !== null) {
+      const listed = await this.listModels();
+      if (!listed.some((model) => model.model_ref === request.model_ref)) {
+        throw new RuntimeActionError(
+          'model_unavailable',
+          `Codex does not list the model ${request.model_ref}: it is neither the model its configuration names nor in the catalog of the configured provider.`,
+        );
+      }
+    }
     const connection = await this.#connection();
     const params: ThreadStartParams = {
       ...threadSettings(options),
       threadSource: THREAD_SOURCE,
     };
-    const { threadId } = checkSettings(
+    const reported = checkSettings(
       await send(connection, 'thread/start', params, this.#requestTimeoutMs),
       options,
     );
+    const threadId = reported.threadId;
     const thread: HostedThread = {
       threadId,
       execution: request.execution,
@@ -277,6 +330,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         },
       ),
     ]);
+    this.#reportModel(thread, reported.provider, reported.model, 'thread/start');
     if (connection.halted.signal.aborted) {
       this.#lose(thread, 'The Codex server stopped while the execution was starting.');
     }
@@ -572,10 +626,11 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         ...threadSettings(thread.options),
         excludeTurns: true,
       };
-      checkSettings(
+      const reported = checkSettings(
         await send(connection, 'thread/resume', params, this.#requestTimeoutMs),
         thread.options,
       );
+      this.#reportModel(thread, reported.provider, reported.model, 'thread/resume');
       const list: ThreadTurnsListParams = {
         threadId: thread.threadId,
         limit: 1,
@@ -670,6 +725,34 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         // A sink must not throw; one that does cannot stop the adapter observing.
       }
     }
+  }
+
+  /** Reports the model Codex says the thread runs on, when it is new for the thread. */
+  #reportModel(
+    thread: HostedThread,
+    provider: string | null,
+    model: string | null,
+    method: string,
+  ): void {
+    if (provider === null || model === null) return;
+    if (provider === thread.state.provider && model === thread.state.model) return;
+    thread.state.provider = provider;
+    thread.state.model = model;
+    const modelRef = toModelRef(provider, model);
+    if (!/^\S{1,256}$/.test(modelRef)) return;
+    thread.state.sequence += 1;
+    this.#emit(thread, [
+      observation(
+        'runtime.model.used',
+        { model_ref: modelRef },
+        {
+          native_event_id: `${thread.threadId}:model:${thread.state.sequence}`,
+          sequence: thread.state.sequence,
+          occurred_at: this.#clock.now().toISOString(),
+          provenance: { epistemic: 'observed', native_type: nativeType(method) },
+        },
+      ),
+    ]);
   }
 
   #lose(thread: HostedThread, reason: string): void {

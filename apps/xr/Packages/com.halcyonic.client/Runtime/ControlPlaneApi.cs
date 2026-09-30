@@ -11,8 +11,8 @@ using Newtonsoft.Json;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The control plane's REST API, for what the realtime stream does not carry: journal history and
-    /// what the understanding and evaluation providers say about an execution.
+    /// The control plane's REST API, for what the realtime stream does not carry: journal history, what
+    /// the understanding and evaluation providers say about an execution, and the models a runtime lists.
     /// </summary>
     public sealed class ControlPlaneApi : IEventHistory, IDisposable
     {
@@ -67,6 +67,21 @@ namespace Halcyonic.Client
             var body = await GetAsync("api/executions/" + Uri.EscapeDataString(executionId) + "/evaluation", cancellationToken)
                 .ConfigureAwait(false);
             return HalcyonicJson.Deserialize<EvaluationResponse>(body);
+        }
+
+        /// <summary>
+        /// The models a runtime can use now, from the runtime's own list (ADR 0016), for a runtime whose
+        /// descriptor says its <c>model_choice</c> is <c>listed</c>. The control plane reads it through on
+        /// request and never journals it; the result states its availability instead of failing. Send a
+        /// model's <c>ModelRef</c> back unchanged when starting work; never derive meaning from it. Show
+        /// where each model runs from <c>Served</c>, not from its name. Listing may start the runtime's
+        /// server, so it can take seconds: fetch it when a person opens the choice, and never poll.
+        /// </summary>
+        public async Task<RuntimeModelsResponse> GetRuntimeModelsAsync(string runtimeId, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/runtimes/" + Uri.EscapeDataString(runtimeId) + "/models", cancellationToken)
+                .ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<RuntimeModelsResponse>(body);
         }
 
         public void Dispose() => http.Dispose();

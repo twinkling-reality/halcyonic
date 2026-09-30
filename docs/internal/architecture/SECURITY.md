@@ -59,6 +59,20 @@ models are listed, and it runs every tool without asking, `webfetch` and `websea
 unless its permissions say otherwise. Halcyonic does not yet impose permission rules on OpenCode
 sessions ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
+A runtime's list of models (`GET /api/runtimes/:runtime_id/models`,
+[ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)) is read from
+the runtime at each request and never cached or journaled; a failure is logged with the runtime id
+and its code only. Adapters read each model field by field, so a provider's settings, keys and
+headers never reach a client: OpenCode's `GET /api/model` carries each provider's settings, API
+key included, of which only the model's own fields are kept, and `/api/provider` is never read.
+Where a model is served is decided from the address the runtime sends its requests to, never from
+the model's name, because a local model may carry a hosted model's name (this Mac's Ollama serves
+`llama3.2:1b` as `gpt-4o:latest`), and each name says what serves the model. Listing launches the
+OpenCode or Codex server when none runs. Listing Claude Code's models starts a short-lived Claude
+Code process with an execution's environment, key included, in a temporary directory, so it may
+reach Anthropic; the tests never list against the real CLI. A chosen model is checked against a
+fresh list before anything runs, so a start never falls back to another model.
+
 The control plane also holds one credential for each product whose conclusions it reads through.
 Each is read from its file on every request, refused when other users can read the file, and never
 logged or passed to launched agents:

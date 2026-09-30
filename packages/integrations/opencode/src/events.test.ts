@@ -74,6 +74,8 @@ describe('OpenCode 2.0.18 event mapping', () => {
     const started = 'evt_0dfc5bcf3001XJABWimzZNEp6V';
     assert.deepEqual(summary(observations), [
       { type: 'runtime.turn.started', payload: { turn_id: started } },
+      // The model the step asked, as OpenCode names it: the adapter's model_ref.
+      { type: 'runtime.model.used', payload: { model_ref: 'fake/fake-model' } },
       { type: 'runtime.agent_message', payload: { text: 'Fake reply #25: acknowledged.' } },
       { type: 'runtime.turn.completed', payload: { turn_id: started } },
     ]);
@@ -81,6 +83,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
       observations.map((item) => [item.native_event_id, item.sequence, item.occurred_at]),
       [
         [started, 2, '2026-09-26T22:11:13.267Z'],
+        ['evt_0dfc5bd10001d5QVMkOxbBRU17', 5, '2026-09-26T22:11:13.296Z'],
         ['evt_0dfc5bd12001dohKUE1zvaQuDO', 7, '2026-09-26T22:11:13.298Z'],
         ['evt_0dfc5bd21002GO1kOSRbKhLsg5', 10, '2026-09-26T22:11:13.313Z'],
       ],
@@ -89,10 +92,12 @@ describe('OpenCode 2.0.18 event mapping', () => {
       observations.map((item) => item.provenance),
       [
         { epistemic: 'observed', native_type: 'opencode/session.execution.started' },
+        { epistemic: 'observed', native_type: 'opencode/session.step.started' },
         { epistemic: 'reported', native_type: 'opencode/session.text.ended' },
         { epistemic: 'observed', native_type: 'opencode/session.execution.succeeded' },
       ],
     );
+    assert.equal(state.model, 'fake/fake-model');
     assert.equal(state.turn, null);
     assert.equal(state.awaitingStart, false);
   });
@@ -101,7 +106,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
     const [allowed, rejectedWithMessage, rejected] = [...replay(['approvals.sse']).values()];
     const types = (replayed: Replayed | undefined) =>
       replayed?.observations.map((item) => item.type);
-    assert.deepEqual(summary(allowed?.observations.slice(1, 5) ?? []), [
+    assert.deepEqual(summary(allowed?.observations.slice(2, 6) ?? []), [
       {
         type: 'runtime.tool.started',
         payload: { tool_call_id: 'call_fake_26', tool_name: 'shell', title: null },
@@ -135,6 +140,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
     // 2.0.18 continues the turn after a rejection with a message (and drops the message).
     assert.deepEqual(types(rejectedWithMessage), [
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.tool.started',
       'runtime.approval.requested',
       'runtime.approval.resolved',
@@ -142,9 +148,9 @@ describe('OpenCode 2.0.18 event mapping', () => {
       'runtime.agent_message',
       'runtime.turn.completed',
     ]);
-    const denied = rejectedWithMessage?.observations[3];
+    const denied = rejectedWithMessage?.observations[4];
     assert.equal(denied?.type === 'runtime.approval.resolved' && denied.payload.decision, 'denied');
-    const failedTool = rejectedWithMessage?.observations[4];
+    const failedTool = rejectedWithMessage?.observations[5];
     assert.equal(
       failedTool?.type === 'runtime.tool.completed' && failedTool.payload.outcome,
       'failed',
@@ -153,6 +159,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
     // Without a message the execution ends as interrupted, reason "shutdown".
     assert.deepEqual(types(rejected), [
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.tool.started',
       'runtime.approval.requested',
       'runtime.approval.resolved',
@@ -163,7 +170,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
 
   test('an interrupt ends the turn and clears a pending approval without resolving it', () => {
     const [streaming, waiting] = [...replay(['interrupts.sse']).values()];
-    assert.deepEqual(summary(streaming?.observations ?? []).slice(1), [
+    assert.deepEqual(summary(streaming?.observations ?? []).slice(2), [
       { type: 'runtime.agent_message', payload: { text: 'tick 1. tick 2. tick 3. ' } },
       { type: 'runtime.turn.interrupted', payload: { turn_id: 'evt_0dfc83d67001hnbnOnopyfWdvp' } },
     ]);
@@ -171,6 +178,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
       waiting?.observations.map((item) => item.type),
       [
         'runtime.turn.started',
+        'runtime.model.used',
         'runtime.tool.started',
         'runtime.approval.requested',
         'runtime.tool.completed',
@@ -185,7 +193,12 @@ describe('OpenCode 2.0.18 event mapping', () => {
     const retried = [...replay(['provider-retry.sse']).values()][1];
     assert.deepEqual(
       retried?.observations.map((item) => item.type),
-      ['runtime.turn.started', 'runtime.agent_message', 'runtime.turn.completed'],
+      [
+        'runtime.turn.started',
+        'runtime.model.used',
+        'runtime.agent_message',
+        'runtime.turn.completed',
+      ],
     );
   });
 
@@ -195,16 +208,18 @@ describe('OpenCode 2.0.18 event mapping', () => {
       observations.map((item) => item.type),
       [
         'runtime.turn.started',
+        'runtime.model.used',
         'runtime.agent_message',
         'runtime.turn.completed',
+        // The second turn's step asks the same model, so nothing new is reported.
         'runtime.turn.started',
         'runtime.agent_message',
         'runtime.turn.completed',
       ],
     );
     const sequences = observations.map((item) => item.sequence ?? -1);
-    assert.deepEqual(sequences, [2, 7, 10, 12, 16, 19]);
-    const second = observations[3];
+    assert.deepEqual(sequences, [2, 5, 7, 10, 12, 16, 19]);
+    const second = observations[4];
     assert.equal(
       second?.type === 'runtime.turn.started' && second.payload.turn_id,
       'evt_0dfce92ad002YucWiHdjqco5vp',
@@ -258,7 +273,7 @@ describe('OpenCode 2.0.18 event mapping', () => {
     const { observations, state } = only(replay(['server-killed-mid-turn.sse']));
     assert.deepEqual(
       observations.map((item) => item.type),
-      ['runtime.turn.started'],
+      ['runtime.turn.started', 'runtime.model.used'],
     );
     assert.notEqual(state.turn, null);
   });
@@ -279,6 +294,8 @@ describe('OpenCode 2.0.18 event mapping', () => {
         // The settled turn's text is history, so it is still reported.
         ['runtime.agent_message', 7],
         ['runtime.turn.started', 12],
+        // The settled turn's step was not seen, so the next one reports the model.
+        ['runtime.model.used', 14],
         ['runtime.agent_message', 16],
         ['runtime.turn.completed', 19],
       ],

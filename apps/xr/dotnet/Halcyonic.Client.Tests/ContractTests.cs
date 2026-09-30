@@ -140,6 +140,23 @@ public class ContractTests
     }
 
     [Test]
+    public void AStartCarriesTheChosenModelOrAnExplicitNull()
+    {
+        var factory = new CommandFactory(new ClientInfo { Name = "test", Version = null, DeviceLabel = null });
+        const string workstreamId = "0192f1a0-0000-7000-8000-000000000002";
+
+        var unchosen = Json.Parse(HalcyonicJson.Serialize(factory.StartExecution(workstreamId, "opencode", "Fix the build.")));
+        var payload = (JObject)unchosen["payload"]!;
+        Assert.That(payload.ContainsKey("model_ref"), Is.True, "the choice is sent as an explicit null, never left out");
+        Assert.That(payload["model_ref"]!.Type, Is.EqualTo(JTokenType.Null));
+
+        var chosen = Json.Parse(HalcyonicJson.Serialize(
+            factory.StartExecution(workstreamId, "opencode", "Fix the build.", modelRef: "ollama/gpt-4o:latest")));
+        Assert.That((string?)chosen["payload"]!["model_ref"], Is.EqualTo("ollama/gpt-4o:latest"));
+        Assert.That(((JObject)chosen["payload"]!["options"]!).Count, Is.EqualTo(0));
+    }
+
+    [Test]
     public void ClientMessagesRoundTrip()
     {
         var hello = new HelloMessage

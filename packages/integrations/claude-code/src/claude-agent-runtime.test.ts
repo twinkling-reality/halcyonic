@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type {
+  ModelInfo,
   NonNullableUsage,
   Options,
   PermissionResult,
@@ -150,6 +151,14 @@ class ScriptedRun implements QueryHandle {
     this.interrupts += 1;
     if (this.interruptFailure !== null) throw this.interruptFailure;
     return undefined;
+  }
+
+  /** What the SDK's `supportedModels()` answers for this run; a test sets it. */
+  models: ModelInfo[] | Error = [];
+
+  async supportedModels(): Promise<ModelInfo[]> {
+    if (this.models instanceof Error) throw this.models;
+    return this.models;
   }
 
   close(): void {
@@ -339,6 +348,7 @@ function setup(options: Partial<ClaudeAgentRuntimeOptions> = {}) {
       execution,
       instruction: 'Fix the flaky checkout test.',
       options: startOptions,
+      model_ref: null,
       emit: (observation) => observed.push(observation),
     });
   const run = (): ScriptedRun => {
@@ -402,10 +412,20 @@ describe('starting an execution', () => {
 
     scripted.emit(init(scripted.sessionId));
     assert.deepEqual(await starting, { native_id: scripted.sessionId });
-    assert.deepEqual(types(), ['runtime.execution.started', 'runtime.turn.started']);
+    assert.deepEqual(types(), [
+      'runtime.execution.started',
+      'runtime.turn.started',
+      'runtime.model.used',
+    ]);
     assert.deepEqual(observed[0]?.payload, { native_id: scripted.sessionId });
     assert.deepEqual(observed[1]?.payload, { turn_id: delivered?.uuid });
     assert.deepEqual(observed[0]?.provenance, {
+      epistemic: 'observed',
+      native_type: 'claude-agent-sdk/system.init',
+    });
+    // The model Claude Code names in its init message, as it names it.
+    assert.deepEqual(observed[2]?.payload, { model_ref: 'claude-sonnet-5' });
+    assert.deepEqual(observed[2]?.provenance, {
       epistemic: 'observed',
       native_type: 'claude-agent-sdk/system.init',
     });
@@ -470,6 +490,7 @@ describe('starting an execution', () => {
         execution: { ...execution, execution_id: executionId as ExecutionId },
         instruction: `Task ${index}`,
         options: { cwd: WORKDIR },
+        model_ref: null,
         emit: () => {},
       });
     }
@@ -481,6 +502,186 @@ describe('starting an execution', () => {
     const { start } = setup();
     void start();
     await assert.rejects(start(), actionError('duplicate_execution'));
+  });
+});
+
+/** What the Agent SDK's supportedModels() answers, in its shape; aliases resolve to models. */
+const SUPPORTED: ModelInfo[] = [
+  {
+    value: 'default',
+    resolvedModel: 'claude-sonnet-5',
+    displayName: 'Default (recommended)',
+    description: 'Use the default model',
+  },
+  { value: 'sonnet', resolvedModel: 'claude-sonnet-5', displayName: 'Sonnet', description: '' },
+  { value: 'opus', resolvedModel: 'claude-opus-5', displayName: 'Opus', description: '' },
+  { value: 'claude-haiku-5', displayName: 'Haiku', description: '' },
+];
+
+describe('model choice', () => {
+  const listing = (options: Partial<ClaudeAgentRuntimeOptions> = {}) =>
+    setup({
+      query: (params) => {
+        const run = new ScriptedRun(params);
+        run.models = SUPPORTED;
+        listed.push(run);
+        return run;
+      },
+      ...options,
+    });
+  const listed: ScriptedRun[] = [];
+
+  test('lists the models the SDK names, by the model each resolves to, all served remotely', async () => {
+    listed.length = 0;
+    const { adapter } = listing();
+    assert.equal(adapter.descriptor.model_choice, 'listed');
+    assert.deepEqual(await adapter.listModels(), [
+      {
+        model_ref: 'claude-sonnet-5',
+        display_name: 'Default (recommended) (Anthropic)',
+        served: 'remote',
+        tool_calling: 'unknown',
+        context_tokens: null,
+      },
+      {
+        model_ref: 'claude-opus-5',
+        display_name: 'Opus (Anthropic)',
+        served: 'remote',
+        tool_calling: 'unknown',
+        context_tokens: null,
+      },
+      {
+        model_ref: 'claude-haiku-5',
+        display_name: 'Haiku (Anthropic)',
+        served: 'remote',
+        tool_calling: 'unknown',
+        context_tokens: null,
+      },
+    ]);
+    // The listing process got no prompt, was guarded like any other, and was closed at once.
+    const [run] = listed;
+    assert.ok(run !== undefined);
+    assert.equal(run.delivered.length, 0);
+    assert.equal(run.closed, true);
+    assert.equal(typeof run.options.spawnClaudeCodeProcess, 'function');
+    assert.equal(run.options.sessionId, undefined);
+  });
+
+  test('says which cloud provider serves the models when Claude Code uses one', async () => {
+    const { adapter } = listing({
+      inheritedEnvironment: { ...INHERITED, CLAUDE_CODE_USE_BEDROCK: '1' },
+    });
+    const [first] = await adapter.listModels();
+    assert.equal(first?.display_name, 'Default (recommended) (Amazon Bedrock)');
+    assert.equal(first?.served, 'remote');
+  });
+
+  test('a gateway passed on purpose is named, and its address says where the models are served', async () => {
+    const cases: [Record<string, string>, string, string][] = [
+      // A gateway on this Mac may serve local models under Claude's names: never read as Anthropic.
+      [
+        { ANTHROPIC_BASE_URL: 'http://user:secret@127.0.0.1:4000/v1' },
+        'Opus (gateway at 127.0.0.1:4000)',
+        'this_mac',
+      ],
+      [
+        { ANTHROPIC_BASE_URL: 'https://llm.example.com' },
+        'Opus (gateway at llm.example.com)',
+        'remote',
+      ],
+      [{ ANTHROPIC_BASE_URL: 'not a url' }, 'Opus (gateway)', 'unknown'],
+      [
+        { CLAUDE_CODE_USE_BEDROCK: 'true', ANTHROPIC_BEDROCK_BASE_URL: 'http://localhost:8080' },
+        'Opus (Amazon Bedrock gateway at localhost:8080)',
+        'this_mac',
+      ],
+      // Claude Code's own API address is not the cloud provider's.
+      [
+        { CLAUDE_CODE_USE_VERTEX: 'yes', ANTHROPIC_BASE_URL: 'http://127.0.0.1:4000' },
+        'Opus (Google Vertex AI)',
+        'remote',
+      ],
+    ];
+    for (const [environment, name, served] of cases) {
+      const { adapter } = listing({ environment });
+      const opus = (await adapter.listModels()).find(
+        (model) => model.model_ref === 'claude-opus-5',
+      );
+      assert.deepEqual(
+        [opus?.display_name, opus?.served],
+        [name, served],
+        JSON.stringify(environment),
+      );
+      assert.equal(JSON.stringify(opus).includes('secret'), false);
+    }
+  });
+
+  test('a listing Claude Code cannot answer is refused in words, and its process closed', async () => {
+    listed.length = 0;
+    const { adapter } = setup({
+      query: (params) => {
+        const run = new ScriptedRun(params);
+        run.models = new Error('Claude Code exited before answering');
+        listed.push(run);
+        return run;
+      },
+    });
+    await assert.rejects(adapter.listModels(), (error: unknown) => {
+      assert.ok(actionError('runtime_unavailable')(error));
+      assert.match((error as Error).message, /could not list its models: Claude Code exited/);
+      return true;
+    });
+    assert.equal(listed[0]?.closed, true);
+  });
+
+  test('a start from the list runs on that model, checked again first; one no longer listed is refused', async () => {
+    listed.length = 0;
+    const { adapter } = listing();
+    const starting = adapter.startExecution({
+      execution,
+      instruction: 'Fix the flaky checkout test.',
+      options: { cwd: WORKDIR },
+      model_ref: 'claude-opus-5',
+      emit: () => {},
+    });
+    await settle();
+    const [list, session] = listed;
+    assert.equal(list?.closed, true);
+    assert.equal(session?.options.model, 'claude-opus-5');
+    session?.emit(init(session.sessionId));
+    await starting;
+
+    const other = { ...execution, execution_id: '01920000-0000-7000-8000-0000000000c1' };
+    await assert.rejects(
+      adapter.startExecution({
+        execution: other as typeof execution,
+        instruction: 'Fix it.',
+        options: { cwd: WORKDIR },
+        model_ref: 'claude-retired-1',
+        emit: () => {},
+      }),
+      (error: unknown) =>
+        actionError('model_unavailable', 'none')(error) &&
+        (error as Error).message === 'Claude Code does not list the model claude-retired-1.',
+    );
+    // Only the second listing ran: no session was launched for the retired model.
+    assert.equal(listed.length, 3);
+  });
+
+  test('a model from the list replaces the model option, never goes with it', () => {
+    const { adapter } = setup();
+    assert.deepEqual(adapter.validateStartOptions({ cwd: WORKDIR }, 'claude-opus-5'), { ok: true });
+    assert.deepEqual(
+      adapter.validateStartOptions({ cwd: WORKDIR, model: 'claude-sonnet-5' }, 'claude-opus-5'),
+      {
+        ok: false,
+        message: 'Choose the model either with model_ref or with the "model" option, not both.',
+      },
+    );
+    assert.deepEqual(adapter.validateStartOptions({ cwd: WORKDIR }, '-flag'), {
+      ok: false,
+      message: '-flag is not a model Claude Code lists.',
+    });
   });
 });
 
@@ -510,6 +711,7 @@ describe('observing a turn', () => {
     assert.deepEqual(types(), [
       'runtime.execution.started',
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.agent_message',
       'runtime.tool.started',
       'runtime.tool.completed',
@@ -517,23 +719,23 @@ describe('observing a turn', () => {
       'runtime.tool.completed',
       'runtime.turn.completed',
     ]);
-    const message = observed[2];
+    const message = observed[3];
     assert.equal(message?.type, 'runtime.agent_message');
     assert.deepEqual(message?.payload, { text: 'I will run the tests first.' });
     assert.equal(message?.provenance.epistemic, 'reported');
-    assert.deepEqual(observed[3]?.payload, {
+    assert.deepEqual(observed[4]?.payload, {
       tool_call_id: 'toolu_1',
       tool_name: 'Bash',
       title: 'pnpm test',
     });
-    assert.deepEqual(observed[4]?.payload, { tool_call_id: 'toolu_1', outcome: 'succeeded' });
-    assert.deepEqual(observed[5]?.payload, {
+    assert.deepEqual(observed[5]?.payload, { tool_call_id: 'toolu_1', outcome: 'succeeded' });
+    assert.deepEqual(observed[6]?.payload, {
       tool_call_id: 'toolu_2',
       tool_name: 'Edit',
       title: '/repo/src/checkout.ts',
     });
-    assert.deepEqual(observed[6]?.payload, { tool_call_id: 'toolu_2', outcome: 'failed' });
-    assert.deepEqual(observed[7]?.payload, { turn_id: scripted.delivered[0]?.uuid });
+    assert.deepEqual(observed[7]?.payload, { tool_call_id: 'toolu_2', outcome: 'failed' });
+    assert.deepEqual(observed[8]?.payload, { turn_id: scripted.delivered[0]?.uuid });
 
     assertContractValid(observed);
     assert.deepEqual(
@@ -564,7 +766,7 @@ describe('observing a turn', () => {
       }),
     );
     await settle();
-    assert.deepEqual(types().slice(2), ['runtime.tool.started']);
+    assert.deepEqual(types().slice(3), ['runtime.tool.started']);
   });
 
   test('an error result fails the turn with the error it reports', async () => {
@@ -865,13 +1067,13 @@ describe('start options', () => {
             ? { ok: true, directory: WORKDIR }
             : { ok: false, message: `${path} is outside the project roots.` },
       });
-      assert.deepEqual(adapter.validateStartOptions({ cwd: elsewhere }), {
+      assert.deepEqual(adapter.validateStartOptions({ cwd: elsewhere }, null), {
         ok: false,
         message: `${elsewhere} is outside the project roots.`,
       });
       await assert.rejects(start({ cwd: elsewhere }), actionError('invalid_runtime_options'));
       assert.equal(runs.length, 0, 'no session was launched');
-      assert.equal(adapter.validateStartOptions({ cwd: WORKDIR }).ok, true);
+      assert.equal(adapter.validateStartOptions({ cwd: WORKDIR }, null).ok, true);
     } finally {
       rmSync(elsewhere, { recursive: true, force: true });
     }
@@ -881,7 +1083,7 @@ describe('start options', () => {
     const { adapter } = setup();
     const file = join(WORKDIR, 'a-file.txt');
     writeFileSync(file, 'not a directory');
-    const valid = (options: RuntimeOptions) => adapter.validateStartOptions(options).ok;
+    const valid = (options: RuntimeOptions) => adapter.validateStartOptions(options, null).ok;
     assert.equal(valid({ cwd: WORKDIR }), true);
     assert.equal(valid({}), false);
     assert.equal(valid({ cwd: 'relative/path' }), false);
@@ -893,7 +1095,7 @@ describe('start options', () => {
   test('model and permission_mode are checked', () => {
     const { adapter } = setup();
     const valid = (options: RuntimeOptions) =>
-      adapter.validateStartOptions({ cwd: WORKDIR, ...options }).ok;
+      adapter.validateStartOptions({ cwd: WORKDIR, ...options }, null).ok;
     assert.equal(valid({ model: 'claude-opus-5-5' }), true);
     assert.equal(valid({ model: 'opus[1m]' }), true);
     assert.equal(valid({ model: 'us.anthropic.claude-sonnet-5:0' }), true);

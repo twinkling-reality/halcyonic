@@ -168,6 +168,7 @@ async function runTurn(
     execution,
     instruction: 'Say hello.',
     options: { cwd: WORKDIR },
+    model_ref: null,
     emit: (observation) => observed.push(observation),
   });
   await waitFor(
@@ -285,7 +286,13 @@ describe('the adapter through the real Agent SDK', () => {
 
       assert.deepEqual(
         observed.map((observation) => observation.type),
-        ['runtime.execution.started', 'runtime.turn.started', 'runtime.turn.completed'],
+        [
+          'runtime.execution.started',
+          'runtime.turn.started',
+          // The model the stand-in CLI names in its init message.
+          'runtime.model.used',
+          'runtime.turn.completed',
+        ],
       );
       assert.deepEqual(observed[0]?.payload, { native_id: nativeId });
       assert.deepEqual(observed[1]?.payload, { turn_id: prompt?.uuid });

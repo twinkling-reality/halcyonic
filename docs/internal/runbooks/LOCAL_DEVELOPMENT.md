@@ -51,6 +51,18 @@ curl -s -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:47800/api/events?aft
 Commands are posted as JSON `CommandEnvelope`s to `/api/commands`. The shape is in
 `packages/contracts/schema/halcyonic-contracts.schema.json` under `$defs/CommandEnvelope`.
 
+A runtime whose descriptor says `"model_choice": "listed"` lists the models it can run now; the
+mock runtime of `pnpm dev` lists three synthetic ones (`mock/fast`, `mock/hosted`, `mock/no-tools`):
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:47800/api/runtimes/mock/models
+```
+
+To start work on one, put its `model_ref` in the `execution.start` payload exactly as listed; the
+payload's `model_ref` is null otherwise, and a runtime's own `model` option cannot be combined with
+it. The execution's `model_ref` then shows the model the runtime reports running on
+([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
+
 ## Run real agents
 
 Real runtimes work only inside directories you list, and are off until enabled. The Claude Agent
@@ -136,6 +148,10 @@ brew install ripgrep                                   # OpenCode downloads it f
 
 What each does, and the speed and memory of the models tried, are in
 [local-models.md](../validation/local-models.md).
+
+The local models appear in `GET /api/runtimes/opencode/models` beside OpenCode Zen's hosted ones,
+for example as `ollama/qwen3.6:35b-a3b-nvfp4`, named "qwen3.6:35b-a3b-nvfp4 (Ollama)" and served on
+this Mac, and a start may carry one as its `model_ref` in place of the `model` option.
 Its end to end tests run against a binary and a fake provider when `OPENCODE_BIN` is set:
 
 ```bash
@@ -187,7 +203,12 @@ gives the model, since Codex has no metadata for it and assumes 272,000 tokens:
 ```
 
 The thread is refused if Codex reports another provider or model for it. Codex takes any model
-name without checking it: a name Ollama does not have fails the first turn. The runs, the rollouts
+name without checking it: a name Ollama does not have fails the first turn. Codex cannot list what
+Ollama serves, so `GET /api/runtimes/codex/models` holds the model your `config.toml` names, under
+its provider, and OpenAI's catalog only when that provider is OpenAI's: with
+`model_provider = "ollama"` and `model = "qwen3.6:35b-a3b-nvfp4"` there, a start may carry
+`"model_ref": "ollama/qwen3.6:35b-a3b-nvfp4"` in place of the two options, with the context
+options as before. The runs, the rollouts
 and what reaches the network are in [local-models.md](../validation/local-models.md). Your own
 `config.toml` still applies: turn off `features.plugins` and `analytics` there for work that stays
 on the Mac.

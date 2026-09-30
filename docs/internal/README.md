@@ -41,7 +41,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [opencode-capabilities.md](validation/opencode-capabilities.md) | OpenCode server API |
 | [claude-code-capabilities.md](validation/claude-code-capabilities.md) | Claude Code CLI and Agent SDK |
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
-| [local-models.md](validation/local-models.md) | Open models served by Ollama on the Mac, through the real runtimes and the control plane: flows, network, speed and memory |
+| [local-models.md](validation/local-models.md) | Open models served by Ollama on the Mac, through the real runtimes and the control plane: flows, network, speed and memory, and choosing a model from a runtime's list |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
 | [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |

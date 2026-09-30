@@ -43,6 +43,15 @@ const MIGRATIONS: readonly string[] = [
   CREATE INDEX events_workstream ON events (workstream_id, position);
   CREATE INDEX events_execution ON events (execution_id, position);
   `,
+  // ADR 0016: `execution.start` carries a `model_ref`. A command stored before it chose no model,
+  // which the contract now says with an explicit null.
+  `
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.command.payload.model_ref', json('null'))
+  WHERE event_type IN ('command.accepted', 'command.rejected')
+    AND json_extract(envelope, '$.payload.command.command_type') = 'execution.start'
+    AND json_type(envelope, '$.payload.command.payload.model_ref') IS NULL;
+  `,
 ];
 
 export const JOURNAL_SCHEMA_VERSION = MIGRATIONS.length;

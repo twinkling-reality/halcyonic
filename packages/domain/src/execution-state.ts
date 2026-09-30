@@ -27,6 +27,8 @@ export interface ExecutionState {
   readonly instruction: string;
   readonly createdAt: Timestamp;
   nativeId: string | null;
+  /** The model the runtime last reported using, as its model list names it. */
+  modelRef: string | null;
   /** True once the runtime has reported any activity, meaning a native session exists. */
   runtimeStarted: boolean;
   startedAt: Timestamp | null;
@@ -56,6 +58,7 @@ export function createExecutionState(init: {
   return {
     ...init,
     nativeId: null,
+    modelRef: null,
     runtimeStarted: false,
     startedAt: null,
     updatedAt: init.createdAt,
@@ -112,6 +115,7 @@ export function toExecutionView(state: ExecutionState): ExecutionView {
     project_id: state.projectId,
     runtime: state.runtime,
     native_id: state.nativeId,
+    model_ref: state.modelRef,
     instruction: state.instruction,
     status: deriveExecutionStatus(state),
     status_reason: deriveStatusReason(state),

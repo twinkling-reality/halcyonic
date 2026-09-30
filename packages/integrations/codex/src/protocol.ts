@@ -20,6 +20,8 @@ export const METHODS_USED = [
   'turn/start',
   'turn/steer',
   'turn/interrupt',
+  'config/read',
+  'model/list',
 ] as const;
 
 /** `ClientInfo.ts`. */
@@ -120,6 +122,39 @@ export interface TurnSteerParams extends TurnStartParams {
 export interface TurnInterruptParams {
   readonly threadId: string;
   readonly turnId: string;
+}
+
+/** `v2/ConfigReadParams.ts`: the effective configuration, without its layers. */
+export interface ConfigReadParams {
+  readonly includeLayers: false;
+}
+
+/**
+ * The fields of `v2/Config.ts` the adapter reads, from `config/read`'s `config`: the configured
+ * provider and model, and the settings that say which catalog `model/list` returns and where a
+ * provider is served. `model_providers` holds only providers the configuration defines.
+ */
+export interface ConfigFields {
+  readonly model: unknown;
+  readonly model_provider: unknown;
+  readonly model_context_window: unknown;
+  readonly model_catalog_json: unknown;
+  readonly openai_base_url: unknown;
+  readonly model_providers: unknown;
+}
+
+/** `v2/ModelListParams.ts`. */
+export interface ModelListParams {
+  readonly cursor: string | null;
+  readonly limit: number;
+  readonly includeHidden: false;
+}
+
+/** The fields of `v2/Model.ts` the adapter reads, from `model/list`'s `data`. */
+export interface CatalogModel {
+  readonly model: string;
+  readonly displayName: string;
+  readonly hidden: boolean;
 }
 
 /** `v2/TurnStatus.ts`. */
