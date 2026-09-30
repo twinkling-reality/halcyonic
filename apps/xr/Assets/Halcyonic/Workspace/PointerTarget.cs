@@ -21,6 +21,7 @@ namespace Halcyonic.XR.Workspace
         private static int handsOnTargets;
 
         private readonly HashSet<int> hands = new HashSet<int>();
+        private readonly HashSet<int> rays = new HashSet<int>();
         private readonly HashSet<int> gazes = new HashSet<int>();
         private BoundsClipper? clipper;
         private PokeInteractable? poke;
@@ -116,6 +117,7 @@ namespace Halcyonic.XR.Workspace
         private void OnDisable()
         {
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
+            rays.Clear();
             if (hands.Count == 0 && gazes.Count == 0) return;
             handsOnTargets -= hands.Count;
             hands.Clear();
@@ -136,9 +138,9 @@ namespace Halcyonic.XR.Workspace
 
         private void OnRay(PointerEvent pointer)
         {
+            var changed = Track(rays, pointer);
             OnHand(pointer);
-            if (pointer.Type != PointerEventType.Hover && pointer.Type != PointerEventType.Unhover
-                && pointer.Type != PointerEventType.Cancel) return;
+            if (!changed) return;
             var character = GetComponent<CharacterTarget>();
             var kind = character != null ? "character" : "control";
             var id = character != null ? character.WorkstreamId : GetInstanceID().ToString();
