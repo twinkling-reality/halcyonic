@@ -63,7 +63,7 @@ namespace Halcyonic.XR.Workspace
             {
                 var rayInteractable = host.AddComponent<RayInteractable>();
                 rayInteractable.InjectAllRayInteractable(patch);
-                rayInteractable.WhenPointerEventRaised += target.OnHand;
+                rayInteractable.WhenPointerEventRaised += target.OnRay;
             }
             if (poke)
             {
@@ -90,7 +90,7 @@ namespace Halcyonic.XR.Workspace
             surface.InjectAllColliderSurface(collider);
             var ray = host.AddComponent<RayInteractable>();
             ray.InjectAllRayInteractable(surface);
-            ray.WhenPointerEventRaised += target.OnHand;
+            ray.WhenPointerEventRaised += target.OnRay;
             if (gaze)
             {
                 var gazeInteractable = host.AddComponent<GazeInteractable>();
@@ -132,6 +132,19 @@ namespace Halcyonic.XR.Workspace
                 HoverChanged?.Invoke();
             }
             if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended) Selected?.Invoke();
+        }
+
+        private void OnRay(PointerEvent pointer)
+        {
+            OnHand(pointer);
+            if (pointer.Type != PointerEventType.Hover && pointer.Type != PointerEventType.Unhover
+                && pointer.Type != PointerEventType.Cancel) return;
+            var character = GetComponent<CharacterTarget>();
+            var kind = character != null ? "character" : "control";
+            var id = character != null ? character.WorkstreamId : GetInstanceID().ToString();
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                "Halcyonic interaction: ray target {0} {1} {2}",
+                pointer.Type == PointerEventType.Hover ? "entered" : "left", kind, id);
         }
 
         private void OnGaze(PointerEvent pointer)

@@ -101,7 +101,7 @@ namespace Halcyonic.Client
         public const float PivotBack = 0.10f;
 
         /// <summary>A palm closer than this to facing straight down rests or types, and has no ray.</summary>
-        public const float PalmDownDegrees = 35f;
+        public const float PalmDownDegrees = 20f;
 
         /// <summary>A palm closer than this to facing the eyes makes the system gesture, and has no ray.</summary>
         public const float PalmToHeadDegrees = 60f;

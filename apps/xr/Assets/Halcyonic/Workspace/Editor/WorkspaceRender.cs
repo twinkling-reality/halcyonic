@@ -519,7 +519,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var failures = new List<string>();
             var peek = PeekLabel.Create(root.transform);
-            peek.Show(characters[3].Target, Hostile("peek"), 1f);
+            peek.Show(characters[3].Target, characters.ConvertAll(character => character.Target), Hostile("peek"), 1f);
 
             // Confirming: the question, and the whole request in place of the tabs and the details.
             panel.Show(HostileContent(ControlsMode.Confirm));
