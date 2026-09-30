@@ -14,7 +14,10 @@ namespace Halcyonic.XR.Workspace
     /// <summary>
     /// Create a project, and Add work to a known one. The person types an idea in their own words or
     /// answers a few fixed questions (<see cref="ProjectIdea"/>); both lead to the same editable recap:
-    /// the project's name, its first task, where its files live, and how it runs. More options chooses
+    /// the project's name, its first task, where its files live, and how it runs. Where its files
+    /// live is chosen from the folders the Mac lists (<c>GET /api/locations</c>, read when the person
+    /// opens the choice), asked only when the runtime works in a project folder, and an existing
+    /// project keeps its own unless the person moves it, which the review shows as now and from now on. More options chooses
     /// the runtime and, from its own list, the model, with where each model runs; nothing is chosen for
     /// the person. Start building shows the whole request in parts (<see cref="NewWorkReview"/>), and
     /// only its last part offers Yes, start building, in a place where no button was. Then
@@ -28,8 +31,9 @@ namespace Halcyonic.XR.Workspace
     /// restart loses it. A request
     /// whose outcome is unknown keeps its command id on the device and blocks another start, even
     /// after a restart, until the person checks the work and clears it with two separate presses.
-    /// Where the project's files live cannot be chosen from the headset yet: the recap says so in one
-    /// line, and a runtime that needs a folder refuses the start, which the steps then show.
+    /// A refusal about a folder offers its next action from the refusal's code: Use that folder after
+    /// <c>location_exists</c>, Choose where its files live after the others; a project already made is
+    /// then moved to the new folder before its work is started again.
     /// </remarks>
     public sealed partial class EntryPanel
     {
@@ -41,7 +45,8 @@ namespace Halcyonic.XR.Workspace
         private const int ReviewLines = 12;
         private const float ChangeWidth = 0.14f;
 
-        private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence)> drafts = new Dictionary<string, (ProjectIdea, BuildSequence?)>();
+        private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence, ProjectFolder? Sent)> drafts =
+            new Dictionary<string, (ProjectIdea, BuildSequence?, ProjectFolder?)>();
         private string draftKey = "";
         private NewWorkDraft draft = null!;
         private ProjectIdea? idea;
@@ -53,6 +58,12 @@ namespace Halcyonic.XR.Workspace
         private bool showModels;
         private string? notice;
         private string? shownProject;
+        private ProjectFolder? sentFolder;
+        private bool rendering;
+        private LocationsResponse? locations;
+        private string? locationsProblem;
+        private Task<LocationsResponse>? locationsRead;
+        private CancellationTokenSource? locationsCancellation;
         private CancellationTokenSource? modelCancellation;
         private Task<RuntimeModelsResponse>? modelRead;
         private string? modelRuntimeId;
@@ -65,6 +76,7 @@ namespace Halcyonic.XR.Workspace
         private Slot changeName = null!;
         private Slot changeTask = null!;
         private Slot moreOptions = null!;
+        private Slot changeFolder = null!;
 
         /// <summary>A creation draft waits: the rail offers Continue creating.</summary>
         public bool HasDraft => (idea != null && (idea.HasRecap || idea.Guided) && sequence?.Started != true)
@@ -85,12 +97,15 @@ namespace Halcyonic.XR.Workspace
             changeName = MakeSlot("Change name", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             changeTask = MakeSlot("Change task", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             moreOptions = MakeSlot("More options", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
+            changeFolder = MakeSlot("Change folder", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
         }
 
         private void DestroyCreate()
         {
             modelCancellation?.Cancel();
             modelCancellation?.Dispose();
+            locationsCancellation?.Cancel();
+            locationsCancellation?.Dispose();
         }
 
         /// <summary>
@@ -114,9 +129,9 @@ namespace Halcyonic.XR.Workspace
             if (idea == null || key != draftKey)
             {
                 // Each place keeps its own draft, with how far its start got, so nothing is made twice.
-                if (idea != null) drafts[draftKey] = (idea, sequence);
+                if (idea != null) drafts[draftKey] = (idea, sequence, sentFolder);
                 draftKey = key;
-                (idea, sequence) = drafts.TryGetValue(key, out var kept) ? kept : (new ProjectIdea(projectId, projectName), null);
+                (idea, sequence, sentFolder) = drafts.TryGetValue(key, out var kept) ? kept : (new ProjectIdea(projectId, projectName), null, null);
                 review = null;
                 notice = null;
             }
@@ -137,6 +152,7 @@ namespace Halcyonic.XR.Workspace
             Screen.Guide => EntryText.HelpMe,
             Screen.Recap => idea?.ExistingProjectId == null ? EntryText.RecapTitle : EntryText.WorkRecapTitle,
             Screen.Options => EntryText.OptionsTitle,
+            Screen.Folder => EntryText.FolderTitle,
             Screen.Review => "Check before starting",
             Screen.Sending => EntryText.SendingTitle,
             _ => EntryText.PreviousRequestTitle,
@@ -167,6 +183,10 @@ namespace Halcyonic.XR.Workspace
                 case Screen.Options:
                     if (!banner) SayLine(EntryText.OptionsLine);
                     LayoutOptions();
+                    break;
+                case Screen.Folder:
+                    if (!banner) SayLine(locations?.Roots.Any(root => root.FoldersTruncated) == true ? EntryText.FolderLine + " " + EntryText.FoldersCut : EntryText.FolderLine);
+                    LayoutFolder();
                     break;
                 case Screen.Review:
                     if (!banner) SayLine("Part " + (review!.Page + 1) + " of " + review.PageCount + ". This is exactly what is sent.");
@@ -264,8 +284,8 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The editable recap: the project's name and first task, each with Change; where its files
-        /// live, which the headset cannot choose yet; and how it runs, with More options. Start
-        /// building shows the whole request first, and is offered once nothing is missing.
+        /// live, with Choose or Change; and how it runs, with More options. Start building shows the
+        /// whole request first, and is offered once nothing is missing.
         /// </summary>
         private void LayoutRecap()
         {
@@ -283,9 +303,17 @@ namespace Halcyonic.XR.Workspace
             Put(changeTask, EntryText.Change, new Vector2(Right - ChangeWidth / 2f, y - 0.028f), ChangeWidth, () =>
                 OpenKeyboard(current.FirstTask, "What should the first task be?", text => current.Rewrite(text)));
             y -= 0.072f;
-            // The one line that choosing a location will replace.
-            Say(recapLocation, EntryText.LocationNotBuilt, new Vector2(Left, y), new Vector2(ContentWidth, 0.05f));
-            y -= 0.06f;
+            var place = CurrentFolder();
+            Say(recapLocation, EntryText.FolderRecap(place, current.Folder, draft.Runtime?.UsesProjectLocation == true), new Vector2(Left, y),
+                new Vector2(textWidth, 0.05f));
+            Put(changeFolder, current.Folder == null && place == null ? EntryText.ChooseFolder : EntryText.Change,
+                new Vector2(Right - ChangeWidth / 2f, y - 0.022f), ChangeWidth, () =>
+                {
+                    page = 0;
+                    Open(Screen.Folder);
+                    ReadFolders();
+                });
+            y -= 0.068f;
             var optionsWidth = moreOptions.Button.Measure(EntryText.MoreOptions, 0.18f);
             Say(recapRuns, EntryText.RunsWith(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.034f));
             Put(moreOptions, draft.Runtime == null ? EntryText.ChooseHowItRuns : EntryText.MoreOptions,
@@ -298,12 +326,15 @@ namespace Halcyonic.XR.Workspace
             y -= 0.04f;
             Say(recapServed, EntryText.ModelLine(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.05f));
             var problem = StartProblem();
-            if (problem != null) Say(note, problem, new Vector2(Left, -0.17f), new Vector2(ContentWidth, 0.03f));
+            // Moving a project changes where all its later work runs, so the recap says so before the review.
+            var warning = problem ?? (current.Folder != null && current.ExistingProjectId != null ? EntryText.RebindWarning : null);
+            if (warning != null) Say(note, warning, new Vector2(Left, -0.155f), new Vector2(ContentWidth, 0.06f));
             Put(bottomLeft, "Start over", new Vector2(Left + 0.1f, BottomCenter), 0.2f, () =>
             {
                 idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                 review = null;
                 sequence = null;
+                sentFolder = null;
                 notice = null;
                 Open(Screen.CreateStart);
             });
@@ -321,7 +352,15 @@ namespace Halcyonic.XR.Workspace
             if (!now.Runtimes.Any(runtime => runtime.RuntimeId == draft.Runtime.RuntimeId)) return "That runtime is not available now. Choose another.";
             if (draft.Runtime.ModelChoice == ModelChoice.Listed && draft.Model == null) return draft.ModelProblem ?? "Choose a model.";
             if (idea?.ExistingProjectId != null && !now.Projects.ContainsKey(idea.ExistingProjectId)) return "That project is not known here any more.";
+            if (draft.Runtime.UsesProjectLocation && idea?.Folder == null && CurrentFolder() == null) return "Choose where its files live.";
             return null;
+        }
+
+        /// <summary>An existing project's folder as the host bound it, or null for a new project or one without.</summary>
+        private ProjectLocation? CurrentFolder()
+        {
+            var projectId = idea?.ExistingProjectId;
+            return projectId != null && state()?.Projects.TryGetValue(projectId, out var project) == true ? project!.Location : null;
         }
 
         private void StartBuilding()
@@ -329,6 +368,10 @@ namespace Halcyonic.XR.Workspace
             if (StartProblem() != null || idea == null) return;
             draft.Objective = idea.FirstTask;
             var model = draft.Model;
+            var place = CurrentFolder();
+            var folder = idea.Folder?.Describe() ?? (place != null ? LabelText.Plain(place.Name) : "none");
+            // A project that exists and is to move shows where its work runs now and from now on.
+            var before = idea.Folder != null && idea.ExistingProjectId != null ? (place != null ? LabelText.Plain(place.Name) : "none") : null;
             review = new NewWorkReview(
                 idea.Name,
                 draft.Title,
@@ -338,7 +381,9 @@ namespace Halcyonic.XR.Workspace
                 model?.ModelRef ?? "No model selected",
                 idea.FirstTask,
                 ReviewLine,
-                ReviewLines);
+                ReviewLines,
+                folder,
+                before);
             Open(Screen.Review);
         }
 
@@ -431,6 +476,107 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
+        /// Reads the folders the Mac lists, on demand: when the person opens Where its files live, or
+        /// asks again. Never on a timer, and never in the editor's renders.
+        /// </summary>
+        private void ReadFolders()
+        {
+            if (rendering) return;
+            locationsCancellation?.Cancel();
+            locationsCancellation?.Dispose();
+            locationsCancellation = null;
+            locations = null;
+            locationsProblem = null;
+            var api = ControlPlaneSettings.Api();
+            if (api == null)
+            {
+                locationsProblem = "no control plane is configured.";
+                return;
+            }
+            locationsCancellation = new CancellationTokenSource();
+            locationsRead = api.GetLocationsAsync(locationsCancellation.Token);
+        }
+
+        private void PollFolders()
+        {
+            var read = locationsRead;
+            if (read == null || !read.IsCompleted) return;
+            locationsRead = null;
+            if (read.IsCanceled) return;
+            if (read.IsFaulted) locationsProblem = read.Exception?.GetBaseException().Message ?? "the request failed.";
+            else locations = read.Result;
+            if (visible && screen == Screen.Folder) Layout();
+        }
+
+        /// <summary>
+        /// Where its files live: the folders the Mac lists, a page at a time. For each place the Mac
+        /// allows, a new folder, which the person names with the host's rule, the place itself, and
+        /// each folder in it; a place not on the Mac now shows and offers nothing. No places at all
+        /// says the Mac allows no folder yet. Choosing returns to the recap; nothing is sent.
+        /// </summary>
+        private void LayoutFolder()
+        {
+            var current = idea!;
+            Put(bottomLeft, EntryText.Back, new Vector2(Left + 0.07f, BottomCenter), 0.14f, () => Open(Screen.Recap));
+            if (locations == null)
+            {
+                Say(body, locationsProblem == null ? EntryText.ReadingFolders : "Could not read the folders: " + LabelText.Plain(locationsProblem),
+                    new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.12f));
+                if (locationsProblem != null) PutRightAligned(bottomRight, EntryText.TryAgain, Right, BottomCenter, () => { ReadFolders(); Layout(); });
+                return;
+            }
+            if (locations.Roots.Count == 0)
+            {
+                Say(body, EntryText.NoFolders, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.12f));
+                PutRightAligned(bottomRight, EntryText.TryAgain, Right, BottomCenter, () => { ReadFolders(); Layout(); });
+                return;
+            }
+            var options = ProjectFolder.Options(locations);
+            var shown = Paged(options);
+            for (var index = 0; index < shown.Count; index++)
+            {
+                var option = shown[index];
+                var chosen = current.Folder != null && !current.Folder.IsNew && current.Folder.RootPath == option.Root.Path
+                    && (option.Kind == FolderOptionKind.Root ? current.Folder.FolderName == null
+                        : option.Kind == FolderOptionKind.Folder && current.Folder.FolderName == option.Folder!.Name);
+                Put(rows[index], option.Label, new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth, () => ChooseOption(option),
+                    detail: (chosen ? "Chosen · " : "") + option.Detail,
+                    detailColor: option.Choosable ? (Color?)null : WorkspaceVisuals.AttentionColor);
+            }
+            Pager(options.Count);
+            if (notice != null && screen == Screen.Folder) Say(note, notice, new Vector2(Left, -0.17f), new Vector2(ContentWidth, 0.05f));
+        }
+
+        private void ChooseOption(FolderOption option)
+        {
+            var current = idea!;
+            switch (option.Kind)
+            {
+                case FolderOptionKind.NewFolder:
+                    var suggested = current.Folder != null && current.Folder.IsNew ? current.Folder.FolderName! : ProjectFolder.SuggestName(current.Name);
+                    OpenKeyboard(suggested, EntryText.NewFolderPrompt, text =>
+                    {
+                        var made = ProjectFolder.New(option.Root, text);
+                        if (made == null)
+                        {
+                            notice = EntryText.NewFolderRule;
+                            return;
+                        }
+                        notice = null;
+                        current.ChooseFolder(made);
+                        screen = Screen.Recap;
+                    });
+                    return;
+                case FolderOptionKind.Root:
+                case FolderOptionKind.Folder:
+                    notice = null;
+                    current.ChooseFolder(ProjectFolder.Existing(option.Root, option.Folder));
+                    Open(Screen.Recap);
+                    return;
+            }
+        }
+
+        /// <summary>
         /// The whole request, a page at a time, as it will be sent. Yes, start building shows on the
         /// last page only, in the bottom row's middle, where Start building never was.
         /// </summary>
@@ -463,13 +609,19 @@ namespace Halcyonic.XR.Workspace
             if (review?.CanConfirm != true || StartProblem() != null || idea == null) return;
             review = null;
             var newProject = idea.ExistingProjectId == null ? idea.Name : null;
-            if (sequence != null && sequence.CanRetry) Send(sequence.Retry(newProject));
+            var folder = idea.Folder?.ToContract();
+            if (sequence != null && sequence.CanRetry)
+            {
+                // Sent again with the folder only when the person chose another since the last try.
+                Send(sequence.Retry(newProject, idea.Folder != sentFolder ? folder : null));
+            }
             else if (sequence == null)
             {
                 draft.ProjectId = idea.ExistingProjectId;
-                sequence = new BuildSequence(draft, commands, newProject);
+                sequence = new BuildSequence(draft, commands, newProject, folder);
                 Send(sequence.Begin());
             }
+            sentFolder = idea.Folder;
             Open(Screen.Sending);
         }
 
@@ -498,6 +650,7 @@ namespace Halcyonic.XR.Workspace
         private void UpdateCreate()
         {
             PollModels();
+            PollFolders();
             var current = sequence;
             if (current == null) return;
             var ack = pendingAck;
@@ -546,8 +699,36 @@ namespace Halcyonic.XR.Workspace
                     drafts.Remove(draftKey);
                     idea = null;
                     sequence = null;
+                    sentFolder = null;
                     shownProject = null;
                     Hide();
+                });
+            }
+            else if (current.CanRetry && current.StoppedAt is BuildStep stopped && EntryText.AboutFolder(stopped))
+            {
+                // The next action comes from the refusal's code. Either way the request is reviewed again before it is sent.
+                var taken = stopped.Refusal == RejectionCode.LocationExists ? idea?.Folder : null;
+                if (taken != null && taken.IsNew)
+                {
+                    PutRightAligned(bottomRight, EntryText.UseThatFolder, Right, BottomCenter, () =>
+                    {
+                        idea!.ChooseFolder(ProjectFolder.Existing(taken));
+                        StartBuilding();
+                    });
+                }
+                else
+                {
+                    PutRightAligned(bottomRight, EntryText.TryAgain, Right, BottomCenter, () =>
+                    {
+                        if (StartProblem() == null && sequence?.CanRetry == true) Send(sequence.Retry(idea?.ExistingProjectId == null ? idea?.Name : null));
+                        Layout();
+                    });
+                }
+                Put(bottomLeft, EntryText.ChooseAnotherFolder, new Vector2(Left + 0.17f, BottomCenter), 0.34f, () =>
+                {
+                    page = 0;
+                    Open(Screen.Folder);
+                    ReadFolders();
                 });
             }
             else if (current.CanRetry)

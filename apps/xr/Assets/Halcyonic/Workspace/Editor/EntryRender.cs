@@ -136,7 +136,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 rail.Root.gameObject.SetActive(false);
 
                 var panel = EntryPanel.ForRender(root.transform, state, overview, targets, surface);
-                foreach (var (suffix, show) in Screens(state, before))
+                foreach (var (suffix, show) in Screens(state, before, hostile))
                 {
                     show(panel);
                     WorkspaceRender.ForceMeshes(root);
@@ -195,8 +195,9 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>Each screen, as the person reaches it, with what it needs in place.</summary>
-        private static IEnumerable<(string Suffix, Action<EntryPanel> Show)> Screens(ClientProjection state, ClientProjection before)
+        private static IEnumerable<(string Suffix, Action<EntryPanel> Show)> Screens(ClientProjection state, ClientProjection before, bool hostile)
         {
+            var listing = Listing(hostile);
             yield return ("welcome", panel => panel.ShowForRender(EntryPanel.Screen.Welcome));
             yield return ("connect", panel => panel.ShowForRender(EntryPanel.Screen.Connect));
             yield return ("more-work", panel => panel.ShowForRender(EntryPanel.Screen.MoreWork));
@@ -227,6 +228,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 panel.RedrawForRender();
             });
             yield return ("sending-refused", panel => panel.ShowForRender(EntryPanel.Screen.Sending, Idea(), Draft(state, listed: true), Refused(state)));
+            yield return ("folder", panel => panel.ShowForRender(EntryPanel.Screen.Folder, Idea(), Draft(state, listed: true), listing: listing));
+            yield return ("folder-none", panel => panel.ShowForRender(EntryPanel.Screen.Folder, Idea(), Draft(state, listed: true), listing: new LocationsResponse()));
+            yield return ("recap-move", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Moving(), Draft(state, listed: true)));
+            yield return ("review-move", panel => panel.ShowForRender(EntryPanel.Screen.Review, Moving(), Draft(state, listed: true)));
+            yield return ("sending-folder-exists", panel =>
+            {
+                var idea = Idea();
+                panel.ShowForRender(EntryPanel.Screen.Sending, idea, Draft(state, listed: true), FolderTaken(state, idea));
+            });
             yield return ("previous", panel => panel.ShowForRender(EntryPanel.Screen.Previous, unresolvedCommand: "0192f3c1-7e2a-7b3c-8d4e-5f6a7b8c9d0e"));
         }
 
@@ -234,7 +244,57 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var idea = new ProjectIdea();
             idea.UseIdea("A recipe tracker that suggests dinners from what is in my fridge.");
+            idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], ProjectFolder.SuggestName("Recipe tracker")));
             return idea;
+        }
+
+        /// <summary>New work in the storefront project, which moves it to a new folder.</summary>
+        private static ProjectIdea Moving()
+        {
+            var idea = new ProjectIdea("p-store", "Storefront API");
+            idea.UseIdea("Add a search page to the storefront.");
+            idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], "storefront-v2"));
+            return idea;
+        }
+
+        /// <summary>
+        /// What the Mac lists: a place with folders, more of them than it lists, and a place no longer
+        /// on the Mac; with <paramref name="hostile"/>, folder and place names at their worst.
+        /// </summary>
+        private static LocationsResponse Listing(bool hostile)
+        {
+            string Named(string plain, string field) => hostile ? WorkspaceRender.Hostile(field) : plain;
+            return new LocationsResponse
+            {
+                Roots = new List<LocationRoot>
+                {
+                    new()
+                    {
+                        Path = "/Users/person/Projects", Name = Named("Projects", "root"), Status = LocationRootStatus.Available, FoldersTruncated = true,
+                        Folders = new List<LocationFolder>
+                        {
+                            new() { Name = Named("recipe-tracker", "folder"), Path = "/Users/person/Projects/recipe-tracker" },
+                            new() { Name = Named("storefront-api", "folder"), Path = "/Users/person/Projects/storefront-api" },
+                        },
+                    },
+                    new() { Path = "/Volumes/Old/Code", Name = Named("Code", "root"), Status = LocationRootStatus.Missing, Folders = new List<LocationFolder>(), FoldersTruncated = false },
+                },
+            };
+        }
+
+        /// <summary>A new project whose new folder's name the Mac already has: refused, offering to use that folder.</summary>
+        private static BuildSequence FolderTaken(ClientProjection shown, ProjectIdea idea)
+        {
+            var draft = Draft(shown, listed: true);
+            draft.Objective = idea.FirstTask;
+            var sequence = new BuildSequence(draft, Commands(), idea.Name, idea.Folder!.ToContract());
+            var project = sequence.Begin();
+            sequence.Advance(With(new CommandView
+            {
+                CommandId = project.CommandId, Status = CommandStatus.Rejected, IssuedAt = Time, UpdatedAt = Time,
+                Rejection = new CommandRejection { Code = RejectionCode.LocationExists, Message = "A folder with that name already exists." },
+            }));
+            return sequence;
         }
 
         private static NewWorkDraft Draft(ClientProjection state, bool listed)
@@ -271,7 +331,7 @@ namespace Halcyonic.XR.Workspace.Editor
             sequence.Advance(With(new CommandView
             {
                 CommandId = start.CommandId, Status = CommandStatus.Rejected, IssuedAt = Time, UpdatedAt = Time,
-                Rejection = new CommandRejection { Code = RejectionCode.InvalidRuntimeOptions, Message = "This runtime needs a folder on your Mac." },
+                Rejection = new CommandRejection { Code = RejectionCode.LocationRequired, Message = "The project has no folder to work in." },
             }));
             return sequence;
         }
@@ -308,7 +368,11 @@ namespace Halcyonic.XR.Workspace.Editor
             string Named(string plain, string field) => hostile ? WorkspaceRender.Hostile(field) : plain;
             var projects = new List<ProjectView>
             {
-                new() { ProjectId = "p-store", Name = Named("Storefront API", "project"), CreatedAt = Time, UpdatedAt = Time },
+                new()
+                {
+                    ProjectId = "p-store", Name = Named("Storefront API", "project"), CreatedAt = Time, UpdatedAt = Time,
+                    Location = new ProjectLocation { Path = "/Users/person/Projects/storefront-api", Name = Named("storefront-api", "folder"), Created = false },
+                },
                 new() { ProjectId = "p-docs", Name = Named("Docs site", "project"), CreatedAt = Time, UpdatedAt = Time },
                 new() { ProjectId = "p-recipes", Name = Named("Recipe tracker", "project"), CreatedAt = Time, UpdatedAt = Time },
             };
@@ -369,6 +433,8 @@ namespace Halcyonic.XR.Workspace.Editor
             DisplayName = name,
             Synthetic = synthetic,
             ModelChoice = choice,
+            // A real runtime works in the project's folder; the simulated one needs none.
+            UsesProjectLocation = !synthetic,
             Capabilities = new RuntimeCapabilities { StartExecution = true, InstructAtRest = true, RespondToApproval = true, Interrupt = true },
         };
 

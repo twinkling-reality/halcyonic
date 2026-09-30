@@ -149,6 +149,11 @@
   panel is open resolved. The workspace render then showed the four questions whole in two lines
   with Refresh 0.022 of the panel's width clear of them. No font asset changed. None of this is
   checked on a Quest.
+- On 2026-09-30, with lane A's location contract merged, the same render passed with Where its
+  files live (a listing cut short with a place no longer on the Mac, and no places), a recap and a
+  review moving a project to a new folder, and a start refused over a taken folder name offering Use
+  that folder; hostile folder and place names showed by the one rule. The first render found the
+  folder row's Change touching More options on the recap, which moving the rows apart resolved.
 
 ### System keyboard
 

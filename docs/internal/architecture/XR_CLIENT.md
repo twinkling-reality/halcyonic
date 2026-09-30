@@ -231,15 +231,28 @@ the same definition names, as the JSON Schema document:
   its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
   terminal record arrives or the person deliberately clears it after checking the workstreams.
 - **`BuildSequence`** is Start building's command chain, moved out of the panel so it is tested:
-  `project.create` for a new project, `workstream.create`, then `execution.start`, each sent only
-  once the control plane recorded the one before it completed, a projected record winning over a
-  lost acknowledgement (`NewWorkSubmission`). A refusal, a failure known to have had no effect or a
-  command never sent stops it and can be sent again as a new command built from the draft as it is
-  now, reusing the project and workstream already made (`Retry`); an unknown outcome, a failure
-  whose effect is unknown, or an unexpected result keeps the command id in `Unresolved` and offers
-  no retry. Each step says how it went in words (`EntryText.StepStatus`): sent, waiting for the
-  result, confirmed only by a completed record, refused or failed with the control plane's reason,
-  effect unknown, or not sent.
+  `project.create` for a new project, with the folder chosen, or `project.set_location` first for
+  an existing project that is to work in another folder (which completes with no result), then
+  `workstream.create` and `execution.start`, each sent only once the control plane recorded the one
+  before it completed, a projected record winning over a lost acknowledgement (`NewWorkSubmission`).
+  A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
+  refusal's or failure's code, and can be sent again as a new command built from the draft as it is
+  now, reusing the project and workstream already made (`Retry`); given a newly chosen folder, a
+  project that exists is bound to it first, as after `location_required` or `location_missing`. An
+  unknown outcome, a failure whose effect is unknown, or an unexpected result keeps the command id in
+  `Unresolved` and offers no retry. Each step says how it went in words (`EntryText.StepStatus`):
+  sent, waiting for the result, confirmed only by a completed record, effect unknown, not sent, or
+  refused or failed: about a folder, what to do next, from the code and never from the control
+  plane's message; otherwise the control plane's reason by the one rule.
+- **`ProjectFolder`** is where a project's files live, as the person chose it from what the host
+  lists (`GET /api/locations`, [ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)):
+  a folder in one of the host's project roots, the root itself, or a new folder the host makes
+  there. It sends back the root's path and the folder's name exactly as listed and never composes
+  or takes apart a path. A new name must keep the host's rule (one plain segment, a letter or digit
+  first, at most 64); `SuggestName` makes one from the project's name that always does, whatever the
+  name holds, falling back to "project". `Options` lists, for each root, a new folder, the root
+  itself and each folder in it, and shows a root the host cannot find without offering it; every
+  name shows by the one rule.
 - **`StageVisibility`** is which projects' work has characters: every project until the person
   chooses, then the chosen ones; kept on the device for each journal (the eight used last), since
   project ids mean nothing in another one, and read back as every project when damaged. A
@@ -429,6 +442,17 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   through a real control plane with the mock runtime's list; the full request paged without cuts,
   confirmation possible only on its final page, and projected completion winning over a lost
   acknowledgement while an unresolved outcome keeps the command id;
+- the folder: a suggested name that keeps the host's rule and is never hidden for names with
+  accents, emoji, spaces, leading dots or nothing usable; the rule itself; a choice sending back
+  exactly what the host listed, Use that folder naming the same one; names by the one rule; the
+  listing's options, a missing root offering nothing; the recap's and review's words, a move showing
+  the folder now and from now on; a new project created in its folder, an existing one bound first,
+  a start without a folder bound and started again on the same workstream, `location_exists`
+  offering the folder, every folder code's next action from the code, other reasons shown plainly,
+  a failure with an unknown effect never said to have done nothing, and binding completing with no
+  result; and, against a real control plane with a project root, a taken name refused with
+  `location_exists`, Use that folder creating the project there and starting its work, and new
+  work in a new folder binding the project first;
 - the entry: with 0, 1, 6, 7 and 40 workstreams across a shown and a hidden project, every
   workstream that needs the person either has a character or is listed first in More work and
   counted with its project; project counts by tier, names by the one rule, the rail's choice of
@@ -681,9 +705,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     make?: Type my idea opens the system keyboard and goes straight to the recap; Help me figure it
     out asks the fixed questions of `ProjectIdea`, one at a time, with offered answers, typing one's
     own, skipping the name and Back, and says "Fixed questions, not an AI." The recap shows the
-    project's name and first task, each with Change; where its files live, in one line that says
-    choosing a folder from the headset is not built yet and that a runtime that needs one will
-    refuse to start; and what runs it, with More options: the runtimes that can start work, then
+    project's name and first task, each with Change; where its files live, with Choose or Change;
+    and what runs it, with More options: the runtimes that can start work, then
     the chosen runtime's own models, read on demand, each with where it runs. Nothing is chosen for
     the person, and a remote model says that the person's code and instructions go there. Start
     building, offered once nothing is missing, shows the whole request in pages of 38 characters by
@@ -699,15 +722,28 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     and Create a project without a project returns to the one last worked on. An app restart loses
     it. Live work only while a real
     control plane is connected; the recorded demonstration does not stand in for creation.
+  - **Where its files live** reads the folders the Mac lists (`ControlPlaneApi.GetLocationsAsync`)
+    when the person opens it, never on a timer, and lists them a page at a time: for each place the
+    Mac allows, a new folder there, the place itself, and each folder in it; a place not on the Mac
+    now shows and offers nothing; a listing cut at 200 folders says so; and no places at all reads
+    "Your Mac doesn't allow any folder yet", pointing to the Mac. A new folder's name is typed with
+    the system keyboard, offered as one made from the project's name, and refused on the headset
+    unless it keeps the host's rule. A folder is needed only when the chosen runtime works in a
+    project folder (`RuntimeDescriptor.UsesProjectLocation`); an existing project keeps its own,
+    shown on the recap, unless the person chooses another, when the recap says all later work in the
+    project runs there and the review shows its folder now and from now on before anything is sent.
+    The review shows where the files will live in every case. A refusal about a folder offers its
+    next action from the code: Use that folder after `location_exists` (the same folder, now as an
+    existing one), and Choose where its files live after `location_required`, `location_missing`,
+    `location_not_allowed` or a folder the Mac could not make; either returns through the review.
+    A project already made is then moved to the new folder before its work is started again.
   - **Needs you while creating:** work that comes to need the person while a Create screen shows
     (`AttentionWatch`), hidden projects included, appears in the line under the title with Open now
     and Keep creating; nothing switches by itself, and the draft is kept.
   The mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
-  which says no software work was performed. Codex and OpenCode work in the project's folder
-  ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)), which the panel
-  does not yet choose: a project it creates has none, so a start through either is refused with
-  `location_required` after the workstream is created; the steps show the refusal, and Try again
-  reuses them.
+  which says no software work was performed, and needs no folder. Codex and OpenCode work in the
+  project's folder ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)),
+  which the panel asks for before it offers Start building.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
@@ -1114,8 +1150,11 @@ them in `apps/xr/Builds/EntryRenders`. It fails if the panel lets anything behin
 (compared inside its own outline), covers a character's body or leaves the comfortable band; if
 the rail reaches farther to the side than the pairing panel's button begins (18.6 degrees), runs
 into the room kept for Usage left, overlaps itself or covers a character's body or label plate;
-if any of Halcyonic's own words is cut short; or if a page of the longest request does not fit. With
-hostile project names and titles, every label must show them by the one rule.
+if any of Halcyonic's own words is cut short; or if a page of the longest request does not fit. It
+renders Where its files live with a listing cut short and a place no longer on the Mac, and with no
+places; a recap and review that move a project to a new folder; and a start refused because the
+new folder's name is taken, offering Use that folder. With hostile project, folder and place names
+and titles, every label must show them by the one rule.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
@@ -1141,8 +1180,7 @@ Code, diffs, tests and output in the workspace; the Understanding section's full
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
-choosing where a project's files live from the headset, which the entry panel's recap names as not
-built; a companion that converses (Help me figure it out asks fixed questions), voice, and a
+choosing a folder deeper than one level inside a place the Mac allows; a companion that converses (Help me figure it out asks fixed questions), voice, and a
 creation draft that survives an app restart; discovering or attaching work Halcyonic did not
 start; the soundbook's softer repeat of "Needs you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
