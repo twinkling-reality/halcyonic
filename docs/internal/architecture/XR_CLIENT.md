@@ -8,6 +8,7 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
         │                             workspace: gaze and hand peek, panel,           the workspace, the
+        │                             new work from a typed objective,               new work panel,
         │                             sections, transition, first-time hint;          room, the sound and
         │                             Meta's rig; room: passthrough, MRUK, stage      pairing are not
         │                             anchor; sound: the characters' voices;          verified on a
@@ -18,6 +19,7 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             CharacterIdentity, CharacterLineup,
         │                             WorkspacePresenter, WorkspaceText, LabelText,
         │                             WorkspaceSteering, CommandSubmissions,
+        │                             NewWorkDraft,
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, CommandFactory,
@@ -196,6 +198,11 @@ the same definition names, as the JSON Schema document:
   where a model runs from `Served`, never from its name. **`CommandFactory.StartExecution`**
   sends the chosen `ModelRef` back unchanged (`modelRef`, null to leave the choice to the
   runtime), and the execution's `ModelRef` then holds the model the runtime reports using.
+- **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A
+  runtime change drops its previous model. It accepts a model only from the selected runtime's
+  current list, builds a workstream with a short title from the objective, and sends the objective
+  as the first instruction. The model's opaque reference goes back unchanged. A runtime whose
+  `ModelChoice` is `None` leaves the choice to that runtime.
 - **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
   never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
   when it is shown for an execution it holds no answer about, and when the person refreshes; the
@@ -355,6 +362,10 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   approval sent only once every part of its request has shown, each part turned to starting the
   window again, and a denial needing no reading; and command submissions through a session against
   the in-memory server (accepted, refused, cut off, not connected);
+- the new work draft refusing a blank or oversized objective, dropping a model after a runtime
+  change, refusing a model outside the runtime's list, leaving a choice to a runtime that does not
+  list models, and sending the chosen opaque reference unchanged; its create and start commands
+  through a real control plane with the mock runtime's list;
 - the one rule for text Halcyonic did not write: line breaks, tabs and other white space as one
   space and spaces as written; every control, format and default ignorable character and every
   half of a surrogate pair as its code point, including the end of text character that would end
@@ -552,6 +563,19 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
+- **New work:** a button below the view opens `NewWorkPanel`. The person chooses an existing
+  project or types a new project's name, chooses a runtime that declares `start_execution`, opens
+  that runtime's model choice, and types an objective with the system keyboard. The model list is
+  fetched once on runtime selection through `GET /api/runtimes/:runtime_id/models`; it is not
+  polled. Each model's own display name, serving location and tool calling declaration show in
+  the choice. An unavailable or empty list leaves Start unavailable, and the person can choose the
+  runtime again to retry. A runtime that does not list models uses its own choice. A second press
+  confirms the whole request. The panel then sends `project.create` if needed,
+  `workstream.create`, and `execution.start` in order, waiting for each command's completed record
+  before sending the next. A rejected or failed command stops the sequence and says why. If an
+  acknowledgement is lost, it says the outcome is unknown and does not send a replacement command.
+  The control plane checks the selected model again at start. The panel offers live work only while
+  a real control plane is connected; the recorded demonstration does not stand in for creation.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
