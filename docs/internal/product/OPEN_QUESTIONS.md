@@ -52,7 +52,7 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Remote relay provider and design | Remote mode | Later; not needed for the local slice |
 | Scope of camera and environmental context | Privacy and permissions | Product and security design |
 | Should the store build declare Meta VR Glasses (`stanley`) in `com.oculus.supportedDevices`? Meta's v207 default does; the store's manifest page lists only Quest identifiers, and Glasses are untested. | An upload could be refused, or claim a device never run on ([horizon-store-release.md](../validation/horizon-store-release.md)) | The owner, before the submission |
-| What should an approval request longer than the contract's 2000 characters become: cut with a mark, as all three adapters do with "[truncated]", kept whole under a higher limit, or refused as something nobody can read in full? | The workspace shows a request whole before an approval ([SECURITY.md](../architecture/SECURITY.md), "Untrusted text in the client"), but only as the control plane recorded it | Security design, then the adapters |
+| How should a person inspect the full runtime approval request when an adapter's summary selects one field and omits others? When the displayed summary exceeds the contract's 2000 characters, should it be cut with "[truncated]" as all three adapters do today, kept whole under a higher limit, or refused? | The workspace shows the recorded summary before an approval ([SECURITY.md](../architecture/SECURITY.md), "Untrusted text in the client"), which may not contain the full request | Security design, then the adapters |
 
 ## Legal
 
