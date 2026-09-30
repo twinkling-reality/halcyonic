@@ -93,6 +93,7 @@ import {
   UnderstandingStatement,
   UnderstandingVerificationRun,
 } from './understanding.ts';
+import { UsageLimit, UsageLimitsResponse } from './usage-limits.ts';
 import {
   ApprovalView,
   Attention,
@@ -203,6 +204,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   EvaluationCoverageOmission,
   EvaluationFreshness,
   EvaluationDateRange,
+  UsageLimit,
+  UsageLimitsResponse,
   ExecutionStatus,
   WorkstreamStatus,
   AttentionLevel,

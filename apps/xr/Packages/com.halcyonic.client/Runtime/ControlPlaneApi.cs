@@ -69,6 +69,13 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<EvaluationResponse>(body);
         }
 
+        /// <summary>Account-wide provider limits last captured by Seorak. Read only when opened.</summary>
+        public async Task<UsageLimitsResponse> GetUsageLimitsAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/usage-limits", cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<UsageLimitsResponse>(body);
+        }
+
         /// <summary>The understanding answer, with when this device received it.</summary>
         public async Task<IntelligenceRead<UnderstandingResponse>> ReadUnderstandingAsync(string executionId, CancellationToken cancellationToken = default)
         {

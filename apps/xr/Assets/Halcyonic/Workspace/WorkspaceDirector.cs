@@ -95,6 +95,7 @@ namespace Halcyonic.XR.Workspace
         private void Start()
         {
             if (GetComponent<NewWorkPanel>() == null) gameObject.AddComponent<NewWorkPanel>();
+            if (GetComponent<UsageLimitsPanel>() == null) gameObject.AddComponent<UsageLimitsPanel>();
             gaze = GazeHover.Create(transform, () => (peekChoice.PinchTarget, peekChoice.PinchBlock));
             if (gaze == null)
             {

@@ -3082,6 +3082,103 @@ namespace Halcyonic.Contracts
         public EvaluationResult Result { get; set; } = default!;
     }
 
+    public sealed class UsageLimit
+    {
+        [JsonProperty("provider", Required = Required.Always)]
+        public JToken Provider { get; set; } = default!;
+
+        [JsonProperty("window", Required = Required.Always)]
+        public JToken Window { get; set; } = default!;
+
+        [JsonProperty("remaining_percent", Required = Required.Always)]
+        public double RemainingPercent { get; set; }
+
+        [JsonProperty("resets_at", Required = Required.Always)]
+        public string ResetsAt { get; set; } = default!;
+
+        [JsonProperty("observed_at", Required = Required.Always)]
+        public string ObservedAt { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(UsageLimitsResponseConverter))]
+    public abstract class UsageLimitsResponse
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class UsageLimitsResponseConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(UsageLimitsResponse).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            UsageLimitsResponse value = tag switch
+            {
+                "available" => new AvailableUsageLimits(),
+                "unavailable" => new UnavailableUsageLimits(),
+                "unauthorized" => new UnauthorizedUsageLimits(),
+                "incompatible" => new IncompatibleUsageLimits(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "UsageLimitsResponse has no string availability."
+                    : "Unknown availability \"" + tag + "\" for UsageLimitsResponse."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableUsageLimits : UsageLimitsResponse
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("readings", Required = Required.Always)]
+        public List<UsageLimit> Readings { get; set; } = new List<UsageLimit>();
+    }
+
+    public sealed class UnavailableUsageLimits : UsageLimitsResponse
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnauthorizedUsageLimits : UsageLimitsResponse
+    {
+        protected override string Discriminator => "unauthorized";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class IncompatibleUsageLimits : UsageLimitsResponse
+    {
+        protected override string Discriminator => "incompatible";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(PairingClientMessageConverter))]
     public abstract class PairingClientMessage
     {
