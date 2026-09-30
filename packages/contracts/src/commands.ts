@@ -11,7 +11,7 @@ import {
   Timestamp,
   WorkstreamId,
 } from './primitives.ts';
-import { RuntimeOptions } from './runtime.ts';
+import { ModelRef, RuntimeOptions } from './runtime.ts';
 import { COMMAND_SCHEMA_VERSION } from './versions.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -47,6 +47,12 @@ export const ExecutionStartCommand = defineCommand(
       runtime_id: RuntimeId,
       instruction: Text(32000),
       options: RuntimeOptions,
+      /**
+       * A model from the runtime's own list (ADR 0016), or null to leave the choice to the
+       * runtime. Only for a runtime whose `model_choice` is `listed`; the runtime checks it again
+       * against a fresh list before anything runs.
+       */
+      model_ref: Nullable(ModelRef),
     },
     strict,
   ),

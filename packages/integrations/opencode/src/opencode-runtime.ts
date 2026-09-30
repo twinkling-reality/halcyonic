@@ -6,6 +6,7 @@ import type {
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
+  RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
 import {
@@ -32,7 +33,13 @@ import {
   type SessionState,
   toTimestamp,
 } from './events.ts';
-import { type ModelRef, readDefaultModel, readModels, sameModel } from './models.ts';
+import {
+  type ModelRef,
+  readDefaultModel,
+  readModels,
+  sameModel,
+  toRuntimeModel,
+} from './models.ts';
 import { parseStartOptions } from './options.ts';
 import { type PendingPermission, reconcileSession, type SessionSnapshot } from './reconcile.ts';
 import {
@@ -112,6 +119,11 @@ interface Readiness {
 /** A launched server and the adapter's subscription to its events. */
 interface Connection {
   readonly server: OpenCodeServer;
+  /**
+   * When the models of the server's own location were first asked for, by `Date.now()`. OpenCode
+   * loads a location on its first request, and its list settles moments later.
+   */
+  listingSince: number | null;
   /** Aborted when the adapter stops using the server: it exited, was given up or closed. */
   readonly halted: AbortController;
   /** Settles when the event stream is connected; rejects when the server is given up. */
@@ -140,6 +152,12 @@ const READ_TIMEOUT_MS = 5000;
 const TRANSITIONAL_READS = 20;
 /** How often the list of models is read again while a start waits for its model. */
 const MODEL_POLL_MS = 250;
+/**
+ * How long after its first request OpenCode's list of models for a location settles: its Ollama
+ * plugin reads the server with 1 s timeouts, and the list held every discovered model about 1.1 s
+ * after a location's first request.
+ */
+const LIST_SETTLES_AFTER_MS = 4000;
 
 /**
  * Runs OpenCode 2.0.18 executions through its v2 server API. The adapter owns one server
@@ -195,6 +213,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       display_name: `OpenCode ${OPENCODE_VERSION}`,
       synthetic: false,
       capabilities: OPENCODE_CAPABILITIES,
+      model_choice: 'listed',
     };
   }
 
@@ -203,9 +222,47 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return this.#current?.server.pid ?? null;
   }
 
-  validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy);
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
+  }
+
+  /**
+   * The models OpenCode offers, from `GET /api/model` at the server's own location, field by
+   * field: never `/api/provider`, and never a provider's settings, keys or headers. Launches the
+   * server when none runs; the first listing on a server waits for OpenCode to load the location
+   * and discover local models.
+   */
+  async listModels(): Promise<readonly RuntimeModel[]> {
+    const connection = await this.#connection();
+    const read = async () => {
+      if (connection.halted.signal.aborted) throw unreachableError();
+      try {
+        return await readModels(connection.server.client, null, READ_TIMEOUT_MS);
+      } catch (error) {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `OpenCode's list of models could not be read: ${message(error)}`,
+        );
+      }
+    };
+    if (connection.listingSince === null) {
+      connection.listingSince = Date.now();
+      // The first request makes OpenCode load the location; what it answers is not settled yet.
+      await read();
+    }
+    const settling = connection.listingSince + LIST_SETTLES_AFTER_MS - Date.now();
+    if (settling > 0) await delay(settling);
+    const listed = await read();
+    const models = new Map<string, RuntimeModel>();
+    for (const entry of listed) {
+      const model = toRuntimeModel(entry);
+      // A reference the contract cannot carry is not offered.
+      if (/^\S{1,256}$/.test(model.model_ref) && !models.has(model.model_ref)) {
+        models.set(model.model_ref, model);
+      }
+    }
+    return [...models.values()];
   }
 
   /**
@@ -224,7 +281,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
     // Checked again here: the directory may have changed since admission.
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
@@ -387,6 +444,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     const connection: Connection = {
       server,
+      listingSince: null,
       halted: new AbortController(),
       readiness: readiness(),
     };

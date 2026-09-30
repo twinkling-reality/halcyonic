@@ -144,7 +144,8 @@ namespace Halcyonic.Client
                     return Entry(ActivityKind.Command, "A request failed: " + commandFailed.Payload.Failure.Message
                         + (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : ""));
                 default:
-                    // Runtime session start and command completion add nothing a person needs to read here.
+                    // Runtime session start and command completion add nothing a person needs to read here,
+                    // and the model a runtime reports using is on the execution itself.
                     return null;
             }
         }

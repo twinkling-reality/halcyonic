@@ -377,3 +377,47 @@ Still unprotected or unverified:
   its own spawn; the adapter drains stderr without reporting it, since it may hold secrets. With
   `DEBUG_CLAUDE_AGENT_SDK` set on the host, the CLI no longer receives `--debug-file`.
 - **The real CLI** was not run for these checks.
+
+## Listing models (2026-09-30)
+
+Question: how can the adapter list the models Claude Code can run, for the choice of
+[ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)?
+
+Method: the pinned `@anthropic-ai/claude-agent-sdk` 0.3.283, read in its published types
+(*types*), and unit tests with a scripted query in place of the SDK's. The real CLI was not run:
+listing starts a Claude Code process with the key, which may reach Anthropic, and no model or
+credential was used.
+
+Verified (*types*):
+
+- `Query.supportedModels(): Promise<ModelInfo[]>` lists the available models. `ModelInfo` carries
+  `value` (the identifier to use in API calls), an optional `resolvedModel` (the canonical model id
+  an alias such as `sonnet` resolves to), `displayName`, `description`, and effort, thinking, fast
+  mode and auto mode flags. It says nothing about tool calling or the context window.
+- The SDK documents, for a process claimed from `startup()`, that `supportedModels()` waits for
+  the claim's answer and that the folder's `availableModels` setting narrows the list as it does
+  after a cold `query()` in that folder.
+
+What the adapter does:
+
+- `listModels()` starts a query with no prompt, in the system's temporary directory, with an
+  execution's environment, launched, recorded and watched like any other Claude Code process,
+  waits for `supportedModels()`, then ends its input and closes it.
+- Each model's `model_ref` is its `resolvedModel`, else its `value`, listed once; its name is the
+  display name and who serves it: Anthropic or the cloud provider a switch selects, read as
+  Claude Code reads booleans, or a gateway, named by its host and port, when `ANTHROPIC_BASE_URL`
+  or the provider's own base URL is passed on purpose. It is served remotely, except behind a
+  gateway on this Mac. Tool calling and context are unknown.
+- A start with a `model_ref` lists again first, refuses a model no longer listed with
+  `model_unavailable`, and passes the reference as the session's model. The model named in the
+  session's `system/init` message is reported as `runtime.model.used`, again when it changes.
+
+Not verified:
+
+- Listing against the real CLI: its duration, and whether it reaches the network.
+- Whether the model in `system/init` equals the `resolvedModel` the list gave, so that an
+  execution's `model_ref` reads as the one chosen.
+- Whether the listing process runs the developer's hooks: `settingSources` stays unset, so a
+  `SessionStart` hook could show Salidium and Seorak an empty session for each listing.
+- The list is read in a temporary directory, so an `availableModels` setting of the execution's
+  project does not narrow it; the start would then fail in Claude Code rather than at admission.

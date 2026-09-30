@@ -85,7 +85,15 @@ export function admitCommand(
         );
       }
       const missing = requireCapability(runtime, 'start_execution', scope);
-      return missing ?? { admitted: true, policy, scope, runtime };
+      if (missing !== undefined) return missing;
+      if (command.payload.model_ref !== null && runtime.model_choice !== 'listed') {
+        return reject(
+          scope,
+          'capability_unsupported',
+          `Runtime ${runtime.runtime_id} does not offer a choice of model.`,
+        );
+      }
+      return { admitted: true, policy, scope, runtime };
     }
 
     case 'execution.send_instruction': {

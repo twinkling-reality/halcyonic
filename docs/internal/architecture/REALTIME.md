@@ -17,6 +17,7 @@ see [SECURITY.md](SECURITY.md).
 | `GET /api/projects` | Projects at the current position |
 | `GET /api/workstreams?project_id=` | Workstreams, optionally for one project |
 | `GET /api/runtimes` | Runtime descriptors with capabilities; clients show only supported actions |
+| `GET /api/runtimes/:runtime_id/models` | `RuntimeModelsResponse`: the models the runtime lists now, from its own list, read through and never journaled ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)); always 200 with an availability (`unavailable` carries the reason in words: `timeout` after 30 s, `invalid_models` for a list outside the contract, or the adapter's own code), 404 `models_not_listed` for a runtime whose `model_choice` is `none`, 404 `runtime_not_found` for an unknown one. Listing may start the runtime, so it can take seconds: fetch it when a person opens the choice, and never poll |
 | `GET /api/events?after=&limit=&workstream_id=` | Journal history after a position (limit 1 to 1000, default 200) |
 | `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution |
 | `GET /api/executions/:execution_id/evaluation` | What Seorak measured about the execution's session (estimated cost, outcome, verification runs), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. Each answer spends three of Seorak's 60 requests a minute, so fetch it on demand, for example when a workstream is opened, and never poll |
@@ -77,6 +78,14 @@ client                                   server
   and the message says how the recording continues. It was added without a new protocol version
   because no control plane sends it, so no client of an older version can receive it
   ([XR_CLIENT.md](XR_CLIENT.md)).
+- **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
+  as `GET /api/runtimes/:runtime_id/models` gave it. A choice for a runtime whose `model_choice` is
+  `none` is rejected with `capability_unsupported`, and one the runtime does not list with
+  `invalid_runtime_options`; a model that leaves the runtime's list before the start fails it with
+  `model_unavailable`, before anything runs. The field was added as an explicit null without a new
+  protocol or schema version, because no client in the field sends `execution.start`; commands
+  stored before it read as `model_ref: null`
+  ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 - **Errors.** `error {error: {code, message, issues}, fatal}`. Invalid JSON or an invalid message
   after `hello` is not fatal. Fatal errors close with code 1008.
 - **Liveness.** The server pings every 15 seconds and drops a client that misses a pong.

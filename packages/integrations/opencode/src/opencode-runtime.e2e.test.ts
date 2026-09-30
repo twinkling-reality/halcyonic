@@ -11,7 +11,12 @@ import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import type { ExecutionId, RuntimeEventType } from '@halcyonic/contracts';
+import {
+  compileValidator,
+  type ExecutionId,
+  type RuntimeEventType,
+  RuntimeModel,
+} from '@halcyonic/contracts';
 import {
   type ExecutionContext,
   RuntimeActionError,
@@ -136,6 +141,7 @@ async function harness(
         execution: execution.context,
         instruction,
         options: { directory: sandbox.project, ...options },
+        model_ref: null,
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^ses/);
@@ -210,13 +216,17 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.deepEqual(execution.types(), [
       'runtime.execution.started',
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.agent_message',
       'runtime.turn.completed',
     ]);
-    const [started, turn, message, completed] = execution.observations;
+    const [started, turn, model, message, completed] = execution.observations;
     assert.ok(started?.type === 'runtime.execution.started');
     assert.match(started.payload.native_id ?? '', /^ses/);
     assert.equal(turnId(completed), turnId(turn));
+    // The model OpenCode says the step runs on, not the one asked for.
+    assert.deepEqual(model?.payload, { model_ref: 'fake/fake-model' });
+    assert.equal(model?.provenance.epistemic, 'observed');
     assert.match(
       message?.type === 'runtime.agent_message' ? message.payload.text : '',
       /^Fake reply \d+: acknowledged\.$/,
@@ -266,6 +276,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.deepEqual(execution.types(), [
       'runtime.execution.started',
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.tool.started',
       'runtime.approval.requested',
       'runtime.approval.resolved',
@@ -274,12 +285,12 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       'runtime.turn.completed',
     ]);
     const payloads = execution.observations.map((observation) => observation.payload);
-    assert.deepEqual(payloads[4], {
+    assert.deepEqual(payloads[5], {
       approval_id: requested.payload.approval_id,
       decision: 'approved',
     });
-    assert.equal((payloads[5] as { outcome: string }).outcome, 'succeeded');
-    assert.equal((payloads[6] as { text: string }).text, 'Tool result received: halcyonic-e2e');
+    assert.equal((payloads[6] as { outcome: string }).outcome, 'succeeded');
+    assert.equal((payloads[7] as { text: string }).text, 'Tool result received: halcyonic-e2e');
     assertValidObservations(execution.observations, execution.context);
   });
 
@@ -403,9 +414,11 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       // One turn: the steered instruction waited for the streaming step to end, without cutting
       // it, and reached the model in the next request of the same turn.
       assert.equal(turnId(completed), turnId(started));
+      // Both steps run on one model, reported once.
       assert.deepEqual(execution.types(), [
         'runtime.execution.started',
         'runtime.turn.started',
+        'runtime.model.used',
         'runtime.agent_message',
         'runtime.agent_message',
         'runtime.turn.completed',
@@ -463,6 +476,56 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assertValidObservations(execution.observations, execution.context);
   });
 
+  test(
+    'lists the models OpenCode offers; a start from the list runs on that model and reports it',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox } = await harness(t);
+      const models = await runtime.listModels();
+      assert.ok(models.every((model) => compileValidator(RuntimeModel)(model).ok));
+      const fake = models.filter((model) => model.model_ref.startsWith('fake/'));
+      assert.deepEqual(
+        fake.map((model) => [model.model_ref, model.display_name, model.served]),
+        [
+          ['fake/fake-model', 'Fake model (fake)', 'this_mac'],
+          ['fake/fake-model-2', 'Fake model 2 (fake)', 'this_mac'],
+        ],
+      );
+      // The listing carries no provider settings: the fake provider's address stays out of it.
+      assert.equal(JSON.stringify(models).includes(sandbox.provider.baseUrl), false);
+
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Hello.',
+        options: { directory: sandbox.project },
+        model_ref: 'fake/fake-model-2',
+        emit: execution.emit,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.at(-1)?.model, 'fake-model-2');
+      const used = execution.observations.filter((item) => item.type === 'runtime.model.used');
+      assert.deepEqual(
+        used.map((item) => item.payload),
+        [{ model_ref: 'fake/fake-model-2' }],
+      );
+      assertValidObservations(execution.observations, execution.context);
+
+      const gone = new Execution();
+      await assert.rejects(
+        runtime.startExecution({
+          execution: gone.context,
+          instruction: 'Hello.',
+          options: { directory: sandbox.project },
+          model_ref: 'fake/removed-model',
+          emit: gone.emit,
+        }),
+        actionError('model_unavailable'),
+      );
+      assert.deepEqual(gone.types(), []);
+    },
+  );
+
   test('the model option selects the model OpenCode calls', SLOW_TEST, async (t) => {
     const { sandbox, start } = await harness(t);
     const execution = await start('Hello.', { model: 'fake/fake-model-2' });
@@ -488,6 +551,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
             execution: execution.context,
             instruction: 'Hello.',
             options: { directory: sandbox.project, model },
+            model_ref: null,
             emit: execution.emit,
           }),
           (error: unknown) =>
@@ -504,6 +568,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         execution: execution.context,
         instruction: 'Hello.',
         options: { directory: sandbox.project, model: 'fake/fake-model' },
+        model_ref: null,
         emit: execution.emit,
       });
       await execution.next('runtime.turn.completed');
@@ -637,6 +702,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
         options: { directory: sandbox.project },
+        model_ref: null,
         emit: execution.emit,
       });
       await execution.next('runtime.turn.completed');

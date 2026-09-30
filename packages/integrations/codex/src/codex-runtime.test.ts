@@ -55,7 +55,12 @@ function adapter(t: TestContext) {
 }
 
 /** An adapter running the stand-in binary with the given behavior, and what it received. */
-function fake(t: TestContext, mode: string[] = [], options: Partial<CodexRuntimeOptions> = {}) {
+function fake(
+  t: TestContext,
+  mode: string[] = [],
+  options: Partial<CodexRuntimeOptions> = {},
+  env: Readonly<Record<string, string>> = {},
+) {
   const directory = temporary(t);
   const log = join(directory, 'received.jsonl');
   const recordFile = join(directory, 'server.json');
@@ -67,6 +72,7 @@ function fake(t: TestContext, mode: string[] = [], options: Partial<CodexRuntime
       PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
       FAKE_CODEX_MODE: mode.join(','),
       FAKE_CODEX_LOG: log,
+      ...env,
     },
     ...options,
   });
@@ -84,6 +90,7 @@ function fake(t: TestContext, mode: string[] = [], options: Partial<CodexRuntime
       execution: TEST_EXECUTION,
       instruction,
       options: { cwd: directory },
+      model_ref: null,
       emit: (observation) => observations.push(observation),
     });
   return { runtime, directory, recordFile, observations, received, start };
@@ -168,7 +175,7 @@ describe('Codex start options', () => {
       { cwd: directory, context_window: 65536, auto_compact_token_limit: 65536 },
     ];
     for (const options of invalid) {
-      const result = runtime.validateStartOptions(options);
+      const result = runtime.validateStartOptions(options, null);
       assert.equal(result.ok, false, JSON.stringify(options));
       assert.ok(!result.ok && result.message.length > 0);
     }
@@ -185,7 +192,7 @@ describe('Codex start options', () => {
       { cwd: directory, auto_compact_token_limit: 52000 },
     ]) {
       assert.deepEqual(
-        runtime.validateStartOptions(options),
+        runtime.validateStartOptions(options, null),
         { ok: true },
         JSON.stringify(options),
       );
@@ -194,17 +201,23 @@ describe('Codex start options', () => {
 
   test('refuse any combination that would stop approvals reaching the person', (t) => {
     const { runtime, directory } = adapter(t);
-    assert.deepEqual(runtime.validateStartOptions({ cwd: directory, approval_policy: 'never' }), {
-      ok: false,
-      message:
-        'Option "approval_policy" cannot be "never": the person supervising the execution would never be asked.',
-    });
+    assert.deepEqual(
+      runtime.validateStartOptions({ cwd: directory, approval_policy: 'never' }, null),
+      {
+        ok: false,
+        message:
+          'Option "approval_policy" cannot be "never": the person supervising the execution would never be asked.',
+      },
+    );
     for (const approval of [undefined, 'on-request']) {
-      const result = runtime.validateStartOptions({
-        cwd: directory,
-        sandbox: 'danger-full-access',
-        ...(approval !== undefined && { approval_policy: approval }),
-      });
+      const result = runtime.validateStartOptions(
+        {
+          cwd: directory,
+          sandbox: 'danger-full-access',
+          ...(approval !== undefined && { approval_policy: approval }),
+        },
+        null,
+      );
       assert.match(result.ok ? '' : result.message, /needs "approval_policy" "untrusted"/);
     }
   });
@@ -213,12 +226,13 @@ describe('Codex start options', () => {
     const { runtime } = adapter(t);
     const outside = temporary(t);
     const message = `${outside} is outside the directories this test allows.`;
-    assert.deepEqual(runtime.validateStartOptions({ cwd: outside }), { ok: false, message });
+    assert.deepEqual(runtime.validateStartOptions({ cwd: outside }, null), { ok: false, message });
     await assert.rejects(
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { cwd: outside },
+        model_ref: null,
         emit: () => undefined,
       }),
       (error: unknown) =>
@@ -241,11 +255,11 @@ describe('Codex start options', () => {
     t.after(() => runtime.close());
     mkdirSync(join(directory, 'sub'));
     const given = `${directory}/sub/..`;
-    assert.deepEqual(runtime.validateStartOptions({ cwd: given }), { ok: true });
+    assert.deepEqual(runtime.validateStartOptions({ cwd: given }, null), { ok: true });
     assert.deepEqual(asked, [given]);
     const boom = join(directory, 'boom');
     mkdirSync(boom);
-    const refused = runtime.validateStartOptions({ cwd: boom });
+    const refused = runtime.validateStartOptions({ cwd: boom }, null);
     assert.match(refused.ok ? '' : refused.message, /policy failure/);
   });
 });
@@ -316,6 +330,7 @@ describe('Codex runtime without a server', () => {
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { cwd: directory },
+        model_ref: null,
         emit: (observation) => observed.push(observation),
       }),
       actionError('runtime_unavailable'),
@@ -352,6 +367,7 @@ describe('Codex runtime without a server', () => {
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
         options: { cwd: directory },
+        model_ref: null,
         emit: () => undefined,
       }),
       actionError('runtime_closed'),
@@ -405,12 +421,19 @@ describe('Codex runtime against a stand-in binary', () => {
       sent.map((message) => message.method),
       ['initialize', 'initialized', 'thread/start', 'turn/start'],
     );
-    await until(() => observations.length === 3, 'the turn');
+    await until(() => observations.length === 4, 'the turn');
     assert.deepEqual(
       observations.map((item) => item.type),
-      ['runtime.execution.started', 'runtime.turn.started', 'runtime.turn.completed'],
+      [
+        'runtime.execution.started',
+        'runtime.model.used',
+        'runtime.turn.started',
+        'runtime.turn.completed',
+      ],
     );
     assert.deepEqual(observations[0]?.payload, { native_id });
+    // The model the thread got, as Codex reported it in its answer to thread/start.
+    assert.deepEqual(observations[1]?.payload, { model_ref: 'openai/gpt-5.5' });
     assertValidObservations(observations);
   });
 
@@ -426,6 +449,7 @@ describe('Codex runtime against a stand-in binary', () => {
         context_window: 65536,
         auto_compact_token_limit: 52000,
       },
+      model_ref: null,
       emit: (observation) => observations.push(observation),
     });
     const threadStart = received().find((message) => message.method === 'thread/start');
@@ -439,7 +463,8 @@ describe('Codex runtime against a stand-in binary', () => {
       config: { model_context_window: 65536, model_auto_compact_token_limit: 52000 },
       threadSource: 'halcyonic',
     });
-    await until(() => observations.length === 3, 'the turn');
+    await until(() => observations.length === 4, 'the turn');
+    assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
   });
 
   test('refuses a thread Codex does not run on the requested model and provider', async (t) => {
@@ -454,6 +479,7 @@ describe('Codex runtime against a stand-in binary', () => {
           execution: TEST_EXECUTION,
           instruction: 'COMPLETE the work.',
           options: { cwd: directory, ...options },
+          model_ref: null,
           emit: (observation) => observations.push(observation),
         }),
         (error: unknown) => {
@@ -470,6 +496,121 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(observations, []);
   });
 
+  test('lists the configured model and the catalog of the provider it belongs to', async (t) => {
+    const catalog = [
+      { id: 'gpt-5.5', model: 'gpt-5.5', displayName: 'GPT-5.5', hidden: false },
+      { id: 'gpt-hidden', model: 'gpt-hidden', displayName: 'Hidden', hidden: true },
+      { id: 'gpt-6-sol', model: 'gpt-6-sol', displayName: 'GPT-6-Sol', hidden: false },
+    ];
+    const hosted = fake(t, [], {}, { FAKE_CODEX_CATALOG: JSON.stringify(catalog) });
+    assert.deepEqual(
+      (await hosted.runtime.listModels()).map((model) => [model.model_ref, model.served]),
+      [
+        ['openai/gpt-5.5', 'remote'],
+        ['openai/gpt-6-sol', 'remote'],
+      ],
+    );
+    // Every page was read, and only the stable methods were used.
+    assert.deepEqual(
+      hosted
+        .received()
+        .map((message) => message.method)
+        .filter((method) => method === 'config/read' || method === 'model/list'),
+      ['config/read', 'model/list', 'model/list', 'model/list'],
+    );
+
+    const local = fake(
+      t,
+      [],
+      {},
+      {
+        FAKE_CODEX_CATALOG: JSON.stringify(catalog),
+        FAKE_CODEX_CONFIG: JSON.stringify({
+          model_provider: 'ollama',
+          model: 'gpt-4o:latest',
+          model_context_window: 65536,
+        }),
+      },
+    );
+    // A local model named after a hosted one reads as the local provider's, and the built-in
+    // catalog, which is OpenAI's, is not offered as Ollama's.
+    assert.deepEqual(await local.runtime.listModels(), [
+      {
+        model_ref: 'ollama/gpt-4o:latest',
+        display_name: 'gpt-4o:latest (Ollama)',
+        served: 'this_mac',
+        tool_calling: 'unknown',
+        context_tokens: 65536,
+      },
+    ]);
+  });
+
+  test('a start from the list runs on the chosen provider and model, checked again first', async (t) => {
+    const config = { model_provider: 'ollama', model: 'qwen3.6:35b-a3b-nvfp4' };
+    const { runtime, received, directory, observations } = fake(
+      t,
+      [],
+      {},
+      { FAKE_CODEX_CONFIG: JSON.stringify(config) },
+    );
+    await runtime.startExecution({
+      execution: TEST_EXECUTION,
+      instruction: 'COMPLETE the work.',
+      options: { cwd: directory, context_window: 65536 },
+      model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4',
+      emit: (observation) => observations.push(observation),
+    });
+    const sent = received();
+    const threadStart = sent.find((message) => message.method === 'thread/start');
+    const params = (threadStart?.params ?? {}) as { model?: unknown; modelProvider?: unknown };
+    assert.equal(params.model, 'qwen3.6:35b-a3b-nvfp4');
+    assert.equal(params.modelProvider, 'ollama');
+    // The list was read before the thread started.
+    const methods = sent.map((message) => message.method);
+    assert.ok(methods.indexOf('config/read') < methods.indexOf('thread/start'));
+    await until(() => observations.length === 4, 'the turn');
+    assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
+
+    const other = { ...TEST_EXECUTION, execution_id: '01920000-0000-7000-8000-0000000000f1' };
+    await assert.rejects(
+      runtime.startExecution({
+        execution: other as typeof TEST_EXECUTION,
+        instruction: 'COMPLETE the work.',
+        options: { cwd: directory },
+        model_ref: 'ollama/removed:model',
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        actionError('model_unavailable')(error) &&
+        (error as Error).message.startsWith('Codex does not list the model ollama/removed:model'),
+    );
+    assert.equal(
+      received().filter((message) => message.method === 'thread/start').length,
+      1,
+      'a thread was started for a model no longer listed',
+    );
+  });
+
+  test('a model chosen from the list replaces the model options, never goes with them', (t) => {
+    const { runtime, directory } = adapter(t);
+    assert.deepEqual(runtime.validateStartOptions({ cwd: directory }, 'ollama/qwen3.6:35b'), {
+      ok: true,
+    });
+    for (const options of [{ model: 'gpt-5.5' }, { model_provider: 'ollama' }]) {
+      assert.deepEqual(runtime.validateStartOptions({ cwd: directory, ...options }, 'ollama/x'), {
+        ok: false,
+        message:
+          'Choose the model either with model_ref or with the "model" and "model_provider" options, not both.',
+      });
+    }
+    for (const modelRef of ['no-provider', 'ollama/', '/model', 'bad provider/model']) {
+      assert.deepEqual(runtime.validateStartOptions({ cwd: directory }, modelRef), {
+        ok: false,
+        message: `${modelRef} is not a model Codex lists.`,
+      });
+    }
+  });
+
   test('refuses a thread Codex did not give the requested approval policy', async (t) => {
     const { start, observations } = fake(t, ['never']);
     await assert.rejects(start(), (error: unknown) => {
@@ -484,7 +625,7 @@ describe('Codex runtime against a stand-in binary', () => {
     const { runtime, start, received, observations } = fake(t);
     await start();
     await runtime.sendInstruction({ execution: TEST_EXECUTION, text: 'Also this.' });
-    const [started, turn] = observations;
+    const [started, , turn] = observations;
     assert.ok(
       started?.type === 'runtime.execution.started' && turn?.type === 'runtime.turn.started',
     );
@@ -577,7 +718,7 @@ describe('Codex runtime against a stand-in binary', () => {
   test('a resting thread survives a restart; a relaunched server that dies at once is given up', async (t) => {
     const { runtime, start, observations, received } = fake(t);
     await start('COMPLETE the work.');
-    await until(() => observations.length === 3, 'the turn');
+    await until(() => observations.length === 4, 'the turn');
     const first = runtime.serverPid;
     process.kill(first ?? 0, 'SIGKILL');
     await until(
@@ -595,7 +736,8 @@ describe('Codex runtime against a stand-in binary', () => {
       'threadId',
     ]);
     await runtime.sendInstruction({ execution: TEST_EXECUTION, text: 'COMPLETE again.' });
-    await until(() => observations.length === 5, 'the second turn');
+    // The resumed thread runs on the same model, so none is reported again.
+    await until(() => observations.length === 6, 'the second turn');
     process.kill(runtime.serverPid ?? 0, 'SIGKILL');
     await until(
       () => observations.some((item) => item.type === 'runtime.connection.lost'),

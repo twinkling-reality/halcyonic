@@ -79,6 +79,8 @@ export interface SessionState {
   settledThrough: number | null;
   /** Inbox item ids of instructions steered into a running turn that OpenCode has not delivered yet. */
   readonly steered: Set<string>;
+  /** The `provider/model` OpenCode last reported using, which outlives turns. */
+  model: string | null;
   /** Pending permission requests. */
   readonly approvals: Set<string>;
   /** Decisions OpenCode confirmed with a 204, kept until `permission.replied` arrives. */
@@ -95,6 +97,7 @@ export function createSessionState(): SessionState {
     since: null,
     settledThrough: null,
     steered: new Set(),
+    model: null,
     approvals: new Set(),
     replies: new Map(),
     tools: new Set(),
@@ -153,6 +156,17 @@ export function observeEvent(
   }
 
   switch (event.type) {
+    case 'session.step.started': {
+      // Each step names the model it asks, as OpenCode's `Model.Ref`; a change is reported.
+      const model = isRecord(data.model) ? data.model : {};
+      const providerID = nonBlank(model.providerID);
+      const id = nonBlank(model.id);
+      if (providerID === null || id === null) return [];
+      const ref = `${providerID}/${id}`;
+      if (ref === state.model || !/^\S{1,256}$/.test(ref)) return [];
+      state.model = ref;
+      return make('runtime.model.used', { model_ref: ref });
+    }
     case 'session.execution.started': {
       state.awaitingStart = false;
       state.pendingInboxId = null;

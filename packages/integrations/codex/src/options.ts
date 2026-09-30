@@ -63,6 +63,7 @@ const MAX_TOKENS = 10_000_000;
 export function parseStartOptions(
   options: RuntimeOptions,
   policy: DirectoryPolicy,
+  modelRef: string | null = null,
 ): ParsedStartOptions {
   const unknown = Object.keys(options).filter((key) => !SUPPORTED.includes(key));
   if (unknown.length > 0) {
@@ -98,6 +99,16 @@ export function parseStartOptions(
     (typeof model_provider !== 'string' || !PROVIDER_PATTERN.test(model_provider))
   ) {
     return fail('Option "model_provider" must be a model provider id, such as "ollama".');
+  }
+  let chosen: { readonly provider: string; readonly model: string } | null = null;
+  if (modelRef !== null) {
+    if (model !== undefined || model_provider !== undefined) {
+      return fail(
+        'Choose the model either with model_ref or with the "model" and "model_provider" options, not both.',
+      );
+    }
+    chosen = fromModelRef(modelRef);
+    if (chosen === null) return fail(`${modelRef} is not a model Codex lists.`);
   }
   const contextWindow = tokenCount(context_window);
   if (contextWindow === null) return tokenCountRefused('context_window');
@@ -142,14 +153,30 @@ export function parseStartOptions(
     ok: true,
     value: {
       cwd: decision.directory,
-      model,
-      modelProvider: model_provider,
+      model: chosen?.model ?? model,
+      modelProvider: chosen?.provider ?? model_provider,
       contextWindow,
       autoCompactTokenLimit,
       sandbox: sandboxMode,
       approvalPolicy,
     },
   };
+}
+
+/** The adapter's `model_ref` for a model of a provider: `provider/model`. */
+export function toModelRef(provider: string, model: string): string {
+  return `${provider}/${model}`;
+}
+
+/** The provider and model a `model_ref` names, or null when it is not one the adapter makes. */
+export function fromModelRef(
+  modelRef: string,
+): { readonly provider: string; readonly model: string } | null {
+  const slash = modelRef.indexOf('/');
+  if (slash < 0) return null;
+  const provider = modelRef.slice(0, slash);
+  const model = modelRef.slice(slash + 1);
+  return PROVIDER_PATTERN.test(provider) && MODEL_PATTERN.test(model) ? { provider, model } : null;
 }
 
 /** A whole number of tokens, undefined when the option is absent, or null when it is invalid. */

@@ -1,3 +1,4 @@
+import type { ModelServed, RuntimeModel } from '@halcyonic/contracts';
 import type { OpenCodeClient } from './client.ts';
 import { isRecord } from './events.ts';
 
@@ -95,6 +96,67 @@ export function parseModels(data: readonly unknown[]): OpenCodeModel[] {
 
 export function sameModel(model: OpenCodeModel | ModelRef, ref: ModelRef): boolean {
   return model.providerID === ref.providerID && model.id === ref.id;
+}
+
+/** The `model_ref` of a model: OpenCode's own `provider/model`, which a session takes back. */
+export function modelRefOf(model: ModelRef): string {
+  return `${model.providerID}/${model.id}`;
+}
+
+/** What people call the providers OpenCode 2.0.18 discovers or ships; any other keeps its id. */
+const PROVIDER_NAMES: Readonly<Record<string, string>> = {
+  ollama: 'Ollama',
+  lmstudio: 'LM Studio',
+  vllm: 'vLLM',
+  opencode: 'OpenCode Zen',
+};
+
+/**
+ * A listed model as the contract describes it (ADR 0016). The display name names the provider as
+ * well as the model, so a local model named after a hosted one, such as Ollama's `gpt-4o:latest`,
+ * never reads as the hosted one. Where it runs is decided from the address OpenCode sends its
+ * requests to, never from its name.
+ */
+export function toRuntimeModel(model: OpenCodeModel): RuntimeModel {
+  const provider = PROVIDER_NAMES[model.providerID] ?? model.providerID;
+  return {
+    model_ref: modelRefOf(model),
+    display_name: clipName(`${model.name} (${provider})`),
+    served: servedBy(model),
+    tool_calling:
+      model.tools === true ? 'declared' : model.tools === false ? 'not_declared' : 'unknown',
+    context_tokens: model.contextTokens,
+  };
+}
+
+/**
+ * `this_mac` when OpenCode reaches the model on a loopback address, `remote` when it reaches it
+ * anywhere else, `unknown` without an address. Ollama serves the models it names with a `cloud`
+ * tag from its own hosted service, whatever address OpenCode reaches Ollama at, so those are
+ * `remote`; a cloud model copied to a name without that tag would still read as this Mac's, a gap
+ * OpenCode's list gives no way to close.
+ */
+export function servedBy(model: OpenCodeModel): ModelServed {
+  if (model.baseUrl === null) return 'unknown';
+  let host: string;
+  try {
+    host = new URL(model.baseUrl).hostname;
+  } catch {
+    return 'unknown';
+  }
+  if (!isLoopback(host)) return 'remote';
+  if (model.providerID === 'ollama' && /[:-]cloud$/.test(model.id)) return 'remote';
+  return 'this_mac';
+}
+
+function isLoopback(host: string): boolean {
+  const bare = host.replace(/^\[|\]$/g, '');
+  return bare === 'localhost' || bare === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(bare);
+}
+
+function clipName(name: string): string {
+  const characters = Array.from(name.trim());
+  return characters.length <= 200 ? name.trim() : `${characters.slice(0, 199).join('')}…`;
 }
 
 /** The `location` query of OpenCode 2.0.18: a deep object, sent with its brackets escaped. */

@@ -15,6 +15,9 @@
  * - `writer-held`: `thread/resume` fails as when another Codex process holds the thread;
  * - `ask`: every turn raises an `item/tool/requestUserInput` request.
  *
+ * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
+ * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page.
+ *
  * A turn runs until it is interrupted, unless its text contains COMPLETE. Every message received
  * is appended to FAKE_CODEX_LOG when it is set.
  */
@@ -76,6 +79,23 @@ createInterface({ input: process.stdin }).on('line', (line) => {
         sandbox: { type: SANDBOX_TYPES[params.sandbox] },
       });
       return;
+    case 'config/read':
+      respond({
+        config: JSON.parse(process.env.FAKE_CODEX_CONFIG ?? '{}'),
+        origins: {},
+        layers: null,
+      });
+      return;
+    case 'model/list': {
+      // Pages of one model, to exercise the adapter's paging.
+      const catalog = JSON.parse(process.env.FAKE_CODEX_CATALOG ?? '[]');
+      const index = params.cursor === null ? 0 : Number(params.cursor);
+      respond({
+        data: catalog.slice(index, index + 1),
+        nextCursor: index + 1 < catalog.length ? String(index + 1) : null,
+      });
+      return;
+    }
     case 'thread/turns/list':
       respond({ data: [], nextCursor: null, backwardsCursor: null });
       return;

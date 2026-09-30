@@ -210,6 +210,48 @@ public class LiveControlPlaneTests
     }
 
     [Test]
+    public async Task StartsWorkOnAModelTheRuntimeLists()
+    {
+        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        Connect(controlPlane);
+        await Until(s => s.Status.IsLive, "the session is live");
+        var mock = session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock");
+        Assert.That(mock.ModelChoice, Is.EqualTo(ModelChoice.Listed));
+
+        var baseUri = ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint);
+        using var api = new ControlPlaneApi(baseUri, controlPlane.AccessToken);
+        var listed = await api.GetRuntimeModelsAsync("mock");
+        Assert.That(listed.RuntimeId, Is.EqualTo("mock"));
+        var models = ((AvailableModels)listed.Result).Models;
+        Assert.That(models.Select(model => model.ModelRef), Is.EqualTo(new[] { "mock/fast", "mock/hosted", "mock/no-tools" }));
+        Assert.That(models.Select(model => model.Served), Is.EqualTo(new[] { ModelServed.ThisMac, ModelServed.Remote, ModelServed.ThisMac }));
+        Assert.That(models.Select(model => model.ToolCalling),
+            Is.EqualTo(new[] { ModelToolCalling.Declared, ModelToolCalling.Declared, ModelToolCalling.NotDeclared }));
+        using var raw = new System.Net.Http.HttpClient();
+        raw.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", controlPlane.AccessToken);
+        Json.AssertRoundTrips<RuntimeModelsResponse>(await raw.GetStringAsync(new Uri(baseUri, "api/runtimes/mock/models")));
+
+        var project = (ProjectCreatedResult)await RunAsync(commands.CreateProject("Client tests"));
+        var workstream = (WorkstreamCreatedResult)await RunAsync(
+            commands.CreateWorkstream(project.ProjectId, "Move sessions to their own table", null));
+        var options = new Dictionary<string, JToken> { ["scenario"] = "successful_feature" };
+
+        // A model the runtime does not list is refused in words, and nothing starts.
+        var unlisted = await session.SubmitAsync(commands.StartExecution(
+            workstream.WorkstreamId, "mock", "Write and apply the migration.", options, modelRef: "mock/gone"));
+        Assert.That(unlisted.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
+        Assert.That(unlisted.Command!.Rejection!.Message, Is.EqualTo("The mock runtime lists no model mock/gone."));
+
+        var execution = (ExecutionCreatedResult)await RunAsync(commands.StartExecution(
+            workstream.WorkstreamId, "mock", "Write and apply the migration.", options, modelRef: models[0].ModelRef));
+        await Until(
+            s => s.State.Executions[execution.ExecutionId].ModelRef == "mock/fast",
+            "the execution shows the model the runtime reports using");
+
+        AssertEveryServerMessageRoundTrips();
+    }
+
+    [Test]
     public async Task ShowsWorkInFlightAsUnknownAfterTheControlPlaneRestarts()
     {
         var port = ControlPlaneProcess.FreePort();

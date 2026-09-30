@@ -707,8 +707,8 @@ class WatchOnlyRuntime implements RuntimeAdapter {
     };
   }
 
-  validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    return this.#mock.validateStartOptions(options);
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+    return this.#mock.validateStartOptions(options, modelRef);
   }
 
   startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {

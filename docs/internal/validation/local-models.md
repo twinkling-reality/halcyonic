@@ -3,7 +3,7 @@
 - **Question:** Can Halcyonic's real runtimes run agents on open models that Ollama serves on the
   developer's Mac, through the control plane, with approvals, steering, interrupts and later turns;
   what leaves the machine while they do; and how fast and how large are they?
-- **Date:** 2026-09-29.
+- **Date:** 2026-09-29; the choice of model checked on 2026-09-30.
 - **Versions:** Ollama 0.34.4 (Homebrew, MLX engine); OpenCode `@opencode/cli` 2.0.18, darwin arm64
   sha256 `6759c7f8…6bf`; Codex `codex-cli` 0.157.0, darwin arm64 sha256 `ad0be20d…3714`; models
   `qwen3.6:35b-a3b-nvfp4` (23.6 GB, a mixture of experts with 3B active parameters),
@@ -219,6 +219,37 @@ never decreased, even across the three compactions; their `rate_limits` are all 
   `"user"`) and refused model ids with `:`. Its predicates at `7934de5e`, applied to these
   rollouts, capture them and keep the model.
 
+## Choosing a model
+
+Checked on 2026-09-30 with the build that lets a person choose a runtime's model
+([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)), on the
+same scratch control planes. Their journals, written by the earlier build, were migrated on start:
+the 16 and 14 `execution.start` commands they held gained `model_ref: null`, and both replayed.
+
+- **OpenCode's list** (`GET /api/runtimes/opencode/models`) answered in 4.4 s the first time, which
+  launched the server and waited for its list to settle, and in 4 ms after. It held 14 models: the
+  seven Ollama models, all served on this Mac, and seven free models of OpenCode's own hosted
+  service (OpenCode Zen), all remote, which OpenCode offers even with its catalog fetch off. The
+  two aliases read as what they are: `ollama/gpt-4o:latest`, named "gpt-4o:latest (Ollama)" and
+  `ollama/gpt-3.5-turbo:latest`, both served on this Mac. `smollm2:135m` is listed without tool
+  calling, with 8,192 tokens of context; the three configured models carry their configured
+  65,536, and the `llama3.2:1b` weights, under all three names, the 131,072 OpenCode reports for
+  them. Nothing in the answer resembled a provider's settings: no address, key or header.
+- **A start from OpenCode's list** on `ollama/qwen3.6:35b-a3b-nvfp4` ran its turn to completion in
+  17.5 s, the model's load included. OpenCode reported the model at the first step, recorded as
+  `runtime.model.used` with `observed` provenance, and the execution's `model_ref` held it. A start
+  on `ollama/not-a-listed-model` failed with `model_unavailable` after 10.3 s, the adapter's wait
+  for a model OpenCode has not discovered yet, before any session existed.
+- **Codex's list** answered in 262 ms the first time, launching the server, and 5 ms after. It held
+  one model, the one `config.toml` names: `ollama/qwen3.6:35b-a3b-nvfp4`, named
+  "qwen3.6:35b-a3b-nvfp4 (Ollama)", served on this Mac, tool calling unknown and context unknown,
+  since the configuration sets no `model_context_window`. The OpenAI catalog built into Codex was
+  left out.
+- **A start from Codex's list** with the context options ran its turn to completion in 8.3 s, and
+  Codex's answer to `thread/start` was recorded as the model used. A start on
+  `ollama/not-a-listed-model` failed with `model_unavailable` in 256 ms, before any thread existed.
+- The socket monitors saw nothing beyond loopback while the lists were read and the turns ran.
+
 ## Network
 
 What left, or tried to leave, the Mac while OpenCode ran:
@@ -278,7 +309,7 @@ tokens a second; the cause was not found.
 - Codex runs local models through the adapter's new options, and compacts on time when told the
   window; without `context_window` it assumes 272,000 tokens. Its lists cannot tell which models a
   local provider serves, so a model list for Codex has to come from its configuration, not from
-  `model/list` alone.
+  `model/list` alone, which is how the adapter lists them.
 - Codex truncates a command's output before the model sees it, so an agent that reads a large file
   in large pieces answers from part of it without saying so.
 
@@ -295,3 +326,5 @@ tokens a second; the cause was not found.
 - openai/codex#48870, which needs a server that refuses an oversized prompt.
 - Salidium and Seorak showing these threads live: the runs kept Codex away from the developer's
   `~/.codex`.
+- Claude Code's list of models against the real CLI, which starts a Claude Code process that may
+  reach Anthropic: checked only against the Agent SDK's types and a fake.
