@@ -560,9 +560,9 @@ hours. Follow the cues in the log, which names each cue, its place and its note,
 adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
 ```
 
-- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 79 cues rendered at 48000 Hz in
-  ... ms on a worker thread, 17.8 MiB of samples, ...`. Record the milliseconds: the Quest 3's
-  render time is not measured yet. `adb logcat -s VrApi` stays at 72 fps while it renders.
+- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 79 clips rendered at 48000 Hz in
+  ... ms on a worker thread, 17.7 MiB of samples, ...`. Record the milliseconds and the rate: the
+  Quest 3's render time is not measured yet. `adb logcat -s VrApi` stays at 72 fps while it renders.
 - **Silence while work goes well.** With the demonstration, nothing sounds while characters work,
   run tests or wait, except a soft double tap when work starts and four muted taps when a test run
   starts. Nothing loops, and a character that keeps working stays silent.
@@ -574,7 +574,8 @@ adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
   Approve, and confirm: two notes struck together in front of you, then later, from the character,
   the soft double tap as it works again. Collapse: the chord folding back. Instruct and Stop the
   turn sound too; Stop's result is the character's own caught strike once the recording or the
-  runtime confirms it.
+  runtime confirms it. An instruction typed on the system keyboard sounds its three light taps as
+  the keyboard closes and the app has focus again.
 - **Where each sounds from.** Turn your head: each character's cues come from where it stands, on
   the desk and after "Show a virtual space" 2.4 m away, at about the same level in both. Characters
   on the left sound from the left, and each keeps its own note while it is shown, the lowest on the

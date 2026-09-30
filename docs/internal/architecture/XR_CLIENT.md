@@ -292,9 +292,10 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   checked against a direct sum; the selector's cue for each change of activity, silence on
   snapshots, resynchronizations and rewinds, onsets 300 ms apart with the most pressing first,
   "Last known" once per loss and never for a session the application stopped, nothing while cues
-  cannot be heard and nothing late, repeats dropped unless the person acted, each character's own
-  note, the person's actions in front of them, and the bundled demonstration heard event by event
-  as its story;
+  cannot be heard and nothing late, except an act sent as the system keyboard closes, which sounds
+  once focus returns; repeats dropped unless the person acted, each character's own note, the
+  person's actions in front of them, and the bundled demonstration heard event by event as its
+  story;
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
@@ -603,7 +604,9 @@ them:
 - **Focus.** No cue starts while the app lacks input focus (`FocusGuard.InputSuspended`, or
   `Application.isFocused` false), as while the system menu or a window such as Virtual Display's
   has it; cues scheduled but not yet started are cancelled when focus goes, and nothing missed plays
-  later. Whether that is right while the person works in Virtual Display is open
+  later. An instruction typed on the system keyboard is sent as the keyboard closes, just before
+  focus returns, so the person's act waits up to 2 s for focus and sounds then. Whether silence is
+  right while the person works in Virtual Display is open
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **Calm.** Low energy: spectral centroids of 350 Hz on average and 649 Hz at most, power-weighted
   as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for needs
@@ -622,10 +625,10 @@ reflections and a tail that darkens as it fades, whose first channel each cue's 
 with (FFT overlap-add), cut where it stays 60 dB below its peak. The page's per-layer pans are
 left out, because in the headset a cue sounds from a place. On the development Mac the port matches
 the page's own output bit for bit, at 48 kHz in all but one of 3,950,400 samples, which differs by
-1e-16 of the peak, and at 44.1 kHz in all ([sound-rendering.md](../validation/sound-rendering.md)). `StageSound` renders all 79
-clips (13 cues for each of the 6 notes, and Last known once) at the output sample rate on a worker
-thread at startup, and makes them audio clips on the main thread, four a frame. Nothing is
-synthesized while sound plays; `OnAudioFilterRead` is not used.
+1e-16 of the peak, and at 44.1 kHz in all ([sound-rendering.md](../validation/sound-rendering.md)).
+`StageSound` renders all 79 clips (13 cues for each of the 6 notes, and Last known once) at the
+output sample rate on a worker thread at startup, and makes them audio clips on the main thread,
+four a frame. Nothing is synthesized while sound plays; `OnAudioFilterRead` is not used.
 
 **Voices.** Each character has two audio sources on its `Body`, so a cue can start while the last
 one still rings: fully spatial (`spatialBlend` 1), no Doppler, and logarithmic rolloff at full level
@@ -636,7 +639,9 @@ characters keep their apparent size. The person's actions sound 0.6 m in front o
 the workspace opens; Last known sounds from the middle of the characters, spread over the arc's 60
 degrees. Unity's built-in panning places them, with no spatializer plugin or package: the page
 panned each bot by the sine of its angle on the arc, which positions reproduce. Cues are scheduled
-on the audio clock (`AudioSource.PlayScheduled`), so once the clips exist nothing runs per frame.
+on the audio clock (`AudioSource.PlayScheduled`), keeping their gap there too, so once the clips
+exist nothing runs per frame; the selector keeps its time on the real-time clock, because the audio
+clock can stand still while the output is suspended.
 The level is a serialized setting, 0.5 by default, the soundbook's starting volume; the headset's
 own volume applies on top. `Halcyonic: sound ...` log lines say when the clips are ready and how
 long they took, and each cue played, its place and note, never a workstream.
