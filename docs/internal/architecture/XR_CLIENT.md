@@ -16,7 +16,7 @@ Unity layer (apps/xr/Assets)          stage, characters, focus guard;           
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
         │                             CharacterIdentity, CharacterLineup,
-        │                             WorkspacePresenter, WorkspaceText,
+        │                             WorkspacePresenter, WorkspaceText, LabelText,
         │                             WorkspaceSteering, CommandSubmissions,
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
@@ -117,9 +117,25 @@ the same definition names, as the JSON Schema document:
   lays them out: the status with its qualifiers ("simulated", "recorded", "last known"), the
   execution and its runtime, what needs the person, activity lines with the local time and agent
   text quoted as "Agent says: “…”", action labels, a confirmation question that names exactly what
-  would be sent, why no action is offered, and the one-line peek: what the work needs first, else
-  the latest activity that is not a turn boundary, else the status, prefixed "Last known:" when
-  stale.
+  would be sent (for approving or denying, "Approve the request below?" over the whole request,
+  `Request`: the tool and what it would do, never shortened), why no action is offered, and the
+  one-line peek: what the work needs first, else the latest activity that is not a turn boundary,
+  else the status, prefixed "Last known:" when stale. Text from outside in any of them shows by
+  `LabelText`'s rule, and a cut never splits a character in two.
+- **`LabelText`** is the one rule for showing text Halcyonic did not write: workstream titles and
+  objectives, anything an agent or a tool wrote (messages, approval requests, activity), refusals
+  and failures, setup problems with exception text, what the understanding and evaluation sources
+  say, and names from runtimes. `Plain` makes it one line of exactly what it says: a line break, a
+  tab or any other white space than the space collapses with the whitespace around it into one
+  space, and spaces stay as written; every control and format character, every default ignorable
+  code point (a zero width space, a bidirectional override, a variation selector, a tag character)
+  and every half of a surrogate pair shows as its code point, as ‹U+202E›; everything else,
+  markup and backslashes included, shows as it is. Which characters show by code is a fixed table,
+  Unicode 17.0's, so the headset and the tests decide alike whatever Unicode version their runtime
+  knows. `ForTextMeshPro` also doubles every backslash, for a TextMeshPro label with rich text off
+  and escape parsing on, the only way such a label shows a backslash sequence as written
+  ([workspace-interaction.md](../validation/workspace-interaction.md)). Characters that merely look
+  alike, a Cyrillic letter for a Latin one or a no-break space for a space, show as they look.
 - **`CommandSubmissions`** keeps this client's own view of each command it sent (sending, not
   sent, outcome unknown, acknowledged) until the control plane's record of it arrives in the
   projection. From then on only that record speaks, so a result reads as done only after the
@@ -128,7 +144,12 @@ the same definition names, as the JSON Schema document:
   actions. One the control plane's policy marks for review waits for a second, deliberate press on
   a separate button whose question names what will be sent; the confirmation lapses after 15
   seconds, when the action is no longer offered, or when its approval is no longer pending, and
-  says so. Instruct asks for text first, and an empty text sends nothing.
+  says so. An approval is confirmed only once the whole request it answers has been shown: the
+  workspace reports which part of it shows (`RequestShown`), each part turned to starts the 15
+  seconds again, and until the last part has shown the question says to read the whole request
+  first (`CanConfirm` is false) and a confirmation sends nothing and stays armed. Denying needs no
+  reading, since refusing what one has not read in full can do no harm. Instruct asks for text
+  first, and an empty text sends nothing.
 - **`PeekChoice`** decides, frame by frame, which one character shows its peek, how visible it is,
   and what a look and pinch opens. A hand pointing at a character, or a finger about to poke it,
   peeks at once. The gaze peeks only after resting half a second on one character within 7 degrees
@@ -201,10 +222,8 @@ the same definition names, as the JSON Schema document:
   own availability, coverage and freshness, never combined, and read as stale once its `stale_at`
   has passed. A value the source does not have reads as unknown, pending or "known once it ends",
   never as zero; a measured zero reads as one ("no tool errors"). **`IntelligenceText`** makes
-  every text from a source plain (control and format characters, such as bidirectional overrides,
-  removed, whitespace collapsed, markup characters kept as written) and escapes it for TextMeshPro,
-  which turns backslash sequences into other characters even with rich text off
-  ([workspace-interaction.md](../validation/workspace-interaction.md)).
+  every text from a source plain by `LabelText`'s rule, so a bidirectional override or a zero width
+  character in it shows as its code point and markup as written.
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
   ([quest-3-device.md](../validation/quest-3-device.md)), over `ws://`, the USB path. It cannot pin
@@ -331,9 +350,18 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   every shape and hue for time-ordered ids; the lineup's choice, order and stable slots;
 - activity descriptions from both recorded traces, workspace actions for every status and
   capability combination, command feedback, and history paging;
-- the workspace's words and peek, steering with its confirmations and their lapses, and command
-  submissions through a session against the in-memory server (accepted, refused, cut off, not
-  connected);
+- the workspace's words and peek, with text from outside shown by the one rule in titles, notes,
+  the peek, activity and the objective; steering with its confirmations and their lapses, an
+  approval sent only once every part of its request has shown, each part turned to starting the
+  window again, and a denial needing no reading; and command submissions through a session against
+  the in-memory server (accepted, refused, cut off, not connected);
+- the one rule for text Halcyonic did not write: line breaks, tabs and other white space as one
+  space and spaces as written; every control, format and default ignorable character and every
+  half of a surrogate pair as its code point, including the end of text character that would end
+  a TextMeshPro label; markup, backslashes and look-alikes as written; applying it twice changes
+  nothing; hostile text escaped for TextMeshPro, read back through a model of TextMeshPro's escape
+  handling, is exactly the plain text; its table covers every control and format character .NET 10
+  knows, and its whitespace is exactly .NET's;
 - the peek at 72 frames a second: nothing while the head sweeps the stage or turns slowly, a peek
   after half a second of rest near the middle of the view, a glance aside kept, one peek at a time
   fading out before the next fades in, hands at once and first, nothing for the open character or
@@ -355,8 +383,8 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   failed read in words; a simulated answer saying so and when it was recorded; each evaluation part
   with its own availability, coverage and freshness, stale after its `stale_at`, and a recorded
   answer judged as of its recording; the cost always an estimate with its note; only the provenance
-  naming a product; source text made plain, markup kept as written, and every backslash doubled for
-  TextMeshPro; the feed asking once when shown, again on refresh, again after a change only when it
+  naming a product; source text made plain by the one rule, markup kept as written; the feed asking
+  once when shown, again on refresh, again after a change only when it
   follows and the interval has passed, dropping a read for another execution, and saying why a read
   failed or timed out;
 - the room placement's choices: a desk in front taking the lineup on its near half with the whole
@@ -483,7 +511,10 @@ scripts use only long-stable core Unity APIs:
   attention notes on a plate underneath, wrapped to 11 degrees, less than the 12 between slots. `Body` is the moving visual
   root, and `LookAtPerson` turns the character to the person for the workspace. Per-character
   values go through `MaterialPropertyBlock`s, so nothing allocates per frame. Labels use Unity's
-  built-in font through `TextMesh`, rasterized at 48 pixels, close to their size on the headset.
+  built-in font through `TextMesh`, rasterized at 48 pixels, close to their size on the headset,
+  with rich text off: `TextMesh` takes tags as markup by default, and a transparent color would hide
+  part of a title. Every line of a label, the stage's line above the characters included, shows by
+  `LabelText.Plain`; `TextMesh` parses no backslash escapes, so backslashes stay single.
 - A player build leaves out shaders that nothing in the build references; the first device build
   rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
   Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
@@ -516,7 +547,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   that character, within reach and clear of the other characters, facing the eyes. It shows the title and status, the execution and its runtime,
   the objective, what needs the person, the actions offered (with a confirmation step on a separate
   button where the policy asks for one), and, under tabs, the details: Activity (how requests are
-  going, and the recent activity with agent text in italics as a claim), Understanding and
+  going, and the recent activity with agent text leaning as a claim), Understanding and
   Evaluation. Collapse, or pointing at the character and pinching again, returns to
   ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
@@ -553,11 +584,24 @@ tab. A section reads through the director's `IIntelligenceReader`: the demonstra
 forgetting or a new token changes the control plane). `SectionView` draws the provenance line,
 wrapping to up to four rows, then each line with its tag in a column beside it, a part's
 availability, coverage and freshness smaller and in at most two rows; seven lines fit under the
-provenance. Every label has rich text off and shows text through `IntelligenceText.ForTextMeshPro`
-with escape parsing on, so it shows exactly what the source wrote. A claim reads apart by its tag and
-color, not italics: an italic line cut short lost its ellipsis in the editor, and a quote cut short
-must say so. Pressing an action, a confirmation or a preset returns the details to Activity, where
-the request's result shows. Viewing a section sounds nothing.
+provenance. Every label shows its text by the one rule, as every workspace label does (under
+"Words" below), so it shows exactly what the source wrote. A claim reads apart by its tag and
+color, not italics, which would lose the ellipsis of a quote cut short. Pressing an action, a
+confirmation or a preset returns the details to Activity, where the request's result shows.
+Viewing a section sounds nothing.
+
+**The whole request.** Approving or denying asks its question in the actions row, "Approve the
+request below?", and while it asks, the tab row and the details show the whole request the answer
+is for (`RequestView`): the tool and what it would do, as the runtime reported it and never
+shortened, wrapped over the details' eight rows. A longer request shows in parts, with "The whole
+request, part 1 of 4" at the left of the tab row and Next part and Previous part at its right,
+each button in a place of its own. "Yes, approve" appears only once the last part has shown, in its
+place at the right end of the row, where nothing was, since Cancel keeps its place beside it;
+until then the question reads "Read the whole request below before approving it." Each part turned
+to starts the confirmation's 15 seconds again. Denying shows the request too, and can be confirmed
+at once. The lines of what needs the person above keep their two rows and end in an ellipsis when
+the request is longer. `WorkspaceRender` renders a 1,694 character shell command in four parts at
+both distances.
 
 **Gaze, and look and pinch.** `GazeHover` adds an Interaction SDK gaze interactor
 (`GazeInteractor`, v207) that hovers the `GazeInteractable` on each character. It follows the
@@ -601,13 +645,22 @@ that needs them; opening any workspace, by any of the three ways, retires it for
 preference, not state).
 
 **Words.** The app's own words name no brand (a test checks them); names in the data, such as a
-runtime's display name, are shown as they arrive.
+runtime's display name, are shown as they arrive, by the one rule for text Halcyonic did not
+write. Every workspace label that can show such text, the title, the execution, the objective,
+what needs the person, the question, requests, the activity, the whole request, the sections, the
+peek and preset buttons, gets it through `WorkspaceVisuals.SetLiteral`: rich text off, escape
+parsing on and `LabelText.ForTextMeshPro`, so it interprets no markup and no escape sequence, and
+hides nothing. A line cut short ends in an ellipsis. Agent text in the activity leans as a claim,
+its letters sheared after TextMeshPro lays them out (`WorkspaceVisuals.Lean`), because no label
+may use TextMeshPro's italics or bold: the font has no italic or bold typeface, so TextMeshPro
+finds no ellipsis for them and switches the label to cutting text short without one, for good
+([workspace-interaction.md](../validation/workspace-interaction.md)).
 
 Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek and the hint) for the
 Quest 3's roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays
 the same: body text has an x-height near 0.55 degrees (about 14 pixels), the smallest captions about
 10 pixels, buttons are about 3 degrees tall. Text is TextMeshPro with Liberation Sans SDF, never
-parsing markup, since it shows text from agents and tools. Characters the committed static atlas
+parsing markup or escapes in text from agents and tools (under "Words" above). Characters the committed static atlas
 lacks, such as the minus sign U+2212 in Salidium's change summaries, come from the dynamic fallback
 font asset at runtime; the editor renders draw them from the static atlas instead, so they never
 write glyphs into the committed fallback. Plates and lines use `Sprites/Default`,
@@ -834,7 +887,9 @@ release build, such as the one judges run, offers no pairing
 - **Pairing.** "Pair with a Mac" opens the system keyboard for the Mac's address, as `pnpm pair`
   prints it (the last one typed is offered, and the port may be left out), then the number pad for
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
-  left after a wrong code. On success the pairing is saved through
+  left after a wrong code, and a refusal the app does not know, in the words of whatever answered
+  at that address, shows by the one rule for text Halcyonic did not write. On success the pairing
+  is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
   again, so it connects to the paired control plane as at startup.
 - **Forgetting.** Once paired, the button reads "Forget this Mac", and a second, deliberate press
@@ -872,9 +927,19 @@ Evaluation sections with the bundled demonstration's answers for the directed wo
 and after approving, and renders each over the stage and as a close-up at a Quest 3's 25 pixels per
 degree; it fails if a pixel of a section changes with the stage behind it, a line of a section does
 not fit, or a part's own statement is cut short. On real labels it checks that source text shows as
-written: 45 characters of backslash sequences, markup and control characters show as 45 once
-escaped, where TextMeshPro showed 22 of them unescaped; and that a quote cut short ends in an
-ellipsis, which the same quote in italics did not.
+written: 61 characters of backslash sequences, markup and control characters shown by code show as
+61 once escaped, where TextMeshPro showed 22 of them unescaped; and that a quote cut short ends in
+an ellipsis. It renders an approval's confirmation for a 1,694 character shell command at both
+distances, and fails unless its four parts together hold every character, each shows only its own,
+the question is never cut, and "Yes, approve" shows on the last part only; the demonstration's
+short request must fit one part and be confirmable at once. Last, it puts hostile text on every
+label that shows text from outside, through the code that shows it: markup, backslash sequences,
+an end of text character, a carriage return and a line break, a bidirectional override, a zero
+width space, a tag character and half a surrogate pair. It fails if any label interprets markup or
+parses no escapes, uses italics or bold, shows text that did not go through the rule exactly once,
+lays out other characters than that text or cuts it short without an ellipsis; if a claim does not
+lean, or leans and loses its ellipsis; or if a character's `TextMesh` title draws narrower than its
+characters' advances, as markup would.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
@@ -885,8 +950,9 @@ The project compiles in Unity and runs on a Meta Quest 3 against a live control 
 ([quest-3-device.md](../validation/quest-3-device.md)), where opening a workspace by pointing and
 pinching, approving and the runtime-confirmed result are verified; the calm peek, look and pinch,
 the seated rays, the workspace clear of the stage, the stage's placement with system windows open,
-the room placement, the sound and the Understanding and Evaluation sections compile and build but
-are not verified on a headset yet. The Meta XR Simulator fails every frame
+the room placement, the sound, the Understanding and Evaluation sections, the whole request in
+parts and text from outside shown by the one rule compile and build but are not verified on a
+headset yet. The Meta XR Simulator fails every frame
 on the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`,
 in an editor-only assembly, builds a development APK, and a release APK that leaves Meta's
 development tools out, except the Immersive Debugger's runtime, disabled, which MRUK needs

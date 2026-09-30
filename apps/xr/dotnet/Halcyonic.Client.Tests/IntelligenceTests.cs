@@ -538,7 +538,7 @@ public class UnderstandingPresenterTests
         var hostile = "<color=#f00>Done</color>\u202E <sprite=0>\u200B\nnext\tline \\u003Cb\\u003E";
         var json = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["verdict"]!["headline"] = hostile);
         var text = Intelligence.Texts(Present(json))[0];
-        Assert.That(text, Does.StartWith("<color=#f00>Done</color> <sprite=0> next line \\u003Cb\\u003E."), "markup characters stay as written");
+        Assert.That(text, Does.StartWith("<color=#f00>Done</color>‹U+202E› <sprite=0>‹U+200B› next line \\u003Cb\\u003E."), "markup characters stay as written, and what would not show as itself shows its code");
         Assert.That(text.Any(character => char.IsControl(character) || char.GetUnicodeCategory(character) == System.Globalization.UnicodeCategory.Format), Is.False);
     }
 }
@@ -705,25 +705,20 @@ public class IntelligenceWordsTests
         }
     }
 
+    /// <summary>
+    /// Source text follows the one rule for text Halcyonic did not write (<see cref="LabelTextTests"/>):
+    /// line breaks as spaces, what would not show as itself shown as its code point, markup as written.
+    /// </summary>
     [Test]
-    public void PlainTextDropsControlAndFormatCharactersAndCollapsesSpaceButKeepsMarkupAsWritten()
+    public void PlainTextShowsControlAndFormatCharactersByCodeAndCollapsesSpaceButKeepsMarkupAsWritten()
     {
         Assert.That(IntelligenceText.Plain(null), Is.Empty);
         Assert.That(IntelligenceText.Plain("  a\r\n\tb\u2028c\u2029 "), Is.EqualTo("a b c"));
-        Assert.That(IntelligenceText.Plain("\u202Eevil\u202C\u200Bzero\u00ADsoft\uFEFFbom\u0007bell\u001B[31m"), Is.EqualTo("evilzerosoftbombell[31m"));
+        Assert.That(IntelligenceText.Plain("\u202Eevil\u202C\u200Bzero\u00ADsoft\uFEFFbom\u0007bell\u001B[31m"),
+            Is.EqualTo("‹U+202E›evil‹U+202C›‹U+200B›zero‹U+00AD›soft‹U+FEFF›bom‹U+0007›bell‹U+001B›[31m"));
         Assert.That(IntelligenceText.Plain("<b>bold</b> <noparse> &lt;"), Is.EqualTo("<b>bold</b> <noparse> &lt;"));
         Assert.That(IntelligenceText.Plain("emoji 😀 stays"), Is.EqualTo("emoji 😀 stays"), "a surrogate pair is kept whole");
-    }
-
-    /// <summary>
-    /// TextMeshPro turns backslash sequences into characters even with rich text off; doubled
-    /// backslashes show as written. WorkspaceRender checks the same text on a real label in the editor.
-    /// </summary>
-    [Test]
-    public void TextForALabelHasEveryBackslashDoubled()
-    {
-        Assert.That(IntelligenceText.ForTextMeshPro(@"a\nb \u003C \U0001F600 \\ end\"), Is.EqualTo(@"a\\nb \\u003C \\U0001F600 \\\\ end\\"));
-        Assert.That(IntelligenceText.ForTextMeshPro("no backslash <b>"), Is.EqualTo("no backslash <b>"));
+        Assert.That(IntelligenceText.Plain("verified\u0003 until the next run"), Is.EqualTo(LabelText.Plain("verified\u0003 until the next run")), "one rule");
     }
 
     [Test]

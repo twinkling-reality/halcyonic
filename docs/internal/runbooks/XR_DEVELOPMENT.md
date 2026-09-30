@@ -97,7 +97,15 @@ the bundled demonstration's answers, at the story's approval and after approving
 `-closeup.png` at a Quest 3's 25 pixels per degree, for judging legibility (`far-closeup.png` is
 the activity). It fails if a section lets the stage show through, a line does not fit, or a part's
 availability, coverage and freshness is cut short, and it checks on real labels that source text
-shows exactly as written and that a quote cut short ends in an ellipsis. It works in a new, unsaved
+shows exactly as written and that a quote cut short ends in an ellipsis. Then it confirms an
+approval of a very long shell command and saves `far-approval.png`, `far-approval-closeup.png` (its
+first part) and `far-approval-last-closeup.png`, and the demonstration's short one as
+`far-approval-short-closeup.png`, and the same for the desk; it fails unless the parts together are
+the whole request and "Yes, approve" shows on the last part only. Last, it puts hostile text on
+every label that shows text from outside (saved as `far-untrusted-closeup.png` and
+`far-untrusted-activity-closeup.png`) and fails if a label interprets markup or an escape sequence,
+shows text that did not go through the one rule, or cuts a line short without an ellipsis; the log
+says how many labels each pass checked. It works in a new, unsaved
 scene, and leaves the committed TextMeshPro font assets as they were, which drawing text in the
 editor would otherwise upgrade and save; characters the static atlas lacks, such as the minus sign
 in a change summary, are drawn from it as look-alikes for the render only, and the log names them.
@@ -452,10 +460,12 @@ in the headset:
   explained, the buttons offered, and the recent activity, including what happened before the app
   started (otherwise the activity caption says why the history is unavailable). Looking at other
   characters while it is open peeks nothing; pointing at them still does.
-- **Approve.** Pinch Approve: the row asks "Approve this request? bash: …", with Cancel and "Yes,
-  approve" at the far right. Pinch "Yes, approve": Requests reads "Sending to the control
-  plane…", then "Answering the approval…", then "Approval answered" once the runtime confirmed;
-  the activity and the status follow the turn to "Turn finished". Deny works the same way.
+- **Approve.** Pinch Approve: the row asks "Approve the request below?", with Cancel and "Yes,
+  approve" at the far right, and in place of the tabs and the activity, "The whole request" over
+  "bash: Run `pnpm db:migrate` against the local development database". Pinch "Yes, approve":
+  Requests reads "Sending to the control plane…", then "Answering the approval…", then "Approval
+  answered" once the runtime confirmed; the activity and the status follow the turn to "Turn
+  finished". Deny works the same way.
 - **Lapse.** Arm a confirmation and wait 15 seconds: the question goes, and "The confirmation timed
   out, so nothing was sent." shows.
 - **Stop.** On a waiting approval, pinch "Stop the turn", then "Yes, stop it": "Stopping the
@@ -472,8 +482,9 @@ in the headset:
   "Understanding unavailable: Salidium does not observe sessions of the mock runtime." and
   "Evaluation unavailable: Seorak does not observe sessions of the mock runtime." Stop `pnpm dev`
   and pinch Refresh: the line says the answer could not be read again, and why. Pinch Approve from a
-  section: the details return to Activity, where the request shows. Every line readable, 2.4 m away
-  (the workspace below the characters) and on the desk (above them), without leaning in.
+  section: the whole request shows in its place; pinch Cancel, or confirm, and the details return to
+  Activity, where the request shows. Every line readable, 2.4 m away (the workspace below the
+  characters) and on the desk (above them), without leaning in.
 - **Poke.** Seated, poke the workspace's buttons without leaning. On the desk, push a fingertip into
   the front of a character's body: it opens; typing in front of the characters brings up no line.
 - **Focus.** With the workspace open, open the system menu: hands, rays and the peek go, nothing
@@ -485,6 +496,32 @@ in the headset:
 - **Hands.** Halcyonic's hands are the Interaction SDK's: a dark, translucent fill with a grey
   outline, which in a dark space shows mostly as grey outlines. They vanish while another app or
   the system menu has input focus.
+
+Text from outside and a request too long to show at once need an approval and agent text of your
+own. Copy `fixtures/scenarios` to a folder outside the repository. In the copy's
+`approval_required.json`, make the approval's `summary` a shell command of about 1,500 characters,
+many steps joined with `&&`, with a line break (`\n` in the JSON) and a tab in it, that ends in
+`&& echo THE-END`; and make the first agent message's `text` hold markup such as
+`<alpha=#00>hidden</alpha>`, a backslash sequence (in the JSON, two backslashes then `u0041`), and
+the end of text character (in the JSON, a backslash, `u0003`) followed by more words. Stop
+`pnpm dev`, start it again with `HALCYONIC_MOCK_SCENARIOS_DIR` set to the copy, and run
+`pnpm demo | sed '/approval requested/q'`. Then, with hands only, at both distances:
+
+- **The whole request.** Open the character. What needs you shows two rows of the command, ending
+  in "…". Pinch Approve: the row reads "Read the whole request below before approving it." and
+  Cancel, with nothing at its right; the tab row reads "The whole request, part 1 of 3" (or 2, or
+  4) and "Next part"; the details show the start of the command, its line break as a space. Pinch
+  Next part to the last part, which ends in "&& echo THE-END": only then does "Yes, approve" appear,
+  at the far right, where nothing was; Cancel never moves. Previous part goes back and keeps "Yes,
+  approve". Rest 15 seconds on one part: the question goes, and "The confirmation timed out, so
+  nothing was sent." shows; turning a part every few seconds keeps it. Pinch Deny instead: the
+  request shows the same way, and "Yes, deny" shows at once. Every part readable without leaning
+  in, and note whether reading a long request this way felt reasonable.
+- **Text from outside.** In the activity, the agent's message shows its markup as written, the
+  backslash sequence as typed, and ‹U+0003› followed by the rest of the message: nothing hidden,
+  nothing colored or resized by it. Its line leans as a claim, and where it is cut short it ends in
+  "…". The character's notes under it, and the peek, show the command with its line break as a
+  space.
 
 With Virtual Display showing the Mac, in the virtual space (the characters 2.4 m away), following
 the stage in the log:

@@ -82,6 +82,19 @@ public class CharacterPresenterTests
         Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "State unknown: The control plane restarted." }));
     }
 
+    /// <summary>A character's words are shown by the one rule for text Halcyonic did not write.</summary>
+    [Test]
+    public void TitlesAndReasonsFromOutsideShowWhatWouldNotShowAsThemselves()
+    {
+        var failed = Samples.Execution("e1", "w1", ExecutionStatus.Failed);
+        failed.StatusReason = new ErrorInfo { Code = "runtime_error", Message = "Exit 1\u0003 and the rest\r\nof the log" };
+        var workstream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
+        workstream.Title = "<color=#00000000>Tidy</color>\tthe notes\\n";
+        var character = CharacterPresenter.Present(workstream, StateWith(workstream, failed), live: true);
+        Assert.That(character.Title, Is.EqualTo("<color=#00000000>Tidy</color> the notes\\n"));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Failed: Exit 1‹U+0003› and the rest of the log" }));
+    }
+
     [Test]
     public void FailedVerificationQuotesTheTestSummary()
     {

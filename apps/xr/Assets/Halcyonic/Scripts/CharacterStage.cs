@@ -382,7 +382,8 @@ namespace Halcyonic.XR
             shownLive = live;
             const float width = 0.6f;
             const float padding = 0.01f;
-            connectionLabel.text = Labels.Wrap(connectionLabel, text, width - 2f * padding, 3, out var lines);
+            // A connection's detail or a setup problem can carry a server's or an exception's words.
+            connectionLabel.text = Labels.Wrap(connectionLabel, LabelText.Plain(text), width - 2f * padding, 3, out var lines);
             connectionLabel.color = live ? new Color(0.72f, 0.76f, 0.84f) : new Color(1f, 0.86f, 0.62f);
             var plateWidth = Labels.WidestLine(connectionLabel) + 2f * padding;
             var plateHeight = lines * Labels.LineHeight(connectionLabel) + 2f * padding;

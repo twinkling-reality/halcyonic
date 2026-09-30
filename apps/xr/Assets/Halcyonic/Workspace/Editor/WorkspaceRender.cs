@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using TMPro;
@@ -19,9 +20,14 @@ namespace Halcyonic.XR.Workspace.Editor
     /// wrong: that nothing behind the workspace shows through it, and that it opens clear of every
     /// character's body, in the comfortable band. It then renders its Understanding and Evaluation
     /// sections with the demonstration's answers, checks that they are as opaque, that every line fits
-    /// on one line, and that source text shows exactly as written on a real TextMeshPro label. The
-    /// Meta XR Simulator renders nothing on the development Mac, so this is the check short of a
-    /// headset. It saves each render as a PNG in apps/xr/Builds/WorkspaceRenders, which git ignores.
+    /// on one line, and that source text shows exactly as written on a real TextMeshPro label. It
+    /// renders an approval's confirmation for a very long shell command, whose whole request must
+    /// show in parts before the approval can be confirmed; and it puts hostile text (markup, backslash
+    /// sequences, an end of text character, bidirectional and invisible characters) on every label that
+    /// shows text Halcyonic did not write, and fails when one interprets any of it or drops the end of
+    /// a line without an ellipsis. The Meta XR Simulator renders nothing on the development Mac, so
+    /// this is the check short of a headset. It saves each render as a PNG in
+    /// apps/xr/Builds/WorkspaceRenders, which git ignores.
     /// In the editor: Halcyonic > Render the Workspace Over the Stage. In batch mode, with the editor
     /// closed, see docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1 when a check fails.
     /// </summary>
@@ -38,6 +44,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>Pixels kept off the workspace's outline, where its rounded corners blend.</summary>
         private const int Inset = 12;
+
+        /// <summary>Markup that starts every hostile text; a label that took it as markup would show only "b".</summary>
+        private const string Marker = "<b>b</b>";
+
+        private const string Backslash = "\\";
+
+        private const char Ellipsis = '…';
 
         [MenuItem("Halcyonic/Render the Workspace Over the Stage")]
         public static void Menu()
@@ -186,6 +199,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         + string.Join(", ", swapped.Select(character => "U+" + ((int)character).ToString("X4", CultureInfo.InvariantCulture))) + ".");
                 }
                 failures.AddRange(ShowsTextAsWritten(sections.View, name));
+                failures.AddRange(ShowsTheWholeRequest(name, folder, camera, texture, root, panel, sections));
+                failures.AddRange(ShowsUntrustedTextLiterally(name, folder, camera, texture, root, panel, sections, characters));
             }
             finally
             {
@@ -377,13 +392,15 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// Source text on a real label shows exactly as written: no markup, and backslash sequences as
-        /// they are. The same text unescaped shows how TextMeshPro would have changed it.
+        /// they are. The same text unescaped shows how TextMeshPro would have changed it. A quote cut
+        /// short ends in an ellipsis.
         /// </summary>
         private static IEnumerable<string> ShowsTextAsWritten(SectionView view, string name)
         {
             var failures = new List<string>();
             // Every character is in the static atlas, so drawing it, escaped or not, adds no glyph anywhere.
-            var plain = IntelligenceText.Plain("<b>b</b> <sprite=0> \\n \\u0041 \\U00000042 \\\\ z‮​");
+            var plain = IntelligenceText.Plain("<b>b</b> <sprite=0> " + Backslash + "n " + Backslash + "u0041 " + Backslash + "U00000042 "
+                + Backslash + Backslash + " z" + Char(0x202E) + Char(0x200B));
             view.Show(new SectionPresentation(SectionKind.Understanding, plain, SectionTone.Secondary,
                 new[] { new SectionLine("reported", plain, SectionTone.Claim) }, simulated: true));
             foreach (var label in view.Labels)
@@ -397,24 +414,480 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 failures.Add(name + ": source text of " + plain.Length + " characters shows as " + escaped + " on " + line.textInfo.lineCount + " lines.");
             }
+            var shown = line.text;
             line.text = plain;
             line.ForceMeshUpdate();
             Debug.Log("Halcyonic: workspace render " + name + ": source text of " + plain.Length + " characters shows as " + escaped
                 + " escaped, and as " + line.textInfo.characterCount + " on " + line.textInfo.lineCount + " lines unescaped.");
+            line.text = shown;
 
             // A quote too long for its line must end in an ellipsis, so it never reads as all that was said.
-            var quote = "Agent says: “" + string.Join(" ", Enumerable.Repeat("The migration ran and the limit works per address.", 4)) + "”";
             view.Show(new SectionPresentation(SectionKind.Understanding, "Provenance", SectionTone.Secondary,
-                new[] { new SectionLine("reported", quote, SectionTone.Claim) }, simulated: true));
+                new[] { new SectionLine("reported", LongQuote(), SectionTone.Claim) }, simulated: true));
             line.ForceMeshUpdate();
-            if (LastVisible(line) != '…') failures.Add(name + ": a quote cut short does not end in an ellipsis.");
-            line.fontStyle = FontStyles.Italic;
-            line.ForceMeshUpdate();
-            Debug.Log("Halcyonic: workspace render " + name + ": the same quote in italics ends in U+"
-                + ((int)LastVisible(line)).ToString("X4", CultureInfo.InvariantCulture) + (LastVisible(line) == '…' ? ", an ellipsis." : ", not an ellipsis."));
-            line.fontStyle = FontStyles.Normal;
+            if (LastVisible(line) != Ellipsis) failures.Add(name + ": a quote cut short does not end in an ellipsis.");
             return failures;
         }
+
+        /// <summary>
+        /// An approval's confirmation for a very long shell command, as the director shows it: the
+        /// question fits the actions row, the whole request shows under it in parts that together hold
+        /// every character of it, each part shows only its own, and the confirmation appears only once
+        /// the last part shows. The demonstration's short request fits one part and is confirmed at once.
+        /// </summary>
+        private static IEnumerable<string> ShowsTheWholeRequest(string name, string folder, Camera camera, RenderTexture texture, GameObject root,
+            WorkspacePanel panel, WorkspaceSections sections)
+        {
+            var failures = new List<string>();
+            var command = LongCommand();
+            var request = WorkspaceText.Request(Approval(command));
+            sections.ShowRequest(request);
+            var reader = sections.Request;
+            if (reader.Parts < 2) failures.Add(name + ": a request of " + request.Length + " characters takes one part, so the render checks no parts.");
+            var parts = new List<string>();
+            for (var part = 1; part <= reader.Parts; part++)
+            {
+                if (part > 1) reader.Turn(1);
+                var last = part == reader.Parts;
+                panel.Show(ApprovalContent(command, canConfirm: last));
+                ForceMeshes(root);
+                if (reader.Part != part) failures.Add(name + ": the request did not turn to part " + part + ".");
+                var own = new StringBuilder();
+                var others = 0;
+                var info = reader.Text.textInfo;
+                for (var index = 0; index < info.characterCount; index++)
+                {
+                    var character = info.characterInfo[index];
+                    if (character.pageNumber == part - 1) own.Append(character.character);
+                    else if (character.isVisible) others++;
+                }
+                parts.Add(own.ToString());
+                if (others > 0) failures.Add(name + ": part " + part + " also shows " + others + " characters of other parts.");
+                var confirm = panel.transform.Find("Confirm");
+                if (confirm == null || confirm.gameObject.activeSelf != last)
+                {
+                    failures.Add(name + ": on part " + part + " of " + reader.Parts + " the confirmation " + (last ? "does not show." : "shows already."));
+                }
+                var question = Label(panel, "Controls text");
+                if (question.isTextTruncated) failures.Add(name + ": the confirmation's question is cut short: " + question.text);
+                failures.AddRange(ShowsLiterally(reader.Text, name + " request part " + part));
+                failures.AddRange(ShowsLiterally(question, name + " request part " + part));
+                failures.AddRange(ShowsLiterally(Label(panel, "Attention"), name + " request part " + part));
+                if (part > 1 && !last) continue;
+                var suffix = last ? "approval-last" : "approval";
+                if (!last)
+                {
+                    var whole = Render(camera, texture);
+                    File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + ".png"), whole.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(whole);
+                }
+                var closeUp = CloseUp(camera, texture, panel.transform);
+                File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + "-closeup.png"), closeUp.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(closeUp);
+            }
+            if (string.Concat(parts) != LabelText.Plain(request)) failures.Add(name + ": the parts of the request, together, are not the whole request.");
+            Debug.Log("Halcyonic: workspace render " + name + ": a request of " + request.Length + " characters shows in " + reader.Parts + " parts of "
+                + string.Join(", ", parts.Select(part => part.Length.ToString(CultureInfo.InvariantCulture))) + " characters, the confirmation only on the last.");
+
+            // The demonstration's request fits one part, so the approval can be confirmed as it shows.
+            const string migrate = "Run make migrate";
+            sections.ShowRequest(WorkspaceText.Request(Approval(migrate)));
+            panel.Show(ApprovalContent(migrate, canConfirm: reader.Parts == 1));
+            ForceMeshes(root);
+            if (reader.Parts != 1) failures.Add(name + ": the demonstration's request takes " + reader.Parts + " parts.");
+            var shortConfirm = panel.transform.Find("Confirm");
+            if (shortConfirm == null || !shortConfirm.gameObject.activeSelf) failures.Add(name + ": the demonstration's approval cannot be confirmed as it shows.");
+            var shortCloseUp = CloseUp(camera, texture, panel.transform);
+            File.WriteAllBytes(Path.Combine(folder, name + "-approval-short-closeup.png"), shortCloseUp.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(shortCloseUp);
+
+            sections.EndRequest();
+            panel.Show(Content());
+            return failures;
+        }
+
+        /// <summary>
+        /// Hostile text on every label that shows text Halcyonic did not write, through the code that
+        /// shows it: the workspace's title, execution, objective, what needs the person, question,
+        /// requests, activity caption and lines, the whole request, preset buttons, a section, the peek,
+        /// and a character's title and notes. Every label must interpret none of it and show what the
+        /// rule made of it, all of it or cut short with an ellipsis; none may use TextMeshPro's italics
+        /// or bold, and a claim leans by itself and keeps its ellipsis.
+        /// </summary>
+        private static IEnumerable<string> ShowsUntrustedTextLiterally(string name, string folder, Camera camera, RenderTexture texture, GameObject root,
+            WorkspacePanel panel, WorkspaceSections sections, List<(CharacterView View, CharacterTarget Target)> characters)
+        {
+            var failures = new List<string>();
+            var peek = PeekLabel.Create(root.transform);
+            peek.Show(characters[3].Target, Hostile("peek"), 1f);
+
+            // Confirming: the question, and the whole request in place of the tabs and the details.
+            panel.Show(HostileContent(ControlsMode.Confirm));
+            sections.ShowRequest(Hostile("request"));
+            failures.AddRange(AllShowLiterally(root, name + " confirming"));
+            failures.AddRange(Carry(root, name + " confirming", "Title", "Execution", "Objective", "Attention", "Controls text", "Whole request", "Line"));
+            var closeUp = CloseUp(camera, texture, panel.transform);
+            File.WriteAllBytes(Path.Combine(folder, name + "-untrusted-closeup.png"), closeUp.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(closeUp);
+            sections.EndRequest();
+
+            // The requests and the activity under the tabs, where claims lean.
+            panel.Show(HostileContent(ControlsMode.Actions));
+            failures.AddRange(AllShowLiterally(root, name + " activity"));
+            failures.AddRange(Carry(root, name + " activity", "Request 0", "Request 1", "Activity caption", "Activity 0", "Activity 1", "Activity 2"));
+            for (var index = 0; index < 4; index++)
+            {
+                var line = Label(panel, "Activity " + index);
+                var claim = index % 2 == 1;
+                if (Leans(line) != claim) failures.Add(name + ": the activity line " + index + (claim ? " is a claim but does not lean." : " leans but is no claim."));
+            }
+            var longClaim = Label(panel, "Activity 3");
+            if (!longClaim.isTextTruncated || LastVisible(longClaim) != Ellipsis) failures.Add(name + ": a leaning claim cut short does not end in an ellipsis.");
+            var activityCloseUp = CloseUp(camera, texture, panel.transform);
+            File.WriteAllBytes(Path.Combine(folder, name + "-untrusted-activity-closeup.png"), activityCloseUp.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(activityCloseUp);
+
+            panel.Show(HostileContent(ControlsMode.Presets));
+            failures.AddRange(AllShowLiterally(root, name + " presets"));
+            failures.AddRange(Carry(root, name + " presets", "Label"));
+
+            sections.ShowFixed(HostileSection());
+            failures.AddRange(AllShowLiterally(root, name + " section"));
+            failures.AddRange(Carry(root, name + " section", "Provenance", "Class 0", "Line 0"));
+
+            failures.AddRange(CharacterShowsLiterally(root, name, camera));
+            UnityEngine.Object.DestroyImmediate(peek.gameObject);
+            return failures;
+        }
+
+        /// <summary>Every TextMeshPro label that shows now shows its text literally.</summary>
+        private static IEnumerable<string> AllShowLiterally(GameObject root, string what)
+        {
+            ForceMeshes(root);
+            var failures = new List<string>();
+            var count = 0;
+            foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
+            {
+                if (string.IsNullOrEmpty(label.text)) continue;
+                count++;
+                failures.AddRange(ShowsLiterally(label, what));
+            }
+            Debug.Log("Halcyonic: workspace render " + what + ": checked " + count + " labels, " + failures.Count + " failing.");
+            return failures;
+        }
+
+        /// <summary>
+        /// A label shows its text literally: it interprets no markup, its text went in through the one
+        /// rule exactly once, and the characters it laid out are that text, all of them, or, cut short,
+        /// the first of them and an ellipsis. It never uses italics or bold, for which this font has no
+        /// ellipsis, so TextMeshPro would cut text short without one for good.
+        /// </summary>
+        private static IEnumerable<string> ShowsLiterally(TMP_Text label, string what)
+        {
+            var failures = new List<string>();
+            var name = what + ": " + PathOf(label.transform);
+            if (label.richText) failures.Add(name + " interprets markup.");
+            if (!label.parseCtrlCharacters) failures.Add(name + " parses no escapes, so its doubled backslashes show double and other backslash sequences still change.");
+            if ((label.fontStyle & (FontStyles.Italic | FontStyles.Bold)) != 0) failures.Add(name + " is set in italics or bold.");
+            if (label.overflowMode != TextOverflowModes.Ellipsis && label.overflowMode != TextOverflowModes.Page)
+            {
+                failures.Add(name + " cuts text short without an ellipsis (" + label.overflowMode + ").");
+            }
+            foreach (var line in label.text.Split('\n'))
+            {
+                if (LabelText.ForTextMeshPro(Unescaped(line)) == line) continue;
+                failures.Add(name + " shows text that did not go through the rule exactly once: " + Codes(line));
+                break;
+            }
+            label.ForceMeshUpdate();
+            var expected = Unescaped(label.text);
+            var laidOut = LaidOut(label);
+            if (label.isTextTruncated)
+            {
+                var cut = LastVisibleIndex(label);
+                if (cut < 0 || label.textInfo.characterInfo[cut].character != Ellipsis) failures.Add(name + " is cut short without an ellipsis: " + Codes(laidOut));
+                else if (!expected.StartsWith(laidOut.Substring(0, cut), StringComparison.Ordinal)) failures.Add(name + " shows " + Codes(laidOut) + " for " + Codes(expected));
+            }
+            else if (laidOut != expected)
+            {
+                failures.Add(name + " shows " + Codes(laidOut) + " for " + Codes(expected));
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// The labels named, among those that show now, show the hostile text, so the check reached
+        /// them: at least the tag that starts it, which a narrow label cuts after.
+        /// </summary>
+        private static IEnumerable<string> Carry(GameObject root, string what, params string[] names)
+        {
+            var labels = root.GetComponentsInChildren<TMP_Text>(false);
+            var failures = new List<string>();
+            foreach (var name in names)
+            {
+                if (!labels.Any(label => label.name == name && LaidOut(label).IndexOf(Marker.Substring(0, 3), StringComparison.Ordinal) >= 0))
+                {
+                    failures.Add(what + ": no label " + name + " shows the hostile text, so the check did not reach it.");
+                }
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// A character's title and notes, in Unity's TextMesh, show the hostile text by the rule and
+        /// draw every character of it, as wide as their advances add up to: rich text would have taken
+        /// its tags as markup and drawn it narrower.
+        /// </summary>
+        private static IEnumerable<string> CharacterShowsLiterally(GameObject root, string name, Camera camera)
+        {
+            var failures = new List<string>();
+            // Upright in front of the eyes, at the scale of one meter, so its bounds measure its lines.
+            var view = CharacterView.Create(root.transform, "render-hostile");
+            view.transform.SetPositionAndRotation(camera.transform.position + Vector3.forward * 1.2f, Quaternion.identity);
+            view.Show(new CharacterPresentation(view.WorkstreamId, Hostile("title"), CharacterActivity.Failed, "Failed", AttentionLevel.ActionRequired,
+                new[] { Hostile("note") }, 0, true, false, false));
+            camera.Render();
+            var labels = view.GetComponentsInChildren<TextMesh>(true);
+            foreach (var label in labels)
+            {
+                if (string.IsNullOrEmpty(label.text)) continue;
+                var what = name + " character: " + PathOf(label.transform);
+                if (label.richText) failures.Add(what + " interprets markup.");
+                foreach (var line in label.text.Split('\n'))
+                {
+                    if (LabelText.Plain(line) == line) continue;
+                    failures.Add(what + " shows text that did not go through the rule: " + Codes(line));
+                    break;
+                }
+            }
+            var title = labels.First(label => label.name == "Title");
+            if (title.text.IndexOf(Marker, StringComparison.Ordinal) < 0) failures.Add(name + ": the character's title does not show the hostile text.");
+            var advances = title.text.Split('\n').Max(line => Advance(title, line));
+            var drawn = title.GetComponent<MeshRenderer>().bounds.size.x;
+            if (Mathf.Abs(drawn - advances) > 0.01f * advances + 0.0005f)
+            {
+                failures.Add(name + ": the character's title draws " + drawn.ToString("0.0000", CultureInfo.InvariantCulture) + " m wide for "
+                    + advances.ToString("0.0000", CultureInfo.InvariantCulture) + " m of characters, so it took some of them as markup.");
+            }
+            Debug.Log("Halcyonic: workspace render " + name + ": a character's hostile title draws " + drawn.ToString("0.0000", CultureInfo.InvariantCulture)
+                + " m wide, its characters' advances " + advances.ToString("0.0000", CultureInfo.InvariantCulture) + " m.");
+            UnityEngine.Object.DestroyImmediate(view.gameObject);
+            return failures;
+        }
+
+        /// <summary>How wide a TextMesh draws a line: its characters' advances in the font, in world units.</summary>
+        private static float Advance(TextMesh label, string line)
+        {
+            label.font.RequestCharactersInTexture(line, label.fontSize, label.fontStyle);
+            var pixels = 0;
+            foreach (var character in line)
+            {
+                if (label.font.GetCharacterInfo(character, out var info, label.fontSize, label.fontStyle)) pixels += info.advance;
+            }
+            // TextMesh draws a font pixel as a tenth of a unit at a character size of one.
+            return pixels * label.characterSize * 0.1f * label.transform.lossyScale.x;
+        }
+
+        /// <summary>Whether a label's letters lean, as a claim's do.</summary>
+        private static bool Leans(TMP_Text label)
+        {
+            var info = label.textInfo;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible || character.character == ' ') continue;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                var bottomLeft = vertices[character.vertexIndex];
+                var topLeft = vertices[character.vertexIndex + 1];
+                return topLeft.x - bottomLeft.x > 0.2f * (topLeft.y - bottomLeft.y);
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// What a command, an agent, a tool or a server could write where <paramref name="field"/>
+        /// shows: markup, backslash sequences, an end of text character that would end a label there, a
+        /// carriage return and a line break, a bidirectional override, a zero width space, a tag
+        /// character and half a surrogate pair. Once the rule has shown it, every character is in the
+        /// font's static atlas, so the check writes no glyph into the committed fallback font.
+        /// </summary>
+        private static string Hostile(string field) =>
+            Marker + " " + field + " <alpha=#00>hidden</alpha><sprite=0><br>" + Char(0x0003) + "after the end " + Backslash + "u0041" + Backslash + "n"
+            + Char(0x202E) + "desrever" + Char(0x200B) + Char(0xE0041) + "\r\n" + (char)0xD800 + " tail";
+
+        private static PanelContent HostileContent(ControlsMode mode) => new PanelContent
+        {
+            Title = Hostile("title"),
+            Status = "Needs you · simulated",
+            Execution = "On " + Hostile("runtime"),
+            Objective = "Objective: " + Hostile("objective"),
+            Attention = new[] { "Approval needed to use shell: " + Hostile("command"), "Failed: " + Hostile("failure") },
+            AttentionColor = new Color(0.96f, 0.77f, 0.32f),
+            Mode = mode,
+            Prompt = "Send this instruction? “" + Hostile("instruction") + "”",
+            ConfirmLabel = WorkspaceText.ConfirmLabel(WorkspaceAction.Instruct),
+            Presets = new[] { new PresetInstruction(Hostile("preset"), "Continue."), new PresetInstruction("Continue", "Continue.") },
+            Notice = "Not sent: " + Hostile("setup problem"),
+            Feedback = new[] { "Refused: " + Hostile("refusal") },
+            ActivityCaption = "Recent activity · history unavailable: " + Hostile("exception"),
+            Activity = new[]
+            {
+                ("09:00:01  " + Hostile("tool"), false),
+                ("09:00:02  Agent says: “" + Hostile("message") + "”", true),
+                ("09:00:03  Approval requested to use shell: " + Hostile("approval"), false),
+                ("09:00:04  " + LongQuote(), true),
+            },
+        };
+
+        private static SectionPresentation HostileSection() => new SectionPresentation(SectionKind.Understanding, Hostile("provenance"), SectionTone.Secondary,
+            new[]
+            {
+                new SectionLine(Hostile("tag"), Hostile("claim"), SectionTone.Claim),
+                new SectionLine("", Hostile("detail"), SectionTone.Secondary, detail: true),
+            }, simulated: true);
+
+        /// <summary>A shell command as long as an approval's summary may be, whose dangerous part comes last.</summary>
+        private static string LongCommand()
+        {
+            var builds = Enumerable.Range(1, 22)
+                .Select(index => "pnpm --filter @shop/package-" + index.ToString("00", CultureInfo.InvariantCulture) + " run build -- --mode=production");
+            var command = "cd /Users/dev/projects/checkout-service && git fetch --all --prune && git checkout -B release/2026-10 origin/main && "
+                + string.Join(" && ", builds)
+                + " && tar -czf /tmp/release.tgz dist && curl -fsS -X POST --data-binary @/tmp/release.tgz https://uploads.example.invalid/release && rm -rf ~/.ssh";
+            if (command.Length > 2000) throw new InvalidOperationException("The render's command is longer than an approval's summary may be.");
+            return command;
+        }
+
+        private static ApprovalView Approval(string summary) => new ApprovalView
+        {
+            ApprovalId = "render-approval",
+            Subject = new ToolUseSubject { ToolName = "shell", Summary = summary },
+            RequestedAt = "2026-09-30T09:00:00.000Z",
+        };
+
+        /// <summary>An approval of <paramref name="command"/> waiting for its confirmation, as the director shows it.</summary>
+        private static PanelContent ApprovalContent(string command, bool canConfirm) => new PanelContent
+        {
+            Title = "Release the checkout service",
+            Status = "Needs you · simulated",
+            Execution = "On Simulated agent (render), simulated work · 1 turn",
+            Objective = "Objective: Build every package and upload the release.",
+            Attention = new[] { "Approval needed to use shell: " + command },
+            AttentionColor = new Color(0.96f, 0.77f, 0.32f),
+            Mode = ControlsMode.Confirm,
+            Prompt = canConfirm ? WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null) : WorkspaceText.ReadRequestFirst,
+            ConfirmLabel = WorkspaceText.ConfirmLabel(WorkspaceAction.Approve),
+            CanConfirm = canConfirm,
+            ActivityCaption = "Recent activity",
+        };
+
+        private static string LongQuote() =>
+            "Agent says: “" + string.Join(" ", Enumerable.Repeat("The migration ran and the limit works per address.", 4)) + "”";
+
+        /// <summary>
+        /// What a TextMeshPro label with escape parsing on shows for <paramref name="text"/>, as
+        /// TMP_Text.PopulateTextProcessingArray reads it in com.unity.ugui 2.0.0: two backslashes as
+        /// one, a backslash with n, r, t or v as that control character, and a backslash with u and
+        /// four hex digits, or U and eight, as the character they name.
+        /// </summary>
+        private static string Unescaped(string text)
+        {
+            var result = new StringBuilder(text.Length);
+            for (var index = 0; index < text.Length; index++)
+            {
+                var character = text[index];
+                if (character == '\\' && index < text.Length - 1)
+                {
+                    var next = text[index + 1];
+                    var control = next switch
+                    {
+                        '\\' => '\\',
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        'v' => '\v',
+                        _ => '\0',
+                    };
+                    if (control != '\0')
+                    {
+                        result.Append(control);
+                        index++;
+                        continue;
+                    }
+                    if (next == 'u' && text.Length > index + 5 && IsHex(text, index + 2, 4))
+                    {
+                        result.Append((char)int.Parse(text.Substring(index + 2, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+                        index += 5;
+                        continue;
+                    }
+                    if (next == 'U' && text.Length > index + 9 && IsHex(text, index + 2, 8))
+                    {
+                        result.Append(char.ConvertFromUtf32(int.Parse(text.Substring(index + 2, 8), NumberStyles.HexNumber, CultureInfo.InvariantCulture)));
+                        index += 9;
+                        continue;
+                    }
+                }
+                result.Append(character);
+            }
+            return result.ToString();
+        }
+
+        private static bool IsHex(string text, int start, int length)
+        {
+            for (var index = start; index < start + length; index++)
+            {
+                if (!Uri.IsHexDigit(text[index])) return false;
+            }
+            return true;
+        }
+
+        /// <summary>The characters a label laid out, shown or not, in order.</summary>
+        private static string LaidOut(TMP_Text label)
+        {
+            var info = label.textInfo;
+            var text = new StringBuilder(info.characterCount);
+            for (var index = 0; index < info.characterCount; index++) text.Append(info.characterInfo[index].character);
+            return text.ToString();
+        }
+
+        private static int LastVisibleIndex(TMP_Text label)
+        {
+            var last = -1;
+            for (var index = 0; index < label.textInfo.characterCount; index++)
+            {
+                if (label.textInfo.characterInfo[index].isVisible) last = index;
+            }
+            return last;
+        }
+
+        private static TMP_Text Label(Component parent, string name) =>
+            parent.GetComponentsInChildren<TMP_Text>(true).First(label => label.name == name);
+
+        private static void ForceMeshes(GameObject root)
+        {
+            foreach (var text in root.GetComponentsInChildren<TMP_Text>(true)) text.ForceMeshUpdate();
+        }
+
+        /// <summary>A label's place among its parents, for a failure's message.</summary>
+        private static string PathOf(Transform transform)
+        {
+            var path = transform.name;
+            for (var parent = transform.parent; parent != null && parent.parent != null; parent = parent.parent) path = parent.name + "/" + path;
+            return path;
+        }
+
+        /// <summary>Text for a failure's message, with every character that is not printable ASCII as its code.</summary>
+        private static string Codes(string text)
+        {
+            var result = new StringBuilder();
+            foreach (var character in text.Take(100))
+            {
+                result.Append(character >= 0x20 && character < 0x7F ? character.ToString() : "[U+" + ((int)character).ToString("X4", CultureInfo.InvariantCulture) + "]");
+            }
+            return result.ToString();
+        }
+
+        private static string Char(int codePoint) => char.ConvertFromUtf32(codePoint);
 
         private static char LastVisible(TMP_Text label)
         {

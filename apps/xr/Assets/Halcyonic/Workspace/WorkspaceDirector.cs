@@ -269,7 +269,11 @@ namespace Halcyonic.XR.Workspace
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
-            WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader);
+            workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader);
+            workspace.Sections.RequestTurned += () =>
+            {
+                if (opened == workspace) RefreshPanel();
+            };
             panel.Accepting = () => opened == workspace && transition.Open;
             panel.ActionPressed += action => Steer(workspace, s => s.Press(action, workspace.Now!));
             panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
@@ -334,8 +338,26 @@ namespace Halcyonic.XR.Workspace
             workspace.Now = presentation;
             var lapse = workspace.Steering.Refresh(presentation);
             if (lapse != null) Notify(workspace, lapse);
+            ShowRequest(workspace, presentation);
             if (workspace.Notice != null && Time.unscaledTime > workspace.NoticeUntil) workspace.Notice = null;
             workspace.Panel.Show(Content(workspace, presentation));
+        }
+
+        /// <summary>
+        /// While an approval or denial waits for its confirmation, the whole request it answers shows
+        /// under the actions, in parts when it is long, and the steering learns which part shows: an
+        /// approval is confirmed only once the last part has shown.
+        /// </summary>
+        private static void ShowRequest(Opened workspace, WorkspacePresentation presentation)
+        {
+            var request = workspace.Steering.Request(presentation);
+            if (request == null)
+            {
+                workspace.Sections.EndRequest();
+                return;
+            }
+            workspace.Sections.ShowRequest(request);
+            workspace.Steering.RequestShown(workspace.Sections.Request.Part, workspace.Sections.Request.Parts);
         }
 
         private PanelContent Content(Opened workspace, WorkspacePresentation presentation)
@@ -363,6 +385,7 @@ namespace Halcyonic.XR.Workspace
                 content.Mode = ControlsMode.Confirm;
                 content.Prompt = steering.Prompt(presentation);
                 content.ConfirmLabel = WorkspaceText.ConfirmLabel(steering.Armed.Value);
+                content.CanConfirm = steering.CanConfirm;
             }
             else if (workspace.Presets)
             {
@@ -571,6 +594,9 @@ namespace Halcyonic.XR.Workspace
             public WorkspaceTransition Transition { get; }
 
             public WorkspaceSteering Steering { get; }
+
+            /// <summary>The tabs and details under the actions, and the whole request while a confirmation asks about one.</summary>
+            public WorkspaceSections Sections { get; set; } = null!;
 
             /// <summary>The presentation last shown; presses are judged against it.</summary>
             public WorkspacePresentation? Now { get; set; }
