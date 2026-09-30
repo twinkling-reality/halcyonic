@@ -7,9 +7,10 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
-        │                             workspace: gaze and hand peek, panel,           the workspace and the
-        │                             transition, first-time hint; Meta's rig;        room are not verified
-        │                             room: passthrough, MRUK, stage anchor           on a headset
+        │                             workspace: gaze and hand peek, panel,           the workspace, the
+        │                             transition, first-time hint; Meta's rig;        room and the sound
+        │                             room: passthrough, MRUK, stage anchor;          are not verified on
+        │                             sound: the characters' voices                   a headset
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
@@ -19,7 +20,8 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             ActivityLog, EventHistory, CommandFactory,
         │                             DemonstrationRecording, DemonstrationPlayer,
         │                             DemonstrationTransport, DemonstrationFallback,
-        │                             StageSurfaces, PlacementMemory, RoomStatus
+        │                             StageSurfaces, PlacementMemory, RoomStatus,
+        │                             GlazeSynthesizer, SoundCueSelector
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -197,6 +199,10 @@ the same definition names, as the JSON Schema document:
     the person has not chosen the virtual space), what is offered (room access again, or space
     setup where it would help and the headset can run it), and one short line that says where
     the agents are and why.
+- **The sound's decisions** (under "Sound" below): `GlazeSynthesizer` renders every cue of the
+  Glaze direction to mono samples, the soundbook page's synthesis ported line by line, and
+  `SoundCueSelector` chooses which cue plays, on whose note, from where and when, from what each
+  pump changed and from what the person did in the workspace (`WorkspaceAct`).
 
 ## Verification
 
@@ -238,6 +244,16 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   stands, says when it has ended, falls back to it from an unreachable control plane while trying
   that one again, switches to the control plane once it is live and never back, and plays it from
   the beginning after a pause;
+- the sound: every render's length, peak and energy equal the soundbook page's own, computed by the
+  page's code; renders repeat sample for sample; no sample is NaN or above the page's ceiling;
+  each cue lasts as the soundbook says, starts and ends in silence, meets its loudness target and
+  stays under its own spectral centroid ceiling; the room is the send convolved with its response,
+  checked against a direct sum; the selector's cue for each change of activity, silence on
+  snapshots, resynchronizations and rewinds, onsets 300 ms apart with the most pressing first,
+  "Last known" once per loss and never for a session the application stopped, nothing while cues
+  cannot be heard and nothing late, repeats dropped unless the person acted, each character's own
+  note, the person's actions in front of them, and the bundled demonstration heard event by event
+  as its story;
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
@@ -298,8 +314,8 @@ scripts use only long-stable core Unity APIs:
   middle of the lineup stands, the arc curves around the person's side of it at their distance
   when the pose arrived, and every label plate rests on the surface. While that pose is set, only
   the source moves the stage, and recenters leave it. The stage keeps animating and updating while
-  the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter`, so other
-  components add to characters without changing them.
+  the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter` and
+  `SlotOf`, so other components add to characters without changing them.
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
@@ -354,7 +370,8 @@ it could not), and sends commands with `CommandSubmissions.SubmitAsync`. While t
 shown it reads no history, since the recording plays all of it through the session; its answers
 read through the acknowledgement's command record, in the demonstration's own words; and Instruct
 offers the instructions the demonstration recorded there as presets instead of opening the
-keyboard. A switch of session arrives as a resynchronization: the open workspace follows its
+keyboard. It raises `Acted` when the person opens a workspace, collapses it, or sends a command
+from it, as the command is handed to the session; the sound follows it. A switch of session arrives as a resynchronization: the open workspace follows its
 workstream into the new state, or collapses when the workstream is not there. On a journal change
 or a rewind it drops its activity and submissions, which no longer apply. Nothing is peeked, hinted or pressed while
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
@@ -468,6 +485,138 @@ neither the scene nor the stage refers to it; the stage finds it as its `IStageP
   lost and erased, and why, with distances and angles, and never an anchor or room id or a
   position.
 
+### Sound
+
+`Assets/Halcyonic/Sound` is its own assembly, `Halcyonic.XR.Sound`. `SoundBootstrap` adds
+`StageSound` to the stage object after the scene loads, in any scene with an audio listener, so
+neither the scene nor the stage refers to it. The sound is the Glaze direction, which the owner
+chose on 2026-09-29 from the soundbook, a single page that played three directions (Glaze, Hum and
+Tide) side by side, each synthesized by the page's own code with no recordings, samples or
+libraries; the page stays outside the repository. In Glaze each character is a small glazed
+ceramic object that events strike softly with a felt mallet, and silence means all is well.
+
+| Cue | When | What it sounds like | From |
+| --- | --- | --- | --- |
+| Working | A turn starts, or resumes after the person answered | A soft double tap, like the hop | Its character |
+| Running tests | A test run starts | Four muted taps, up and back | Its character |
+| Needs you | It rises and looks at the person | Two strikes rising; the second rings on | Its character |
+| Turn finished | It settles; a finished turn proves nothing, so no celebration | The pair falling onto its own note | Its character |
+| Failed | The turn failed | A dull, cracked strike, then a lower one | Its character |
+| State unknown | Halcyonic cannot see the work right now | A strike whose pitch will not settle | Its character |
+| Stopped | Interrupted, as the runtime confirmed | A strike caught by a hand | Its character |
+| Last known | The connection dropped: one cue for the whole room | All six notes through a wall, fading | The whole stage |
+| Open | The person expands a bot into its workspace | A chord unfolding toward them | The workspace |
+| Collapse | The person folds the workspace back into the bot | The chord folding back into the bot | The workspace |
+| Approve | Sent, not yet confirmed | Two notes struck together, open and warm | The workspace |
+| Deny | A decision, not an error | A short step down, damped | The workspace |
+| Instruct | The person's words were sent | Three light taps | The workspace |
+| Interrupt | The stop was sent; the bot confirms later | A hand pressed flat on it | The workspace |
+
+Nothing else sounds: not a start completing, a test run ending, work going on, or a workstream
+that has not started. The rules come from the soundbook's research, and `SoundCueSelector` applies
+them:
+
+- **Only what the person might act on**, and work starting. Working and running tests are silent
+  while they go on; nothing loops and nothing escalates.
+- **Sent, not done.** The person's actions sound in front of them as the command is handed to the
+  session (`WorkspaceDirector.Acted`), and say only that it was sent. The result arrives later as
+  the character's own cue, because an accepted command is not success.
+- **One at a time.** Cues that arrive together start at least 300 ms apart, the most pressing
+  first (needs you, failed, unknown, finished, stopped, tests, work), and before the room's cue.
+  The same cue from the same character within ten seconds is dropped, unless the person acted on
+  that character in between, so the result of their act is always heard.
+- **One key.** Every note comes from D major pentatonic, so overlapping cues agree. Each character
+  keeps its own home note (A3, B3, D4, E4, F sharp 4 or A4, from the person's left) for as long as
+  it is shown: the note of the slot where it appeared (`CharacterStage.SlotOf`), or the free note
+  nearest to it, kept when the lineup moves it, so a bot is recognizable by ear.
+- **One room.** A dropped connection is one cue for the whole room, once per loss: when the session
+  shown goes from live to waiting to retry, or refused. A session the application stopped, as when
+  the headset sleeps, was not lost, and coming back is silent.
+- **What changed, never what was redrawn.** A snapshot, a resynchronization (another journal, or a
+  switch between the demonstration and the control plane) or a rewind (the demonstration starting
+  again) only sets what later changes are compared with. The recorded demonstration otherwise
+  sounds exactly as live work does: the same data and flow, and nothing tells the selector the
+  difference.
+- **Focus.** No cue starts while the app lacks input focus (`FocusGuard.InputSuspended`, or
+  `Application.isFocused` false), as while the system menu or a window such as Virtual Display's
+  has it; cues scheduled but not yet started are cancelled when focus goes, and nothing missed plays
+  later. Whether that is right while the person works in Virtual Display is open
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- **Calm.** Low energy: spectral centroids of 350 Hz on average and 649 Hz at most, power-weighted
+  as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for needs
+  you to -29 for instruct; peaks at most 0.6 before the room.
+- **Never the only signal.** Every cue has a visual twin on the stage, the character's eyes, motion
+  and light and its written status ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)),
+  so Halcyonic works on mute.
+
+**Rendering.** `GlazeSynthesizer` is the page's synthesis ported line by line: six inharmonic modes
+per strike, each with a slowly beating twin; a felt contact thud; a hand's damping; soft pink noise
+through gliding band-pass filters; a seeded generator (mulberry32), so a render repeats sample for
+sample on a platform (another platform's math library may differ in the last bits). Each cue's
+layers mix to mono and are set to the cue's loudness target (K-weighting and the loudest 400 ms),
+with a short fade at the end, then play in the page's short room: a 1.3 s impulse response of early
+reflections and a tail that darkens as it fades, whose first channel each cue's send is convolved
+with (FFT overlap-add), cut where it stays 60 dB below its peak. The page's per-layer pans are
+left out, because in the headset a cue sounds from a place. On the development Mac the port matches
+the page's own output bit for bit in all but one of 3,950,400 samples, which differs by 1e-16 of
+the peak ([sound-rendering.md](../validation/sound-rendering.md)). `StageSound` renders all 79
+clips (13 cues for each of the 6 notes, and Last known once) at the output sample rate on a worker
+thread at startup, and makes them audio clips on the main thread, four a frame. Nothing is
+synthesized while sound plays; `OnAudioFilterRead` is not used.
+
+**Voices.** Each character has two audio sources on its `Body`, so a cue can start while the last
+one still rings: fully spatial (`spatialBlend` 1), no Doppler, and logarithmic rolloff at full level
+within 2.5 m. The stage stands within that both on a desk, about 0.55 m away
+([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)), and in the virtual space,
+2.4 m away, so where it stands is heard in each cue's direction and not in its loudness, as the
+characters keep their apparent size. The person's actions sound 0.6 m in front of their head, where
+the workspace opens; Last known sounds from the middle of the characters, spread over the arc's 60
+degrees. Unity's built-in panning places them, with no spatializer plugin or package: the page
+panned each bot by the sine of its angle on the arc, which positions reproduce. Cues are scheduled
+on the audio clock (`AudioSource.PlayScheduled`), so once the clips exist nothing runs per frame.
+The level is a serialized setting, 0.5 by default, the soundbook's starting volume; the headset's
+own volume applies on top. `Halcyonic: sound ...` log lines say when the clips are ready and how
+long they took, and each cue played, its place and note, never a workstream.
+
+**Cost.** Rendering every clip took 1.2 to 1.6 s of one core in .NET 10 and 1.9 to 2.0 s in the
+Unity editor's Mono on the development Mac, while other builds loaded it; making the audio clips
+took 2 to 7 ms; the clips hold 17.8 MiB of float samples. On a Quest 3 neither is measured; the
+`sound ready` log line reports both there.
+
+The research the soundbook cites:
+
+- Calm technology moves between the edge of attention and its center, and back:
+  [Weiser and Brown, 1995](https://calmtech.com/papers/designing-calm-technology).
+- Background cues must avoid the alarm pattern (sharp attacks, loudness, energy in the voice band);
+  a breathing sound was found obnoxious:
+  [Audio Aura, CHI 1998](https://ecl.cc.gatech.edu/sites/default/files/publications/C.14-Mynatt-CHI-1998.pdf).
+- A continuous natural soundscape improved peripheral monitoring without hurting the main task:
+  [Hildebrandt, Hermann and Rinderle-Ma, 2016](https://eprints.cs.univie.ac.at/4755);
+  [Peep, 2000](https://www.usenix.org/conference/lisa-2000/peep-network-auralizer-monitoring-your-network-sound).
+- Urgency rises with pitch, speed and irregular harmonics, so calm cues stay low, slow and pure:
+  [Edworthy, Loxley and Dennis, 1991](https://researchportal.plymouth.ac.uk/en/publications/improving-auditory-warning-design-relationship-between-warning-so/).
+- Sharpness, energy high in the spectrum, predicted annoyance best across 129 sounds:
+  [Schell-Majoor et al., 2025](https://journals.publisso.de/en/journals/zaud/volume7/zaud000073).
+- Abstract melodies are hard to learn: the medical alarm standard replaced them with auditory icons
+  in 2020, and icons beat earcons in a longitudinal study:
+  [Edworthy et al.](https://pearl.plymouth.ac.uk/handle/10026.1/10696);
+  [Garzonis et al., CHI 2009](https://researchportal.bath.ac.uk/en/publications/auditory-icon-and-earcon-mobile-service-notifications-intuitivene/).
+- Concurrent cues are told apart better when their onsets are staggered by 300 ms and when they
+  come from different places: [McGookin and Brewster, 2003 to 2004](https://theses.gla.ac.uk/14).
+- Alarm fatigue: with hundreds of alarm signals per patient a day, people stop responding to them:
+  [Joint Commission, Sentinel Event Alert 50, 2013](https://jointcommission.org/sea_issue_50).
+- Meta asks for spatial, comfortable, uncluttered audio, apps playable without sound, and feedback
+  that combines sight, sound and touch: [Audio design](https://developers.meta.com/horizon/design/audio/);
+  [Accessibility VRCs](https://developers.meta.com/horizon/blog/introducing-the-accessibility-vrcs/);
+  [Game Accessibility Guidelines](https://gameaccessibilityguidelines.com/ensure-no-essential-information-is-conveyed-by-sounds-alone/).
+
+Not verified on a headset: how the cues sound through the Quest 3's speakers and whether their
+levels suit hours beside the characters; whether the built-in panning places characters 0.55 m
+away convincingly, and whether a spread widens a mono clip as it does a stereo one; that
+`PlayScheduled` keeps its timing on Android, including after the output was idle; that the system
+menu and Virtual Display reach the app as focus changes that stop cues; and the render time and
+memory on a Quest 3. The checks are in [XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md).
+
 ### Scene
 
 Stage.unity carries Meta's comprehensive interaction rig, added the way the Interaction SDK's
@@ -481,11 +630,13 @@ also adds the SDK's gaze as its gaze quick action builds it, Meta's eye gaze pre
 rig's HMD with a `GazeConecaster`, and turns on its camera pose emulation.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
-the passthrough layer, the stage's anchor and its controls under an object of its own.
+the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
+sound: `SoundBootstrap` adds `StageSound`, which puts its sources on the characters' bodies and
+under the stage object.
 
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
-([quest-3-device.md](../validation/quest-3-device.md)); the workspace and the room placement
-compile and build but are not verified on a headset yet. The Meta XR Simulator fails every frame
+([quest-3-device.md](../validation/quest-3-device.md)); the workspace, the room placement and the
+sound compile and build but are not verified on a headset yet. The Meta XR Simulator fails every frame
 on the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`,
 in an editor-only assembly, builds a development APK, and a release APK that leaves Meta's
 development tools out, except the Immersive Debugger's runtime, disabled, which MRUK needs
@@ -496,6 +647,8 @@ files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELO
 
 Code, diffs, tests and output in the workspace; what Salidium and Seorak say about an execution,
 which `ControlPlaneApi` reads but the workspace does not show, and recorded answers for them in the
-demonstration, whose format leaves room for them; token provisioning on a headset; `wss://`. On a Quest,
+demonstration, whose format leaves room for them; token provisioning on a headset; `wss://`; the
+soundbook's softer repeat of "Needs you" once nobody has looked at the character for two minutes,
+and a volume and mute for sound in the headset. On a Quest,
 the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there
 is no LAN serving yet ([SECURITY.md](SECURITY.md)).
