@@ -20,7 +20,9 @@
   No hosted model was called, and nothing outside the temporary directory was written.
 - **Status:** Runtime verified for OpenCode and Codex on a local model, for the flows below. Claude
   Code was not run, since every run spends Anthropic credit; its adapter change is covered by unit
-  tests. Not checked on a headset: the XR client does not choose a folder yet.
+  tests. The XR client's Create flow now chooses a folder from this listing, checked by its tests,
+  a live control plane test with a project root and editor renders
+  ([XR_CLIENT.md](../architecture/XR_CLIENT.md)); not checked on a headset.
 
 ## Real starts in a folder the host made
 

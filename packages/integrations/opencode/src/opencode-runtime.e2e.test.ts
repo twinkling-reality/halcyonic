@@ -257,36 +257,65 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.equal(record.pid, pid);
   });
 
+  /**
+   * Starts an execution whose folder the host's policy allows `allowed` times and then refuses, as
+   * when the folder is swapped meanwhile, and records every request the adapter sends OpenCode.
+   */
+  async function swappedAfter(t: TestContext, allowed: number) {
+    let asked = 0;
+    const { runtime, sandbox } = await harness(t, {
+      runtime: {
+        directoryPolicy: (path) => {
+          asked += 1;
+          return asked <= allowed
+            ? { ok: true, directory: path }
+            : { ok: false, code: 'location_missing', message: `${path} was swapped.` };
+        },
+      },
+    });
+    const requests: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      requests.push(`${init?.method ?? 'GET'} ${String(input)}`);
+      return original(input, init);
+    }) as typeof fetch;
+    t.after(() => {
+      globalThis.fetch = original;
+    });
+    const execution = new Execution();
+    await assert.rejects(
+      runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Say hello.',
+        options: {},
+        directory: sandbox.project,
+        model_ref: null,
+        emit: execution.emit,
+      }),
+      actionError('location_missing'),
+    );
+    assert.equal(asked, allowed + 1);
+    assert.ok(runtime.serverPid !== null, 'the server was launched first');
+    assert.deepEqual(execution.observations, [], 'no session exists');
+    assert.ok(
+      !requests.some((request) => request.startsWith('POST') && request.endsWith('/api/session')),
+    );
+    return requests.filter((request) => request.includes('location%5Bdirectory%5D'));
+  }
+
   test(
-    'the folder is asked about again after the server launches, before a session is made there',
+    'a folder swapped before OpenCode reads its models there is refused, with nothing read from it',
     SLOW_TEST,
     async (t) => {
-      let asked = 0;
-      const { runtime, sandbox } = await harness(t, {
-        runtime: {
-          directoryPolicy: (path) => {
-            asked += 1;
-            return asked === 1
-              ? { ok: true, directory: path }
-              : { ok: false, code: 'location_missing', message: `${path} was removed.` };
-          },
-        },
-      });
-      const execution = new Execution();
-      await assert.rejects(
-        runtime.startExecution({
-          execution: execution.context,
-          instruction: 'Say hello.',
-          options: {},
-          directory: sandbox.project,
-          model_ref: null,
-          emit: execution.emit,
-        }),
-        actionError('location_missing'),
-      );
-      assert.equal(asked, 2);
-      assert.ok(runtime.serverPid !== null, 'the server was launched before the second check');
-      assert.deepEqual(execution.observations, [], 'no session exists');
+      assert.deepEqual(await swappedAfter(t, 1), [], 'no model read carried the folder');
+    },
+  );
+
+  test(
+    'a folder swapped while OpenCode lists its models is refused before a session is made there',
+    SLOW_TEST,
+    async (t) => {
+      assert.ok((await swappedAfter(t, 2)).length > 0, 'the models were read in the folder first');
     },
   );
 
