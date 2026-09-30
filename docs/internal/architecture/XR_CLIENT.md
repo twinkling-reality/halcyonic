@@ -659,16 +659,19 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   room and pairing controls 26 degrees out; over a desk, 0.36 m ahead and never into the desk, below
   the lineup's label plates, about 48 degrees down and 18 to either side. It is placed in front of the person when the app starts and when the
   stage moves onto or off a surface, and again by Reset position, and it steps out of the way while
-  the entry panel or a workspace is open. Which projects show is kept on the device for each
+  the entry panel, a workspace or the Usage left panel is open. Which projects show is kept on the device for each
   journal (`StageVisibility`); hiding a project hides its characters only.
 - **Usage left:** `UsageLeftGlance` puts a "Usage left" chip in the room the project rail leaves
   at its lower row's right end, and nothing anywhere else: no floating control. Pressing it opens a
-  small panel above the rail's right edge and reads the control plane once; Read again reads once
-  more, and the panel only lays out again, every 15 s, to drop a window that has reset. Pressing
-  the chip again closes it. It belongs to the rail, so it hides with it while the entry panel or a
-  workspace is open, and closes then. While the app lacks focus, as when a 2D window has it, the
-  chip hides and the panel closes. The recorded demonstration offers no usage limits. It is not
-  Workstream status and not part of starting work.
+  panel 0.7 wide where the entry panel would open (`WorkspaceLayout.PlaceForeground`), clear of every
+  character, at the edge of that space away from them (below the characters 2.4 m away, above a desk
+  lineup) so it clears their label plates too, and reads the control plane once. The rail steps out of
+  the way meanwhile. The panel shows its title and Close, the readings, the note and Read again, which
+  reads once more; it only lays out again every 15 s, to drop a window that has reset. An agent name
+  longer than 32 characters ends in an ellipsis. It closes by Close, when the entry panel or a
+  workspace opens, and while the app lacks focus, as when a 2D window has it; the chip hides then
+  too. The recorded demonstration offers no usage limits. It is not Workstream status and not part
+  of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
 - **Entry panel:** `EntryPanel`, the one foreground panel for entering work, the workspace's size,
   opened where the workspace would open, clear of every character
   (`WorkspaceLayout.PlaceForeground`). Its top row holds the title, Move (to the right, the left and
