@@ -135,3 +135,12 @@ in [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md).
 - Re-run the live test whenever Seorak changes the wire, and confirm the lens rows on a session
   that ran checks:
   `HALCYONIC_SEORAK_CREDENTIAL_FILE=<file> HALCYONIC_SEORAK_SESSION_ID=<captured Claude Code session id> node --test packages/integrations/seorak/src/live-seorak.test.ts`.
+
+## Re-run (2026-09-29)
+
+The live test's three credential checks passed again against the owner's running plane (401 without
+a credential, `not_captured` for an unknown session, `credential_rejected` for a credential it did
+not issue); the captured-session check was skipped for want of a captured session id. Answers now
+carry `source.synthetic`, false for everything read from Seorak
+([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md),
+[understanding-and-evaluation.md](understanding-and-evaluation.md)).

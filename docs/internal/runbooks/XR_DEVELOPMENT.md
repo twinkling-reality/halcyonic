@@ -91,9 +91,16 @@ It opens the workspace for the character that needs the person, with six charact
 and again on a desk half a meter away, saves `far.png`, `desk.png` and each part alone in
 `apps/xr/Builds/WorkspaceRenders`, and logs where the workspace opened. It fails if a pixel of the
 workspace changes when the stage behind it is drawn, if a character's body is behind it, or if its
-center leaves the comfortable band. It works in a new, unsaved scene, and leaves the committed
-TextMeshPro font asset as it was, which drawing text in the editor would otherwise upgrade and
-save.
+center leaves the comfortable band. It then shows the Understanding and Evaluation sections with
+the bundled demonstration's answers, at the story's approval and after approving, and saves
+`far-understanding.png`, `desk-evaluation-after-approving.png` and so on, each with a
+`-closeup.png` at a Quest 3's 25 pixels per degree, for judging legibility (`far-closeup.png` is
+the activity). It fails if a section lets the stage show through, a line does not fit, or a part's
+availability, coverage and freshness is cut short, and it checks on real labels that source text
+shows exactly as written and that a quote cut short ends in an ellipsis. It works in a new, unsaved
+scene, and leaves the committed TextMeshPro font assets as they were, which drawing text in the
+editor would otherwise upgrade and save; characters the static atlas lacks, such as the minus sign
+in a change summary, are drawn from it as look-alikes for the render only, and the log names them.
 
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
@@ -396,6 +403,14 @@ in the headset:
   with hands.
 - **Collapse.** Pinch Collapse, top right, or point at the character and pinch again: the
   workspace shrinks back into the character.
+- **Understanding and Evaluation.** Under the actions, three tabs: Activity, chosen, with a bar
+  under it, then Understanding and Evaluation. Pinch Understanding, then poke Evaluation: each shows
+  in place of the activity, with Refresh at the right. With the mock runtime they say, in words,
+  "Understanding unavailable: Salidium does not observe sessions of the mock runtime." and
+  "Evaluation unavailable: Seorak does not observe sessions of the mock runtime." Stop `pnpm dev`
+  and pinch Refresh: the line says the answer could not be read again, and why. Pinch Approve from a
+  section: the details return to Activity, where the request shows. Every line readable, 2.4 m away
+  (the workspace below the characters) and on the desk (above them), without leaning in.
 - **Poke.** Seated, poke the workspace's buttons without leaning. On the desk, push a fingertip into
   the front of a character's body: it opens; typing in front of the characters brings up no line.
 - **Focus.** With the workspace open, open the system menu: hands, rays and the peek go, nothing
@@ -468,6 +483,20 @@ Then, with hands only:
 - **Deny** instead: the agent says it did not run the migration; Instruct then offers "Keep them in
   memory", which also ends with the tests passing. **Stop the turn**, at any moment while it works
   or waits: "Stopped".
+- **Understanding.** At the approval, pinch Understanding: the first line reads "Simulated, not from
+  Salidium · recorded at" and a time, then "Waiting for you. Run make migrate …" tagged observed,
+  "Agent says: “…”" tagged reported, the two files changed, and "2 files not checked after the last
+  change" tagged inferred. Approve: the details return to Activity. Once the turn has ended, pinch
+  Understanding again: "1 test failing", "Tests failed: 1 failed, 23 passed …", and an explanation
+  tagged explained. Left open while the work goes on, it follows by itself within about two seconds
+  of each change. The change summary shows a minus sign, "(+71 −0)", not an empty box: that glyph
+  comes from the dynamic fallback font.
+- **Evaluation.** Pinch Evaluation: "Simulated, not from Seorak · recorded at …", the cost as "About
+  $0.20. Estimated from token counts at list prices. Not a bill.", and under each of the cost, the
+  outcome and the checks its own availability, coverage and freshness; before the first turn ends,
+  the outcome reads "Nothing measured yet." and "unavailable: not yet computed …". It changes only
+  when you pinch Refresh. Opened for the two finished characters beside the story, both sections show
+  their own simulated answers.
 - **The end.** Once the story has ended, the line adds "This recording has ended and starts again
   shortly.", and the workspace says nothing can be sent. About 20 seconds later the characters go
   back to "Not started" and it plays again, with no "Disconnected" and no "last known" on the
