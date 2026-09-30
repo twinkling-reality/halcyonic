@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -226,6 +227,50 @@ describe('binding a project to a new folder', () => {
       assert.equal(checked.ok ? 'ok' : checked.code, 'location_not_allowed', folderName);
     }
     assert.equal(existsSync(join(outside, 'fine')), false);
+  });
+
+  test('a root replaced by a symbolic link after startup is refused, and nothing is made through it', () => {
+    const { root, outside, locations } = layout('root-linked');
+    renameSync(root, `${root}-moved`);
+    symlinkSync(outside, root);
+    for (const choice of [
+      { kind: 'new_folder', root, folder_name: 'escape' },
+      { kind: 'existing_folder', root, folder_name: null },
+    ] as const) {
+      const bound = locations.bind(choice);
+      assert.equal(bound.ok ? 'ok' : bound.code, 'location_not_allowed', choice.kind);
+    }
+    assert.equal(existsSync(join(outside, 'escape')), false, 'no folder outside the roots');
+    assert.equal(locations.list().roots[0]?.status, 'missing');
+    assert.deepEqual(locations.list().roots[0]?.folders, []);
+  });
+
+  test('a root replaced by another folder at the same path is refused until the control plane restarts', () => {
+    const { root, locations } = layout('root-replaced');
+    renameSync(root, `${root}-old`);
+    mkdirSync(join(root, 'app'), { recursive: true });
+    const checked = locations.check({ kind: 'existing_folder', root, folder_name: 'app' });
+    assert.equal(checked.ok ? 'ok' : checked.code, 'location_not_allowed');
+    // A control plane started now takes the folder that is there.
+    assert.equal(
+      createHostLocations([root]).check({ kind: 'existing_folder', root, folder_name: 'app' }).ok,
+      true,
+    );
+  });
+
+  test('a folder made but not usable is reported with an unknown effect and left in place', () => {
+    const { root } = layout('made-unusable');
+    // A policy that refuses everything stands in for a change between the check and the folder.
+    const locations = createHostLocations([root], (path) => ({
+      ok: false,
+      code: 'location_not_allowed',
+      message: `${path} is not allowed now.`,
+    }));
+    const bound = locations.bind({ kind: 'new_folder', root, folder_name: 'storefront' });
+    assert.equal(bound.ok ? 'ok' : bound.code, 'location_not_created');
+    assert.equal(!bound.ok && 'effect' in bound ? bound.effect : null, 'unknown');
+    assert.match(!bound.ok ? bound.message : '', /A folder was made at .*storefront/);
+    assert.ok(existsSync(join(root, 'storefront')));
   });
 
   test('after a crash between making the folder and recording the project, the folder is chosen as existing', () => {

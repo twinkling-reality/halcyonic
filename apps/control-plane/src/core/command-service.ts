@@ -276,7 +276,7 @@ export class CommandService {
             this.#fail(command, admission.scope, {
               code: bound.code,
               message: bound.message,
-              effect: 'none',
+              effect: 'effect' in bound ? bound.effect : 'none',
             });
             return;
           }
@@ -302,7 +302,7 @@ export class CommandService {
           this.#fail(command, admission.scope, {
             code: bound.code,
             message: bound.message,
-            effect: 'none',
+            effect: 'effect' in bound ? bound.effect : 'none',
           });
           return;
         }
