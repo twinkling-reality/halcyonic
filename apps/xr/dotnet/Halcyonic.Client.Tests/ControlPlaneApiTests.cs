@@ -19,7 +19,7 @@ public class ControlPlaneApiTests
     /// What the control plane serves for a session Seorak has measured but that has not matured: an
     /// estimated cost, an outcome whose unknowns stay null beside a measured zero, and one kind of check.
     /// </summary>
-    private const string Available = """
+    internal const string Available = """
         {
           "execution_id": "01a0dcf1-5a80-7000-8000-0000000000e1",
           "result": {
