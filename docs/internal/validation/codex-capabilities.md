@@ -290,3 +290,22 @@ consecutive runs and the OpenCode suite one.
 
 Left unchanged, since they read little output: `codex --version`, `pgrep -P` in the end to end
 tests, and `ps -p <pid>` in tests, for processes they started with short command lines.
+
+## Local models (2026-09-29)
+
+The pinned binary ran threads on open models that Ollama serves on the Mac, through its built-in
+`ollama` provider, driven by the adapter through a control plane; the runs are in
+[local-models.md](local-models.md).
+
+- `thread/start` and `thread/resume` accept `modelProvider` and a `config` object of overrides for
+  the one thread; `model_context_window` and `model_auto_compact_token_limit` there take effect.
+  Both answers report the `model` and `modelProvider` the thread got.
+- Codex accepts any model name, giving one outside its catalog fallback metadata (272,000 tokens).
+- `model/list` returns the catalog built into the binary, OpenAI's models, whatever provider is
+  configured; `config/read` names the configured provider and model but lists only the providers
+  the configuration defines, not the built-in ones.
+- The rollout's `session_meta` records `model_provider` (no model), and each `turn_context` the
+  model, an Ollama tag verbatim.
+- The adapter now takes `model_provider`, `context_window` and `auto_compact_token_limit`, and
+  refuses a thread for which Codex reports another model or provider than asked.
+- App-server made no request beyond loopback, and never asked Ollama to pull a model.

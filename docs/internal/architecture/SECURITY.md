@@ -37,7 +37,8 @@ ab.chatgpt.com when `analytics.enabled = true`, and saved rules that let matchin
 without asking. Halcyonic sets only what keeps the person in control: the working directory, the
 sandbox mode, an approval policy that asks (`on-request` or `untrusted`), and approvals routed to
 the person rather than to a reviewer agent; it refuses a thread for which Codex reports other
-settings. Every request Codex sends to the model provider carries the originator `halcyonic`, a
+settings. When a start names a model provider or a model, a thread Codex reports running on
+another is refused too, so work meant for a local model never reaches a hosted one. Every request Codex sends to the model provider carries the originator `halcyonic`, a
 user agent with the Codex version and the operating system, and turn metadata with the
 installation id, the thread and session ids, the sandbox mode, whether analytics is on and, for a
 workspace that is a git repository, its path, latest commit hash and whether it has uncommitted

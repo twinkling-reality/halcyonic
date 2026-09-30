@@ -324,6 +324,50 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
     },
   );
 
+  test(
+    'a thread on a named provider and model runs there, and its rollout records both',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start('Hello from a model Codex has no metadata for.', {
+        model_provider: 'fake',
+        model: 'local-model:tag',
+        context_window: 65536,
+        auto_compact_token_limit: 52000,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.at(-1)?.body?.model, 'local-model:tag');
+      const started = execution.observations[0];
+      assert.ok(started?.type === 'runtime.execution.started');
+      const threadId = started.payload.native_id ?? '';
+      await runtime.close();
+
+      // What Salidium and Seorak read: the rollout's session_meta names the provider, and each
+      // turn_context the model; the token counts carry the context window the thread was given.
+      const thread = await readThread(sandbox, threadId);
+      assert.ok(typeof thread.path === 'string');
+      const rows = readFileSync(thread.path, 'utf8')
+        .split('\n')
+        .filter((line) => line !== '')
+        .map((line) => JSON.parse(line) as { type: string; payload: Record<string, unknown> });
+      const meta = rows.find((row) => row.type === 'session_meta')?.payload ?? {};
+      assert.equal(meta.id, threadId);
+      assert.equal(meta.model_provider, 'fake');
+      assert.equal(meta.thread_source, 'halcyonic');
+      assert.equal(meta.originator, 'halcyonic');
+      assert.equal('forked_from_id' in meta && meta.forked_from_id !== null, false);
+      const context = rows.find((row) => row.type === 'turn_context')?.payload ?? {};
+      assert.equal(context.model, 'local-model:tag');
+      const counts = rows
+        .filter((row) => row.type === 'event_msg' && row.payload.type === 'token_count')
+        .map((row) => row.payload.info)
+        .filter(isRecord);
+      assert.ok(counts.length > 0, 'no token count');
+      // Codex keeps 5% of the window in reserve (0.157.0 reports 258,400 of 272,000).
+      assert.equal(counts.at(-1)?.model_context_window, Math.floor(65536 * 0.95));
+    },
+  );
+
   test('an approved command runs, and the turn finishes', SLOW_TEST, async (t) => {
     const { runtime, sandbox, start } = await harness(t);
     const execution = await start('CMD_ESC:touch approved.txt && echo created-approved');

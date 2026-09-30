@@ -158,6 +158,14 @@ describe('Codex start options', () => {
       { cwd: directory, sandbox: null },
       { cwd: directory, approval_policy: 'on-failure' },
       { cwd: directory, approval_policy: { granular: { sandbox_approval: false } } },
+      { cwd: directory, model_provider: '' },
+      { cwd: directory, model_provider: 'ollama/local' },
+      { cwd: directory, model_provider: 7 },
+      { cwd: directory, context_window: 0 },
+      { cwd: directory, context_window: 65536.5 },
+      { cwd: directory, context_window: '65536' },
+      { cwd: directory, auto_compact_token_limit: -1 },
+      { cwd: directory, context_window: 65536, auto_compact_token_limit: 65536 },
     ];
     for (const options of invalid) {
       const result = runtime.validateStartOptions(options);
@@ -171,6 +179,10 @@ describe('Codex start options', () => {
       { cwd: directory, sandbox: 'read-only', approval_policy: 'on-request' },
       { cwd: directory, sandbox: 'workspace-write', approval_policy: 'untrusted' },
       { cwd: directory, sandbox: 'danger-full-access', approval_policy: 'untrusted' },
+      { cwd: directory, model_provider: 'ollama', model: 'qwen3.6:35b-a3b-nvfp4' },
+      { cwd: directory, model_provider: 'my-gateway_2' },
+      { cwd: directory, context_window: 65536, auto_compact_token_limit: 52000 },
+      { cwd: directory, auto_compact_token_limit: 52000 },
     ]) {
       assert.deepEqual(
         runtime.validateStartOptions(options),
@@ -400,6 +412,62 @@ describe('Codex runtime against a stand-in binary', () => {
     );
     assert.deepEqual(observations[0]?.payload, { native_id });
     assertValidObservations(observations);
+  });
+
+  test('asks for the model provider, model and context settings of a local model', async (t) => {
+    const { runtime, received, directory, observations } = fake(t);
+    await runtime.startExecution({
+      execution: TEST_EXECUTION,
+      instruction: 'COMPLETE the work.',
+      options: {
+        cwd: directory,
+        model_provider: 'ollama',
+        model: 'qwen3.6:35b-a3b-nvfp4',
+        context_window: 65536,
+        auto_compact_token_limit: 52000,
+      },
+      emit: (observation) => observations.push(observation),
+    });
+    const threadStart = received().find((message) => message.method === 'thread/start');
+    assert.deepEqual(threadStart?.params, {
+      cwd: realpathSync(directory),
+      approvalPolicy: 'on-request',
+      approvalsReviewer: 'user',
+      sandbox: 'workspace-write',
+      model: 'qwen3.6:35b-a3b-nvfp4',
+      modelProvider: 'ollama',
+      config: { model_context_window: 65536, model_auto_compact_token_limit: 52000 },
+      threadSource: 'halcyonic',
+    });
+    await until(() => observations.length === 3, 'the turn');
+  });
+
+  test('refuses a thread Codex does not run on the requested model and provider', async (t) => {
+    const { runtime, directory, observations } = fake(t, ['other-model']);
+    for (const options of [
+      { model_provider: 'ollama', model: 'qwen3.6:35b-a3b-nvfp4' },
+      { model_provider: 'ollama' },
+      { model: 'qwen3.6:35b-a3b-nvfp4' },
+    ]) {
+      await assert.rejects(
+        runtime.startExecution({
+          execution: TEST_EXECUTION,
+          instruction: 'COMPLETE the work.',
+          options: { cwd: directory, ...options },
+          emit: (observation) => observations.push(observation),
+        }),
+        (error: unknown) => {
+          assert.ok(actionError('runtime_refused')(error));
+          assert.match(
+            (error as Error).message,
+            /reports model "gpt-5\.5" from provider "openai"\. The thread is not used\./,
+          );
+          return true;
+        },
+        JSON.stringify(options),
+      );
+    }
+    assert.deepEqual(observations, []);
   });
 
   test('refuses a thread Codex did not give the requested approval policy', async (t) => {

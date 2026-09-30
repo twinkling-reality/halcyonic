@@ -50,6 +50,15 @@ export type ApprovalPolicy = 'on-request' | 'untrusted';
 /** `v2/SandboxMode.ts`. */
 export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 
+/**
+ * The configuration overrides the adapter sets in `config` of `v2/ThreadStartParams.ts`, keyed
+ * as in Codex's `config.toml`; each applies to the one thread.
+ */
+export interface ThreadConfigOverrides {
+  readonly model_context_window?: number;
+  readonly model_auto_compact_token_limit?: number;
+}
+
 /** `v2/ThreadStartParams.ts`. */
 export interface ThreadStartParams {
   readonly cwd: string;
@@ -58,6 +67,8 @@ export interface ThreadStartParams {
   readonly approvalsReviewer: 'user';
   readonly sandbox: SandboxMode;
   readonly model?: string;
+  readonly modelProvider?: string;
+  readonly config?: ThreadConfigOverrides;
   readonly threadSource: string;
 }
 
@@ -73,6 +84,8 @@ export interface ThreadResumeParams extends Omit<ThreadStartParams, 'threadSourc
  */
 export interface ThreadSettingsResponse {
   readonly thread: { readonly id: string };
+  readonly model: string;
+  readonly modelProvider: string;
   readonly approvalPolicy: unknown;
   readonly approvalsReviewer: unknown;
   readonly sandbox: { readonly type: string };
