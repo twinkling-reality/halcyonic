@@ -6,13 +6,15 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ## Layers
 
 ```text
-Unity layer (apps/xr/Assets)          stage, placeholder characters, focus guard      skeleton, compiles in Unity
+Unity layer (apps/xr/Assets)          stage, characters, focus guard                 compiles in Unity
         │
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
-        │                             CharacterPresenter, WorkspacePresenter,
-        │                             ActivityLog, EventHistory, CommandFactory,
-        │                             DemonstrationTransport, DemonstrationFallback
+        │                             CharacterPresenter, CharacterCues,
+        │                             CharacterIdentity, CharacterLineup,
+        │                             WorkspacePresenter, ActivityLog, EventHistory,
+        │                             CommandFactory, DemonstrationTransport,
+        │                             DemonstrationFallback
         ▼
 Contracts (com.halcyonic.contracts)   C# bindings generated from packages/contracts    generated
         │
@@ -72,6 +74,22 @@ the same definition names, as the JSON Schema document:
   label for every status (never color alone), the attention level with one explanation per reason,
   and flags for simulated work, recorded fixture data, and a stale state while the session is not
   live. A completed turn reads "Turn finished", because completion says nothing about correctness.
+- **`CharacterCues`** turns a presentation into what the character shows: its eyes, its motion, its
+  halo, its surface (flowing, cracked or fogged), whether it faces the person, and whether it is
+  paused or ghosted ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)).
+  No two activities differ only in color, and the last known state keeps its cues but stops moving.
+- **`CharacterIdentity`** derives a character's body shape, hue, tone and motion phase from its
+  workstream id alone (FNV-1a over the UTF-8 id, then MurmurHash3's finalizer), so a workstream
+  looks the same in every session and version. The eight hues keep at least 25 degrees from the
+  state colors: amber for needs you, red for failed, green for a finished turn.
+- **`CharacterLineup`** chooses which workstreams have a character and where each stands: needs
+  you first, then failed, unknown or failing tests, then active work, then the most recently
+  changed. Characters that need attention stand nearest the middle of the person's view; every
+  other character keeps its slot for as long as it stays shown. A newcomer takes the free slot
+  nearest the middle, or the slot of the one it replaces, and a character that comes to need
+  attention trades places with the one nearest the middle that does not. A waiting workstream
+  replaces a shown one only from a more important tier, or, at rest, when it changed more
+  recently, because working ones change every few seconds and would otherwise swap in and out.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
@@ -121,6 +139,8 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the session against an in-memory server: handshake, resume, journal change, acknowledgements,
   outcome-unknown cases, refusal, idle detection, backoff, malformed input, backlog
   resynchronization;
+- character cues for every activity; identities that stay fixed across versions and spread over
+  every shape and hue for time-ordered ids; the lineup's choice, order and stable slots;
 - activity descriptions from both recorded traces, workspace actions for every status and
   capability combination, command feedback, and history paging;
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
@@ -168,11 +188,46 @@ core Unity APIs:
   on a headset the log (`adb logcat -s Unity`) is the main diagnostic. It logs the status each frame
   ends with, so a phase that begins and ends within one frame, such as `Connecting` when the
   connection is refused at once, has no line of its own.
-- `CharacterStage` places one placeholder character per workstream in an arc, and says above them
-  whether the state is live; `CharacterView` renders a `CharacterPresentation` as a sphere whose
-  motion follows the activity, with the title, status and attention notes written out. The sphere
-  uses `Legacy Shaders/Diffuse`, one of the always-included shaders: a player build leaves out the
-  Standard shader of a primitive's default material, which then renders magenta.
+- `CharacterStage` stands the characters on an arc of fixed slots in front of the person and says
+  above them whether the state is live, or, while the demonstration is shown, its
+  `DemonstrationLine`. The arc is 2.4 m away, beyond the system windows, such as Virtual Display's
+  screens, that open within about 2 m
+  ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); 0.45 m below the eyes;
+  and 60 degrees between its outermost characters, so every character and its labels stay within
+  about 36 degrees of where the person faced, a comfortable field on narrower headsets too. All
+  three are serialized settings, and characters and labels scale with the distance, so they keep
+  their apparent size. A character the lineup moves glides along the arc, swinging out behind the
+  others. Everything is looked at and pointed at from the seat; nothing needs the person to stand
+  or reach. The arc is placed at the person's head, facing where
+  they face, when the session starts and the head is tracked, when the tracking origin changes
+  (a recenter or a new boundary, through `XRInputSubsystem.trackingOriginUpdated`), when the app
+  resumes, and when the head seems to jump farther in one frame than a person can move; the log
+  says why each time. An `IStagePlacementSource` on the stage object, such as a room placement
+  that found the person's desk, can give it a surface instead: the pose's position is where the
+  middle of the lineup stands, the arc curves around the person's side of it at their distance
+  when the pose arrived, and every label plate rests on the surface. While that pose is set, only
+  the source moves the stage, and recenters leave it. The stage keeps animating and updating while
+  the app lacks input focus.
+- `CharacterView` draws a `CharacterPresentation` as a bot
+  ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
+  generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
+  shader, a halo and a testing ring behind and around it, and the title, the status and the
+  attention notes on a plate underneath, wrapped to 11 degrees, less than the 12 between slots. `Body` is the moving visual
+  root, and `LookAtPerson` turns the character to the person for the workspace. Per-character
+  values go through `MaterialPropertyBlock`s, so nothing allocates per frame. Labels use Unity's
+  built-in font through `TextMesh`, rasterized at 48 pixels, close to their size on the headset.
+- A player build leaves out shaders that nothing in the build references; the first device build
+  rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
+  Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
+  which the build always includes, so exactly the variants those materials use are compiled and
+  the Always Included Shaders list stays as it is.
+- Cost on a Quest 3, estimated
+  ([character-rendering.md](../validation/character-rendering.md)): the body shader is one pass
+  without keywords, about 160 to 185 arithmetic operations and at most two texture reads per
+  pixel in any state, from a 128 by 128 noise texture baked at startup. Six bodies cover about
+  240,000 pixels a frame across both eyes. The lookbook computed fractal noise per pixel, about ten
+  times the arithmetic. Edges are anti-aliased in the shaders, because the Android quality level
+  has no MSAA.
 - `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
 
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
@@ -184,8 +239,8 @@ tools out ([horizon-store-release.md](../validation/horizon-store-release.md)). 
 
 ## Not built yet
 
-Hand interaction with characters; the expanded workspace; real character art; token provisioning
-on a headset; `wss://`; a demonstration in which a person can act, which a recording cannot confirm
+Hand interaction with characters; the expanded workspace; token provisioning on a headset;
+`wss://`; a demonstration in which a person can act, which a recording cannot confirm
 ([ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md)). On a Quest,
 the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there
 is no LAN serving yet ([SECURITY.md](SECURITY.md)).
