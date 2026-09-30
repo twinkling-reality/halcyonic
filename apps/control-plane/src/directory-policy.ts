@@ -23,7 +23,7 @@ export function createDirectoryPolicy(roots: readonly string[]): DirectoryPolicy
     } catch {
       return { ok: false, code: 'location_missing', message: `${path} does not exist.` };
     }
-    if (statSync(real, { throwIfNoEntry: false })?.isDirectory() !== true) {
+    if (!isDirectory(real)) {
       return { ok: false, code: 'location_missing', message: `${path} is not a folder.` };
     }
     if (realRoots.length === 0) {
@@ -42,6 +42,14 @@ export function createDirectoryPolicy(roots: readonly string[]): DirectoryPolicy
     }
     return { ok: true, directory: real };
   };
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
+  } catch {
+    return false;
+  }
 }
 
 /** Whether `candidate` is `root` or lies below it; both must be real paths. */

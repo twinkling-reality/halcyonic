@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -140,6 +141,39 @@ describe('binding a project to an existing folder', () => {
     });
     assert.equal(checked.ok ? 'ok' : checked.code, 'location_not_allowed');
     assert.match(checked.ok ? '' : checked.message, /HALCYONIC_PROJECT_ROOTS/);
+  });
+
+  test('a root that became unreadable lists as missing and refuses, and nothing throws', (t) => {
+    const top = join(base, 'unreadable');
+    const root = join(top, 'projects');
+    mkdirSync(join(root, 'app'), { recursive: true });
+    const locations = createHostLocations([root]);
+    // Without search permission on its parent, every look at the root fails with EACCES.
+    chmodSync(top, 0o000);
+    t.after(() => chmodSync(top, 0o755));
+    assert.deepEqual(locations.list().roots[0]?.status, 'missing');
+    for (const choice of [
+      { kind: 'existing_folder', root, folder_name: 'app' },
+      { kind: 'new_folder', root, folder_name: 'fresh' },
+    ] as const) {
+      const checked = locations.check(choice);
+      assert.equal(checked.ok ? 'ok' : checked.code, 'location_missing', choice.kind);
+      const bound = locations.bind(choice);
+      assert.equal(bound.ok ? 'ok' : bound.code, 'location_missing', choice.kind);
+    }
+    const decision = locations.policy(join(root, 'app'));
+    assert.equal(decision.ok ? 'ok' : decision.code, 'location_missing');
+  });
+
+  test('a refusal quotes at most the start of a very long root', () => {
+    const { locations } = layout('long-root');
+    const checked = locations.check({
+      kind: 'existing_folder',
+      root: `/${'a'.repeat(4000)}`,
+      folder_name: null,
+    });
+    assert.equal(checked.ok ? 'ok' : checked.code, 'location_not_allowed');
+    assert.ok(!checked.ok && checked.message.length < 400);
   });
 
   test('a root that has gone refuses its folders as missing', () => {
