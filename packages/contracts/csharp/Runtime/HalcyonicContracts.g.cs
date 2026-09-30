@@ -3082,22 +3082,51 @@ namespace Halcyonic.Contracts
         public EvaluationResult Result { get; set; } = default!;
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UsageLimitWindow
+    {
+        [EnumMember(Value = "rolling-5h")] Rolling5h,
+        [EnumMember(Value = "weekly")] Weekly,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum UsageLimitFreshness
+    {
+        [EnumMember(Value = "fresh")] Fresh,
+        [EnumMember(Value = "stale")] Stale,
+    }
+
+    public sealed class UsageLimitAccount
+    {
+        [JsonProperty("state", Required = Required.Always)]
+        public string State { get; set; } = "unidentified";
+    }
+
     public sealed class UsageLimit
     {
-        [JsonProperty("provider", Required = Required.Always)]
-        public JToken Provider { get; set; } = default!;
+        [JsonProperty("agent", Required = Required.Always)]
+        public string Agent { get; set; } = default!;
+
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
 
         [JsonProperty("window", Required = Required.Always)]
-        public JToken Window { get; set; } = default!;
+        public UsageLimitWindow Window { get; set; }
 
-        [JsonProperty("remaining_percent", Required = Required.Always)]
-        public double RemainingPercent { get; set; }
+        [JsonProperty("used_percent", Required = Required.Always)]
+        public double UsedPercent { get; set; }
 
         [JsonProperty("resets_at", Required = Required.Always)]
         public string ResetsAt { get; set; } = default!;
 
         [JsonProperty("observed_at", Required = Required.Always)]
         public string ObservedAt { get; set; } = default!;
+
+        [JsonProperty("freshness", Required = Required.Always)]
+        public UsageLimitFreshness Freshness { get; set; }
+
+        [JsonProperty("account", Required = Required.Always)]
+        public UsageLimitAccount Account { get; set; } = default!;
     }
 
     [JsonConverter(typeof(UsageLimitsResponseConverter))]

@@ -1,44 +1,137 @@
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
-import { compileValidator, type UsageLimitsResponse, UsageLimitsResponse as Schema } from '@halcyonic/contracts';
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, afterEach, before, describe, test } from 'node:test';
+import { compileValidator, UsageLimitsResponse } from '@halcyonic/contracts';
+import {
+  FakeSeorak,
+  usageLimitsDocument,
+  usageReading,
+} from '@halcyonic/integration-seorak/testing';
+import { seorakEvaluation } from '../intelligence/evaluation.ts';
 import { startTestServer } from '../testing/harness.ts';
 
-let answer: UsageLimitsResponse;
-let calls = 0;
-let server: Awaited<ReturnType<typeof startTestServer>>;
-before(async () => {
-  server = await startTestServer({ evaluation: {
-    evaluate: async () => ({ availability: 'unavailable', reason: { code: 'unused', message: 'Unused.' } }),
-    usageLimits: async () => { calls++; return answer; },
-  } });
-});
-after(async () => server.stop());
+const validate = compileValidator(UsageLimitsResponse);
 
-test('usage is authenticated, read on demand and never journaled', async () => {
-  answer = { availability: 'available', readings: [{ provider: 'codex', window: 'weekly',
-    remaining_percent: 42, resets_at: '2099-10-01T00:00:00.000Z',
-    observed_at: '2026-09-30T18:00:00.000Z' }] };
-  const unauth = await fetch(`${server.baseUrl}/api/usage-limits`);
-  assert.equal(unauth.status, 401);
-  const head = server.controlPlane.journal.head();
-  const response = await fetch(`${server.baseUrl}/api/usage-limits`, {
-    headers: { authorization: `Bearer ${server.token}` },
+/** The control plane reading a stub Seorak plane over loopback, with a credential file of mode 600. */
+describe('usage limits read through a stub Seorak', () => {
+  let seorak: FakeSeorak;
+  let server: Awaited<ReturnType<typeof startTestServer>>;
+  before(async () => {
+    seorak = await FakeSeorak.start();
+    const dir = mkdtempSync(join(tmpdir(), 'halcyonic-usage-'));
+    const credentialPath = join(dir, 'seorak-credential');
+    writeFileSync(credentialPath, `${seorak.token}\n`);
+    chmodSync(credentialPath, 0o600);
+    server = await startTestServer({
+      evaluation: seorakEvaluation({ credentialPath, port: seorak.port }),
+    });
   });
-  assert.equal(response.status, 200);
-  const body = await response.json();
-  assert.equal(compileValidator(Schema)(body).ok, true);
-  assert.deepEqual(body, answer);
-  assert.equal(calls, 1);
-  assert.equal(server.controlPlane.journal.head(), head);
+  afterEach(() => {
+    seorak.scopes = new Set(['sessions:read', 'replay:read']);
+    seorak.usageLimits = usageLimitsDocument();
+  });
+  after(async () => {
+    await server.stop();
+    await seorak.close();
+  });
+
+  const get = (headers: Record<string, string> = { authorization: `Bearer ${server.token}` }) =>
+    fetch(`${server.baseUrl}/api/usage-limits`, { headers });
+
+  test('needs the access token, reads once per request and journals nothing', async () => {
+    seorak.scopes.add('limits:read');
+    const reading = usageReading();
+    seorak.usageLimits = usageLimitsDocument([reading]);
+    const before = seorak.requests.length;
+    assert.equal((await get({})).status, 401);
+    assert.equal(seorak.requests.length, before);
+    const head = server.controlPlane.journal.head();
+    const response = await get();
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as UsageLimitsResponse;
+    assert.equal(validate(body).ok, true);
+    assert.deepEqual(body, {
+      availability: 'available',
+      readings: [
+        {
+          agent: 'codex',
+          label: 'Codex',
+          window: 'weekly',
+          used_percent: 62,
+          resets_at: reading.resetsAt,
+          observed_at: reading.observedAt,
+          freshness: 'fresh',
+          account: { state: 'unidentified' },
+        },
+      ],
+    });
+    assert.equal(seorak.requests.length, before + 1);
+    assert.equal(seorak.requests.at(-1)?.path, '/api/v1/usage-limits');
+    assert.equal(server.controlPlane.journal.head(), head);
+  });
+
+  test("today's credential, without limits:read, is refused as insufficient_scope", async () => {
+    const body = (await (await get()).json()) as UsageLimitsResponse;
+    assert.equal(body.availability, 'unauthorized');
+    if (body.availability === 'available') return;
+    assert.equal(body.reason.code, 'insufficient_scope');
+  });
+
+  test('no captured limit is unavailable, never a reading of 0%', async () => {
+    seorak.scopes.add('limits:read');
+    seorak.usageLimits = usageLimitsDocument([], 'not-captured');
+    const body = (await (await get()).json()) as UsageLimitsResponse;
+    assert.equal(body.availability, 'unavailable');
+    assert.equal('readings' in body, false);
+  });
 });
 
-test('bad source data is never passed through', async () => {
-  answer = { availability: 'available', readings: [{ provider: 'codex', window: 'weekly',
-    remaining_percent: 101, resets_at: '2099-10-01T00:00:00.000Z',
-    observed_at: '2026-09-30T18:00:00.000Z' }] };
-  const response = await fetch(`${server.baseUrl}/api/usage-limits`, {
-    headers: { authorization: `Bearer ${server.token}` },
+describe('usage limits from other sources', () => {
+  let answer: unknown;
+  let server: Awaited<ReturnType<typeof startTestServer>>;
+  before(async () => {
+    server = await startTestServer({
+      evaluation: {
+        evaluate: async () => ({
+          availability: 'unavailable',
+          reason: { code: 'unused', message: 'Unused.' },
+        }),
+        usageLimits: async () => answer as UsageLimitsResponse,
+      },
+    });
   });
-  const body = await response.json() as { availability: string };
-  assert.equal(body.availability, 'incompatible');
+  after(async () => server.stop());
+
+  test('data outside the contract is never passed through', async () => {
+    answer = { availability: 'available', readings: [] };
+    const response = await fetch(`${server.baseUrl}/api/usage-limits`, {
+      headers: { authorization: `Bearer ${server.token}` },
+    });
+    const body = (await response.json()) as UsageLimitsResponse;
+    assert.equal(body.availability, 'incompatible');
+  });
+
+  test('a source without usage limits says it is not configured', async () => {
+    const bare = await startTestServer({
+      evaluation: {
+        evaluate: async () => ({
+          availability: 'unavailable',
+          reason: { code: 'unused', message: 'Unused.' },
+        }),
+      },
+    });
+    try {
+      const response = await fetch(`${bare.baseUrl}/api/usage-limits`, {
+        headers: { authorization: `Bearer ${bare.token}` },
+      });
+      assert.deepEqual(await response.json(), {
+        availability: 'unavailable',
+        reason: { code: 'not_configured', message: 'No usage limit source is configured.' },
+      });
+    } finally {
+      await bare.stop();
+    }
+  });
 });

@@ -107,34 +107,35 @@ export const WireSession = Type.Object({
   ),
 });
 
-/** Account-wide quota snapshots from Seorak's read-only integration API. */
+export type WireSession = Static<typeof WireSession>;
+
+/**
+ * The account-wide provider limit read, `GET /api/v1/usage-limits` under the `limits:read` scope.
+ * Seorak is a private repository, so this is written from the format its provider limits lane
+ * handed Halcyonic on 2026-09-30 (Seorak branch codex/usage-left at 91952f3f, unmerged), not from
+ * published types. It is read as tolerantly as the rest of v1: `agent` is an open vocabulary, and
+ * the window, freshness, source and account state are read as any string so that the mapping can
+ * drop a reading it cannot phrase rather than refuse the whole answer. It has no coverage block.
+ */
 export const WireUsageLimits = Type.Object({
   apiVersion: Type.Literal('v1'),
-  availability: Type.Object({
-    state: Type.Enum(['available', 'unavailable']),
-    reason: Nullable(Type.String()),
-  }),
-  freshness: Type.Object({
-    state: Type.Literal('fresh'),
-    generatedAt: Instant,
-    dataThrough: Nullable(Instant),
-    staleAt: Instant,
-  }),
-  readings: Type.Array(Type.Object({
-    tool: Type.String(),
-    period: Type.String(),
-    consumed: Nullable(Type.Number({ minimum: 0 })),
-    unit: Nullable(Type.String()),
-    allowance: Nullable(Type.Number({ minimum: 0 })),
-    usedPercent: Nullable(Type.Number({ minimum: 0, maximum: 100 })),
-    resetsAt: Nullable(Instant),
-    observedAt: Nullable(Instant),
-    source: Type.String(),
-    coverageComplete: Type.Boolean(),
-  })),
+  availability: Metadata.availability,
+  freshness: Metadata.freshness,
+  readings: Type.Array(
+    Type.Object({
+      agent: Type.String(),
+      window: Growing,
+      usedPercent: Type.Number({ minimum: 0, maximum: 100 }),
+      resetsAt: Instant,
+      observedAt: Instant,
+      freshness: Growing,
+      source: Growing,
+      account: Type.Object({ state: Growing, ref: Nullable(Type.String()) }),
+    }),
+  ),
 });
+export type WireUsageLimits = Static<typeof WireUsageLimits>;
 export const validateUsageLimits = compileValidator(WireUsageLimits);
-export type WireSession = Static<typeof WireSession>;
 
 /** `PrivateOutcomeDto`. `outcome` is null when it is unavailable or has not matured. */
 export const WireOutcome = Type.Object({

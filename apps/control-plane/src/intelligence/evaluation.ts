@@ -61,7 +61,7 @@ function readCredential(path: string, origin: string): string | EvaluationFailur
   } catch {
     return unauthorized(
       'credential_missing',
-      `No Seorak credential is configured. Issue one in Seorak's dashboard (${origin}/dashboard) for the audience ${origin}/api/v1 with the sessions:read and replay:read scopes, and save it to ${path} with mode 600.`,
+      `No Seorak credential is configured. Issue one in Seorak's dashboard (${origin}/dashboard) for the audience ${origin}/api/v1 with the sessions:read, replay:read and limits:read scopes, and save it to ${path} with mode 600.`,
     );
   }
   if ((mode & 0o077) !== 0) {

@@ -97,7 +97,7 @@ public class ControlPlaneApiTests
         """;
 
     /// <summary>Answers every request with one canned response and records what was asked.</summary>
-    private sealed class CannedHandler : HttpMessageHandler
+    internal sealed class CannedHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode status;
         private readonly string body;

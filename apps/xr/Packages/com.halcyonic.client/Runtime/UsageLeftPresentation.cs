@@ -1,0 +1,120 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Halcyonic.Contracts;
+
+namespace Halcyonic.Client
+{
+    /// <summary>One limit window in the Usage left glance: whose window it is, and what was seen.</summary>
+    public sealed class UsageLeftRow
+    {
+        public UsageLeftRow(string title, string text)
+        {
+            Title = title;
+            Text = text;
+        }
+
+        /// <summary>The agent's name as the control plane gives it, plain text, and the window.</summary>
+        public string Title { get; }
+
+        /// <summary>"At most X% left, seen at …, resets …". Never a current value.</summary>
+        public string Text { get; }
+    }
+
+    /// <summary>What the Usage left glance shows, in words, so the XR layer only lays it out.</summary>
+    public sealed class UsageLeftPresentation
+    {
+        public UsageLeftPresentation(IReadOnlyList<UsageLeftRow> rows, string note, bool problem)
+        {
+            Rows = rows;
+            Note = note;
+            Problem = problem;
+        }
+
+        public IReadOnlyList<UsageLeftRow> Rows { get; }
+
+        /// <summary>Under the rows: whose account it is and where it comes from, or why there are no rows.</summary>
+        public string Note { get; }
+
+        /// <summary>There is nothing to show, for a reason the person may want to fix.</summary>
+        public bool Problem { get; }
+    }
+
+    /// <summary>
+    /// Turns the control plane's provider usage limits into the Usage left glance. A provider's used
+    /// share is shown as the most that was left when it was seen, never as what is left now, and a
+    /// window past its reset is not shown at all. The source cannot tell accounts apart, so the
+    /// glance says so rather than tie a window to the selected runtime or model.
+    /// </summary>
+    public static class UsageLeftPresenter
+    {
+        public const string NotSetUp = "Usage left isn't set up on your Mac.";
+        public const string Reading = "Reading usage left…";
+        public const string Unidentified = "Account not identified: these may come from any account used on your Mac. Reported by the provider, read through Seorak.";
+
+        public static UsageLeftPresentation Present(UsageLimitsResponse response, DateTimeOffset now, TimeZoneInfo zone)
+        {
+            switch (response)
+            {
+                case AvailableUsageLimits available:
+                    return Present(available.Readings, now, zone);
+                case UnauthorizedUsageLimits:
+                    return Problem(NotSetUp);
+                case UnavailableUsageLimits unavailable:
+                    return unavailable.Reason.Code switch
+                    {
+                        "not_configured" => Problem(NotSetUp),
+                        "not_captured" => Quiet("No usage reading yet."),
+                        "no_current_reading" => Quiet("No reading since the last reset. Read again later."),
+                        _ => Problem("Usage left can't be read right now. Try again later."),
+                    };
+                default:
+                    return Problem("Usage left can't be read right now. Try again later.");
+            }
+        }
+
+        /// <summary>The glance when this device could not reach the control plane at all.</summary>
+        public static UsageLeftPresentation Unreachable() => Problem("Couldn't reach your Mac. Try again.");
+
+        public static UsageLeftPresentation Message(string text) => Quiet(text);
+
+        private static UsageLeftPresentation Present(IEnumerable<UsageLimit> readings, DateTimeOffset now, TimeZoneInfo zone)
+        {
+            var rows = new List<UsageLeftRow>();
+            foreach (var reading in readings)
+            {
+                if (!IntelligenceText.TryParse(reading.ResetsAt, out var resets) ||
+                    !IntelligenceText.TryParse(reading.ObservedAt, out var observed) ||
+                    resets <= now || double.IsNaN(reading.UsedPercent) ||
+                    reading.UsedPercent < 0 || reading.UsedPercent > 100)
+                    continue;
+                // Rounded up, so that "at most" stays true.
+                var left = (int)Math.Ceiling(100 - reading.UsedPercent);
+                rows.Add(new UsageLeftRow(
+                    IntelligenceText.Plain(reading.Label) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly window"),
+                    "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left, seen " + When(observed, now, zone)
+                        + ", resets " + When(resets, now, zone)));
+            }
+            return rows.Count == 0
+                ? Quiet("No reading since the last reset. Read again later.")
+                : new UsageLeftPresentation(rows, Unidentified, problem: false);
+        }
+
+        /// <summary>"at 15:18" today in the person's zone, "6 Oct at 09:00" on another day.</summary>
+        public static string When(DateTimeOffset at, DateTimeOffset now, TimeZoneInfo zone)
+        {
+            var local = TimeZoneInfo.ConvertTime(at, zone);
+            var today = TimeZoneInfo.ConvertTime(now, zone).Date;
+            return local.Date == today
+                ? "at " + local.ToString("HH:mm", CultureInfo.InvariantCulture)
+                : local.ToString("d MMM 'at' HH:mm", CultureInfo.InvariantCulture);
+        }
+
+        private static UsageLeftPresentation Problem(string note) =>
+            new UsageLeftPresentation(Array.Empty<UsageLeftRow>(), note, problem: true);
+
+        private static UsageLeftPresentation Quiet(string note) =>
+            new UsageLeftPresentation(Array.Empty<UsageLeftRow>(), note, problem: false);
+    }
+}
