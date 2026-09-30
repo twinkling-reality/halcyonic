@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "simulated_start",
+  "description": "Acknowledges a new work request without claiming that software work happened.",
+  "steps": [
+    {
+      "after_ms": 500,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": {
+          "text": "This is a simulated execution. The objective was received, but no software work was performed."
+        }
+      }
+    },
+    { "after_ms": 500, "emit": { "type": "runtime.turn.completed", "payload": {} } }
+  ]
+}
