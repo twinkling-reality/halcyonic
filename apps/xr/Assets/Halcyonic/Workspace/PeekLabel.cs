@@ -5,9 +5,10 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// The peek: one line beside a character while a hand points at it, saying what it needs from the
-    /// person or what it did last. It sits on the side facing the middle of the person's view, a
-    /// little in front of the character so a neighbour never hides it.
+    /// The peek: one line beside a character, saying what it needs from the person or what it did
+    /// last, fading in and out as <see cref="Halcyonic.Client.PeekChoice"/> decides. It sits on the
+    /// side facing the middle of the person's view, a little in front of the character so a
+    /// neighbour never hides it.
     /// </summary>
     public sealed class PeekLabel : MonoBehaviour
     {
@@ -19,6 +20,7 @@ namespace Halcyonic.XR.Workspace
         private TextMeshPro text = null!;
         private SpriteRenderer plate = null!;
         private CharacterTarget? character;
+        private string shownLine = "";
         private float width;
         private float side = 1f;
 
@@ -34,16 +36,29 @@ namespace Halcyonic.XR.Workspace
             return peek;
         }
 
-        public void Show(CharacterTarget target, string line)
+        /// <summary>Shows <paramref name="line"/> beside <paramref name="target"/>, as visible as <paramref name="opacity"/>, from 0 to 1.</summary>
+        public void Show(CharacterTarget target, string line, float opacity)
         {
+            if (opacity <= 0f)
+            {
+                Hide();
+                return;
+            }
             if (target != character)
             {
                 // Chosen once per peek, so it does not flip sides while the person looks around.
                 side = SideFacingTheMiddle(target.BodyPosition);
             }
             character = target;
-            text.text = line;
-            width = Mathf.Min(MaxWidth, text.GetPreferredValues(line).x + 0.01f);
+            if (line != shownLine)
+            {
+                shownLine = line;
+                text.text = line;
+                width = Mathf.Min(MaxWidth, text.GetPreferredValues(line).x + 0.01f);
+            }
+            var eased = Mathf.SmoothStep(0f, 1f, opacity);
+            text.color = WithAlpha(WorkspaceVisuals.TextColor, eased);
+            plate.color = WithAlpha(WorkspaceVisuals.PanelColor, eased);
             gameObject.SetActive(true);
             Place();
         }
@@ -75,6 +90,8 @@ namespace Halcyonic.XR.Workspace
             var looking = head != null ? Vector3.ProjectOnPlane(head.forward, Vector3.up) : toward;
             return Vector3.SignedAngle(looking, toward, Vector3.up) > 0f ? -1f : 1f;
         }
+
+        private static Color WithAlpha(Color color, float alpha) => new Color(color.r, color.g, color.b, color.a * alpha);
 
         private void Place()
         {

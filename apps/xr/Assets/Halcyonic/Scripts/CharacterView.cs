@@ -26,6 +26,12 @@ namespace Halcyonic.XR
         public const float BodyRadius = 0.1f;
 
         /// <summary>
+        /// How far the body reaches around its center at any moment, in Body's local units: its
+        /// radius, squashed or stretched. <see cref="BodyRadius"/> adds room for the body moving.
+        /// </summary>
+        public const float BodyExtent = 0.075f;
+
+        /// <summary>
         /// The body mesh is about one unit in radius; this makes it 7 cm at the one-meter scale, about
         /// 8 degrees across.
         /// </summary>
