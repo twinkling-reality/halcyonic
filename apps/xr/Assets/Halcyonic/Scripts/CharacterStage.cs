@@ -18,6 +18,14 @@ namespace Halcyonic.XR
     /// faced, a comfortable field of view on narrower headsets too, and the lineup puts characters
     /// that need attention in its middle. Everything is looked at and pointed at from the seat;
     /// nothing needs the person to stand or reach.
+    /// <para>
+    /// An <see cref="IStagePlacementSource"/> on the same object, such as a room placement that found
+    /// the person's desk, can give the stage a surface instead. Its pose's position is where the
+    /// middle of the lineup stands; the arc curves around the person's side of it, at the distance
+    /// they were from it when the pose arrived, and every character's label plate rests on the
+    /// surface. While the pose is set, only the source moves the stage: recenters leave it where it
+    /// is. Without a source, or when it clears its pose, the stage stands in front of the person.
+    /// </para>
     /// </remarks>
     [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class CharacterStage : MonoBehaviour
@@ -34,6 +42,13 @@ namespace Halcyonic.XR
         [Tooltip("How many characters the stage shows at most.")]
         [SerializeField] private int maxCharacters = 6;
 
+        /// <summary>The nearest and the default reach to a surface, in meters.</summary>
+        private const float NearestSurface = 0.4f;
+        private const float DefaultSurface = 0.8f;
+
+        /// <summary>The gap between a label plate and the surface it rests on, in a character's units.</summary>
+        private const float SurfaceClearance = 0.005f;
+
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int RectId = Shader.PropertyToID("_Rect");
 
@@ -49,6 +64,14 @@ namespace Halcyonic.XR
         private MeshRenderer connectionPlate = null!;
         private MaterialPropertyBlock connectionPlateBlock = null!;
         private Transform? head;
+        private IStagePlacementSource? source;
+        private float nextSourceSearch;
+        private bool preferredChanged;
+        private bool placedOnce;
+        private bool onSurface;
+
+        /// <summary>The arc's radius now: the distance setting in front of the person, or the reach to a surface.</summary>
+        private float radius;
         private string? shownConnection;
         private bool shownLive;
 
@@ -56,6 +79,7 @@ namespace Halcyonic.XR
         {
             connection = GetComponent<ControlPlaneConnection>();
             lineup = new CharacterLineup(Mathf.Max(1, maxCharacters));
+            radius = distance;
             CharacterMaterials.Prepare();
 
             // Hidden until it is placed in front of the person.
@@ -76,6 +100,9 @@ namespace Halcyonic.XR
         {
             connection.Changed -= OnChanged;
             placement.Stop();
+            if (source != null) source.Changed -= OnPreferredChanged;
+            source = null;
+            nextSourceSearch = 0f;
         }
 
         private void Start() => Refresh();
@@ -95,10 +122,46 @@ namespace Halcyonic.XR
                 head = current;
                 foreach (var view in views.Values) view.Person = head;
             }
+            FindPlacementSource();
+            var preferred = source?.Preferred;
             var reason = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
-            if (reason != null) Place(reason);
+            var placed = false;
+            if (preferredChanged && placedOnce)
+            {
+                preferredChanged = false;
+                placed = preferred.HasValue || onSurface;
+                if (preferred.HasValue) Place(preferred, "the room placement gave it a surface");
+                else if (onSurface) Place(null, "the room placement has no surface any more");
+            }
+            if (reason != null && !placed)
+            {
+                // Once the stage stands on a surface, only the room placement moves it.
+                if (!placedOnce || !preferred.HasValue) Place(preferred, reason);
+                else Debug.Log("Halcyonic: kept the stage on its surface although " + reason + ".");
+            }
             Glide();
         }
+
+        /// <summary>
+        /// Looks for a placement source on this object, once a second until one appears, because the
+        /// component that provides it can be added after the stage starts.
+        /// </summary>
+        private void FindPlacementSource()
+        {
+            if (source is Object component && component == null)
+            {
+                source = null;
+                preferredChanged = true;
+            }
+            if (source != null || Time.unscaledTime < nextSourceSearch) return;
+            nextSourceSearch = Time.unscaledTime + 1f;
+            source = GetComponent<IStagePlacementSource>();
+            if (source == null) return;
+            source.Changed += OnPreferredChanged;
+            preferredChanged = true;
+        }
+
+        private void OnPreferredChanged() => preferredChanged = true;
 
         private void OnChanged(StateChanges changes) => Refresh();
 
@@ -136,26 +199,18 @@ namespace Halcyonic.XR
                     view.Person = head;
                     views[id] = view;
                 }
-                MoveToSlot(id, view, slot);
                 view.Show(CharacterPresenter.Present(session.State.Workstreams[id], session.State, live));
+                MoveToSlot(id, view, slot);
             }
         }
 
-        /// <summary>
-        /// Stands the arc where the person's head is, facing where they face on the level, so the
-        /// characters are in front of them wherever the tracking origin is.
-        /// </summary>
-        private void Place(string reason)
+        /// <summary>Places the stage on the preferred surface, or in front of the person without one.</summary>
+        private void Place(Pose? preferred, string reason)
         {
-            if (head != null)
-            {
-                var forward = head.forward;
-                forward.y = 0f;
-                var facing = forward.sqrMagnitude > 1e-4f
-                    ? Quaternion.LookRotation(forward, Vector3.up)
-                    : Quaternion.Euler(0f, head.eulerAngles.y, 0f);
-                arc.SetPositionAndRotation(head.position, facing);
-            }
+            preferredChanged = false;
+            placedOnce = true;
+            if (preferred.HasValue) StandOnSurface(preferred.Value);
+            else StandBeforePerson();
             CharacterMaterials.SetKeyLight(arc.rotation);
             arc.gameObject.SetActive(true);
             // Every character to its slot, with the current settings; a glide in progress ends.
@@ -164,11 +219,50 @@ namespace Halcyonic.XR
                 var standing = standings[pair.Key];
                 var slot = lineup.SlotOf(pair.Key);
                 if (slot >= 0) standing.Angle = standing.From = standing.To = SlotAngle(slot);
-                Stand(pair.Value.transform, standing.Angle, 1f);
+                Stand(pair.Value, standing.Angle, 1f);
             }
-            connectionRoot.localPosition = new Vector3(0f, 0.05f * distance, distance);
-            connectionRoot.localScale = Vector3.one * distance;
-            Debug.Log("Halcyonic: placed the stage in front of the person because " + reason + ".");
+            // Above the characters: at eye level in front of the person, higher over a surface.
+            connectionRoot.localPosition = new Vector3(0f, (onSurface ? 0.4f : 0.05f) * radius, radius);
+            connectionRoot.localScale = Vector3.one * radius;
+            Debug.Log("Halcyonic: placed the stage " + (onSurface ? "on its surface" : "in front of the person") + " because " + reason + ".");
+        }
+
+        /// <summary>
+        /// Stands the arc where the person's head is, facing where they face on the level, so the
+        /// characters are in front of them wherever the tracking origin is.
+        /// </summary>
+        private void StandBeforePerson()
+        {
+            onSurface = false;
+            radius = distance;
+            if (head == null) return;
+            var forward = head.forward;
+            forward.y = 0f;
+            var facing = forward.sqrMagnitude > 1e-4f
+                ? Quaternion.LookRotation(forward, Vector3.up)
+                : Quaternion.Euler(0f, head.eulerAngles.y, 0f);
+            arc.SetPositionAndRotation(head.position, facing);
+        }
+
+        /// <summary>
+        /// Stands the arc on a surface: the middle of the lineup at the pose's position, the arc's
+        /// center on the person's side of it at the surface's height, and its radius the person's
+        /// distance from the pose, so the characters face them.
+        /// </summary>
+        private void StandOnSurface(Pose pose)
+        {
+            onSurface = true;
+            var toward = head != null ? pose.position - head.position : pose.forward;
+            toward.y = 0f;
+            if (toward.sqrMagnitude < 1e-4f)
+            {
+                toward = pose.forward;
+                toward.y = 0f;
+            }
+            if (toward.sqrMagnitude < 1e-6f) toward = Vector3.forward;
+            radius = head != null ? Mathf.Clamp(toward.magnitude, NearestSurface, distance) : DefaultSurface;
+            var facing = Quaternion.LookRotation(toward.normalized, Vector3.up);
+            arc.SetPositionAndRotation(pose.position - facing * Vector3.forward * radius, facing);
         }
 
         /// <summary>
@@ -183,7 +277,6 @@ namespace Halcyonic.XR
             {
                 standing = new Standing { Angle = angle, From = angle, To = angle };
                 standings[id] = standing;
-                Stand(view.transform, angle, 1f);
             }
             else if (!Mathf.Approximately(standing.To, angle))
             {
@@ -191,7 +284,10 @@ namespace Halcyonic.XR
                 standing.To = angle;
                 standing.Started = Time.time;
                 standing.Duration = 0.5f + Mathf.Abs(angle - standing.Angle) / 60f;
+                return;
             }
+            // Standing again also follows a label plate that grew or shrank, on a surface.
+            if (standing.Angle == standing.To) Stand(view, standing.Angle, 1f);
         }
 
         private void Glide()
@@ -202,7 +298,7 @@ namespace Halcyonic.XR
                 if (standing.Angle == standing.To) continue;
                 var progress = Mathf.Clamp01((Time.time - standing.Started) / standing.Duration);
                 standing.Angle = progress >= 1f ? standing.To : Mathf.Lerp(standing.From, standing.To, Mathf.SmoothStep(0f, 1f, progress));
-                Stand(pair.Value.transform, standing.Angle, 1f + 0.15f * Mathf.Sin(Mathf.PI * progress));
+                Stand(pair.Value, standing.Angle, 1f + 0.15f * Mathf.Sin(Mathf.PI * progress));
             }
         }
 
@@ -214,15 +310,18 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// Stands a character on the arc at an angle from where the person faced, facing them, scaled
-        /// with the distance so it keeps its apparent size.
+        /// with the arc's radius so it keeps its apparent size. In front of the person it stands at
+        /// the height setting; on a surface, its label plate rests on the surface.
         /// </summary>
-        private void Stand(Transform character, float angle, float reach)
+        private void Stand(CharacterView view, float angle, float reach)
         {
             var radians = angle * Mathf.Deg2Rad;
             var level = new Vector3(Mathf.Sin(radians), 0f, Mathf.Cos(radians));
-            character.localPosition = level * (distance * reach) + Vector3.up * heightFromEyes;
+            var height = onSurface ? (SurfaceClearance - view.Footing) * radius : heightFromEyes;
+            var character = view.transform;
+            character.localPosition = level * (radius * reach) + Vector3.up * height;
             character.localRotation = Quaternion.LookRotation(-level, Vector3.up);
-            character.localScale = Vector3.one * distance;
+            character.localScale = Vector3.one * radius;
         }
 
         private void ShowConnection(string text, bool live)
