@@ -111,7 +111,8 @@ or a folder directly inside one (a symbolic link, a hidden name, `..`, or no roo
 `location_exists` when a new folder's name is taken. A start in a project without a folder is
 refused with `location_required`; one whose folder has gone, or whose path now leads elsewhere
 through a symbolic link, with `location_missing`. A new folder the file system will not make fails
-the command with `location_not_created` and effect `none`, and no project exists. The runtime asks
+the command with `location_not_created` and effect `none`, and no project exists; a folder made but
+then found unusable fails it with effect `unknown`, and the message says where the folder is. The runtime asks
 the host's policy again before it starts anything, so a folder removed after admission fails the
 start with effect `none` and the execution reads `failed`.
 

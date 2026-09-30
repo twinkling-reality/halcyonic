@@ -14,7 +14,9 @@ import { createDirectoryPolicy } from './directory-policy.ts';
 /**
  * Why a location cannot be used, as the code its command is refused or fails with. The refusal
  * codes of the directory policy, and `location_exists` for a new folder whose name is taken.
- * `location_not_created` only fails a command: the file system refused to make the folder.
+ * `location_not_created` only fails a command: the file system refused to make the folder
+ * (`effect: 'none'`), or a folder was made but cannot be used (`effect: 'unknown'`, the message
+ * says where it is).
  */
 export type LocationRefusal = {
   readonly ok: false;
@@ -25,7 +27,12 @@ export type LocationRefusal = {
 export type LocationBinding =
   | { readonly ok: true; readonly location: ProjectLocation }
   | LocationRefusal
-  | { readonly ok: false; readonly code: 'location_not_created'; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly code: 'location_not_created';
+      readonly message: string;
+      readonly effect: 'none' | 'unknown';
+    };
 
 /**
  * Where the host lets projects live: its project roots, the folders directly inside them, and the
@@ -48,17 +55,24 @@ interface Root {
   readonly configured: string;
   /** Its real path when the control plane started, which is what clients are shown. */
   readonly real: string;
+  /** The folder's identity then, so a folder put in its place later is not taken for it. */
+  readonly device: number;
+  readonly inode: number;
 }
 
 const NEW_FOLDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const byName = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
-export function createHostLocations(roots: readonly string[]): HostLocations {
-  const policy = createDirectoryPolicy(roots);
-  const known: Root[] = roots.map((configured) => ({
-    configured,
-    real: realpathSync(configured),
-  }));
+/** `policy` is the host's directory policy over the same roots; a test may pass another. */
+export function createHostLocations(
+  roots: readonly string[],
+  policy: DirectoryPolicy = createDirectoryPolicy(roots),
+): HostLocations {
+  const known: Root[] = roots.map((configured) => {
+    const real = realpathSync(configured);
+    const { dev, ino } = statSync(real);
+    return { configured, real, device: dev, inode: ino };
+  });
 
   const rootOf = (path: string): Root | LocationRefusal =>
     known.find((root) => root.real === path || root.configured === path) ?? {
@@ -75,13 +89,8 @@ export function createHostLocations(roots: readonly string[]): HostLocations {
   ): { root: Root; path: string } | LocationRefusal => {
     const root = rootOf(choice.root);
     if ('ok' in root) return root;
-    if (!isDirectory(root.real)) {
-      return {
-        ok: false,
-        code: 'location_missing',
-        message: `The folder ${root.real}, where projects live, is not there any more.`,
-      };
-    }
+    const changed = rootChanged(root);
+    if (changed !== null) return changed;
     const name = choice.folder_name;
     if (name === null) return { root, path: root.real };
     if (!singleVisibleSegment(name)) {
@@ -168,10 +177,13 @@ export function createHostLocations(roots: readonly string[]): HostLocations {
     }
     const decision = policy(found.path);
     if (!decision.ok || decision.directory !== found.path) {
+      // Something changed between the check and the folder being made: it exists, and is left
+      // where it is, but no project is bound to it.
       return {
         ok: false,
         code: 'location_not_created',
-        message: `The folder ${found.path} was made, but is not usable as it is: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
+        effect: 'unknown',
+        message: `A folder was made at ${found.path}, but it cannot be used, so no project was created and the folder was left in place: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
       };
     }
     return { ok: true, location: { path: found.path, name: nameOf(found.path), created: true } };
@@ -201,7 +213,7 @@ function shown(text: string): string {
 }
 
 function listRoot(root: Root): LocationRoot {
-  let available = isDirectory(root.real);
+  let available = rootChanged(root) === null;
   let folders: LocationFolder[] = [];
   if (available) {
     try {
@@ -244,8 +256,45 @@ function notCreated(path: string, error: unknown): LocationBinding {
   return {
     ok: false,
     code: 'location_not_created',
+    effect: 'none',
     message: `The folder ${path} could not be made${code === undefined ? '' : ` (${code})`}.`,
   };
+}
+
+/**
+ * Null while the root is still the folder the control plane found at startup: at the same real
+ * path, with no symbolic link anywhere along it, and the same folder on the same device. A root
+ * replaced since, by a link or by another folder, is refused, so nothing is made or bound through
+ * it; restarting the control plane takes the roots as they are then.
+ */
+function rootChanged(root: Root): LocationRefusal | null {
+  const entry = entryAt(root.real);
+  if (entry === undefined || (!entry.isDirectory() && !entry.isSymbolicLink())) {
+    return {
+      ok: false,
+      code: 'location_missing',
+      message: `The folder ${root.real}, where projects live, is not there any more.`,
+    };
+  }
+  let real: string | null = null;
+  try {
+    real = realpathSync(root.real);
+  } catch {
+    real = null;
+  }
+  if (
+    entry.isSymbolicLink() ||
+    real !== root.real ||
+    entry.dev !== root.device ||
+    entry.ino !== root.inode
+  ) {
+    return {
+      ok: false,
+      code: 'location_not_allowed',
+      message: `The folder ${root.real}, where projects live, has been replaced since this computer allowed it. Its owner restarts Halcyonic on the Mac to allow what is there now.`,
+    };
+  }
+  return null;
 }
 
 function singleVisibleSegment(name: string): boolean {
@@ -264,15 +313,6 @@ function entryAt(path: string): Stats | undefined {
     return lstatSync(path, { throwIfNoEntry: false });
   } catch {
     return undefined;
-  }
-}
-
-/** Whether a folder is there and readable as one; false for anything the file system refuses. */
-function isDirectory(path: string): boolean {
-  try {
-    return statSync(path, { throwIfNoEntry: false })?.isDirectory() === true;
-  } catch {
-    return false;
   }
 }
 

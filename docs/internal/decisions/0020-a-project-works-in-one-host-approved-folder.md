@@ -56,7 +56,10 @@ unit tests only.
   refusal at dispatch is a failure with effect `none`.
 - **Refusals say what to do.** New rejection codes: `location_required`, `location_missing`,
   `location_not_allowed`, `location_exists`. A folder the file system will not make fails the
-  command with `location_not_created`, effect `none`, and no project.
+  command with `location_not_created`, effect `none`, and no project; a folder made and then found
+  unusable, for example because its root changed at that moment, is left in place and reported
+  with effect `unknown`. A root replaced after the control plane started, by a symbolic link or by
+  another folder at the same path, is refused until it restarts, so nothing is made through it.
 - **Stored events are migrated without a new version.** Journal migration 4 gives stored
   `project.created` events and `project.create` commands `location: null`, and stored
   `execution.created` events `directory: null`, which there means "not recorded", not "none".

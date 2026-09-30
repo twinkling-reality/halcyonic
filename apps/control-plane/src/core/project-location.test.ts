@@ -169,6 +169,26 @@ describe('creating a project where its files will live', () => {
     await controlPlane.close();
   });
 
+  test('a folder made but not usable fails the command with an unknown effect, not none', async () => {
+    const root = join(base, 'made-unusable');
+    mkdirSync(root);
+    const locations = createHostLocations([root], () => ({
+      ok: false,
+      code: 'location_not_allowed',
+      message: 'Not allowed now.',
+    }));
+    const { controlPlane, commands } = createTestControlPlane({ locations });
+    const outcome = controlPlane.commands.submit(
+      commands.createProject('Storefront', { kind: 'new_folder', root, folder_name: 'storefront' }),
+      'internal',
+    );
+    assert.equal(outcome.command?.status, 'failed');
+    assert.equal(outcome.command?.failure?.code, 'location_not_created');
+    assert.equal(outcome.command?.failure?.effect, 'unknown');
+    assert.deepEqual(controlPlane.projection.projects(), []);
+    await controlPlane.close();
+  });
+
   test('after a crash left a new folder without its project, the person chooses it as existing', async () => {
     const { controlPlane, root, createProject } = setup('crash');
     // What a control plane that died after making the folder leaves behind.
