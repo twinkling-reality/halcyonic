@@ -8,8 +8,8 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
         │                             workspace: gaze and hand peek, panel,           the workspace, the
-        │                             new work from a typed objective,               new work panel,
-        │                             sections, transition, first-time hint;          room, the sound and
+        │                             question tabs, project rail, entry panel,      rail, entry panel,
+        │                             transition, first-time hint;                    room, the sound and
         │                             Meta's rig; room: passthrough, MRUK, stage      pairing are not
         │                             anchor; sound: the characters' voices;          verified on a
         │                             pairing: panel, development builds              headset
@@ -20,7 +20,9 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             WorkspacePresenter, WorkspaceText, LabelText,
         │                             WorkspaceSteering, CommandSubmissions,
         │                             NewWorkDraft, NewWorkReview,
-        │                             NewWorkSubmission,
+        │                             NewWorkSubmission, BuildSequence,
+        │                             StageVisibility, WorkOverview, ProjectIdea,
+        │                             AttentionWatch, EntryText,
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, CommandFactory,
@@ -110,6 +112,9 @@ the same definition names, as the JSON Schema document:
   attention trades places with the one nearest the middle that does not. A waiting workstream
   replaces a shown one only from a more important tier, or, at rest, when it changed more
   recently, because working ones change every few seconds and would otherwise swap in and out.
+  The person can ask for one the lineup did not choose (`Request`, from More work): it takes the
+  place of the character that ranks last and keeps a slot until another is asked for or it leaves;
+  the one it replaced waits like any other. `Compare` orders workstreams as the lineup ranks them.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
@@ -117,7 +122,12 @@ the same definition names, as the JSON Schema document:
   policies in `welcome`; unknown counts as needed), feedback on recent commands in words, and the
   activity. Approving or denying answers the oldest pending approval.
 - **`WorkspaceText`** writes every word the peek and the workspace show, so the Unity layer only
-  lays them out: the status with its qualifiers ("simulated", "recorded", "last known"), the
+  lays them out: the person's questions (What is it doing?, Help me understand, What was
+  checked?, and What do you need from me? only while an approval waits, each in two lines for its
+  tab, never shortened), the goal, one plain answer under it (what needs the person, else "Nothing
+  needs you now." and the latest activity), the answer to What do you need from me? (`NeedAnswer`:
+  the oldest request as the runtime reported it and what each answer does), the status with its
+  qualifiers ("simulated", "recorded", "last known"), the
   execution and its runtime, what needs the person, activity lines with the local time and agent
   text quoted as "Agent says: “…”", action labels, a confirmation question that names exactly what
   would be sent (for approving or denying, "Approve the request below?" over the whole request,
@@ -205,12 +215,47 @@ the same definition names, as the JSON Schema document:
   as the first instruction. The model's opaque reference goes back unchanged. A runtime whose
   `ModelChoice` is `None` leaves the choice to that runtime.
 - **`NewWorkReview`** divides the full project, runtime, model, model reference and typed objective
-  into short lines and pages. Line breaks and tabs in the objective are named, and invisible
+  into short lines and pages, 24 characters by 12 unless the panel gives its own width (the entry
+  panel's is 38). Line breaks and tabs in the objective are named, and invisible
   characters show by `LabelText`'s rule. The final action appears only on the last page, after the
   person has advanced through every preceding page. **`NewWorkSubmission`** looks up the command id
   in projected state before interpreting an acknowledgement: a completed event still counts when
   its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
   terminal record arrives or the person deliberately clears it after checking the workstreams.
+- **`BuildSequence`** is Start building's command chain, moved out of the panel so it is tested:
+  `project.create` for a new project, `workstream.create`, then `execution.start`, each sent only
+  once the control plane recorded the one before it completed, a projected record winning over a
+  lost acknowledgement (`NewWorkSubmission`). A refusal, a failure known to have had no effect or a
+  command never sent stops it and can be sent again as a new command built from the draft as it is
+  now, reusing the project and workstream already made (`Retry`); an unknown outcome, a failure
+  whose effect is unknown, or an unexpected result keeps the command id in `Unresolved` and offers
+  no retry. Each step says how it went in words (`EntryText.StepStatus`): sent, waiting for the
+  result, confirmed only by a completed record, refused or failed with the control plane's reason,
+  effect unknown, or not sent.
+- **`StageVisibility`** is which projects' work has characters: every project until the person
+  chooses, then the chosen ones; kept on the device for each journal (the eight used last), since
+  project ids mean nothing in another one, and read back as every project when damaged. A
+  presentation choice, never journaled and never an authorization boundary: every authenticated
+  client still receives all work.
+- **`WorkOverview`** counts every project and workstream for the rail, Connect projects and More
+  work from the projection alone: per project its work, active, needs you and to check counts by
+  the lineup's tiers, whether it shows, and how much has no character; and every workstream
+  without a character, ranked as the lineup ranks, with whether its project is hidden or the stage
+  is full. Hidden projects keep their counts, so what needs the person never disappears with its
+  project or behind the six slots. `ForRail` picks the projects a short rail shows, those that
+  need the person first.
+- **`ProjectIdea`** is what the person wants to make before anything is sent: an idea in their own
+  words, named from its first words, or the answers to Help me figure it out's four fixed
+  questions (kind, who it is for, what it should do first, with first steps offered for the kind,
+  and a name that can be skipped), which always compose the same recap ("Make a website for my
+  team. First, show one page that says what it is."). Typed answers go in as typed. No model is
+  involved and nothing presents it as an assistant. It is kept in memory only.
+- **`AttentionWatch`** notices work that comes to need the person while they create, hidden
+  projects included, so the entry panel can offer Open now or Keep creating; what already needed
+  them is not offered again, and it never switches by itself.
+- **`EntryText`** writes every word of the rail and the entry panel: plain verbs, statuses in
+  words, a model's serving place in terms of where the person's code and instructions go, and
+  nothing that claims discovery (Connect lists the projects Halcyonic's journal knows).
 - **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
   never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
   when it is shown for an execution it holds no answer about, and when the person refreshes; the
@@ -376,6 +421,18 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   through a real control plane with the mock runtime's list; the full request paged without cuts,
   confirmation possible only on its final page, and projected completion winning over a lost
   acknowledgement while an unresolved outcome keeps the command id;
+- the entry: with 0, 1, 6, 7 and 40 workstreams across a shown and a hidden project, every
+  workstream that needs the person either has a character or is listed first in More work and
+  counted with its project; project counts by tier, names by the one rule, the rail's choice of
+  projects; the visibility per journal, saved and read back, a damaged preference showing
+  everything; a lineup request taking the weakest slot and ending when its work leaves; a precise
+  idea straight to the recap, fixed questions giving the same recap for the same answers, typed
+  answers as typed, a changed kind dropping its first step, no name asked for an existing project;
+  the attention watch offering only what newly needs the person; the build sequence sending each
+  command only after the one before completed, accepted never counting as done, a refusal sent
+  again as a new command, an unknown outcome or unexpected result keeping the guard; the question
+  words and What do you need from me? only while a request waits; and the entry words naming no
+  brand;
 - the one rule for text Halcyonic did not write: line breaks, tabs and other white space as one
   space and spaces as written; every control, format and default ignorable character and every
   half of a surrogate pair as its code point, including the end of text character that would end
@@ -524,7 +581,9 @@ scripts use only long-stable core Unity APIs:
   when the pose arrived, and every label plate rests on the surface. While that pose is set, only
   the source moves the stage, and recenters leave it. The stage keeps animating and updating while
   the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter` and
-  `SlotOf`, so other components add to characters without changing them.
+  `SlotOf`, so other components add to characters without changing them. The lineup it keeps covers
+  only the work of the projects its `Visibility` shows, plus the one work `Request` asks for, and
+  it raises `Refreshed` after each update so the rail can count what has no character.
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
@@ -567,45 +626,75 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   projected words.
 - **Open:** a pinch on the ray, a poke, or, while a gaze peek shows and no hand ray or finger is on
   a target, a pinch of either hand at any height (look and pinch) opens `WorkspacePanel` next to
-  that character, within reach and clear of the other characters, facing the eyes. It shows the title and status, the execution and its runtime,
-  the objective, what needs the person, the actions offered (with a confirmation step on a separate
-  button where the policy asks for one), and, under tabs, the details: Activity (how requests are
-  going, and the recent activity with agent text leaning as a claim), Understanding and
-  Evaluation. Collapse, or pointing at the character and pinching again, returns to
-  ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
+  that character, within reach and clear of the other characters, facing the eyes. It leads with
+  the title and status, the execution and its runtime, the goal, and one plain answer: what needs
+  the person, else that nothing does and what it did last. Then the actions offered (with a
+  confirmation step on a separate button where the policy asks for one), and, under them, the
+  person's questions as tabs: What is it doing? (how requests are going, and the recent activity
+  with agent text leaning as a claim), Help me understand (the understanding section), What was
+  checked? (the evaluation section), and, only while an approval waits, What do you need from me?
+  (`NeedView`: the oldest request as the runtime reported it, over up to three rows, and what each
+  answer does). A workspace opens on that last question when a request waits. Collapse, or
+  pointing at the character and pinching again, returns to ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
-- **New work:** a button below the view opens `NewWorkPanel`. The person chooses an existing
-  project or types a new project's name, chooses a runtime that declares `start_execution`, opens
-  that runtime's model choice, and types an objective with the system keyboard. The model list is
-  fetched once on runtime selection through `GET /api/runtimes/:runtime_id/models`; it is not
-  polled. Each model's own display name, serving location and tool calling declaration show in
-  the choice. An unavailable or empty list leaves Start unavailable, and the person can choose the
-  runtime again to retry. A runtime that does not list models uses its own choice. Start opens a
-  paged review of the full project, derived workstream title, runtime, model choice and objective;
-  the button that sends the request appears only on the last page. The review spells every
-  non-ASCII character and control character as an ASCII `\u{HEX}` code point because the bundled
-  headset font cannot draw every glyph. A typed backslash is doubled, so literal marker text
-  cannot be mistaken for an encoded character. The original text is sent. The panel then sends
-  `project.create` if needed, `workstream.create`, and `execution.start` in order. It waits for each
-  command's completed record before sending the next. A rejected or failed command stops the
-  sequence and says why. A completed command with an unexpected result leaves the request guarded
-  for inspection. It looks
-  for a projected command result before treating a missing acknowledgement as unknown. If the
-  outcome remains unknown, the command id is kept in device storage and blocks another start even
-  after the panel closes or the app restarts. The person can clear it only through a separate two
-  press recovery control that asks them to inspect the workstreams first; clearing starts a blank
-  draft, never a retry of the prior objective.
-  The control plane checks the selected model again at start. The panel offers live work only while
-  a real control plane is connected; the recorded demonstration does not stand in for creation.
-  Close and Move controls sit below the form. Move cycles the panel between the center and either
-  side of the person's current view to expose the stage; headset usability is not yet verified,
-  and it is not a grab gesture. The mock runtime uses its generic `simulated_start` scenario when
-  the panel sends no runtime options. That scenario explicitly says no software work was performed.
-  Codex and OpenCode still need an
-  existing working directory in their runtime options. The panel does not yet collect one, so a
-  start through either will be rejected after creating the workstream. The question of how projects
-  bind to directories remains in `OPEN_QUESTIONS.md`.
+- **Project rail:** `ProjectRail`, low under the stage and within reach, in two rows. Above, the
+  projects that matter most now, what needs the person first, each with its most important count
+  ("1 needs you", "Hidden · 1 to check"), pressed to show or hide that project's work on the stage;
+  and More work, while some work has no character, with how much of it needs the person. Below,
+  Connect projects, with how many projects show, and Create a project (Continue creating while a
+  draft waits). The lower row's right end is left free (`UsageLeftRoom`) for an optional Usage
+  left glance added separately; the rail adds no floating control. It rests 0.43 m ahead of the eyes
+  and 0.42 m below them, about 44 degrees down, within about 17 degrees to either side, clear of the
+  room and pairing controls 26 degrees out; over a desk, 0.36 m ahead and never into the desk, below
+  the lineup's label plates. It is placed in front of the person when the app starts and when the
+  stage moves onto or off a surface, and again by Reset position, and it steps out of the way while
+  the entry panel or a workspace is open. Which projects show is kept on the device for each
+  journal (`StageVisibility`); hiding a project hides its characters only.
+- **Entry panel:** `EntryPanel`, the one foreground panel for entering work, the workspace's size,
+  opened where the workspace would open, clear of every character
+  (`WorkspaceLayout.PlaceForeground`). Its top row holds the title, Move (to the right, the left and
+  back, 28 degrees about the eyes), Reset position (the panel and the rail in front of where the
+  person faces now) and Close. Opening it collapses an open workspace; a workspace opened while it
+  shows, by a pinch on a character or by Open now, hides it, and it comes back as it was, where it
+  was, when that workspace closes. Running work keeps updating throughout.
+  - **Welcome**, on the first live visit only (a device preference): one line and two large
+    choices, Connect projects and Create a project, and Not now.
+  - **Connect projects** lists the projects Halcyonic's journal knows and says so, four a page, each
+    with whether it shows and every count; pressing one shows or hides it, Show all shows every
+    project, and Add work starts new work in it. It discovers and attaches nothing. Without a live
+    control plane it says the list is last known; during the demonstration, that it is the example's.
+  - **More work** lists every workstream without a character, what needs the person first, with its
+    status, project and why it has none (project hidden, stage full); pressing one brings it to the
+    stage (`WorkspaceDirector.OpenWork`, which asks the stage for it) and opens it on the next
+    frame, once it stands in its slot. It stays on the stage after it is collapsed, until other work
+    is brought forward or its project is hidden.
+  - **Create a project** (or **New work in** a project, from Add work) asks What would you like to
+    make?: Type my idea opens the system keyboard and goes straight to the recap; Help me figure it
+    out asks the fixed questions of `ProjectIdea`, one at a time, with offered answers, typing one's
+    own, skipping the name and Back, and says "Fixed questions, not an AI." The recap shows the
+    project's name and first task, each with Change; where its files live, in one line that says
+    choosing a folder from the headset is not built yet and that a runtime that needs one will
+    refuse to start; and what runs it, with More options: the runtimes that can start work, then
+    the chosen runtime's own models, read on demand, each with where it runs. Nothing is chosen for
+    the person, and a remote model says that the person's code and instructions go there. Start
+    building, offered once nothing is missing, shows the whole request in pages of 38 characters by
+    12 lines (`NewWorkReview`); Yes, start building appears on the last page only, in the bottom
+    row's middle, where Start building never was. `BuildSequence` then sends the commands and each
+    step shows how it went; a refusal offers Try again and Change, an unknown outcome only I checked
+    the work. A project made here is shown on the stage whatever was chosen before. While a
+    command's outcome is unknown its id stays in device storage and blocks another start, even after
+    a restart, until two separate presses clear it after the person checks the work; clearing
+    starts a blank idea, never a retry. The draft stays in memory while the app runs, through
+    Close, opening a character and Open now; an app restart loses it. Live work only while a real
+    control plane is connected; the recorded demonstration does not stand in for creation.
+  - **Needs you while creating:** work that comes to need the person while a Create screen shows
+    (`AttentionWatch`), hidden projects included, appears in the line under the title with Open now
+    and Keep creating; nothing switches by itself, and the draft is kept.
+  The mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
+  which says no software work was performed. Codex and OpenCode still need a working directory the
+  panel cannot collect, so a start through either is refused after the project and workstream were
+  made; the steps show the refusal, and Try again reuses them.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
@@ -621,15 +710,19 @@ shown it reads no history, since the recording plays all of it through the sessi
 read through the acknowledgement's command record, in the demonstration's own words; and Instruct
 offers the instructions the demonstration recorded there as presets instead of opening the
 keyboard. It raises `Acted` when the person opens a workspace, collapses it, or sends a command
-from it, as the command is handed to the session; the sound follows it. A switch of session arrives as a resynchronization: the open workspace follows its
+from it, as the command is handed to the session; the sound follows it. It raises `WorkOpened` and
+`WorkClosed` however a workspace opens or closes, which the entry panel and the rail follow, and
+`OpenWork` opens any workstream by id, asking the stage for its character first. A switch of session arrives as a resynchronization: the open workspace follows its
 workstream into the new state, or collapses when the workstream is not there. On a journal change
 or a rewind it drops its activity and submissions, which no longer apply. Nothing is peeked, hinted or pressed while
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
 after the keyboard closes.
 
-**Understanding and Evaluation.** `WorkspaceSections`, added to each workspace panel by the
-director, puts three tabs under the actions, Activity, Understanding and Evaluation, with Refresh at
-the right while a section shows. They are the workspace's `PanelButton`s, 56 mm tall at the design
+**The questions.** `WorkspaceSections`, added to each workspace panel by the director, puts the
+person's questions as tabs under the actions, each whole in two lines: What is it doing? (the
+activity), Help me understand (Understanding), What was checked? (Evaluation) and, only while an
+approval waits, What do you need from me?, with Refresh at the right while a section shows. The
+sources' names stay in each answer's provenance line, never on a tab. They are the workspace's `PanelButton`s, 56 mm tall at the design
 distance (26 mm at the workspace's reach), pointed at and pinched or poked like every other button;
 a bar under the chosen tab marks it besides its color. Look and pinch opens a character, never a
 tab. A section reads through the director's `IIntelligenceReader`: the demonstration's
@@ -998,6 +1091,19 @@ lays out other characters than that text or cuts it short without an ellipsis; i
 lean, or leans and loses its ellipsis; or if a character's `TextMesh` title draws narrower than its
 characters' advances, as markup would.
 
+It also renders What do you need from me? and fails if it lets the stage show through or cuts a
+line, and, with a section chosen while a request waits, unless all four questions show whole in two
+lines with Refresh clear of them in the same row.
+
+`EntryRender` (**Halcyonic > Render the Entry Panel Over the Stage**, also runnable in batch mode)
+renders the project rail and every screen of the entry panel over the same two stages, and saves
+them in `apps/xr/Builds/EntryRenders`. It fails if the panel lets anything behind it show through
+(compared inside its own outline), covers a character's body or leaves the comfortable band; if
+the rail reaches farther to the side than the pairing panel's button begins (18.6 degrees), runs
+into the room kept for Usage left, overlaps itself or covers a character's body or label plate;
+if any of Halcyonic's own words is cut short; or if a page of the longest request does not fit. With
+hostile project names and titles, every label must show them by the one rule.
+
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
 sound: `SoundBootstrap` adds `StageSound`, which puts its sources on the characters' bodies and
@@ -1022,8 +1128,10 @@ Code, diffs, tests and output in the workspace; the Understanding section's full
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
-starting work from the headset, with a choice of the runtime's models, which the client core can
-read and send but no panel offers; the soundbook's softer repeat of "Needs you" once nobody has
+choosing where a project's files live from the headset, which the entry panel's recap names as not
+built; a companion that converses (Help me figure it out asks fixed questions), voice, and a
+creation draft that survives an app restart; discovering or attaching work Halcyonic did not
+start; the soundbook's softer repeat of "Needs you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
 the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
 and keeping the credential under an Android Keystore key. On a Quest, the control plane is

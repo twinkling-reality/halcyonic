@@ -576,6 +576,57 @@ public class BuildSequenceTests
 public class EntryWordsTests
 {
     [Test]
+    public void TheRailSaysOnlyWhatMattersMostAboutEachProject()
+    {
+        ProjectSummary Project(bool shown, int work, int active = 0, int needsYou = 0, int notice = 0) =>
+            new("p", "Project", shown, work, active, needsYou, notice, 0);
+        Assert.That(EntryText.ChipDetail(Project(true, 4, active: 2, needsYou: 1, notice: 1)), Is.EqualTo("1 needs you"));
+        Assert.That(EntryText.ChipDetail(Project(false, 4, active: 2, notice: 1)), Is.EqualTo("Hidden · 1 to check"));
+        Assert.That(EntryText.ChipDetail(Project(true, 2, active: 2)), Is.EqualTo("2 active"));
+        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("at rest"));
+        Assert.That(EntryText.ChipDetail(Project(false, 0)), Is.EqualTo("Hidden · no work yet"));
+    }
+
+    [Test]
+    public void TheRecapSaysWhereTheModelRunsAndChoosesNothing()
+    {
+        var draft = new NewWorkDraft(new CommandFactory(Samples.Client));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: not chosen yet"));
+        Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing is chosen for you"));
+
+        draft.ChooseRuntime(Samples.MockRuntime());
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Mock runtime (simulated)"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: the runtime's own choice. Simulated: no software work is done."));
+
+        var listed = Samples.MockRuntime();
+        listed.RuntimeId = "local";
+        listed.DisplayName = "Local‮ agent";
+        listed.Synthetic = false;
+        listed.ModelChoice = ModelChoice.Listed;
+        draft.ChooseRuntime(listed);
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent"), "a runtime's name shows by the one rule");
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: Reading this runtime's models."));
+        var remote = new RuntimeModel { ModelRef = "hosted/x", DisplayName = "Hosted", Served = ModelServed.Remote, ToolCalling = ModelToolCalling.Declared };
+        draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote } } });
+        Assert.That(draft.Model, Is.Null, "a remote model is never chosen for the person");
+        draft.ChooseModel(remote);
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: Hosted. Runs on a remote service: your code and instructions go there; tools declared."));
+    }
+
+    [Test]
+    public void TheWholeRequestUsesTheWidthItIsGiven()
+    {
+        var objective = string.Concat(Enumerable.Repeat("W中", 400));
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", objective, lineCharacters: 38, pageLines: 12);
+        var lines = review.Pages.SelectMany(page => page.Split('\n')).ToList();
+        Assert.That(lines.All(line => line.Length <= 38), Is.True);
+        Assert.That(lines.Count(line => line.Length > 24), Is.GreaterThan(10), "the wider panel's lines are used");
+        Assert.That(review.Pages.All(page => page.Split('\n').Length <= 12), Is.True);
+        Assert.That(string.Concat(review.Pages).Replace("\n", ""), Does.Contain(string.Concat(Enumerable.Repeat("W\\u{4E2D}", 400))));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NewWorkReview("P", "T", "R", "M", "F", "ref", "O", lineCharacters: 8));
+    }
+
+    [Test]
     public void TheWordsAreShortPlainAndNameNoBrand()
     {
         var words = new List<string>
@@ -632,14 +683,19 @@ public class QuestionLedWorkspaceTests
         var waiting = work.Present();
         Assert.That(WorkspaceText.Questions(waiting), Does.Contain(WorkspaceQuestion.NeedFromYou));
         Assert.That(WorkspaceText.FirstQuestion(waiting), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
-        var lines = WorkspaceText.NeedFromYou(waiting);
-        Assert.That(lines[0], Is.EqualTo("It asks for approval to use bash:"));
-        Assert.That(lines[1], Is.EqualTo("Run the migration"));
-        Assert.That(lines, Has.Some.Contains("runtime confirms"), "an answer counts once confirmed, not when sent");
+        var need = WorkspaceText.NeedFromYou(waiting)!;
+        Assert.That(need.Asks, Is.EqualTo("It asks for approval to use bash:"));
+        Assert.That(need.Request, Is.EqualTo("Run the migration"));
+        Assert.That(need.Notes, Has.Some.Contains("runtime confirms"), "an answer counts once confirmed, not when sent");
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", "2026-09-26T09:05:00.000Z")));
-        Assert.That(WorkspaceText.NeedFromYou(work.Present())[1], Is.EqualTo("Run the migration"), "the oldest, which an answer goes to");
-        Assert.That(WorkspaceText.NeedFromYou(work.Present()), Has.Some.EqualTo("2 requests wait; this is the oldest."));
+        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Request, Is.EqualTo("Run the migration"), "the oldest, which an answer goes to");
+        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 requests wait; this is the oldest."));
+
+        work.Change(execution => execution.PendingApprovals[0].Subject = new ToolUseSubject { ToolName = "sh\u202Eell", Summary = "Line one\nline two <b>x</b>" });
+        var plain = WorkspaceText.NeedFromYou(work.Present())!;
+        Assert.That(plain.Asks, Does.Contain("‹U+202E›"), "a tool's name shows by the one rule");
+        Assert.That(plain.Request, Is.EqualTo("Line one line two <b>x</b>"));
 
         work.Change(execution =>
         {
@@ -649,7 +705,7 @@ public class QuestionLedWorkspaceTests
         var running = work.Present();
         Assert.That(WorkspaceText.Questions(running), Does.Not.Contain(WorkspaceQuestion.NeedFromYou));
         Assert.That(WorkspaceText.FirstQuestion(running), Is.EqualTo(WorkspaceQuestion.Doing));
-        Assert.That(WorkspaceText.NeedFromYou(running), Is.Empty);
+        Assert.That(WorkspaceText.NeedFromYou(running), Is.Null);
     }
 
     [Test]
