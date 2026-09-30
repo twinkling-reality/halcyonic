@@ -152,6 +152,25 @@ public class StageSurfacesTests
     }
 
     [Test]
+    public void WhenNothingFitsEachSurfaceSaysWhichRuleTheLineupBreaks()
+    {
+        var shelf = new RoomSurface(SurfaceKind.Other, 1.15f, Rooms.Rectangle(-0.6f, 0.6f, 0.3f, 0.9f));
+        // A desk whose whole middle is taken by a laptop and a monitor side by side.
+        var desk = Rooms.Desk(nearEdge: 0.2f, width: 1.0f, depth: 0.7f);
+        var clutter = Rooms.Box(-0.5f, 0.5f, 0.35f, 0.9f, 0.74f, 1.2f);
+        var narrow = new RoomSurface(SurfaceKind.Desk, 0.74f, Rooms.Rectangle(-0.2f, 0.2f, 0.35f, 0.75f));
+
+        var lines = StageSurfaces.Explain(new[] { shelf, desk, narrow }, new[] { clutter }, Rooms.Seated);
+
+        Assert.That(StageSurfaces.Choose(new[] { shelf, desk, narrow }, new[] { clutter }, Rooms.Seated), Is.Null);
+        Assert.That(lines, Has.Count.EqualTo(3));
+        Assert.That(lines[0], Does.StartWith("other furniture, 0.05 m below the eyes").And.EndWith("not 0.15 to 1.00 m below the eyes"));
+        Assert.That(lines[1], Does.StartWith("desk or table, 0.46 m below the eyes, 0.20 to").And.Contain("1 objects on it")
+            .And.EndWith("the lineup would fit without the objects standing on it"));
+        Assert.That(lines[2], Does.EndWith("the lineup's arc does not fit on it within reach and view"));
+    }
+
+    [Test]
     public void AnOutlineOfFewerThanThreePointsIsNoSurface()
     {
         var line = new RoomSurface(SurfaceKind.Desk, 0.74f, new[] { new PlanPoint(-1f, 0.5f), new PlanPoint(1f, 0.5f) });

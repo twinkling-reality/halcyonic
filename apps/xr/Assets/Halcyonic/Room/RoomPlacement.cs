@@ -269,6 +269,7 @@ namespace Halcyonic.XR.Room
                 if (spot == null)
                 {
                     Log("found no surface that fits the lineup in comfortable reach and view");
+                    foreach (var line in StageSurfaces.Explain(read.Surfaces, read.Obstacles, viewer)) Log("surface: " + line);
                     Clear("the room has no suitable surface");
                     SetStatus(Status.With(placement: StagePlacement.NoSurface, clearSurface: true));
                     controls?.Present();
