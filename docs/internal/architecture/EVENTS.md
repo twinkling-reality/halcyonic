@@ -124,8 +124,10 @@ To change a contract:
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 - Migration 3 gives every stored `command.accepted` and `command.rejected` the `principal: null`
   its contract gained: who sent a command journaled before principals were recorded is not known
-  ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)). A build from before
-  either migration refuses a journal a newer one has opened.
+  ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)). It also runs migration
+  2's update again, because builds of the pairing work from before the two met stamped version 2
+  without it; both change only events without the field. A build from before either migration
+  refuses a journal a newer one has opened.
 - Until there are external users, breaking changes are acceptable when coordinated: migrate
   fixtures, the journal schema, generated bindings and documentation together.
 

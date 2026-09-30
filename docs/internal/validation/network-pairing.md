@@ -149,11 +149,13 @@ Changes, each with tests in `network/network.test.ts` unless named otherwise:
   `command.rejected` (`core/control-plane.test.ts`). The network listener checks the credential
   again as each answer leaves and replaces the answer to a revoked device with 401. Revoking ends
   the device's realtime connections in the same step that journals it: each handles nothing more,
-  not even messages already received, gets a close frame, and is cut off a second later. Tests: a
+  not even messages already received, gets a close frame, and is cut off a second later, as every
+  WebSocket the listener closes is. Tests: a
   command whose body arrives after its device is revoked; a revoked device that ignores the close
   frame; the review's own probes, which now fail as they should.
-- The listener waits 10 seconds for a whole request, closes a silent connection after 30 and an
-  idle one after 5, holds 32 connections, and each device 4 realtime ones.
+- The listener waits 10 seconds for a whole request, closes a connection on which nothing moves
+  and an idle one, holds 32 connections, and each device 4 realtime ones; a second review added
+  the limits below.
 - A paired device's `GET /api/events` leaves device events out in the journal query, so `limit`
   counts only what it returns (`journal/sqlite-journal.test.ts`).
 - The window derives the salt and verifier once, when it opens; an attempt only draws `b`. Over
@@ -164,9 +166,23 @@ Changes, each with tests in `network/network.test.ts` unless named otherwise:
   `timeout`, `abandoned`, `invalid_message`, `unsupported_protocol`) by address, and `pnpm pair`
   prints each (`cli/devices.test.ts`).
 
+A second review confirmed those fixed and found four smaller things, now changed:
+
+- **Journal version 2 meant two things.** Builds of this work before it merged model choice
+  stamped version 2 for principals, while model choice's migration 2 fills in `model_ref`; such a
+  journal, whose starts lack `model_ref`, failed to open. Migration 3 now runs migration 2's
+  update too (`journal/sqlite-journal.test.ts`).
+- **One address could take every connection,** and a connection that never sent a TLS
+  ClientHello was held for Node's default two minutes. The listener now closes a handshake after 5
+  seconds and holds 8 connections per address.
+- **A refused realtime connection and an ended pairing connection waited 30 seconds** for a client
+  that never answered the close frame; every WebSocket the listener closes now waits a second.
+- **The idle timeout equaled the model list's timeout,** 30 seconds, so a slow list could reach the
+  headset as a reset. It is 60 seconds; a test shows a shorter one cutting the answer off.
+
 One thing the tests showed on the way: a connection whose TLS handshake completes while the
 listener shuts down is not yet an HTTP connection, so Fastify's forced close misses it, and the
-shutdown waits for the 30 second idle timeout; without that timeout it waited indefinitely.
+shutdown waits for the idle timeout, now 60 seconds; without that timeout it waited indefinitely.
 
 ## What needs a headset
 
