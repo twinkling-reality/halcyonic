@@ -99,6 +99,7 @@ public class NewWorkDraftTests
         draft.Objective = new string('x', 4001);
         Assert.That(draft.Problem, Does.Contain("4,000"));
         draft.Objective = "Fix <b>search</b>\nwith tests";
+        Assert.That(draft.Title, Is.EqualTo("Fix <b>search</b> with tests"));
         Assert.That(draft.CreateWorkstream().Payload.Title, Is.EqualTo("Fix <b>search</b> with tests"));
         Assert.That(draft.CreateWorkstream().Payload.Objective, Is.EqualTo(draft.Objective));
     }

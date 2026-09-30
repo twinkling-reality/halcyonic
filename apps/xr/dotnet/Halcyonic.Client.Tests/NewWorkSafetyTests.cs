@@ -16,13 +16,14 @@ public class NewWorkSafetyTests
     public void ReviewShowsEveryCharacterBeforeTheLastPageCanConfirm()
     {
         var objective = new string('W', 4000);
-        var review = new NewWorkReview(new string('P', 200), "OpenCode", "Local model",
+        var review = new NewWorkReview(new string('P', 200), "Workstream", "OpenCode", "Local model",
             "on this Mac, tools declared", "ollama/local:latest", objective);
         Assert.That(review.PageCount, Is.GreaterThan(10));
         Assert.That(review.CanConfirm, Is.False);
         Assert.That(review.Pages.All(page => page.Split('\n').All(line => line.Length <= 24)), Is.True);
         var shown = string.Concat(review.Pages).Replace("\n", "");
         Assert.That(shown, Does.Contain(new string('P', 200)));
+        Assert.That(shown, Does.Contain("Workstream"));
         Assert.That(shown, Does.Contain("OpenCode"));
         Assert.That(shown, Does.Contain("Local model"));
         Assert.That(shown, Does.Contain("ollama/local:latest"));
@@ -38,7 +39,7 @@ public class NewWorkSafetyTests
     [Test]
     public void ReviewMakesLineBreaksAndInvisibleTextVisible()
     {
-        var review = new NewWorkReview("Project", "Runtime", "Model", "unknown", "ref",
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref",
             "First\nsecond\tthird\u202E");
         var shown = string.Concat(review.Pages);
         Assert.That(shown, Does.Contain("‹line break›"));
@@ -79,6 +80,21 @@ public class NewWorkSafetyTests
         });
         submission.LostAcknowledgement(new CommandOutcomeUnknownException(command.CommandId, "The socket closed."));
         Assert.That(submission.State, Is.EqualTo(NewWorkSubmissionState.Completed));
+        Assert.That(submission.HasExpectedResult, Is.True);
+    }
+
+    [Test]
+    public void CompletedCommandWithUnexpectedResultCannotReleaseTheGuard()
+    {
+        var command = Commands().CreateWorkstream(Guid.NewGuid().ToString("D"), "Title", "Objective");
+        var submission = new NewWorkSubmission(command);
+        submission.Observe(new CommandView
+        {
+            CommandId = command.CommandId, Status = CommandStatus.Completed,
+            Result = new ProjectCreatedResult { ProjectId = Guid.NewGuid().ToString("D") },
+        });
+        Assert.That(submission.State, Is.EqualTo(NewWorkSubmissionState.Completed));
+        Assert.That(submission.HasExpectedResult, Is.False);
     }
 
     [Test]

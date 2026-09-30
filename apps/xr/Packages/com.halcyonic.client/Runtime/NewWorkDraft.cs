@@ -75,17 +75,24 @@ namespace Halcyonic.Client
             }
         }
 
+        public string Title
+        {
+            get
+            {
+                var title = LabelText.Plain(Objective.Trim());
+                if (title.Length > 200)
+                {
+                    var end = char.IsHighSurrogate(title[198]) ? 198 : 199;
+                    title = title.Substring(0, end).TrimEnd() + "…";
+                }
+                return title;
+            }
+        }
+
         public WorkstreamCreateCommand CreateWorkstream()
         {
             if (Problem is string problem) throw new InvalidOperationException(problem);
-            var objective = Objective.Trim();
-            var title = LabelText.Plain(objective);
-            if (title.Length > 200)
-            {
-                var end = char.IsHighSurrogate(title[198]) ? 198 : 199;
-                title = title.Substring(0, end).TrimEnd() + "…";
-            }
-            return commands.CreateWorkstream(ProjectId!, title, objective);
+            return commands.CreateWorkstream(ProjectId!, Title, Objective.Trim());
         }
 
         public ExecutionStartCommand StartExecution(string workstreamId)

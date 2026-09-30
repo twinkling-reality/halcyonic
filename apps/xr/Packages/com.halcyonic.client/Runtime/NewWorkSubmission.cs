@@ -32,6 +32,14 @@ namespace Halcyonic.Client
 
         public CommandView? EffectiveRecord => Record ?? acknowledgement;
 
+        public bool HasExpectedResult => State == NewWorkSubmissionState.Completed && Command switch
+        {
+            ProjectCreateCommand => EffectiveRecord?.Result is ProjectCreatedResult,
+            WorkstreamCreateCommand => EffectiveRecord?.Result is WorkstreamCreatedResult,
+            ExecutionStartCommand => EffectiveRecord?.Result is ExecutionCreatedResult,
+            _ => false,
+        };
+
         public NewWorkSubmissionState State
         {
             get

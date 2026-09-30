@@ -49,7 +49,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 label.color = Color.white;
                 label.sortingOrder = 12;
 
-                var review = new NewWorkReview(new string('P', 200), "OpenCode", "Local model",
+                var review = new NewWorkReview(new string('P', 200), "Workstream", "OpenCode", "Local model",
                     "on this Mac, tools declared", "ollama/local:latest", new string('W', 4000));
                 foreach (var page in review.Pages)
                 {

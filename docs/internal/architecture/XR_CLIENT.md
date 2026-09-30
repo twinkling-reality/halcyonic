@@ -582,10 +582,12 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   polled. Each model's own display name, serving location and tool calling declaration show in
   the choice. An unavailable or empty list leaves Start unavailable, and the person can choose the
   runtime again to retry. A runtime that does not list models uses its own choice. Start opens a
-  paged review of the full project, runtime, model choice and objective; the button that sends the
-  request appears only on the last page. The panel then sends `project.create` if needed,
-  `workstream.create`, and `execution.start` in order, waiting for each command's completed record
-  before sending the next. A rejected or failed command stops the sequence and says why. It looks
+  paged review of the full project, derived workstream title, runtime, model choice and objective;
+  the button that sends the request appears only on the last page. The panel then sends
+  `project.create` if needed, `workstream.create`, and `execution.start` in order. It waits for each
+  command's completed record before sending the next. A rejected or failed command stops the sequence
+  and says why. A completed
+  command with an unexpected result leaves the request guarded for inspection. It looks
   for a projected command result before treating a missing acknowledgement as unknown. If the
   outcome remains unknown, the command id is kept in device storage and blocks another start even
   after the panel closes or the app restarts. The person can clear it only through a separate two
