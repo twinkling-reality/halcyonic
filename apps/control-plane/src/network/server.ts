@@ -140,7 +140,18 @@ function servePairing(
   });
   socket.on('error', (error: Error) => log.warn({ err: error }, 'pairing connection error'));
   socket.on('message', (data: RawData, isBinary: boolean) => {
-    const reply = receive(attempt, data, isBinary);
+    let reply: { reply: PairingServerMessage; done: boolean };
+    try {
+      reply = receive(attempt, data, isBinary);
+    } catch (error) {
+      // Never the message: it can hold a proof. The window stays as it was.
+      log.error({ err: error }, 'pairing exchange failed');
+      attempt.end();
+      reply = {
+        reply: refused({ code: 'internal_error', message: 'The control plane failed to pair.' }),
+        done: true,
+      };
+    }
     if (reply.done) clearTimeout(timer);
     answer(reply.reply, reply.done);
   });
