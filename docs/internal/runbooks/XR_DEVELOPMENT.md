@@ -19,11 +19,12 @@ These steps need the owner's accounts and are not automated.
 ## First open
 
 Unity resolves the packages in `apps/xr/Packages/manifest.json`: OpenXR 1.18.0, the Meta XR Core
-and Interaction SDKs 207.0.0 (from Meta's registry at `npm.developer.oculus.com`, under Meta's SDK
-license), XR Hands 1.9.0, Newtonsoft.Json 3.2.2, the Test Framework, the generated contracts from
-`packages/contracts/csharp`, and the embedded client core. The manifest also lists the AI,
-AssetBundle and Physics 2D engine modules, which Meta's SDKs use without declaring; without them
-Meta's code does not compile.
+and Interaction SDKs and the MR Utility Kit 207.0.0 (from Meta's registry at
+`npm.developer.oculus.com`, under Meta's SDK license), XR Hands 1.9.0, Newtonsoft.Json 3.2.2, the
+Test Framework, the generated contracts from `packages/contracts/csharp`, and the embedded client
+core. The MR Utility Kit brings AI Navigation, which resolves to 2.0.14, the version this editor
+bundles. The manifest also lists the AI, AssetBundle and Physics 2D engine modules, which Meta's
+SDKs use without declaring; without them Meta's code does not compile.
 
 The project settings are committed, so a fresh clone opens configured:
 
@@ -135,7 +136,12 @@ The Android player settings are committed:
 - IL2CPP on ARM64, minimum API level 32, target API level 34, which the Horizon Store requires
   ([horizon-store-release.md](../validation/horizon-store-release.md));
 - Internet Access set to Require, because Unity's automatic detection does not see
-  `ClientWebSocket` and would leave the permission out.
+  `ClientWebSocket` and would leave the permission out;
+- in `OculusProjectConfig`, Passthrough Support and Scene Support set to Supported and Anchor
+  Support enabled, and in the committed manifest the matching entries: passthrough as a feature
+  the app supports but does not require, `com.oculus.permission.USE_SCENE` for the room's layout,
+  which the person grants at runtime, and `com.oculus.permission.USE_ANCHOR_API` for the stage's
+  anchor ([mixed-reality-room.md](../validation/mixed-reality-room.md)).
 
 `ClientWebSocket` works under IL2CPP on a Quest 3 ([quest-3-device.md](../validation/quest-3-device.md)).
 
@@ -184,8 +190,11 @@ profiler connection, and it leaves those tools out:
 - Meta's own build step leaves Meta XR Operator's Android library out of every non-development
   build, and with it the media projection activity, service and permission. The project's manifest
   removes nothing, so the development APK keeps them.
-- `QuestBuild` filters the assemblies of the Immersive Debugger, its dev agent and the agent bridge
-  out of every non-development build; nothing else in the build references them.
+- `QuestBuild` filters the assemblies of the Immersive Debugger's dev agent and the agent bridge
+  out of every non-development build; nothing else in the build references them. The debugger's
+  runtime assembly stays, disabled by the committed settings, because the MR Utility Kit reads
+  its settings and a release build without it fails to link
+  ([horizon-store-release.md](../validation/horizon-store-release.md)).
 - `BuildReleaseApk` moves `DevAgentSettings.asset` out of `Resources` for the build and back
   afterwards; Meta never recreates it while a player builds. Any other non-development build fails
   while the asset is in `Resources`. An interrupted release build can leave it at
@@ -202,7 +211,9 @@ $TOOLS/apksigner verify --verbose apps/xr/Builds/Halcyonic-release.apk
 ```
 
 A release APK shows `targetSdkVersion:'34'`, no `application-debuggable`, the permissions
-`INTERNET`, `com.oculus.permission.HAND_TRACKING` and AndroidX's own receiver permission, the
+`INTERNET`, `com.oculus.permission.HAND_TRACKING`, `com.oculus.permission.USE_ANCHOR_API`,
+`com.oculus.permission.USE_SCENE` and AndroidX's own receiver permission, the features
+`com.oculus.feature.PASSTHROUGH` and `oculus.software.overlay_keyboard` as not required, the
 `com.oculus.intent.category.VR` launcher category and `com.oculus.vr.focusaware`, and nothing from
 `com.meta.agenticxr`.
 
@@ -270,13 +281,16 @@ The token survives reinstalls. The control plane logs `realtime client connected
   target kills the adb server as it exits, an import as well as a build, which drops the rule. Until
   the rule is back, an app that has not yet been live plays the recorded demonstration; it keeps
   trying, and switches to the control plane by itself once it connects.
-- **Stage placement:** the stage places itself in front of the person when the session starts,
-  after a recenter or a boundary change, and when the app resumes, and the app's log says why
+- **Stage placement:** in the real room the stage stands on the surface the room placement found
+  (`Halcyonic: room placed the stage on the surface, because ...`) and stays there through
+  recenters. Otherwise it places itself in front of the person when the session starts, after a
+  recenter or a boundary change, and when the app resumes, and the app's log says why
   (`placed the stage in front of the person because ...`). If it is still out of view, recenter:
   look at a palm, then pinch and hold the Meta icon.
 - **Logs:** `adb logcat -s Unity` is the app's log: its `Halcyonic:` lines say whether the control
-  plane or the demonstration is shown, and each change of connection status. `adb logcat -s VrApi`
-  reports the frame rate every second.
+  plane or the demonstration is shown, and each change of connection status, and its
+  `Halcyonic: room` lines what the room placement did and why. `adb logcat -s VrApi` reports the
+  frame rate every second.
 
 ### Captures and an unattended headset
 
@@ -394,5 +408,77 @@ Then, with hands only:
   its beginning.
 - **Log.** `adb logcat -s Unity` shows `Halcyonic: demonstration plays from its beginning (n)` at
   each start and `demonstration reached an end` at each end, and never what was answered.
+
+### Room placement checks on a Quest
+
+The room placement ([XR_CLIENT.md](../architecture/XR_CLIENT.md), under "The room") in rooms that
+are set up and rooms that are not. Sit at a desk, hands only. Follow the placement in the log:
+
+```bash
+adb logcat -s Unity | grep --line-buffered "Halcyonic: room"
+```
+
+To see the first launch again, clear the app's data, which also deletes the pushed access token,
+the app's record of a declined room access and every remembered placement (anchors it saved stay
+on the headset, unused), and revoke the spatial data permission, which clearing the data may leave
+granted:
+
+```bash
+adb shell pm clear com.halcyonic.xr
+adb shell pm revoke com.halcyonic.xr com.oculus.permission.USE_SCENE
+```
+
+In a room set up with its desk (the headset's Space Setup, with the desk captured as a table):
+
+- **First launch.** The room shows through passthrough and the characters appear in front of you.
+  Within a few seconds a line comes up ahead of you, "To stand your agents on your desk, allow
+  access to this room's layout.", then the headset explains its spatial data permission and asks.
+  Allow it: the characters move onto the near half of the desk, facing you, within reach and
+  without turning your head, with their label plates on the desktop, and the line reads "Your
+  agents are on your desk." The log says `asking for access`, `room access allowed`,
+  `read the room: Read, ...`, `chose a desk ... m away, ...`, and `kept the placement with a
+  spatial anchor saved for this room`.
+- **Second launch.** Stop the app and start it again from the same seat: no prompt, the
+  characters return to the same place on the desk, "Your agents are back on your desk.", and the
+  log says `restored the placement saved for this room`.
+- **Another seat.** Start it from a chair a meter back or across the room: the log says the saved
+  placement `no longer suits where the person sits`, and a new place is chosen, or the characters
+  stand in front of you with the reason.
+- **Recenter.** Recenter (look at a palm, pinch and hold the Meta icon): the characters stay on the
+  desk. At most one line, `its anchor moved ... m with the room, as after a recenter`.
+- **System windows.** Open the universal menu, then Virtual Display with the Mac, move its windows
+  and close them, several times: the characters stay on the desk, and no room line appears while
+  the windows come and go, in particular no `stands in front of the person`, so the anchor stayed
+  localized through the focus changes. Note whether the windows cover the characters on the desk.
+- **Virtual space.** Point at and pinch, or poke, "Show a virtual space" on the small controls low
+  to your right: passthrough goes, the characters stand in front of you in the virtual space, and
+  the switch reads "Show my room". Restart the app: still virtual. Switch back: the room and the
+  characters on the desk return, with no prompt.
+- **Demonstration.** The demonstration judges see (above) plays and follows your answers the same
+  way on the desk and in the virtual space, with its line above the stage.
+- **Focus.** With the system menu open, the room controls do not respond to a poke or a pinch.
+- **Frame rate.** `adb logcat -s VrApi` reports 72 fps with passthrough on, the characters on the
+  desk and hands tracked.
+
+Where things are missing:
+
+- **Declined.** Clear the app's data and start it; decline the permission: the characters stand
+  in front of you, "Without room access, your agents stand in front of you.", with "Allow room
+  access". Start the app again: it does not ask by itself. Press "Allow room access": the headset
+  asks again; declined twice, the line says the headset's settings can allow it.
+- **A room that is not set up.** In a room with no Space Setup, the characters stand in front of
+  you and, once the anchor saved elsewhere has failed to localize (up to six seconds), the line
+  reads "You are outside your set-up rooms, so your agents stand in front of you." (or "This room
+  is not set up, ..." on a headset with no rooms at all), with the offer "Set up this room".
+  Nothing starts by itself. Press it: the headset's space setup opens; cancel it, or capture the
+  room with a table. Back in the app, the room is read again, and with a table in reach the
+  characters move onto it.
+- **No desk in reach.** Sit where no table is within about a meter, for example on a couch facing
+  away from the desk: "No free desk or table in reach, so your agents stand in front of you.",
+  with "Set up this room".
+- **Losing the desk.** If the headset stops tracking the desk's anchor for five seconds while the
+  app has focus (covering its cameras may do it; how to cause it reliably is not known), "Lost
+  track of your desk, so your agents stand in front of you."; once the anchor is tracked again,
+  the characters return to the desk.
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

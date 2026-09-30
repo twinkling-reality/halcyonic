@@ -10,6 +10,7 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Are characters useful after repeated use, or decoration? | A kill condition | Hardware user sessions |
 | What exactly belongs in the compressed state? | Defines the character presenter | XR shell prototyping |
 | Does the characters' constant motion stay calm over a long session, in the corner of the eye while the person codes, or should working characters settle after a while? | Comfort and focus beside Virtual Display windows ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)) | Hardware user sessions |
+| Do system windows, Virtual Display's above all, cover the characters standing on the desk within a meter of the person, where the stage's default placement keeps beyond two meters? | The desk is where the real room puts the characters ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)), and working beside the Mac is the point of multitasking | A headset check with Virtual Display open over the app |
 | How much direct coding belongs in the expanded workspace? | Avoids rebuilding an IDE | Usage in the workbench |
 | Does idea inception belong in the first release? | Scope | Product decision after the core mechanic works |
 | When does guided learning help rather than distract? | Future policy design | Research after the base product works |
