@@ -14,9 +14,13 @@ namespace Halcyonic.XR.Workspace
     [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class NewWorkPanel : MonoBehaviour
     {
-        private const float Width = 0.78f;
-        private const float Height = 0.98f;
-        private const float TextWidth = 0.70f;
+        public const float Width = 0.78f;
+        public const float Height = 0.98f;
+        public const float ReviewWidth = 0.70f;
+        public const float ReviewHeight = 0.60f;
+        public const float ReviewSize = 0.19f;
+        private const float TextWidth = ReviewWidth;
+        private const string UnresolvedCommandPreference = "halcyonic.new-work.unresolved-command-id";
         private ControlPlaneConnection connection = null!;
         private CommandFactory commands = null!;
         private NewWorkDraft draft = null!;
@@ -29,24 +33,31 @@ namespace Halcyonic.XR.Workspace
         private PanelButton model = null!;
         private PanelButton objective = null!;
         private PanelButton start = null!;
+        private PanelButton previous = null!;
+        private PanelButton next = null!;
+        private PanelButton change = null!;
+        private PanelButton confirm = null!;
+        private PanelButton recover = null!;
         private TextMeshPro title = null!;
         private TextMeshPro summary = null!;
         private TextMeshPro note = null!;
+        private TextMeshPro reviewText = null!;
         private bool expanded;
         private bool newProject;
-        private bool confirming;
         private bool finished;
-        private bool uncertain;
+        private bool recoveryArmed;
         private string newProjectName = "";
         private string? notice;
+        private string? unresolvedCommandId;
+        private CommandView? recoveredRecord;
+        private NewWorkReview? review;
         private TouchScreenKeyboard? keyboard;
         private bool typingProject;
         private CancellationTokenSource? modelCancellation;
         private Task<RuntimeModelsResponse>? modelRead;
         private string? modelRuntimeId;
-        private CommandEnvelope? pending;
+        private NewWorkSubmission? submission;
         private Task<CommandAckMessage>? pendingAck;
-        private CommandView? acknowledged;
         private string? createdWorkstreamId;
         private float nextRefresh;
         private bool placed;
@@ -61,6 +72,8 @@ namespace Halcyonic.XR.Workspace
                 DeviceLabel = SystemInfo.deviceModel,
             });
             draft = new NewWorkDraft(commands);
+            unresolvedCommandId = PlayerPrefs.GetString(UnresolvedCommandPreference, "");
+            if (unresolvedCommandId.Length == 0) unresolvedCommandId = null;
             root = new GameObject("New work controls").transform;
             root.SetParent(transform, false);
             toggle = PanelButton.Create(root, "New work");
@@ -73,12 +86,20 @@ namespace Halcyonic.XR.Workspace
             title = Label("Title", 0.26f, 0.43f, 0.06f);
             summary = Label("Selection", 0.19f, 0.35f, 0.08f);
             note = Label("Message", 0.18f, -0.32f, 0.12f);
+            reviewText = Label("Full request", ReviewSize, 0.32f, ReviewHeight);
+            reviewText.textWrappingMode = TextWrappingModes.NoWrap;
+            reviewText.overflowMode = TextOverflowModes.Overflow;
             project = Button("Project", 0.22f, ChooseProject);
             projectNameButton = Button("Project name", 0.13f, TypeProjectName);
             runtime = Button("Runtime", 0.04f, ChooseRuntime);
             model = Button("Model", -0.05f, ChooseModel);
             objective = Button("Objective", -0.14f, TypeObjective);
             start = Button("Start", -0.23f, Start);
+            previous = Button("Previous part", -0.34f, () => { review?.Previous(); Layout(); });
+            next = Button("Next part", -0.34f, () => { review?.Next(); Layout(); });
+            change = Button("Change choices", -0.43f, () => { review = null; Layout(); });
+            confirm = Button("Confirm new work", -0.43f, ConfirmReviewed);
+            recover = Button("Recover unknown request", -0.43f, Recover);
             Layout();
         }
 
@@ -122,20 +143,20 @@ namespace Halcyonic.XR.Workspace
         private void Toggle()
         {
             if (FocusGuard.InputSuspended) return;
-            if (!expanded && (finished || uncertain))
+            if (!expanded && finished)
             {
                 var previousProject = draft.ProjectId;
                 draft = new NewWorkDraft(commands) { ProjectId = previousProject };
                 createdWorkstreamId = null;
                 finished = false;
-                uncertain = false;
                 newProject = false;
                 newProjectName = "";
             }
             expanded = !expanded;
             Place();
-            confirming = false;
-            notice = null;
+            review = null;
+            recoveryArmed = false;
+            if (unresolvedCommandId == null) notice = null;
             Layout();
         }
 
@@ -160,7 +181,7 @@ namespace Halcyonic.XR.Workspace
                 }
                 else draft.ProjectId = projects[index + 1].ProjectId;
             }
-            confirming = false;
+            review = null;
             Layout();
         }
 
@@ -182,7 +203,7 @@ namespace Halcyonic.XR.Workspace
             modelCancellation?.Dispose();
             modelRead = null;
             draft.ChooseRuntime(chosen);
-            confirming = false;
+            review = null;
             if (chosen.ModelChoice == ModelChoice.Listed)
             {
                 var api = ControlPlaneSettings.Api();
@@ -214,7 +235,7 @@ namespace Halcyonic.XR.Workspace
             if (Busy || draft.Models.Count == 0) return;
             var index = draft.Model == null ? -1 : draft.Models.ToList().FindIndex(value => value.ModelRef == draft.Model.ModelRef);
             draft.ChooseModel(draft.Models[(index + 1) % draft.Models.Count]);
-            confirming = false;
+            review = null;
             Layout();
         }
 
@@ -244,16 +265,16 @@ namespace Halcyonic.XR.Workspace
             if (open.status != TouchScreenKeyboard.Status.Done) return;
             if (typingProject) newProjectName = (open.text ?? "").Trim();
             else draft.Objective = (open.text ?? "").Trim();
-            confirming = false;
+            review = null;
             notice = null;
             Layout();
         }
 
-        private bool Busy => pending != null;
+        private bool Busy => submission != null;
 
         private string? Problem()
         {
-            if (uncertain) return "A request's outcome is unknown. Check the work shown before starting more.";
+            if (unresolvedCommandId != null) return "A previous request may have run. Check the work shown before starting more.";
             if (connection.DemonstrationLine != null) return "Connect to a Mac to start live work.";
             var session = connection.Session;
             if (session == null || !session.Status.IsLive) return "Waiting for the control plane.";
@@ -285,15 +306,22 @@ namespace Halcyonic.XR.Workspace
                 Layout();
                 return;
             }
-            if (!confirming)
-            {
-                confirming = true;
-                notice = "Start this work with the selected runtime and model?";
-                Layout();
-                return;
-            }
-            confirming = false;
+            var chosen = draft.Model;
+            review = new NewWorkReview(
+                newProject ? newProjectName : ProjectName(),
+                draft.Runtime!.DisplayName + (draft.Runtime.Synthetic ? " (simulated)" : ""),
+                chosen?.DisplayName ?? "Chosen by the runtime",
+                chosen == null ? "The runtime does not list models" : Served(chosen.Served) + ", " + Tools(chosen.ToolCalling),
+                chosen?.ModelRef ?? "No model selected",
+                draft.Objective.Trim());
             notice = null;
+            Layout();
+        }
+
+        private void ConfirmReviewed()
+        {
+            if (review?.CanConfirm != true || Busy || Problem() != null) return;
+            review = null;
             if (createdWorkstreamId != null) Send(draft.StartExecution(createdWorkstreamId));
             else if (newProject) Send(commands.CreateProject(newProjectName));
             else Send(draft.CreateWorkstream());
@@ -308,8 +336,10 @@ namespace Halcyonic.XR.Workspace
                 Layout();
                 return;
             }
-            pending = command;
-            acknowledged = null;
+            submission = new NewWorkSubmission(command);
+            unresolvedCommandId = command.CommandId;
+            PlayerPrefs.SetString(UnresolvedCommandPreference, command.CommandId);
+            PlayerPrefs.Save();
             pendingAck = session.SubmitAsync(command);
             notice = "Sending request. Waiting for the control plane's result.";
             Layout();
@@ -317,43 +347,63 @@ namespace Halcyonic.XR.Workspace
 
         private void PollCommand()
         {
-            if (pending == null) return;
+            var current = submission;
+            var state = connection.Session?.State;
+            if (current == null)
+            {
+                if (unresolvedCommandId != null && state != null &&
+                    state.Commands.TryGetValue(unresolvedCommandId, out var recovered) &&
+                    recovered.Status != CommandStatus.Accepted)
+                {
+                    recoveredRecord = recovered;
+                }
+                return;
+            }
+            // Events may arrive before an acknowledgement, or the acknowledgement may be lost.
+            if (state != null && state.Commands.TryGetValue(current.Command.CommandId, out var projected))
+                current.Observe(projected);
             if (pendingAck != null)
             {
-                if (!pendingAck.IsCompleted) return;
-                var task = pendingAck;
-                pendingAck = null;
-                if (task.IsFaulted || task.IsCanceled)
+                if (pendingAck.IsCompleted)
                 {
-                    uncertain = task.Exception?.GetBaseException() is not SessionUnavailableException;
-                    notice = task.Exception?.GetBaseException() is SessionUnavailableException
-                        ? "Not sent: the control plane is not connected."
-                        : "The request's outcome is unknown. Check the work shown before trying again.";
-                    pending = null;
-                    Layout();
-                    return;
-                }
-                acknowledged = task.Result.Command;
-                if (task.Result.Disposition == CommandAckDisposition.Conflict || acknowledged == null)
-                {
-                    notice = "The control plane could not accept the request.";
-                    pending = null;
-                    Layout();
-                    return;
+                    var task = pendingAck;
+                    pendingAck = null;
+                    if (task.IsFaulted || task.IsCanceled)
+                        current.LostAcknowledgement(task.Exception?.GetBaseException() ?? new InvalidOperationException("The acknowledgement was lost."));
+                    else current.Acknowledge(task.Result);
                 }
             }
-            var state = connection.Session?.State;
-            var record = state != null && state.Commands.TryGetValue(pending.CommandId, out var current) ? current : acknowledged;
-            if (record == null || record.Status == CommandStatus.Accepted) return;
-            var sent = pending;
-            pending = null;
+            switch (current.State)
+            {
+                case NewWorkSubmissionState.Waiting:
+                    return;
+                case NewWorkSubmissionState.OutcomeUnknown:
+                    if (notice != "The request's outcome is unknown. Check the work shown before trying again.")
+                    {
+                        notice = "The request's outcome is unknown. Check the work shown before trying again.";
+                        Layout();
+                    }
+                    return;
+                case NewWorkSubmissionState.NotSent:
+                    submission = null;
+                    ClearUnresolved();
+                    notice = "Not sent: the control plane is not connected.";
+                    Layout();
+                    return;
+            }
+            var record = current.EffectiveRecord!;
+            var sent = current.Command;
+            submission = null;
+            pendingAck = null;
             if (record.Status != CommandStatus.Completed)
             {
-                uncertain = record.Failure?.Effect == FailureEffect.Unknown;
+                if (record.Failure?.Effect == FailureEffect.Unknown) recoveredRecord = record;
+                else ClearUnresolved();
                 notice = record.Rejection?.Message ?? record.Failure?.Message ?? "The request failed.";
                 Layout();
                 return;
             }
+            ClearUnresolved();
             if (sent is ProjectCreateCommand && record.Result is ProjectCreatedResult projectResult)
             {
                 draft.ProjectId = projectResult.ProjectId;
@@ -378,6 +428,38 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
+        private void ClearUnresolved()
+        {
+            unresolvedCommandId = null;
+            recoveredRecord = null;
+            recoveryArmed = false;
+            PlayerPrefs.DeleteKey(UnresolvedCommandPreference);
+            PlayerPrefs.Save();
+        }
+
+        private void Recover()
+        {
+            if (unresolvedCommandId == null || connection.Session?.Status.IsLive != true) return;
+            if (!recoveryArmed)
+            {
+                recoveryArmed = true;
+                notice = "Check the workstreams for this request before clearing it. It may already have run.";
+                Layout();
+                return;
+            }
+            submission = null;
+            pendingAck = null;
+            ClearUnresolved();
+            draft = new NewWorkDraft(commands);
+            createdWorkstreamId = null;
+            newProject = false;
+            newProjectName = "";
+            review = null;
+            finished = false;
+            notice = "Previous request cleared after your check. Type a new objective.";
+            Layout();
+        }
+
         private void Layout()
         {
             if (root == null) return;
@@ -385,7 +467,76 @@ namespace Halcyonic.XR.Workspace
             toggle.Show(expanded ? "Close new work" : "New work", Vector2.zero, expanded ? 0.30f : 0.22f);
             details.SetActive(expanded);
             if (!expanded) return;
+            if (review != null)
+            {
+                WorkspaceVisuals.SetLiteral(title, "Review request, part " + (review.Page + 1) + " of " + review.PageCount);
+                summary.gameObject.SetActive(false);
+                note.gameObject.SetActive(false);
+                reviewText.gameObject.SetActive(true);
+                // Each line is already made plain by NewWorkReview. Preserve its page breaks and
+                // spaces here; TextMeshPro only needs its backslashes doubled.
+                reviewText.text = review.Text.Replace("\\", "\\\\");
+                project.Hide();
+                projectNameButton.Hide();
+                runtime.Hide();
+                model.Hide();
+                objective.Hide();
+                start.Hide();
+                recover.Hide();
+                if (review.Page > 0) previous.Show("Previous part", new Vector2(-0.20f, -0.34f), 0.27f);
+                else previous.Hide();
+                if (review.CanConfirm) next.Hide();
+                else next.Show("Next part", new Vector2(0.20f, -0.34f), 0.27f);
+                change.Show("Change choices", new Vector2(-0.20f, -0.43f), 0.27f);
+                if (review.CanConfirm) confirm.Show("Yes, start work", new Vector2(0.20f, -0.43f), 0.27f, confirm: true);
+                else confirm.Hide();
+                previous.Accepting = next.Accepting = change.Accepting = confirm.Accepting =
+                    () => live && !Busy && !FocusGuard.InputSuspended;
+                return;
+            }
+            if (unresolvedCommandId != null)
+            {
+                WorkspaceVisuals.SetLiteral(title, "Previous request");
+                summary.gameObject.SetActive(false);
+                note.gameObject.SetActive(false);
+                reviewText.gameObject.SetActive(true);
+                var status = recoveredRecord?.Status ?? submission?.EffectiveRecord?.Status;
+                WorkspaceVisuals.SetLiteralLines(reviewText, new[]
+                {
+                    "A request may have run.",
+                    "Command ID:",
+                    unresolvedCommandId.Substring(0, Math.Min(24, unresolvedCommandId.Length)),
+                    unresolvedCommandId.Length > 24 ? unresolvedCommandId.Substring(24) : "",
+                    status == null ? "No result received yet." : "Recorded status:",
+                    status == null ? "" : status.Value.ToString(),
+                    "Check workstreams before",
+                    "clearing this request.",
+                    recoveryArmed ? "Clear only after check." : "Work may be duplicated.",
+                });
+                project.Hide();
+                projectNameButton.Hide();
+                runtime.Hide();
+                model.Hide();
+                objective.Hide();
+                start.Hide();
+                previous.Hide();
+                next.Hide();
+                change.Hide();
+                confirm.Hide();
+                if (submission == null || submission.State == NewWorkSubmissionState.OutcomeUnknown)
+                    recover.Show(recoveryArmed ? "Yes, clear after checking" : "I checked the work", new Vector2(0f, -0.43f), 0.70f, confirm: recoveryArmed);
+                else recover.Hide();
+                recover.Accepting = () => live && !FocusGuard.InputSuspended;
+                return;
+            }
             WorkspaceVisuals.SetLiteral(title, "Start new work");
+            summary.gameObject.SetActive(true);
+            note.gameObject.SetActive(true);
+            reviewText.gameObject.SetActive(false);
+            previous.Hide();
+            next.Hide();
+            change.Hide();
+            confirm.Hide();
             var projectName = ProjectName();
             var runtimeName = draft.Runtime?.DisplayName ?? "none";
             var modelName = draft.Runtime?.ModelChoice == ModelChoice.None ? "runtime choice" : draft.Model?.DisplayName ?? "none";
@@ -415,12 +566,13 @@ namespace Halcyonic.XR.Workspace
             else model.Hide();
             objective.Show(draft.Objective.Length == 0 ? "Type objective" : "Objective: " + draft.Objective,
                 new Vector2(0f, -0.14f), 0.70f);
-            start.Show(finished ? "Work started" : confirming ? "Yes, start work" : Busy ? "Waiting for result" : "Start work",
-                new Vector2(0f, -0.23f), 0.70f, confirm: confirming);
-            start.Accepting = () => live && !Busy && !finished && !uncertain && !FocusGuard.InputSuspended;
+            start.Show(finished ? "Work started" : Busy ? "Waiting for result" : "Review and start",
+                new Vector2(0f, -0.23f), 0.70f);
+            start.Accepting = () => live && !Busy && !finished && unresolvedCommandId == null && !FocusGuard.InputSuspended;
             project.Accepting = objective.Accepting = projectNameButton.Accepting =
-                () => live && !Busy && createdWorkstreamId == null && !FocusGuard.InputSuspended;
-            runtime.Accepting = model.Accepting = () => live && !Busy && !FocusGuard.InputSuspended;
+                () => live && !Busy && unresolvedCommandId == null && createdWorkstreamId == null && !FocusGuard.InputSuspended;
+            runtime.Accepting = model.Accepting = () => live && !Busy && unresolvedCommandId == null && !FocusGuard.InputSuspended;
+            recover.Hide();
         }
 
         private static string Served(ModelServed value) => value switch
