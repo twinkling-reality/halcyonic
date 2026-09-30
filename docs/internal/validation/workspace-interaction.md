@@ -132,6 +132,12 @@
 - Drawing a character outside the static atlas in the editor adds its glyph to the dynamic fallback
   asset and writes that committed asset (`TMP_EditorResourceManager.AddTextureToAsset`), even when
   its dirty flag is cleared afterwards.
+- On 2026-09-30 the new work review's Android-target batch render measured every line and page
+  against its plate, including a 24-character line of wide Latin letters and a typed objective
+  with Han, kana, emoji and literal `\u{4E2D}` marker text. The review converted non-ASCII input
+  to visible ASCII code points before TMP layout; the render showed the markers and page controls
+  inside the plate. The editor rewrote the dynamic fallback font asset during this check, and that
+  generated change was discarded. Readability and input behavior on Quest hardware remain open.
 
 ### System keyboard
 
