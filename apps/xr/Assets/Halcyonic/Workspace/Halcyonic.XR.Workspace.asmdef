@@ -1,0 +1,21 @@
+{
+  "name": "Halcyonic.XR.Workspace",
+  "rootNamespace": "Halcyonic.XR.Workspace",
+  "references": [
+    "Halcyonic.XR",
+    "Halcyonic.Client",
+    "Halcyonic.Contracts",
+    "Oculus.Interaction",
+    "Unity.TextMeshPro",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

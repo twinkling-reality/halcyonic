@@ -14,8 +14,8 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Scenarios and recorded traces | `fixtures/` | Built |
 | The XR client's demonstration, recorded from a trace by the control plane | `apps/xr/Assets/Halcyonic/Resources` | Built; proposed in [ADR 0012](../decisions/0012-judges-run-a-labeled-demonstration-on-the-headset.md) |
 | Architecture boundary tests | `tooling/` | Built |
-| XR client core: realtime session, client projection, character presentation, recorded demonstration (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
-| XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Skeleton; compiles in Unity with OpenXR and Meta's feature set configured; runs on a Meta Quest 3 against a live control plane; the Simulator renders nothing on the development Mac |
+| XR client core: realtime session, client projection, character and workspace presentation, steering, recorded demonstration (C#) | `apps/xr/Packages/com.halcyonic.client` | Built, tested on .NET; see [XR_CLIENT.md](XR_CLIENT.md) |
+| XR client Unity layer (Unity, OpenXR, Meta XR SDK) | `apps/xr` | Placeholder characters that run on a Meta Quest 3 against a live control plane; the workspace (peek, open, act and collapse by hand) compiles and builds, not yet verified on a headset; the Simulator renders nothing on the development Mac |
 | Claude Agent runtime (Claude Code through the Agent SDK) | `packages/integrations/claude-code` | Built; registered when enabled |
 | OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
 | Codex runtime (app-server, stable surface, pinned 0.157.0) | `packages/integrations/codex` | Built; registered when its binary is configured |

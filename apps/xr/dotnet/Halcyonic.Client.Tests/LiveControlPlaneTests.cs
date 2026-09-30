@@ -170,6 +170,46 @@ public class LiveControlPlaneTests
     }
 
     [Test]
+    public async Task SteersFromTheWorkspaceToRuntimeConfirmedResults()
+    {
+        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        Connect(controlPlane);
+        await Until(s => s.Status.IsLive, "the session is live");
+        var (workstreamId, executionId) = await StartWorkAsync("approval_required");
+        await Until(
+            s => s.State.Workstreams[workstreamId].Status == WorkstreamStatus.WaitingForHuman,
+            "the workstream waits for a human");
+
+        var submissions = new CommandSubmissions();
+        var steering = new WorkspaceSteering(commands);
+        WorkspacePresentation Workspace() => WorkspacePresenter.Present(
+            session!.State.Workstreams[workstreamId], session.State, activity, session.Status.IsLive, submissions);
+
+        Assert.That(steering.Press(WorkspaceAction.Approve, Workspace()).Step, Is.EqualTo(SteeringStep.Confirm),
+            "the control plane marks answering an approval for review");
+        var approve = steering.Confirm(Workspace());
+        Assert.That(approve.Step, Is.EqualTo(SteeringStep.Send));
+        await submissions.SubmitAsync(command => session!.SubmitAsync(command), approve.Command!, executionId);
+        Assert.That(submissions.StateOf(approve.Command!.CommandId), Is.EqualTo(SubmissionState.Acknowledged));
+
+        await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes", seconds: 20);
+        var answered = Workspace().Commands.First();
+        Assert.That(answered.Text, Is.EqualTo("Approval answered"));
+        Assert.That(answered.Status, Is.EqualTo(CommandStatus.Completed), "completion comes from the control plane's record");
+
+        Assert.That(steering.Press(WorkspaceAction.Instruct, Workspace()).Step, Is.EqualTo(SteeringStep.Type));
+        var instruct = steering.Typed("Summarize what you changed.", Workspace());
+        Assert.That(instruct.Step, Is.EqualTo(SteeringStep.Send), "an instruction is low consequence, so it needs no confirmation");
+        await submissions.SubmitAsync(command => session!.SubmitAsync(command), instruct.Command!, executionId);
+        await Until(
+            s => s.State.Commands.TryGetValue(instruct.Command!.CommandId, out var view) && view.Status == CommandStatus.Completed,
+            "the runtime takes the instruction");
+        Assert.That(Workspace().Commands.First().Text, Is.EqualTo("Instruction delivered"));
+        Assert.That(activity.For(executionId).Last(entry => entry.Kind == ActivityKind.Command).Text,
+            Is.EqualTo(Samples.Client.Name + " asked to send an instruction"));
+    }
+
+    [Test]
     public async Task ShowsWorkInFlightAsUnknownAfterTheControlPlaneRestarts()
     {
         var port = ControlPlaneProcess.FreePort();
