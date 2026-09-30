@@ -1,6 +1,7 @@
 # ADR 0015: The stage stands on the person's desk, found with MRUK and kept with a spatial anchor
 
-- Status: Proposed
+- Status: Accepted on 2026-09-29, a decision the owner delegated; the headset checks in
+  [mixed-reality-room.md](../validation/mixed-reality-room.md) are still to run.
 - Date: 2026-09-29
 
 ## Context
