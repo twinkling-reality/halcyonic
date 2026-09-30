@@ -258,13 +258,15 @@ What left, or tried to leave, the Mac while OpenCode ran:
   OpenCode fetches `https://models.opencode.ai/api.json`, and again every five minutes while it
   runs. Behind the refusing proxy, a fresh launch tried `CONNECT models.opencode.ai:443`.
   `OPENCODE_DISABLE_MODELS_FETCH=true` stops it: no attempt in 70 s, and OpenCode falls back to
-  the catalog built into the binary. The control plane passes it to OpenCode when it is named in
-  `HALCYONIC_AGENT_ENV`, which the runs above did.
+  the catalog built into the binary. The runs above passed it through `HALCYONIC_AGENT_ENV`.
+  The adapter now sets it to `true` on every launch and rejects an override; its environment test
+  verifies this. A post-change socket monitor run has not been made.
 - **ripgrep.** When `rg` is neither on OpenCode's PATH nor in `$XDG_CACHE_HOME/opencode/bin`,
   OpenCode downloads ripgrep 15.1.0 from `github.com/BurntSushi/ripgrep/releases` the first time an
   agent searches files. Observed: the agent's first `glob` opened connections from the OpenCode
   process to 140.82.114.4 and 185.199.109.133 on port 443 (GitHub). There is no switch; a ripgrep on
-  the PATH Halcyonic passes to OpenCode, for example Homebrew's, prevents it. This Mac has none.
+  the PATH Halcyonic passes to OpenCode, for example Homebrew's, prevents it. Homebrew's
+  `/opt/homebrew/bin/rg` is installed on this Mac as of 2026-09-30.
 - **Tools.** `webfetch` and `websearch` are allowed by default (above); the runs denied them.
 - Nothing else. With the catalog fetch off and ripgrep in place, the monitor saw no socket beyond
   loopback from OpenCode's processes in any run, and none from Ollama's server once the model
@@ -299,9 +301,9 @@ tokens a second; the cause was not found.
 - OpenCode runs local models through Halcyonic with no change to how the control plane is used:
   name the model as `ollama/<tag>`. For work that stays on the Mac, the person also needs, in
   OpenCode's configuration: a context limit for each local model, permissions that ask before
-  shell commands and refuse `webfetch` and `websearch`, and ideally a default local model; and, in
-  Halcyonic's environment, `OPENCODE_DISABLE_MODELS_FETCH=true` named in `HALCYONIC_AGENT_ENV`, and
-  a ripgrep on the PATH. The runbook says how.
+  shell commands and refuse `webfetch` and `websearch`, and ideally a default local model. The
+  adapter disables catalog fetches. A ripgrep on Halcyonic's PATH prevents OpenCode downloading it;
+  `/opt/homebrew/bin/rg` is installed on this Mac as of 2026-09-30. The runbook says how.
 - `qwen3.6:35b-a3b-nvfp4` is the fast default: about twice the output speed and five times the
   prompt processing of the other two. Long contexts are slow with every model, because the
   prefix cache rarely survives OpenCode's rewriting of earlier turns.
@@ -324,7 +326,10 @@ tokens a second; the cause was not found.
 - Codex with a model name Ollama does not have: not run against the real Ollama, to rule out any
   path to a pull.
 - openai/codex#48870, which needs a server that refuses an oversized prompt.
-- Salidium and Seorak showing these threads live: the runs kept Codex away from the developer's
-  `~/.codex`.
+- The initial local-model runs kept Codex away from the developer's `~/.codex`. A later scratch
+  control plane using the normal Codex home produced one local-model thread that both Salidium and
+  Seorak returned through Halcyonic's routes
+  ([understanding-and-evaluation.md](understanding-and-evaluation.md)); its Seorak cost estimate
+  was null, so the token accounting remains unverified.
 - Claude Code's list of models against the real CLI, which starts a Claude Code process that may
   reach Anthropic: checked only against the Agent SDK's types and a fake.

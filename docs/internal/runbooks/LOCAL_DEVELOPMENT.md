@@ -138,12 +138,12 @@ The `model` makes a start without one use the local model instead of OpenCode's 
 default. The permissions make shell commands ask the person, which is how approvals reach
 Halcyonic, and keep the agent from fetching the web. The `limit` tells OpenCode the context Ollama
 actually gives the model (`OLLAMA_CONTEXT_LENGTH`), where it would otherwise assume the model's full
-context. Then, in the control plane's environment:
+context. The adapter disables OpenCode's catalog fetch by default. Ensure ripgrep is on the PATH
+passed to the control plane, so OpenCode does not download it when it searches files:
 
 ```bash
-export OPENCODE_DISABLE_MODELS_FETCH=true              # OpenCode fetches its model catalog otherwise
-export HALCYONIC_AGENT_ENV=OPENCODE_DISABLE_MODELS_FETCH
-brew install ripgrep                                   # OpenCode downloads it from GitHub otherwise
+export PATH="/opt/homebrew/bin:$PATH"
+command -v rg
 ```
 
 What each does, and the speed and memory of the models tried, are in
@@ -182,9 +182,10 @@ defaults of the last two; `model` is optional. The `cwd` must be under `HALCYONI
 `approval_policy` `never` is refused, and `danger-full-access` needs `untrusted`. Codex uses your own
 `CODEX_HOME` (`~/.codex` by default): your configuration, your sign-in or API key, and your model
 providers. It writes each thread's rollout there like any other Codex session, where Salidium and
-Seorak read Codex sessions; that they show a thread Halcyonic started is not yet verified. A
-provider that reads its key from an environment variable (`env_key` in `config.toml`) needs that
-variable named in `HALCYONIC_AGENT_ENV`. Every run spends model credit.
+Seorak read Codex sessions; a local Ollama thread started by Halcyonic was read through both on
+2026-09-30 ([validation record](../validation/understanding-and-evaluation.md)). A provider that
+reads its key from an environment variable (`env_key` in `config.toml`) needs that variable named
+in `HALCYONIC_AGENT_ENV`. Hosted models spend model credit; the local Ollama models below do not.
 
 #### Local models through Ollama
 
