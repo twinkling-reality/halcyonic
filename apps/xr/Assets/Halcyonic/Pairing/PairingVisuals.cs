@@ -7,7 +7,9 @@ namespace Halcyonic.XR.Pairing
     /// <summary>
     /// The pairing controls' line of text and its plate, built at runtime to look like the workspace's
     /// and the room's (whose helpers are internal to their assemblies): TextMeshPro that never parses
-    /// markup, on a rounded plate drawn with <c>Sprites/Default</c>, an always-included shader.
+    /// markup, with escape parsing on for text that went through
+    /// <see cref="Halcyonic.Client.LabelText.ForTextMeshPro"/>, on a rounded plate drawn with
+    /// <c>Sprites/Default</c>, an always-included shader.
     /// </summary>
     internal static class PairingVisuals
     {
@@ -37,6 +39,7 @@ namespace Halcyonic.XR.Pairing
             text.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             text.rectTransform.sizeDelta = box;
             text.richText = false;
+            text.parseCtrlCharacters = true;
             text.fontSize = LineSize;
             text.color = TextColor;
             text.alignment = TextAlignmentOptions.Center;

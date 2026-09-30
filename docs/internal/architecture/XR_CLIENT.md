@@ -887,7 +887,9 @@ release build, such as the one judges run, offers no pairing
 - **Pairing.** "Pair with a Mac" opens the system keyboard for the Mac's address, as `pnpm pair`
   prints it (the last one typed is offered, and the port may be left out), then the number pad for
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
-  left after a wrong code. On success the pairing is saved through
+  left after a wrong code, and a refusal the app does not know, in the words of whatever answered
+  at that address, shows by the one rule for text Halcyonic did not write. On success the pairing
+  is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
   again, so it connects to the paired control plane as at startup.
 - **Forgetting.** Once paired, the button reads "Forget this Mac", and a second, deliberate press
