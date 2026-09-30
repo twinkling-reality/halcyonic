@@ -86,6 +86,9 @@ namespace Halcyonic.XR
         public bool TryGetCharacter(string workstreamId, [MaybeNullWhen(false)] out CharacterView view) =>
             views.TryGetValue(workstreamId, out view);
 
+        /// <summary>The slot a workstream's character stands in, numbered from the person's left, or -1 without one.</summary>
+        public int SlotOf(string workstreamId) => lineup.SlotOf(workstreamId);
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
