@@ -5,7 +5,8 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/fake-salidium.ts"
   },
   "dependencies": {
     "@halcyonic/contracts": "workspace:*",

@@ -27,6 +27,13 @@ namespace Halcyonic.XR
     /// surface. While the pose is set, only the source moves the stage: recenters leave it where it
     /// is. Without a source, or when it clears its pose, the stage stands in front of the person.
     /// </para>
+    /// <para>
+    /// In front of the person, it is placed again only when <see cref="InFrontPlacement"/> says so:
+    /// at the start, after a pause, when the person recenters, or after a jump no head can make. The
+    /// reference space changes that come in bursts while system windows take and give back focus
+    /// move nothing, so they never move it; one that does move the tracking space moves the stage
+    /// with it, so it stays where it was around the person. The log says which.
+    /// </para>
     /// </remarks>
     [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class CharacterStage : MonoBehaviour
@@ -86,6 +93,12 @@ namespace Halcyonic.XR
         public bool TryGetCharacter(string workstreamId, [MaybeNullWhen(false)] out CharacterView view) =>
             views.TryGetValue(workstreamId, out view);
 
+        /// <summary>The height of the surface the characters stand on, in world space, or null while they stand in front of the person.</summary>
+        public float? SurfaceHeight => onSurface ? arc.position.y : (float?)null;
+
+        /// <summary>The slot a workstream's character stands in, numbered from the person's left, or -1 without one.</summary>
+        public int SlotOf(string workstreamId) => lineup.SlotOf(workstreamId);
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
@@ -118,11 +131,12 @@ namespace Halcyonic.XR
 
         private void Start() => Refresh();
 
-        private void OnApplicationPause(bool paused)
-        {
-            // The person may have moved while the headset was off.
-            if (!paused) placement.Request("the app resumed", Time.unscaledTime);
-        }
+        // The person may have moved while the headset was off.
+        private void OnApplicationPause(bool paused) => placement.Paused(paused, Time.unscaledTime);
+
+        // With system windows open, focus can flap many times a second, each flap with a reference
+        // space change that moves nothing: the placement ignores those.
+        private void OnApplicationFocus(bool hasFocus) => placement.FocusChanged(Time.unscaledTime);
 
         private void LateUpdate()
         {
@@ -135,7 +149,7 @@ namespace Halcyonic.XR
             }
             FindPlacementSource();
             var preferred = source?.Preferred;
-            var reason = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
+            var decision = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
             var placed = false;
             if (preferredChanged && placedOnce)
             {
@@ -144,13 +158,38 @@ namespace Halcyonic.XR
                 if (preferred.HasValue) Place(preferred, "the room placement gave it a surface");
                 else if (onSurface) Place(null, "the room placement has no surface any more");
             }
-            if (reason != null && !placed)
+            switch (decision.Action)
             {
-                // Once the stage stands on a surface, only the room placement moves it.
-                if (!placedOnce || !preferred.HasValue) Place(preferred, reason);
-                else Debug.Log("Halcyonic: kept the stage on its surface although " + reason + ".");
+                case PlacementAction.PlaceInFront when !placed:
+                    // Once the stage stands on a surface, only the room placement moves it.
+                    if (!placedOnce || !preferred.HasValue) Place(preferred, decision.Reason);
+                    else Debug.Log("Halcyonic: kept the stage on its surface although " + decision.Reason + ".");
+                    break;
+                case PlacementAction.Follow when placedOnce && !placed:
+                    if (onSurface) Debug.Log("Halcyonic: kept the stage on its surface although " + decision.Reason + ".");
+                    else Follow(decision);
+                    break;
+                case PlacementAction.Kept:
+                    Debug.Log("Halcyonic: kept the stage where it stands: " + decision.Reason + ".");
+                    break;
             }
             Glide();
+        }
+
+        /// <summary>
+        /// Moves the stage with the tracking space, which turned and shifted under the person without
+        /// them moving, so it stays where it was around them and nothing jumps.
+        /// </summary>
+        private void Follow(PlacementDecision decision)
+        {
+            var turn = Quaternion.Euler(0f, decision.Turn, 0f);
+            var from = new Vector3(decision.From.X, decision.From.Y, decision.From.Z);
+            var to = new Vector3(decision.To.X, decision.To.Y, decision.To.Z);
+            arc.SetPositionAndRotation(to + turn * (arc.position - from), turn * arc.rotation);
+            CharacterMaterials.SetKeyLight(arc.rotation);
+            Debug.Log("Halcyonic: moved the stage with the tracking space, which turned "
+                + decision.Turn.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " degrees, because "
+                + decision.Reason + ".");
         }
 
         /// <summary>

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using Halcyonic.Contracts;
 using Newtonsoft.Json;
@@ -119,24 +120,66 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
+    /// A REST answer the recording's control plane gave about an execution: the answer once
+    /// <see cref="After"/> of node <see cref="Node"/>'s events had played. It holds from there along
+    /// every path through that point until the next answer recorded for the execution.
+    /// </summary>
+    public sealed class RecordedAnswer<T> where T : class
+    {
+        public RecordedAnswer(int node, int after, DateTimeOffset readAt, T response)
+        {
+            Node = node;
+            After = after;
+            ReadAt = readAt;
+            Response = response;
+        }
+
+        public int Node { get; }
+
+        public int After { get; }
+
+        /// <summary>When the recording's control plane gave the answer, by the recording's clock.</summary>
+        public DateTimeOffset ReadAt { get; }
+
+        public T Response { get; }
+    }
+
+    /// <summary>
     /// A demonstration the control plane recorded (<c>pnpm demonstration:record</c>): the realtime
     /// messages it sent while its scripted operator gave each answer the recording offers, as a tree
-    /// of nodes that shares its beginning. The control plane computed every state in it, so playing it
-    /// derives nothing. Only a recording of a fixture journal is accepted, so everything it shows is
-    /// labeled as recorded. Keys this client does not know, such as recorded REST answers a later
-    /// version may carry, are ignored.
+    /// of nodes that shares its beginning, and its REST answers about each execution's understanding
+    /// and evaluation along the way, read from stand-ins for the sources and marked as simulated
+    /// (ADR 0019). The control plane computed every state in it, so playing it derives nothing. Only
+    /// a recording of a fixture journal is accepted, so everything it shows is labeled as recorded,
+    /// and only answers a stand-in gave, so none passes for a real source's. Keys this client does
+    /// not know are ignored.
     /// </summary>
     public sealed class DemonstrationRecording
     {
         /// <summary>The version of the recording format this client plays.</summary>
         public const int FormatVersion = 2;
 
-        private DemonstrationRecording(string source, WelcomeMessage welcome, SnapshotMessage snapshot, IReadOnlyList<DemonstrationNode> nodes)
+        private static readonly Dictionary<string, IReadOnlyList<RecordedAnswer<UnderstandingResponse>>> NoUnderstanding =
+            new Dictionary<string, IReadOnlyList<RecordedAnswer<UnderstandingResponse>>>();
+
+        private static readonly Dictionary<string, IReadOnlyList<RecordedAnswer<EvaluationResponse>>> NoEvaluation =
+            new Dictionary<string, IReadOnlyList<RecordedAnswer<EvaluationResponse>>>();
+
+        /// <summary>For every node but the beginning, the node it continues and how far that one had played.</summary>
+        private readonly (int Node, int After)[] parents;
+
+        private DemonstrationRecording(
+            string source,
+            WelcomeMessage welcome,
+            SnapshotMessage snapshot,
+            IReadOnlyList<DemonstrationNode> nodes,
+            (int Node, int After)[] parents)
         {
             Source = source;
             Welcome = welcome;
             Snapshot = snapshot;
             Nodes = nodes;
+            this.parents = parents;
         }
 
         /// <summary>The plan it was recorded from, relative to the repository root.</summary>
@@ -149,6 +192,41 @@ namespace Halcyonic.Client
 
         /// <summary>The recorded stretches; the first is the beginning, and every other one is an answer's.</summary>
         public IReadOnlyList<DemonstrationNode> Nodes { get; }
+
+        /// <summary>The control plane's understanding answers, by execution id, as the playback reaches them.</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<RecordedAnswer<UnderstandingResponse>>> Understanding { get; private set; } = NoUnderstanding;
+
+        /// <summary>The control plane's evaluation answers, by execution id, as the playback reaches them.</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<RecordedAnswer<EvaluationResponse>>> Evaluation { get; private set; } = NoEvaluation;
+
+        /// <summary>
+        /// The understanding answer in force for an execution once <paramref name="played"/> of node
+        /// <paramref name="node"/>'s events have played: the latest recorded on the way there, or null
+        /// where the recording holds none, as before the execution exists.
+        /// </summary>
+        public RecordedAnswer<UnderstandingResponse>? UnderstandingAt(string executionId, int node, int played) =>
+            InForce(Understanding, executionId, node, played);
+
+        /// <summary>The evaluation answer in force for an execution at a point of the playback, as <see cref="UnderstandingAt"/>.</summary>
+        public RecordedAnswer<EvaluationResponse>? EvaluationAt(string executionId, int node, int played) =>
+            InForce(Evaluation, executionId, node, played);
+
+        private RecordedAnswer<T>? InForce<T>(IReadOnlyDictionary<string, IReadOnlyList<RecordedAnswer<T>>> answers, string executionId, int node, int played)
+            where T : class
+        {
+            if (node < 0 || node >= Nodes.Count || !answers.TryGetValue(executionId, out var recorded)) return null;
+            while (true)
+            {
+                RecordedAnswer<T>? found = null;
+                foreach (var answer in recorded)
+                {
+                    if (answer.Node == node && answer.After <= played && (found == null || answer.After > found.After)) found = answer;
+                }
+                if (found != null) return found;
+                if (node == 0) return null;
+                (node, played) = parents[node];
+            }
+        }
 
         /// <summary>Reads a recording and checks that it can be played truthfully.</summary>
         /// <exception cref="InvalidDataException">The text is not a demonstration this client can play.</exception>
@@ -202,9 +280,83 @@ namespace Halcyonic.Client
 
             var nodes = new List<DemonstrationNode>(entries.Count);
             foreach (var entry in entries) nodes.Add(ReadNode(entry, serializer, journal, nodes.Count, entries.Count));
-            CheckTree(nodes, snapshot.Snapshot.Position);
-            return new DemonstrationRecording(source, welcome, snapshot, nodes);
+            var parents = CheckTree(nodes, snapshot.Snapshot.Position);
+            var recording = new DemonstrationRecording(source, welcome, snapshot, nodes, parents);
+            recording.Understanding = ReadAnswers<UnderstandingResponse>(document["understanding"], "understanding", serializer, nodes,
+                (response, key) => response.ExecutionId == key && Simulated(response.Result));
+            recording.Evaluation = ReadAnswers<EvaluationResponse>(document["evaluation"], "evaluation", serializer, nodes,
+                (response, key) => response.ExecutionId == key && Simulated(response.Result));
+            return recording;
         }
+
+        /// <summary>
+        /// Recorded answers by execution id. Each must name its execution and be one the demonstration
+        /// may show: a stand-in's, marked synthetic, or the control plane's word that the runtime has not
+        /// named its session yet. A real source's answer, or a refusal naming a source without saying it
+        /// is simulated, is refused, so nothing in a recording passes for Salidium's or Seorak's.
+        /// </summary>
+        private static IReadOnlyDictionary<string, IReadOnlyList<RecordedAnswer<T>>> ReadAnswers<T>(
+            JToken? token,
+            string name,
+            JsonSerializer serializer,
+            IReadOnlyList<DemonstrationNode> nodes,
+            Func<T, string, bool> acceptable)
+            where T : class
+        {
+            var answers = new Dictionary<string, IReadOnlyList<RecordedAnswer<T>>>();
+            if (token == null) return answers;
+            if (!(token is JObject byExecution)) throw new InvalidDataException("The demonstration's " + name + " answers are not keyed by execution.");
+            foreach (var property in byExecution.Properties())
+            {
+                var list = new List<RecordedAnswer<T>>();
+                foreach (var item in property.Value as JArray ?? throw Missing(name + " answers of " + property.Name))
+                {
+                    var index = item.Value<int?>("node") ?? throw Missing("node of an answer");
+                    var after = item.Value<int?>("after") ?? throw Missing("after of an answer");
+                    var readAt = item.Value<string>("read_at") ?? throw Missing("read_at of an answer");
+                    var response = item["response"]?.ToObject<T>(serializer) ?? throw Missing("response of an answer");
+                    if (index < 0 || index >= nodes.Count) throw new InvalidDataException("An answer names no node of the demonstration.");
+                    var events = nodes[index].Events;
+                    if (after < 1 || after > events.Count || (after < events.Count && events[after].At == events[after - 1].At))
+                    {
+                        throw new InvalidDataException("A recorded " + name + " answer holds from where no instant of the recording ends.");
+                    }
+                    var previous = list.Count == 0 ? null : list[list.Count - 1];
+                    if (previous != null && previous.Node == index && previous.After >= after)
+                    {
+                        throw new InvalidDataException("The recorded " + name + " answers of " + property.Name + " are out of order.");
+                    }
+                    if (!acceptable(response, property.Name))
+                    {
+                        throw new InvalidDataException("A recorded " + name + " answer is not a simulated source's answer about " + property.Name + ".");
+                    }
+                    if (!DateTimeOffset.TryParse(readAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at))
+                    {
+                        throw new InvalidDataException("A recorded " + name + " answer has no time it was read.");
+                    }
+                    list.Add(new RecordedAnswer<T>(index, after, at, response));
+                }
+                answers[property.Name] = list;
+            }
+            return answers;
+        }
+
+        private static bool Simulated(UnderstandingResult result) => result switch
+        {
+            AvailableUnderstanding available => available.Understanding.Source.Synthetic,
+            NotFoundUnderstanding notFound => notFound.Reason.Code == NativeIdUnknown,
+            _ => false,
+        };
+
+        private static bool Simulated(EvaluationResult result) => result switch
+        {
+            AvailableEvaluation available => available.Evaluation.Source.Synthetic,
+            NotFoundEvaluation notFound => notFound.Reason.Code == NativeIdUnknown,
+            _ => false,
+        };
+
+        /// <summary>The control plane's own answer while a runtime has not named its session.</summary>
+        private const string NativeIdUnknown = "native_id_unknown";
 
         private static DemonstrationNode ReadNode(JToken entry, JsonSerializer serializer, JournalInfo journal, int index, int count)
         {
@@ -279,12 +431,14 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Every node but the beginning is exactly one answer's, and each continues the journal from
-        /// where its answer was given.
+        /// where its answer was given. Returns, for each node, the node it continues and how far that
+        /// one had played.
         /// </summary>
-        private static void CheckTree(List<DemonstrationNode> nodes, long beginning)
+        private static (int Node, int After)[] CheckTree(List<DemonstrationNode> nodes, long beginning)
         {
             var reached = new bool[nodes.Count];
             var startsAfter = new long[nodes.Count];
+            var parents = new (int Node, int After)[nodes.Count];
             startsAfter[0] = beginning;
             reached[0] = true;
             for (var index = 0; index < nodes.Count; index++)
@@ -300,8 +454,10 @@ namespace Halcyonic.Client
                     if (reached[branch.Node]) throw new InvalidDataException("Node " + branch.Node + " continues more than one answer.");
                     reached[branch.Node] = true;
                     startsAfter[branch.Node] = node.Events[branch.After - 1].Message.Position;
+                    parents[branch.Node] = (index, branch.After);
                 }
             }
+            return parents;
         }
 
         private static void CheckJournal(SnapshotMessage snapshot, JournalInfo journal, string which)

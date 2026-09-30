@@ -96,3 +96,11 @@ CLIs, loopback): `consumer.json` was published, a credential created with `salid
 --json` was accepted, an unknown Claude Code session answered `not_found`, an OpenCode execution
 answered `unavailable` (`runtime_not_observed`), and the feed opened with `resync`. Halcyonic's
 target is Salidium 0.6.0, contract `salidium.consumer` 1.0.
+
+## On the development Mac (2026-09-29)
+
+Salidium 0.6.0's menu bar app was running and its daemon was not: `~/.salidium/consumer.json` did
+not exist, so a control plane there answers `unavailable` (`not_running`). Nothing was started.
+Answers now carry `source.synthetic`, false for everything read from Salidium
+([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md),
+[understanding-and-evaluation.md](understanding-and-evaluation.md)).

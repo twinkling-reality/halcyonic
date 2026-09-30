@@ -56,7 +56,8 @@ files fix asset identities, so commit new ones and keep them.
 - Meta's Camera Rig building block, with a floor-level tracking origin;
 - the Hand Tracking building block, which keeps tracking but no longer draws the hands;
 - Meta's comprehensive interaction rig under the camera rig: hand data, the hands that are drawn,
-  and the hand ray and poke interactors, with its locomotion deactivated;
+  and the hand ray and poke interactors, with its locomotion deactivated and its hand rays seated
+  (`SeatedHandRay` in place of the SDK's `HandPointerPose`);
 - Meta's eye gaze with a gaze conecaster beside the rig's HMD, emulating gaze with the head's
   direction;
 - the Halcyonic stage object, with the connection, the characters, the focus guard and the
@@ -74,8 +75,38 @@ without hand visuals to hide and without hand interaction.
 ```
 
 It adds the rig the way the Interaction SDK's "Interactions Rig" building block does, and the gaze
-the way the SDK's gaze quick action does, and changes nothing when run again. If a newer SDK renames the objects it adjusts, it stops and logs the rig's
-hierarchy instead of saving the scene.
+the way the SDK's gaze quick action does, seats the rig's two hand rays, and changes nothing when
+run again. If a newer SDK renames the objects it adjusts, it stops and logs the rig's hierarchy
+instead of saving the scene.
+
+The Meta XR Simulator renders nothing on this Mac, so the workspace's layout and opacity are
+checked by rendering them in the editor: **Halcyonic > Render the Workspace Over the Stage**, or in
+batch mode, without `-quit`, since it exits by itself, with status 1 when a check fails:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.WorkspaceRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-render.log
+```
+
+It opens the workspace for the character that needs the person, with six characters 2.4 m away
+and again on a desk half a meter away, saves `far.png`, `desk.png` and each part alone in
+`apps/xr/Builds/WorkspaceRenders`, and logs where the workspace opened. It fails if a pixel of the
+workspace changes when the stage behind it is drawn, if a character's body is behind it, or if its
+center leaves the comfortable band. It then shows the Understanding and Evaluation sections with
+the bundled demonstration's answers, at the story's approval and after approving, and saves
+`far-understanding.png`, `desk-evaluation-after-approving.png` and so on, each with a
+`-closeup.png` at a Quest 3's 25 pixels per degree, for judging legibility (`far-closeup.png` is
+the activity). It fails if a section lets the stage show through, a line does not fit, or a part's
+availability, coverage and freshness is cut short, and it checks on real labels that source text
+shows exactly as written and that a quote cut short ends in an ellipsis. It works in a new, unsaved
+scene, and leaves the committed TextMeshPro font assets as they were, which drawing text in the
+editor would otherwise upgrade and save; characters the static atlas lacks, such as the minus sign
+in a change summary, are drawn from it as look-alikes for the render only, and the log names them.
+
+Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
+Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
+shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
+verdict from the log (`Halcyonic: workspace render: ...`, `Halcyonic: stage interaction set up.`,
+`Build Finished, Result: Success.`) rather than from the exit status.
 
 Text in the workspace is TextMeshPro. Its essential resources are committed in
 `Assets/TextMesh Pro`, imported from the builtin `com.unity.ugui` package, without the EmojiOne
@@ -284,8 +315,11 @@ The token survives reinstalls. The control plane logs `realtime client connected
 - **Stage placement:** in the real room the stage stands on the surface the room placement found
   (`Halcyonic: room placed the stage on the surface, because ...`) and stays there through
   recenters. Otherwise it places itself in front of the person when the session starts, after a
-  recenter or a boundary change, and when the app resumes, and the app's log says why
-  (`placed the stage in front of the person because ...`). If it is still out of view, recenter:
+  recenter, after a pause, and after a jump of the tracking space no head makes, and the app's log
+  says why (`placed the stage in front of the person because ...`). Reference space changes that
+  move nothing, which come in bursts while system windows take and give back focus, leave it where
+  it is (`kept the stage where it stands: ...`), and a tracking space that moves takes the stage
+  with it (`moved the stage with the tracking space ...`). If it is still out of view, recenter:
   look at a palm, then pinch and hold the Meta icon.
 - **Logs:** `adb logcat -s Unity` is the app's log: its `Halcyonic:` lines say whether the control
   plane or the demonstration is shown, and each change of connection status, and its
@@ -324,23 +358,37 @@ with a broken pipe error before it answers:
 pnpm demo | sed '/approval requested/q'
 ```
 
-Run it again for each approval you need. Check seated as well as standing, and never pick up a
-controller. Then, in the headset:
+Run it again for each approval you need. Check seated at a desk, with the characters in the
+virtual space (2.4 m away) and on the desk (the real room), and never pick up a controller. Then,
+in the headset:
 
 - **First time.** On a fresh install, above the character that needs you: a thumb and finger
-  closing into a pinch, and "Pinch to open". It goes after the first open and does not come back.
-- **Peek by looking.** Look at a character without raising a hand: after a moment one line
-  appears beside it, what it needs from you ("Approval needed to use bash: …") or what it did
-  last, agent text as "Agent says: “…”", and the character turns to look at you. It goes when you
-  look away.
-- **Peek by pointing.** Point an open hand at a character until its ray touches it: the same line.
-- **Open.** Pinch while pointing: the workspace grows out of the character to about two feet in
-  front of you, below it (clear of a character that needs you, which has risen toward your eyes),
-  a ring marks the character and a line joins them, and the character turns to look at you. All of it is in the middle of your
-  view. It shows the title, the status in words, the execution and its runtime, the objective,
-  the approval explained, the buttons offered, and the recent activity, including what happened
-  before the app started (otherwise the activity caption says why the history is unavailable).
-  Looking at other characters while it is open peeks nothing; pointing at them still does.
+  closing into a pinch, and "Look, then pinch". It goes after the first open, whichever way, and
+  does not come back.
+- **Calm peek.** Turn your head slowly, then quickly, across the stage, left and right: no line
+  appears. Rest your gaze on one character: after about half a second one line fades in beside it,
+  what it needs from you ("Approval needed to use bash: …") or what it did last, agent text as
+  "Agent says: “…”", and the character turns to look at you. Glance aside briefly: it stays. Look
+  away: it fades out. Only one line ever shows, and a character off to the side of where your head
+  points does not peek.
+- **Look and pinch.** With a character's line showing and your hands relaxed, in your lap, on the
+  armrest or on the desk, pinch with either hand: the workspace opens. With a hand ray on a button
+  or another character, a pinch does what the ray points at instead. A pinch while looking at your
+  palm, the headset's menu gesture, opens nothing.
+- **Relaxed rays.** Seated, forearm resting, hand a little above the desk, palm turned sideways or
+  away: the ray reaches the characters, 2.4 m away or on the desk, without raising your hand to
+  your shoulder, and pointing at one brings up its line at once. Rest your hands palm down on the
+  desk or the keyboard, and type: no ray and no line. Note whether pointing felt natural, and
+  whether a ray ever appeared while typing.
+- **Open.** Pinch while pointing, or look and pinch: the workspace grows out of the character to
+  about two feet in front of you, a ring marks the character and a line joins them, and the
+  character turns to look at you. With the characters 2.4 m away it opens below them, over their
+  labels but none of their bodies; on the desk it opens above them, clear of the desk. Every other
+  character stays in view, and no label or character shows through the workspace. It shows the
+  title, the status in words, the execution and its runtime, the objective, the approval
+  explained, the buttons offered, and the recent activity, including what happened before the app
+  started (otherwise the activity caption says why the history is unavailable). Looking at other
+  characters while it is open peeks nothing; pointing at them still does.
 - **Approve.** Pinch Approve: the row asks "Approve this request? bash: …", with Cancel and "Yes,
   approve" at the far right. Pinch "Yes, approve": Requests reads "Sending to the control
   plane…", then "Answering the approval…", then "Approval answered" once the runtime confirmed;
@@ -353,16 +401,52 @@ controller. Then, in the headset:
   hands pause. Type, press Enter: "Sending the instruction…", then "Instruction delivered", and the
   activity shows the mock runtime's new turn. Note whether the keyboard appeared and could be used
   with hands.
-- **Collapse.** Pinch Collapse, top right, or pinch the character again: the workspace shrinks back
-  into the character.
-- **Poke.** Seated, poke the workspace's buttons without leaning. Step up to a character and push a
-  fingertip into the front of its body: it opens.
+- **Collapse.** Pinch Collapse, top right, or point at the character and pinch again: the
+  workspace shrinks back into the character.
+- **Understanding and Evaluation.** Under the actions, three tabs: Activity, chosen, with a bar
+  under it, then Understanding and Evaluation. Pinch Understanding, then poke Evaluation: each shows
+  in place of the activity, with Refresh at the right. With the mock runtime they say, in words,
+  "Understanding unavailable: Salidium does not observe sessions of the mock runtime." and
+  "Evaluation unavailable: Seorak does not observe sessions of the mock runtime." Stop `pnpm dev`
+  and pinch Refresh: the line says the answer could not be read again, and why. Pinch Approve from a
+  section: the details return to Activity, where the request shows. Every line readable, 2.4 m away
+  (the workspace below the characters) and on the desk (above them), without leaning in.
+- **Poke.** Seated, poke the workspace's buttons without leaning. On the desk, push a fingertip into
+  the front of a character's body: it opens; typing in front of the characters brings up no line.
 - **Focus.** With the workspace open, open the system menu: hands, rays and the peek go, nothing
   can be pressed; close it and they return.
 - **Disconnected.** Stop `pnpm dev`: the status adds "last known", and the buttons give way to
   "Nothing can be sent until the connection is live again."; restart it and they return.
 - **Legible.** Every line readable where the workspace opens, and the peek at the character's
   distance, without leaning in.
+- **Hands.** Halcyonic's hands are the Interaction SDK's: a dark, translucent fill with a grey
+  outline, which in a dark space shows mostly as grey outlines. They vanish while another app or
+  the system menu has input focus.
+
+With Virtual Display showing the Mac, in the virtual space (the characters 2.4 m away), following
+the stage in the log:
+
+```bash
+adb logcat -s Unity | grep --line-buffered "Halcyonic: .*stage"
+```
+
+- **Windows and the stage.** Open Virtual Display, then point back and forth between its screen and
+  the characters for a minute: the characters never move. The log shows lines like `kept the stage
+  where it stands: the reference space changed 12 times during focus changes and nothing moved`,
+  and no `placed the stage in front of the person` after the first.
+- **Returning focus.** With Halcyonic unfocused after using a screen, point at the characters or the
+  space around them, away from every window, and pinch: Halcyonic's hands and rays return. If they
+  do not, look at a palm, pinch the Meta icon, then close the menu. Note which worked, and do the
+  same after minimizing the screens.
+- **Look and pinch past a window.** With a screen in front of a character, rest your gaze on the
+  character until its line shows, and pinch with a hand resting on the desk: note whether the
+  character opens or the screen takes focus. With a workspace open where a screen overlaps it,
+  note whether the screen hides the workspace.
+- **Recenter.** Turn 45 degrees in the chair and recenter (look at a palm, pinch and hold the Meta
+  icon): the characters come in front of you, and the log says `moved the stage with the tracking
+  space ...` and then `placed the stage in front of the person because the person recentered ...`.
+  If it says `the tracking space moved during a focus change` instead, the recenter came with a
+  focus change and the stage stayed where it was: note it.
 
 ### The demonstration judges see
 
@@ -399,6 +483,20 @@ Then, with hands only:
 - **Deny** instead: the agent says it did not run the migration; Instruct then offers "Keep them in
   memory", which also ends with the tests passing. **Stop the turn**, at any moment while it works
   or waits: "Stopped".
+- **Understanding.** At the approval, pinch Understanding: the first line reads "Simulated, not from
+  Salidium · recorded at" and a time, then "Waiting for you. Run make migrate …" tagged observed,
+  "Agent says: “…”" tagged reported, the two files changed, and "2 files not checked after the last
+  change" tagged inferred. Approve: the details return to Activity. Once the turn has ended, pinch
+  Understanding again: "1 test failing", "Tests failed: 1 failed, 23 passed …", and an explanation
+  tagged explained. Left open while the work goes on, it follows by itself within about two seconds
+  of each change. The change summary shows a minus sign, "(+71 −0)", not an empty box: that glyph
+  comes from the dynamic fallback font.
+- **Evaluation.** Pinch Evaluation: "Simulated, not from Seorak · recorded at …", the cost as "About
+  $0.20. Estimated from token counts at list prices. Not a bill.", and under each of the cost, the
+  outcome and the checks its own availability, coverage and freshness; before the first turn ends,
+  the outcome reads "Nothing measured yet." and "unavailable: not yet computed …". It changes only
+  when you pinch Refresh. Opened for the two finished characters beside the story, both sections show
+  their own simulated answers.
 - **The end.** Once the story has ended, the line adds "This recording has ended and starts again
   shortly.", and the workspace says nothing can be sent. About 20 seconds later the characters go
   back to "Not started" and it plays again, with no "Disconnected" and no "last known" on the
@@ -480,5 +578,51 @@ Where things are missing:
   app has focus (covering its cameras may do it; how to cause it reliably is not known), "Lost
   track of your desk, so your agents stand in front of you."; once the anchor is tracked again,
   the characters return to the desk.
+
+### Sound checks on a Quest
+
+The Glaze cues ([XR_CLIENT.md](../architecture/XR_CLIENT.md), under "Sound"), through the headset's
+own speakers, seated at the desk, hands only. Set the headset's volume where you would keep it for
+hours. Follow the cues in the log, which names each cue, its place and its note, never a workstream:
+
+```bash
+adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
+```
+
+- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 79 clips rendered at 48000 Hz in
+  ... ms on a worker thread, 17.7 MiB of samples, ...`. Record the milliseconds and the rate: the
+  Quest 3's render time is not measured yet. `adb logcat -s VrApi` stays at 72 fps while it renders.
+- **Silence while work goes well.** With the demonstration, nothing sounds while characters work,
+  run tests or wait, except a soft double tap when work starts and four muted taps when a test run
+  starts. Nothing loops, and a character that keeps working stays silent.
+- **Needs you.** Two strikes rising, the second ringing on, from the character that rises and turns
+  to you. It is the loudest cue, yet not alarming.
+- **Finished.** The pair falling onto the character's own note, with nothing celebratory about it,
+  also when its tests failed.
+- **Your actions.** Open a character (pinch, or look and pinch): a chord unfolding in front of you.
+  Approve, and confirm: two notes struck together in front of you, then later, from the character,
+  the soft double tap as it works again. Collapse: the chord folding back. Instruct and Stop the
+  turn sound too; Stop's result is the character's own caught strike once the recording or the
+  runtime confirms it. An instruction typed on the system keyboard sounds its three light taps as
+  the keyboard closes and the app has focus again.
+- **Where each sounds from.** Turn your head: each character's cues come from where it stands, on
+  the desk and after "Show a virtual space" 2.4 m away, at about the same level in both. Characters
+  on the left sound from the left, and each keeps its own note while it is shown, the lowest on the
+  left when they first appear.
+- **Together.** At the demonstration's beginning two characters start at once: their cues come one
+  after the other, never on top of each other.
+- **Last known.** With the control plane live (`pnpm dev` and `adb reverse`), stop `pnpm dev`: once,
+  all six notes as if through a wall, from the whole stage; nothing more while it retries.
+  Restart it: nothing sounds for coming back. Changes the resumed session delivers sound, such as
+  work the restart left in an unknown state; a session that starts from a snapshot instead is
+  silent.
+- **Starting again and sleep.** When the demonstration starts again, and after the headset slept
+  and woke, nothing sounds for the jump back: no Last known, no burst of cues.
+- **Focus.** Open the system menu while a character is about to change: no cue plays while the menu
+  has focus, and none plays late after you close it. Open Virtual Display and work on the Mac: the
+  characters are silent while its windows have focus. Note whether that silence is what you want
+  while you work beside them ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- **Over time.** After an hour beside the characters: were the cues noticed, never annoying, and
+  distinct enough to tell which character spoke by its place and note?
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

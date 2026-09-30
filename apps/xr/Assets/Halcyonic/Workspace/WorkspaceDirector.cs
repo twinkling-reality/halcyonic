@@ -11,36 +11,20 @@ namespace Halcyonic.XR.Workspace
 {
     /// <summary>
     /// Three levels of detail for the same work, all in place. Ambient: the characters as the stage
-    /// shows them. Peek: while the person looks at a character, or a hand points at it, one line
-    /// beside it. Open: a pinch on the ray, or a poke, opens the workspace next to that character,
-    /// within reach; collapsing returns to ambient. Everything shown comes from the client core
-    /// (WorkspacePresenter, WorkspaceText) and the session; commands go through WorkspaceSteering
-    /// and RealtimeSession.SubmitAsync, and a result is shown as done only when the control plane's
-    /// record says the runtime confirmed it. No peek, hint or input while the app lacks focus
-    /// (<see cref="FocusGuard"/>).
+    /// shows them. Peek: once the person's gaze rests on a character, or at once while a hand points
+    /// at it, one line beside it (<see cref="PeekChoice"/>). Open: a pinch on the ray, a poke, or a
+    /// pinch of either hand while the gaze peek shows (look and pinch) opens the workspace next to
+    /// that character, within reach and clear of the others; collapsing returns to ambient.
+    /// Everything shown comes from the client core (WorkspacePresenter, WorkspaceText) and the
+    /// session; commands go through WorkspaceSteering and RealtimeSession.SubmitAsync, and a result
+    /// is shown as done only when the control plane's record says the runtime confirmed it. No peek,
+    /// hint or input while the app lacks focus (<see cref="FocusGuard"/>).
     /// </summary>
     [RequireComponent(typeof(ControlPlaneConnection), typeof(CharacterStage))]
     public sealed class WorkspaceDirector : MonoBehaviour
     {
-        /// <summary>
-        /// About two feet from the eyes: within a seated person's reach, so the workspace's buttons
-        /// can be poked without leaning or standing, and near enough to read at its scaled size.
-        /// </summary>
-        private const float Reach = 0.6f;
-
-        /// <summary>The angle between the character and the workspace's nearest edge.</summary>
-        private const float ClearanceDegrees = 3f;
-
-        /// <summary>The workspace opens no farther than this to the side of where the person looks.</summary>
-        private const float MaxSideDegrees = 15f;
-
-        /// <summary>Its center stays between these heights, in degrees from the eyes' level: the comfortable middle.</summary>
-        private const float LowestDegrees = -24f;
-
-        private const float HighestDegrees = 2f;
-
-        /// <summary>Farther than a character's own motion: the stage moved it.</summary>
-        private const float MovedFar = 0.3f;
+        /// <summary>Farther than a character's own motion, in its units: the stage moved it.</summary>
+        private const float MovedFar = 1.5f * CharacterView.BodyRadius;
 
         private const float NoticeSeconds = 8f;
         private const float RefreshSeconds = 0.5f;
@@ -56,12 +40,25 @@ namespace Halcyonic.XR.Workspace
         private CommandFactory commands = null!;
         private PeekLabel peek = null!;
         private OnboardingHint hint = null!;
-        private CharacterTarget? peeked;
+        private readonly PeekChoice peekChoice = new PeekChoice();
+        private readonly List<BodyInView> bodies = new List<BodyInView>();
+        private GazeHover? gaze;
+        private CharacterTarget? pointed;
+        private CharacterTarget? facing;
+        private string? peekLineFor;
+        private string peekLine = "";
         private Opened? opened;
         private string? journalId;
         private ControlPlaneApi? api;
         private int shownSubmissions = -1;
         private float nextRefresh;
+
+        /// <summary>
+        /// Raised with the workstream when the person opens its workspace, collapses it, or sends a
+        /// command from it; the stage's sound follows it. A command raises it once handed to the
+        /// session: sent, not confirmed, since the runtime's answer arrives later in the state.
+        /// </summary>
+        public event Action<string, WorkspaceAct>? Acted;
 
         private void Awake()
         {
@@ -92,9 +89,14 @@ namespace Halcyonic.XR.Workspace
 
         private void Start()
         {
-            if (GazeHover.Create(transform) == null)
+            gaze = GazeHover.Create(transform, () => peekChoice.PinchTarget);
+            if (gaze == null)
             {
                 Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", "no gaze in this scene, so only hands peek");
+            }
+            else if (gaze.Hands == 0)
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", "no seated hand rays in this scene, so the gaze peeks but a pinch does not open");
             }
             // Characters the stage created before this component subscribed.
             var session = connection.Session;
@@ -112,10 +114,9 @@ namespace Halcyonic.XR.Workspace
             if (targets.TryGetValue(workstreamId, out var existing) && existing != null && existing.View == view) return;
             var target = CharacterTarget.Attach(view, workstreamId);
             targets[workstreamId] = target;
-            target.Ray.HoverChanged += () => OnHoverChanged(target);
-            target.Poke.HoverChanged += () => OnHoverChanged(target);
             target.Ray.Selected += () => OnSelected(target);
             target.Poke.Selected += () => OnSelected(target);
+            target.Ray.GazeSelected += () => OnLookAndPinch(target);
         }
 
         private void OnChanged(StateChanges changes)
@@ -144,7 +145,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (opened != null && opened.Character == null) Close(immediately: true);
             if (opened != null && opened.Transition != null
-                && Vector3.Distance(opened.Transition.PlacedBeside, opened.Character!.BodyPosition) > MovedFar)
+                && Vector3.Distance(opened.Transition.PlacedBeside, opened.Character!.BodyPosition) > MovedFar * opened.Character.Scale)
             {
                 // The stage moved the character, for example after a recenter: the workspace follows.
                 var (place, scale) = PlaceBeside(opened.Character);
@@ -152,13 +153,15 @@ namespace Halcyonic.XR.Workspace
             }
             PollKeyboard();
             if (submissions.Version != shownSubmissions || Time.unscaledTime >= nextRefresh) Refresh();
+            UpdatePeek();
         }
 
         private void Refresh()
         {
             nextRefresh = Time.unscaledTime + RefreshSeconds;
             shownSubmissions = submissions.Version;
-            RefreshPeek();
+            // The peek's line is written again on its next frame.
+            peekLineFor = null;
             RefreshHint();
             RefreshPanel();
         }
@@ -170,35 +173,59 @@ namespace Halcyonic.XR.Workspace
             return WorkspacePresenter.Present(workstream, session.State, activity, session.Status.IsLive, submissions);
         }
 
-        private void OnHoverChanged(CharacterTarget target)
-        {
-            FacePerson(target, target.Hovered || opened?.Character == target);
-            RefreshPeek();
-        }
-
         /// <summary>
-        /// Which character to peek at: one a hand points at wins; otherwise, in the ambient view, the
-        /// one the person looks at. While a workspace is open the gaze reads it, not what is behind it.
+        /// Every frame, since peeks fade: tells <see cref="PeekChoice"/> what the hands and the gaze
+        /// are on, shows the peek it chooses, and turns that character, and an open one, to the
+        /// person. Allocates nothing unless the peek's line changes.
         /// </summary>
-        private CharacterTarget? ChoosePeek()
+        private void UpdatePeek()
         {
-            if (peeked != null && peeked.HandHovered) return peeked;
-            var pointed = targets.Values.FirstOrDefault(target => target != null && target.HandHovered);
-            if (pointed != null || opened != null) return pointed;
-            if (peeked != null && peeked.GazeHovered) return peeked;
-            return targets.Values.FirstOrDefault(target => target != null && target.GazeHovered);
+            var head = WorkspaceVisuals.Head;
+            var headForward = head != null ? head.forward : Vector3.forward;
+            // A hand keeps the character it points at until it leaves, then takes any other.
+            if (pointed == null || !pointed.HandHovered) pointed = null;
+            CharacterTarget? gazed = null;
+            foreach (var target in targets.Values)
+            {
+                if (target == null) continue;
+                if (pointed == null && target.HandHovered) pointed = target;
+                if (gazed == null && target.GazeHovered) gazed = target;
+            }
+            var input = new PeekInput
+            {
+                Suspended = FocusGuard.InputSuspended,
+                Open = opened?.Character.WorkstreamId,
+                Pointed = pointed?.WorkstreamId,
+                HandOnTarget = PointerTarget.AnyHandOnTarget,
+                Gazed = gazed?.WorkstreamId,
+                GazedOffCenter = gazed != null ? Vector3.Angle(headForward, gazed.BodyPosition - WorkspaceVisuals.HeadPosition) : 0f,
+                HeadForward = new System.Numerics.Vector3(headForward.x, headForward.y, headForward.z),
+            };
+            peekChoice.Update(input, Time.unscaledTime);
+
+            var shown = peekChoice.Shown != null && targets.TryGetValue(peekChoice.Shown, out var peeked) ? peeked : null;
+            if (shown != null && peekLineFor != shown.WorkstreamId)
+            {
+                var presentation = Present(shown.WorkstreamId);
+                peekLineFor = shown.WorkstreamId;
+                peekLine = presentation == null ? "" : WorkspaceText.Peek(presentation);
+            }
+            if (shown == null || peekLine.Length == 0) peek.Hide();
+            else peek.Show(shown, peekLine, peekChoice.Opacity);
+
+            // The character whose peek is wanted looks at the person, as does the open one.
+            var wanted = peekChoice.Wanted != null && targets.TryGetValue(peekChoice.Wanted, out var looking) ? looking : null;
+            if (wanted == facing) return;
+            if (facing != null) FacePerson(facing, opened?.Character == facing);
+            facing = wanted;
+            if (facing != null) FacePerson(facing, true);
         }
 
-        private void RefreshPeek()
+        /// <summary>A look and pinch: the gaze interactor selected a character on a pinch, while its gaze peek showed.</summary>
+        private void OnLookAndPinch(CharacterTarget target)
         {
-            peeked = FocusGuard.InputSuspended ? null : ChoosePeek();
-            var presentation = peeked == null || opened?.Character == peeked ? null : Present(peeked.WorkstreamId);
-            if (presentation == null || peeked == null)
-            {
-                peek.Hide();
-                return;
-            }
-            peek.Show(peeked, WorkspaceText.Peek(presentation));
+            if (opened != null || gaze == null || gaze.Armed != target.WorkstreamId) return;
+            Open(target);
         }
 
         /// <summary>
@@ -227,7 +254,7 @@ namespace Halcyonic.XR.Workspace
             var reopen = opened?.Character != target;
             Close(immediately: false);
             if (reopen) Open(target);
-            RefreshPeek();
+            else Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
         }
 
         private void Open(CharacterTarget target)
@@ -244,6 +271,8 @@ namespace Halcyonic.XR.Workspace
             var transition = WorkspaceTransition.Begin(root, target, place, scale);
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
+            Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
+            WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader);
             panel.Accepting = () => opened == workspace && transition.Open;
             panel.ActionPressed += action => Steer(workspace, s => s.Press(action, workspace.Now!));
             panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
@@ -262,8 +291,8 @@ namespace Halcyonic.XR.Workspace
             };
             panel.CollapsePressed += () =>
             {
+                Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
                 Close(immediately: false);
-                RefreshPeek();
             };
             FacePerson(target, true);
             ReadHistory(workspace);
@@ -271,48 +300,16 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Within reach, in the direction of the character and next to it in view, clear of its body:
-        /// below it, or above it where below would leave the comfortable band (<see cref="Nearer"/>).
-        /// The workspace keeps near the middle of the view (at most <see cref="MaxSideDegrees"/> to
-        /// the side of where the person looks, and between <see cref="LowestDegrees"/> and
-        /// <see cref="HighestDegrees"/>), faces the eyes, and is scaled to its designed angular size.
+        /// Within reach, toward the character, facing the eyes, scaled to its designed angular size,
+        /// and clear of every character's body, below the ones it passes or above them, in the
+        /// comfortable band and never into the surface they stand on (<see cref="WorkspaceLayout"/>).
         /// </summary>
-        private static (Pose Place, float Scale) PlaceBeside(CharacterTarget target)
+        private (Pose Place, float Scale) PlaceBeside(CharacterTarget target)
         {
-            var head = WorkspaceVisuals.HeadPosition;
-            var toCharacter = target.BodyPosition - head;
-            var flat = new Vector3(toCharacter.x, 0f, toCharacter.z);
-            var characterSide = flat.sqrMagnitude > 1e-6f ? Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg : 0f;
-            var characterHeight = Mathf.Atan2(toCharacter.y, Mathf.Max(flat.magnitude, 0.01f)) * Mathf.Rad2Deg;
-
-            var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : flat;
-            var lookingSide = Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg;
-            var side = lookingSide + Mathf.Clamp(Mathf.DeltaAngle(lookingSide, characterSide), -MaxSideDegrees, MaxSideDegrees);
-
-            var scale = Reach / WorkspaceVisuals.PanelDistance;
-            var halfHeight = Mathf.Atan2(WorkspacePanel.Height / 2f, WorkspaceVisuals.PanelDistance) * Mathf.Rad2Deg;
-            // Clear of the character's body, whatever size the stage gives it.
-            var bodyDegrees = Mathf.Atan2(CharacterView.BodyRadius * target.Scale, Mathf.Max(toCharacter.magnitude, 0.1f)) * Mathf.Rad2Deg;
-            var offset = bodyDegrees + ClearanceDegrees + halfHeight;
-            var height = Nearer(characterHeight - offset, characterHeight + offset);
-
-            var direction = Quaternion.Euler(-height, side, 0f) * Vector3.forward;
-            var center = head + direction * Reach;
-            return (new Pose(center, Quaternion.LookRotation(direction, Vector3.up)), scale);
-        }
-
-        /// <summary>
-        /// Below or above the character: whichever stays in the comfortable band, the lower one when
-        /// both do; when neither does, the one that needs less moving, moved into the band, which may
-        /// then cover part of the character.
-        /// </summary>
-        private static float Nearer(float below, float above)
-        {
-            bool Fits(float height) => height >= LowestDegrees && height <= HighestDegrees;
-            if (Fits(below)) return below;
-            if (Fits(above)) return above;
-            float Moving(float height) => Mathf.Abs(height - Mathf.Clamp(height, LowestDegrees, HighestDegrees));
-            return Mathf.Clamp(Moving(below) <= Moving(above) ? below : above, LowestDegrees, HighestDegrees);
+            var eyes = WorkspaceVisuals.HeadPosition;
+            var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : target.BodyPosition - eyes;
+            var (pose, _) = WorkspaceLayout.Place(target, targets.Values, eyes, looking, stage.SurfaceHeight, bodies);
+            return (pose, WorkspaceLayout.Scale);
         }
 
         private void Close(bool immediately)
@@ -321,7 +318,7 @@ namespace Halcyonic.XR.Workspace
             if (closing == null) return;
             opened = null;
             CloseKeyboard(closing);
-            if (closing.Character != null) FacePerson(closing.Character, closing.Character.Hovered);
+            if (closing.Character != null) FacePerson(closing.Character, closing.Character == facing);
             // Gone already when its character left the stage.
             if (closing.Transition != null) closing.Transition.Collapse(immediately || closing.Character == null);
         }
@@ -425,6 +422,7 @@ namespace Halcyonic.XR.Workspace
             }
             workspace.Notice = null;
             Report(submissions.SubmitAsync(sent => session.SubmitAsync(sent), command, execution.ExecutionId));
+            if (WorkspaceActs.Of(command) is WorkspaceAct act) Acted?.Invoke(workspace.Character.WorkstreamId, act);
         }
 
         private static void Notify(Opened workspace, string notice)
@@ -483,6 +481,15 @@ namespace Halcyonic.XR.Workspace
             if (workspace.Keyboard == null) return;
             workspace.Keyboard.active = false;
             workspace.Keyboard = null;
+        }
+
+        /// <summary>Where the workspace's sections read: the recorded demonstration while it is shown, else the control plane.</summary>
+        private IIntelligenceReader? IntelligenceReader()
+        {
+            if (connection.DemonstrationReads is DemonstrationReads recorded) return recorded;
+            if (api != null) return api;
+            var token = ControlPlaneSettings.ReadAccessToken();
+            return token == null ? null : api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(ControlPlaneSettings.Endpoint), token);
         }
 
         /// <summary>Reads the workstream's history, which a snapshot does not carry, into the activity.</summary>

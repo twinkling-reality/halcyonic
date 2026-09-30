@@ -21,6 +21,7 @@ namespace Halcyonic.XR.Workspace
 
         private const float FlashSeconds = 0.18f;
 
+        private float height = Height;
         private SpriteRenderer plate = null!;
         private TextMeshPro label = null!;
         private PointerTarget target = null!;
@@ -36,15 +37,18 @@ namespace Halcyonic.XR.Workspace
 
         public float Width { get; private set; }
 
-        public static PanelButton Create(Transform parent, string name)
+        /// <param name="height">The button's height; a smaller one, such as a tab's, suits a secondary control.</param>
+        /// <param name="textSize">The label's size, <see cref="WorkspaceVisuals.BodySize"/> unless given.</param>
+        public static PanelButton Create(Transform parent, string name, float height = Height, float textSize = WorkspaceVisuals.BodySize)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var button = go.AddComponent<PanelButton>();
-            button.plate = WorkspaceVisuals.Plate(go.transform, "Plate", new Vector2(0.1f, Height), WorkspaceVisuals.ButtonColor, WorkspaceVisuals.PanelControlOrder);
-            button.label = WorkspaceVisuals.Text(go.transform, "Label", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor,
-                new Vector2(0.1f, Height), TextAlignmentOptions.Center, order: WorkspaceVisuals.PanelTextOrder);
-            button.target = PointerTarget.Rectangle(go, new Vector2(0.1f, Height), ray: true, poke: true);
+            button.height = height;
+            button.plate = WorkspaceVisuals.Plate(go.transform, "Plate", new Vector2(0.1f, height), WorkspaceVisuals.ButtonColor, WorkspaceVisuals.PanelControlOrder);
+            button.label = WorkspaceVisuals.Text(go.transform, "Label", textSize, WorkspaceVisuals.TextColor,
+                new Vector2(0.1f, height), TextAlignmentOptions.Center, order: WorkspaceVisuals.PanelTextOrder);
+            button.target = PointerTarget.Rectangle(go, new Vector2(0.1f, height), ray: true, poke: true);
             button.target.Selected += button.OnSelected;
             go.SetActive(false);
             return button;
@@ -59,10 +63,10 @@ namespace Halcyonic.XR.Workspace
             var changed = !gameObject.activeSelf || label.text != text;
             label.text = text;
             Width = width;
-            var size = new Vector2(Width, Height);
+            var size = new Vector2(Width, height);
             plate.size = size;
             label.rectTransform.sizeDelta = size;
-            label.rectTransform.localPosition = new Vector3(-Width / 2f, Height / 2f, -0.001f);
+            label.rectTransform.localPosition = new Vector3(-Width / 2f, height / 2f, -0.001f);
             target.Resize(size);
             normal = confirm ? WorkspaceVisuals.ConfirmColor : WorkspaceVisuals.ButtonColor;
             hover = confirm ? WorkspaceVisuals.ConfirmHoverColor : WorkspaceVisuals.ButtonHoverColor;
