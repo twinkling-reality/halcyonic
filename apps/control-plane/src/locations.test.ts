@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { compileValidator, LocationsResponse, MAX_LOCATION_FOLDERS } from '@halcyonic/contracts';
-import { createHostLocations } from './locations.ts';
+import { createHostLocations, MAX_SCANNED_ENTRIES } from './locations.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-locations-')));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -65,6 +65,21 @@ describe('listing where projects may live', () => {
     const [only] = locations.list().roots;
     assert.equal(only?.folders.length, MAX_LOCATION_FOLDERS);
     assert.equal(only?.folders_truncated, true);
+  });
+
+  test('a root holding more entries than are read is listed as truncated', () => {
+    const { root, locations } = layout('crowded');
+    for (let index = 0; index < MAX_SCANNED_ENTRIES; index += 1) {
+      writeFileSync(join(root, `file-${index}`), '');
+    }
+    const [only] = locations.list().roots;
+    assert.equal(only?.status, 'available');
+    assert.equal(
+      only?.folders_truncated,
+      true,
+      'the app folder and 10,000 files are 10,001 entries',
+    );
+    assert.ok((only?.folders.length ?? 0) <= 1);
   });
 
   test('a root that has gone is listed as missing, with nothing in it', () => {

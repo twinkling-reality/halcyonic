@@ -1,4 +1,12 @@
-import { lstatSync, mkdirSync, readdirSync, realpathSync, type Stats, statSync } from 'node:fs';
+import {
+  type Dir,
+  lstatSync,
+  mkdirSync,
+  opendirSync,
+  realpathSync,
+  type Stats,
+  statSync,
+} from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import {
   type LocationFolder,
@@ -61,6 +69,8 @@ interface Root {
 }
 
 const NEW_FOLDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+/** The most entries of one root read to list its folders. */
+export const MAX_SCANNED_ENTRIES = 10_000;
 const byName = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 /** `policy` is the host's directory policy over the same roots; a test may pass another. */
@@ -224,19 +234,41 @@ function shown(text: string): string {
   return text.length <= 200 ? text : `${text.slice(0, 199)}…`;
 }
 
+/**
+ * Lists a root's folders from at most `MAX_SCANNED_ENTRIES` of its entries, in the order the file
+ * system gives them, so a root holding a very large number of files cannot hold up the control
+ * plane; a root with more is listed as truncated.
+ */
 function listRoot(root: Root): LocationRoot {
   let available = rootChanged(root) === null;
   let folders: LocationFolder[] = [];
+  let unread = false;
   if (available) {
+    let directory: Dir | null = null;
     try {
-      folders = readdirSync(root.real, { withFileTypes: true })
+      directory = opendirSync(root.real);
+      let scanned = 0;
+      for (let entry = directory.readSync(); entry !== null; entry = directory.readSync()) {
+        if (scanned === MAX_SCANNED_ENTRIES) {
+          unread = true;
+          break;
+        }
+        scanned += 1;
         // A symbolic link reads as one here, never as a directory, so none is listed.
-        .filter((entry) => entry.isDirectory() && singleVisibleSegment(entry.name))
-        .map((entry) => ({ name: entry.name, path: join(root.real, entry.name) }));
+        if (entry.isDirectory() && singleVisibleSegment(entry.name)) {
+          folders.push({ name: entry.name, path: join(root.real, entry.name) });
+        }
+      }
     } catch {
       // A root that cannot be read lists as missing: nothing in it can be used.
       available = false;
       folders = [];
+    } finally {
+      try {
+        directory?.closeSync();
+      } catch {
+        // Already closed.
+      }
     }
   }
   folders.sort((a, b) => byName.compare(a.name, b.name) || (a.name < b.name ? -1 : 1));
@@ -245,7 +277,7 @@ function listRoot(root: Root): LocationRoot {
     name: nameOf(root.real),
     status: available ? 'available' : 'missing',
     folders: folders.slice(0, MAX_LOCATION_FOLDERS),
-    folders_truncated: folders.length > MAX_LOCATION_FOLDERS,
+    folders_truncated: unread || folders.length > MAX_LOCATION_FOLDERS,
   };
 }
 
