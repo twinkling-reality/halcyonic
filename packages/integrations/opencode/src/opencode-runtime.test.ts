@@ -48,7 +48,7 @@ describe('OpenCode runtime descriptor', () => {
     assert.deepEqual(OPENCODE_CAPABILITIES, {
       start_execution: true,
       instruct_at_rest: true,
-      instruct_while_running: false,
+      instruct_while_running: true,
       respond_to_approval: true,
       interrupt: true,
     });

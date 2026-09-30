@@ -417,4 +417,25 @@ describe('OpenCode event decoding', () => {
       message: 'OpenCode reported the execution as failed without a message.',
     });
   });
+
+  test('a delivered inbox item is no longer a steered instruction waiting, and is not reported', () => {
+    const state = createSessionState();
+    state.turn = { id: 'evt_turn' };
+    state.steered.add('msg_steered');
+    state.steered.add('msg_other');
+    const delivered = decodeEvent(
+      JSON.stringify({
+        id: 'evt_d',
+        created: 1,
+        type: 'session.inbox.delivered',
+        data: { sessionID: 's', inboxID: 'msg_steered' },
+      }),
+    );
+    assert.ok(delivered !== null);
+    // Even from a stretch a reconciliation already settled.
+    state.settledThrough = 5;
+    assert.deepEqual(observeEvent(state, delivered, NOW), []);
+    assert.deepEqual([...state.steered], ['msg_other']);
+    assert.deepEqual(state.turn, { id: 'evt_turn' });
+  });
 });

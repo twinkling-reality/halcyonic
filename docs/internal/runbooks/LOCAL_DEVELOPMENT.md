@@ -96,6 +96,46 @@ export HALCYONIC_OPENCODE_BIN="$HOME/.halcyonic/runtimes/opencode-2.0.18/node_mo
 Start executions with the runtime id `opencode` and options such as
 `{"directory": "/Users/you/dev/app", "model": "provider/model"}`; the directory must be under
 `HALCYONIC_PROJECT_ROOTS`. OpenCode uses your own OpenCode configuration and providers.
+
+#### Local models through Ollama
+
+OpenCode lists the models an Ollama server on 127.0.0.1:11434 offers without any configuration;
+name one as `ollama/<tag>`, for example `ollama/qwen3.6:35b-a3b-nvfp4`. A start waits up to 10 s
+for OpenCode to discover it. OpenCode's defaults do not keep work on the Mac, so for local-only
+work put this in `~/.config/opencode/opencode.json` (one `models` entry per model you use):
+
+```json
+{
+  "model": "ollama/qwen3.6:35b-a3b-nvfp4",
+  "permissions": [
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "webfetch", "resource": "*", "effect": "deny" },
+    { "action": "websearch", "resource": "*", "effect": "deny" }
+  ],
+  "providers": {
+    "ollama": {
+      "models": {
+        "qwen3.6:35b-a3b-nvfp4": { "limit": { "context": 65536, "output": 16384 } }
+      }
+    }
+  }
+}
+```
+
+The `model` makes a start without one use the local model instead of OpenCode's free hosted
+default. The permissions make shell commands ask the person, which is how approvals reach
+Halcyonic, and keep the agent from fetching the web. The `limit` tells OpenCode the context Ollama
+actually gives the model (`OLLAMA_CONTEXT_LENGTH`), where it would otherwise assume the model's full
+context. Then, in the control plane's environment:
+
+```bash
+export OPENCODE_DISABLE_MODELS_FETCH=true              # OpenCode fetches its model catalog otherwise
+export HALCYONIC_AGENT_ENV=OPENCODE_DISABLE_MODELS_FETCH
+brew install ripgrep                                   # OpenCode downloads it from GitHub otherwise
+```
+
+What each does, and the speed and memory of the models tried, are in
+[local-models.md](../validation/local-models.md).
 Its end to end tests run against a binary and a fake provider when `OPENCODE_BIN` is set:
 
 ```bash
