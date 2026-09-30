@@ -7443,6 +7443,119 @@
       },
       "additionalProperties": false
     },
+    "UsageLimit": {
+      "type": "object",
+      "required": [
+        "provider",
+        "window",
+        "remaining_percent",
+        "resets_at",
+        "observed_at"
+      ],
+      "properties": {
+        "provider": {
+          "enum": [
+            "codex",
+            "claude-code"
+          ]
+        },
+        "window": {
+          "enum": [
+            "rolling-5h",
+            "weekly"
+          ]
+        },
+        "remaining_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "resets_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UsageLimitsResponse": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "readings"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "readings": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UsageLimit"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unauthorized"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "incompatible"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "ExecutionStatus": {
       "anyOf": [
         {

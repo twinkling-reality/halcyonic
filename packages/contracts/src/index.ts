@@ -8,6 +8,7 @@ export * from './realtime.ts';
 export * from './runtime.ts';
 export * from './schema-document.ts';
 export * from './understanding.ts';
+export * from './usage-limits.ts';
 export * from './validation.ts';
 export * from './versions.ts';
 export * from './views.ts';

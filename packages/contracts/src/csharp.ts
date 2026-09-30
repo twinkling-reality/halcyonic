@@ -31,6 +31,7 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   PairingClientMessage: { discriminator: 'type', suffix: 'Message' },
   PairingServerMessage: { discriminator: 'type', suffix: 'Message' },
   RuntimeModelsResult: { discriminator: 'availability', suffix: 'Models' },
+  UsageLimitsResponse: { discriminator: 'availability', suffix: 'UsageLimits' },
 };
 
 /** The documents a C# client reads or writes. Everything they reference is generated too. */
@@ -48,6 +49,7 @@ const ROOTS: readonly string[] = [
   'ErrorResponse',
   'UnderstandingResponse',
   'EvaluationResponse',
+  'UsageLimitsResponse',
   'PairingClientMessage',
   'PairingServerMessage',
 ];

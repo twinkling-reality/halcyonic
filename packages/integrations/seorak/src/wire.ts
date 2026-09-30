@@ -106,6 +106,34 @@ export const WireSession = Type.Object({
     }),
   ),
 });
+
+/** Account-wide quota snapshots from Seorak's read-only integration API. */
+export const WireUsageLimits = Type.Object({
+  apiVersion: Type.Literal('v1'),
+  availability: Type.Object({
+    state: Type.Enum(['available', 'unavailable']),
+    reason: Nullable(Type.String()),
+  }),
+  freshness: Type.Object({
+    state: Type.Literal('fresh'),
+    generatedAt: Instant,
+    dataThrough: Nullable(Instant),
+    staleAt: Instant,
+  }),
+  readings: Type.Array(Type.Object({
+    tool: Type.String(),
+    period: Type.String(),
+    consumed: Nullable(Type.Number({ minimum: 0 })),
+    unit: Nullable(Type.String()),
+    allowance: Nullable(Type.Number({ minimum: 0 })),
+    usedPercent: Nullable(Type.Number({ minimum: 0, maximum: 100 })),
+    resetsAt: Nullable(Instant),
+    observedAt: Nullable(Instant),
+    source: Type.String(),
+    coverageComplete: Type.Boolean(),
+  })),
+});
+export const validateUsageLimits = compileValidator(WireUsageLimits);
 export type WireSession = Static<typeof WireSession>;
 
 /** `PrivateOutcomeDto`. `outcome` is null when it is unavailable or has not matured. */

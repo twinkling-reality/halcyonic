@@ -16,6 +16,7 @@ import {
   type RuntimesResponse,
   type Snapshot,
   UnderstandingResponse,
+  UsageLimitsResponse,
   type UnderstandingResult,
   type WorkstreamsResponse,
 } from '@halcyonic/contracts';
@@ -32,6 +33,7 @@ const validateExecutionId = compileValidator(ExecutionId);
 const validateRuntimeId = compileValidator(RuntimeId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
 const validateEvaluationResponse = compileValidator(EvaluationResponse);
+const validateUsageLimitsResponse = compileValidator(UsageLimitsResponse);
 
 export interface RouteSources {
   readonly understanding: UnderstandingSource;
@@ -142,6 +144,20 @@ export function registerRoutes(
       }),
     };
     return body;
+  });
+
+  // Account-wide provider quota, read only when requested and never journaled.
+  app.get('/api/usage-limits', async (request): Promise<UsageLimitsResponse> => {
+    const answer = await sources.evaluation.usageLimits?.() ?? {
+      availability: 'unavailable' as const,
+      reason: { code: 'not_configured', message: 'Usage limits are not configured.' },
+    };
+    if (validateUsageLimitsResponse(answer).ok) return answer;
+    request.log.warn('usage limits do not match the contract');
+    return {
+      availability: 'incompatible',
+      reason: { code: 'invalid_usage_limits', message: 'The usage source returned data outside the contract.' },
+    };
   });
 
   // Read through to the understanding provider; nothing here is journaled (ADR 0010).

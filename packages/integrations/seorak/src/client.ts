@@ -1,4 +1,4 @@
-import type { EvaluationFailure, EvaluationResult, ValidationIssue } from '@halcyonic/contracts';
+import type { EvaluationFailure, EvaluationResult, UsageLimit, UsageLimitsResponse, ValidationIssue } from '@halcyonic/contracts';
 import { RequestBudget, WINDOW_MS } from './budget.ts';
 import { toEvaluation } from './mapping.ts';
 import {
@@ -10,6 +10,7 @@ import {
   type SeorakAgent,
   validateOutcome,
   validateSession,
+  validateUsageLimits,
 } from './wire.ts';
 
 /**
@@ -193,6 +194,51 @@ export class SeorakClient {
     this.#budget = new RequestBudget(limit);
   }
 
+  /** One account-wide read, made only when the person opens Usage left. */
+  async usageLimits(options: EvaluateOptions): Promise<UsageLimitsResponse> {
+    const credential = this.#check(options.credential, 'period:read');
+    if (typeof credential !== 'string') return credential;
+    const retryAt = this.#budget.reserve(1, Date.now());
+    if (retryAt !== null)
+      return fail('unavailable', 'rate_limited',
+        `Seorak's request budget allows no request until ${new Date(retryAt).toISOString()}.`);
+    this.#budget.start(Date.now());
+    const reply = await this.#read('usage limits', `${API_BASE_PATH}/usage-limits`, 'period:read', credential, undefined, options.signal);
+    if (isFailure(reply))
+      return {
+        availability: reply.availability === 'not_found' ? 'unavailable' : reply.availability,
+        reason: reply.reason,
+      };
+    const parsed = validateUsageLimits(reply.value);
+    if (!parsed.ok) return invalid('usage limits answer', parsed.issues);
+    if (parsed.value.availability.state === 'unavailable') {
+      const reason = parsed.value.availability.reason;
+      return fail('unavailable', reason === 'outside-credential-restriction' ? 'outside_credential_restriction' : 'not_captured',
+        reason === 'outside-credential-restriction'
+          ? 'The Seorak credential is restricted to a project or date. Usage limits require an account-wide period:read credential.'
+          : 'Seorak has not captured a provider limit yet.');
+    }
+    const now = Date.now();
+    const readings: UsageLimit[] = parsed.value.readings.flatMap((row) => {
+      if ((row.tool !== 'codex' && row.tool !== 'claude-code') ||
+          (row.period !== 'rolling-5h' && row.period !== 'weekly') ||
+          row.source !== 'provider-auth' || !row.coverageComplete ||
+          row.usedPercent === null || row.observedAt === null || row.resetsAt === null ||
+          Date.parse(row.observedAt) > now || Date.parse(row.resetsAt) <= now)
+        return [];
+      return [{
+        provider: row.tool,
+        window: row.period,
+        remaining_percent: 100 - row.usedPercent,
+        resets_at: row.resetsAt,
+        observed_at: row.observedAt,
+      }];
+    });
+    return readings.length > 0
+      ? { availability: 'available', readings }
+      : fail('unavailable', 'not_captured', 'No usable provider limit has been captured yet.');
+  }
+
   /**
    * `runtimeKind` and `nativeId` are the execution's runtime kind and the runtime's own session
    * id, the key every orchestrator holds. A session launched moments ago may not be captured yet,
@@ -216,7 +262,7 @@ export class SeorakClient {
         'not_resolvable',
         "Seorak resolves only session ids of up to 256 letters, digits, '.', '_', ':' or '-' that start with a letter or digit.",
       );
-    const credential = this.#check(options.credential);
+    const credential = this.#check(options.credential, 'sessions:read and replay:read');
     if (typeof credential !== 'string') return credential;
     const retryAt = this.#budget.reserve(REQUESTS_PER_EVALUATION, Date.now());
     if (retryAt !== null)
@@ -284,8 +330,8 @@ export class SeorakClient {
   }
 
   /** The credential to send, or why none will be sent. It is checked before any request carries it. */
-  #check(credential: string | null): string | Failure<'unauthorized'> {
-    const issue = `Issue one in Seorak's dashboard (${this.#origin}/dashboard) for the audience ${this.#origin}${API_BASE_PATH} with the sessions:read and replay:read scopes.`;
+  #check(credential: string | null, scopes: string): string | Failure<'unauthorized'> {
+    const issue = `Issue one in Seorak's dashboard (${this.#origin}/dashboard) for the audience ${this.#origin}${API_BASE_PATH} with the ${scopes} scope${scopes.includes(' and ') ? 's' : ''}.`;
     if (credential === null)
       return fail(
         'unauthorized',
@@ -328,7 +374,7 @@ export class SeorakClient {
       return fail(
         'unauthorized',
         'credential_forbidden',
-        `Seorak refused the ${what} request (HTTP 403): the credential lacks the ${scope} scope it needs. Halcyonic needs sessions:read and replay:read.`,
+        `Seorak refused the ${what} request (HTTP 403): the credential lacks the ${scope} scope it needs.`,
       );
     if (reply.status === 429) {
       const until = retryTime(reply.retryAfter, Date.now());

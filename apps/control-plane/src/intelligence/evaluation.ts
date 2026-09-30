@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EvaluationFailure, EvaluationResult } from '@halcyonic/contracts';
+import type { EvaluationFailure, EvaluationResult, UsageLimitsResponse } from '@halcyonic/contracts';
 import { SEORAK_DEFAULT_PORT, SeorakClient, seorakAgentFor } from '@halcyonic/integration-seorak';
 
 /** The file in the control plane's data directory that holds the Seorak integration credential. */
@@ -12,6 +12,7 @@ export const SEORAK_CREDENTIAL_FILE = 'seorak-credential';
  */
 export interface EvaluationSource {
   evaluate(runtimeKind: string, nativeId: string): Promise<EvaluationResult>;
+  usageLimits?(): Promise<UsageLimitsResponse>;
 }
 
 export interface SeorakEvaluationOptions {
@@ -31,6 +32,12 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
   const port = options.port ?? SEORAK_DEFAULT_PORT;
   const client = new SeorakClient({ port });
   return {
+    async usageLimits() {
+      const credential = readCredential(options.credentialPath, `http://127.0.0.1:${port}`);
+      if (typeof credential !== 'string')
+        return { availability: 'unauthorized', reason: credential.reason };
+      return client.usageLimits({ credential });
+    },
     async evaluate(runtimeKind, nativeId) {
       // Sessions Seorak never observes need no credential to say so.
       if (seorakAgentFor(runtimeKind) === null)
