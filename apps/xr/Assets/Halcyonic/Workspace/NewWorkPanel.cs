@@ -309,6 +309,7 @@ namespace Halcyonic.XR.Workspace
             var chosen = draft.Model;
             review = new NewWorkReview(
                 newProject ? newProjectName : ProjectName(),
+                draft.Title,
                 draft.Runtime!.DisplayName + (draft.Runtime.Synthetic ? " (simulated)" : ""),
                 chosen?.DisplayName ?? "Chosen by the runtime",
                 chosen == null ? "The runtime does not list models" : Served(chosen.Served) + ", " + Tools(chosen.ToolCalling),
@@ -403,26 +404,36 @@ namespace Halcyonic.XR.Workspace
                 Layout();
                 return;
             }
-            ClearUnresolved();
+            if (!current.HasExpectedResult)
+            {
+                recoveredRecord = record;
+                notice = "The control plane returned an unexpected result. Check the work shown.";
+                Layout();
+                return;
+            }
             if (sent is ProjectCreateCommand && record.Result is ProjectCreatedResult projectResult)
             {
+                ClearUnresolved();
                 draft.ProjectId = projectResult.ProjectId;
                 newProject = false;
                 Send(draft.CreateWorkstream());
             }
             else if (sent is WorkstreamCreateCommand && record.Result is WorkstreamCreatedResult workstreamResult)
             {
+                ClearUnresolved();
                 createdWorkstreamId = workstreamResult.WorkstreamId;
                 Send(draft.StartExecution(createdWorkstreamId));
             }
             else if (sent is ExecutionStartCommand && record.Result is ExecutionCreatedResult)
             {
+                ClearUnresolved();
                 finished = true;
                 notice = "Work started. Its character will appear on the stage.";
                 Layout();
             }
             else
             {
+                recoveredRecord = record;
                 notice = "The control plane returned an unexpected result. Check the work shown.";
                 Layout();
             }

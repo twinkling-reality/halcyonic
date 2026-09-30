@@ -15,10 +15,11 @@ namespace Halcyonic.Client
         private const int PageLines = 12;
         private readonly List<string> pages = new List<string>();
 
-        public NewWorkReview(string project, string runtime, string model, string modelFacts, string modelRef, string objective)
+        public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective)
         {
             var lines = new List<string>();
             Add(lines, "Project: " + Safe(project));
+            Add(lines, "Workstream title: " + Safe(title));
             Add(lines, "Runtime: " + Safe(runtime));
             Add(lines, "Model: " + Safe(model));
             Add(lines, "Model location: " + Safe(modelFacts));
