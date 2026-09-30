@@ -1,0 +1,19 @@
+{
+  "name": "Halcyonic.XR.Sound",
+  "rootNamespace": "Halcyonic.XR.Sound",
+  "references": [
+    "Halcyonic.XR",
+    "Halcyonic.XR.Workspace",
+    "Halcyonic.Client",
+    "Halcyonic.Contracts"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
