@@ -6,11 +6,17 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import type { ExecutionId, RuntimeEventType } from '@halcyonic/contracts';
+import {
+  compileValidator,
+  type ExecutionId,
+  type RuntimeEventType,
+  RuntimeModel,
+} from '@halcyonic/contracts';
 import {
   type ExecutionContext,
   RuntimeActionError,
@@ -135,6 +141,7 @@ async function harness(
         execution: execution.context,
         instruction,
         options: { directory: sandbox.project, ...options },
+        model_ref: null,
         emit: execution.emit,
       });
       assert.match(result.native_id ?? '', /^ses/);
@@ -209,13 +216,17 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.deepEqual(execution.types(), [
       'runtime.execution.started',
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.agent_message',
       'runtime.turn.completed',
     ]);
-    const [started, turn, message, completed] = execution.observations;
+    const [started, turn, model, message, completed] = execution.observations;
     assert.ok(started?.type === 'runtime.execution.started');
     assert.match(started.payload.native_id ?? '', /^ses/);
     assert.equal(turnId(completed), turnId(turn));
+    // The model OpenCode says the step runs on, not the one asked for.
+    assert.deepEqual(model?.payload, { model_ref: 'fake/fake-model' });
+    assert.equal(model?.provenance.epistemic, 'observed');
     assert.match(
       message?.type === 'runtime.agent_message' ? message.payload.text : '',
       /^Fake reply \d+: acknowledged\.$/,
@@ -265,6 +276,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assert.deepEqual(execution.types(), [
       'runtime.execution.started',
       'runtime.turn.started',
+      'runtime.model.used',
       'runtime.tool.started',
       'runtime.approval.requested',
       'runtime.approval.resolved',
@@ -273,12 +285,12 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       'runtime.turn.completed',
     ]);
     const payloads = execution.observations.map((observation) => observation.payload);
-    assert.deepEqual(payloads[4], {
+    assert.deepEqual(payloads[5], {
       approval_id: requested.payload.approval_id,
       decision: 'approved',
     });
-    assert.equal((payloads[5] as { outcome: string }).outcome, 'succeeded');
-    assert.equal((payloads[6] as { text: string }).text, 'Tool result received: halcyonic-e2e');
+    assert.equal((payloads[6] as { outcome: string }).outcome, 'succeeded');
+    assert.equal((payloads[7] as { text: string }).text, 'Tool result received: halcyonic-e2e');
     assertValidObservations(execution.observations, execution.context);
   });
 
@@ -390,26 +402,65 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   );
 
   test(
-    'instructions start new turns at rest and are refused while a turn runs',
+    'an instruction while a turn runs is steered into it, and one at rest starts a new turn',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t, { provider: { slowChunks: 12 } });
+      const execution = await start('SLOW turn that is steered.');
+      const started = await execution.next('runtime.turn.started');
+      await until(() => sandbox.provider.requests.length === 1, 10_000, 'the model request');
+      await runtime.sendInstruction({ execution: execution.context, text: 'Steered marker 5d2e.' });
+      const completed = await execution.next('runtime.turn.completed');
+      // One turn: the steered instruction waited for the streaming step to end, without cutting
+      // it, and reached the model in the next request of the same turn.
+      assert.equal(turnId(completed), turnId(started));
+      // Both steps run on one model, reported once.
+      assert.deepEqual(execution.types(), [
+        'runtime.execution.started',
+        'runtime.turn.started',
+        'runtime.model.used',
+        'runtime.agent_message',
+        'runtime.agent_message',
+        'runtime.turn.completed',
+      ]);
+      assert.equal(sandbox.provider.requests.length, 2);
+      assert.equal(sandbox.provider.requests[0]?.body.includes('marker 5d2e'), false);
+      assert.equal(sandbox.provider.requests[1]?.lastUserText, 'Steered marker 5d2e.');
+
+      await runtime.sendInstruction({ execution: execution.context, text: 'Hello again.' });
+      await execution.next('runtime.turn.completed', 2);
+      const turns = execution.observations.filter((item) => item.type === 'runtime.turn.started');
+      assert.equal(new Set(turns.map(turnId)).size, 2);
+      assert.equal(sandbox.provider.requests.at(-1)?.lastUserText, 'Hello again.');
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
+    'an instruction steered into a turn that is then interrupted reaches the model with the next one',
     SLOW_TEST,
     async (t) => {
       const { runtime, sandbox, start } = await harness(t);
-      const execution = await start('Hello.');
-      await execution.next('runtime.turn.completed');
-      await runtime.sendInstruction({ execution: execution.context, text: 'SLOW second turn.' });
-      await execution.next('runtime.turn.started', 2);
-      await until(() => sandbox.provider.requests.length === 2, 10_000, 'the second model request');
-      await assert.rejects(
-        runtime.sendInstruction({ execution: execution.context, text: 'Also this.' }),
-        actionError('turn_in_progress'),
-      );
+      const execution = await start('SLOW turn that is steered, then interrupted.');
+      await execution.next('runtime.turn.started');
+      await until(() => sandbox.provider.requests.length === 1, 10_000, 'the model request');
+      await runtime.sendInstruction({ execution: execution.context, text: 'Steered marker 9b4c.' });
       await runtime.interrupt({ execution: execution.context });
       await execution.next('runtime.turn.interrupted');
-      await runtime.sendInstruction({ execution: execution.context, text: 'Hello again.' });
-      await execution.next('runtime.turn.completed', 2);
-      assert.equal(sandbox.provider.requests.length, 3, 'a refused instruction reached the model');
-      const turns = execution.observations.filter((item) => item.type === 'runtime.turn.started');
-      assert.equal(new Set(turns.map(turnId)).size, 3);
+      assert.equal(
+        sandbox.provider.requests.length,
+        1,
+        'the steered instruction started a request',
+      );
+      await delay(500);
+      assert.equal(execution.types().filter((type) => type === 'runtime.turn.started').length, 1);
+
+      await runtime.sendInstruction({ execution: execution.context, text: 'Hello after it.' });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.length, 2);
+      const next = sandbox.provider.requests[1];
+      assert.equal(next?.lastUserText, 'Hello after it.');
+      assert.ok(next?.body.includes('Steered marker 9b4c.'), 'the steered instruction was lost');
       assertValidObservations(execution.observations, execution.context);
     },
   );
@@ -425,12 +476,105 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     assertValidObservations(execution.observations, execution.context);
   });
 
+  test(
+    'lists the models OpenCode offers; a start from the list runs on that model and reports it',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox } = await harness(t);
+      const models = await runtime.listModels();
+      assert.ok(models.every((model) => compileValidator(RuntimeModel)(model).ok));
+      const fake = models.filter((model) => model.model_ref.startsWith('fake/'));
+      assert.deepEqual(
+        fake.map((model) => [model.model_ref, model.display_name, model.served]),
+        [
+          ['fake/fake-model', 'Fake model (fake)', 'this_mac'],
+          ['fake/fake-model-2', 'Fake model 2 (fake)', 'this_mac'],
+        ],
+      );
+      // The listing carries no provider settings: the fake provider's address stays out of it.
+      assert.equal(JSON.stringify(models).includes(sandbox.provider.baseUrl), false);
+
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Hello.',
+        options: { directory: sandbox.project },
+        model_ref: 'fake/fake-model-2',
+        emit: execution.emit,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.at(-1)?.model, 'fake-model-2');
+      const used = execution.observations.filter((item) => item.type === 'runtime.model.used');
+      assert.deepEqual(
+        used.map((item) => item.payload),
+        [{ model_ref: 'fake/fake-model-2' }],
+      );
+      assertValidObservations(execution.observations, execution.context);
+
+      const gone = new Execution();
+      await assert.rejects(
+        runtime.startExecution({
+          execution: gone.context,
+          instruction: 'Hello.',
+          options: { directory: sandbox.project },
+          model_ref: 'fake/removed-model',
+          emit: gone.emit,
+        }),
+        actionError('model_unavailable'),
+      );
+      assert.deepEqual(gone.types(), []);
+    },
+  );
+
   test('the model option selects the model OpenCode calls', SLOW_TEST, async (t) => {
     const { sandbox, start } = await harness(t);
     const execution = await start('Hello.', { model: 'fake/fake-model-2' });
     await execution.next('runtime.turn.completed');
     assert.equal(sandbox.provider.requests.at(-1)?.model, 'fake-model-2');
   });
+
+  test(
+    'a model OpenCode does not offer, or that the directory disables, is refused before any session exists',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox } = await harness(t, { runtime: { modelWaitMs: 1500 } });
+      // The project's own configuration takes a model off OpenCode's list for that directory.
+      writeFileSync(
+        join(sandbox.project, 'opencode.json'),
+        JSON.stringify({ providers: { fake: { models: { 'fake-model-2': { disabled: true } } } } }),
+      );
+      for (const model of ['fake/not-configured', 'fake/fake-model-2', 'elsewhere/fake-model']) {
+        const execution = new Execution();
+        const started = Date.now();
+        await assert.rejects(
+          runtime.startExecution({
+            execution: execution.context,
+            instruction: 'Hello.',
+            options: { directory: sandbox.project, model },
+            model_ref: null,
+            emit: execution.emit,
+          }),
+          (error: unknown) =>
+            actionError('model_unavailable')(error) &&
+            (error as Error).message.startsWith(`OpenCode does not offer the model ${model} in `),
+        );
+        assert.ok(Date.now() - started >= 1500, 'the start did not wait for the model');
+        assert.deepEqual(execution.types(), [], model);
+      }
+      assert.equal(sandbox.provider.requests.length, 0);
+      // The model it still offers there runs.
+      const execution = new Execution();
+      await runtime.startExecution({
+        execution: execution.context,
+        instruction: 'Hello.',
+        options: { directory: sandbox.project, model: 'fake/fake-model' },
+        model_ref: null,
+        emit: execution.emit,
+      });
+      await execution.next('runtime.turn.completed');
+      assert.equal(sandbox.provider.requests.at(-1)?.model, 'fake-model');
+    },
+  );
 
   test(
     'a server that dies takes its executions with it; the next start launches another',
@@ -558,6 +702,7 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
         options: { directory: sandbox.project },
+        model_ref: null,
         emit: execution.emit,
       });
       await execution.next('runtime.turn.completed');

@@ -24,7 +24,7 @@ import {
   Uuid,
   WorkstreamId,
 } from './primitives.ts';
-import { RuntimeRef } from './runtime.ts';
+import { ModelRef, RuntimeRef } from './runtime.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -365,6 +365,11 @@ export const RUNTIME_EVENT_PAYLOADS = {
   ),
   /** The adapter lost contact with the runtime and can no longer observe the execution. */
   'runtime.connection.lost': Type.Object({ reason: Text(2000) }, strict),
+  /**
+   * The runtime reported the model it uses for the execution, named as the runtime's model list
+   * names it (ADR 0016). Taken from the runtime's own report, never from the model chosen.
+   */
+  'runtime.model.used': Type.Object({ model_ref: ModelRef }, strict),
 } as const;
 
 export type RuntimeEventType = keyof typeof RUNTIME_EVENT_PAYLOADS;
@@ -414,6 +419,7 @@ export const RuntimeConnectionLost = runtimeEvent(
   'runtime.connection.lost',
   P['runtime.connection.lost'],
 );
+export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.model.used']);
 
 export const EVENT_VARIANTS = [
   ProjectCreated,
@@ -440,6 +446,7 @@ export const EVENT_VARIANTS = [
   RuntimeTestRunStarted,
   RuntimeTestRunCompleted,
   RuntimeConnectionLost,
+  RuntimeModelUsed,
 ] as const;
 
 export const EventEnvelope = Type.Union([...EVENT_VARIANTS]);

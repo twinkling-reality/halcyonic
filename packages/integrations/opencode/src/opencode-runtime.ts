@@ -6,6 +6,7 @@ import type {
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
+  RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
 import {
@@ -32,6 +33,13 @@ import {
   type SessionState,
   toTimestamp,
 } from './events.ts';
+import {
+  type ModelRef,
+  readDefaultModel,
+  readModels,
+  sameModel,
+  toRuntimeModel,
+} from './models.ts';
 import { parseStartOptions } from './options.ts';
 import { type PendingPermission, reconcileSession, type SessionSnapshot } from './reconcile.ts';
 import {
@@ -52,13 +60,13 @@ import {
 import { SseParser } from './sse.ts';
 
 /**
- * Verified against OpenCode 2.0.18. Instructions while a turn runs are not offered: OpenCode's
- * `steer` and `queue` deliveries exist but this adapter does not implement or test them.
+ * Verified against OpenCode 2.0.18. Instructions while a turn runs use OpenCode's `steer`
+ * delivery, which hands them to the model when the running step ends.
  */
 export const OPENCODE_CAPABILITIES: RuntimeCapabilities = {
   start_execution: true,
   instruct_at_rest: true,
-  instruct_while_running: false,
+  instruct_while_running: true,
   respond_to_approval: true,
   interrupt: true,
 };
@@ -89,6 +97,11 @@ export interface OpenCodeRuntimeOptions {
   readonly streamSilenceTimeoutMs?: number;
   /** Delays before successive reconnection attempts; when they run out the server is given up. */
   readonly reconnectDelaysMs?: readonly number[];
+  /**
+   * How long a start waits for OpenCode to offer the execution's model, which it may not list yet
+   * right after it starts. By default 10 s.
+   */
+  readonly modelWaitMs?: number;
   readonly clock?: Clock;
 }
 
@@ -106,6 +119,11 @@ interface Readiness {
 /** A launched server and the adapter's subscription to its events. */
 interface Connection {
   readonly server: OpenCodeServer;
+  /**
+   * When the models of the server's own location were first asked for, by `Date.now()`. OpenCode
+   * loads a location on its first request, and its list settles moments later.
+   */
+  listingSince: number | null;
   /** Aborted when the adapter stops using the server: it exited, was given up or closed. */
   readonly halted: AbortController;
   /** Settles when the event stream is connected; rejects when the server is given up. */
@@ -132,6 +150,14 @@ const SESSION_CREATED: Provenance = {
 const READ_TIMEOUT_MS = 5000;
 /** How often a snapshot caught between two recorded states is read again before giving up. */
 const TRANSITIONAL_READS = 20;
+/** How often the list of models is read again while a start waits for its model. */
+const MODEL_POLL_MS = 250;
+/**
+ * How long after its first request OpenCode's list of models for a location settles: its Ollama
+ * plugin reads the server with 1 s timeouts, and the list held every discovered model about 1.1 s
+ * after a location's first request.
+ */
+const LIST_SETTLES_AFTER_MS = 4000;
 
 /**
  * Runs OpenCode 2.0.18 executions through its v2 server API. The adapter owns one server
@@ -140,6 +166,11 @@ const TRANSITIONAL_READS = 20;
  * comes from OpenCode's global event stream or, after a reconnect, from reading the session back.
  *
  * Known 2.0.18 behavior, handled rather than hidden:
+ * - its list of models may precede the discovery of local models, per directory, so a start
+ *   waits for its model to be listed;
+ * - an instruction steered into a running turn reaches the model when the running step ends; one
+ *   still waiting when the turn is interrupted stays in the session's inbox and reaches the model
+ *   with the next instruction;
  * - interrupting removes pending permission requests without an event; the interrupted turn
  *   clears them, as every ended turn does;
  * - a message given with an approval decision is accepted and delivered nowhere (defect);
@@ -157,6 +188,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #startupTimeoutMs: number;
   readonly #silenceTimeoutMs: number;
   readonly #reconnectDelaysMs: readonly number[];
+  readonly #modelWaitMs: number;
   readonly #clock: Clock;
   readonly #sessions = new Map<string, HostedSession>();
   readonly #bySessionId = new Map<string, HostedSession>();
@@ -173,6 +205,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 30_000;
     this.#silenceTimeoutMs = options.streamSilenceTimeoutMs ?? 45_000;
     this.#reconnectDelaysMs = options.reconnectDelaysMs ?? [100, 250, 500, 1000, 2000, 4000];
+    this.#modelWaitMs = options.modelWaitMs ?? 10_000;
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('opencode' as RuntimeId),
@@ -180,6 +213,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       display_name: `OpenCode ${OPENCODE_VERSION}`,
       synthetic: false,
       capabilities: OPENCODE_CAPABILITIES,
+      model_choice: 'listed',
     };
   }
 
@@ -188,9 +222,47 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return this.#current?.server.pid ?? null;
   }
 
-  validateStartOptions(options: RuntimeOptions): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy);
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
+  }
+
+  /**
+   * The models OpenCode offers, from `GET /api/model` at the server's own location, field by
+   * field: never `/api/provider`, and never a provider's settings, keys or headers. Launches the
+   * server when none runs; the first listing on a server waits for OpenCode to load the location
+   * and discover local models.
+   */
+  async listModels(): Promise<readonly RuntimeModel[]> {
+    const connection = await this.#connection();
+    const read = async () => {
+      if (connection.halted.signal.aborted) throw unreachableError();
+      try {
+        return await readModels(connection.server.client, null, READ_TIMEOUT_MS);
+      } catch (error) {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `OpenCode's list of models could not be read: ${message(error)}`,
+        );
+      }
+    };
+    if (connection.listingSince === null) {
+      connection.listingSince = Date.now();
+      // The first request makes OpenCode load the location; what it answers is not settled yet.
+      await read();
+    }
+    const settling = connection.listingSince + LIST_SETTLES_AFTER_MS - Date.now();
+    if (settling > 0) await delay(settling);
+    const listed = await read();
+    const models = new Map<string, RuntimeModel>();
+    for (const entry of listed) {
+      const model = toRuntimeModel(entry);
+      // A reference the contract cannot carry is not offered.
+      if (/^\S{1,256}$/.test(model.model_ref) && !models.has(model.model_ref)) {
+        models.set(model.model_ref, model);
+      }
+    }
+    return [...models.values()];
   }
 
   /**
@@ -209,12 +281,13 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
     // Checked again here: the directory may have changed since admission.
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy);
+    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
     const connection = await this.#connection();
+    await this.#awaitModel(connection, parsed.value.directory, parsed.value.model);
     const body: Record<string, unknown> = {
       title: `Halcyonic execution ${request.execution.execution_id}`,
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
@@ -371,6 +444,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
     const connection: Connection = {
       server,
+      listingSince: null,
       halted: new AbortController(),
       readiness: readiness(),
     };
@@ -553,6 +627,49 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   // Sessions -----------------------------------------------------------------------------------
 
+  /**
+   * Waits until OpenCode offers the execution's model in its directory. OpenCode discovers the
+   * models of local servers such as Ollama shortly after it starts, per directory, and again every
+   * 30 s; until then its list lacks them, and a session prompted with such a model fails with
+   * `provider.no-route`. A named model still missing after the wait is refused in words, before
+   * any session exists. Without a named model, the wait is for OpenCode to have a default, which
+   * it then chooses itself.
+   */
+  async #awaitModel(
+    connection: Connection,
+    directory: string,
+    model: ModelRef | null,
+  ): Promise<void> {
+    const client = connection.server.client;
+    const deadline = Date.now() + this.#modelWaitMs;
+    for (;;) {
+      if (connection.halted.signal.aborted) throw unreachableError();
+      let found: boolean;
+      try {
+        found =
+          model === null
+            ? (await readDefaultModel(client, directory, READ_TIMEOUT_MS)) !== null
+            : (await readModels(client, directory, READ_TIMEOUT_MS)).some((entry) =>
+                sameModel(entry, model),
+              );
+      } catch (error) {
+        throw new RuntimeActionError(
+          'runtime_unavailable',
+          `OpenCode's list of models could not be read: ${message(error)}`,
+        );
+      }
+      if (found) return;
+      if (Date.now() >= deadline) {
+        if (model === null) return;
+        throw new RuntimeActionError(
+          'model_unavailable',
+          `OpenCode does not offer the model ${model.providerID}/${model.id} in ${directory}. It lists the models its providers offer there; a local server's models appear once OpenCode has reached the server, and a model the configuration disables does not appear.`,
+        );
+      }
+      await delay(MODEL_POLL_MS);
+    }
+  }
+
   #hosted(execution: ExecutionContext): HostedSession {
     if (this.#closing !== null) throw closedError();
     const session = this.#sessions.get(execution.execution_id);
@@ -582,15 +699,17 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
   }
 
-  /** Starts a turn at rest. OpenCode names the prompt's inbox item, which traces its start. */
+  /**
+   * Starts a turn at rest, or steers the running one. OpenCode names the prompt's inbox item,
+   * which traces the start of a turn at rest. A steered instruction waits in the inbox until the
+   * running step ends and is then delivered into the same turn.
+   */
   async #prompt(session: HostedSession, text: string): Promise<void> {
     const state = session.state;
     await this.#act(session, async () => {
       if (state.turn !== null || state.awaitingStart) {
-        throw new RuntimeActionError(
-          'turn_in_progress',
-          'OpenCode is running a turn for this execution; instructions are delivered only between turns.',
-        );
+        await this.#steer(session, text);
+        return;
       }
       // Set before sending: the execution can start before the response arrives.
       state.awaitingStart = true;
@@ -623,6 +742,30 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         if (typeof enqueuedAt === 'number') state.since = enqueuedAt;
       }
     });
+  }
+
+  /**
+   * Delivers an instruction into the running turn with OpenCode's `steer` delivery. OpenCode
+   * accepts it into the session's inbox and hands it to the model when the running step ends,
+   * never cutting a model stream. Resolves once OpenCode has accepted it.
+   */
+  async #steer(session: HostedSession, text: string): Promise<void> {
+    const response = await send(
+      session.connection,
+      'POST',
+      `/api/session/${encodeURIComponent(session.sessionId)}/prompt`,
+      { text, delivery: 'steer' },
+      'execution_unknown_to_runtime',
+    );
+    const item = isRecord(response.body) && isRecord(response.body.data) ? response.body.data : {};
+    if (typeof item.id !== 'string') {
+      throw new RuntimeActionError(
+        'runtime_protocol_error',
+        'OpenCode accepted the instruction without identifying it.',
+        'unknown',
+      );
+    }
+    session.state.steered.add(item.id);
   }
 
   #emit(session: HostedSession, observations: readonly RuntimeObservation[]): void {

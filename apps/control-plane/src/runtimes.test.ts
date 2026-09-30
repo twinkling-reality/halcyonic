@@ -100,7 +100,7 @@ describe('runtime composition', () => {
     assert.equal(codex.descriptor.display_name, 'Codex 0.157.0');
     assert.equal(codex.descriptor.synthetic, false);
     // The control plane's directory policy decides: with no project roots, nothing is allowed.
-    assert.deepEqual(codex.validateStartOptions({ cwd: dataDir }), {
+    assert.deepEqual(codex.validateStartOptions({ cwd: dataDir }, null), {
       ok: false,
       message: 'No project roots are configured on the control plane (HALCYONIC_PROJECT_ROOTS).',
     });

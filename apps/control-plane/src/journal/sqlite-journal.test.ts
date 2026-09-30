@@ -7,7 +7,7 @@ import { after, describe, test } from 'node:test';
 import { type EventEnvelope, parseEventEnvelope } from '@halcyonic/contracts';
 import { createUuidV7Generator } from '../ids.ts';
 import { JournalError } from './journal.ts';
-import { openSqliteJournal } from './sqlite-journal.ts';
+import { JOURNAL_SCHEMA_VERSION, openSqliteJournal } from './sqlite-journal.ts';
 
 const TRACE: EventEnvelope[] = readFileSync(
   new URL('../../../../fixtures/traces/multiple_workstreams.jsonl', import.meta.url),
@@ -180,30 +180,96 @@ describe('SQLite journal', () => {
     assert.throws(() => openSqliteJournal({ path, originIfNew: 'live', ids }), JournalError);
   });
 
-  test('a command event journaled before principals were recorded reads with a null principal', () => {
+  test('execution.start commands stored before model choice are migrated to choose no model', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
-    const accepted = TRACE.find((event) => event.event_type === 'command.accepted');
-    assert.ok(accepted && accepted.event_type === 'command.accepted');
-    const { principal: _principal, ...older } = accepted.payload;
-    journal.append({ ...accepted, payload: older } as unknown as EventEnvelope);
+    for (const event of TRACE) journal.append(event);
     journal.close();
-
+    // What a journal of schema version 1 holds: the command as sent then, without model_ref.
     const db = new DatabaseSync(path);
-    const version = db.prepare('PRAGMA user_version').get() as { user_version: number };
-    assert.equal(version.user_version, 2);
-    const stored = db.prepare('SELECT envelope FROM events').get() as { envelope: string };
-    assert.equal(stored.envelope.includes('principal'), false, 'the stored text is not rewritten');
+    const starts = db
+      .prepare(
+        `SELECT position, envelope FROM events WHERE event_type IN ('command.accepted', 'command.rejected')
+           AND json_extract(envelope, '$.payload.command.command_type') = 'execution.start'`,
+      )
+      .all() as { position: number; envelope: string }[];
+    assert.ok(starts.length > 0);
+    for (const { position, envelope } of starts) {
+      const event = JSON.parse(envelope) as { payload: { command: { payload: object } } };
+      const { model_ref: _dropped, ...payload } = event.payload.command.payload as {
+        model_ref?: unknown;
+      };
+      event.payload.command.payload = payload;
+      db.prepare('UPDATE events SET envelope = ? WHERE position = ?').run(
+        JSON.stringify(event),
+        position,
+      );
+    }
+    db.exec('PRAGMA user_version = 1');
     db.close();
 
     const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
-    const [read] = [...reopened.readAll()];
-    assert.equal(read?.event.event_type, 'command.accepted');
-    assert.equal(
-      read?.event.event_type === 'command.accepted' && read.event.payload.principal,
-      null,
+    const events = [...reopened.readAll()].map((stored) => stored.event);
+    assert.deepEqual(
+      events.map((event) => event.event_id),
+      TRACE.map((event) => event.event_id),
     );
+    const migrated = events.flatMap((event) =>
+      event.event_type === 'command.accepted' &&
+      event.payload.command.command_type === 'execution.start'
+        ? [event.payload.command.payload.model_ref]
+        : [],
+    );
+    assert.equal(migrated.length, starts.length);
+    assert.ok(migrated.every((modelRef) => modelRef === null));
     reopened.close();
+    const check = new DatabaseSync(path);
+    const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
+    assert.equal(version.user_version, JOURNAL_SCHEMA_VERSION);
+    check.close();
+  });
+
+  test('command events a journal of schema version 2 holds without a principal are migrated to a null one', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    journal.close();
+    // What a build of schema version 2 wrote, before principals were recorded.
+    const db = new DatabaseSync(path);
+    const commandEvents = "event_type IN ('command.accepted', 'command.rejected')";
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.principal') WHERE ${commandEvents}`,
+    );
+    const count = (where: string) =>
+      (db.prepare(`SELECT COUNT(*) AS count FROM events WHERE ${where}`).get() as { count: number })
+        .count;
+    const commands = count(commandEvents);
+    assert.ok(commands > 0);
+    assert.equal(
+      count(`${commandEvents} AND json_type(envelope, '$.payload.principal') IS NOT NULL`),
+      0,
+    );
+    db.exec('PRAGMA user_version = 2');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    const events = [...reopened.readAll()].map((stored) => stored.event);
+    assert.deepEqual(
+      events.map((event) => event.event_id),
+      TRACE.map((event) => event.event_id),
+    );
+    const principals = events.flatMap((event) =>
+      event.event_type === 'command.accepted' || event.event_type === 'command.rejected'
+        ? [event.payload.principal]
+        : [],
+    );
+    assert.equal(principals.length, commands);
+    assert.ok(principals.every((principal) => principal === null));
+    reopened.close();
+    const check = new DatabaseSync(path);
+    const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
+    assert.equal(version.user_version, JOURNAL_SCHEMA_VERSION);
+    check.close();
   });
 
   test('a stored event that no longer matches the contract is reported, not trusted', () => {

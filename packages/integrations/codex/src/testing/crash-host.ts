@@ -34,6 +34,7 @@ await runtime.startExecution({
   execution: TEST_EXECUTION,
   instruction: options.instruction,
   options: { cwd: options.directory },
+  model_ref: null,
   emit: (observation) => {
     if (observation.type === 'runtime.tool.started') {
       process.stdout.write(`${JSON.stringify({ serverPid: runtime.serverPid })}\n`);

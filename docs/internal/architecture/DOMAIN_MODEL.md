@@ -26,7 +26,11 @@ in `packages/domain`.
   them ([SECURITY.md](SECURITY.md)).
 
 A **model provider** (Anthropic, OpenAI, Ollama and so on) sits below the runtime and is not a
-Halcyonic concept yet; runtimes such as OpenCode already manage providers.
+Halcyonic concept; runtimes such as OpenCode already manage providers. A **model** is known only
+through the runtime: a runtime whose `model_choice` is `listed` lists the models it can run, a
+start may carry one of them by its opaque `model_ref`, and an execution's `model_ref` is the model
+the runtime last reported running on, null until it reports one
+([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 
 ## Execution status
 
@@ -86,7 +90,7 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 | --- | --- | --- |
 | `project.create` | low consequence | always |
 | `workstream.create` | low consequence | the project exists |
-| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, and the adapter accepts the options |
+| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is null or the runtime's `model_choice` is `listed`, and the adapter accepts the options and the model |
 | `execution.send_instruction` | low consequence | the runtime has started a session, and: at rest (`completed`, `failed`, `interrupted`) with `instruct_at_rest`, or running (`running`, `verifying`, `waiting_for_human`) with `instruct_while_running` |
 | `execution.respond_to_approval` | review required | the approval is pending, the execution is `waiting_for_human`, and the runtime has `respond_to_approval` |
 | `execution.interrupt` | review required | a turn is running and the runtime has `interrupt` |

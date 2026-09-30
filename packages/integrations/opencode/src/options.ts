@@ -24,6 +24,7 @@ const SUPPORTED = ['directory', 'model'];
 export function parseStartOptions(
   options: RuntimeOptions,
   policy: DirectoryPolicy,
+  modelRef: string | null = null,
 ): ParsedStartOptions {
   const unknown = Object.keys(options).filter((key) => !SUPPORTED.includes(key));
   if (unknown.length > 0) {
@@ -45,13 +46,19 @@ export function parseStartOptions(
     return fail(`Option "directory" does not exist: ${directory}`);
   }
   if (!isDirectory) return fail(`Option "directory" is not a directory: ${directory}`);
-  let modelRef: StartOptions['model'] = null;
+  let chosen: StartOptions['model'] = null;
   if (model !== undefined && model !== null) {
-    if (typeof model !== 'string' || !/^[^/\s]+\/\S+$/.test(model)) {
+    if (modelRef !== null) {
+      return fail('Choose the model either with model_ref or with the "model" option, not both.');
+    }
+    chosen = toModel(model);
+    if (chosen === null) {
       return fail('Option "model" must name a configured model as "provider/model".');
     }
-    const slash = model.indexOf('/');
-    modelRef = { providerID: model.slice(0, slash), id: model.slice(slash + 1) };
+  }
+  if (modelRef !== null) {
+    chosen = toModel(modelRef);
+    if (chosen === null) return fail(`${modelRef} is not a model OpenCode lists.`);
   }
   let decision: ReturnType<DirectoryPolicy>;
   try {
@@ -62,7 +69,14 @@ export function parseStartOptions(
     );
   }
   if (!decision.ok) return fail(decision.message);
-  return { ok: true, value: { directory: decision.directory, model: modelRef } };
+  return { ok: true, value: { directory: decision.directory, model: chosen } };
+}
+
+/** A model as OpenCode names it, `provider/model`, which is also the adapter's `model_ref`. */
+export function toModel(value: unknown): StartOptions['model'] {
+  if (typeof value !== 'string' || !/^[^/\s]+\/\S+$/.test(value)) return null;
+  const slash = value.indexOf('/');
+  return { providerID: value.slice(0, slash), id: value.slice(slash + 1) };
 }
 
 function fail(message: string): ParsedStartOptions {

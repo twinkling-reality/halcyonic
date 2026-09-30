@@ -1,8 +1,8 @@
 import Type, { type Static } from 'typebox';
 import { EvaluationResult } from './evaluation.ts';
 import { StoredEvent } from './events.ts';
-import { ExecutionId, Position, WorkstreamId } from './primitives.ts';
-import { RuntimeDescriptor } from './runtime.ts';
+import { ErrorInfo, ExecutionId, Position, RuntimeId, WorkstreamId } from './primitives.ts';
+import { RuntimeDescriptor, RuntimeModel } from './runtime.ts';
 import { UnderstandingResult } from './understanding.ts';
 import { CommandView, JournalInfo, ProjectView, WorkstreamView } from './views.ts';
 
@@ -25,6 +25,26 @@ export type WorkstreamsResponse = Static<typeof WorkstreamsResponse>;
 
 export const RuntimesResponse = Type.Object({ runtimes: Type.Array(RuntimeDescriptor) }, strict);
 export type RuntimesResponse = Static<typeof RuntimesResponse>;
+
+/**
+ * The models a runtime can use now, read from the runtime on request and never journaled
+ * (ADR 0016). `unavailable` says why the runtime could not list them, for example because it could
+ * not be started.
+ */
+export const RuntimeModelsResult = Type.Union([
+  Type.Object(
+    { availability: Type.Literal('available'), models: Type.Array(RuntimeModel) },
+    strict,
+  ),
+  Type.Object({ availability: Type.Literal('unavailable'), reason: ErrorInfo }, strict),
+]);
+export type RuntimeModelsResult = Static<typeof RuntimeModelsResult>;
+
+export const RuntimeModelsResponse = Type.Object(
+  { runtime_id: RuntimeId, result: RuntimeModelsResult },
+  strict,
+);
+export type RuntimeModelsResponse = Static<typeof RuntimeModelsResponse>;
 
 export const EventsQuery = Type.Object(
   {

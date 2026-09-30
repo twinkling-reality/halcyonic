@@ -425,6 +425,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("native_id", Required = Required.AllowNull)]
         public string? NativeId { get; set; }
 
+        [JsonProperty("model_ref", Required = Required.AllowNull)]
+        public string? ModelRef { get; set; }
+
         [JsonProperty("instruction", Required = Required.Always)]
         public string Instruction { get; set; } = default!;
 
@@ -635,6 +638,13 @@ namespace Halcyonic.Contracts
         public bool Interrupt { get; set; }
     }
 
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ModelChoice
+    {
+        [EnumMember(Value = "none")] None,
+        [EnumMember(Value = "listed")] Listed,
+    }
+
     public sealed class RuntimeDescriptor
     {
         [JsonProperty("runtime_id", Required = Required.Always)]
@@ -651,6 +661,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("capabilities", Required = Required.Always)]
         public RuntimeCapabilities Capabilities { get; set; } = default!;
+
+        [JsonProperty("model_choice", Required = Required.Always)]
+        public ModelChoice ModelChoice { get; set; }
     }
 
     public sealed class Snapshot
@@ -891,6 +904,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("options", Required = Required.Always)]
         public Dictionary<string, JToken> Options { get; set; } = new Dictionary<string, JToken>();
+
+        [JsonProperty("model_ref", Required = Required.AllowNull)]
+        public string? ModelRef { get; set; }
     }
 
     public sealed class ExecutionSendInstructionPayload
@@ -1302,6 +1318,12 @@ namespace Halcyonic.Contracts
         public string Reason { get; set; } = default!;
     }
 
+    public sealed class RuntimeModelUsedPayload
+    {
+        [JsonProperty("model_ref", Required = Required.Always)]
+        public string ModelRef { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(EventEnvelopeConverter))]
     public abstract class EventEnvelope
     {
@@ -1388,6 +1410,7 @@ namespace Halcyonic.Contracts
                 "runtime.test_run.started" => new RuntimeTestRunStartedEvent(),
                 "runtime.test_run.completed" => new RuntimeTestRunCompletedEvent(),
                 "runtime.connection.lost" => new RuntimeConnectionLostEvent(),
+                "runtime.model.used" => new RuntimeModelUsedEvent(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "EventEnvelope has no string event_type."
                     : "Unknown event_type \"" + tag + "\" for EventEnvelope."),
@@ -1598,6 +1621,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public RuntimeConnectionLostPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class RuntimeModelUsedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.model.used";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public RuntimeModelUsedPayload Payload { get; set; } = default!;
     }
 
     public sealed class EntityChanges
@@ -1891,6 +1922,110 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("runtimes", Required = Required.Always)]
         public List<RuntimeDescriptor> Runtimes { get; set; } = new List<RuntimeDescriptor>();
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ModelServed
+    {
+        [EnumMember(Value = "this_mac")] ThisMac,
+        [EnumMember(Value = "remote")] Remote,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum ModelToolCalling
+    {
+        [EnumMember(Value = "declared")] Declared,
+        [EnumMember(Value = "not_declared")] NotDeclared,
+        [EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class RuntimeModel
+    {
+        [JsonProperty("model_ref", Required = Required.Always)]
+        public string ModelRef { get; set; } = default!;
+
+        [JsonProperty("display_name", Required = Required.Always)]
+        public string DisplayName { get; set; } = default!;
+
+        [JsonProperty("served", Required = Required.Always)]
+        public ModelServed Served { get; set; }
+
+        [JsonProperty("tool_calling", Required = Required.Always)]
+        public ModelToolCalling ToolCalling { get; set; }
+
+        [JsonProperty("context_tokens", Required = Required.AllowNull)]
+        public long? ContextTokens { get; set; }
+    }
+
+    [JsonConverter(typeof(RuntimeModelsResultConverter))]
+    public abstract class RuntimeModelsResult
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class RuntimeModelsResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(RuntimeModelsResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            RuntimeModelsResult value = tag switch
+            {
+                "available" => new AvailableModels(),
+                "unavailable" => new UnavailableModels(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "RuntimeModelsResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for RuntimeModelsResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableModels : RuntimeModelsResult
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("models", Required = Required.Always)]
+        public List<RuntimeModel> Models { get; set; } = new List<RuntimeModel>();
+    }
+
+    public sealed class UnavailableModels : RuntimeModelsResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class RuntimeModelsResponse
+    {
+        [JsonProperty("runtime_id", Required = Required.Always)]
+        public string RuntimeId { get; set; } = default!;
+
+        [JsonProperty("result", Required = Required.Always)]
+        public RuntimeModelsResult Result { get; set; } = default!;
     }
 
     public sealed class StoredEvent

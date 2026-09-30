@@ -166,6 +166,15 @@ the same definition names, as the JSON Schema document:
   a workstream is opened, never on a timer. As an **`IIntelligenceReader`** it returns each answer
   with when it arrived; `DemonstrationReads` answers the same interface from the recorded
   demonstration.
+- **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
+  `Listed` can use now, from the runtime's own list
+  ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
+  with an opaque `ModelRef`, a name that says what serves it, where it is served (`Served`: this
+  Mac, remote or unknown) and whether it calls tools as the runtime declares. Listing may start
+  the runtime, so a client reads it when a person opens the choice, never on a timer, and shows
+  where a model runs from `Served`, never from its name. **`CommandFactory.StartExecution`**
+  sends the chosen `ModelRef` back unchanged (`modelRef`, null to leave the choice to the
+  runtime), and the execution's `ModelRef` then holds the model the runtime reports using.
 - **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
   never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
   when it is shown for an execution it holds no answer about, and when the person refreshes; the
@@ -890,9 +899,10 @@ Code, diffs, tests and output in the workspace; the Understanding section's full
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
-the soundbook's softer repeat of "Needs you" once nobody has looked at the character for two minutes,
-and a volume and mute for sound in the headset; finding the Mac without typing its address (mDNS),
-changing a paired Mac's address without pairing again, and keeping the credential under an Android
-Keystore key. On a Quest, the control plane is reachable over USB with
-`adb reverse tcp:47800 tcp:47800` and the pushed token, or over Wi-Fi once paired
-([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
+starting work from the headset, with a choice of the runtime's models, which the client core can
+read and send but no panel offers; the soundbook's softer repeat of "Needs you" once nobody has
+looked at the character for two minutes, and a volume and mute for sound in the headset; finding
+the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
+and keeping the credential under an Android Keystore key. On a Quest, the control plane is
+reachable over USB with `adb reverse tcp:47800 tcp:47800` and the pushed token, or over Wi-Fi once
+paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).

@@ -7,6 +7,7 @@ import type {
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeEventType,
+  RuntimeModel,
   RuntimeOptions,
   Timestamp,
   WorkstreamId,
@@ -47,6 +48,12 @@ export interface StartExecutionRequest {
   readonly execution: ExecutionContext;
   readonly instruction: string;
   readonly options: RuntimeOptions;
+  /**
+   * A model from the adapter's own list, or null to leave the choice to the runtime. The adapter
+   * checks it against a fresh list before anything runs and refuses one no longer listed with
+   * `model_unavailable`.
+   */
+  readonly model_ref: string | null;
   /** Where the adapter sends every observation about this execution, for as long as it can observe it. */
   readonly emit: ObservationSink;
 }
@@ -83,8 +90,17 @@ export type DirectoryPolicy = (path: string) => DirectoryDecision;
  */
 export interface RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
-  /** Checks runtime-specific start options before anything is recorded. */
-  validateStartOptions(options: RuntimeOptions): OptionsValidation;
+  /**
+   * Checks runtime-specific start options, and the form of a chosen model's `model_ref`, before
+   * anything is recorded. Whether the model is still listed is checked at the start itself.
+   */
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation;
+  /**
+   * Reads the models the runtime can use now from the runtime itself (ADR 0016). Present exactly
+   * when the descriptor's `model_choice` is `listed`. Rejects with `RuntimeActionError` when the
+   * runtime cannot list them. The result is never journaled.
+   */
+  listModels?(): Promise<readonly RuntimeModel[]>;
   startExecution?(request: StartExecutionRequest): Promise<StartExecutionResult>;
   sendInstruction?(request: { execution: ExecutionContext; text: string }): Promise<void>;
   respondToApproval?(request: {
@@ -122,7 +138,10 @@ const CAPABILITY_METHODS: Readonly<Record<keyof RuntimeCapabilities, keyof Runti
   interrupt: 'interrupt',
 };
 
-/** Lists declared capabilities whose implementing method is missing. Empty when consistent. */
+/**
+ * Lists declared capabilities whose implementing method is missing, and a model choice declared
+ * without its list. Empty when consistent.
+ */
 export function capabilityProblems(adapter: RuntimeAdapter): string[] {
   const problems: string[] = [];
   for (const [capability, method] of Object.entries(CAPABILITY_METHODS)) {
@@ -130,6 +149,9 @@ export function capabilityProblems(adapter: RuntimeAdapter): string[] {
     if (declared && typeof adapter[method] !== 'function') {
       problems.push(`capability ${capability} is declared but ${method} is not implemented`);
     }
+  }
+  if (adapter.descriptor.model_choice === 'listed' && typeof adapter.listModels !== 'function') {
+    problems.push('model_choice listed is declared but listModels is not implemented');
   }
   return problems;
 }

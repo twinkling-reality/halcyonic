@@ -9,6 +9,19 @@ export interface StartOptions {
   readonly cwd: string;
   /** A model Codex is configured to reach; undefined keeps Codex's configured model. */
   readonly model: string | undefined;
+  /**
+   * A model provider Codex knows, built in (`openai`, `ollama`, `lmstudio`) or configured in its
+   * `config.toml`; undefined keeps Codex's configured provider.
+   */
+  readonly modelProvider: string | undefined;
+  /**
+   * The context window, in tokens, Codex assumes for the thread's model, instead of what its model
+   * catalog says. Codex knows nothing about a model outside its catalog, such as a local one, and
+   * assumes 272,000 tokens.
+   */
+  readonly contextWindow: number | undefined;
+  /** The token count at which Codex compacts the thread's context. */
+  readonly autoCompactTokenLimit: number | undefined;
   readonly sandbox: SandboxMode;
   readonly approvalPolicy: ApprovalPolicy;
 }
@@ -17,12 +30,24 @@ export type ParsedStartOptions =
   | { readonly ok: true; readonly value: StartOptions }
   | { readonly ok: false; readonly message: string };
 
-const SUPPORTED = ['cwd', 'model', 'sandbox', 'approval_policy'];
+const SUPPORTED = [
+  'cwd',
+  'model',
+  'model_provider',
+  'context_window',
+  'auto_compact_token_limit',
+  'sandbox',
+  'approval_policy',
+];
 const SANDBOXES: readonly SandboxMode[] = ['read-only', 'workspace-write', 'danger-full-access'];
 const APPROVAL_POLICIES: readonly ApprovalPolicy[] = ['on-request', 'untrusted'];
 
 /** Model names as Codex and its providers spell them, for example `gpt-5.5` or `llama3:8b`. */
 const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
+/** Provider ids as Codex's configuration keys them, for example `openai`, `ollama` or `my-gateway`. */
+const PROVIDER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+/** Bounds on token counts, generous for any model a Mac or a provider serves. */
+const MAX_TOKENS = 10_000_000;
 
 /**
  * Checks the start options of a Codex execution, then asks the host's directory policy. Every
@@ -38,6 +63,7 @@ const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
 export function parseStartOptions(
   options: RuntimeOptions,
   policy: DirectoryPolicy,
+  modelRef: string | null = null,
 ): ParsedStartOptions {
   const unknown = Object.keys(options).filter((key) => !SUPPORTED.includes(key));
   if (unknown.length > 0) {
@@ -45,7 +71,15 @@ export function parseStartOptions(
       `Unknown Codex runtime options: ${unknown.join(', ')}. Supported: ${SUPPORTED.join(', ')}.`,
     );
   }
-  const { cwd, model, sandbox = 'workspace-write', approval_policy = 'on-request' } = options;
+  const {
+    cwd,
+    model,
+    model_provider,
+    context_window,
+    auto_compact_token_limit,
+    sandbox = 'workspace-write',
+    approval_policy = 'on-request',
+  } = options;
   if (typeof cwd !== 'string' || cwd === '') {
     return fail('Option "cwd" is required: the absolute path of an existing directory.');
   }
@@ -59,6 +93,35 @@ export function parseStartOptions(
   if (!isDirectory) return fail(`Option "cwd" is not a directory: ${cwd}`);
   if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
     return fail('Option "model" must be a model name, such as "gpt-5.5".');
+  }
+  if (
+    model_provider !== undefined &&
+    (typeof model_provider !== 'string' || !PROVIDER_PATTERN.test(model_provider))
+  ) {
+    return fail('Option "model_provider" must be a model provider id, such as "ollama".');
+  }
+  let chosen: { readonly provider: string; readonly model: string } | null = null;
+  if (modelRef !== null) {
+    if (model !== undefined || model_provider !== undefined) {
+      return fail(
+        'Choose the model either with model_ref or with the "model" and "model_provider" options, not both.',
+      );
+    }
+    chosen = fromModelRef(modelRef);
+    if (chosen === null) return fail(`${modelRef} is not a model Codex lists.`);
+  }
+  const contextWindow = tokenCount(context_window);
+  if (contextWindow === null) return tokenCountRefused('context_window');
+  const autoCompactTokenLimit = tokenCount(auto_compact_token_limit);
+  if (autoCompactTokenLimit === null) return tokenCountRefused('auto_compact_token_limit');
+  if (
+    contextWindow !== undefined &&
+    autoCompactTokenLimit !== undefined &&
+    autoCompactTokenLimit >= contextWindow
+  ) {
+    return fail(
+      'Option "auto_compact_token_limit" must be smaller than "context_window": Codex compacts before the window is full.',
+    );
   }
   const sandboxMode = SANDBOXES.find((mode) => mode === sandbox);
   if (sandboxMode === undefined) {
@@ -88,8 +151,47 @@ export function parseStartOptions(
   if (!decision.ok) return fail(decision.message);
   return {
     ok: true,
-    value: { cwd: decision.directory, model, sandbox: sandboxMode, approvalPolicy },
+    value: {
+      cwd: decision.directory,
+      model: chosen?.model ?? model,
+      modelProvider: chosen?.provider ?? model_provider,
+      contextWindow,
+      autoCompactTokenLimit,
+      sandbox: sandboxMode,
+      approvalPolicy,
+    },
   };
+}
+
+/** The adapter's `model_ref` for a model of a provider: `provider/model`. */
+export function toModelRef(provider: string, model: string): string {
+  return `${provider}/${model}`;
+}
+
+/** The provider and model a `model_ref` names, or null when it is not one the adapter makes. */
+export function fromModelRef(
+  modelRef: string,
+): { readonly provider: string; readonly model: string } | null {
+  const slash = modelRef.indexOf('/');
+  if (slash < 0) return null;
+  const provider = modelRef.slice(0, slash);
+  const model = modelRef.slice(slash + 1);
+  return PROVIDER_PATTERN.test(provider) && MODEL_PATTERN.test(model) ? { provider, model } : null;
+}
+
+/** A whole number of tokens, undefined when the option is absent, or null when it is invalid. */
+function tokenCount(value: unknown): number | undefined | null {
+  if (value === undefined) return undefined;
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 1 &&
+    value <= MAX_TOKENS
+    ? value
+    : null;
+}
+
+function tokenCountRefused(name: string): ParsedStartOptions {
+  return fail(`Option "${name}" must be a whole number of tokens from 1 to ${MAX_TOKENS}.`);
 }
 
 function fail(message: string): ParsedStartOptions {

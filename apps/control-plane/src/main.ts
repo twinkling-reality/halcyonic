@@ -2,7 +2,7 @@ import { chmod, mkdir } from 'node:fs/promises';
 import { type NetworkInterfaceInfo, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import type { NetworkListener } from '@halcyonic/contracts';
-import { loadScenarios, MockRuntimeAdapter } from '@halcyonic/integration-mock';
+import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
 import { loadConfig, type NetworkListenerConfig } from './config.ts';
@@ -30,7 +30,10 @@ async function main(): Promise<void> {
   const access = await loadOrCreateAccessToken(config.dataDir);
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
-    mock: new MockRuntimeAdapter({ scenarios: loadScenarios(config.scenariosDir) }),
+    mock: new MockRuntimeAdapter({
+      scenarios: loadScenarios(config.scenariosDir),
+      models: MOCK_MODELS,
+    }),
     directoryPolicy: createDirectoryPolicy(config.projectRoots),
     environment: process.env,
     dataDir: config.dataDir,

@@ -31,6 +31,7 @@ const STALLED: RuntimeAdapter = {
       respond_to_approval: false,
       interrupt: false,
     },
+    model_choice: 'none',
   },
   validateStartOptions: () => ({ ok: true }),
   startExecution: () => new Promise(() => {}),

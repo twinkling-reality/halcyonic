@@ -11,6 +11,8 @@ import {
   ProjectId,
   type ProjectsResponse,
   parseCommandEnvelope,
+  RuntimeId,
+  type RuntimeModelsResponse,
   type RuntimesResponse,
   type Snapshot,
   UnderstandingResponse,
@@ -19,6 +21,7 @@ import {
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
 import type { ControlPlane } from '../core/control-plane.ts';
+import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 import { errorBody } from './server.ts';
@@ -26,12 +29,15 @@ import { errorBody } from './server.ts';
 const validateEventsQuery = compileValidator(EventsQuery);
 const validateProjectId = compileValidator(ProjectId);
 const validateExecutionId = compileValidator(ExecutionId);
+const validateRuntimeId = compileValidator(RuntimeId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
 const validateEvaluationResponse = compileValidator(EvaluationResponse);
 
 export interface RouteSources {
   readonly understanding: UnderstandingSource;
   readonly evaluation: EvaluationSource;
+  /** How long a runtime has to list its models; `MODEL_LIST_TIMEOUT_MS` by default. */
+  readonly modelListTimeoutMs?: number;
 }
 
 /**
@@ -75,6 +81,41 @@ export function registerRoutes(
     '/api/runtimes',
     async (): Promise<RuntimesResponse> => ({ runtimes: controlPlane.registry.descriptors() }),
   );
+
+  // Read through to the runtime's own list of models; nothing here is journaled (ADR 0016).
+  app.get('/api/runtimes/:runtime_id/models', async (request, reply) => {
+    const runtimeId = (request.params as { runtime_id: string }).runtime_id;
+    if (!validateRuntimeId(runtimeId).ok) {
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'runtime_id must be a runtime identifier.'));
+    }
+    const adapter = controlPlane.registry.adapter(runtimeId);
+    if (adapter === undefined) {
+      return reply
+        .code(404)
+        .send(errorBody('runtime_not_found', `Runtime ${runtimeId} is not registered.`));
+    }
+    if (adapter.descriptor.model_choice !== 'listed') {
+      return reply
+        .code(404)
+        .send(
+          errorBody('models_not_listed', `Runtime ${runtimeId} does not offer a choice of model.`),
+        );
+    }
+    const result = await readRuntimeModels(
+      adapter,
+      sources.modelListTimeoutMs ?? MODEL_LIST_TIMEOUT_MS,
+    );
+    if (result.availability === 'unavailable') {
+      request.log.info(
+        { runtime_id: runtimeId, reason: result.reason.code },
+        'runtime models unavailable',
+      );
+    }
+    const body: RuntimeModelsResponse = { runtime_id: adapter.descriptor.runtime_id, result };
+    return body;
+  });
 
   app.get('/api/events', async (request, reply) => {
     const query = request.query as Record<string, unknown>;

@@ -48,6 +48,7 @@ for (let index = 0; index < count; index += 1) {
     },
     instruction: 'Keep working.',
     options: { cwd },
+    model_ref: null,
     emit: () => {},
   });
 }

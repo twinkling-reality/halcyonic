@@ -6,6 +6,7 @@ import type {
   RuntimeDescriptor,
   RuntimeEventType,
   RuntimeId,
+  RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
 import {
@@ -54,8 +55,41 @@ const CONTINUATION_STEPS: readonly ScenarioStep[] = [
   { after_ms: 600, emit: { type: 'runtime.turn.completed', payload: {} } },
 ];
 
+/**
+ * Synthetic models for a development control plane, so clients can exercise model choice without a
+ * real runtime. Their names say they are simulated; nothing serves them.
+ */
+export const MOCK_MODELS: readonly RuntimeModel[] = [
+  {
+    model_ref: 'mock/fast',
+    display_name: 'Simulated fast model (mock runtime, development fixture)',
+    served: 'this_mac',
+    tool_calling: 'declared',
+    context_tokens: 65536,
+  },
+  {
+    model_ref: 'mock/hosted',
+    display_name: 'Simulated hosted model (mock runtime, development fixture)',
+    served: 'remote',
+    tool_calling: 'declared',
+    context_tokens: 200000,
+  },
+  {
+    model_ref: 'mock/no-tools',
+    display_name: 'Simulated model without tools (mock runtime, development fixture)',
+    served: 'this_mac',
+    tool_calling: 'not_declared',
+    context_tokens: null,
+  },
+];
+
 export interface MockRuntimeOptions {
   readonly scenarios: ReadonlyMap<string, Scenario>;
+  /**
+   * The models the runtime lists, such as `MOCK_MODELS`. With none, the runtime offers no choice
+   * of model, as the recorded demonstration's runtimes do.
+   */
+  readonly models?: readonly RuntimeModel[];
   readonly runtimeId?: RuntimeId;
   /**
    * What clients call the runtime. Whatever the name, the descriptor stays `synthetic`, so every
@@ -73,7 +107,10 @@ export interface MockRuntimeOptions {
  */
 export class MockRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
+  /** The synthetic models the runtime was given; present only when it was given some. */
+  readonly listModels?: () => Promise<readonly RuntimeModel[]>;
   readonly #scenarios: ReadonlyMap<string, Scenario>;
+  readonly #models: readonly RuntimeModel[];
   readonly #clock: Clock;
   readonly #scheduler: Scheduler;
   readonly #sessions = new Map<ExecutionId, MockSession>();
@@ -81,6 +118,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
 
   constructor(options: MockRuntimeOptions) {
     this.#scenarios = options.scenarios;
+    this.#models = options.models ?? [];
     this.#clock = options.clock ?? systemClock;
     this.#scheduler = options.scheduler ?? systemScheduler;
     this.descriptor = {
@@ -89,10 +127,15 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       display_name: options.displayName ?? 'Mock runtime (development fixture)',
       synthetic: true,
       capabilities: MOCK_CAPABILITIES,
+      model_choice: this.#models.length > 0 ? 'listed' : 'none',
     };
+    if (this.#models.length > 0) this.listModels = async () => this.#models;
   }
 
-  validateStartOptions(options: RuntimeOptions): OptionsValidation {
+  validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
+    if (modelRef !== null && !this.#models.some((model) => model.model_ref === modelRef)) {
+      return { ok: false, message: `The mock runtime lists no model ${modelRef}.` };
+    }
     const available = [...this.#scenarios.keys()].join(', ');
     const unknown = Object.keys(options).filter((key) => key !== 'scenario');
     if (unknown.length > 0) {
@@ -113,7 +156,17 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closed) throw new RuntimeActionError('runtime_closed', 'The mock runtime is closed.');
-    const validation = this.validateStartOptions(request.options);
+    // Checked against the list again, as a real runtime's list may have changed since admission.
+    if (
+      request.model_ref !== null &&
+      !this.#models.some((model) => model.model_ref === request.model_ref)
+    ) {
+      throw new RuntimeActionError(
+        'model_unavailable',
+        `The mock runtime no longer lists the model ${request.model_ref}.`,
+      );
+    }
+    const validation = this.validateStartOptions(request.options, request.model_ref);
     if (!validation.ok) throw new RuntimeActionError('invalid_runtime_options', validation.message);
     const scenario = this.#scenarios.get(request.options.scenario as string);
     if (scenario === undefined) {
@@ -136,7 +189,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       new Map((scenario.instructions ?? []).map(({ text, steps }) => [text, steps])),
     );
     this.#sessions.set(request.execution.execution_id, session);
-    session.begin(scenario.steps);
+    session.begin(scenario.steps, request.model_ref);
     return { native_id: session.nativeId };
   }
 
@@ -206,8 +259,10 @@ class MockSession {
     this.#instructions = instructions;
   }
 
-  begin(steps: readonly ScenarioStep[]): void {
+  begin(steps: readonly ScenarioStep[], modelRef: string | null): void {
     this.#emit('runtime.execution.started', { native_id: this.nativeId });
+    // The mock "uses" the model it was given, and reports it as a runtime reports its model.
+    if (modelRef !== null) this.#emit('runtime.model.used', { model_ref: modelRef });
     this.#startTurn(steps);
   }
 

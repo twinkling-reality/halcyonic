@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { after, describe, test } from 'node:test';
 import type {
   EventEnvelope,
@@ -54,6 +55,7 @@ function stubRuntime(
       respond_to_approval: false,
       interrupt: false,
     },
+    model_choice: 'none',
   };
   return {
     descriptor,
@@ -288,6 +290,7 @@ describe('truthful failure handling', () => {
           runtime_id: 'stuck' as RuntimeId,
           instruction: 'Go.',
           options: {},
+          model_ref: null,
         },
       },
       'internal',
@@ -322,6 +325,7 @@ describe('truthful failure handling', () => {
           runtime_id: 'refusing' as RuntimeId,
           instruction: 'Go.',
           options: {},
+          model_ref: null,
         },
       },
       'internal',
@@ -364,6 +368,7 @@ describe('truthful failure handling', () => {
           runtime_id: 'sloppy' as RuntimeId,
           instruction: 'Go.',
           options: {},
+          model_ref: null,
         },
       },
       'internal',
@@ -397,6 +402,7 @@ describe('truthful failure handling', () => {
             runtime_id: 'reusing' as RuntimeId,
             instruction: 'Go.',
             options: {},
+            model_ref: null,
           },
         },
         'internal',
@@ -487,6 +493,40 @@ describe('truthful failure handling', () => {
 });
 
 describe('restart', () => {
+  test('a journal written before principals were recorded, at schema version 2, opens and replays', async () => {
+    const path = join(directory, 'before-principals.db');
+    const first = createTestControlPlane({ path });
+    const workstreamId = await createWorkstream(first, FEATURE);
+    first.controlPlane.commands.submit(
+      first.commands.startExecution(workstreamId, FEATURE),
+      'internal',
+    );
+    await first.time.runUntilIdle();
+    const before = first.controlPlane.snapshot();
+    await first.controlPlane.close();
+
+    // What a build of schema version 2 wrote: the same events, command events without a principal.
+    const db = new DatabaseSync(path);
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.principal')
+         WHERE event_type IN ('command.accepted', 'command.rejected')`,
+    );
+    db.exec('PRAGMA user_version = 2');
+    db.close();
+
+    const second = createTestControlPlane({ path, time: first.time });
+    assert.deepEqual(second.controlPlane.snapshot(), before);
+    const principals = [...second.journal.readAll()].flatMap((stored) =>
+      stored.event.event_type === 'command.accepted' ||
+      stored.event.event_type === 'command.rejected'
+        ? [stored.event.payload.principal]
+        : [],
+    );
+    assert.ok(principals.length >= 3, 'the project, the workstream and the start');
+    assert.ok(principals.every((principal) => principal === null));
+    await second.controlPlane.close();
+  });
+
   test('state is rebuilt from the journal and in-flight work becomes unknown, not assumed', async () => {
     const path = join(directory, 'restart.db');
     const first = createTestControlPlane({
@@ -509,6 +549,7 @@ describe('restart', () => {
           runtime_id: 'stuck' as RuntimeId,
           instruction: 'Go.',
           options: {},
+          model_ref: null,
         },
       },
       'internal',

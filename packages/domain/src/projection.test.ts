@@ -136,6 +136,24 @@ describe('execution status is derived from observed facts', () => {
     assert.deepEqual(view?.active_tools, []);
   });
 
+  test('the model the runtime reports is kept as observed, and the latest report wins', () => {
+    const { b, apply, execution, scope, projection, status } = setup();
+    apply(execution.event);
+    const view = () => projection.execution(execution.executionId);
+    assert.equal(view()?.model_ref, null, 'no model before the runtime reports one');
+    apply(b.runtimeEvent(scope, 'runtime.execution.started', { native_id: 'native-1' }));
+    apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    apply(
+      b.runtimeEvent(scope, 'runtime.model.used', { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' }),
+    );
+    assert.equal(view()?.model_ref, 'ollama/qwen3.6:35b-a3b-nvfp4');
+    assert.equal(status(), 'running', 'a reported model changes no status');
+    apply(b.runtimeEvent(scope, 'runtime.model.used', { model_ref: 'ollama/qwen3.8:27b-nvfp4' }));
+    assert.equal(view()?.model_ref, 'ollama/qwen3.8:27b-nvfp4');
+    apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    assert.equal(view()?.model_ref, 'ollama/qwen3.8:27b-nvfp4', 'the model outlives the turn');
+  });
+
   test('lost contact makes the execution unknown until the runtime reports again', () => {
     const { b, apply, execution, scope, status, workstreamView } = setup();
     apply(execution.event, b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));

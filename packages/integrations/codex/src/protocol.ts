@@ -20,6 +20,8 @@ export const METHODS_USED = [
   'turn/start',
   'turn/steer',
   'turn/interrupt',
+  'config/read',
+  'model/list',
 ] as const;
 
 /** `ClientInfo.ts`. */
@@ -50,6 +52,15 @@ export type ApprovalPolicy = 'on-request' | 'untrusted';
 /** `v2/SandboxMode.ts`. */
 export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 
+/**
+ * The configuration overrides the adapter sets in `config` of `v2/ThreadStartParams.ts`, keyed
+ * as in Codex's `config.toml`; each applies to the one thread.
+ */
+export interface ThreadConfigOverrides {
+  readonly model_context_window?: number;
+  readonly model_auto_compact_token_limit?: number;
+}
+
 /** `v2/ThreadStartParams.ts`. */
 export interface ThreadStartParams {
   readonly cwd: string;
@@ -58,6 +69,8 @@ export interface ThreadStartParams {
   readonly approvalsReviewer: 'user';
   readonly sandbox: SandboxMode;
   readonly model?: string;
+  readonly modelProvider?: string;
+  readonly config?: ThreadConfigOverrides;
   readonly threadSource: string;
 }
 
@@ -73,6 +86,8 @@ export interface ThreadResumeParams extends Omit<ThreadStartParams, 'threadSourc
  */
 export interface ThreadSettingsResponse {
   readonly thread: { readonly id: string };
+  readonly model: string;
+  readonly modelProvider: string;
   readonly approvalPolicy: unknown;
   readonly approvalsReviewer: unknown;
   readonly sandbox: { readonly type: string };
@@ -107,6 +122,39 @@ export interface TurnSteerParams extends TurnStartParams {
 export interface TurnInterruptParams {
   readonly threadId: string;
   readonly turnId: string;
+}
+
+/** `v2/ConfigReadParams.ts`: the effective configuration, without its layers. */
+export interface ConfigReadParams {
+  readonly includeLayers: false;
+}
+
+/**
+ * The fields of `v2/Config.ts` the adapter reads, from `config/read`'s `config`: the configured
+ * provider and model, and the settings that say which catalog `model/list` returns and where a
+ * provider is served. `model_providers` holds only providers the configuration defines.
+ */
+export interface ConfigFields {
+  readonly model: unknown;
+  readonly model_provider: unknown;
+  readonly model_context_window: unknown;
+  readonly model_catalog_json: unknown;
+  readonly openai_base_url: unknown;
+  readonly model_providers: unknown;
+}
+
+/** `v2/ModelListParams.ts`. */
+export interface ModelListParams {
+  readonly cursor: string | null;
+  readonly limit: number;
+  readonly includeHidden: false;
+}
+
+/** The fields of `v2/Model.ts` the adapter reads, from `model/list`'s `data`. */
+export interface CatalogModel {
+  readonly model: string;
+  readonly displayName: string;
+  readonly hidden: boolean;
 }
 
 /** `v2/TurnStatus.ts`. */

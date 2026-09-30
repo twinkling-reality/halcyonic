@@ -542,6 +542,40 @@ describe('Codex event mapping edge cases', () => {
     assert.equal(state.activeTurnId, null);
   });
 
+  test('a reroute to another model is reported under the provider of the thread, once', () => {
+    const state = createThreadState();
+    // Before Codex reported the thread's provider, a reroute cannot be named.
+    assert.deepEqual(
+      notify(state, 'model/rerouted', { turnId: 't1', fromModel: 'a', toModel: 'b' }).observations,
+      [],
+    );
+    state.provider = 'ollama';
+    state.model = 'qwen3.6:35b-a3b-nvfp4';
+    const rerouted = notify(state, 'model/rerouted', {
+      turnId: 't1',
+      fromModel: 'qwen3.6:35b-a3b-nvfp4',
+      toModel: 'qwen3.8:27b-nvfp4',
+      reason: 'highRiskCyberActivity',
+    }).observations;
+    assert.deepEqual(
+      rerouted.map((item) => [item.type, item.payload, item.native_event_id, item.provenance]),
+      [
+        [
+          'runtime.model.used',
+          { model_ref: 'ollama/qwen3.8:27b-nvfp4' },
+          't1:model/rerouted:qwen3.8:27b-nvfp4',
+          { epistemic: 'observed', native_type: 'codex/model/rerouted' },
+        ],
+      ],
+    );
+    assertValidObservations(rerouted);
+    assert.equal(state.model, 'qwen3.8:27b-nvfp4');
+    assert.deepEqual(
+      notify(state, 'model/rerouted', { turnId: 't2', toModel: 'qwen3.8:27b-nvfp4' }).observations,
+      [],
+    );
+  });
+
   test('clip keeps whole characters', () => {
     assert.equal(clip('short', 10), 'short');
     assert.equal(Array.from(clip('😀'.repeat(20), 15)).length, 15);
