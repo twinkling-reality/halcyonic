@@ -120,7 +120,11 @@ function adapterFor(file: string): CodexRuntimeAdapter {
   return new CodexRuntimeAdapter({
     binaryPath: '/unused',
     serverRecordFile: file,
-    directoryPolicy: () => ({ ok: false, message: 'No directory is allowed in this test.' }),
+    directoryPolicy: () => ({
+      ok: false,
+      code: 'location_not_allowed',
+      message: 'No directory is allowed in this test.',
+    }),
   });
 }
 

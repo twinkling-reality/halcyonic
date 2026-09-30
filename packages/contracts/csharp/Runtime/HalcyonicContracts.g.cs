@@ -72,6 +72,7 @@ namespace Halcyonic.Contracts
     public enum CommandType
     {
         [EnumMember(Value = "project.create")] ProjectCreate,
+        [EnumMember(Value = "project.set_location")] ProjectSetLocation,
         [EnumMember(Value = "workstream.create")] WorkstreamCreate,
         [EnumMember(Value = "execution.start")] ExecutionStart,
         [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
@@ -96,6 +97,18 @@ namespace Halcyonic.Contracts
         public PolicyCategory Policy { get; set; }
     }
 
+    public sealed class ProjectLocation
+    {
+        [JsonProperty("path", Required = Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("created", Required = Required.Always)]
+        public bool Created { get; set; }
+    }
+
     public sealed class ProjectView
     {
         [JsonProperty("project_id", Required = Required.Always)]
@@ -103,6 +116,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("name", Required = Required.Always)]
         public string Name { get; set; } = default!;
+
+        [JsonProperty("location", Required = Required.AllowNull)]
+        public ProjectLocation? Location { get; set; }
 
         [JsonProperty("created_at", Required = Required.Always)]
         public string CreatedAt { get; set; } = default!;
@@ -431,6 +447,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("instruction", Required = Required.Always)]
         public string Instruction { get; set; } = default!;
 
+        [JsonProperty("directory", Required = Required.AllowNull)]
+        public string? Directory { get; set; }
+
         [JsonProperty("status", Required = Required.Always)]
         public ExecutionStatus Status { get; set; }
 
@@ -482,6 +501,10 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "capability_unsupported")] CapabilityUnsupported,
         [EnumMember(Value = "invalid_state")] InvalidState,
         [EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
+        [EnumMember(Value = "location_required")] LocationRequired,
+        [EnumMember(Value = "location_missing")] LocationMissing,
+        [EnumMember(Value = "location_not_allowed")] LocationNotAllowed,
+        [EnumMember(Value = "location_exists")] LocationExists,
         [EnumMember(Value = "demonstration")] Demonstration,
         [EnumMember(Value = "device_revoked")] DeviceRevoked,
     }
@@ -664,6 +687,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("model_choice", Required = Required.Always)]
         public ModelChoice ModelChoice { get; set; }
+
+        [JsonProperty("uses_project_location", Required = Required.Always)]
+        public bool UsesProjectLocation { get; set; }
     }
 
     public sealed class Snapshot
@@ -819,6 +845,15 @@ namespace Halcyonic.Contracts
     {
         [JsonProperty("name", Required = Required.Always)]
         public string Name { get; set; } = default!;
+
+        [JsonProperty("location", Required = Required.AllowNull)]
+        public ProjectLocation? Location { get; set; }
+    }
+
+    public sealed class ProjectLocationSetPayload
+    {
+        [JsonProperty("location", Required = Required.Always)]
+        public ProjectLocation Location { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedPayload
@@ -837,6 +872,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("instruction", Required = Required.Always)]
         public string Instruction { get; set; } = default!;
+
+        [JsonProperty("directory", Required = Required.AllowNull)]
+        public string? Directory { get; set; }
     }
 
     public sealed class ExecutionStartFailedPayload
@@ -873,10 +911,83 @@ namespace Halcyonic.Contracts
         public string? DeviceLabel { get; set; }
     }
 
+    [JsonConverter(typeof(ProjectLocationChoiceConverter))]
+    public abstract class ProjectLocationChoice
+    {
+        [JsonProperty("kind", Order = -2)]
+        public string Kind => Discriminator;
+
+        protected abstract string Discriminator { get; }
+
+        [JsonProperty("root", Required = Required.Always)]
+        public string Root { get; set; } = default!;
+
+        [JsonProperty("folder_name", Required = Required.AllowNull)]
+        public string? FolderName { get; set; }
+    }
+
+    public sealed class ProjectLocationChoiceConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(ProjectLocationChoice).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["kind"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            ProjectLocationChoice value = tag switch
+            {
+                "existing_folder" => new ExistingFolderChoice(),
+                "new_folder" => new NewFolderChoice(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "ProjectLocationChoice has no string kind."
+                    : "Unknown kind \"" + tag + "\" for ProjectLocationChoice."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but kind is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class ExistingFolderChoice : ProjectLocationChoice
+    {
+        protected override string Discriminator => "existing_folder";
+    }
+
+    public sealed class NewFolderChoice : ProjectLocationChoice
+    {
+        protected override string Discriminator => "new_folder";
+    }
+
     public sealed class ProjectCreatePayload
     {
         [JsonProperty("name", Required = Required.Always)]
         public string Name { get; set; } = default!;
+
+        [JsonProperty("location", Required = Required.AllowNull)]
+        public ProjectLocationChoice? Location { get; set; }
+    }
+
+    public sealed class ProjectSetLocationPayload
+    {
+        [JsonProperty("project_id", Required = Required.Always)]
+        public string ProjectId { get; set; } = default!;
+
+        [JsonProperty("location", Required = Required.Always)]
+        public ProjectLocationChoice Location { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatePayload
@@ -982,6 +1093,7 @@ namespace Halcyonic.Contracts
             CommandEnvelope value = tag switch
             {
                 "project.create" => new ProjectCreateCommand(),
+                "project.set_location" => new ProjectSetLocationCommand(),
                 "workstream.create" => new WorkstreamCreateCommand(),
                 "execution.start" => new ExecutionStartCommand(),
                 "execution.send_instruction" => new ExecutionSendInstructionCommand(),
@@ -1013,6 +1125,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCreatePayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectSetLocationCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "project.set_location";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectSetLocationPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreateCommand : CommandEnvelope
@@ -1387,6 +1507,7 @@ namespace Halcyonic.Contracts
             EventEnvelope value = tag switch
             {
                 "project.created" => new ProjectCreatedEvent(),
+                "project.location_set" => new ProjectLocationSetEvent(),
                 "workstream.created" => new WorkstreamCreatedEvent(),
                 "execution.created" => new ExecutionCreatedEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
@@ -1437,6 +1558,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ProjectCreatedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ProjectLocationSetEvent : EventEnvelope
+    {
+        protected override string Discriminator => "project.location_set";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ProjectLocationSetPayload Payload { get; set; } = default!;
     }
 
     public sealed class WorkstreamCreatedEvent : EventEnvelope

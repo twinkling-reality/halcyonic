@@ -10,6 +10,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
@@ -86,8 +87,8 @@ export interface CodexRuntimeOptions {
    */
   readonly serverRecordFile: string;
   /**
-   * The host's decision on which directories agents may work in. A `cwd` it refuses is refused as
-   * a start option, and a thread works in the real path it returns.
+   * The host's decision on which directories agents may work in, asked again about the project's
+   * folder before a thread starts there.
    */
   readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
@@ -213,6 +214,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       synthetic: false,
       capabilities: CODEX_CAPABILITIES,
       model_choice: 'listed',
+      uses_project_location: true,
     };
   }
 
@@ -222,7 +224,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
+    const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
 
@@ -276,13 +278,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    // Checked again here: the directory may have changed since admission.
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
+    const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    // Asked again before anything is launched: the folder may have changed since admission.
+    const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
     if (this.#threads.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    const options = parsed.value;
+    const options: StartOptions = { ...parsed.value, cwd };
     // A chosen model is checked against a fresh list: Codex itself would take any name.
     if (request.model_ref !== null) {
       const listed = await this.listModels();

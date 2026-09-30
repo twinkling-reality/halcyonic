@@ -33,6 +33,7 @@ function listingRuntime(
         interrupt: false,
       },
       model_choice: 'listed',
+      uses_project_location: false,
     },
     validateStartOptions: () => ({ ok: true }),
     listModels,

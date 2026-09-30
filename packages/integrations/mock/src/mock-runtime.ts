@@ -131,6 +131,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       synthetic: true,
       capabilities: MOCK_CAPABILITIES,
       model_choice: this.#models.length > 0 ? 'listed' : 'none',
+      uses_project_location: false,
     };
     if (this.#models.length > 0) this.listModels = async () => this.#models;
   }

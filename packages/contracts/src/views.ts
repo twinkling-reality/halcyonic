@@ -7,6 +7,7 @@ import {
   CommandType,
 } from './commands.ts';
 import { ApprovalSubject } from './events.ts';
+import { HostPath, ProjectLocation } from './locations.ts';
 import {
   ErrorInfo,
   ExecutionId,
@@ -82,7 +83,14 @@ export const Attention = Type.Object(
 export type Attention = Static<typeof Attention>;
 
 export const ProjectView = Type.Object(
-  { project_id: ProjectId, name: Text(200), created_at: Timestamp, updated_at: Timestamp },
+  {
+    project_id: ProjectId,
+    name: Text(200),
+    /** Where the project's work runs on the host; null when it has no folder. */
+    location: Nullable(ProjectLocation),
+    created_at: Timestamp,
+    updated_at: Timestamp,
+  },
   strict,
 );
 export type ProjectView = Static<typeof ProjectView>;
@@ -155,6 +163,12 @@ export const ExecutionView = Type.Object(
      */
     model_ref: Nullable(ModelRef),
     instruction: Text(32000),
+    /**
+     * The folder the runtime was given to work in, as the host resolved the project's location for
+     * this start. Null for a runtime that uses none, and for executions journaled before folders
+     * were recorded, where it means not recorded.
+     */
+    directory: Nullable(HostPath),
     status: ExecutionStatus,
     /** Why the execution is `failed`, `interrupted` or `unknown`, when known. */
     status_reason: Nullable(ErrorInfo),

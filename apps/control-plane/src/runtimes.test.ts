@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
+import type { ExecutionId, ProjectId, WorkstreamId } from '@halcyonic/contracts';
 import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integration-claude-code';
 import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
+import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { ConfigError, loadConfig } from './config.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
 import {
@@ -99,11 +101,27 @@ describe('runtime composition', () => {
     assert.equal(codex.descriptor.runtime_id, 'codex');
     assert.equal(codex.descriptor.display_name, 'Codex 0.157.0');
     assert.equal(codex.descriptor.synthetic, false);
-    // The control plane's directory policy decides: with no project roots, nothing is allowed.
-    assert.deepEqual(codex.validateStartOptions({ cwd: dataDir }, null), {
-      ok: false,
-      message: 'No project roots are configured on the control plane (HALCYONIC_PROJECT_ROOTS).',
-    });
+    // The control plane's directory policy decides before anything is launched: with no project
+    // roots, no folder is allowed.
+    await assert.rejects(
+      codex.startExecution({
+        execution: {
+          execution_id: '01920000-0000-7000-8000-000000000103' as ExecutionId,
+          workstream_id: '01920000-0000-7000-8000-000000000102' as WorkstreamId,
+          project_id: '01920000-0000-7000-8000-000000000101' as ProjectId,
+        },
+        instruction: 'Do the work.',
+        options: {},
+        model_ref: null,
+        directory: realpathSync(dataDir),
+        emit: () => undefined,
+      }),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'location_not_allowed' &&
+        error.message ===
+          'No project roots are configured on the control plane (HALCYONIC_PROJECT_ROOTS).',
+    );
     assert.deepEqual(
       await stopStaleRuntimeServers(hosted),
       [],

@@ -167,8 +167,9 @@ async function runTurn(
   const { native_id } = await adapter.startExecution({
     execution,
     instruction: 'Say hello.',
-    options: { cwd: WORKDIR },
+    options: {},
     model_ref: null,
+    directory: WORKDIR,
     emit: (observation) => observed.push(observation),
   });
   await waitFor(

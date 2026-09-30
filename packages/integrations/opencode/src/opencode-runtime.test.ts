@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -15,7 +15,8 @@ import { allowOnly } from './testing/directory-policy.ts';
 import { TEST_EXECUTION } from './testing/observations.ts';
 
 function temporary(t: TestContext): string {
-  const directory = mkdtempSync(join(tmpdir(), 'halcyonic-opencode-unit-'));
+  // A real path, as the host binds a project's folder; macOS's temporary directory is a link.
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-opencode-unit-')));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   return directory;
 }
@@ -58,32 +59,27 @@ describe('OpenCode runtime descriptor', () => {
 });
 
 describe('OpenCode start options', () => {
-  test('require an absolute path of an existing directory, and allow a provider/model', (t) => {
+  test('allow a provider/model, and no folder: the session works in the project folder', (t) => {
     const { runtime, directory } = adapter(t);
-    const file = join(directory, 'a-file');
-    writeFileSync(file, 'x');
     const invalid: Record<string, unknown>[] = [
-      {},
-      { directory: '' },
-      { directory: 'relative/path' },
-      { directory: join(directory, 'missing') },
-      { directory: file },
-      { directory, scenario: 'x' },
-      { directory, model: 'no-slash' },
-      { directory, model: '/model' },
-      { directory, model: 'provider/' },
-      { directory, model: 42 },
+      { directory },
+      { cwd: directory },
+      { scenario: 'x' },
+      { model: 'no-slash' },
+      { model: '/model' },
+      { model: 'provider/' },
+      { model: 42 },
     ];
     for (const options of invalid) {
       const result = runtime.validateStartOptions(options, null);
       assert.equal(result.ok, false, JSON.stringify(options));
       assert.ok(!result.ok && result.message.length > 0);
     }
-    for (const options of [
-      { directory },
-      { directory, model: null },
-      { directory, model: 'openrouter/vendor/model-1' },
-    ]) {
+    assert.match(
+      JSON.stringify(runtime.validateStartOptions({ directory }, null)),
+      /project's folder/,
+    );
+    for (const options of [{}, { model: null }, { model: 'openrouter/vendor/model-1' }]) {
       assert.deepEqual(
         runtime.validateStartOptions(options, null),
         { ok: true },
@@ -93,78 +89,87 @@ describe('OpenCode start options', () => {
   });
 
   test('a model chosen from the list is taken instead of the model option, never with it', (t) => {
-    const { runtime, directory } = adapter(t);
-    assert.deepEqual(runtime.validateStartOptions({ directory }, 'ollama/qwen3.6:35b-a3b-nvfp4'), {
+    const { runtime } = adapter(t);
+    assert.deepEqual(runtime.validateStartOptions({}, 'ollama/qwen3.6:35b-a3b-nvfp4'), {
       ok: true,
     });
-    assert.deepEqual(runtime.validateStartOptions({ directory, model: null }, 'ollama/x:y'), {
-      ok: true,
+    assert.deepEqual(runtime.validateStartOptions({ model: null }, 'ollama/x:y'), { ok: true });
+    assert.deepEqual(runtime.validateStartOptions({ model: 'fake/fake-model' }, 'ollama/x:y'), {
+      ok: false,
+      message: 'Choose the model either with model_ref or with the "model" option, not both.',
     });
-    assert.deepEqual(
-      runtime.validateStartOptions({ directory, model: 'fake/fake-model' }, 'ollama/x:y'),
-      {
-        ok: false,
-        message: 'Choose the model either with model_ref or with the "model" option, not both.',
-      },
-    );
     for (const modelRef of ['no-slash', '/model', 'provider/', 'provider/a b']) {
-      assert.deepEqual(runtime.validateStartOptions({ directory }, modelRef), {
+      assert.deepEqual(runtime.validateStartOptions({}, modelRef), {
         ok: false,
         message: `${modelRef} is not a model OpenCode lists.`,
       });
     }
   });
+});
 
-  test('a directory the host policy refuses is refused, with the policy message', async (t) => {
-    const { runtime } = adapter(t);
-    const outside = temporary(t);
-    const message = `${outside} is outside the directories this test allows.`;
-    assert.deepEqual(runtime.validateStartOptions({ directory: outside }, null), {
-      ok: false,
-      message,
+describe("OpenCode and the project's folder", () => {
+  const start = (runtime: OpenCodeRuntimeAdapter, directory: string | null) =>
+    runtime.startExecution({
+      execution: TEST_EXECUTION,
+      instruction: 'Do the work.',
+      options: {},
+      model_ref: null,
+      directory,
+      emit: () => undefined,
     });
-    await assert.rejects(
-      runtime.startExecution({
-        execution: TEST_EXECUTION,
-        instruction: 'Do the work.',
-        options: { directory: outside },
-        model_ref: null,
-        emit: () => undefined,
-      }),
-      (error: unknown) =>
-        actionError('invalid_runtime_options')(error) && (error as Error).message === message,
-    );
-    // The adapter's own checks come first; the policy decides only on an existing directory.
-    const missing = join(outside, 'missing');
-    const result = runtime.validateStartOptions({ directory: missing }, null);
-    assert.deepEqual(result, {
-      ok: false,
-      message: `Option "directory" does not exist: ${missing}`,
-    });
+
+  test('declares that it works in the project folder', (t) => {
+    assert.equal(adapter(t).runtime.descriptor.uses_project_location, true);
   });
 
-  test('the policy is asked for the path as given, and a policy that throws refuses', (t) => {
+  // The binary cannot start, so a refusal about the folder proves nothing was launched first.
+  test('the host policy is asked again before anything is launched, and its refusal is the failure', async (t) => {
+    const { runtime, directory } = adapter(t);
+    await assert.rejects(start(runtime, null), actionError('location_required'));
+    const outside = temporary(t);
+    await assert.rejects(
+      start(runtime, outside),
+      (error: unknown) =>
+        actionError('location_not_allowed')(error) &&
+        (error as Error).message === `${outside} is outside the directories this test allows.`,
+    );
+    await assert.rejects(
+      start(runtime, join(directory, 'missing')),
+      actionError('location_missing'),
+    );
+    assert.equal(runtime.serverPid, null);
+  });
+
+  test('a folder whose path now leads elsewhere through a symbolic link is refused', async (t) => {
+    const { runtime, directory } = adapter(t);
+    const other = join(directory, 'other');
+    mkdirSync(other);
+    const bound = join(directory, 'bound');
+    // The project was bound to `bound`; since then it was replaced by a link to another folder.
+    symlinkSync(other, bound);
+    await assert.rejects(
+      start(runtime, bound),
+      (error: unknown) =>
+        actionError('location_missing')(error) && (error as Error).message.includes(other),
+    );
+  });
+
+  test('a policy that throws refuses', async (t) => {
     const directory = temporary(t);
-    const asked: string[] = [];
     const runtime = new OpenCodeRuntimeAdapter({
       binaryPath: '/nonexistent/opencode',
       serverRecordFile: join(directory, 'server.json'),
-      directoryPolicy: (path) => {
-        asked.push(path);
-        if (path.endsWith('boom')) throw new Error('policy failure');
-        return { ok: true, directory: path };
+      directoryPolicy: () => {
+        throw new Error('policy failure');
       },
     });
     t.after(() => runtime.close());
-    mkdirSync(join(directory, 'sub'));
-    const given = `${directory}/sub/..`;
-    assert.deepEqual(runtime.validateStartOptions({ directory: given }, null), { ok: true });
-    assert.deepEqual(asked, [given]);
-    const boom = join(directory, 'boom');
-    mkdirSync(boom);
-    const refused = runtime.validateStartOptions({ directory: boom }, null);
-    assert.equal(refused.ok, false);
-    assert.match(refused.ok ? '' : refused.message, /policy failure/);
+    await assert.rejects(
+      start(runtime, directory),
+      (error: unknown) =>
+        actionError('location_not_allowed')(error) &&
+        /policy failure/.test((error as Error).message),
+    );
   });
 });
 
@@ -225,8 +230,9 @@ describe('OpenCode runtime without a server', () => {
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
-        options: { directory },
+        options: {},
         model_ref: null,
+        directory,
         emit: (observation) => observed.push(observation),
       }),
       actionError('runtime_unavailable'),
@@ -237,13 +243,14 @@ describe('OpenCode runtime without a server', () => {
   });
 
   test('invalid options are refused before anything is launched', async (t) => {
-    const { runtime } = adapter(t);
+    const { runtime, directory } = adapter(t);
     await assert.rejects(
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
-        options: { directory: '/definitely/not/here' },
+        options: { directory },
         model_ref: null,
+        directory,
         emit: () => undefined,
       }),
       actionError('invalid_runtime_options'),
@@ -281,8 +288,9 @@ describe('OpenCode runtime without a server', () => {
       runtime.startExecution({
         execution: TEST_EXECUTION,
         instruction: 'Do the work.',
-        options: { directory },
+        options: {},
         model_ref: null,
+        directory,
         emit: () => undefined,
       }),
       actionError('runtime_closed'),

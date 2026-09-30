@@ -63,6 +63,7 @@ describe('runtime adapter capabilities', () => {
       interrupt,
     },
     model_choice: modelChoice,
+    uses_project_location: false,
   });
   const base = {
     validateStartOptions: () => ({ ok: true }) as const,

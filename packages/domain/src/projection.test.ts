@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import type { CommandEnvelope, CommandId, StoredEvent } from '@halcyonic/contracts';
+import type {
+  CommandEnvelope,
+  CommandId,
+  ExecutionId,
+  ProjectId,
+  StoredEvent,
+} from '@halcyonic/contracts';
 import { Projection } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
 
@@ -266,7 +272,7 @@ describe('commands', () => {
       command_type: 'project.create',
       issued_at: '2026-09-26T10:00:00.000Z',
       client: { name: 'test', version: null, device_label: null },
-      payload: { name: 'P' },
+      payload: { name: 'P', location: null },
     });
     const ids = [b.id(), b.id(), b.id()] as [string, string, string];
     const scope = { project_id: null, workstream_id: null, execution_id: null };
@@ -291,5 +297,73 @@ describe('commands', () => {
       projection.pendingCommands().map((view) => view.command_id),
       [ids[1]],
     );
+  });
+});
+
+describe('project locations', () => {
+  test('a project keeps the folder it was bound to until it is bound to another', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const first = { path: '/work/app', name: 'app', created: true };
+    const project = b.project('App', first);
+    projection.apply(project.event);
+    assert.deepEqual(projection.project(project.projectId)?.location, first);
+
+    const moved = { path: '/work/app-renamed', name: 'app-renamed', created: false };
+    const scope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    const { changes } = projection.apply(
+      b.controlPlane('project.location_set', scope, { location: moved }),
+    );
+    assert.deepEqual(projection.project(project.projectId)?.location, moved);
+    assert.deepEqual(
+      changes.projects.map((view) => view.location),
+      [moved],
+      'clients receive the project with its new folder',
+    );
+  });
+
+  test('a location for an unknown project changes nothing and is reported', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const scope = { project_id: b.id() as ProjectId, workstream_id: null, execution_id: null };
+    const { changes, notes } = projection.apply(
+      b.controlPlane('project.location_set', scope, {
+        location: { path: '/work/app', name: 'app', created: false },
+      }),
+    );
+    assert.deepEqual(changes.projects, []);
+    assert.deepEqual(
+      notes.map((entry) => entry.code),
+      ['unknown_entity'],
+    );
+  });
+
+  test('an execution shows the folder it was given, and keeps it when the project moves', () => {
+    const b = new EventBuilder();
+    const projection = new Projection();
+    const project = b.project('App', { path: '/work/app', name: 'app', created: false });
+    const workstream = b.workstream(project.projectId);
+    const executionId = b.id() as ExecutionId;
+    const projectScope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    projection.apply(project.event);
+    projection.apply(workstream.event);
+    projection.apply(
+      b.controlPlane(
+        'execution.created',
+        {
+          project_id: project.projectId,
+          workstream_id: workstream.workstreamId,
+          execution_id: executionId,
+        },
+        { runtime: b.runtime, instruction: 'Do the work.', directory: '/work/app' },
+      ),
+    );
+    projection.apply(
+      b.controlPlane('project.location_set', projectScope, {
+        location: { path: '/work/other', name: 'other', created: false },
+      }),
+    );
+    assert.equal(projection.execution(executionId)?.directory, '/work/app');
+    assert.equal(projection.project(project.projectId)?.location?.path, '/work/other');
   });
 });
