@@ -205,7 +205,7 @@ Then, with the control plane running:
 ```bash
 pnpm pair                          # the Mac's addresses and an eight-digit code
 pnpm devices                       # every device paired: id, label, when, connected or revoked
-pnpm devices revoke <device id>    # stops accepting it at once and closes its connections
+pnpm devices revoke <device id>    # stops accepting it at once and ends what it has open
 ```
 
 `pnpm pair` opens a pairing window for five minutes, for one device; three wrong codes close it.
@@ -213,6 +213,12 @@ Enter the address and the code on the headset ([XR_DEVELOPMENT.md](XR_DEVELOPMEN
 each refused code, ends when a device pairs, naming it, and closes pairing on `Ctrl-C`. The code
 appears only in its output, never in a log or the journal. Running it again replaces the window
 and its code.
+
+It also prints each pairing connection it turned away or cut short without checking a code, with
+the address it came from: while another exchange was in progress, too many from one address in a
+minute, an exchange that sent no code within 30 seconds or closed before sending one, or one that
+did not follow the protocol. None of them costs an attempt, but a device other than your headset
+that keeps appearing there is holding pairing up: `Ctrl-C`, and pair when it has gone.
 
 - Pairing again adds another device; revoke the one it replaces.
 - A device that forgets the Mac revokes itself when it can reach it.

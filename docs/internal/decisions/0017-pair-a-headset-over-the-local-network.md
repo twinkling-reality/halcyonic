@@ -131,27 +131,39 @@ headset can do what its owner could over that network until the owner revokes it
   WebSocket `/pair`, and, with a device credential, the realtime stream, REST reads and commands,
   and `POST /api/device/revoke` (a device revokes itself). The access token is never accepted on the
   network listener. Both refuse any `Origin` and cross-site fetches; the network listener accepts
-  only an IP address or a `.local` name, with its port, as `Host`.
+  only an IP address or a `.local` name, with its port, as `Host`. It waits 10 seconds for a whole
+  request, closes a silent connection after 30 and an idle one after 5, and holds 32 connections,
+  4 of them realtime per device.
 - **Pairing window.** `pnpm pair` opens one through loopback and prints the addresses, the port and
   an eight-digit code. One window at a time, for five minutes, closed by the first device that
   pairs, by three failed attempts, by `Ctrl-C`, or by the control plane stopping. Outside a window
   `/pair` is refused before any cryptography. At most four pairing connections at once, one per
-  address, six per address a minute, 30 seconds each.
+  address, six per address a minute, 30 seconds each. The window derives the salt and the SRP
+  verifier from the code when it opens, so an exchange's work depends only on its own secret `b`
+  and tells a timing observer nothing about the code. `pnpm pair` prints each connection the
+  window turned away or cut short without checking a code, with its address, so the owner sees a
+  device holding the slots.
 - **Pairing protocol** over the `/pair` WebSocket, one exchange per connection: the headset sends
-  its label; the control plane answers with a fresh salt and `B`; the headset sends `A` and its
-  proof; the control plane checks the proof, records the device, and answers with its own proof
-  and the credential encrypted under the session key. Both proofs are HMACs keyed by the SRP
-  session key over a transcript that includes the label, the salt, `A`, `B` and the SHA-256 of the
-  TLS certificate as each side knows it, so a proof computed through a relay that terminates TLS
-  fails. The code, the session key and the credential are never logged or journaled.
+  its label; the control plane answers with the window's salt and a fresh `B`; the headset sends
+  `A` and its proof; the control plane checks the proof, records the device, and answers with its
+  own proof and the credential encrypted under the session key. Both proofs are HMACs keyed by the
+  SRP session key over a transcript that includes the label, the salt, `A`, `B` and the SHA-256 of
+  the TLS certificate as each side knows it, so a proof computed through a relay that terminates
+  TLS fails. The code, the session key and the credential are never logged or journaled.
 - **Pinning.** The headset keeps the address, the certificate's SHA-256, its device id and the
   credential. Every later connection refuses a certificate with another hash.
+- **Revocation** applies to what a device has open, not only to its next request. Its realtime
+  connections stop handling anything when the revocation is journaled, get a close frame, and are
+  cut off a second later. A device is authorized again where a command would act, so a command
+  from a request or connection authenticated before the revocation is rejected with
+  `device_revoked`, and any answer to such a request is replaced by 401.
 - **Journal.** `device.paired` (device id, self-declared label, SHA-256 of the credential and of
   the certificate) and `device.revoked` (device id, who revoked it) are journaled through
   `Recorder`; the device registry is part of the projection. `command.accepted` and
   `command.rejected` record the principal (`local`, `device` with its id, or null for commands
   from inside the control plane and for commands recorded before principals existed, which read
-  as null). Device events are not sent to realtime clients.
+  as null). Device events are not sent to realtime clients, and a paired device does not read
+  them from the event history.
 - **Headset.** The client core holds the SRP client, the pinned transports and the pairing
   client, with no engine reference; `Halcyonic.XR.Pairing` adds a small pairing panel at runtime,
   in development builds.

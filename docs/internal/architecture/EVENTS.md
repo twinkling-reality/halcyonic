@@ -89,7 +89,9 @@ transport, under which policy, and with what outcome.
 
 Device events belong to no project, so their scope is null throughout. The device registry is part
 of the projection, and a credential is known only by its SHA-256. Realtime clients never receive
-device events ([REALTIME.md](REALTIME.md)).
+device events, and paired devices do not read them from the history ([REALTIME.md](REALTIME.md)).
+A command from a device revoked after its request or connection was authenticated is journaled as
+`command.rejected` with `device_revoked`.
 
 ## Contracts: one source of truth
 
