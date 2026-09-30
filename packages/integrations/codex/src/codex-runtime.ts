@@ -37,6 +37,7 @@ import { parseStartOptions, type StartOptions } from './options.ts';
 import type {
   ApprovalDecision as CodexDecision,
   TextInput,
+  ThreadConfigOverrides,
   ThreadResumeParams,
   ThreadStartParams,
   ThreadTurnsListParams,
@@ -245,7 +246,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       ...threadSettings(options),
       threadSource: THREAD_SOURCE,
     };
-    const threadId = checkSettings(
+    const { threadId } = checkSettings(
       await send(connection, 'thread/start', params, this.#requestTimeoutMs),
       options,
     );
@@ -695,12 +696,20 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
 /** The settings every thread is started and resumed with. */
 function threadSettings(options: StartOptions): Omit<ThreadStartParams, 'threadSource'> {
+  const config: ThreadConfigOverrides = {
+    ...(options.contextWindow !== undefined && { model_context_window: options.contextWindow }),
+    ...(options.autoCompactTokenLimit !== undefined && {
+      model_auto_compact_token_limit: options.autoCompactTokenLimit,
+    }),
+  };
   return {
     cwd: options.cwd,
     approvalPolicy: options.approvalPolicy,
     approvalsReviewer: 'user',
     sandbox: options.sandbox,
     ...(options.model !== undefined && { model: options.model }),
+    ...(options.modelProvider !== undefined && { modelProvider: options.modelProvider }),
+    ...(Object.keys(config).length > 0 && { config }),
   };
 }
 
@@ -713,9 +722,14 @@ const SANDBOX_TYPES: Readonly<Record<StartOptions['sandbox'], string>> = {
 /**
  * Checks that Codex gave a started or resumed thread the settings it was asked for, so that
  * nothing in the developer's configuration or managed requirements quietly stops approvals from
- * reaching the person. Returns the thread id.
+ * reaching the person, or sends the thread to another model or provider than the one asked for
+ * (a thread asked to stay on a local provider must not reach a hosted one). Returns the thread id
+ * with the model and provider Codex reports for it.
  */
-function checkSettings(result: unknown, options: StartOptions): string {
+function checkSettings(
+  result: unknown,
+  options: StartOptions,
+): { readonly threadId: string; readonly model: string | null; readonly provider: string | null } {
   const response = isRecord(result) ? result : {};
   const thread = isRecord(response.thread) ? response.thread : {};
   if (typeof thread.id !== 'string' || thread.id === '') {
@@ -736,7 +750,21 @@ function checkSettings(result: unknown, options: StartOptions): string {
       `Codex did not apply the requested settings: approval policy ${JSON.stringify(response.approvalPolicy)}, reviewer ${JSON.stringify(response.approvalsReviewer)}, sandbox ${JSON.stringify(sandbox)}. The thread is not used.`,
     );
   }
-  return thread.id;
+  const model = typeof response.model === 'string' && response.model !== '' ? response.model : null;
+  const provider =
+    typeof response.modelProvider === 'string' && response.modelProvider !== ''
+      ? response.modelProvider
+      : null;
+  if (
+    (options.model !== undefined && model !== options.model) ||
+    (options.modelProvider !== undefined && provider !== options.modelProvider)
+  ) {
+    throw new RuntimeActionError(
+      'runtime_refused',
+      `Codex did not apply the requested model: it reports model ${JSON.stringify(model)} from provider ${JSON.stringify(provider)}. The thread is not used.`,
+    );
+  }
+  return { threadId: thread.id, model, provider };
 }
 
 /** Sends a request and maps its failure to a `RuntimeActionError`. */

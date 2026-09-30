@@ -8,6 +8,9 @@
  * - `version=<v>`: the version `--version` prints (default 0.157.0);
  * - `agent=<v>`: the version in the user agent `initialize` answers (default 0.157.0);
  * - `never`: `thread/start` answers that the thread's approval policy is `never`;
+ * - `other-model`: `thread/start` and `thread/resume` answer that the thread runs `gpt-5.5` from
+ *   `openai`, whatever was asked (otherwise they answer the model and provider asked for, or those
+ *   defaults);
  * - `silent-interrupt`: `turn/interrupt` is never answered;
  * - `writer-held`: `thread/resume` fails as when another Codex process holds the thread;
  * - `ask`: every turn raises an `item/tool/requestUserInput` request.
@@ -66,6 +69,8 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       counter += 1;
       respond({
         thread: { id: params.threadId ?? `thread-${process.pid}-${counter}` },
+        model: flags.has('other-model') ? 'gpt-5.5' : (params.model ?? 'gpt-5.5'),
+        modelProvider: flags.has('other-model') ? 'openai' : (params.modelProvider ?? 'openai'),
         approvalPolicy: flags.has('never') ? 'never' : params.approvalPolicy,
         approvalsReviewer: params.approvalsReviewer,
         sandbox: { type: SANDBOX_TYPES[params.sandbox] },

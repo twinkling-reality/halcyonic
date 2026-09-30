@@ -170,6 +170,28 @@ Seorak read Codex sessions; that they show a thread Halcyonic started is not yet
 provider that reads its key from an environment variable (`env_key` in `config.toml`) needs that
 variable named in `HALCYONIC_AGENT_ENV`. Every run spends model credit.
 
+#### Local models through Ollama
+
+Codex reaches Ollama through its built-in `ollama` provider, on port 11434 of this Mac, over the
+Responses API. Name the provider and the model as start options, and tell Codex the context Ollama
+gives the model, since Codex has no metadata for it and assumes 272,000 tokens:
+
+```json
+{
+  "cwd": "/Users/you/dev/app",
+  "model_provider": "ollama",
+  "model": "qwen3.6:35b-a3b-nvfp4",
+  "context_window": 65536,
+  "auto_compact_token_limit": 52000
+}
+```
+
+The thread is refused if Codex reports another provider or model for it. Codex takes any model
+name without checking it: a name Ollama does not have fails the first turn. The runs, the rollouts
+and what reaches the network are in [local-models.md](../validation/local-models.md). Your own
+`config.toml` still applies: turn off `features.plugins` and `analytics` there for work that stays
+on the Mac.
+
 Its end to end tests run the binary against a fake provider when `CODEX_BIN` is set. They use
 temporary homes, never your `~/.codex`, and fail if Codex tries to reach anything beyond loopback:
 

@@ -5,9 +5,10 @@
   what leaves the machine while they do; and how fast and how large are they?
 - **Date:** 2026-09-29.
 - **Versions:** Ollama 0.34.4 (Homebrew, MLX engine); OpenCode `@opencode/cli` 2.0.18, darwin arm64
-  sha256 `6759c7f8…6bf`; models `qwen3.6:35b-a3b-nvfp4` (23.6 GB, a mixture of experts with 3B
-  active parameters), `qwen3.8:27b-nvfp4` (18.2 GB, dense) and `muse-glimmer:30b-mlx` (19.1 GB);
-  macOS 26.7 on an Apple M5 Max with 64 GB.
+  sha256 `6759c7f8…6bf`; Codex `codex-cli` 0.157.0, darwin arm64 sha256 `ad0be20d…3714`; models
+  `qwen3.6:35b-a3b-nvfp4` (23.6 GB, a mixture of experts with 3B active parameters),
+  `qwen3.8:27b-nvfp4` (18.2 GB, dense) and `muse-glimmer:30b-mlx` (19.1 GB); macOS 26.7 on an Apple
+  M5 Max with 64 GB.
 - **Method:** Scratch control planes on loopback ports other than 47800, each with its own data
   directory, HOME and XDG directories, driven over REST by a small client. A monitor listed the
   internet sockets of the runtime's processes and of Ollama's every 200 ms (`lsof -nP -i`), and
@@ -15,8 +16,9 @@
   behind a proxy that records and refuses every request, to see what it tries to reach. Code paths
   were read from the strings of the pinned binary, which embeds OpenCode's JavaScript. Nothing was
   pulled or deleted, and no hosted model was called.
-- **Status:** Runtime verified for OpenCode with all three models, for the scenarios below. Long
-  runs, several executions at once, and a Mac under memory pressure from other work are not tested.
+- **Status:** Runtime verified for OpenCode and for Codex with all three models, for the scenarios
+  below. Long runs, several executions at once, and a Mac under memory pressure from other work are
+  not tested.
 
 ## The Ollama server
 
@@ -129,6 +131,94 @@ model (inference, not run).
   it for the execution's directory; one still missing is refused with `model_unavailable` before
   any session exists. Without a named model, the start waits for OpenCode to have a default.
 
+## Codex 0.157.0 with Ollama
+
+Versions: `codex-cli` 0.157.0, darwin arm64 sha256 `ad0be20d…3714`, `codex app-server` over stdio,
+stable surface only. Its scratch `CODEX_HOME` held a `config.toml` that sets `model_provider =
+"ollama"` and a local model as defaults, turns off plugins and analytics, and no sign-in, so no
+thread could reach a hosted model.
+
+### What Codex does with Ollama
+
+- **The built-in `ollama` provider** speaks the Responses API: every turn was a `POST /v1/responses`
+  to Ollama on port 11434. `thread/start` takes `modelProvider` and `model`, and a `config` object
+  of overrides for the one thread; its answer, like `thread/resume`'s, reports the `model` and
+  `modelProvider` the thread got.
+- **Any model name is accepted.** Codex checks nothing at `thread/start`. A model outside its
+  catalog gets fallback metadata, a context of 272,000 tokens, and a warning that this "can degrade
+  performance". The per-thread overrides `model_context_window` and
+  `model_auto_compact_token_limit` apply: the token counts of a thread given 65,536 report a
+  window of 62,259, the 95% Codex uses.
+- **Its lists do not describe a local provider.** `model/list` returned the 11 models of the
+  catalog built into the binary, all OpenAI's, with `model_provider = "ollama"` configured just as
+  without it, and Codex never asked Ollama for its models. `config/read` names the configured
+  provider and model, but `model_providers` holds only the providers the configuration defines
+  (`{}` here): the built-in `ollama` provider's address is not reported.
+- **No pull.** The binary contains Ollama's pull code for `codex --oss`; app-server never called
+  `/api/pull` in any run (Ollama's log), and no run named a model Ollama does not have.
+
+### Changes to the adapter
+
+Three start options: `model_provider`, and `context_window` and `auto_compact_token_limit` in
+tokens, sent as the thread's `modelProvider` and `config` overrides, on start and on resume. A
+thread for which Codex reports another model or provider than asked is refused, as a thread
+with other approval settings already is, so a thread meant for a local provider can never run on a
+hosted one.
+
+### Flows through the control plane
+
+Each execution named `model_provider: "ollama"`, the model, `context_window: 65536`,
+`auto_compact_token_limit: 52000` and `approval_policy: "untrusted"`, under which Codex asks before
+any command it does not know to be safe.
+
+| Flow | `qwen3.6:35b-a3b-nvfp4` | `qwen3.8:27b-nvfp4` | `muse-glimmer:30b-mlx` |
+| --- | --- | --- | --- |
+| Start, approve a command, answer | Completed in 20.3 s | Completed in 64.4 s | Completed in 60.0 s |
+| Second turn at rest (write a file) | Completed in 3.9 s | Completed in 10.9 s | Completed in 13.6 s |
+| Deny | Two denials, then the turn completed, 14.5 s | One denial, then completed, 19.2 s | Twelve denials, each met with another command, then completed, 155 s |
+| Interrupt a long answer after 12 s | Confirmed in 264 ms, interrupted; the next turn completed | 257 ms, interrupted; next completed | 256 ms, interrupted; next completed |
+| Steer while running (add a file) | Accepted in 258 ms; one turn; all four files | 254 ms; one turn; all four | 254 ms; one turn; all four |
+
+Unlike OpenCode's denial without a message, Codex's `decline` refuses only the one command: the
+turn goes on, and the model may ask for another. Muse Glimmer asked twelve times before it gave up.
+
+### Context overflow
+
+`qwen3.6:35b-a3b-nvfp4` was asked to print the same 3,000 line file with `sed` and report two
+facts from it.
+
+- **In chunks of 500 lines**, each about 13,000 tokens, Codex gave the model about 4,000 tokens
+  of each output. The thread stayed under 33,000 tokens and finished in 205 s: the line it was
+  asked for was right, and the count it gave was wrong (1,500 for 1,250), extrapolated from the
+  parts it saw.
+- **In chunks of 100 lines**, which fit, the thread grew by about 3,800 tokens a step, and Codex
+  compacted three times: twice once the thread passed 51,000 tokens, and once only at 65,509,
+  after a single command added about 15,000 tokens. Each compaction sent Ollama a prompt with a new
+  prefix, 49,922 to 65,509 tokens, which took 62 s to 2 min 38 s; the thread then resumed from
+  about 9,000 tokens. It finished in 780 s after 42 commands, with both answers right.
+- Unlike OpenCode's, Codex's prompts kept their prefix from step to step, so Ollama's prefix cache
+  matched all but the newest 4,000 tokens and a step took 6 to 15 s even at 47,000 tokens.
+- Ollama never refused a prompt, so the open defect openai/codex#48870 (a local server that refuses
+  an oversized prompt with HTTP 400 leaves auto-compaction unable to recover) did not arise.
+
+### Rollouts
+
+Every thread's rollout, under the scratch `CODEX_HOME`, carried in its `session_meta`
+`thread_source: "halcyonic"`, `source: "vscode"`, `originator: "halcyonic"`,
+`model_provider: "ollama"` and `cli_version: "0.157.0"`, no `forked_from_id` or
+`parent_thread_id`, and no model; each `turn_context` names the model, `qwen3.6:35b-a3b-nvfp4`
+verbatim. `token_count` rows carry the context window Codex was given and cumulative totals that
+never decreased, even across the three compactions; their `rate_limits` are all null.
+
+- **Salidium** discovers rollouts under `$CODEX_HOME/sessions` and `archived_sessions` of its own
+  environment (`~/.codex` by default), with no filter on `thread_source` or `originator`, takes the
+  model from `turn_context` as any string and records compactions (its Codex rollout parser, read
+  at `e663354`). So it shows a Halcyonic thread on a local model once the thread is written to the
+  developer's `CODEX_HOME`, which the adapter keeps. Not run: these runs used a scratch `CODEX_HOME`.
+- **Seorak** before its commit `7934de5e` skipped every such thread (any `thread_source` other than
+  `"user"`) and refused model ids with `:`. Its predicates at `7934de5e`, applied to these
+  rollouts, capture them and keep the model.
+
 ## Network
 
 What left, or tried to leave, the Mac while OpenCode ran:
@@ -150,16 +240,24 @@ What left, or tried to leave, the Mac while OpenCode ran:
   downloads had finished (during them, it held connections to Cloudflare addresses, which serve
   Ollama's registry).
 
+While Codex ran, with plugins and analytics off and no sign-in: nothing. The monitor saw no socket
+beyond loopback from Codex's processes in any run. Its model requests went to Ollama on the same
+Mac, and so did the metadata Codex adds to them (the installation id and, for a git workspace, its
+path and latest commit).
+
 ## Speed and memory
 
-Measured through Ollama's own API with thinking off: a short prompt with 256 tokens of output, and
-a prompt of about 25,000 tokens (19,322 for Muse Glimmer's tokenizer) with a short answer. Memory is
-what Ollama's MLX engine reports holding with the model loaded and at its peak.
+Measured through Ollama's own API with thinking off: three different short prompts with 256 tokens
+of output each, after a first request that loaded the model, and a prompt of about 25,000 tokens
+(19,322 for Muse Glimmer's tokenizer) with a short answer. Loads were measured twice, and depend on
+what the file cache holds. Memory is what Ollama's MLX engine reports holding with the model loaded,
+and at its peak. Sending the same short prompt a second time gave slower output, 30, 20 and 16
+tokens a second; the cause was not found.
 
 | | `qwen3.6:35b-a3b-nvfp4` | `qwen3.8:27b-nvfp4` | `muse-glimmer:30b-mlx` |
 | --- | --- | --- | --- |
-| Load | 6.4 s | 6.2 s | 8.8 s |
-| Output, short prompt | 30 to 59 tokens a second | 20 to 31 | 16 |
+| Load | 6.0 and 6.4 s | 3.4 and 6.2 s | 4.9 and 8.8 s |
+| Output, short prompts (three runs) | 48 to 59 tokens a second | 31 to 36 | 21 to 26 |
 | Prompt processing, about 25,000 tokens | 910 tokens a second (28 s) | 175 (145 s) | 187 (103 s) |
 | Output after that prompt | 30 tokens a second | 15 | 16 |
 | Memory held, loaded | 22.1 GiB | 17.2 GiB | 17.8 GiB |
@@ -173,10 +271,16 @@ what Ollama's MLX engine reports holding with the model loaded and at its peak.
   shell commands and refuse `webfetch` and `websearch`, and ideally a default local model; and, in
   Halcyonic's environment, `OPENCODE_DISABLE_MODELS_FETCH=true` named in `HALCYONIC_AGENT_ENV`, and
   a ripgrep on the PATH. The runbook says how.
-- `qwen3.6:35b-a3b-nvfp4` is the fast default: about three times the output speed and five times
-  the prompt processing of the dense models. Long contexts are slow with every model, because the
+- `qwen3.6:35b-a3b-nvfp4` is the fast default: about twice the output speed and five times the
+  prompt processing of the other two. Long contexts are slow with every model, because the
   prefix cache rarely survives OpenCode's rewriting of earlier turns.
 - A client should expect the first turn on a model to take tens of seconds.
+- Codex runs local models through the adapter's new options, and compacts on time when told the
+  window; without `context_window` it assumes 272,000 tokens. Its lists cannot tell which models a
+  local provider serves, so a model list for Codex has to come from its configuration, not from
+  `model/list` alone.
+- Codex truncates a command's output before the model sees it, so an agent that reads a large file
+  in large pieces answers from part of it without saying so.
 
 ## Not verified
 
@@ -186,3 +290,8 @@ what Ollama's MLX engine reports holding with the model loaded and at its peak.
 - Long runs, several executions at once, and memory pressure with Unity or other large processes
   open.
 - The overflow and removed-model runs with the two dense models.
+- Codex with a model name Ollama does not have: not run against the real Ollama, to rule out any
+  path to a pull.
+- openai/codex#48870, which needs a server that refuses an oversized prompt.
+- Salidium and Seorak showing these threads live: the runs kept Codex away from the developer's
+  `~/.codex`.
