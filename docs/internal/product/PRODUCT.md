@@ -48,11 +48,23 @@ keeps its identity across executions and runtimes. Details: [DOMAIN_MODEL.md](..
 
 ## Entry paths
 
-- **Existing work.** Connect to projects and runtimes already running on the user's machines and
-  see the meaningful work as characters.
-- **New idea (future).** Talk an idea through, optionally with research and references, then
-  create a Project and its first Workstream. A project created this way is an ordinary Project;
-  there is no separate "idea" architecture.
+The intended first choice is simple: **Connect projects** or **Create a project**. These are
+product goals, not a description of the current headset build.
+
+- **Connect projects.** Bring in existing projects and work already running on the user's machines.
+  Choose which projects and work are visible, and how they appear. Meaningful work appears as
+  characters.
+- **Create a project.** A person and an AI companion develop a shared vision together in the
+  headset. The person can arrive with an idea and parameters, or explore possibilities with the
+  companion. The companion asks useful questions, offers choices and makes its current
+  interpretation visible and correctable. The person can start building on the spot once the
+  vision is clear enough, then continue refining it while work progresses. The result is an
+  ordinary Project with Workstreams, not a separate "idea" architecture.
+
+The default path uses language about the thing being made. Runtime, model and working-directory
+choices must not be a prerequisite to expressing an idea; people who want those controls can
+reach them. How the companion appears, how the shared vision is represented, and which safe
+defaults can start real work remain open design questions.
 
 ## Collaboration policies (future)
 
@@ -92,9 +104,11 @@ prototypes cannot dictate the backend.
 
 The minimum viable product needs three characters, hands-only interaction, the compressed to
 expanded transition, one real runtime, one real safe action with a runtime-confirmed result, and
-real Salidium and Seorak value. It does not need a full IDE, multiplayer, full learning, full idea
-generation, a cloud relay, every runtime, elaborate customization, autonomous merge or deploy, or
-a complex voice assistant.
+real Salidium and Seorak value. It also needs a small, credible new-project loop from a shared
+vision to first work. This does not require open-ended idea generation, a full IDE, multiplayer,
+full learning, a cloud relay, every runtime, elaborate customization, autonomous merge or deploy,
+or a complex voice assistant. How much of the new-project path fits in the first competition
+release remains open.
 
 ## Principles
 
@@ -107,13 +121,15 @@ a complex voice assistant.
   chooses animation, material, sound and placement. State is never conveyed by color alone.
 - **Calm, alive, technically serious when expanded.** Not an enterprise dashboard, not neon, not
   floating-window overload.
+- **Progressive disclosure.** Start with the person's project and intent. Show technical controls
+  when they are needed or requested, and make every choice understandable in ordinary language.
 
 ## Success criteria
 
 - **Existing project:** a user understands and intervenes in autonomous work without
   reconstructing context from several terminals and tools.
-- **New idea:** a user turns inspiration into active software work without first assembling a
-  desktop workflow.
+- **New project:** a user and companion form a visible, revisable shared vision and turn it into
+  active software work without first assembling a desktop workflow.
 - **Learner (future):** a user builds real software while understanding what the agents did.
 
 ## Kill or pivot conditions
