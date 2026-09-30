@@ -54,6 +54,13 @@ export interface StartExecutionRequest {
    * `model_unavailable`.
    */
   readonly model_ref: string | null;
+  /**
+   * The project's location: the real path the host's directory policy returned for it when the
+   * control plane dispatched the start, or null when the project has none or the runtime does not
+   * use one. An adapter whose descriptor declares `uses_project_location` runs its agent here and
+   * nowhere else, after asking the policy again (`confirmProjectLocation`).
+   */
+  readonly directory: string | null;
   /** Where the adapter sends every observation about this execution, for as long as it can observe it. */
   readonly emit: ObservationSink;
 }
@@ -67,9 +74,17 @@ export type OptionsValidation =
   | { readonly ok: true }
   | { readonly ok: false; readonly message: string };
 
+/**
+ * Why the host refused a directory, as the code a command carries when it is refused or fails:
+ * `location_missing` when nothing is there or it is not a directory, `location_not_allowed` when
+ * it lies outside every project root (also through `..` or a symbolic link), is not absolute, or
+ * no root is configured.
+ */
+export type DirectoryRefusal = 'location_missing' | 'location_not_allowed';
+
 export type DirectoryDecision =
   | { readonly ok: true /** The real path to use. */; readonly directory: string }
-  | { readonly ok: false; readonly message: string };
+  | { readonly ok: false; readonly code: DirectoryRefusal; readonly message: string };
 
 /**
  * Which directories agents may work in, decided by the host that runs the control plane, never
@@ -77,6 +92,53 @@ export type DirectoryDecision =
  * uses the real path it returns, so a client cannot point an agent anywhere on the machine.
  */
 export type DirectoryPolicy = (path: string) => DirectoryDecision;
+
+/**
+ * Asks the host's directory policy about a project's location, a real path the host resolved when
+ * the project was bound to it. A different real path now means a symbolic link has replaced part
+ * of that path since: the folder the person chose is no longer there, and nothing is sent wherever
+ * the link leads.
+ */
+export function checkProjectLocation(
+  policy: DirectoryPolicy,
+  directory: string,
+): DirectoryDecision {
+  let decision: DirectoryDecision;
+  try {
+    decision = policy(directory);
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'location_not_allowed',
+      message: `The directory policy could not decide on ${directory}: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (decision.ok && decision.directory !== directory) {
+    return {
+      ok: false,
+      code: 'location_missing',
+      message: `The project's folder is no longer at ${directory}: that path now leads to ${decision.directory}. Choose the project's folder again.`,
+    };
+  }
+  return decision;
+}
+
+/**
+ * Checks the project's location once more, right before an agent starts there, and returns it; a
+ * refusal is thrown as the start's failure. Call it before anything is launched, so the failure
+ * truthfully says nothing happened.
+ */
+export function confirmProjectLocation(policy: DirectoryPolicy, directory: string | null): string {
+  if (directory === null) {
+    throw new RuntimeActionError(
+      'location_required',
+      "This runtime works in the project's folder, and the project has none. Choose a folder for the project first.",
+    );
+  }
+  const decision = checkProjectLocation(policy, directory);
+  if (!decision.ok) throw new RuntimeActionError(decision.code, decision.message);
+  return directory;
+}
 
 /**
  * The boundary between the control plane and an agent runtime. An adapter maps Halcyonic

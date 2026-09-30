@@ -10,6 +10,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
@@ -86,8 +87,8 @@ export interface CodexRuntimeOptions {
    */
   readonly serverRecordFile: string;
   /**
-   * The host's decision on which directories agents may work in. A `cwd` it refuses is refused as
-   * a start option, and a thread works in the real path it returns.
+   * The host's decision on which directories agents may work in, asked again about the project's
+   * folder before a thread starts there.
    */
   readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
@@ -213,6 +214,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       synthetic: false,
       capabilities: CODEX_CAPABILITIES,
       model_choice: 'listed',
+      uses_project_location: true,
     };
   }
 
@@ -222,7 +224,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
+    const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
 
@@ -276,13 +278,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    // Checked again here: the directory may have changed since admission.
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
+    const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    // Asked again before anything is launched: the folder may have changed since admission.
+    const cwd = confirmProjectLocation(this.#directoryPolicy, request.directory);
     if (this.#threads.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
-    const options = parsed.value;
+    const options: StartOptions = { ...parsed.value, cwd };
     // A chosen model is checked against a fresh list: Codex itself would take any name.
     if (request.model_ref !== null) {
       const listed = await this.listModels();
@@ -294,6 +297,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       }
     }
     const connection = await this.#connection();
+    // Asked again right before the folder is handed over: listing and launching wait.
+    confirmProjectLocation(this.#directoryPolicy, cwd);
     const params: ThreadStartParams = {
       ...threadSettings(options),
       threadSource: THREAD_SOURCE,
@@ -621,6 +626,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const lost = (detail: string) =>
       this.#lose(thread, `${reason} After it was started again, ${detail}`);
     try {
+      // The folder is handed to Codex again on resume, so it is asked about again first.
+      confirmProjectLocation(this.#directoryPolicy, thread.options.cwd);
       const params: ThreadResumeParams = {
         threadId: thread.threadId,
         ...threadSettings(thread.options),
@@ -805,9 +812,10 @@ const SANDBOX_TYPES: Readonly<Record<StartOptions['sandbox'], string>> = {
 /**
  * Checks that Codex gave a started or resumed thread the settings it was asked for, so that
  * nothing in the developer's configuration or managed requirements quietly stops approvals from
- * reaching the person, or sends the thread to another model or provider than the one asked for
- * (a thread asked to stay on a local provider must not reach a hosted one). Returns the thread id
- * with the model and provider Codex reports for it.
+ * reaching the person, sends the thread to another model or provider than the one asked for
+ * (a thread asked to stay on a local provider must not reach a hosted one), or has it work in
+ * another folder than the project's. Returns the thread id with the model and provider Codex
+ * reports for it.
  */
 function checkSettings(
   result: unknown,
@@ -820,6 +828,12 @@ function checkSettings(
       'runtime_protocol_error',
       'Codex answered without a thread id.',
       'unknown',
+    );
+  }
+  if (response.cwd !== options.cwd) {
+    throw new RuntimeActionError(
+      'runtime_refused',
+      `Codex reports the thread working in ${JSON.stringify(response.cwd)}, not in the project's folder ${options.cwd}. The thread is not used.`,
     );
   }
   const sandbox = isRecord(response.sandbox) ? response.sandbox.type : undefined;

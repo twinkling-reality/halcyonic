@@ -10,6 +10,7 @@ import {
   ReceivedVia,
 } from './commands.ts';
 import { DeviceLabel, Principal, Sha256Hex } from './devices.ts';
+import { HostPath, ProjectLocation } from './locations.ts';
 import {
   DeviceId,
   ErrorInfo,
@@ -190,7 +191,13 @@ function runtimeEvent<const T extends string, P extends TSchema>(eventType: T, p
 
 export const ProjectCreated = projectEvent(
   'project.created',
-  Type.Object({ name: Text(200) }, strict),
+  Type.Object({ name: Text(200), location: Nullable(ProjectLocation) }, strict),
+);
+
+/** The project's work runs in another folder from now on. */
+export const ProjectLocationSet = projectEvent(
+  'project.location_set',
+  Type.Object({ location: ProjectLocation }, strict),
 );
 
 export const WorkstreamCreated = workstreamEvent(
@@ -200,7 +207,18 @@ export const WorkstreamCreated = workstreamEvent(
 
 export const ExecutionCreated = executionEvent(
   'execution.created',
-  Type.Object({ runtime: RuntimeRef, instruction: Text(32000) }, strict),
+  Type.Object(
+    {
+      runtime: RuntimeRef,
+      instruction: Text(32000),
+      /**
+       * The project's folder as the host resolved it for this start, which the runtime was given
+       * to work in; null for a runtime that uses no folder.
+       */
+      directory: Nullable(HostPath),
+    },
+    strict,
+  ),
 );
 
 /** The adapter reported that the runtime could not start the execution. */
@@ -423,6 +441,7 @@ export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.mo
 
 export const EVENT_VARIANTS = [
   ProjectCreated,
+  ProjectLocationSet,
   WorkstreamCreated,
   ExecutionCreated,
   ExecutionStartFailed,

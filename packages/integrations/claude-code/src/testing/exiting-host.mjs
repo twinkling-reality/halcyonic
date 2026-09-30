@@ -47,8 +47,9 @@ for (let index = 0; index < count; index += 1) {
       project_id: '01920000-0000-7000-8000-000000000101',
     },
     instruction: 'Keep working.',
-    options: { cwd },
+    options: {},
     model_ref: null,
+    directory: cwd,
     emit: () => {},
   });
 }

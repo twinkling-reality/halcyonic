@@ -131,6 +131,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       synthetic: true,
       capabilities: MOCK_CAPABILITIES,
       model_choice: this.#models.length > 0 ? 'listed' : 'none',
+      uses_project_location: false,
     };
     if (this.#models.length > 0) this.listModels = async () => this.#models;
   }
@@ -155,7 +156,8 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
       return { ok: false, message: `Option "scenario" is required. Available: ${available}.` };
     }
     if (!this.#scenarios.has(scenario)) {
-      return { ok: false, message: `Unknown scenario "${scenario}". Available: ${available}.` };
+      const named = scenario.length <= 100 ? scenario : `${scenario.slice(0, 99)}…`;
+      return { ok: false, message: `Unknown scenario "${named}". Available: ${available}.` };
     }
     return { ok: true };
   }

@@ -3,6 +3,7 @@ import { Projection } from '@halcyonic/domain';
 import type { Clock, RuntimeAdapter, Scheduler } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { EventJournal } from '../journal/journal.ts';
+import { createHostLocations, type HostLocations } from '../locations.ts';
 import type { Logger } from '../logger.ts';
 import { CommandService } from './command-service.ts';
 import { EventPublisher } from './publisher.ts';
@@ -17,6 +18,11 @@ export interface ControlPlaneOptions {
   readonly scheduler: Scheduler;
   readonly logger: Logger;
   readonly commandTimeoutMs: number;
+  /**
+   * Where projects may live on the host. Defaults to nowhere, as with no project roots configured,
+   * which suits the mock runtime and recorded traces.
+   */
+  readonly locations?: HostLocations;
   /** How many finished commands a snapshot includes alongside the pending ones. */
   readonly snapshotFinishedCommands?: number;
 }
@@ -32,6 +38,7 @@ export class ControlPlane {
   readonly registry = new RuntimeRegistry();
   readonly recorder: Recorder;
   readonly commands: CommandService;
+  readonly locations: HostLocations;
   readonly clock: Clock;
   readonly #logger: Logger;
   readonly #snapshotFinishedCommands: number;
@@ -39,6 +46,7 @@ export class ControlPlane {
   constructor(options: ControlPlaneOptions) {
     this.journal = options.journal;
     this.clock = options.clock;
+    this.locations = options.locations ?? createHostLocations([]);
     this.#logger = options.logger;
     this.#snapshotFinishedCommands = options.snapshotFinishedCommands ?? 50;
     this.publisher = new EventPublisher(options.logger);
@@ -55,6 +63,7 @@ export class ControlPlane {
       projection: this.projection,
       recorder: this.recorder,
       registry: this.registry,
+      locations: this.locations,
       ids: options.ids,
       clock: options.clock,
       scheduler: options.scheduler,

@@ -5,7 +5,12 @@ in `packages/domain`.
 
 ## Concepts
 
-- **Project**: a software project or product context. Created by `project.create`.
+- **Project**: a software project or product context. Created by `project.create`. It may have a
+  **location**: one folder on the host, inside a project root the host allows, where every real
+  execution of its work runs ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
+  A client chooses it from the folders the host lists, or names a new folder the host makes; it
+  never sends a path. `project.set_location` binds the project to another folder, for example after
+  the folder was moved; executions already started keep the folder they started in.
 - **Workstream**: a meaningful unit of work, such as "Fix flaky checkout tests". It is the aggregate
   a character represents, and it keeps its identity across executions and runtimes.
 - **Execution**: one attempt by one runtime toward a Workstream. It corresponds to the runtime's
@@ -16,7 +21,11 @@ in `packages/domain`.
   execution's status.
 - **Runtime**: a configured adapter instance (`runtime_id`) of some kind (`mock`, later `opencode`
   and others) with declared capabilities. A **synthetic** runtime fabricates activity for
-  development, and every client must label its work as such.
+  development, and every client must label its work as such. A runtime whose descriptor declares
+  `uses_project_location` (Claude Code, OpenCode, Codex) runs its agents in the project's folder and
+  nowhere else; the mock runtime uses none. An execution's `directory` is the folder its runtime was
+  given, null for a runtime that uses none, and null, meaning not recorded, for executions
+  journaled before folders were.
 - **Command**: a request to change state. It is admitted or rejected, and if admitted it later
   completes or fails. Sending a command is never proof that it happened.
 - **Event**: an immutable fact in the journal. See [EVENTS.md](EVENTS.md).
@@ -88,12 +97,24 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 
 | Command | Policy | Admitted when |
 | --- | --- | --- |
-| `project.create` | low consequence | always |
+| `project.create` | low consequence | always, and when it names a location, the host can bind it (below) |
+| `project.set_location` | low consequence | the project exists and the host can bind the location |
 | `workstream.create` | low consequence | the project exists |
-| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is null or the runtime's `model_choice` is `listed`, and the adapter accepts the options and the model |
+| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is null or the runtime's `model_choice` is `listed`, for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |
 | `execution.send_instruction` | low consequence | the runtime has started a session, and: at rest (`completed`, `failed`, `interrupted`) with `instruct_at_rest`, or running (`running`, `verifying`, `waiting_for_human`) with `instruct_while_running` |
 | `execution.respond_to_approval` | review required | the approval is pending, the execution is `waiting_for_human`, and the runtime has `respond_to_approval` |
 | `execution.interrupt` | review required | a turn is running and the runtime has `interrupt` |
+
+A location is refused with `location_not_allowed` when it is not one of the host's project roots
+or a folder directly inside one (a symbolic link, a hidden name, `..`, or no roots at all),
+`location_missing` when the folder or its root is not there or is not a folder, and
+`location_exists` when a new folder's name is taken. A start in a project without a folder is
+refused with `location_required`; one whose folder has gone, or whose path now leads elsewhere
+through a symbolic link, with `location_missing`. A new folder the file system will not make fails
+the command with `location_not_created` and effect `none`, and no project exists; a folder made but
+then found unusable fails it with effect `unknown`, and the message says where the folder is. The runtime asks
+the host's policy again before it starts anything, so a folder removed after admission fails the
+start with effect `none` and the execution reads `failed`.
 
 Policy categories are recorded with every accepted command and sent to realtime clients in
 `welcome`. Clients must require a deliberate, explicit action for `review_required` commands. Authorization is currently a single local

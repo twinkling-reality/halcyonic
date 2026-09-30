@@ -1,4 +1,5 @@
 import Type, { type Static, type TSchema } from 'typebox';
+import { ProjectLocationChoice } from './locations.ts';
 import {
   ClientInfo,
   CommandId,
@@ -31,7 +32,27 @@ function defineCommand<const T extends string, P extends TSchema>(commandType: T
 
 export const ProjectCreateCommand = defineCommand(
   'project.create',
-  Type.Object({ name: Text(200) }, strict),
+  Type.Object(
+    {
+      name: Text(200),
+      /**
+       * Where the project's files live on the host, or null for a project whose work needs no
+       * folder, such as the mock runtime's. A runtime that uses the project's location refuses to
+       * start work in a project without one.
+       */
+      location: Nullable(ProjectLocationChoice),
+    },
+    strict,
+  ),
+);
+
+/**
+ * Binds a project to another folder, for example after its folder was moved, or gives one to a
+ * project created without. Executions already started keep the folder they started in.
+ */
+export const ProjectSetLocationCommand = defineCommand(
+  'project.set_location',
+  Type.Object({ project_id: ProjectId, location: ProjectLocationChoice }, strict),
 );
 
 export const WorkstreamCreateCommand = defineCommand(
@@ -87,6 +108,7 @@ export const ExecutionInterruptCommand = defineCommand(
 
 export const COMMAND_VARIANTS = [
   ProjectCreateCommand,
+  ProjectSetLocationCommand,
   WorkstreamCreateCommand,
   ExecutionStartCommand,
   ExecutionSendInstructionCommand,
@@ -101,6 +123,7 @@ export type CommandOf<T extends CommandType> = Extract<CommandEnvelope, { comman
 
 export const CommandType = Type.Union([
   Type.Literal('project.create'),
+  Type.Literal('project.set_location'),
   Type.Literal('workstream.create'),
   Type.Literal('execution.start'),
   Type.Literal('execution.send_instruction'),
@@ -128,6 +151,17 @@ export const RejectionCode = Type.Union([
   Type.Literal('capability_unsupported'),
   Type.Literal('invalid_state'),
   Type.Literal('invalid_runtime_options'),
+  /** The runtime works in the project's folder, and the project has none. */
+  Type.Literal('location_required'),
+  /** The folder, or the project root a new folder was to go in, is not there or is not a folder. */
+  Type.Literal('location_missing'),
+  /**
+   * The folder lies outside every project root the host allows, also through `..` or a symbolic
+   * link, or the host allows none.
+   */
+  Type.Literal('location_not_allowed'),
+  /** Something already has the name a new folder was to get. */
+  Type.Literal('location_exists'),
   /**
    * The client is playing a recorded demonstration on its own device: the command was not sent to
    * any control plane or agent, however admissible it was in the recording. Only the client's

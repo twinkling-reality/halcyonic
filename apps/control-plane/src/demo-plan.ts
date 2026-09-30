@@ -4,6 +4,7 @@ import type {
   CommandOf,
   ExecutionId,
   ProjectId,
+  ProjectLocationChoice,
   RuntimeId,
   WorkstreamId,
 } from '@halcyonic/contracts';
@@ -57,10 +58,21 @@ export function createCommandFactory(ids: IdGenerator, clock: Clock, client: Cli
     client,
   });
   return {
-    createProject: (name: string): CommandOf<'project.create'> => ({
+    createProject: (
+      name: string,
+      location: ProjectLocationChoice | null = null,
+    ): CommandOf<'project.create'> => ({
       ...base(),
       command_type: 'project.create',
-      payload: { name },
+      payload: { name, location },
+    }),
+    setLocation: (
+      projectId: ProjectId,
+      location: ProjectLocationChoice,
+    ): CommandOf<'project.set_location'> => ({
+      ...base(),
+      command_type: 'project.set_location',
+      payload: { project_id: projectId, location },
     }),
     createWorkstream: (
       projectId: ProjectId,

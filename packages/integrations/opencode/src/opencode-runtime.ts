@@ -11,6 +11,7 @@ import type {
 } from '@halcyonic/contracts';
 import {
   type Clock,
+  confirmProjectLocation,
   type DirectoryPolicy,
   type ExecutionContext,
   type ObservationSink,
@@ -80,8 +81,8 @@ export interface OpenCodeRuntimeOptions {
    */
   readonly serverRecordFile: string;
   /**
-   * The host's decision on which directories agents may work in. A directory it refuses is
-   * refused as a start option, and a session runs in the real path it returns.
+   * The host's decision on which directories agents may work in, asked again about the project's
+   * folder before a session starts there.
    */
   readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
@@ -214,6 +215,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       synthetic: false,
       capabilities: OPENCODE_CAPABILITIES,
       model_choice: 'listed',
+      uses_project_location: true,
     };
   }
 
@@ -223,7 +225,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
-    const parsed = parseStartOptions(options, this.#directoryPolicy, modelRef);
+    const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };
   }
 
@@ -280,19 +282,24 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
 
   async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
     if (this.#closing !== null) throw closedError();
-    // Checked again here: the directory may have changed since admission.
-    const parsed = parseStartOptions(request.options, this.#directoryPolicy, request.model_ref);
+    const parsed = parseStartOptions(request.options, request.model_ref);
     if (!parsed.ok) throw new RuntimeActionError('invalid_runtime_options', parsed.message);
+    // Asked again before the server is launched: the folder may have changed since admission.
+    // OpenCode 2.0.18 creates a session in a directory that does not exist without complaint (and
+    // then answers 500 on some routes), so the policy's check that it exists matters here too.
+    const directory = confirmProjectLocation(this.#directoryPolicy, request.directory);
     if (this.#sessions.has(request.execution.execution_id)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
     const connection = await this.#connection();
-    await this.#awaitModel(connection, parsed.value.directory, parsed.value.model);
+    await this.#awaitModel(connection, directory, parsed.value.model);
+    // Asked again right before the folder is handed over: launching and waiting take seconds.
+    confirmProjectLocation(this.#directoryPolicy, directory);
     const body: Record<string, unknown> = {
       title: `Halcyonic execution ${request.execution.execution_id}`,
       // The policy's real path. It also avoids the odd relative subpath OpenCode computes for a
       // directory reached through a symbolic link.
-      location: { directory: parsed.value.directory },
+      location: { directory },
     };
     if (parsed.value.model !== null) body.model = parsed.value.model;
     const created = await send(connection, 'POST', '/api/session', body, 'runtime_refused');

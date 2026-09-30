@@ -319,6 +319,80 @@ describe('SQLite journal', () => {
     reopened.close();
   });
 
+  test('project and execution events a journal of schema version 3 holds without folders gain null ones, and nothing else changes', () => {
+    const path = freshPath();
+    const journal = openSqliteJournal({ path, originIfNew: 'live', ids });
+    for (const event of TRACE) journal.append(event);
+    // A project bound to a folder, whose location the migration must leave as it is.
+    const created = TRACE.find((event) => event.event_type === 'project.created');
+    assert.ok(created?.event_type === 'project.created');
+    const located: EventEnvelope = {
+      ...created,
+      event_id: ids.next() as EventEnvelope['event_id'],
+      payload: { name: 'Located', location: { path: '/work/app', name: 'app', created: false } },
+    };
+    journal.append(located);
+    journal.close();
+    const expected = [...TRACE, located];
+
+    // What a build of schema version 3 wrote: no location on projects or on project.create
+    // commands, and no directory on executions.
+    const db = new DatabaseSync(path);
+    const commandEvents = "event_type IN ('command.accepted', 'command.rejected')";
+    const projectCreate =
+      "json_extract(envelope, '$.payload.command.command_type') = 'project.create'";
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.location')
+         WHERE event_type = 'project.created' AND json_type(envelope, '$.payload.location') = 'null'`,
+    );
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.command.payload.location')
+         WHERE ${commandEvents} AND ${projectCreate}`,
+    );
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.directory')
+         WHERE event_type = 'execution.created'`,
+    );
+    const count = (where: string) =>
+      (db.prepare(`SELECT COUNT(*) AS count FROM events WHERE ${where}`).get() as { count: number })
+        .count;
+    assert.ok(
+      count(
+        "event_type = 'project.created' AND json_type(envelope, '$.payload.location') IS NULL",
+      ) > 0,
+    );
+    assert.ok(count(`${commandEvents} AND ${projectCreate}`) > 0);
+    assert.ok(count("event_type = 'execution.created'") > 0);
+    db.exec('PRAGMA user_version = 3');
+    db.close();
+
+    const reopened = openSqliteJournal({ path, originIfNew: 'live', ids });
+    assert.deepEqual(
+      [...reopened.readAll()].map((stored) => stored.event),
+      expected,
+      'each stored event reads as it was written, with the null its contract gained',
+    );
+    reopened.close();
+    const envelopes = () => {
+      const read = new DatabaseSync(path);
+      const rows = read.prepare('SELECT envelope FROM events ORDER BY position').all();
+      read.close();
+      return rows;
+    };
+    const migrated = envelopes();
+
+    // Running the migration again, as a journal stamped 3 by mistake would, changes nothing.
+    const again = new DatabaseSync(path);
+    again.exec('PRAGMA user_version = 3');
+    again.close();
+    openSqliteJournal({ path, originIfNew: 'live', ids }).close();
+    assert.deepEqual(envelopes(), migrated);
+    const check = new DatabaseSync(path);
+    const version = check.prepare('PRAGMA user_version').get() as { user_version: number };
+    assert.equal(version.user_version, JOURNAL_SCHEMA_VERSION);
+    check.close();
+  });
+
   test('a stored event that no longer matches the contract is reported, not trusted', () => {
     const path = freshPath();
     const journal = openSqliteJournal({ path, originIfNew: 'live', ids });

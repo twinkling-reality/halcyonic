@@ -821,6 +821,7 @@ describe('what revocation stops, and how long the listener waits', () => {
           interrupt: false,
         },
         model_choice: 'listed' as const,
+        uses_project_location: false,
       },
       validateStartOptions: () => ({ ok: true as const }),
       listModels: () => new Promise<never>(() => {}),

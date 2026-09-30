@@ -140,7 +140,8 @@ async function harness(
       const result = await runtime.startExecution({
         execution: execution.context,
         instruction,
-        options: { directory: sandbox.project, ...options },
+        options: { ...options },
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });
@@ -255,6 +256,39 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     ]);
     assert.equal(record.pid, pid);
   });
+
+  test(
+    'the folder is asked about again after the server launches, before a session is made there',
+    SLOW_TEST,
+    async (t) => {
+      let asked = 0;
+      const { runtime, sandbox } = await harness(t, {
+        runtime: {
+          directoryPolicy: (path) => {
+            asked += 1;
+            return asked === 1
+              ? { ok: true, directory: path }
+              : { ok: false, code: 'location_missing', message: `${path} was removed.` };
+          },
+        },
+      });
+      const execution = new Execution();
+      await assert.rejects(
+        runtime.startExecution({
+          execution: execution.context,
+          instruction: 'Say hello.',
+          options: {},
+          directory: sandbox.project,
+          model_ref: null,
+          emit: execution.emit,
+        }),
+        actionError('location_missing'),
+      );
+      assert.equal(asked, 2);
+      assert.ok(runtime.serverPid !== null, 'the server was launched before the second check');
+      assert.deepEqual(execution.observations, [], 'no session exists');
+    },
+  );
 
   test('an approved request lets the tool run and the turn finish', SLOW_TEST, async (t) => {
     const { runtime, start } = await harness(t);
@@ -498,7 +532,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello.',
-        options: { directory: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: 'fake/fake-model-2',
         emit: execution.emit,
       });
@@ -516,7 +551,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
         runtime.startExecution({
           execution: gone.context,
           instruction: 'Hello.',
-          options: { directory: sandbox.project },
+          options: {},
+          directory: sandbox.project,
           model_ref: 'fake/removed-model',
           emit: gone.emit,
         }),
@@ -550,7 +586,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
           runtime.startExecution({
             execution: execution.context,
             instruction: 'Hello.',
-            options: { directory: sandbox.project, model },
+            options: { model },
+            directory: sandbox.project,
             model_ref: null,
             emit: execution.emit,
           }),
@@ -567,7 +604,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello.',
-        options: { directory: sandbox.project, model: 'fake/fake-model' },
+        options: { model: 'fake/fake-model' },
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });
@@ -701,7 +739,8 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       await runtime.startExecution({
         execution: execution.context,
         instruction: 'Hello after the orphan was stopped.',
-        options: { directory: sandbox.project },
+        options: {},
+        directory: sandbox.project,
         model_ref: null,
         emit: execution.emit,
       });

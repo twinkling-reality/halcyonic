@@ -223,6 +223,56 @@ public class LiveControlPlaneTests
     }
 
     [Test]
+    public async Task BindsProjectsToFoldersTheHostLists()
+    {
+        var root = Directory.CreateTempSubdirectory("halcyonic-client-projects-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "storefront"));
+            var controlPlane = await ControlPlaneProcess.StartAsync(
+                dataDir, ControlPlaneProcess.FreePort(), projectRoot: root);
+            processes.Add(controlPlane);
+            Connect(controlPlane);
+            await Until(s => s.Status.IsLive, "the session is live");
+            Assert.That(session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock").UsesProjectLocation, Is.False);
+
+            using var api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
+            var listed = (await api.GetLocationsAsync()).Roots.Single();
+            Assert.That(listed.Status, Is.EqualTo(LocationRootStatus.Available));
+            Assert.That(listed.Folders.Select(folder => folder.Name), Is.EqualTo(new[] { "storefront" }));
+
+            // A folder already there, named as the host listed it.
+            var existing = (ProjectCreatedResult)await RunAsync(commands.CreateProject(
+                "Storefront", new ExistingFolderChoice { Root = listed.Path, FolderName = listed.Folders[0].Name }));
+            var bound = session.State.Projects[existing.ProjectId].Location!;
+            Assert.That(bound.Path, Is.EqualTo(listed.Folders[0].Path));
+            Assert.That(bound.Name, Is.EqualTo("storefront"));
+            Assert.That(bound.Created, Is.False);
+
+            // A new folder, which the host makes.
+            var created = (ProjectCreatedResult)await RunAsync(commands.CreateProject(
+                "Greeting card", new NewFolderChoice { Root = listed.Path, FolderName = "greeting-card" }));
+            Assert.That(session.State.Projects[created.ProjectId].Location!.Created, Is.True);
+            Assert.That(Directory.Exists(Path.Combine(root, "greeting-card")), Is.True);
+
+            // A name already taken is refused with a code the headset can put in words.
+            var ack = await session.SubmitAsync(commands.CreateProject(
+                "Greeting card again", new NewFolderChoice { Root = listed.Path, FolderName = "greeting-card" }));
+            Assert.That(ack.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
+            Assert.That(ack.Command!.Rejection!.Code, Is.EqualTo(RejectionCode.LocationExists));
+
+            // Bound again, here to the root itself.
+            await RunAsync(commands.SetProjectLocation(
+                existing.ProjectId, new ExistingFolderChoice { Root = listed.Path, FolderName = null }));
+            Assert.That(session.State.Projects[existing.ProjectId].Location!.Path, Is.EqualTo(listed.Path));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task StartsWorkOnAModelTheRuntimeLists()
     {
         var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());

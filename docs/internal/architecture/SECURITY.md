@@ -112,11 +112,35 @@ logged or passed to launched agents:
 | Size limits | 1 MiB request bodies; 256 KiB WebSocket messages; slow WebSocket clients are disconnected |
 | Data at rest | Data directory mode 0700; journal, WAL and SHM files mode 0600 |
 | Logging | Log context carries identifiers only, never tokens, pairing codes, device credentials or their hashes, keys, instructions or agent text |
-| Agent working directories | Only directories whose real path lies under `HALCYONIC_PROJECT_ROOTS`; `..` and symbolic links cannot escape a root; with no roots configured, no real runtime can start |
+| Agent working directories | Every real execution runs in its project's folder, and a client never sends a path ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). A project is bound to a folder a client chooses by naming one of the host's project roots (`HALCYONIC_PROJECT_ROOTS`) and a folder directly inside it: the host composes the path, refuses a symbolic link, a hidden name or `..`, and records the real path the file system itself gives (`realpath(3)`), so one folder has one recorded spelling whatever case or Unicode form the client used. Before each start the control plane, then the adapter before it launches anything, and the adapter again right before it hands the folder to the runtime (and Codex's before it resumes a thread after a relaunch) ask the directory policy again: only real paths under a root, so `..` and symbolic links cannot escape it, and a path that now resolves elsewhere is refused. With no roots configured, no real runtime can start |
+| Project folders | The host makes a new folder only directly inside a root, with a one-segment name of letters, digits, `.`, `_` and `-` that does not start with `.`, and a non-recursive `mkdir` that fails rather than follow or reuse anything already at the path. Right before it binds or makes anything, it checks that the root is still the folder it found at startup (same real path, no symbolic link along it, same device and inode); a root replaced since, by a link or another folder, is refused until the control plane restarts. A folder it made that then fails the policy is left in place and reported, with effect `unknown`. It deletes no folder |
 | Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options, and so are Codex's approval policy `never`, its granular policies and `danger-full-access` with `on-request`, under which Codex runs every command it does not flag as dangerous without asking |
 | Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode and Codex servers are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal. Codex starts each command in a session of its own, beyond the reach of a signal to its server's process group: ending the server's input makes Codex stop them, and a server that has to be killed is killed with all its descendants. A Codex server killed by anything else leaves its running commands behind |
 | OpenCode server | Launched from the configured binary only, never from PATH; bound to 127.0.0.1 on a free port with a password generated per launch and kept in memory; refused unless it reports version 2.0.18 and the process id Halcyonic started; recorded (without the password, mode 0600) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
-| Codex server | Launched from the configured native binary only, never from PATH, in its own process group, speaking JSON-RPC over its stdin and stdout, so it listens on no port; refused unless both `codex --version` and its answer to `initialize` report 0.157.0 and `ps` shows the launched binary; remote control switched off; only methods on the stable API surface, never the experimental opt-in; requests Halcyonic does not show the person (permission grants, questions, MCP elicitations) are refused, which Codex takes as a denial or an empty answer; recorded (mode 0600, no secrets) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
+| Codex server | Launched from the configured native binary only, never from PATH, in its own process group, speaking JSON-RPC over its stdin and stdout, so it listens on no port; refused unless both `codex --version` and its answer to `initialize` report 0.157.0 and `ps` shows the launched binary; remote control switched off; a thread Codex reports working in another folder than the project's is refused; only methods on the stable API surface, never the experimental opt-in; requests Halcyonic does not show the person (permission grants, questions, MCP elicitations) are refused, which Codex takes as a denial or an empty answer; recorded (mode 0600, no secrets) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
+
+## Project folders and clients
+
+What a client sees and can do about folders on the host
+([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)):
+
+- **Paths reach every authenticated client**, paired devices included: the listing of roots and
+  the folders directly in them (`GET /api/locations`), each project's `location` and each
+  execution's `directory`. Folder names are the file system's, so clients treat them as untrusted
+  text, as they do agent text. A device could already start agents that read everything under the
+  roots, so the names give it nothing it could not reach; they do show the Mac's folder layout and
+  user name to anyone holding a device credential.
+- **A device can make empty folders** directly inside a root, one per `project.create` or
+  `project.set_location`, and bind projects to any folder directly inside a root. It cannot make
+  one elsewhere, name a deeper folder, follow a link, or delete anything. Nothing limits how many
+  it makes.
+- **A folder that changes after it was bound** is checked again at every start: gone or no longer
+  a folder is `location_missing`, now leading elsewhere through a symbolic link is
+  `location_missing` too, and outside the roots is `location_not_allowed`. Work already running
+  keeps its folder.
+- **Two executions can share a folder**: parallel workstreams of one project, or two projects bound
+  to one folder. Nothing isolates them from each other's edits
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
 ## Authorization
 

@@ -118,7 +118,8 @@
             "payload": {
               "type": "object",
               "required": [
-                "name"
+                "name",
+                "location"
               ],
               "properties": {
                 "name": {
@@ -126,6 +127,134 @@
                   "minLength": 1,
                   "maxLength": 200,
                   "pattern": "\\S"
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ProjectLocation"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "event_id",
+            "source_native_id",
+            "sequence",
+            "occurred_at",
+            "ingested_at",
+            "correlation_id",
+            "causation_id",
+            "provenance",
+            "project_id",
+            "workstream_id",
+            "execution_id",
+            "event_type",
+            "source",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "event_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_native_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "ingested_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "correlation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "causation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "$ref": "#/$defs/Provenance"
+            },
+            "project_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "workstream_id": {
+              "type": "null"
+            },
+            "execution_id": {
+              "type": "null"
+            },
+            "event_type": {
+              "type": "string",
+              "const": "project.location_set"
+            },
+            "source": {
+              "$ref": "#/$defs/ControlPlaneSource"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "location"
+              ],
+              "properties": {
+                "location": {
+                  "$ref": "#/$defs/ProjectLocation"
                 }
               },
               "additionalProperties": false
@@ -378,7 +507,8 @@
               "type": "object",
               "required": [
                 "runtime",
-                "instruction"
+                "instruction",
+                "directory"
               ],
               "properties": {
                 "runtime": {
@@ -389,6 +519,19 @@
                   "minLength": 1,
                   "maxLength": 32000,
                   "pattern": "\\S"
+                },
+                "directory": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096,
+                      "pattern": "\\S"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "additionalProperties": false
@@ -3556,7 +3699,8 @@
             "payload": {
               "type": "object",
               "required": [
-                "name"
+                "name",
+                "location"
               ],
               "properties": {
                 "name": {
@@ -3564,6 +3708,67 @@
                   "minLength": 1,
                   "maxLength": 200,
                   "pattern": "\\S"
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ProjectLocationChoice"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "command_id",
+            "issued_at",
+            "client",
+            "command_type",
+            "payload"
+          ],
+          "properties": {
+            "schema_version": {
+              "type": "number",
+              "const": 1
+            },
+            "command_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "client": {
+              "$ref": "#/$defs/ClientInfo"
+            },
+            "command_type": {
+              "type": "string",
+              "const": "project.set_location"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "project_id",
+                "location"
+              ],
+              "properties": {
+                "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "location": {
+                  "$ref": "#/$defs/ProjectLocationChoice"
                 }
               },
               "additionalProperties": false
@@ -4090,7 +4295,8 @@
         "display_name",
         "synthetic",
         "capabilities",
-        "model_choice"
+        "model_choice",
+        "uses_project_location"
       ],
       "properties": {
         "runtime_id": {
@@ -4114,6 +4320,9 @@
         },
         "model_choice": {
           "$ref": "#/$defs/ModelChoice"
+        },
+        "uses_project_location": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -4512,6 +4721,7 @@
       "required": [
         "project_id",
         "name",
+        "location",
         "created_at",
         "updated_at"
       ],
@@ -4526,6 +4736,16 @@
           "maxLength": 200,
           "pattern": "\\S"
         },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "created_at": {
           "type": "string",
           "format": "date-time",
@@ -4538,6 +4758,179 @@
         }
       },
       "additionalProperties": false
+    },
+    "ProjectLocation": {
+      "type": "object",
+      "required": [
+        "path",
+        "name",
+        "created"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "created": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProjectLocationChoice": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "root",
+            "folder_name"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "existing_folder"
+            },
+            "root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "folder_name": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "pattern": "^[^./\\u0000][^/\\u0000]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "root",
+            "folder_name"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "new_folder"
+            },
+            "root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "folder_name": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "LocationsResponse": {
+      "type": "object",
+      "required": [
+        "roots"
+      ],
+      "properties": {
+        "roots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocationRoot"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "LocationRoot": {
+      "type": "object",
+      "required": [
+        "path",
+        "name",
+        "status",
+        "folders",
+        "folders_truncated"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "$ref": "#/$defs/LocationRootStatus"
+        },
+        "folders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LocationFolder"
+          },
+          "maxItems": 200
+        },
+        "folders_truncated": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LocationFolder": {
+      "type": "object",
+      "required": [
+        "name",
+        "path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LocationRootStatus": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "available"
+        },
+        {
+          "type": "string",
+          "const": "missing"
+        }
+      ]
     },
     "WorkstreamView": {
       "type": "object",
@@ -4628,6 +5021,7 @@
         "native_id",
         "model_ref",
         "instruction",
+        "directory",
         "status",
         "status_reason",
         "pending_approvals",
@@ -4685,6 +5079,19 @@
           "minLength": 1,
           "maxLength": 32000,
           "pattern": "\\S"
+        },
+        "directory": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "status": {
           "$ref": "#/$defs/ExecutionStatus"
@@ -7563,6 +7970,10 @@
         },
         {
           "type": "string",
+          "const": "project.set_location"
+        },
+        {
+          "type": "string",
           "const": "workstream.create"
         },
         {
@@ -7632,6 +8043,22 @@
         {
           "type": "string",
           "const": "invalid_runtime_options"
+        },
+        {
+          "type": "string",
+          "const": "location_required"
+        },
+        {
+          "type": "string",
+          "const": "location_missing"
+        },
+        {
+          "type": "string",
+          "const": "location_not_allowed"
+        },
+        {
+          "type": "string",
+          "const": "location_exists"
         },
         {
           "type": "string",

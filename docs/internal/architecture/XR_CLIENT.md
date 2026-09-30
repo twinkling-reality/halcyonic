@@ -209,6 +209,14 @@ the same definition names, as the JSON Schema document:
   where a model runs from `Served`, never from its name. **`CommandFactory.StartExecution`**
   sends the chosen `ModelRef` back unchanged (`modelRef`, null to leave the choice to the
   runtime), and the execution's `ModelRef` then holds the model the runtime reports using.
+- **`ControlPlaneApi.GetLocationsAsync`** reads where projects may live on the Mac: each project
+  root and the visible folders directly inside it
+  ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)), on request.
+  **`CommandFactory.CreateProject`** takes an optional `ProjectLocationChoice`, an
+  `ExistingFolderChoice` or a `NewFolderChoice` naming a listed root's `Path` and a folder's
+  `Name` (null for the root itself), and **`SetProjectLocation`** binds a project again; the
+  client never composes a path. A runtime whose descriptor has `UsesProjectLocation` starts work
+  only in a project with a folder. Folder names are untrusted text, shown through `LabelText`.
 - **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A
   runtime change drops its previous model. It accepts a model only from the selected runtime's
   current list, builds a workstream with a short title from the objective, and sends the objective
@@ -695,9 +703,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     (`AttentionWatch`), hidden projects included, appears in the line under the title with Open now
     and Keep creating; nothing switches by itself, and the draft is kept.
   The mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
-  which says no software work was performed. Codex and OpenCode still need a working directory the
-  panel cannot collect, so a start through either is refused after the project and workstream were
-  made; the steps show the refusal, and Try again reuses them.
+  which says no software work was performed. Codex and OpenCode work in the project's folder
+  ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)), which the panel
+  does not yet choose: a project it creates has none, so a start through either is refused with
+  `location_required` after the workstream is created; the steps show the refusal, and Try again
+  reuses them.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
