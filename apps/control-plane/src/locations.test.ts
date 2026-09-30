@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { compileValidator, LocationsResponse, MAX_LOCATION_FOLDERS } from '@halcyonic/contracts';
-import { createHostLocations } from './locations.ts';
+import { createHostLocations, MAX_SCANNED_ENTRIES } from './locations.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-locations-')));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -65,6 +65,21 @@ describe('listing where projects may live', () => {
     const [only] = locations.list().roots;
     assert.equal(only?.folders.length, MAX_LOCATION_FOLDERS);
     assert.equal(only?.folders_truncated, true);
+  });
+
+  test('a root holding more entries than are read is listed as truncated', () => {
+    const { root, locations } = layout('crowded');
+    for (let index = 0; index < MAX_SCANNED_ENTRIES; index += 1) {
+      writeFileSync(join(root, `file-${index}`), '');
+    }
+    const [only] = locations.list().roots;
+    assert.equal(only?.status, 'available');
+    assert.equal(
+      only?.folders_truncated,
+      true,
+      'the app folder and 10,000 files are 10,001 entries',
+    );
+    assert.ok((only?.folders.length ?? 0) <= 1);
   });
 
   test('a root that has gone is listed as missing, with nothing in it', () => {
@@ -174,6 +189,7 @@ describe('binding a project to an existing folder', () => {
     ] as const) {
       const checked = locations.check(choice);
       assert.equal(checked.ok ? 'ok' : checked.code, 'location_missing', choice.kind);
+      assert.match(checked.ok ? '' : checked.message, /cannot be read \(EACCES\)/);
       const bound = locations.bind(choice);
       assert.equal(bound.ok ? 'ok' : bound.code, 'location_missing', choice.kind);
     }
@@ -273,19 +289,22 @@ describe('binding a project to a new folder', () => {
     );
   });
 
-  test('a folder made but not usable is reported with an unknown effect and left in place', () => {
-    const { root } = layout('made-unusable');
-    // A policy that refuses everything stands in for a change between the check and the folder.
-    const locations = createHostLocations([root], (path) => ({
-      ok: false,
-      code: 'location_not_allowed',
-      message: `${path} is not allowed now.`,
-    }));
+  test('a folder made but not usable is reported with an unknown effect and its real path', () => {
+    const { root, outside } = layout('made-unusable');
+    // Stands in for a root swapped for a link between its check and the mkdir: once made, the
+    // folder is reached through a link to where it really is, and the policy refuses it.
+    const locations = createHostLocations([root], (path) => {
+      renameSync(path, join(outside, 'storefront'));
+      symlinkSync(join(outside, 'storefront'), path);
+      return { ok: false, code: 'location_not_allowed', message: `${path} is not allowed now.` };
+    });
     const bound = locations.bind({ kind: 'new_folder', root, folder_name: 'storefront' });
     assert.equal(bound.ok ? 'ok' : bound.code, 'location_not_created');
     assert.equal(!bound.ok && 'effect' in bound ? bound.effect : null, 'unknown');
-    assert.match(!bound.ok ? bound.message : '', /A folder was made at .*storefront/);
-    assert.ok(existsSync(join(root, 'storefront')));
+    assert.ok(
+      !bound.ok && bound.message.startsWith(`A folder was made at ${join(outside, 'storefront')},`),
+      'the message names where the folder really is',
+    );
   });
 
   test('after a crash between making the folder and recording the project, the folder is chosen as existing', () => {

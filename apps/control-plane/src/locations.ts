@@ -1,4 +1,12 @@
-import { lstatSync, mkdirSync, readdirSync, realpathSync, type Stats, statSync } from 'node:fs';
+import {
+  type Dir,
+  lstatSync,
+  mkdirSync,
+  opendirSync,
+  realpathSync,
+  type Stats,
+  statSync,
+} from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import {
   type LocationFolder,
@@ -61,6 +69,8 @@ interface Root {
 }
 
 const NEW_FOLDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+/** The most entries of one root read to list its folders. */
+export const MAX_SCANNED_ENTRIES = 10_000;
 const byName = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 /** `policy` is the host's directory policy over the same roots; a test may pass another. */
@@ -190,12 +200,19 @@ export function createHostLocations(
     const decision = policy(found.path);
     if (!decision.ok || decision.directory !== found.path) {
       // Something changed between the check and the folder being made: it exists, and is left
-      // where it is, but no project is bound to it.
+      // where it is, but no project is bound to it. Where it really is, not the path through a
+      // link that may have replaced the root, is what the person needs to find it.
+      let made = found.path;
+      try {
+        made = realpathSync.native(found.path);
+      } catch {
+        made = found.path;
+      }
       return {
         ok: false,
         code: 'location_not_created',
         effect: 'unknown',
-        message: `A folder was made at ${found.path}, but it cannot be used, so no project was created and the folder was left in place: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
+        message: `A folder was made at ${made}, but it cannot be used, so no project was created and the folder was left in place: ${decision.ok ? `it leads to ${decision.directory}` : decision.message}`,
       };
     }
     return { ok: true, location: { path: found.path, name: nameOf(found.path), created: true } };
@@ -214,7 +231,7 @@ function unreadable<T>(read: () => T | LocationRefusal): T | LocationRefusal {
     return {
       ok: false,
       code: 'location_missing',
-      message: `The folder could not be read${typeof code === 'string' ? ` (${code})` : ''}.`,
+      message: `The folder cannot be read${typeof code === 'string' ? ` (${code})` : ''}.`,
     };
   }
 }
@@ -224,19 +241,41 @@ function shown(text: string): string {
   return text.length <= 200 ? text : `${text.slice(0, 199)}…`;
 }
 
+/**
+ * Lists a root's folders from at most `MAX_SCANNED_ENTRIES` of its entries, in the order the file
+ * system gives them, so a root holding a very large number of files cannot hold up the control
+ * plane; a root with more is listed as truncated.
+ */
 function listRoot(root: Root): LocationRoot {
   let available = rootChanged(root) === null;
   let folders: LocationFolder[] = [];
+  let unread = false;
   if (available) {
+    let directory: Dir | null = null;
     try {
-      folders = readdirSync(root.real, { withFileTypes: true })
+      directory = opendirSync(root.real);
+      let scanned = 0;
+      for (let entry = directory.readSync(); entry !== null; entry = directory.readSync()) {
+        if (scanned === MAX_SCANNED_ENTRIES) {
+          unread = true;
+          break;
+        }
+        scanned += 1;
         // A symbolic link reads as one here, never as a directory, so none is listed.
-        .filter((entry) => entry.isDirectory() && singleVisibleSegment(entry.name))
-        .map((entry) => ({ name: entry.name, path: join(root.real, entry.name) }));
+        if (entry.isDirectory() && singleVisibleSegment(entry.name)) {
+          folders.push({ name: entry.name, path: join(root.real, entry.name) });
+        }
+      }
     } catch {
       // A root that cannot be read lists as missing: nothing in it can be used.
       available = false;
       folders = [];
+    } finally {
+      try {
+        directory?.closeSync();
+      } catch {
+        // Already closed.
+      }
     }
   }
   folders.sort((a, b) => byName.compare(a.name, b.name) || (a.name < b.name ? -1 : 1));
@@ -245,7 +284,7 @@ function listRoot(root: Root): LocationRoot {
     name: nameOf(root.real),
     status: available ? 'available' : 'missing',
     folders: folders.slice(0, MAX_LOCATION_FOLDERS),
-    folders_truncated: folders.length > MAX_LOCATION_FOLDERS,
+    folders_truncated: unread || folders.length > MAX_LOCATION_FOLDERS,
   };
 }
 
@@ -280,7 +319,17 @@ function notCreated(path: string, error: unknown): LocationBinding {
  * it; restarting the control plane takes the roots as they are then.
  */
 function rootChanged(root: Root): LocationRefusal | null {
-  const entry = entryAt(root.real);
+  let entry: Stats | undefined;
+  try {
+    entry = entryAt(root.real);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    return {
+      ok: false,
+      code: 'location_missing',
+      message: `The folder ${root.real}, where projects live, cannot be read${typeof code === 'string' ? ` (${code})` : ''}.`,
+    };
+  }
   if (entry === undefined || (!entry.isDirectory() && !entry.isSymbolicLink())) {
     return {
       ok: false,
@@ -319,13 +368,12 @@ function singleVisibleSegment(name: string): boolean {
   );
 }
 
-/** What is at the path itself, without following a symbolic link; undefined for nothing readable. */
+/**
+ * What is at the path itself, without following a symbolic link; undefined for nothing there. A
+ * path the file system will not read (EACCES, EPERM) throws, and callers say it cannot be read.
+ */
 function entryAt(path: string): Stats | undefined {
-  try {
-    return lstatSync(path, { throwIfNoEntry: false });
-  } catch {
-    return undefined;
-  }
+  return lstatSync(path, { throwIfNoEntry: false });
 }
 
 function nameOf(path: string): string {
