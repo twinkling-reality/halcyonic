@@ -240,9 +240,12 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// How far every point of the arc must stay inside the surface's edge and outside obstacles:
-        /// half a label plate, which the stage scales with the radius, and two centimeters.
+        /// a quarter of a label plate, which the stage scales with the radius, and a centimeter. The
+        /// plates may overhang an edge a little; half a plate left no room on a real desk, where the
+        /// free strip in front of a monitor was about 18 cm deep (the first headset session in a
+        /// scanned room, 2026-09-30).
         /// </summary>
-        public static float Margin(float reach) => 0.02f + 0.1f * reach;
+        public static float Margin(float reach) => 0.01f + 0.05f * reach;
 
         /// <summary>
         /// The best spot for the stage, or null when no surface fits the lineup within comfortable
@@ -337,6 +340,9 @@ namespace Halcyonic.Client
                 var farthest = surface.Outline.Max(corner => PlanPoint.Distance(corner, eyes));
                 var turns = surface.Outline.Select(corner => TurnBetween(facing, (corner - eyes).Heading)).ToList();
                 var onSurface = blocking.Where(obstacle => Stands(obstacle, surface.Height)).ToList();
+                // For the words only: the chooser checks every obstacle at this height against the arc
+                // wherever it is, but the log names those whose footprint reaches over this surface.
+                var over = onSurface.Where(obstacle => Overlaps(obstacle.Footprint, surface.Outline)).ToList();
                 string reason;
                 if (drop < LeastDrop || drop > MostDrop) reason = FormattableString.Invariant($"not {LeastDrop:0.00} to {MostDrop:0.00} m below the eyes");
                 else if (BestOn(surface, onSurface, viewer, drop).Spot != null) reason = "the lineup fits";
@@ -344,7 +350,16 @@ namespace Halcyonic.Client
                 else if (BestOn(surface, new List<RoomObstacle>(), viewer, drop, 0f).Spot != null) reason = "the lineup fits only without its margin from the edges";
                 else reason = "the lineup's arc does not fit on it within reach and view";
                 lines.Add(FormattableString.Invariant(
-                    $"{kind}, {drop:0.00} m below the eyes, {nearest:0.00} to {farthest:0.00} m away, {turns.Min():0} to {turns.Max():0} degrees from where the person faces, {onSurface.Count} objects on it: {reason}"));
+                    $"{kind}, {drop:0.00} m below the eyes, {nearest:0.00} to {farthest:0.00} m away, {turns.Min():0} to {turns.Max():0} degrees from where the person faces, {over.Count} objects on it: {reason}"));
+                if (drop < LeastDrop || drop > MostDrop || nearest > FarthestReach) continue;
+                foreach (var obstacle in over)
+                {
+                    var near = Polygon.Contains(obstacle.Footprint, eyes) ? 0f : Polygon.DistanceToEdge(obstacle.Footprint, eyes);
+                    var far = obstacle.Footprint.Max(corner => PlanPoint.Distance(corner, eyes));
+                    var sides = obstacle.Footprint.Select(corner => TurnBetween(facing, (corner - eyes).Heading)).ToList();
+                    lines.Add(FormattableString.Invariant(
+                        $"  object on it, {obstacle.Top - surface.Height:0.00} m tall, {near:0.00} to {far:0.00} m away, {sides.Min():0} to {sides.Max():0} degrees from where the person faces"));
+                }
             }
             return lines;
         }
@@ -392,6 +407,17 @@ namespace Halcyonic.Client
             if (spot.Surface.Kind != best.Surface.Kind) return spot.Surface.Kind == SurfaceKind.Desk;
             return cost < bestCost;
         }
+
+        /// <summary>Whether two outlines on the floor plan share any area, judged by their corners and centers.</summary>
+        private static bool Overlaps(IReadOnlyList<PlanPoint> a, IReadOnlyList<PlanPoint> b)
+        {
+            if (a.Count < 3 || b.Count < 3) return false;
+            return a.Any(corner => Polygon.Contains(b, corner)) || b.Any(corner => Polygon.Contains(a, corner))
+                || Polygon.Contains(b, Center(a)) || Polygon.Contains(a, Center(b));
+        }
+
+        private static PlanPoint Center(IReadOnlyList<PlanPoint> corners) =>
+            new PlanPoint(corners.Average(corner => corner.X), corners.Average(corner => corner.Z));
 
         /// <summary>An obstacle stands on a surface when it rises above it and starts no higher than a monitor's foot would.</summary>
         private static bool Stands(RoomObstacle obstacle, float height) =>

@@ -160,14 +160,19 @@ public class StageSurfacesTests
         var clutter = Rooms.Box(-0.5f, 0.5f, 0.35f, 0.9f, 0.74f, 1.2f);
         var narrow = new RoomSurface(SurfaceKind.Desk, 0.74f, Rooms.Rectangle(-0.2f, 0.2f, 0.35f, 0.75f));
 
-        var lines = StageSurfaces.Explain(new[] { shelf, desk, narrow }, new[] { clutter }, Rooms.Seated);
+        // A lamp across the room, at desk height, which stands on none of them.
+        var lamp = Rooms.Box(2.5f, 2.7f, 2.5f, 2.7f, 0.74f, 1.3f);
 
-        Assert.That(StageSurfaces.Choose(new[] { shelf, desk, narrow }, new[] { clutter }, Rooms.Seated), Is.Null);
-        Assert.That(lines, Has.Count.EqualTo(3));
+        var lines = StageSurfaces.Explain(new[] { shelf, desk, narrow }, new[] { clutter, lamp }, Rooms.Seated);
+
+        Assert.That(StageSurfaces.Choose(new[] { shelf, desk, narrow }, new[] { clutter, lamp }, Rooms.Seated), Is.Null);
+        Assert.That(lines, Has.Count.EqualTo(5), "a line per surface, and one per object over a surface in reach");
         Assert.That(lines[0], Does.StartWith("other furniture, 0.05 m below the eyes").And.EndWith("not 0.15 to 1.00 m below the eyes"));
         Assert.That(lines[1], Does.StartWith("desk or table, 0.46 m below the eyes, 0.20 to").And.Contain("1 objects on it")
             .And.EndWith("the lineup would fit without the objects standing on it"));
-        Assert.That(lines[2], Does.EndWith("the lineup's arc does not fit on it within reach and view"));
+        Assert.That(lines[2], Does.StartWith("  object on it, 0.46 m tall, 0.35 to"));
+        Assert.That(lines[3], Does.Contain("1 objects on it").And.EndWith("the lineup's arc does not fit on it within reach and view"));
+        Assert.That(lines[4], Does.StartWith("  object on it, 0.46 m tall"));
     }
 
     [Test]
@@ -183,8 +188,8 @@ public class StageSurfacesTests
     public void TheLineupKeepsClearOfAMonitorStandingOnTheDesk()
     {
         var desk = Rooms.Desk();
-        // A monitor on a stand, 60 cm wide, whose foot reaches to the middle of the desk.
-        var monitor = Rooms.Box(-0.3f, 0.3f, 0.6f, 0.8f, 0.74f, 1.2f);
+        // A monitor on a stand, 60 cm wide, whose foot reaches to just before the middle of the desk.
+        var monitor = Rooms.Box(-0.3f, 0.3f, 0.57f, 0.8f, 0.74f, 1.2f);
 
         var free = StageSurfaces.Choose(new[] { desk }, Rooms.None, Rooms.Seated)!;
         var spot = StageSurfaces.Choose(new[] { desk }, new[] { monitor }, Rooms.Seated);
