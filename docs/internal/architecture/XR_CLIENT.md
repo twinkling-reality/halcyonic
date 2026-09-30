@@ -190,6 +190,16 @@ the same definition names, as the JSON Schema document:
   a workstream is opened, never on a timer. As an **`IIntelligenceReader`** it returns each answer
   with when it arrived; `DemonstrationReads` answers the same interface from the recorded
   demonstration.
+- **`ControlPlaneApi.GetUsageLimitsAsync`** reads the provider usage limits Seorak last observed,
+  account wide (`GET /api/usage-limits`), and **`UsageLeftPresenter`** writes every word of the
+  Usage left glance. A reading says "At most X% left, seen at 15:18, resets 6 Oct at 09:00": the
+  most that was left when the provider reported it, rounded up so that "at most" stays true, never
+  a current value, never an allowance. A window past its reset, by the device's clock, is not
+  shown. Under the readings, a note names the source ("From Seorak, as the provider reported", or
+  "Simulated, not from Seorak") and says the account is not identified, so no reading is tied to
+  the selected runtime, account or model. Every setup problem, a missing credential, one without
+  the scope, a restricted one or no source at all, reads "Usage left isn't set up on your Mac.";
+  the scope details stay in the Mac runbook. No reading reads "No usage reading yet.", never 0%.
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
@@ -598,6 +608,14 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   draft, never a retry of the prior objective.
   The control plane checks the selected model again at start. The panel offers live work only while
   a real control plane is connected; the recorded demonstration does not stand in for creation.
+- **Usage left:** `UsageLeftGlance` puts a "Usage left" chip in the room the project rail leaves
+  at its lower row's right end, and nothing anywhere else: no floating control. Pressing it opens a
+  small panel above the rail's right edge and reads the control plane once; Read again reads once
+  more, and the panel only lays out again, every 15 s, to drop a window that has reset. Pressing
+  the chip again closes it. It belongs to the rail, so it hides with it while the entry panel or a
+  workspace is open, and closes then. While the app lacks focus, as when a 2D window has it, the
+  chip hides and the panel closes. The recorded demonstration offers no usage limits. It is not
+  Workstream status and not part of starting work.
   Close and Move controls sit below the form. Move cycles the panel between the center and either
   side of the person's current view to expose the stage; headset usability is not yet verified,
   and it is not a grab gesture. The mock runtime uses its generic `simulated_start` scenario when

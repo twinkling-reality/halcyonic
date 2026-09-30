@@ -20,7 +20,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | OpenCode runtime (v2 server API, pinned 2.0.18) | `packages/integrations/opencode` | Built; registered when its binary is configured |
 | Codex runtime (app-server, stable surface, pinned 0.157.0) | `packages/integrations/codex` | Built; registered when its binary is configured |
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
-| Seorak client: integration API v1, evaluation per execution | `packages/integrations/seorak` | Built; verified against `seorak` 0.3.0 |
+| Seorak client: integration API v1, evaluation per execution and account-wide provider usage limits | `packages/integrations/seorak` | Built; evaluation verified against `seorak` 0.3.0, usage limits against a stub only |
 | Device pairing and serving paired devices on the local network: SRP with a code, pinned TLS, per-device credentials, `pnpm pair` and `pnpm devices` | `apps/control-plane/src/network`, the client core, `apps/xr/Assets/Halcyonic/Pairing` | Built, verified off the headset; [ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), [SECURITY.md](SECURITY.md) |
 | Remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 

@@ -144,3 +144,57 @@ not issue); the captured-session check was skipped for want of a captured sessio
 carry `source.synthetic`, false for everything read from Seorak
 ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md),
 [understanding-and-evaluation.md](understanding-and-evaluation.md)).
+
+## Provider usage limits (2026-09-30)
+
+- **Question:** Can the headset show how much of a provider's limit window was left, account
+  wide, without inventing a value, an account or a Claude percentage?
+- **Source:** Seorak's team specified the read on 2026-09-30 for a build that is not merged or
+  released; it is not in Seorak's public text. Halcyonic's reader (`WireUsageLimits` in
+  `packages/integrations/seorak/src/wire.ts`) is written from that specification in Halcyonic's
+  own words.
+- **Status:** Tested against a stub Seorak plane only (`FakeSeorak` over real loopback HTTP, in
+  the client's tests and in the control plane's route tests). **The live read is unverified.**
+
+What Halcyonic reads:
+
+- `GET /api/v1/usage-limits`, no query and no body, needs the new `limits:read` scope. A
+  credential without it gets 403 `insufficient_scope`, even with every other scope; Halcyonic
+  answers `unauthorized` (`insufficient_scope`). The credential Halcyonic holds today has only
+  `sessions:read` and `replay:read`, so it gets this 403.
+- An available answer lists readings sorted by agent, then window. Each has the agent (an open
+  vocabulary, not only `codex` and `claude-code`), the window (`rolling-5h` or `weekly`), the used
+  percentage the provider reported, when the window resets, when it was observed, a freshness flag
+  (`fresh` while observed within five minutes of the answer), the source (`provider-reported`) and
+  an account whose state is always `unidentified`. The envelope's freshness is stale when any
+  reading is, and its `staleAt` is no later than any reset. There is no coverage block.
+- An unavailable answer has no readings and one of two reasons: `not-captured` (Halcyonic:
+  `unavailable`, `not_captured`) or `outside-credential-restriction`, which Seorak gives any
+  project- or date-restricted credential (Halcyonic: `unauthorized`, since it is a setup problem).
+  An unknown reason reads as `unavailable` (`unknown_reason`).
+- Seorak computes no remaining share. Halcyonic shows `100 - usedPercent`, rounded up, as "at
+  most X% left" as of the observation, never as a current value. Seorak's team reports that on
+  the owner's history newer readings can only understate use in the weekly window, that one
+  unexplained drop was seen, and that the five-hour window has not been observed recently; none of
+  this is guaranteed.
+- Claude Code never yields a reading, because no Claude limit source exists; Halcyonic never
+  derives a Claude percentage from token counts.
+
+Halcyonic's rules on top:
+
+- A reading past its reset is dropped, by the control plane when it reads and again by the
+  headset when it lays out; with none left the answer is `unavailable` (`no_current_reading`).
+- A reading in a window, freshness or source Halcyonic cannot phrase, or with an agent id outside
+  `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, is dropped rather than refusing the whole answer. A used
+  percentage outside 0 to 100, or readings in an unavailable answer, make the answer
+  `incompatible`.
+- Every reading's account is `unidentified` in Halcyonic's contract, whatever Seorak says, until an
+  account identity boundary is agreed ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- The read costs one request of the credential's budget of 60 a minute, shared with evaluations.
+  It is made only when a person opens Usage left or presses Read again, and never journaled.
+
+To verify it live, the owner merges Seorak's usage limits build, restarts the Seorak daemon, and
+replaces `~/.halcyonic/seorak-credential` with one credential carrying `sessions:read`,
+`replay:read` and `limits:read` ([LOCAL_DEVELOPMENT.md](../runbooks/LOCAL_DEVELOPMENT.md#connect-seorak)).
+Then `GET /api/usage-limits` on the running control plane should answer `available` with Codex
+readings, or `unavailable` (`not_captured`); record the result here.

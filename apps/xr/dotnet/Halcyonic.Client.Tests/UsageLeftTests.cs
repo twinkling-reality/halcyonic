@@ -47,7 +47,7 @@ public class UsageLeftTests
     [Test]
     public void SaysTheAccountIsNotIdentified()
     {
-        Assert.That(Present(Available).Note, Does.StartWith("Account not identified"));
+        Assert.That(Present(Available).Note, Is.EqualTo("From Seorak, as the provider reported. Account not identified: these may come from any account used on your Mac."));
     }
 
     [Test]
@@ -64,7 +64,7 @@ public class UsageLeftTests
     public void SaysSimulatedForAStandInsReadings()
     {
         var glance = Present(Available.Replace("\"synthetic\": false", "\"synthetic\": true"));
-        Assert.That(glance.Note, Does.StartWith("Simulated."));
+        Assert.That(glance.Note, Does.StartWith("Simulated, not from Seorak."));
     }
 
     [Test]
@@ -96,6 +96,7 @@ public class UsageLeftTests
     [TestCase("unauthorized", "credential_missing")]
     [TestCase("unauthorized", "outside_credential_restriction")]
     [TestCase("unavailable", "not_configured")]
+    [TestCase("unavailable", "limits_not_served")]
     public void EverySetupProblemSaysItIsNotSetUpWithoutScopeDetails(string availability, string code)
     {
         var glance = Present(Failure(availability, code));

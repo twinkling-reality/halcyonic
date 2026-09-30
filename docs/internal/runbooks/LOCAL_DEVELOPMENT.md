@@ -246,7 +246,8 @@ SALIDIUM_CHECKOUT=/path/to/salidium node --test packages/integrations/salidium/s
 With Seorak running its local plane on 127.0.0.1:4317 (Halcyonic is verified against 0.3.0),
 issue an API integration credential for Halcyonic in Seorak's local dashboard
 (<http://127.0.0.1:4317/dashboard>): audience `http://127.0.0.1:4317/api/v1`, not the MCP one,
-with the scopes `sessions:read` and `replay:read`. Seorak shows the token once. Store only the
+with the scopes `sessions:read`, `replay:read` and `limits:read`, and no project or date
+restriction. One credential serves every Seorak read. Seorak shows the token once. Store only the
 token in the data directory, readable only by you:
 
 ```bash
@@ -264,6 +265,31 @@ requests; name a Claude Code session Seorak captured to evaluate one:
 HALCYONIC_SEORAK_CREDENTIAL_FILE=~/.halcyonic/seorak-credential \
 HALCYONIC_SEORAK_SESSION_ID=<session id> \
 node --test packages/integrations/seorak/src/live-seorak.test.ts
+```
+
+### Usage left
+
+The headset's Usage left glance reads `GET /api/usage-limits`, which reads Seorak's account-wide
+provider usage limits with `limits:read`. That read is in a Seorak build that is not released
+yet, so until it runs the headset says "Usage left isn't set up on your Mac." and nothing more.
+The control plane's reason code says why:
+
+| Reason | Meaning | Fix |
+| --- | --- | --- |
+| `credential_missing` | No `~/.halcyonic/seorak-credential` | Issue the credential above and store it |
+| `insufficient_scope` | The credential lacks `limits:read`, as one issued before 2026-09-30 does | Issue a new credential with all three scopes, replace the file, then revoke the old one in Seorak's dashboard |
+| `outside_credential_restriction` | The credential is restricted to a project or dates; Seorak serves limits only to an unrestricted one | Issue an unrestricted credential |
+| `credential_rejected` | Unknown, expired, revoked, or for another audience | Issue a new one |
+| `limits_not_served` | Seorak answers 404: it predates the limits read | Merge the limits build and restart Seorak |
+| `not_running`, `unreachable` | Nothing answers on 127.0.0.1:4317; the headset says Usage left can't be read right now | Start Seorak |
+| `not_captured` | Seorak has no provider reading yet; the headset says "No usage reading yet." | Use Codex; Claude Code never yields one |
+
+To enable it: merge Seorak's usage limits build and restart its daemon (its new history schema
+cannot be read by older Seorak builds), then replace the credential as above. The file is read on
+every request, so the control plane needs no restart. Check with the control plane's access token:
+
+```bash
+curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0.0.1:47800/api/usage-limits
 ```
 
 ## Pair a headset over Wi-Fi
