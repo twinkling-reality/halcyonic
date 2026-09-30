@@ -83,6 +83,11 @@ Records: [OpenCode](../validation/opencode-capabilities.md),
 - Their conclusions are read through on request and never journaled; they keep the provider's own
   epistemic classes and never feed status or attention
   ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)).
+- Every answer says whether a stand-in produced it (`source.synthetic`). Only the recorded
+  demonstration's stand-ins do: the integrations' test doubles, speaking the products' contracts
+  with invented content, read through the control plane's routes and marked synthetic, so no
+  surface takes them for Salidium's or Seorak's
+  ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)).
 - Both already observe Claude Code and Codex sessions on the machine, including ones Halcyonic
   starts. Link rather than merge: keep each execution's `native_id` so their records can be
   correlated.
