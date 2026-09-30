@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -36,6 +44,24 @@ describe('directory policy', () => {
       const decision = allow(path);
       assert.equal(decision.ok ? 'ok' : decision.code, 'location_not_allowed', path);
     }
+  });
+
+  test('answers the one spelling the file system has, whatever case or Unicode form is asked', (t) => {
+    const { root, inside } = layout('spelling');
+    const accented = join(root, 'café');
+    mkdirSync(accented);
+    const allow = createDirectoryPolicy([root]);
+    const answer = (path: string) => {
+      const decision = allow(path);
+      return decision.ok ? decision.directory : decision.code;
+    };
+    // The composed and decomposed forms of the same name name one folder, on macOS volumes.
+    if (!existsSync(join(root, 'café'))) {
+      t.skip('this volume tells Unicode forms apart');
+      return;
+    }
+    assert.equal(answer(join(root, 'café')), answer(accented));
+    if (existsSync(join(root, 'APP'))) assert.equal(answer(join(root, 'APP')), inside);
   });
 
   test('a sibling whose name starts with the root name is not inside it', () => {

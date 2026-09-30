@@ -1,5 +1,5 @@
 import { lstatSync, mkdirSync, readdirSync, realpathSync, type Stats, statSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
   type LocationFolder,
   type LocationRoot,
@@ -69,7 +69,7 @@ export function createHostLocations(
   policy: DirectoryPolicy = createDirectoryPolicy(roots),
 ): HostLocations {
   const known: Root[] = roots.map((configured) => {
-    const real = realpathSync(configured);
+    const real = realpathSync.native(configured);
     const { dev, ino } = statSync(real);
     return { configured, real, device: dev, inode: ino };
   });
@@ -104,9 +104,15 @@ export function createHostLocations(
   };
 
   const check = (choice: ProjectLocationChoice): { ok: true } | LocationRefusal =>
-    unreadable(() => checkReadable(choice));
+    unreadable(() => {
+      const checked = checkReadable(choice);
+      return checked.ok ? { ok: true } : checked;
+    });
 
-  const checkReadable = (choice: ProjectLocationChoice): { ok: true } | LocationRefusal => {
+  /** The check; for an existing folder, `directory` is its real path, the one to record. */
+  const checkReadable = (
+    choice: ProjectLocationChoice,
+  ): { ok: true; directory: string | null } | LocationRefusal => {
     const found = target(choice);
     if ('ok' in found) return found;
     const entry = entryAt(found.path);
@@ -119,7 +125,7 @@ export function createHostLocations(
         };
       }
       return entry === undefined
-        ? { ok: true }
+        ? { ok: true, directory: null }
         : {
             ok: false,
             code: 'location_exists',
@@ -141,14 +147,20 @@ export function createHostLocations(
     }
     const decision = policy(found.path);
     if (!decision.ok) return decision;
-    if (decision.directory !== found.path) {
+    // The file system's spelling may differ from the client's (case, Unicode form), but it must
+    // still be the root itself or a folder directly inside it.
+    const inPlace =
+      choice.folder_name === null
+        ? decision.directory === found.root.real
+        : dirname(decision.directory) === found.root.real;
+    if (!inPlace) {
       return {
         ok: false,
         code: 'location_not_allowed',
         message: `${found.path} leads to ${decision.directory} through a symbolic link.`,
       };
     }
-    return { ok: true };
+    return { ok: true, directory: decision.directory };
   };
 
   return {
@@ -159,14 +171,14 @@ export function createHostLocations(
   };
 
   function bindReadable(choice: ProjectLocationChoice): LocationBinding {
-    const checked = check(choice);
+    const checked = checkReadable(choice);
     if (!checked.ok) return checked;
     const found = target(choice);
     if ('ok' in found) return found;
-    if (choice.kind === 'existing_folder') {
+    if (choice.kind === 'existing_folder' && checked.directory !== null) {
       return {
         ok: true,
-        location: { path: found.path, name: nameOf(found.path), created: false },
+        location: { path: checked.directory, name: nameOf(checked.directory), created: false },
       };
     }
     try {
@@ -278,7 +290,7 @@ function rootChanged(root: Root): LocationRefusal | null {
   }
   let real: string | null = null;
   try {
-    real = realpathSync(root.real);
+    real = realpathSync.native(root.real);
   } catch {
     real = null;
   }

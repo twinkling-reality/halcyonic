@@ -29,8 +29,9 @@ unit tests only.
 ## Decision
 
 - **A project has at most one location**, a folder on the host. `ProjectView.location` is
-  `{path, name, created}` or null: `path` the real path the host resolved when it bound the project,
-  `name` the folder's own name for display, `created` whether the host made it. It is set by
+  `{path, name, created}` or null: `path` the real path the file system gave the host
+  (`realpath(3)`, one spelling per folder whatever case or Unicode form was asked) when it bound
+  the project, `name` the folder's own name for display, `created` whether the host made it. It is set by
   `project.create` (`location`, nullable) and changed by a new command, `project.set_location`
   (low consequence), and journaled as `project.created`'s `location` and a new event,
   `project.location_set`.

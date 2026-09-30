@@ -5,10 +5,12 @@ import type { DirectoryPolicy } from '@halcyonic/runtime-core';
 /**
  * Allows a directory only when it exists and its real path lies inside one of the configured
  * project roots. Resolving real paths defeats `..` segments and symbolic links that lead outside a
- * root.
+ * root. The real path is the file system's own (`realpath(3)`), so one folder has one spelling:
+ * on a case-insensitive volume `APP` resolves to the `app` on disk, and a name keeps the Unicode
+ * form it was stored in, whatever form a client typed.
  */
 export function createDirectoryPolicy(roots: readonly string[]): DirectoryPolicy {
-  const realRoots = roots.map((root) => realpathSync(root));
+  const realRoots = roots.map((root) => realpathSync.native(root));
   return (path) => {
     if (!isAbsolute(path)) {
       return {
@@ -19,7 +21,7 @@ export function createDirectoryPolicy(roots: readonly string[]): DirectoryPolicy
     }
     let real: string;
     try {
-      real = realpathSync(path);
+      real = realpathSync.native(path);
     } catch {
       return { ok: false, code: 'location_missing', message: `${path} does not exist.` };
     }
