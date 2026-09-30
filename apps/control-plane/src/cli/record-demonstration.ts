@@ -1,14 +1,16 @@
 /**
- * Regenerates the XR client's demonstration from its trace: `pnpm demonstration:record`. Run it
- * after any change to the contracts, the pipeline or that trace, and review the diff.
- * `--check` exits non-zero when the committed demonstration is stale instead of rewriting it.
+ * Regenerates the XR client's demonstration from its plan and the committed mock scenarios:
+ * `pnpm demonstration:record`. Run it after any change to the contracts, the pipeline, the mock
+ * runtime, those scenarios or the plan, and review the diff. `--check` exits non-zero when the
+ * committed demonstration is stale instead of rewriting it.
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { loadScenarios } from '@halcyonic/integration-mock';
 import {
   DEMONSTRATION_FILE,
+  DEMONSTRATION_SCENARIOS,
   DEMONSTRATION_SOURCE,
-  DEMONSTRATION_TRACE,
   recordDemonstration,
 } from '../fixtures/demonstration.ts';
 
@@ -16,8 +18,7 @@ async function main(): Promise<void> {
   const check = process.argv.includes('--check');
   const path = fileURLToPath(DEMONSTRATION_FILE);
   const demonstration = await recordDemonstration(
-    await readFile(DEMONSTRATION_TRACE, 'utf8'),
-    DEMONSTRATION_SOURCE,
+    loadScenarios(fileURLToPath(DEMONSTRATION_SCENARIOS)),
   );
   if (check) {
     const committed = await readFile(path, 'utf8').catch(() => '');
@@ -28,7 +29,10 @@ async function main(): Promise<void> {
     return;
   }
   await writeFile(path, demonstration);
-  process.stdout.write(`wrote the demonstration of ${DEMONSTRATION_SOURCE} to ${path}\n`);
+  const kib = Math.round(Buffer.byteLength(demonstration) / 1024);
+  process.stdout.write(
+    `wrote the demonstration of ${DEMONSTRATION_SOURCE} (${kib} KiB) to ${path}\n`,
+  );
 }
 
 main().catch((error: unknown) => {

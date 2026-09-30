@@ -77,12 +77,13 @@ export function createCommandFactory(ids: IdGenerator, clock: Clock, client: Cli
     startExecution: (
       workstreamId: WorkstreamId,
       workstream: DemoWorkstream,
+      runtimeId: RuntimeId = MOCK_RUNTIME_ID,
     ): CommandOf<'execution.start'> => ({
       ...base(),
       command_type: 'execution.start',
       payload: {
         workstream_id: workstreamId,
-        runtime_id: MOCK_RUNTIME_ID,
+        runtime_id: runtimeId,
         instruction: workstream.instruction,
         options: { scenario: workstream.scenario },
       },
@@ -103,7 +104,7 @@ export function createCommandFactory(ids: IdGenerator, clock: Clock, client: Cli
     deny: (
       executionId: ExecutionId,
       approvalId: string,
-      message: string,
+      message: string | null,
     ): CommandOf<'execution.respond_to_approval'> => ({
       ...base(),
       command_type: 'execution.respond_to_approval',

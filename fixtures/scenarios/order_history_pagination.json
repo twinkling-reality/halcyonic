@@ -1,0 +1,90 @@
+{
+  "format": 1,
+  "id": "order_history_pagination",
+  "description": "Adds cursor pagination to an order history endpoint: reads the route, edits it and its tests, and the tests pass. Work the recorded demonstration shows beside its main story.",
+  "steps": [
+    {
+      "after_ms": 400,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": {
+          "text": "I will page GET /orders by creation time, 50 orders at a time, with a cursor for the next page."
+        }
+      }
+    },
+    {
+      "after_ms": 400,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-1",
+          "tool_name": "read",
+          "title": "src/routes/orders.ts"
+        }
+      }
+    },
+    {
+      "after_ms": 500,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-1", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 0,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-2",
+          "tool_name": "edit",
+          "title": "src/routes/orders.ts"
+        }
+      }
+    },
+    {
+      "after_ms": 1100,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-2", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 0,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": { "tool_call_id": "call-3", "tool_name": "edit", "title": "test/orders.test.ts" }
+      }
+    },
+    {
+      "after_ms": 800,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-3", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 0,
+      "emit": {
+        "type": "runtime.test_run.started",
+        "payload": { "test_run_id": "tests-1", "label": "make test SUITE=orders" }
+      }
+    },
+    {
+      "after_ms": 1300,
+      "emit": {
+        "type": "runtime.test_run.completed",
+        "payload": { "test_run_id": "tests-1", "outcome": "passed", "summary": "31 passed" }
+      }
+    },
+    {
+      "after_ms": 300,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": {
+          "text": "GET /orders now returns 50 orders per page with a cursor for the next, and all 31 order tests pass."
+        }
+      }
+    },
+    { "after_ms": 200, "emit": { "type": "runtime.turn.completed", "payload": {} } }
+  ]
+}

@@ -67,6 +67,12 @@ export const ScenarioStep = Type.Union([EmitStep, DisconnectStep, ApprovalStep])
 export type ScenarioStep = Static<typeof ScenarioStep>;
 export type BranchStep = Static<typeof BranchStep>;
 
+/** A turn the mock plays when it is instructed with exactly this text. */
+const ScriptedInstruction = Type.Object(
+  { text: Text(32000), steps: Type.Array(ScenarioStep, { minItems: 1 }) },
+  strict,
+);
+
 /** A scripted first turn for the mock runtime, stored as JSON under fixtures/scenarios. */
 export const Scenario = Type.Object(
   {
@@ -74,6 +80,11 @@ export const Scenario = Type.Object(
     id: Type.String({ pattern: '^[a-z][a-z0-9_]{0,63}$' }),
     description: Text(500),
     steps: Type.Array(ScenarioStep, { minItems: 1 }),
+    /**
+     * Later turns: an instruction whose text matches one of these exactly plays its steps; any
+     * other instruction plays the mock's default continuation, which says it performs no work.
+     */
+    instructions: Type.Optional(Type.Array(ScriptedInstruction)),
   },
   strict,
 );
@@ -93,6 +104,13 @@ export function parseScenario(value: unknown, source: string): Scenario {
   if (!result.ok) {
     const details = result.issues.map((issue) => `${issue.path} ${issue.message}`).join('; ');
     throw new ScenarioError(`${source}: invalid scenario: ${details}`);
+  }
+  const texts = (result.value.instructions ?? []).map((instruction) => instruction.text);
+  const repeated = texts.findIndex((text, index) => texts.indexOf(text) !== index);
+  if (repeated >= 0) {
+    throw new ScenarioError(
+      `${source}: /instructions/${repeated} repeats the text of an earlier scripted instruction`,
+    );
   }
   return result.value;
 }

@@ -1,0 +1,76 @@
+{
+  "format": 1,
+  "id": "order_confirmation_email",
+  "description": "Queues an order confirmation email after checkout: adds a template, edits the checkout step, and the tests pass. Work the recorded demonstration shows beside its main story.",
+  "steps": [
+    {
+      "after_ms": 500,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": {
+          "text": "I will queue a confirmation email when checkout succeeds, through the existing mail queue."
+        }
+      }
+    },
+    {
+      "after_ms": 400,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-1",
+          "tool_name": "edit",
+          "title": "templates/order-confirmation.html"
+        }
+      }
+    },
+    {
+      "after_ms": 900,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-1", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 0,
+      "emit": {
+        "type": "runtime.tool.started",
+        "payload": {
+          "tool_call_id": "call-2",
+          "tool_name": "edit",
+          "title": "src/checkout/complete.ts"
+        }
+      }
+    },
+    {
+      "after_ms": 1000,
+      "emit": {
+        "type": "runtime.tool.completed",
+        "payload": { "tool_call_id": "call-2", "outcome": "succeeded" }
+      }
+    },
+    {
+      "after_ms": 0,
+      "emit": {
+        "type": "runtime.test_run.started",
+        "payload": { "test_run_id": "tests-1", "label": "make test SUITE=checkout" }
+      }
+    },
+    {
+      "after_ms": 1400,
+      "emit": {
+        "type": "runtime.test_run.completed",
+        "payload": { "test_run_id": "tests-1", "outcome": "passed", "summary": "18 passed" }
+      }
+    },
+    {
+      "after_ms": 300,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": {
+          "text": "Checkout now queues an order confirmation email, and all 18 checkout tests pass."
+        }
+      }
+    },
+    { "after_ms": 200, "emit": { "type": "runtime.turn.completed", "payload": {} } }
+  ]
+}
