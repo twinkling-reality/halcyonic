@@ -2,6 +2,8 @@ import {
   type CommandEnvelope,
   type CommandPolicy,
   type CommandType,
+  isDeviceEvent,
+  type Principal,
   parseClientMessage,
   REALTIME_PROTOCOL_VERSION,
   type ServerMessage,
@@ -24,14 +26,43 @@ export const DEFAULT_REALTIME_OPTIONS: RealtimeOptions = {
   maxBufferedBytes: 8 * 1024 * 1024,
 };
 
+/**
+ * Called with each connection a guard authenticated and what ends it at once. It returns what to
+ * call when the connection closes, or why the connection may not stay. The network listener uses
+ * it to end a revoked device's connections and to cap each device's.
+ */
+export type TrackConnection = (
+  principal: Principal,
+  end: () => void,
+) =>
+  | { readonly ok: true; readonly untrack: () => void }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
 /** The realtime stream: snapshot on connect, then every journaled event with its effects. */
 export function registerRealtime(
   app: FastifyInstance,
   controlPlane: ControlPlane,
   options: RealtimeOptions = DEFAULT_REALTIME_OPTIONS,
+  track?: TrackConnection,
 ): void {
   app.get('/realtime', { websocket: true }, (socket, request) => {
-    new RealtimeConnection(socket, controlPlane, request.log, options).start();
+    const { principal } = request;
+    const connection = new RealtimeConnection(
+      socket,
+      controlPlane,
+      request.log,
+      options,
+      principal,
+    );
+    connection.start();
+    const tracked =
+      principal !== null && track !== undefined ? track(principal, () => connection.end()) : null;
+    if (tracked === null) return;
+    if (!tracked.ok) {
+      connection.refuse(tracked.code, tracked.message);
+      return;
+    }
+    socket.on('close', tracked.untrack);
   });
 }
 
@@ -45,6 +76,7 @@ class RealtimeConnection {
   readonly #controlPlane: ControlPlane;
   readonly #log: FastifyBaseLogger;
   readonly #options: RealtimeOptions;
+  readonly #principal: Principal | null;
   #phase: 'awaiting_hello' | 'live' | 'closed' = 'awaiting_hello';
   #unsubscribe: (() => void) | null = null;
   #heartbeat: NodeJS.Timeout | null = null;
@@ -55,11 +87,13 @@ class RealtimeConnection {
     controlPlane: ControlPlane,
     log: FastifyBaseLogger,
     options: RealtimeOptions,
+    principal: Principal | null,
   ) {
     this.#socket = socket;
     this.#controlPlane = controlPlane;
     this.#log = log;
     this.#options = options;
+    this.#principal = principal;
   }
 
   start(): void {
@@ -85,7 +119,24 @@ class RealtimeConnection {
     this.#heartbeat.unref();
   }
 
+  /**
+   * Ends the connection now, for a device just revoked: it handles nothing more, including what
+   * the socket has already received, and is sent nothing more but a close frame. The network
+   * listener destroys the socket a second later if the client, as a hostile one would, never
+   * answers the close frame.
+   */
+  end(): void {
+    this.#dispose();
+    this.#socket.close(1008, 'device revoked');
+  }
+
+  /** Turns the connection away before it has handled anything, saying why. */
+  refuse(code: string, message: string): void {
+    this.#sendError(code, message, [], true);
+  }
+
   #onMessage(data: RawData, isBinary: boolean): void {
+    if (this.#phase === 'closed') return;
     if (isBinary) {
       this.#sendError('binary_not_supported', 'Messages must be JSON text.', [], false);
       return;
@@ -158,20 +209,31 @@ class RealtimeConnection {
     });
     if (!resumed) this.#send({ type: 'snapshot', snapshot: this.#controlPlane.snapshot() });
     // Subscribing in the same synchronous step as the snapshot means no event can fall between them.
-    this.#unsubscribe = this.#controlPlane.publisher.subscribe((published) =>
+    this.#unsubscribe = this.#controlPlane.publisher.subscribe((published) => {
+      // Who may reach the control plane is not work: clients never receive device events, and the
+      // gap they leave in positions is harmless (docs/internal/architecture/REALTIME.md).
+      if (isDeviceEvent(published.event)) return;
       this.#send({
         type: 'event',
         position: published.position,
         event: published.event,
         changes: published.changes,
-      }),
-    );
+      });
+    });
     this.#phase = 'live';
-    this.#log.info({ client: clientName, resumed, head }, 'realtime client connected');
+    this.#log.info(
+      {
+        client: clientName,
+        device_id: this.#principal?.kind === 'device' ? this.#principal.device_id : null,
+        resumed,
+        head,
+      },
+      'realtime client connected',
+    );
   }
 
   #command(command: CommandEnvelope): void {
-    const outcome = this.#controlPlane.commands.submit(command, 'websocket');
+    const outcome = this.#controlPlane.commands.submit(command, 'websocket', this.#principal);
     this.#send({
       type: 'command_ack',
       command_id: command.command_id,
@@ -217,7 +279,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function rawDataToString(data: RawData): string {
+export function rawDataToString(data: RawData): string {
   if (Array.isArray(data)) return Buffer.concat(data).toString('utf8');
   if (data instanceof ArrayBuffer) return Buffer.from(data).toString('utf8');
   return data.toString('utf8');

@@ -1,6 +1,12 @@
 import type { Static, TObject, TSchema } from 'typebox';
 import Schema from 'typebox/schema';
 import { COMMAND_VARIANTS, type CommandEnvelope } from './commands.ts';
+import {
+  PAIRING_CLIENT_MESSAGE_VARIANTS,
+  PAIRING_SERVER_MESSAGE_VARIANTS,
+  type PairingClientMessage,
+  type PairingServerMessage,
+} from './devices.ts';
 import { EVENT_VARIANTS, type EventEnvelope } from './events.ts';
 import { type ClientMessage, HelloMessage, PingMessage } from './realtime.ts';
 
@@ -90,6 +96,18 @@ const validateEventShape = compileDiscriminated(EVENT_VARIANTS, 'event_type');
 const validateCommandShape = compileDiscriminated(COMMAND_VARIANTS, 'command_type');
 // `command` messages are validated separately by parseClientMessage.
 const validateClientShape = compileDiscriminated([HelloMessage, PingMessage], 'type');
+const validatePairingClientShape = compileDiscriminated(PAIRING_CLIENT_MESSAGE_VARIANTS, 'type');
+const validatePairingServerShape = compileDiscriminated(PAIRING_SERVER_MESSAGE_VARIANTS, 'type');
+
+/** Validates a message a device sends on the pairing WebSocket. */
+export function parsePairingClientMessage(value: unknown): Validated<PairingClientMessage> {
+  return validatePairingClientShape(value) as Validated<PairingClientMessage>;
+}
+
+/** Validates a message the control plane sends on the pairing WebSocket. */
+export function parsePairingServerMessage(value: unknown): Validated<PairingServerMessage> {
+  return validatePairingServerShape(value) as Validated<PairingServerMessage>;
+}
 
 /**
  * Rules that JSON Schema cannot express. They are part of the contract and are documented in

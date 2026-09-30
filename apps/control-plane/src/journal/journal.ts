@@ -24,6 +24,8 @@ export interface ReadOptions {
   readonly after: number;
   readonly limit: number;
   readonly workstreamId?: string | null;
+  /** Event types to leave out. `limit` counts only the events returned. */
+  readonly excludeEventTypes?: readonly string[];
 }
 
 /**
