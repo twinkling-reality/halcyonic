@@ -85,7 +85,8 @@ logged or passed to launched agents:
   and nothing else. It is sent only after Salidium's discovery file and endpoint prove the same
   instance on loopback.
 - Seorak's integration credential, in `<data dir>/seorak-credential`, reads Seorak's content-free
-  measurements with the `sessions:read` and `replay:read` scopes, for the audience
+  measurements with the `sessions:read` and `replay:read` scopes, and the provider usage limits
+  Seorak last observed, account wide, with `limits:read`, for the audience
   `http://127.0.0.1:4317/api/v1`, until it expires or the owner revokes it. It is sent only if it
   has Seorak's `srkx_` form, only to 127.0.0.1 on Seorak's port, and never along a redirect.
   Seorak publishes no way to prove that the process on that port is Seorak (the request is open

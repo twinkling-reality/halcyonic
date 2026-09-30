@@ -76,7 +76,6 @@ describe('usage limits read through a stub Seorak', () => {
   test("today's credential, without limits:read, is refused as insufficient_scope", async () => {
     const body = (await (await get()).json()) as UsageLimitsResponse;
     assert.equal(body.availability, 'unauthorized');
-    if (body.availability === 'available') return;
     assert.equal(body.reason.code, 'insufficient_scope');
   });
 

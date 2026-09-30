@@ -174,7 +174,10 @@ export function usageLimitsDocument(readings: Json[] = [usageReading()], reason?
   const generatedAt = new Date(now).toISOString();
   return {
     apiVersion: 'v1',
-    availability: reason === undefined ? { state: 'available', reason: null } : { state: 'unavailable', reason },
+    availability:
+      reason === undefined
+        ? { state: 'available', reason: null }
+        : { state: 'unavailable', reason },
     freshness: {
       state: readings.some((reading) => reading.freshness === 'stale') ? 'stale' : 'fresh',
       generatedAt,
@@ -310,7 +313,10 @@ export class FakeSeorak {
     }
     if (method === 'GET' && url.pathname === '/api/v1/usage-limits') {
       if (!this.scopes.has('limits:read')) {
-        response.setHeader('WWW-Authenticate', 'Bearer error="insufficient_scope", scope="limits:read"');
+        response.setHeader(
+          'WWW-Authenticate',
+          'Bearer error="insufficient_scope", scope="limits:read"',
+        );
         return json(response, 403, { error: 'insufficient_scope', scope: 'limits:read' });
       }
       return json(response, 200, this.usageLimits);

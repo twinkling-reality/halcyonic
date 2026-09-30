@@ -34,7 +34,7 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<UsageLeftRow> Rows { get; }
 
-        /// <summary>Under the rows: whose account it is and where it comes from, or why there are no rows.</summary>
+        /// <summary>Under the rows: where they come from and that no account is identified, or why there are no rows. The only words that name Seorak.</summary>
         public string Note { get; }
 
         /// <summary>There is nothing to show, for a reason the person may want to fix.</summary>
@@ -51,7 +51,7 @@ namespace Halcyonic.Client
     {
         public const string NotSetUp = "Usage left isn't set up on your Mac.";
         public const string Reading = "Reading usage left…";
-        public const string Unidentified = "Account not identified: these may come from any account used on your Mac. Reported by the provider, read through Seorak.";
+        public const string Unidentified = "Account not identified: these may come from any account used on your Mac.";
 
         public static UsageLeftPresentation Present(UsageLimitsResponse response, DateTimeOffset now, TimeZoneInfo zone)
         {
@@ -64,7 +64,7 @@ namespace Halcyonic.Client
                 case UnavailableUsageLimits unavailable:
                     return unavailable.Reason.Code switch
                     {
-                        "not_configured" => Problem(NotSetUp),
+                        "not_configured" or "limits_not_served" => Problem(NotSetUp),
                         "not_captured" => Quiet("No usage reading yet."),
                         "no_current_reading" => Quiet("No reading since the last reset. Read again later."),
                         _ => Problem("Usage left can't be read right now. Try again later."),
@@ -98,7 +98,7 @@ namespace Halcyonic.Client
             }
             return rows.Count == 0
                 ? Quiet("No reading since the last reset. Read again later.")
-                : new UsageLeftPresentation(rows, (synthetic ? "Simulated. " : "") + Unidentified, problem: false);
+                : new UsageLeftPresentation(rows, (synthetic ? "Simulated, not from Seorak. " : "From Seorak, as the provider reported. ") + Unidentified, problem: false);
         }
 
         /// <summary>"at 15:18" today in the person's zone, "6 Oct at 09:00" on another day.</summary>

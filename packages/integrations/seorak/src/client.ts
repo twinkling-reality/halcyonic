@@ -1,4 +1,10 @@
-import type { EvaluationFailure, EvaluationResult, UsageLimit, UsageLimitsResponse, ValidationIssue } from '@halcyonic/contracts';
+import type {
+  EvaluationFailure,
+  EvaluationResult,
+  UsageLimit,
+  UsageLimitsResponse,
+  ValidationIssue,
+} from '@halcyonic/contracts';
 import { RequestBudget, WINDOW_MS } from './budget.ts';
 import { toEvaluation } from './mapping.ts';
 import {
@@ -97,13 +103,16 @@ const NO_READING: ReadonlyMap<string, Failure<'unavailable' | 'unauthorized'>> =
   string,
   Failure<'unavailable' | 'unauthorized'>
 >([
-  ['not-captured', fail('unavailable', 'not_captured', 'Seorak has not captured a provider limit.')],
+  [
+    'not-captured',
+    fail('unavailable', 'not_captured', 'Seorak has not captured a provider limit.'),
+  ],
   [
     'outside-credential-restriction',
     fail(
       'unauthorized',
       'outside_credential_restriction',
-      "The Seorak credential is restricted to a project or dates, and Seorak serves provider limits only to an unrestricted credential.",
+      'The Seorak credential is restricted to a project or dates, and Seorak serves provider limits only to an unrestricted credential.',
     ),
   ],
 ]);
@@ -114,7 +123,11 @@ function toUsageLimits(document: WireUsageLimits, now: number): UsageLimitsRespo
       return incoherent('usage limits answer carries readings although it says it is unavailable');
     return (
       NO_READING.get(document.availability.reason ?? '') ??
-      fail('unavailable', 'unknown_reason', 'Seorak has no provider limit, for a reason this client cannot name.')
+      fail(
+        'unavailable',
+        'unknown_reason',
+        'Seorak has no provider limit, for a reason this client cannot name.',
+      )
     );
   }
   const readings: UsageLimit[] = [];
@@ -144,7 +157,11 @@ function toUsageLimits(document: WireUsageLimits, now: number): UsageLimitsRespo
   if (first === undefined)
     return document.readings.length === 0
       ? fail('unavailable', 'not_captured', 'Seorak has not captured a provider limit.')
-      : fail('unavailable', 'no_current_reading', 'Every provider limit Seorak holds has reset since it was observed.');
+      : fail(
+          'unavailable',
+          'no_current_reading',
+          'Every provider limit Seorak holds has reset since it was observed.',
+        );
   return {
     availability: 'available',
     source: { system: 'seorak', synthetic: false, api_version: 'v1' },
@@ -287,9 +304,16 @@ export class SeorakClient {
       credential,
       undefined,
       options.signal,
+      // A Seorak without the read does not know the route: a setup problem, not a broken plane.
+      fail(
+        'unavailable',
+        'limits_not_served',
+        `Seorak at ${this.#origin} does not serve provider usage limits (HTTP 404); update and restart it.`,
+      ),
     );
     if (isFailure(reply)) {
-      if (reply.availability === 'not_found') return { availability: 'unavailable', reason: reply.reason };
+      if (reply.availability === 'not_found')
+        return { availability: 'unavailable', reason: reply.reason };
       // Seorak answers 403 insufficient_scope for a credential without limits:read.
       if (reply.reason.code === 'credential_forbidden')
         return fail('unauthorized', 'insufficient_scope', reply.reason.message);
@@ -421,10 +445,12 @@ export class SeorakClient {
     credential: string,
     body: object | undefined,
     signal: AbortSignal | undefined,
+    unknownRoute?: Failure,
   ): Promise<{ value: unknown } | Failure> {
     const reply = await this.#send(what, path, credential, body, signal);
     if (isFailure(reply)) return reply;
     if (reply.status === 200) return { value: reply.body };
+    if (reply.status === 404 && unknownRoute !== undefined) return unknownRoute;
     if (reply.status === 401)
       return fail(
         'unauthorized',

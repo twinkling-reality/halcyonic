@@ -51,8 +51,11 @@ describe('Seorak as the evaluation source', () => {
     assert.deepEqual(reason(result), ['unauthorized', 'credential_missing']);
     const message = result.availability === 'available' ? '' : result.reason.message;
     assert.match(message, /audience http:\/\/127\.0\.0\.1:\d+\/api\/v1/);
-    assert.match(message, /sessions:read and replay:read/);
+    assert.match(message, /sessions:read, replay:read and limits:read/);
     assert.ok(message.includes(credentialPath));
+    const limits = await source.usageLimits?.();
+    assert.equal(limits?.availability, 'unauthorized');
+    assert.equal(limits && 'reason' in limits ? limits.reason.code : '', 'credential_missing');
   });
 
   test('a credential file other users can read is refused', async () => {

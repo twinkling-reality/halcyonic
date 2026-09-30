@@ -116,7 +116,8 @@ facts and checks are in the validation records.
 - **Seorak** tracks the performance of agentic development: usage, cost estimates, reliability
   and outcomes. It deliberately does not grade quality. Halcyonic reads per-execution cost,
   outcome and verification through Seorak's versioned integration API, joined to sessions
-  Halcyonic launched. Provider limits are not yet exposed to Halcyonic.
+  Halcyonic launched. Its provider usage limits read is built against Seorak's unreleased format
+  and not yet observed live.
 - **Halcyonic** owns spatial representation, workstream navigation, runtime control, the
   compressed and expanded interaction, permissions and connectivity.
 

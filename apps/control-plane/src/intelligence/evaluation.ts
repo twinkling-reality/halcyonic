@@ -1,6 +1,10 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EvaluationFailure, EvaluationResult, UsageLimitsResponse } from '@halcyonic/contracts';
+import type {
+  EvaluationFailure,
+  EvaluationResult,
+  UsageLimitsResponse,
+} from '@halcyonic/contracts';
 import { SEORAK_DEFAULT_PORT, SeorakClient, seorakAgentFor } from '@halcyonic/integration-seorak';
 
 /** The file in the control plane's data directory that holds the Seorak integration credential. */

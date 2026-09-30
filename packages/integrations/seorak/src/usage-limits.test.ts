@@ -28,13 +28,23 @@ describe('provider usage limits', () => {
       source: { system: 'seorak', synthetic: false, api_version: 'v1' },
       readings: [
         {
-          agent: 'codex', label: 'Codex', window: 'rolling-5h', used_percent: 40,
-          resets_at: fiveHour.resetsAt, observed_at: fiveHour.observedAt, freshness: 'stale',
+          agent: 'codex',
+          label: 'Codex',
+          window: 'rolling-5h',
+          used_percent: 40,
+          resets_at: fiveHour.resetsAt,
+          observed_at: fiveHour.observedAt,
+          freshness: 'stale',
           account: { state: 'unidentified' },
         },
         {
-          agent: 'codex', label: 'Codex', window: 'weekly', used_percent: 62,
-          resets_at: weekly.resetsAt, observed_at: weekly.observedAt, freshness: 'fresh',
+          agent: 'codex',
+          label: 'Codex',
+          window: 'weekly',
+          used_percent: 62,
+          resets_at: weekly.resetsAt,
+          observed_at: weekly.observedAt,
+          freshness: 'fresh',
           account: { state: 'unidentified' },
         },
       ],
@@ -62,7 +72,6 @@ describe('provider usage limits', () => {
     ]);
     const result = await read();
     assert.equal(result.availability, 'unavailable');
-    if (result.availability === 'available') return;
     assert.equal(result.reason.code, 'no_current_reading');
   });
 
@@ -77,7 +86,10 @@ describe('provider usage limits', () => {
     const result = await read();
     assert.equal(result.availability, 'available');
     if (result.availability !== 'available') return;
-    assert.deepEqual(result.readings.map((reading) => reading.window), ['rolling-5h']);
+    assert.deepEqual(
+      result.readings.map((reading) => reading.window),
+      ['rolling-5h'],
+    );
   });
 
   test('an unavailable answer is never a 0% reading', async () => {
@@ -95,17 +107,36 @@ describe('provider usage limits', () => {
     fake.usageLimits = usageLimitsDocument([], 'outside-credential-restriction');
     const result = await read();
     assert.equal(result.availability, 'unauthorized');
-    if (result.availability === 'available') return;
     assert.equal(result.reason.code, 'outside_credential_restriction');
   });
 
-  test('a credential without limits:read gets insufficient_scope, as today\'s credential does', async () => {
+  test("a credential without limits:read gets insufficient_scope, as today's credential does", async () => {
     fake.scopes = new Set(['sessions:read', 'replay:read']);
     const result = await read();
     assert.equal(result.availability, 'unauthorized');
-    if (result.availability === 'available') return;
     assert.equal(result.reason.code, 'insufficient_scope');
     assert.match(result.reason.message, /limits:read/);
+  });
+
+  test('a Seorak without the read is a setup problem: its route is unknown', async () => {
+    fake.overrides.set('/api/v1/usage-limits', (response) => {
+      response.statusCode = 404;
+      response.end('{"error":"not_found"}');
+    });
+    try {
+      const result = await read();
+      assert.equal(result.availability, 'unavailable');
+      assert.equal(result.reason.code, 'limits_not_served');
+    } finally {
+      fake.overrides.delete('/api/v1/usage-limits');
+    }
+  });
+
+  test('an unavailable reason added later reads as unnamed, still with no reading', async () => {
+    fake.usageLimits = usageLimitsDocument([], 'paused');
+    const result = await read();
+    assert.equal(result.availability, 'unavailable');
+    assert.equal(result.reason.code, 'unknown_reason');
   });
 
   test('refuses a document outside the format, and readings in an unavailable answer', async () => {
@@ -125,7 +156,6 @@ describe('provider usage limits', () => {
       assert.equal((await tight.usageLimits({ credential: fake.token })).availability, 'available');
     const limited = await tight.usageLimits({ credential: fake.token });
     assert.equal(limited.availability, 'unavailable');
-    if (limited.availability === 'available') return;
     assert.equal(limited.reason.code, 'rate_limited');
   });
 });
