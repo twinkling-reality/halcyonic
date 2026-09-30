@@ -621,8 +621,8 @@ with a short fade at the end, then play in the page's short room: a 1.3 s impuls
 reflections and a tail that darkens as it fades, whose first channel each cue's send is convolved
 with (FFT overlap-add), cut where it stays 60 dB below its peak. The page's per-layer pans are
 left out, because in the headset a cue sounds from a place. On the development Mac the port matches
-the page's own output bit for bit in all but one of 3,950,400 samples, which differs by 1e-16 of
-the peak ([sound-rendering.md](../validation/sound-rendering.md)). `StageSound` renders all 79
+the page's own output bit for bit, at 48 kHz in all but one of 3,950,400 samples, which differs by
+1e-16 of the peak, and at 44.1 kHz in all ([sound-rendering.md](../validation/sound-rendering.md)). `StageSound` renders all 79
 clips (13 cues for each of the 6 notes, and Last known once) at the output sample rate on a worker
 thread at startup, and makes them audio clips on the main thread, four a frame. Nothing is
 synthesized while sound plays; `OnAudioFilterRead` is not used.
@@ -641,10 +641,10 @@ The level is a serialized setting, 0.5 by default, the soundbook's starting volu
 own volume applies on top. `Halcyonic: sound ...` log lines say when the clips are ready and how
 long they took, and each cue played, its place and note, never a workstream.
 
-**Cost.** Rendering every clip took 1.2 to 1.6 s of one core in .NET 10 and 1.9 to 2.0 s in the
+**Cost.** Rendering every clip took 1.2 to 2.0 s of one core in .NET 10 and 1.9 to 2.0 s in the
 Unity editor's Mono on the development Mac, while other builds loaded it; making the audio clips
-took 2 to 7 ms; the clips hold 17.8 MiB of float samples. On a Quest 3 neither is measured; the
-`sound ready` log line reports both there.
+took 2 to 7 ms; the clips hold 17.7 MiB of 32-bit samples, kept for the session. On a Quest 3
+neither is measured; the `sound ready` log line reports both there.
 
 The research the soundbook cites:
 
