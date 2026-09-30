@@ -272,6 +272,87 @@ public class LiveControlPlaneTests
         }
     }
 
+    /// <summary>
+    /// Start building as the headset drives it, against a real host with a project root: a new
+    /// folder whose name is taken is refused with location_exists, Use that folder creates the
+    /// project there instead, and adding work to it in a new folder binds it first.
+    /// </summary>
+    [Test]
+    public async Task StartsBuildingInAFolderTheHeadsetChose()
+    {
+        var root = Directory.CreateTempSubdirectory("halcyonic-client-build-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "recipes"));
+            var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, ControlPlaneProcess.FreePort(), projectRoot: root);
+            processes.Add(controlPlane);
+            Connect(controlPlane);
+            await Until(s => s.Status.IsLive, "the session is live");
+            using var api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
+            var listing = await api.GetLocationsAsync();
+            var place = ProjectFolder.Options(listing).First(option => option.Kind == FolderOptionKind.NewFolder).Root;
+            var mock = session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock");
+
+            async Task<NewWorkDraft> Draft(string? projectId, string objective)
+            {
+                var draft = new NewWorkDraft(commands) { ProjectId = projectId, Objective = objective };
+                draft.ChooseRuntime(mock);
+                if (mock.ModelChoice == ModelChoice.Listed)
+                {
+                    draft.SetModels(await api.GetRuntimeModelsAsync("mock"));
+                    draft.ChooseModel(draft.Models[0]);
+                }
+                return draft;
+            }
+
+            var taken = ProjectFolder.New(place, "recipes")!;
+            var sequence = new BuildSequence(await Draft(null, "Plan the week's dinners."), commands, "Recipes", taken.ToContract());
+            await Drive(sequence, sequence.Begin());
+            Assert.That(sequence.StoppedAt?.Refusal, Is.EqualTo(RejectionCode.LocationExists));
+            Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.True);
+
+            await Drive(sequence, sequence.Retry(folder: ProjectFolder.Existing(taken).ToContract()));
+            Assert.That(sequence.Started, Is.True, string.Join(", ", sequence.Steps.Select(EntryText.StepStatus)));
+            var project = session.State.Projects[sequence.ProjectId!];
+            Assert.That((project.Location!.Name, project.Location.Created), Is.EqualTo(("recipes", false)));
+
+            var moved = ProjectFolder.New(place, ProjectFolder.SuggestName("Recipes, again!"))!;
+            var more = new BuildSequence(await Draft(project.ProjectId, "Write the shopping list."), commands, null, moved.ToContract());
+            Assert.That(more.Steps[0].Kind, Is.EqualTo(BuildStepKind.BindFolder));
+            await Drive(more, more.Begin());
+            Assert.That(more.Started, Is.True, string.Join(", ", more.Steps.Select(EntryText.StepStatus)));
+            Assert.That(session.State.Projects[project.ProjectId].Location!.Name, Is.EqualTo("recipes-again"));
+            Assert.That(Directory.Exists(Path.Combine(root, "recipes-again")), Is.True);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>Sends each command a sequence asks for, as the entry panel does, until it starts the work or stops.</summary>
+    private async Task Drive(BuildSequence sequence, CommandEnvelope first)
+    {
+        CommandEnvelope? next = first;
+        while (next != null)
+        {
+            try
+            {
+                sequence.Acknowledged(await session!.SubmitAsync(next));
+            }
+            catch (Exception error)
+            {
+                sequence.AcknowledgementLost(error);
+            }
+            next = null;
+            await Until(s =>
+            {
+                next = sequence.Advance(s.State);
+                return next != null || sequence.Started || sequence.Stopped;
+            }, "the step is settled");
+        }
+    }
+
     [Test]
     public async Task StartsWorkOnAModelTheRuntimeLists()
     {

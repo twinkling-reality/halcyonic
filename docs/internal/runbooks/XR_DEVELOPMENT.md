@@ -574,6 +574,14 @@ least three projects and more than six workstreams (for example `pnpm demo` more
 - **Create, vague.** Help me figure it out: four fixed questions, said to be fixed questions and
   not an AI; answer with choices, type one, and skip the name. The recap reads the same for the same
   answers.
+- **Where its files live.** With a control plane started with `HALCYONIC_PROJECT_ROOTS`, choose a
+  runtime that works in a project folder: the recap asks for a folder. Choose: the places and
+  folders your Mac allows. Pick New folder, accept the offered name: the recap and the review show
+  it, and after Yes, start building the folder exists on the Mac. Create another project with the
+  same new folder name: the start is refused, and Use that folder, then the review, starts it
+  there. Add work to a project in another folder: the recap says all later work runs there, and the
+  review shows the folder now and from now on. Without roots, the choice says your Mac doesn't
+  allow any folder yet.
 - **Needs you while creating.** While on the recap, run `pnpm demo | sed '/approval requested/q'`:
   the line under the title names the work that needs you, with Open now and Keep creating. Open
   now: the workspace opens on What do you need from me?; collapse it: the recap returns as it was.
