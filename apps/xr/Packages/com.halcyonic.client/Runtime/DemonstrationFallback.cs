@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Halcyonic.Client
@@ -24,41 +25,52 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class DemonstrationFallback : IDisposable
     {
+        private static readonly PresetInstruction[] NoInstructions = new PresetInstruction[0];
         private readonly RealtimeSession? controlPlane;
-        private readonly Func<RealtimeSession?> createDemonstration;
-        private RealtimeSession? demonstration;
+        private readonly Func<DemonstrationPlayer?> createDemonstration;
+        private DemonstrationPlayer? player;
         private Task retired = Task.CompletedTask;
         private bool demonstrationCreated;
         private bool controlPlaneWasLive;
 
         /// <param name="controlPlane">The configured control plane, not started; null when none is configured.</param>
         /// <param name="createDemonstration">
-        /// Creates the demonstration session, not started, the first time it is needed; returns null
-        /// when there is no demonstration to play.
+        /// Creates the demonstration's player, whose session is not started, the first time it is
+        /// needed; returns null when there is no demonstration to play.
         /// </param>
-        public DemonstrationFallback(RealtimeSession? controlPlane, Func<RealtimeSession?> createDemonstration)
+        public DemonstrationFallback(RealtimeSession? controlPlane, Func<DemonstrationPlayer?> createDemonstration)
         {
             this.controlPlane = controlPlane;
             this.createDemonstration = createDemonstration;
         }
 
         /// <summary>The session to show, or null when there is neither a control plane nor a demonstration.</summary>
-        public RealtimeSession? Current => demonstration ?? controlPlane;
+        public RealtimeSession? Current => Demonstration ?? controlPlane;
 
         /// <summary>The configured control plane, whether it is shown or not.</summary>
         public RealtimeSession? ControlPlane => controlPlane;
 
-        /// <summary>The demonstration, while it is shown.</summary>
-        public RealtimeSession? Demonstration => demonstration;
+        /// <summary>The demonstration's session, while it is shown.</summary>
+        public RealtimeSession? Demonstration => player?.Session;
+
+        /// <summary>The demonstration's player, while it is shown.</summary>
+        public DemonstrationPlayer? Player => player;
 
         /// <summary>Why the demonstration is shown, or null while it is not.</summary>
         public DemonstrationReason? Reason =>
-            demonstration == null ? (DemonstrationReason?)null
+            player == null ? (DemonstrationReason?)null
             : controlPlane == null ? DemonstrationReason.NotConfigured
             : DemonstrationReason.Unreachable;
 
         /// <summary>What the line above the stage says while the demonstration is shown; null while it is not.</summary>
-        public string? Line => Reason is DemonstrationReason reason ? Describe(reason, controlPlane?.Status) : null;
+        public string? Line => Reason is DemonstrationReason reason ? Describe(reason, controlPlane?.Status, player?.Ended ?? false) : null;
+
+        /// <summary>
+        /// The instructions the demonstration offers for this execution where it stands, to show instead
+        /// of a keyboard; empty while it offers none, or while it is not shown.
+        /// </summary>
+        public IReadOnlyList<PresetInstruction> InstructionsFor(string executionId) =>
+            player?.InstructionsFor(executionId) ?? NoInstructions;
 
         public void Start()
         {
@@ -72,6 +84,7 @@ namespace Halcyonic.Client
         /// </summary>
         public StateChanges Pump()
         {
+            var demonstration = Demonstration;
             if (controlPlane == null) return demonstration?.Pump() ?? new StateChanges();
             var fromControlPlane = controlPlane.Pump();
             if (controlPlane.Status.IsLive || fromControlPlane.Resynchronized) controlPlaneWasLive = true;
@@ -80,7 +93,7 @@ namespace Halcyonic.Client
                 if (controlPlaneWasLive)
                 {
                     retired = demonstration.StopAsync();
-                    demonstration = null;
+                    player = null;
                     return Switched(fromControlPlane);
                 }
                 var shown = demonstration.Pump();
@@ -98,32 +111,34 @@ namespace Halcyonic.Client
         public Task SetPausedAsync(bool paused) =>
             Task.WhenAll(
                 controlPlane?.SetPausedAsync(paused) ?? Task.CompletedTask,
-                demonstration?.SetPausedAsync(paused) ?? Task.CompletedTask);
+                Demonstration?.SetPausedAsync(paused) ?? Task.CompletedTask);
 
         public Task StopAsync() =>
             Task.WhenAll(
                 controlPlane?.StopAsync() ?? Task.CompletedTask,
-                demonstration?.StopAsync() ?? Task.CompletedTask,
+                Demonstration?.StopAsync() ?? Task.CompletedTask,
                 retired);
 
         public void Dispose()
         {
             controlPlane?.Dispose();
-            demonstration?.Dispose();
+            Demonstration?.Dispose();
         }
 
         /// <summary>
         /// The line above the stage while the demonstration is shown. It says, in words, that nothing
-        /// is live and that nothing done reaches an agent.
+        /// is live, that the demonstration follows the person's answers, and that nothing reaches an
+        /// agent; when the recording has ended, that it starts again.
         /// </summary>
-        public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane)
+        public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false)
         {
-            const string demonstration = "Demonstration: recorded work played on this device, not live.\n"
-                + "Nothing done here reaches an agent.";
-            if (reason == DemonstrationReason.NotConfigured) return demonstration;
+            var line = "Demonstration: recorded, simulated work played on this device, not live.\n"
+                + "It follows your answers, and nothing reaches an agent.";
+            if (ended) line += "\nThis recording has ended and starts again shortly.";
+            if (reason == DemonstrationReason.NotConfigured) return line;
             var detail = controlPlane?.Detail;
             var refused = controlPlane != null && controlPlane.Phase == ConnectionPhase.Refused;
-            return demonstration
+            return line
                 + (refused ? "\nThe control plane refused this client." : "\nThe control plane is not reachable; trying again.")
                 + (detail == null ? "" : " " + detail);
         }
@@ -133,9 +148,9 @@ namespace Halcyonic.Client
         {
             if (demonstrationCreated) return false;
             demonstrationCreated = true;
-            demonstration = createDemonstration();
-            demonstration?.Start();
-            return demonstration != null;
+            player = createDemonstration();
+            player?.Session.Start();
+            return player != null;
         }
 
         /// <summary>Another session is shown now, so consumers redraw everything, as after a journal change.</summary>

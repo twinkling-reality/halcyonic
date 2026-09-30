@@ -192,7 +192,11 @@ namespace Halcyonic.Client
                     text = Done(command.CommandType);
                     break;
                 case CommandStatus.Rejected:
-                    text = "Refused: " + (command.Rejection?.Message ?? "no reason given");
+                    // The recorded demonstration says in its own words that nothing reached an agent
+                    // and how the recording continues; "Refused" would contradict what plays next.
+                    text = command.Rejection?.Code == RejectionCode.Demonstration
+                        ? command.Rejection.Message
+                        : "Refused: " + (command.Rejection?.Message ?? "no reason given");
                     break;
                 default:
                     var failure = command.Failure;

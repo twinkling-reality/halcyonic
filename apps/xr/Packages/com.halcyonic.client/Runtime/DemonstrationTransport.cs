@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Halcyonic.Contracts;
@@ -9,66 +11,105 @@ using Newtonsoft.Json;
 
 namespace Halcyonic.Client
 {
-    public sealed class DemonstrationOptions
-    {
-        /// <summary>How fast to play: 1 is the recorded pace, 2 twice as fast.</summary>
-        public double Speed { get; set; } = 1;
-
-        /// <summary>
-        /// How long the final state stays, at the recorded pace, before the connection ends and the
-        /// session starts the demonstration again. <see cref="Timeout.InfiniteTimeSpan"/> holds it
-        /// until the connection closes.
-        /// </summary>
-        public TimeSpan HoldAtEnd { get; set; } = TimeSpan.FromSeconds(30);
-    }
-
     /// <summary>
     /// Plays a <see cref="DemonstrationRecording"/> as though a control plane sent it, entirely on this
-    /// device: it opens no socket and sends nothing anywhere. Each connection plays the recording from
-    /// its start: hello is answered with the recorded welcome and snapshot, the events follow at their
-    /// recorded pace, the final state holds, and then the connection ends, so the session starts the
-    /// demonstration again. A recording cannot confirm a command, so every command is refused, in
-    /// words; none is ever reported as accepted or done.
+    /// device: it opens no socket and sends nothing anywhere. Hello is answered with the recorded
+    /// welcome and the beginning's snapshot, and the events follow at their recorded pace. Where the
+    /// recording offers an answer, a person's command switches to the continuation recorded for it;
+    /// at a decision the recording holds until one comes. The command itself goes nowhere: it is
+    /// answered with a <c>rejected</c> acknowledgement whose code is <c>demonstration</c>, saying in
+    /// words that nothing reached an agent and which recorded answer the recording continues with, and
+    /// no command is ever reported accepted or done. Once a final state has held, the demonstration
+    /// starts again within the same connection, with the beginning's snapshot, so the session never
+    /// reads as disconnected.
     /// </summary>
     public sealed class DemonstrationTransport : IRealtimeTransport
     {
         /// <summary>The endpoint a demonstration session is given. Nothing connects to it.</summary>
         public static readonly Uri Endpoint = new Uri("halcyonic-demonstration:recorded");
 
-        /// <summary>Why every command is refused.</summary>
-        public const string Refusal = "This is a recorded demonstration played on this device, so nothing was sent to an agent.";
+        /// <summary>The answer to a command for which the recording holds nothing where it stands.</summary>
+        public const string NothingRecorded = "Not sent to any agent; the recording has no answer recorded for that here, so nothing changes.";
 
-        private readonly DemonstrationRecording recording;
         private readonly DemonstrationOptions options;
+        private readonly DemonstrationPlayer? player;
+        private readonly Task<DemonstrationRecording>? loading;
+        private DemonstrationRecording? read;
         private readonly ConcurrentQueue<string?> outbox = new ConcurrentQueue<string?>();
         private readonly SemaphoreSlim pending = new SemaphoreSlim(0);
         private readonly CancellationTokenSource closing = new CancellationTokenSource();
+        private readonly object gate = new object();
+        private readonly Stopwatch clock = new Stopwatch();
+        private TaskCompletionSource<bool> wake = NewWake();
         private int helloReceived;
         private int disposed;
+        private int node;
+        private int played;
+        private TimeSpan nodeStart;
+        private TimeSpan? holdStart;
 
         public DemonstrationTransport(DemonstrationRecording recording, DemonstrationOptions? options = null)
+            : this(options, null)
         {
-            this.recording = recording;
+            read = recording;
+        }
+
+        /// <summary>Plays the player's recording once it has been read, and tells the player where it stands.</summary>
+        internal DemonstrationTransport(DemonstrationPlayer player)
+            : this(player.Options, player)
+        {
+            loading = player.Loading;
+        }
+
+        private DemonstrationTransport(DemonstrationOptions? options, DemonstrationPlayer? player)
+        {
             this.options = options ?? new DemonstrationOptions();
+            this.player = player;
             if (!(this.options.Speed > 0))
             {
                 throw new ArgumentOutOfRangeException(nameof(options), this.options.Speed, "The speed must be positive.");
             }
         }
 
-        /// <summary>A session that plays the recording, and starts it again after each end.</summary>
-        public static RealtimeSession CreateSession(DemonstrationRecording recording, ClientInfo client, DemonstrationOptions? options = null) =>
-            new RealtimeSession(
-                new RealtimeSessionOptions(Endpoint, string.Empty, client),
-                () => new DemonstrationTransport(recording, options));
+        /// <summary>The recording this connection plays; there is one once the connection is open.</summary>
+        private DemonstrationRecording Playing => read ?? throw new InvalidOperationException("The demonstration has not been read yet.");
 
         public string? CloseDescription { get; private set; }
 
-        /// <summary>There is nothing to connect to, and the token is never used.</summary>
-        public Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
+        /// <summary>
+        /// What the acknowledgement says when a person's answer has a recorded continuation: that it
+        /// reached no agent, and which recorded answer the recording continues with.
+        /// </summary>
+        public static string Answered(DemonstrationAnswer answer) => answer.Kind switch
+        {
+            DemonstrationAnswerKind.Approve => "Not sent to any agent; the recording continues as recorded for approving.",
+            DemonstrationAnswerKind.Deny => "Not sent to any agent; the recording continues as recorded for denying.",
+            DemonstrationAnswerKind.Interrupt => "Not sent to any agent; the recording continues as recorded for stopping the turn.",
+            _ => "Not sent to any agent; the recording continues as recorded for “" + answer.Label + "”.",
+        };
+
+        /// <summary>
+        /// What the acknowledgement says when a person typed an instruction the recording does not hold:
+        /// it continues with a recorded one instead, and names it.
+        /// </summary>
+        public static string AnsweredInstead(DemonstrationAnswer answer) =>
+            "Not sent to any agent; the recording holds only its own instructions, so it continues as recorded for “" + answer.Label + "”.";
+
+        /// <summary>
+        /// There is nothing to connect to, and the token is never used; the connection opens once the
+        /// recording has been read, and fails with the reason if it cannot be.
+        /// </summary>
+        public async Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.CompletedTask;
+            if (read != null || loading == null) return;
+            var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using (cancellationToken.Register(() => cancelled.TrySetResult(true)))
+            {
+                await Task.WhenAny(loading, cancelled.Task).ConfigureAwait(false);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            read = await loading.ConfigureAwait(false);
         }
 
         public Task SendAsync(string message, CancellationToken cancellationToken)
@@ -92,21 +133,27 @@ namespace Halcyonic.Client
                         Send(Error("unexpected_hello", "hello was already received."));
                         break;
                     }
-                    Send(recording.Welcome);
-                    Send(recording.Snapshot);
+                    lock (gate)
+                    {
+                        // Every connection plays from the beginning, whatever the client last applied.
+                        Send(Playing.Welcome);
+                        Send(Playing.Snapshot);
+                        clock.Start();
+                        Begin(0);
+                    }
                     _ = PlayAsync(closing.Token);
                     break;
                 case PingMessage ping:
                     Send(new PongMessage { Nonce = ping.Nonce });
                     break;
                 case CommandMessage command:
-                    Send(Refuse(command.Command));
+                    Answer(command.Command);
                     break;
             }
             return Task.CompletedTask;
         }
 
-        /// <summary>The next message, or null once the demonstration has ended.</summary>
+        /// <summary>The next message, or null once the connection has ended.</summary>
         public async Task<string?> ReceiveAsync(CancellationToken cancellationToken)
         {
             await pending.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -123,15 +170,23 @@ namespace Halcyonic.Client
         {
             try
             {
-                var previous = TimeSpan.Zero;
-                foreach (var recorded in recording.Events)
+                while (true)
                 {
-                    if (recorded.At > previous) await WaitAsync(recorded.At - previous, stop).ConfigureAwait(false);
-                    previous = recorded.At;
-                    Send(recorded.Message);
+                    TimeSpan? wait;
+                    Task woken;
+                    lock (gate)
+                    {
+                        wait = Advance();
+                        woken = wake.Task;
+                    }
+                    if (wait == TimeSpan.Zero) continue;
+                    using (var waiting = CancellationTokenSource.CreateLinkedTokenSource(stop))
+                    {
+                        await Task.WhenAny(Task.Delay(wait ?? Timeout.InfiniteTimeSpan, waiting.Token), woken).ConfigureAwait(false);
+                        waiting.Cancel();
+                    }
+                    stop.ThrowIfCancellationRequested();
                 }
-                await WaitAsync(options.HoldAtEnd, stop).ConfigureAwait(false);
-                End("the demonstration ended and starts again");
             }
             catch (OperationCanceledException)
             {
@@ -143,11 +198,153 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>Waits out a recorded span, scaled by the speed.</summary>
-        private Task WaitAsync(TimeSpan recorded, CancellationToken stop) =>
-            recorded == Timeout.InfiniteTimeSpan
-                ? Task.Delay(Timeout.InfiniteTimeSpan, stop)
-                : Task.Delay(TimeSpan.FromTicks((long)(recorded.Ticks / options.Speed)), stop);
+        /// <summary>
+        /// Sends whatever is due. Returns zero when it sent something and should be asked again, how
+        /// long until something is due, or null while the recording holds for an answer.
+        /// </summary>
+        private TimeSpan? Advance()
+        {
+            var now = clock.Elapsed;
+            var current = Playing.Nodes[node];
+            if (played < current.Events.Count)
+            {
+                var due = nodeStart + Scaled(current.Events[played].At);
+                if (due > now) return due - now;
+                // One instant at a time: a person answers only between instants, never inside one.
+                var at = current.Events[played].At;
+                while (played < current.Events.Count && current.Events[played].At == at)
+                {
+                    Send(current.Events[played].Message);
+                    played++;
+                }
+                if (played == current.Events.Count) Finish(now);
+                Report();
+                return TimeSpan.Zero;
+            }
+            var hold = HoldOf(current);
+            if (hold == null) return null;
+            var end = holdStart.GetValueOrDefault(now) + hold.Value;
+            if (end > now) return end - now;
+            // The final state has held: the demonstration starts again, in the same connection.
+            Send(Playing.Snapshot);
+            Begin(0);
+            return TimeSpan.Zero;
+        }
+
+        /// <summary>Continues with a node from its first event, now.</summary>
+        private void Begin(int index)
+        {
+            node = index;
+            played = 0;
+            nodeStart = clock.Elapsed;
+            holdStart = null;
+            if (index == 0) player?.Began();
+            if (Playing.Nodes[index].Events.Count == 0) Finish(nodeStart);
+            Report();
+        }
+
+        /// <summary>The node's last event has played: its ending snapshot follows, and its hold begins.</summary>
+        private void Finish(TimeSpan now)
+        {
+            var ending = Playing.Nodes[node].EndingSnapshot;
+            if (ending != null) Send(ending);
+            holdStart = now;
+        }
+
+        private void Report()
+        {
+            var current = Playing.Nodes[node];
+            player?.Report(node, played, played == current.Events.Count && current.EndingSnapshot != null);
+        }
+
+        /// <summary>How long a node's final state holds, scaled; null while it waits for an answer.</summary>
+        private TimeSpan? HoldOf(DemonstrationNode current)
+        {
+            if (current.Hold == null) return null;
+            var hold = options.Hold ?? current.Hold.Value;
+            return hold == Timeout.InfiniteTimeSpan ? (TimeSpan?)null : Scaled(hold);
+        }
+
+        private TimeSpan Scaled(TimeSpan recorded) => TimeSpan.FromTicks((long)(recorded.Ticks / options.Speed));
+
+        /// <summary>
+        /// Answers a command in words and, where the recording holds a continuation for it here,
+        /// continues with that. Nothing is journaled and nothing leaves this device.
+        /// </summary>
+        private void Answer(CommandEnvelope command)
+        {
+            lock (gate)
+            {
+                // Before hello nothing plays, so nothing is offered.
+                var offered = read == null || helloReceived == 0
+                    ? Array.Empty<DemonstrationBranch>()
+                    : read.Nodes[node].BranchesAfter(played);
+                var branch = Match(offered, command, out var words);
+                Send(Acknowledge(command, words));
+                if (branch == null) return;
+                Begin(branch.Node);
+                var woken = wake;
+                wake = NewWake();
+                woken.TrySetResult(true);
+            }
+        }
+
+        private static DemonstrationBranch? Match(IReadOnlyList<DemonstrationBranch> offered, CommandEnvelope command, out string words)
+        {
+            words = NothingRecorded;
+            switch (command)
+            {
+                case ExecutionRespondToApprovalCommand respond:
+                    var kind = respond.Payload.Decision == ApprovalDecision.Approve ? DemonstrationAnswerKind.Approve : DemonstrationAnswerKind.Deny;
+                    foreach (var branch in offered)
+                    {
+                        var answer = branch.Answer;
+                        if (answer.Kind != kind || answer.ExecutionId != respond.Payload.ExecutionId || answer.ApprovalId != respond.Payload.ApprovalId) continue;
+                        words = Answered(answer);
+                        return branch;
+                    }
+                    return null;
+                case ExecutionInterruptCommand interrupt:
+                    foreach (var branch in offered)
+                    {
+                        if (branch.Answer.Kind != DemonstrationAnswerKind.Interrupt || branch.Answer.ExecutionId != interrupt.Payload.ExecutionId) continue;
+                        words = Answered(branch.Answer);
+                        return branch;
+                    }
+                    return null;
+                case ExecutionSendInstructionCommand instruct:
+                    DemonstrationBranch? first = null;
+                    foreach (var branch in offered)
+                    {
+                        if (branch.Answer.Kind != DemonstrationAnswerKind.Instruct || branch.Answer.ExecutionId != instruct.Payload.ExecutionId) continue;
+                        if (Same(branch.Answer.Text!, instruct.Payload.Text))
+                        {
+                            words = Answered(branch.Answer);
+                            return branch;
+                        }
+                        first ??= branch;
+                    }
+                    if (first != null) words = AnsweredInstead(first.Answer);
+                    return first;
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>The same instruction, whatever its spacing and letter case.</summary>
+        private static bool Same(string recorded, string sent) =>
+            string.Equals(Collapse(recorded), Collapse(sent), StringComparison.OrdinalIgnoreCase);
+
+        private static string Collapse(string text)
+        {
+            var result = new StringBuilder(text.Length);
+            foreach (var word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (result.Length > 0) result.Append(' ');
+                result.Append(word);
+            }
+            return result.ToString();
+        }
 
         private void Send(ServerMessage message) => Enqueue(HalcyonicJson.Serialize(message));
 
@@ -163,6 +360,9 @@ namespace Halcyonic.Client
             pending.Release();
         }
 
+        private static TaskCompletionSource<bool> NewWake() =>
+            new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
         private static ErrorMessage Error(string code, string message) =>
             new ErrorMessage
             {
@@ -170,8 +370,11 @@ namespace Halcyonic.Client
                 Fatal = false,
             };
 
-        /// <summary>A rejection in words. It is not journaled: nothing in the recording changes.</summary>
-        private static CommandAckMessage Refuse(CommandEnvelope command)
+        /// <summary>
+        /// The answer to a person's command: rejected with the code <c>demonstration</c>, in words. It is
+        /// not journaled, and the recorded continuation, if any, carries the recording's own command.
+        /// </summary>
+        private static CommandAckMessage Acknowledge(CommandEnvelope command, string words)
         {
             var view = new CommandView
             {
@@ -180,7 +383,7 @@ namespace Halcyonic.Client
                 Status = CommandStatus.Rejected,
                 IssuedAt = command.IssuedAt,
                 UpdatedAt = HalcyonicJson.FormatTimestamp(DateTimeOffset.UtcNow),
-                Rejection = new CommandRejection { Code = RejectionCode.InvalidState, Message = Refusal },
+                Rejection = new CommandRejection { Code = RejectionCode.Demonstration, Message = words },
             };
             switch (command)
             {
