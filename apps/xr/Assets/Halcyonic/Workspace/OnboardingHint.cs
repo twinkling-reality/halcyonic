@@ -14,7 +14,8 @@ namespace Halcyonic.XR.Workspace
     {
         private const string OpenedKey = "Halcyonic.WorkspaceOpened";
         private const int CurvePoints = 12;
-        private const float Above = 0.36f;
+        /// <summary>Above the body, clear of its halo and of the labels underneath it, in the character's units.</summary>
+        private const float Above = CharacterView.BodyRadius * 2.2f;
         private const float LineWidth = 0.005f;
 
         private LineRenderer index = null!;

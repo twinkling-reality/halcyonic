@@ -501,12 +501,10 @@ namespace Halcyonic.XR.Workspace
             RefreshPanel();
         }
 
-        /// <summary>
-        /// Where the character turns toward the person while it is pointed at or open. The characters
-        /// lane adds that behaviour to CharacterView; wire its call here after both lanes merge.
-        /// </summary>
+        /// <summary>The character turns to the person and looks at them while it is peeked at or open.</summary>
         private static void FacePerson(CharacterTarget target, bool facing)
         {
+            if (target.View != null) target.View.LookAtPerson(facing);
         }
 
         private static (TimeZoneInfo, string) LocalClock()

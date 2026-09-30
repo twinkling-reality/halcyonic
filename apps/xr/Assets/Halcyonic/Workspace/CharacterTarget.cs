@@ -6,21 +6,21 @@ namespace Halcyonic.XR.Workspace
     /// <summary>
     /// What makes a character peekable and openable by hand: a sphere around its body for a hand ray
     /// and for the gaze, and a surface just in front of it, always facing the person, for a poke.
-    /// Attached at runtime to the views <see cref="CharacterStage"/> creates, so the character's own
-    /// code does not change.
+    /// Attached at runtime to the body of each view <see cref="CharacterStage"/> creates, so it moves
+    /// with the body and the character's own code does not change.
     /// </summary>
     public sealed class CharacterTarget : MonoBehaviour
     {
         /// <summary>
-        /// Where the body sits above the character's transform. The placeholder body bobs a few
-        /// centimeters around it and rises 0.1 m when it needs a decision; the ray sphere covers both.
-        /// When CharacterView exposes its body, follow that instead (after the characters lane merges).
+        /// The sphere that holds the body in every state (<see cref="CharacterView.BodyRadius"/>):
+        /// neighbours on the arc stand farther apart than two of these, so targets never overlap.
         /// </summary>
-        private static readonly Vector3 BodyOffset = new Vector3(0f, 0.05f, 0f);
+        private const float RayRadius = CharacterView.BodyRadius;
 
-        private const float RayRadius = 0.2f;
-        private const float PokeDistance = 0.13f;
-        private static readonly Vector2 PokeSize = new Vector2(0.3f, 0.3f);
+        /// <summary>Just in front of that sphere, toward the person.</summary>
+        private const float PokeDistance = CharacterView.BodyRadius * 1.15f;
+
+        private static readonly Vector2 PokeSize = Vector2.one * (2f * CharacterView.BodyRadius);
 
         private Transform pokeSurface = null!;
 
@@ -49,8 +49,7 @@ namespace Halcyonic.XR.Workspace
         public static CharacterTarget Attach(CharacterView view, string workstreamId)
         {
             var host = new GameObject("Workspace target");
-            host.transform.SetParent(view.transform, false);
-            host.transform.localPosition = BodyOffset;
+            host.transform.SetParent(view.Body, false);
             var target = host.AddComponent<CharacterTarget>();
             target.WorkstreamId = workstreamId;
             target.View = view;
