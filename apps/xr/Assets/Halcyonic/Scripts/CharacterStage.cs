@@ -61,6 +61,7 @@ namespace Halcyonic.XR
         private static readonly int RectId = Shader.PropertyToID("_Rect");
 
         private readonly Dictionary<string, CharacterView> views = new Dictionary<string, CharacterView>();
+        private readonly List<WorkstreamView> eligible = new List<WorkstreamView>();
         private readonly Dictionary<string, Standing> standings = new Dictionary<string, Standing>();
         private readonly List<string> departed = new List<string>();
         private readonly PersonPlacement placement = new PersonPlacement();
@@ -82,6 +83,7 @@ namespace Halcyonic.XR
         private float radius;
         private string? shownConnection;
         private bool shownLive;
+        private StageVisibility visibility = new StageVisibility();
 
         /// <summary>
         /// Raised with the workstream id when the stage creates a character, so other components can
@@ -98,6 +100,37 @@ namespace Halcyonic.XR
 
         /// <summary>The slot a workstream's character stands in, numbered from the person's left, or -1 without one.</summary>
         public int SlotOf(string workstreamId) => lineup.SlotOf(workstreamId);
+
+        /// <summary>
+        /// Which projects' work has characters; the rest waits in the project rail's More work. Every
+        /// project unless the person chose, in the rail. A presentation choice, never a boundary.
+        /// </summary>
+        public StageVisibility Visibility
+        {
+            get => visibility;
+            set
+            {
+                visibility = value ?? new StageVisibility();
+                Refresh();
+            }
+        }
+
+        /// <summary>The workstream the person asked to see, which has a character whatever its rank or project, or null.</summary>
+        public string? Requested => lineup.Requested;
+
+        /// <summary>
+        /// Gives a workstream a character whatever its rank or project, as More work asks, until
+        /// another is asked for or null withdraws it.
+        /// </summary>
+        public void Request(string? workstreamId)
+        {
+            if (lineup.Requested == workstreamId) return;
+            lineup.Request(workstreamId);
+            Refresh();
+        }
+
+        /// <summary>Raised after the characters were brought up to date, so the rail can count what has none.</summary>
+        public event System.Action? Refreshed;
 
         private void Awake()
         {
@@ -215,7 +248,8 @@ namespace Halcyonic.XR
 
         private void OnChanged(StateChanges changes) => Refresh();
 
-        private void Refresh()
+        /// <summary>Brings the characters up to date with the session, the visibility and the request.</summary>
+        public void Refresh()
         {
             var session = connection.Session;
             // A demonstration says so in its own words, so a recording is never read as live work.
@@ -223,10 +257,20 @@ namespace Halcyonic.XR
             ShowConnection(
                 demonstration ?? (session == null ? connection.SetupProblem ?? "Not connected" : Describe(session)),
                 demonstration == null && session != null && session.Status.IsLive);
-            if (session == null) return;
+            if (session == null)
+            {
+                Refreshed?.Invoke();
+                return;
+            }
 
             var live = session.Status.IsLive;
-            lineup.Update(session.State.Workstreams.Values);
+            visibility.UseJournal(session.State.Journal?.JournalId);
+            eligible.Clear();
+            foreach (var workstream in session.State.Workstreams.Values)
+            {
+                if (visibility.Shows(workstream.ProjectId) || workstream.WorkstreamId == lineup.Requested) eligible.Add(workstream);
+            }
+            lineup.Update(eligible);
             departed.Clear();
             foreach (var id in views.Keys)
             {
@@ -253,6 +297,7 @@ namespace Halcyonic.XR
                 view.Show(CharacterPresenter.Present(session.State.Workstreams[id], session.State, live));
                 MoveToSlot(id, view, slot);
             }
+            Refreshed?.Invoke();
         }
 
         /// <summary>Places the stage on the preferred surface, or in front of the person without one.</summary>

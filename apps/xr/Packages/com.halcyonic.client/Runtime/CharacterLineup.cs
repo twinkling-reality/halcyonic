@@ -34,6 +34,11 @@ namespace Halcyonic.Client
     /// important tier, or if both are at rest and the waiting one changed more recently. Active and
     /// attention workstreams change every few seconds while they work, so ranking them by recency
     /// would swap characters in and out; within those tiers the ones already shown stay.
+    /// <para>
+    /// The person can ask for a workstream the lineup did not choose, from More work: it then takes
+    /// the place of the character that ranks last, and keeps a slot until another is asked for or it
+    /// leaves the workstreams given. The one it replaced is not lost; it waits like any other.
+    /// </para>
     /// </remarks>
     public sealed class CharacterLineup
     {
@@ -44,6 +49,7 @@ namespace Halcyonic.Client
         private readonly Dictionary<string, WorkstreamView> present = new Dictionary<string, WorkstreamView>();
         private readonly HashSet<string> shown = new HashSet<string>();
         private readonly List<WorkstreamView> waiting = new List<WorkstreamView>();
+        private string? requested;
 
         public CharacterLineup(int capacity)
         {
@@ -70,12 +76,22 @@ namespace Halcyonic.Client
         /// <summary>The slot a workstream stands in, or -1 when it has no character.</summary>
         public int SlotOf(string workstreamId) => Array.IndexOf(slots, workstreamId);
 
+        /// <summary>The workstream the person asked to see, which keeps a slot while it is given, or null.</summary>
+        public string? Requested => requested;
+
+        /// <summary>
+        /// Asks for a workstream's character on the stage, whatever its rank, from the next
+        /// <see cref="Update"/>; null withdraws the request. Only one is asked for at a time.
+        /// </summary>
+        public void Request(string? workstreamId) => requested = workstreamId;
+
         /// <summary>Brings the lineup up to date with the current workstreams. Returns whether any slot changed.</summary>
         public bool Update(IEnumerable<WorkstreamView> workstreams)
         {
             if (workstreams == null) throw new ArgumentNullException(nameof(workstreams));
             present.Clear();
             foreach (var workstream in workstreams) present[workstream.WorkstreamId] = workstream;
+            if (requested != null && !present.ContainsKey(requested)) requested = null;
 
             var changed = false;
             shown.Clear();
@@ -110,15 +126,28 @@ namespace Halcyonic.Client
                 changed = true;
             }
 
+            // The one asked for first, wherever it ranks, then the rest by rank.
+            if (requested != null && SlotOf(requested) < 0)
+            {
+                slots[WeakestSlot()] = requested;
+                waiting.RemoveAll(workstream => workstream.WorkstreamId == requested);
+                changed = true;
+            }
             while (next < waiting.Count)
             {
                 var weakest = WeakestSlot();
-                if (!Replaces(waiting[next], present[slots[weakest]!])) break;
+                if (weakest < 0 || !Replaces(waiting[next], present[slots[weakest]!])) break;
                 slots[weakest] = waiting[next++].WorkstreamId;
                 changed = true;
             }
             return BringAttentionToTheMiddle() || changed;
         }
+
+        /// <summary>
+        /// Orders workstreams as the lineup ranks them, best first: needs you, then failed, unknown or
+        /// failing tests, then active, then at rest; within a tier the most recently changed first.
+        /// </summary>
+        public static int Compare(WorkstreamView a, WorkstreamView b) => Rank(a, b);
 
         /// <summary>The tier a workstream's character belongs to, from its attention and status.</summary>
         public static LineupTier TierOf(WorkstreamView workstream)
@@ -196,13 +225,17 @@ namespace Halcyonic.Client
             return id != null && TierOf(present[id]) <= LineupTier.Notice;
         }
 
-        /// <summary>The occupied slot whose workstream ranks last. Only called when every slot is occupied.</summary>
+        /// <summary>
+        /// The occupied slot whose workstream ranks last, never the one asked for, or -1 when that is
+        /// the only one. Only called when every slot is occupied.
+        /// </summary>
         private int WeakestSlot()
         {
-            var weakest = 0;
-            for (var slot = 1; slot < slots.Length; slot++)
+            var weakest = -1;
+            for (var slot = 0; slot < slots.Length; slot++)
             {
-                if (Rank(present[slots[slot]!], present[slots[weakest]!]) > 0) weakest = slot;
+                if (slots[slot] == requested) continue;
+                if (weakest < 0 || Rank(present[slots[slot]!], present[slots[weakest]!]) > 0) weakest = slot;
             }
             return weakest;
         }

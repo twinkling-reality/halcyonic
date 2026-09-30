@@ -138,6 +138,17 @@
   to visible ASCII code points before TMP layout; the render showed the markers and page controls
   inside the plate. The editor rewrote the dynamic fallback font asset during this check, and that
   generated change was discarded. Readability and input behavior on Quest hardware remain open.
+- On 2026-09-30 the entry panel's and project rail's Android-target batch render (`EntryRender`)
+  passed over both stages: every screen opaque inside its own outline, clear of every body, 30
+  degrees below eye level with the characters 2.4 m away and 11 above a desk lineup; the rail 44
+  degrees down and 17.1 degrees to either side at 2.4 m, 48 down and 18.3 to either side over a
+  desk, clear of every body and label plate; no word of Halcyonic's cut short; the longest
+  request in 11 pages of 38 by 12 that fit; hostile project names and titles shown by the one rule.
+  The first runs found the rail 21 degrees wide and over the desk lineup's plates, and the panel
+  over the rail at 2.4 m, which the two-row rail, its desk placement and its stepping aside while a
+  panel is open resolved. The workspace render then showed the four questions whole in two lines
+  with Refresh 0.022 of the panel's width clear of them. No font asset changed. None of this is
+  checked on a Quest.
 
 ### System keyboard
 
