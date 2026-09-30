@@ -108,6 +108,7 @@ namespace Halcyonic.XR.Workspace
             Guide,
             Recap,
             Options,
+            Folder,
             Review,
             Sending,
             Previous,
@@ -142,8 +143,11 @@ namespace Halcyonic.XR.Workspace
         /// came to need the person while creating, if any, in the banner.
         /// </summary>
         public void ShowForRender(Screen shown, ProjectIdea? shownIdea = null, NewWorkDraft? shownDraft = null, BuildSequence? shownSequence = null,
-            ClientProjection? before = null, string? unresolvedCommand = null)
+            ClientProjection? before = null, string? unresolvedCommand = null, LocationsResponse? listing = null)
         {
+            rendering = true;
+            locations = listing;
+            locationsProblem = null;
             idea = shownIdea;
             if (shownDraft != null) draft = shownDraft;
             sequence = shownSequence;

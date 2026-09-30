@@ -96,10 +96,10 @@ These paragraphs are target behavior. The detailed screen states, current implem
 and acceptance checks are in the owner's private experience blueprint. The headset now has a
 first version of this entry: a low project rail, a welcome, Connect projects over the projects
 Halcyonic's journal knows, More work, Create a project from a typed idea or a few fixed guided
-questions with an editable recap, and the four questions in an opened workspace
-([XR_CLIENT.md](../architecture/XR_CLIENT.md)). It is checked in editor renders and tests, not yet
-on a headset, and it has no conversing companion, voice, discovery or attach, and no way yet to
-choose where a new project's files live.
+questions with an editable recap, choosing where its files live from the folders the Mac allows,
+and the four questions in an opened workspace ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). It is
+checked in editor renders and tests, not yet on a headset, and it has no conversing companion,
+voice, discovery or attach.
 
 ## Collaboration policies (future)
 
