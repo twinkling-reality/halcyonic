@@ -221,14 +221,6 @@ namespace Halcyonic.XR.Workspace
                 HeadForward = new System.Numerics.Vector3(headForward.x, headForward.y, headForward.z),
             };
             peekChoice.Update(input, Time.unscaledTime);
-            if (peekChoice.Shown == null) loggedPeek = null;
-            if (peekChoice.Shown != loggedPeek && peekChoice.Opacity > 0f)
-            {
-                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
-                    "Halcyonic interaction: peek shown {0} source {1}", peekChoice.Shown ?? "none", peekChoice.Source);
-                loggedPeek = peekChoice.Shown;
-            }
-
             var shown = peekChoice.Shown != null && targets.TryGetValue(peekChoice.Shown, out var peeked) ? peeked : null;
             if (shown != null && peekLineFor != shown.WorkstreamId)
             {
@@ -236,8 +228,21 @@ namespace Halcyonic.XR.Workspace
                 peekLineFor = shown.WorkstreamId;
                 peekLine = presentation == null ? "" : WorkspaceText.Peek(presentation);
             }
-            if (shown == null || peekLine.Length == 0) peek.Hide();
-            else peek.Show(shown, targets.Values, peekLine, peekChoice.Opacity);
+            if (shown == null || peekLine.Length == 0 || peekChoice.Opacity <= 0f)
+            {
+                peek.Hide();
+                loggedPeek = null;
+            }
+            else
+            {
+                peek.Show(shown, targets.Values, peekLine, peekChoice.Opacity);
+                if (shown.WorkstreamId != loggedPeek)
+                {
+                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                        "Halcyonic interaction: peek shown {0} source {1}", shown.WorkstreamId, peekChoice.Source);
+                    loggedPeek = shown.WorkstreamId;
+                }
+            }
 
             // The character whose peek is wanted looks at the person, as does the open one.
             var wanted = peekChoice.Wanted != null && targets.TryGetValue(peekChoice.Wanted, out var looking) ? looking : null;
@@ -256,9 +261,14 @@ namespace Halcyonic.XR.Workspace
                     "Halcyonic interaction: look pinch refused for {0}: selection changed", target.WorkstreamId);
                 return;
             }
+            if (!Open(target))
+            {
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
+                    "Halcyonic interaction: look pinch refused for {0}: no presentation", target.WorkstreamId);
+                return;
+            }
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
                 "Halcyonic interaction: look pinch accepted for {0}", target.WorkstreamId);
-            Open(target);
         }
 
         /// <summary>
@@ -290,10 +300,10 @@ namespace Halcyonic.XR.Workspace
             else Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
         }
 
-        private void Open(CharacterTarget target)
+        private bool Open(CharacterTarget target)
         {
             var presentation = Present(target.WorkstreamId);
-            if (presentation == null) return;
+            if (presentation == null) return false;
             OnboardingHint.Learned();
             hint.Hide();
 
@@ -334,6 +344,7 @@ namespace Halcyonic.XR.Workspace
             FacePerson(target, true);
             ReadHistory(workspace);
             RefreshPanel();
+            return opened == workspace;
         }
 
         /// <summary>
