@@ -235,6 +235,8 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     if (this.#sessions.has(executionId)) {
       throw new RuntimeActionError('duplicate_execution', 'The execution was already started.');
     }
+    // Asked again right before the folder is handed over: the model listing above waits.
+    confirmProjectLocation(this.#directoryPolicy, cwd);
     const session = new ClaudeSession(randomUUID(), request.emit, this.#clock);
     this.#sessions.set(executionId, session);
     let started: Promise<string>;

@@ -490,6 +490,58 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(observations[1]?.payload, { model_ref: 'ollama/qwen3.6:35b-a3b-nvfp4' });
   });
 
+  test("refuses a thread Codex reports working in another folder than the project's", async (t) => {
+    const { start, observations } = fake(t, ['other-cwd']);
+    await assert.rejects(
+      start(),
+      (error: unknown) =>
+        actionError('runtime_refused')(error) &&
+        /working in "\/somewhere\/else", not in the project's folder/.test(
+          (error as Error).message,
+        ),
+    );
+    assert.deepEqual(observations, []);
+  });
+
+  test('the folder is asked about again right before it is handed to Codex', async (t) => {
+    let asked = 0;
+    const { start, received } = fake(t, [], {
+      directoryPolicy: (path) => {
+        asked += 1;
+        return asked === 1
+          ? { ok: true, directory: path }
+          : { ok: false, code: 'location_missing', message: `${path} was removed.` };
+      },
+    });
+    await assert.rejects(start(), actionError('location_missing'));
+    assert.equal(asked, 2);
+    assert.ok(!received().some((message) => message.method === 'thread/start'));
+  });
+
+  test('a thread whose folder has gone since is not resumed after a restart', async (t) => {
+    let removed = false;
+    const { runtime, start, observations, received } = fake(t, [], {
+      directoryPolicy: (path) =>
+        removed
+          ? { ok: false, code: 'location_missing', message: `${path} was removed.` }
+          : { ok: true, directory: path },
+    });
+    await start('COMPLETE the work.');
+    await until(() => observations.length === 4, 'the turn');
+    removed = true;
+    process.kill(runtime.serverPid ?? 0, 'SIGKILL');
+    await until(
+      () => observations.some((item) => item.type === 'runtime.connection.lost'),
+      'the loss',
+    );
+    const lost = observations.at(-1);
+    assert.match(
+      lost?.type === 'runtime.connection.lost' ? lost.payload.reason : '',
+      /the thread could not be resumed: .* was removed\.$/,
+    );
+    assert.ok(!received().some((message) => message.method === 'thread/resume'));
+  });
+
   test('refuses a thread Codex does not run on the requested model and provider', async (t) => {
     const { runtime, directory, observations } = fake(t, ['other-model']);
     for (const options of [

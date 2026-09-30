@@ -144,7 +144,10 @@ Neither read is a runtime capability, a journal event or a source of Workstream 
    resolved, as `StartExecutionRequest.directory`. Call `confirmProjectLocation` with the host's
    `DirectoryPolicy` (`packages/runtime-core/src/adapter.ts`) before launching anything, so a
    folder that has gone, left the roots or now leads elsewhere through a symbolic link fails the
-   start with effect `none`, and run the agent there and nowhere else. The control plane allows
+   start with effect `none`; call it again right before handing the folder to the runtime, after
+   any wait such as a server launch or a model listing, and before sending it again on a resume;
+   and run the agent there and nowhere else. Where the runtime reports the folder a session works
+   in, refuse a session it reports elsewhere. The control plane allows
    only folders under `HALCYONIC_PROJECT_ROOTS`, so a client cannot point an agent anywhere else on
    the machine ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
 9. Make sure an agent process cannot outlive the control plane unsupervised: stop it on close and on

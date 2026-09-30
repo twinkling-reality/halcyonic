@@ -297,6 +297,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       }
     }
     const connection = await this.#connection();
+    // Asked again right before the folder is handed over: listing and launching wait.
+    confirmProjectLocation(this.#directoryPolicy, cwd);
     const params: ThreadStartParams = {
       ...threadSettings(options),
       threadSource: THREAD_SOURCE,
@@ -624,6 +626,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const lost = (detail: string) =>
       this.#lose(thread, `${reason} After it was started again, ${detail}`);
     try {
+      // The folder is handed to Codex again on resume, so it is asked about again first.
+      confirmProjectLocation(this.#directoryPolicy, thread.options.cwd);
       const params: ThreadResumeParams = {
         threadId: thread.threadId,
         ...threadSettings(thread.options),
@@ -808,9 +812,10 @@ const SANDBOX_TYPES: Readonly<Record<StartOptions['sandbox'], string>> = {
 /**
  * Checks that Codex gave a started or resumed thread the settings it was asked for, so that
  * nothing in the developer's configuration or managed requirements quietly stops approvals from
- * reaching the person, or sends the thread to another model or provider than the one asked for
- * (a thread asked to stay on a local provider must not reach a hosted one). Returns the thread id
- * with the model and provider Codex reports for it.
+ * reaching the person, sends the thread to another model or provider than the one asked for
+ * (a thread asked to stay on a local provider must not reach a hosted one), or has it work in
+ * another folder than the project's. Returns the thread id with the model and provider Codex
+ * reports for it.
  */
 function checkSettings(
   result: unknown,
@@ -823,6 +828,12 @@ function checkSettings(
       'runtime_protocol_error',
       'Codex answered without a thread id.',
       'unknown',
+    );
+  }
+  if (response.cwd !== options.cwd) {
+    throw new RuntimeActionError(
+      'runtime_refused',
+      `Codex reports the thread working in ${JSON.stringify(response.cwd)}, not in the project's folder ${options.cwd}. The thread is not used.`,
     );
   }
   const sandbox = isRecord(response.sandbox) ? response.sandbox.type : undefined;
