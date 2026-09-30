@@ -11,7 +11,7 @@
   project's package cache; batch runs that set up the scene, compile and build the APK; the built
   APK's manifest read with `aapt2`; a private control plane driven by `pnpm demo`.
 - **Status:** Verified in the editor and in the build. Not verified on a headset: every behavior
-  below that happens at runtime (rays, pokes, the keyboard, focus, REST history).
+  below that happens at runtime (rays, pokes, gaze, the keyboard, focus, REST history).
 
 ## Findings
 
@@ -43,6 +43,26 @@
   within 1 mm of each other go to the higher tiebreaker score. A background interactable therefore
   blocks what is behind it, and a button 4 mm in front of it wins.
 
+### Gaze
+
+- The v207 gaze classes (`EyeGaze`, `GazeInteractor`, `GazeInteractable`, `GazeConecaster`) are
+  marked experimental in the source.
+- `EyeGaze` with **Emulate Gaze With Camera Pose** replaces the eye pose with the camera pose and
+  marks it tracked. `FromOVREyeGazeDataSource` records the center eye camera's pose on every update
+  and adds eye data only where `OVRPlugin.eyeGazeInteractionsSupported`, so with the emulation the
+  gaze is the head's direction on a device without eye tracking, such as a Quest 3.
+- `GazeConecaster` tests the surface of every registered `GazeInteractable` against a cone of 2
+  degrees and 10 m from the gaze pose, and settles on a candidate after a 0.2 s dwell.
+  `GazeInteractable` takes any `ISurface`, so a character's ray sphere serves it too.
+  `GazeInteractor` needs a selector, a pointer transform and that candidate provider, all
+  injectable at runtime.
+- The SDK's gaze quick action builds the gaze as Meta's eye gaze prefab beside the rig's HMD with a
+  `GazeConecaster` child. Built that way in batch mode, the auto-wiring linked its data source to
+  the rig's `OVRCameraRigRef` and to the center eye camera.
+- The SDK's gaze and ray fallback filters hand rays away from gaze-tagged objects while the gaze is
+  active. With head gaze always active, that would switch the rays off for those objects, so it is
+  not used: the workspace's gaze interactor only hovers.
+
 ### TextMeshPro
 
 - `com.unity.textmeshpro` 5.0.0 is a shim; TextMeshPro lives in `com.unity.ugui` 2.0.0, which ships
@@ -73,8 +93,11 @@
 - Meta's `OVREngineConfigurationUpdater` sets the Android orientation to landscape left and
   `vSyncCount` to 0 on the editor's first update with Android active; the editor then saves
   `ProjectSettings.asset` and `QualitySettings.asset`. Batch runs with `-quit` end before it runs.
-- The development APK with the rig and TextMeshPro is 81.5 MB (63 to 67 MB before), built in
-  3 min 18 s after an asset reimport.
+- The development APK with the rig and TextMeshPro is 81.5 MB (main's is about 63 MB), built in
+  3 min 18 s after an asset reimport. Most of the difference is the rig's hand and controller
+  assets and the Interaction SDK's code; by the build report, the controller models and textures
+  alone are 40 MB before compression. After incremental rebuilds the file grew to 107 MB while its entries still totaled
+  81.4 MB, which suggests space left by the packager updating the APK in place.
 
 ### An approval that waits
 
@@ -85,8 +108,12 @@ the approval workstream was still `waiting_for_human` with one pending approval.
 ## Consequences
 
 - Stage.unity uses the comprehensive rig as the building block installs it, with locomotion and the
-  locomotor deactivated, set up by `StageSetup` ([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)).
-- The workspace builds its targets in code with the SDK's inject methods, planes for pokes.
-- Still to verify on a Quest 3: rays, pinches and pokes on these targets; the system keyboard under
-  OpenXR, and whether Unity reports its focus change to `FocusGuard`; `HttpClient` under IL2CPP for
-  the history; legibility at the chosen sizes.
+  locomotor deactivated, and the SDK's gaze with camera pose emulation, set up by `StageSetup`
+  ([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)).
+- The workspace builds its targets in code with the SDK's inject methods, planes for pokes, and a
+  gaze interactor that only hovers.
+- Still to verify on a Quest 3: rays, pinches, pokes and head gaze on these targets; the system
+  keyboard under OpenXR, and whether Unity reports its focus change to `FocusGuard`; `HttpClient`
+  under IL2CPP for the history; legibility at the chosen sizes.
+- The controller visuals are most of the APK's growth. A hands-only build could drop them from the
+  rig; nothing needs a controller.

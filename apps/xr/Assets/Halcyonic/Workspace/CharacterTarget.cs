@@ -4,9 +4,10 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// What makes a character openable by hand: a sphere around its body for a hand ray, and a
-    /// surface just in front of it, always facing the person, for a poke. Attached at runtime to the
-    /// views <see cref="CharacterStage"/> creates, so the character's own code does not change.
+    /// What makes a character peekable and openable by hand: a sphere around its body for a hand ray
+    /// and for the gaze, and a surface just in front of it, always facing the person, for a poke.
+    /// Attached at runtime to the views <see cref="CharacterStage"/> creates, so the character's own
+    /// code does not change.
     /// </summary>
     public sealed class CharacterTarget : MonoBehaviour
     {
@@ -27,11 +28,17 @@ namespace Halcyonic.XR.Workspace
 
         public CharacterView View { get; private set; } = null!;
 
+        /// <summary>The sphere: hand rays and the gaze.</summary>
         public PointerTarget Ray { get; private set; } = null!;
 
         public PointerTarget Poke { get; private set; } = null!;
 
-        public bool Hovered => Ray.Hovered || Poke.Hovered;
+        /// <summary>A hand ray or a finger is on the character.</summary>
+        public bool HandHovered => Ray.HandHovered || Poke.HandHovered;
+
+        public bool GazeHovered => Ray.GazeHovered;
+
+        public bool Hovered => HandHovered || GazeHovered;
 
         /// <summary>The center of the character's body, where the peek and the workspace attach.</summary>
         public Vector3 BodyPosition => transform.position;
@@ -47,7 +54,7 @@ namespace Halcyonic.XR.Workspace
             var target = host.AddComponent<CharacterTarget>();
             target.WorkstreamId = workstreamId;
             target.View = view;
-            target.Ray = PointerTarget.Sphere(host, RayRadius);
+            target.Ray = PointerTarget.Sphere(host, RayRadius, gaze: true);
             var poke = new GameObject("Poke surface");
             poke.transform.SetParent(host.transform, false);
             target.pokeSurface = poke.transform;

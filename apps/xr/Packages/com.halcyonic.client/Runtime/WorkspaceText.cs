@@ -47,6 +47,9 @@ namespace Halcyonic.Client
         /// <summary>What the workspace says while the system keyboard is open.</summary>
         public const string TypingPrompt = "Type the instruction on the keyboard, then press Enter.";
 
+        /// <summary>The first-time hint beside a pinch cue: three words, no more.</summary>
+        public const string OpenHint = "Pinch to open";
+
         /// <summary>What the workspace says when it offers presets instead of the keyboard.</summary>
         public const string PresetPrompt = "No keyboard here. Send one of these instead:";
 

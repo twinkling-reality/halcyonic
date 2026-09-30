@@ -190,6 +190,27 @@ public class WorkspaceTextTests
     }
 
     [Test]
+    public void TheAppsOwnWordsAreShortAndNameNoBrand()
+    {
+        Assert.That(WorkspaceText.OpenHint.Split(' '), Has.Length.LessThanOrEqualTo(3), "the first-time hint is no wall of text");
+
+        var approval = WaitingWork.Approval("a", "", Samples.Time);
+        var words = new List<string> { WorkspaceText.OpenHint, WorkspaceText.TypingPrompt, WorkspaceText.PresetPrompt };
+        foreach (var action in Enum.GetValues<WorkspaceAction>())
+        {
+            words.Add(WorkspaceText.Label(action));
+            words.Add(WorkspaceText.ConfirmLabel(action));
+            words.Add(WorkspaceText.ConfirmationPrompt(action, approval, ""));
+        }
+        words.AddRange(WorkspaceText.PresetInstructions.SelectMany(preset => new[] { preset.Label, preset.Text }));
+        var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode" };
+        foreach (var word in words)
+        {
+            foreach (var brand in brands) Assert.That(word, Does.Not.Contain(brand), "data may name a runtime; the app's own words do not");
+        }
+    }
+
+    [Test]
     public void PresetInstructionsAreShortButtonsForWholeSentences()
     {
         Assert.That(WorkspaceText.PresetInstructions, Is.Not.Empty);

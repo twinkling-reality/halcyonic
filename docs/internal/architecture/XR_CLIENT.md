@@ -7,8 +7,8 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
-        │                             workspace: peek, panel, transition,             the workspace is not
-        │                             Meta's interaction rig                          verified on a headset
+        │                             workspace: gaze and hand peek, panel,           the workspace is not
+        │                             transition, first-time hint; Meta's rig         verified on a headset
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
@@ -260,38 +260,71 @@ Interaction SDK. Three levels of detail show the same work, all in place
 ([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)):
 
 - **Ambient:** the characters as the stage shows them.
-- **Peek:** while a hand ray (or a finger about to poke) points at a character, `PeekLabel` shows
-  one line beside it, on the side toward the middle of the view: `WorkspaceText.Peek`.
-- **Open:** a pinch on the ray, or a poke, opens `WorkspacePanel` beside that character, a little
-  nearer the person and facing them. It shows the title and status, the execution and its runtime,
+- **Peek:** while the person looks at a character, or a hand ray (or a finger about to poke)
+  points at it, `PeekLabel` shows one line beside it, on the side toward the middle of the view:
+  `WorkspaceText.Peek`. A hand pointing wins over the gaze, and while a workspace is open only a
+  hand peeks, so reading the workspace never pops up peeks behind it.
+- **Open:** a pinch on the ray, or a poke, opens `WorkspacePanel` next to that character in view
+  and within reach, facing the eyes. It shows the title and status, the execution and its runtime,
   the objective, what needs the person, the actions offered (with a confirmation step on a separate
   button where the policy asks for one), how requests are going, and the recent activity with
   agent text in italics as a claim. Collapse, or a second pinch on the character, returns to
   ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
-  where the stage put it.
+  where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to each character the stage
-creates: a sphere around the body for the ray, and a surface in front of it, facing the person, for
-a poke. Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the panel,
-whose background takes the ray so nothing behind it is pointed at. The director keeps an
+creates: a sphere around the body for the ray and the gaze, and a surface in front of it, facing the
+person, for a poke. Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the
+panel, whose background takes the ray so nothing behind it is pointed at. The director keeps an
 `ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
 it opens and after a resynchronization (saying so in the activity caption while it reads, or why
 it could not), and sends commands with `CommandSubmissions.SubmitAsync`. While the demonstration is
 shown it reads no history, since the recording plays all of it through the session, and its
 refusals read as any refusal does, through the acknowledgement's command record. A switch of
 session arrives as a resynchronization: the open workspace follows its workstream into the new
-state, or collapses when the workstream is not there. Nothing is peeked or pressed while
+state, or collapses when the workstream is not there. Nothing is peeked, hinted or pressed while
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
 after the keyboard closes.
 
-Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek) for the Quest 3's
-roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays the
-same: body text has an x-height near 0.55 degrees (about 14 pixels), the smallest captions about
+**Gaze.** `GazeHover` adds an Interaction SDK gaze interactor (`GazeInteractor`, v207) that hovers
+the `GazeInteractable` on each character and never selects. It follows the scene's
+`GazeConecaster` (a 2 degree cone, 0.2 s dwell) on Meta's `EyeGaze`, whose camera pose emulation
+makes it head gaze: a Quest 3 has no eye tracking, and the app does not ask for it. Opening stays
+with the hand ray's pinch and the poke, so a look never acts by itself, and where there is no gaze
+the hand ray still peeks. Verified in the SDK's source and in the editor, not yet on a headset
+([workspace-interaction.md](../validation/workspace-interaction.md)).
+
+**Seated, and within reach.** The workspace opens 0.6 m from the eyes, about two feet, so a seated
+person pokes its buttons without leaning or standing. It is scaled to keep its designed angular
+size, which puts its buttons about 33 mm tall there. It opens below the character when the
+character is at or above eye level, as for a seated person, and above it when the character is
+lower, so the character stays visible next to it.
+
+**Field of view.** The workspace spans about 34 by 27 degrees wherever it opens. Its center stays
+within 15 degrees of where the person looks, and between 24 degrees below and 2 degrees above eye
+level, so all of it, controls included, sits in the comfortable middle of a narrower field of view
+than the Quest 3's (as on a Quest 3S), never at an edge. The peek is one line, and the hint three
+words.
+
+**Hands first.** Everything works with hands alone: pointing, pinching and poking, and typing on
+the system keyboard. The rig supports controllers, but nothing needs one.
+
+**First time.** Until the person first opens a workspace on the device, `OnboardingHint` shows a
+thumb and index finger closing into a pinch, with "Pinch to open", above the first character that
+needs them; opening any workspace retires it for good (a player preference, not state).
+
+**Words.** The app's own words name no brand (a test checks them); names in the data, such as a
+runtime's display name, are shown as they arrive.
+
+Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek and the hint) for the
+Quest 3's roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays
+the same: body text has an x-height near 0.55 degrees (about 14 pixels), the smallest captions about
 10 pixels, buttons are about 3 degrees tall. Text is TextMeshPro with Liberation Sans SDF, never
 parsing markup, since it shows text from agents and tools. Plates and lines use `Sprites/Default`,
 an always-included shader; the TextMeshPro shader reaches the build through the font asset in
-`Resources`.
+`Resources`. The workspace draws after everything at the characters' distance, so nothing behind it
+shows through.
 
 Instructions are typed on the Quest system keyboard (`TouchScreenKeyboard`, with Require System
 Keyboard on in `OculusProjectConfig`, from which Meta's build step adds
@@ -306,7 +339,9 @@ Interaction**, also runnable in batch mode). It brings the hand data, hand visua
 poke interactors the targets answer to. The Hand Tracking building block keeps tracking but no
 longer draws, as Meta's wizard does, and the rig's locomotion (hand microgestures, controller
 sticks, and the locomotor with its tunneling) is deactivated, because the stage is stationary.
-`FocusGuard` hides the rig's hands and controllers and deactivates its interactors.
+`FocusGuard` hides the rig's hands and controllers and deactivates its interactors. `StageSetup`
+also adds the SDK's gaze as its gaze quick action builds it, Meta's eye gaze prefab beside the
+rig's HMD with a `GazeConecaster`, and turns on its camera pose emulation.
 
 The project compiles in Unity and runs on a Meta Quest 3 against a live control plane
 ([quest-3-device.md](../validation/quest-3-device.md)); the workspace compiles and builds but is not

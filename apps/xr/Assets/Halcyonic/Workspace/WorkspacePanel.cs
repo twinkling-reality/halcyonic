@@ -50,19 +50,27 @@ namespace Halcyonic.XR.Workspace
     /// what needs the person, the actions offered, how requests are going, and recent activity. The
     /// layout is fixed, so nothing jumps while the work changes. It shows words it is given and
     /// derives nothing; <see cref="WorkspaceDirector"/> fills it from the client core.
+    ///
+    /// At its design distance (<see cref="WorkspaceVisuals.PanelDistance"/>) it spans about 34 by 27
+    /// degrees, and it keeps that angular size wherever it opens: all of it fits the comfortable
+    /// middle of a narrower field of view than the Quest 3's, and nothing essential sits at an edge.
     /// </summary>
     public sealed class WorkspacePanel : MonoBehaviour
     {
-        public const float Width = 0.86f;
-        public const float Height = 0.80f;
+        public const float Width = 0.80f;
+        public const float Height = 0.62f;
 
-        private const float Left = -Width / 2f + 0.04f;
-        private const float ContentWidth = Width - 0.08f;
+        private const float Margin = 0.035f;
+        private const float Left = -Width / 2f + Margin;
+        private const float Right = Width / 2f - Margin;
+        private const float ContentWidth = Width - 2f * Margin;
+        private const float Top = Height / 2f - 0.03f;
+        private const float HeaderWidth = ContentWidth - 0.19f;
         private const float Gap = 0.02f;
-        private const float ActionsTop = 0.078f;
-        private const int MaxFeedback = 3;
-        private const int MaxActivity = 6;
-        private const float LineHeight = 0.031f;
+        private const float ActionsTop = 0.056f;
+        private const int MaxFeedback = 2;
+        private const int MaxActivity = 5;
+        private const float LineHeight = 0.029f;
 
         private readonly List<PanelButton> actionButtons = new List<PanelButton>();
         private readonly List<PanelButton> presetButtons = new List<PanelButton>();
@@ -106,29 +114,29 @@ namespace Halcyonic.XR.Workspace
 
         private void Build()
         {
-            WorkspaceVisuals.Plate(transform, "Background", new Vector2(Width, Height), WorkspaceVisuals.PanelColor, WorkspaceVisuals.PlateOrder);
+            WorkspaceVisuals.Plate(transform, "Background", new Vector2(Width, Height), WorkspaceVisuals.PanelColor, WorkspaceVisuals.PanelPlateOrder);
             // The background takes the ray, so a character behind the panel is not pointed at through it.
             PointerTarget.Rectangle(gameObject, new Vector2(Width, Height), ray: true, poke: false);
 
-            title = Line("Title", WorkspaceVisuals.TitleSize, WorkspaceVisuals.TextColor, 0.36f, ContentWidth - 0.2f, 0.05f);
-            status = Line("Status", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, 0.305f, ContentWidth - 0.2f, 0.036f);
-            execution = Line("Execution", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor, 0.266f, ContentWidth, 0.03f);
-            objective = Line("Objective", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, 0.231f, ContentWidth, 0.058f, wrap: true);
-            var divider = WorkspaceVisuals.Plate(transform, "Divider", new Vector2(ContentWidth, 0.002f), WorkspaceVisuals.DividerColor, WorkspaceVisuals.ControlOrder);
-            divider.transform.localPosition = new Vector3(0f, 0.166f, -0.001f);
-            attention = Line("Attention", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, 0.152f, ContentWidth, 0.064f, wrap: true);
+            title = Line("Title", WorkspaceVisuals.TitleSize, WorkspaceVisuals.TextColor, Top, HeaderWidth, 0.045f);
+            status = Line("Status", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, Top - 0.048f, HeaderWidth, 0.034f);
+            execution = Line("Execution", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor, Top - 0.084f, ContentWidth, 0.028f);
+            objective = Line("Objective", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, Top - 0.114f, ContentWidth, 0.028f);
+            var divider = WorkspaceVisuals.Plate(transform, "Divider", new Vector2(ContentWidth, 0.002f), WorkspaceVisuals.DividerColor, WorkspaceVisuals.PanelControlOrder);
+            divider.transform.localPosition = new Vector3(0f, Top - 0.15f, -0.001f);
+            attention = Line("Attention", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, Top - 0.16f, ContentWidth, 0.058f, wrap: true);
             controlsText = Line("Controls text", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor, ActionsTop, ContentWidth, PanelButton.Height, wrap: true);
             controlsText.alignment = TextAlignmentOptions.MidlineLeft;
-            feedbackCaption = Line("Requests caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, -0.012f, ContentWidth, 0.026f);
+            feedbackCaption = Line("Requests caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, -0.03f, ContentWidth, 0.024f);
             feedbackCaption.text = "Requests";
             for (var index = 0; index < MaxFeedback; index++)
             {
-                feedbackLines.Add(Line("Request " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, -0.038f - index * LineHeight, ContentWidth, LineHeight));
+                feedbackLines.Add(Line("Request " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, -0.054f - index * LineHeight, ContentWidth, LineHeight));
             }
-            activityCaption = Line("Activity caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, -0.14f, ContentWidth, 0.026f);
+            activityCaption = Line("Activity caption", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, -0.118f, ContentWidth, 0.024f);
             for (var index = 0; index < MaxActivity; index++)
             {
-                activityLines.Add(Line("Activity " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, -0.166f - index * LineHeight, ContentWidth, LineHeight));
+                activityLines.Add(Line("Activity " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, -0.142f - index * LineHeight, ContentWidth, LineHeight));
             }
 
             collapse = Button("Collapse", () => CollapsePressed?.Invoke());
@@ -164,7 +172,7 @@ namespace Halcyonic.XR.Workspace
 
             // The collapse control sits in the top right corner, away from every action.
             var collapseWidth = collapse.Measure("Collapse", 0.17f);
-            collapse.Show("Collapse", new Vector2(Width / 2f - 0.04f - collapseWidth / 2f, 0.36f - PanelButton.Height / 2f), collapseWidth);
+            collapse.Show("Collapse", new Vector2(Right - collapseWidth / 2f, Top - PanelButton.Height / 2f), collapseWidth);
             ShowControls(content);
 
             var feedback = new List<(string Text, Color Color)>();
@@ -204,7 +212,7 @@ namespace Halcyonic.XR.Workspace
         private void ShowControls(PanelContent content)
         {
             var center = ActionsTop - PanelButton.Height / 2f;
-            var right = Width / 2f - 0.04f;
+            var right = Right;
             var shown = new HashSet<PanelButton>();
             shownActions.Clear();
             shownPresets.Clear();
@@ -278,7 +286,8 @@ namespace Halcyonic.XR.Workspace
 
         private TextMeshPro Line(string name, float size, Color color, float top, float width, float height, bool wrap = false)
         {
-            var text = WorkspaceVisuals.Text(transform, name, size, color, new Vector2(width, height), TextAlignmentOptions.TopLeft, wrap);
+            var text = WorkspaceVisuals.Text(transform, name, size, color, new Vector2(width, height), TextAlignmentOptions.TopLeft, wrap,
+                WorkspaceVisuals.PanelTextOrder);
             text.rectTransform.localPosition = new Vector3(Left, top, -0.001f);
             return text;
         }
