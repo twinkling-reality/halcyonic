@@ -299,9 +299,11 @@ the hand ray still peeks. Verified in the SDK's source and in the editor, not ye
 
 **Seated, and within reach.** The workspace opens 0.6 m from the eyes, about two feet, so a seated
 person pokes its buttons without leaning or standing. It is scaled to keep its designed angular
-size, which puts its buttons about 33 mm tall there. It opens below the character when the
-character is at or above eye level, as for a seated person, and above it when the character is
-lower, so the character stays visible next to it.
+size, which puts its buttons about 33 mm tall there. It opens below the character, clear of its
+body, or above it where below would leave the comfortable band. When neither fits, as for a
+character resting just below eye level on the stage's arc, it takes the side that needs less
+moving and may cover part of the character; a character that needs the person rises toward eye
+level, and its workspace opens clear below it.
 
 **Field of view.** The workspace spans about 34 by 27 degrees wherever it opens. Its center stays
 within 15 degrees of where the person looks, and between 24 degrees below and 2 degrees above eye

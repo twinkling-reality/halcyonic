@@ -270,8 +270,8 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Within reach, in the direction of the character and next to it in view: below it when it
-        /// is at or above the eyes' level, above it when it is lower, so the character stays visible.
+        /// Within reach, in the direction of the character and next to it in view, clear of its body:
+        /// below it, or above it where below would leave the comfortable band (<see cref="Nearer"/>).
         /// The workspace keeps near the middle of the view (at most <see cref="MaxSideDegrees"/> to
         /// the side of where the person looks, and between <see cref="LowestDegrees"/> and
         /// <see cref="HighestDegrees"/>), faces the eyes, and is scaled to its designed angular size.
@@ -290,14 +290,28 @@ namespace Halcyonic.XR.Workspace
 
             var scale = Reach / WorkspaceVisuals.PanelDistance;
             var halfHeight = Mathf.Atan2(WorkspacePanel.Height / 2f, WorkspaceVisuals.PanelDistance) * Mathf.Rad2Deg;
-            var height = characterHeight >= -10f
-                ? characterHeight - ClearanceDegrees - halfHeight
-                : characterHeight + ClearanceDegrees + halfHeight;
-            height = Mathf.Clamp(height, LowestDegrees, HighestDegrees);
+            // Clear of the character's body, whatever size the stage gives it.
+            var bodyDegrees = Mathf.Atan2(CharacterView.BodyRadius * target.Scale, Mathf.Max(toCharacter.magnitude, 0.1f)) * Mathf.Rad2Deg;
+            var offset = bodyDegrees + ClearanceDegrees + halfHeight;
+            var height = Nearer(characterHeight - offset, characterHeight + offset);
 
             var direction = Quaternion.Euler(-height, side, 0f) * Vector3.forward;
             var center = head + direction * Reach;
             return (new Pose(center, Quaternion.LookRotation(direction, Vector3.up)), scale);
+        }
+
+        /// <summary>
+        /// Below or above the character: whichever stays in the comfortable band, the lower one when
+        /// both do; when neither does, the one that needs less moving, moved into the band, which may
+        /// then cover part of the character.
+        /// </summary>
+        private static float Nearer(float below, float above)
+        {
+            bool Fits(float height) => height >= LowestDegrees && height <= HighestDegrees;
+            if (Fits(below)) return below;
+            if (Fits(above)) return above;
+            float Moving(float height) => Mathf.Abs(height - Mathf.Clamp(height, LowestDegrees, HighestDegrees));
+            return Mathf.Clamp(Moving(below) <= Moving(above) ? below : above, LowestDegrees, HighestDegrees);
         }
 
         private void Close(bool immediately)

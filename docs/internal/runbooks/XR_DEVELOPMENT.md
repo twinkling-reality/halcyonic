@@ -317,11 +317,12 @@ controller. Then, in the headset:
   closing into a pinch, and "Pinch to open". It goes after the first open and does not come back.
 - **Peek by looking.** Look at a character without raising a hand: after a moment one line
   appears beside it, what it needs from you ("Approval needed to use bash: …") or what it did
-  last, agent text as "Agent says: “…”". It goes when you look away.
+  last, agent text as "Agent says: “…”", and the character turns to look at you. It goes when you
+  look away.
 - **Peek by pointing.** Point an open hand at a character until its ray touches it: the same line.
 - **Open.** Pinch while pointing: the workspace grows out of the character to about two feet in
-  front of you, below the character when you sit (above it when the characters are below your
-  eyes), a ring marks the character and a line joins them. All of it is in the middle of your
+  front of you, below it (clear of a character that needs you, which has risen toward your eyes),
+  a ring marks the character and a line joins them, and the character turns to look at you. All of it is in the middle of your
   view. It shows the title, the status in words, the execution and its runtime, the objective,
   the approval explained, the buttons offered, and the recent activity, including what happened
   before the app started (otherwise the activity caption says why the history is unavailable).
