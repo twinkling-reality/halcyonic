@@ -23,6 +23,7 @@ export type EventId = string & { readonly __brand: 'EventId' };
 export type CommandId = string & { readonly __brand: 'CommandId' };
 export type JournalId = string & { readonly __brand: 'JournalId' };
 export type RuntimeId = string & { readonly __brand: 'RuntimeId' };
+export type DeviceId = string & { readonly __brand: 'DeviceId' };
 
 /** Identifiers Halcyonic generates are UUIDv7 so they sort by creation time. */
 export const ProjectId = Type.Unsafe<ProjectId>(Type.String({ pattern: UUID_V7_PATTERN }));
@@ -30,6 +31,8 @@ export const WorkstreamId = Type.Unsafe<WorkstreamId>(Type.String({ pattern: UUI
 export const ExecutionId = Type.Unsafe<ExecutionId>(Type.String({ pattern: UUID_V7_PATTERN }));
 export const EventId = Type.Unsafe<EventId>(Type.String({ pattern: UUID_V7_PATTERN }));
 export const JournalId = Type.Unsafe<JournalId>(Type.String({ pattern: UUID_V7_PATTERN }));
+/** A device paired with the control plane, named by the control plane when it pairs. */
+export const DeviceId = Type.Unsafe<DeviceId>(Type.String({ pattern: UUID_V7_PATTERN }));
 /** Commands are identified by the client that issues them, which makes retries idempotent. */
 export const CommandId = Type.Unsafe<CommandId>(Type.String({ pattern: UUID_PATTERN }));
 

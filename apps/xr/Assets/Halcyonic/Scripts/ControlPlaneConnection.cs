@@ -63,14 +63,15 @@ namespace Halcyonic.XR
                 DeviceLabel = SystemInfo.deviceModel,
             };
             RealtimeSession? controlPlane = null;
-            var token = ControlPlaneSettings.ReadAccessToken();
-            if (token == null)
+            var target = ControlPlaneSettings.Target();
+            if (target == null)
             {
-                Log("no access token, so no control plane is configured. Looked in: " + string.Join(", ", ControlPlaneSettings.TokenPaths()));
+                Log("no pairing and no access token, so no control plane is configured. Looked in: " + string.Join(", ", ControlPlaneSettings.TokenPaths()));
             }
             else
             {
-                controlPlane = new RealtimeSession(new RealtimeSessionOptions(ControlPlaneSettings.Endpoint, token, client));
+                if (target.Pairing != null) Log("connecting over the network to the control plane paired at " + target.Pairing.Address);
+                controlPlane = target.CreateSession(client);
             }
             sessions = new DemonstrationFallback(controlPlane, () => LoadDemonstration(client));
             sessions.Start();

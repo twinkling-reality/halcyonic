@@ -6,6 +6,7 @@ import type {
   CommandResult,
   CommandStatus,
   CommandView,
+  DeviceView,
   EntityChanges,
   EventEnvelope,
   EventId,
@@ -21,6 +22,7 @@ import type {
   WorkstreamView,
 } from '@halcyonic/contracts';
 import { deriveAttention } from './attention.ts';
+import { DeviceRegistry } from './devices.ts';
 import {
   createExecutionState,
   deriveExecutionStatus,
@@ -106,6 +108,7 @@ export class Projection {
   readonly #workstreams = new Map<WorkstreamId, WorkstreamState>();
   readonly #executions = new Map<ExecutionId, ExecutionState>();
   readonly #commands = new Map<CommandId, CommandState>();
+  readonly #devices = new DeviceRegistry();
 
   /** Position of the last applied event, 0 before any. */
   get position(): number {
@@ -191,6 +194,20 @@ export class Projection {
     return [...this.#commands.values()]
       .filter((command) => command.status === 'accepted')
       .map(toCommandView);
+  }
+
+  /** Every device ever paired, revoked ones included. */
+  devices(): DeviceView[] {
+    return this.#devices.devices();
+  }
+
+  device(deviceId: string): DeviceView | undefined {
+    return this.#devices.device(deviceId);
+  }
+
+  /** The device a credential was issued to, revoked or not, by the credential's SHA-256. */
+  deviceForCredential(credentialSha256: string): DeviceView | undefined {
+    return this.#devices.deviceForCredential(credentialSha256);
   }
 
   // Application ------------------------------------------------------------------------------
@@ -330,6 +347,11 @@ export class Projection {
         changes.commands.add(event.payload.command_id);
         return;
       }
+      case 'device.paired':
+      case 'device.revoked':
+        // Devices are no project's entity, so the event changes none that clients hold.
+        notes.push(...this.#devices.apply(event));
+        return;
       case 'runtime.execution.started':
       case 'runtime.turn.started':
       case 'runtime.turn.completed':

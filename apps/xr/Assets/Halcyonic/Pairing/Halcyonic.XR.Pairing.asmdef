@@ -1,0 +1,19 @@
+{
+  "name": "Halcyonic.XR.Pairing",
+  "rootNamespace": "Halcyonic.XR.Pairing",
+  "references": [
+    "Halcyonic.XR",
+    "Halcyonic.XR.Workspace",
+    "Halcyonic.Client",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

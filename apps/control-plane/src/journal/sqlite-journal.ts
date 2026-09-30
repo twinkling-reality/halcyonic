@@ -52,6 +52,21 @@ const MIGRATIONS: readonly string[] = [
     AND json_extract(envelope, '$.payload.command.command_type') = 'execution.start'
     AND json_type(envelope, '$.payload.command.payload.model_ref') IS NULL;
   `,
+  // ADR 0017: command events record who sent them. Nobody knows who sent a command stored before,
+  // which the contract says with a null principal. Builds of the pairing work from before it met
+  // migration 2 stamped version 2 on their journals without running it, so this runs its update
+  // again. Both updates change only events without the field, so running one twice is harmless.
+  `
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.command.payload.model_ref', json('null'))
+  WHERE event_type IN ('command.accepted', 'command.rejected')
+    AND json_extract(envelope, '$.payload.command.command_type') = 'execution.start'
+    AND json_type(envelope, '$.payload.command.payload.model_ref') IS NULL;
+  UPDATE events
+  SET envelope = json_set(envelope, '$.payload.principal', json('null'))
+  WHERE event_type IN ('command.accepted', 'command.rejected')
+    AND json_type(envelope, '$.payload.principal') IS NULL;
+  `,
 ];
 
 export const JOURNAL_SCHEMA_VERSION = MIGRATIONS.length;
@@ -148,6 +163,8 @@ class SqliteJournal implements EventJournal {
   readonly #head: StatementSync;
   readonly #readAfter: StatementSync;
   readonly #readWorkstreamAfter: StatementSync;
+  readonly #readAfterExcluding: StatementSync;
+  readonly #readWorkstreamAfterExcluding: StatementSync;
   #closed = false;
 
   constructor(db: DatabaseSync, info: JournalInfo) {
@@ -170,6 +187,13 @@ class SqliteJournal implements EventJournal {
     );
     this.#readWorkstreamAfter = db.prepare(
       'SELECT position, envelope FROM events WHERE workstream_id = ? AND position > ? ORDER BY position LIMIT ?',
+    );
+    // The types to leave out arrive as one JSON array, so one statement serves any list.
+    this.#readAfterExcluding = db.prepare(
+      'SELECT position, envelope FROM events WHERE position > ? AND event_type NOT IN (SELECT value FROM json_each(?)) ORDER BY position LIMIT ?',
+    );
+    this.#readWorkstreamAfterExcluding = db.prepare(
+      'SELECT position, envelope FROM events WHERE workstream_id = ? AND position > ? AND event_type NOT IN (SELECT value FROM json_each(?)) ORDER BY position LIMIT ?',
     );
   }
 
@@ -206,10 +230,26 @@ class SqliteJournal implements EventJournal {
   }
 
   read(options: ReadOptions): StoredEvent[] {
-    const rows =
-      options.workstreamId === undefined || options.workstreamId === null
-        ? this.#readAfter.all(options.after, options.limit)
-        : this.#readWorkstreamAfter.all(options.workstreamId, options.after, options.limit);
+    const workstreamId = options.workstreamId ?? null;
+    const excluded = options.excludeEventTypes ?? [];
+    let rows: unknown[];
+    if (excluded.length === 0) {
+      rows =
+        workstreamId === null
+          ? this.#readAfter.all(options.after, options.limit)
+          : this.#readWorkstreamAfter.all(workstreamId, options.after, options.limit);
+    } else {
+      const types = JSON.stringify(excluded);
+      rows =
+        workstreamId === null
+          ? this.#readAfterExcluding.all(options.after, types, options.limit)
+          : this.#readWorkstreamAfterExcluding.all(
+              workstreamId,
+              options.after,
+              types,
+              options.limit,
+            );
+    }
     return rows.map((row) => toStoredEvent(row as { position: number; envelope: string }));
   }
 

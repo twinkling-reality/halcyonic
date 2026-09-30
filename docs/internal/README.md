@@ -54,6 +54,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [workspace-interaction.md](validation/workspace-interaction.md) | Interaction SDK rig and targets, TextMeshPro and the system keyboard for the workspace |
 | [understanding-and-evaluation.md](validation/understanding-and-evaluation.md) | The workspace's Understanding and Evaluation sections: real sources read only, the demonstration's simulated answers, TextMeshPro escapes, renders |
 | [sound-rendering.md](validation/sound-rendering.md) | The Glaze sound's port checked against the soundbook page, and what rendering it costs |
+| [network-pairing.md](validation/network-pairing.md) | Pairing a headset over the local network: certificate callbacks in Unity's Android class libraries, SRP, the pinned transports off the headset |
 
 ## Private documents
 

@@ -49,7 +49,6 @@ namespace Halcyonic.XR.Workspace
         private string peekLine = "";
         private Opened? opened;
         private string? journalId;
-        private ControlPlaneApi? api;
         private int shownSubmissions = -1;
         private float nextRefresh;
 
@@ -106,8 +105,6 @@ namespace Halcyonic.XR.Workspace
                 if (stage.TryGetCharacter(workstreamId, out var view)) Attach(workstreamId, view);
             }
         }
-
-        private void OnDestroy() => api?.Dispose();
 
         private void Attach(string workstreamId, CharacterView view)
         {
@@ -487,9 +484,7 @@ namespace Halcyonic.XR.Workspace
         private IIntelligenceReader? IntelligenceReader()
         {
             if (connection.DemonstrationReads is DemonstrationReads recorded) return recorded;
-            if (api != null) return api;
-            var token = ControlPlaneSettings.ReadAccessToken();
-            return token == null ? null : api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(ControlPlaneSettings.Endpoint), token);
+            return ControlPlaneSettings.Api();
         }
 
         /// <summary>Reads the workstream's history, which a snapshot does not carry, into the activity.</summary>
@@ -510,12 +505,8 @@ namespace Halcyonic.XR.Workspace
             var request = ++workspace.HistoryRequests;
             try
             {
-                if (api == null)
-                {
-                    var token = ControlPlaneSettings.ReadAccessToken()
-                        ?? throw new ControlPlaneRequestException("no access token.");
-                    api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(ControlPlaneSettings.Endpoint), token);
-                }
+                // The control plane configured now, over the pinned transport when paired (ADR 0017).
+                var api = ControlPlaneSettings.Api() ?? throw new ControlPlaneRequestException("no control plane is configured.");
                 workspace.HistoryNote = " · reading history…";
                 RefreshPanel();
                 var events = await api.ReadAllAsync(workstreamId, journal);

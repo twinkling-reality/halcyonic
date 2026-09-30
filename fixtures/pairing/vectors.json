@@ -1,0 +1,27 @@
+{
+  "description": "Pairing (ADR 0017) computed by the control plane for fixed inputs. The C# client core must compute the same; both check it in their tests.",
+  "inputs": {
+    "code": "48210937",
+    "label": "Quest 3",
+    "salt": "Dx4tPEtaaXiHlqW0w9Lh8A==",
+    "a": "60975527035cf2ad1989806f0407210bc81edc04e2762a56afd529ddda2d4393",
+    "b": "e487cb59d31ac550471e81f00f6928e01dda08e974a004f49e61f5d105284d20",
+    "certificate_sha256": "0cb17f5471dd4536db206d2a17f44d83c4c5b4ba0efd0c55b43d951cf58b3fc8",
+    "device_id": "01a0f0a0-0000-7000-8000-000000000001",
+    "credential": "ABEiM0RVZneImaq7zN3u/wARIjNEVWZ3iJmqu8zd7v8="
+  },
+  "expected": {
+    "k": "81f4874fa543a371b49a670402fda59ecfab53a1b850fc42e1c357cc846111e",
+    "verifier": "imgXWpJiVv0CuqrphvWQyn8ddmS24JYHnPf53pZti2yNnmdcGf/YQ2UybmUw8CGD9kEAxEm4ULfDYT3BcPZASoLhSDmaSFzZ5MmCkf7SLIv4QcRPQqsjn8C8qVBQ1zUo+2jaBpGJfbEELQtQtdFCGTuFr7tS0AbMUC/oNV9+tM5nrNN49jwRv9CQCRJLG9Yl8Fnn/Hnh+X9FayTGP/b/2lMMF9aefyCKWTrU8q1cY7YMuYDRnJkWqNQ2TdMJvX9dIMiu1ZiKywUihNNSvXylmGROSHfjRNu2QhaZOMhiUgcVr70Wh0sXkspg9bwHN1EVBbAK1r+l+lf8VhdbX2o80b11BPgx4Uu0kwOaXtzxUJnnFePbLePn5bjD0bwbMZdFWMojrLDKVYHdVnRaSsRnc3oJOjTMrhH0v4nQ1xR81zDu3jF2b30zULxk7MsQDI4HSGpICpKVf1vXwUHKbesVXH5w6L44p7xCUVjE9t43pP+4HpLY0TQTpl6t9RDdAfN2",
+    "client_public": "+rb10mFdHjI1EueZHMN0Q/SH2mBMqMkjD8sE5UHc5igLJ8pGgLA3Txedw73HVT/mJFl5jHAa2GSpE5CijJO2RK2/nAB0W5QrefkBKiG5t4eCMZ2Dofg2KGb71vRr/A3bLhq25LRamQa4LjfwXW+X9qPrbhggeXWcT2hHg3tiMhrBtPpoZB/LS7mN1pegxzZBOF9LqyW3k1hMw5/I1I1L2Gepo8EPjqEhcCaONP47vm/4mZjWDaLz5Cg8vsE5PVKvckpXIwxgTp+85YPXYT5r/9Z1lq0SGocH7sRpRJVwM2hqFV9kTVxYY7SPYb2/GaU+q22tChhrjBUuX12MrUsO+KpOpQCINMPNNC5eDxZ60EWSzYvSeWOTmO+eEU36qrkZ4U6FCYkiTd2YV215OF0iEJAun5sfLYbPpH7iRGNUZfcQWEIaAYS+Ud0QzJ0Hnm8WBOeqm3z3iDx9TOErBuvhYIHiPyeiMdGEMtfRu1XCiuIf/PAF9XUo0VqIiBuzu7f+",
+    "server_public": "Ou4aB/UdPljTV2IKSWkDJQ72+q1zKiVNMYO/6zJe5p1EtHq4gGd6asI5HlsaRi2ZheNcznHNe9FIWC299a0DQkNdoJpuuRnKgp+A6cWm3/dQtv2p7ufZvfGL51J3dTVsz1E87sQjGOb7Rj0fNLhsMuqM3scZd8ozYncfd0Pi9RBlJQUnFMvkiPLxMD5orX4KPT0z4T+K99ZGt1ghj9VdK1/is7QlznEkO+pNGggJstgNC9ij0W9glx4iHkXgs8cPy23yMRn1GXUbt5FLycQlq5RRsqZOAfEy8ebaIozJiBsXqvwdOMPEuXbeRDP8Vir/50v1t+++iE3frmIIM99H78ob6oimC2i+KEU96x6B4AhlrYtKzOPlWM3G86wMMyP+/6fMw1ElgzK7DyvURpNI0gMNNVCPcCPK8L0SgofMZ3s3/xLhiErEVanAoxWibOiSBPVTN86yt7T1MG9Q1wpR+S+ZisGvMxI8dPphm8lKswokoIxviKX/AQTB0MKT9sg1",
+    "scrambler": "286c8636709e131ead055a20083f6c240bfd097979e1062eb4fb31900cb0fb59",
+    "session_key": "KtGRIK08CdOuYnsYvzKYsuOvlYtrN2pJgQgzglbQa+A=",
+    "transcript": "E0Dfyu+mCQvf025aC1V6J0sJThfAoFAc8n23teOJXoo=",
+    "client_proof": "R2J/UoLbVjWEti6L1jJ7j1glfkPmVgFJF0k1r9NIiLw=",
+    "sealed_credential": "T6qR0/IbR3Xdvp43/N5ntmDEIA3FgH6cPp5nUcCojIA=",
+    "server_proof": "ZGDdltbKOL8h3bH/xRlCYy/V7UvM4+8GkAc9Iw4rA2E=",
+    "credential": "hlcd_ABEiM0RVZneImaq7zN3u_wARIjNEVWZ3iJmqu8zd7v8",
+    "credential_sha256": "a334cf5c02daecb2f1b72c630aa240d8ca67e9fa20b993b005c0c7888f457a83"
+  }
+}

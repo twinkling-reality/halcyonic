@@ -11,6 +11,8 @@
     "dev": "node --watch apps/control-plane/src/main.ts",
     "start": "node apps/control-plane/src/main.ts",
     "demo": "node apps/control-plane/src/cli/demo.ts",
+    "pair": "node apps/control-plane/src/cli/devices.ts pair",
+    "devices": "node apps/control-plane/src/cli/devices.ts",
     "replay": "node apps/control-plane/src/cli/replay.ts",
     "fixtures:record": "node apps/control-plane/src/cli/record-fixtures.ts",
     "demonstration:record": "node apps/control-plane/src/cli/record-demonstration.ts",
