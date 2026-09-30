@@ -44,13 +44,14 @@ export const INHERITED_VARIABLES: readonly string[] = [
 
 /**
  * Variables the adapter owns and configuration may not set: the password it generates, the
- * auto-update switch (an update would unpin the binary), and Salidium's internal marker, which
+ * auto-update and model-catalog switches, and Salidium's internal marker, which
  * makes Salidium drop a session's hooks and must never reach a launched agent.
  */
 const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
   'OPENCODE_PASSWORD',
   'OPENCODE_SERVER_PASSWORD',
   'OPENCODE_DISABLE_AUTOUPDATE',
+  'OPENCODE_DISABLE_MODELS_FETCH',
   'SALIDIUM_INTERNAL',
 ]);
 
@@ -70,6 +71,7 @@ export function buildEnvironment(
   }
   Object.assign(environment, additions);
   environment.OPENCODE_DISABLE_AUTOUPDATE = 'true';
+  environment.OPENCODE_DISABLE_MODELS_FETCH = 'true';
   return environment;
 }
 

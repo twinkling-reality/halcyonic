@@ -188,6 +188,7 @@ describe('OpenCode server environment', () => {
       XDG_CONFIG_HOME: '/home/user/.config',
       OPENAI_API_KEY: 'configured',
       OPENCODE_DISABLE_AUTOUPDATE: 'true',
+      OPENCODE_DISABLE_MODELS_FETCH: 'true',
     });
     assert.ok(INHERITED_VARIABLES.includes('XDG_DATA_HOME'));
     assert.ok(!INHERITED_VARIABLES.includes('SALIDIUM_INTERNAL'));
@@ -199,6 +200,7 @@ describe('OpenCode server environment', () => {
       'OPENCODE_PASSWORD',
       'OPENCODE_SERVER_PASSWORD',
       'OPENCODE_DISABLE_AUTOUPDATE',
+      'OPENCODE_DISABLE_MODELS_FETCH',
     ]) {
       assert.throws(() => buildEnvironment({}, { [name]: 'x' }), new RegExp(name));
       assert.throws(
