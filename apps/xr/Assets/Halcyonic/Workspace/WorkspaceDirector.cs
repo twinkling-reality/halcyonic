@@ -272,6 +272,7 @@ namespace Halcyonic.XR.Workspace
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
+            WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader);
             panel.Accepting = () => opened == workspace && transition.Open;
             panel.ActionPressed += action => Steer(workspace, s => s.Press(action, workspace.Now!));
             panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
@@ -480,6 +481,15 @@ namespace Halcyonic.XR.Workspace
             if (workspace.Keyboard == null) return;
             workspace.Keyboard.active = false;
             workspace.Keyboard = null;
+        }
+
+        /// <summary>Where the workspace's sections read: the recorded demonstration while it is shown, else the control plane.</summary>
+        private IIntelligenceReader? IntelligenceReader()
+        {
+            if (connection.DemonstrationReads is DemonstrationReads recorded) return recorded;
+            if (api != null) return api;
+            var token = ControlPlaneSettings.ReadAccessToken();
+            return token == null ? null : api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(ControlPlaneSettings.Endpoint), token);
         }
 
         /// <summary>Reads the workstream's history, which a snapshot does not carry, into the activity.</summary>

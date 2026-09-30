@@ -54,7 +54,14 @@ namespace Halcyonic.Client
             Session = new RealtimeSession(
                 new RealtimeSessionOptions(DemonstrationTransport.Endpoint, string.Empty, client),
                 () => new DemonstrationTransport(this));
+            Reads = new DemonstrationReads(this);
         }
+
+        /// <summary>
+        /// The recording's answers about each execution's understanding and evaluation, where the
+        /// playback stands, for what a client would read over REST.
+        /// </summary>
+        public DemonstrationReads Reads { get; }
 
         /// <summary>The recording once it has been read; null until then, or if it cannot be.</summary>
         public DemonstrationRecording? Recording => Loading.Status == TaskStatus.RanToCompletion ? Loading.Result : null;
@@ -98,6 +105,16 @@ namespace Halcyonic.Client
 
         /// <summary>Where the transport playing now stands.</summary>
         internal void Report(int node, int played, bool ended) => Volatile.Write(ref place, new Place(node, played, ended));
+
+        /// <summary>The node playing now, and how many of its events have played.</summary>
+        internal (int Node, int Played) Where
+        {
+            get
+            {
+                var now = Volatile.Read(ref place);
+                return (now.Node, now.Played);
+            }
+        }
 
         /// <summary>The transport playing now started the recording from its beginning.</summary>
         internal void Began() => Interlocked.Increment(ref plays);

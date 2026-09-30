@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import type {
   ClientInfo,
   CommandEnvelope,
@@ -12,7 +13,12 @@ import type {
   ServerMessage,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import { REALTIME_PROTOCOL_VERSION } from '@halcyonic/contracts';
+import {
+  compileValidator,
+  EvaluationResponse,
+  REALTIME_PROTOCOL_VERSION,
+  UnderstandingResponse,
+} from '@halcyonic/contracts';
 import { admitCommand, COMMAND_POLICY } from '@halcyonic/domain';
 import { MockRuntimeAdapter, type Scenario } from '@halcyonic/integration-mock';
 import {
@@ -24,9 +30,16 @@ import {
 } from '@halcyonic/runtime-core';
 import { ControlPlane } from '../core/control-plane.ts';
 import { createCommandFactory, type DemoWorkstream } from '../demo-plan.ts';
+import { registerRoutes } from '../http/routes.ts';
+import { createHttpServer } from '../http/server.ts';
 import { createSeededRandom, createUuidV7Generator } from '../ids.ts';
 import { openSqliteJournal } from '../journal/sqlite-journal.ts';
 import { silentLogger } from '../logger.ts';
+import {
+  DEMONSTRATION_STORIES,
+  DemonstrationSources,
+  type SourceStory,
+} from './demonstration-sources.ts';
 
 type WelcomeMessage = Extract<ServerMessage, { type: 'welcome' }>;
 type SnapshotMessage = Extract<ServerMessage, { type: 'snapshot' }>;
@@ -83,12 +96,28 @@ export interface DemonstrationNode {
 }
 
 /**
+ * One REST answer of the recording's control plane about an execution: the answer it gave once
+ * `after` of node `node`'s events had played, at `read_at` by the recording's clock. It holds from
+ * there along every path through that point until the next answer recorded for the execution.
+ */
+export interface RecordedAnswer<T> {
+  readonly node: number;
+  readonly after: number;
+  readonly read_at: string;
+  readonly response: T;
+}
+
+/** Recorded answers by execution id, each execution's in the order a path reaches them. */
+export type RecordedAnswers<T> = Readonly<Record<string, readonly RecordedAnswer<T>[]>>;
+
+/**
  * What the XR client plays when no control plane is configured or reachable: the realtime messages
  * the control plane sent while its scripted operator gave every answer the recording offers, as a
  * tree that shares its beginning. Its journal is a `fixture`, so every surface labels it as
- * recorded, and its runtimes are synthetic, so the work reads as simulated. Room is left for more
- * top-level keys, such as recorded REST answers by execution id, which a reader ignores until it
- * knows them.
+ * recorded, and its runtimes are synthetic, so the work reads as simulated. Beside them it holds the
+ * control plane's REST answers about each execution's understanding and evaluation, read through
+ * its own routes from stand-ins for the sources and marked synthetic (ADR 0019). A reader ignores
+ * top-level keys it does not know, so a reader of this version without those answers still plays it.
  */
 export interface Demonstration {
   readonly version: 2;
@@ -99,6 +128,10 @@ export interface Demonstration {
   readonly snapshot: SnapshotMessage;
   /** The recorded stretches; the first is the beginning, and every other one is some answer's. */
   readonly nodes: readonly DemonstrationNode[];
+  /** `GET /api/executions/:execution_id/understanding` as the playback reaches each answer. */
+  readonly understanding: RecordedAnswers<UnderstandingResponse>;
+  /** `GET /api/executions/:execution_id/evaluation` as the playback reaches each answer. */
+  readonly evaluation: RecordedAnswers<EvaluationResponse>;
 }
 
 const ROOT = new URL('../../../../', import.meta.url);
@@ -275,13 +308,194 @@ export async function recordDemonstration(
   };
 
   await build(beginning, [], 0);
+  const prologue = (await demonstrationPrologue(scenarios, plan)).map(({ event }) => event);
+  const answers = await recordAnswers(prologue, nodes, storiesOf(prologue, plan));
   return serializeDemonstration({
     version: 2,
     source: DEMONSTRATION_SOURCE,
     welcome: beginning.welcome,
     snapshot: beginning.snapshot,
     nodes,
+    understanding: answers.understanding,
+    evaluation: answers.evaluation,
   });
+}
+
+const validateUnderstanding = compileValidator(UnderstandingResponse);
+const validateEvaluation = compileValidator(EvaluationResponse);
+
+/** What the stand-ins know of each workstream's scenario, by the workstream's id. */
+function storiesOf(
+  prologue: readonly EventEnvelope[],
+  plan: DemonstrationPlan,
+): ReadonlyMap<string, SourceStory> {
+  const stories = new Map<string, SourceStory>();
+  for (const event of prologue) {
+    if (event.event_type !== 'workstream.created') continue;
+    const planned = plan.workstreams.find(({ title }) => title === event.payload.title);
+    const story = planned === undefined ? undefined : DEMONSTRATION_STORIES[planned.scenario];
+    if (story === undefined) {
+      throw new Error(`the stand-in sources know no story for ${event.payload.title}`);
+    }
+    stories.set(event.workstream_id, story);
+  }
+  return stories;
+}
+
+/**
+ * Records the control plane's REST answers about every execution along every path of the tree:
+ * for each node, a control plane without runtimes is given the journal up to the node's start
+ * through its normal write path, as `pnpm replay` gives one a trace, and serves its own routes over
+ * loopback HTTP, reading through to the stand-in sources. After each instant, every execution the
+ * instant changed is asked about, once the stand-ins have observed its events so far. An answer is
+ * kept only where it differs from the one that held before on that path, so the recording holds
+ * exactly what the control plane would answer at every point of the playback.
+ */
+async function recordAnswers(
+  prologue: readonly EventEnvelope[],
+  nodes: readonly DemonstrationNode[],
+  stories: ReadonlyMap<string, SourceStory>,
+): Promise<{
+  understanding: Record<string, RecordedAnswer<UnderstandingResponse>[]>;
+  evaluation: Record<string, RecordedAnswer<EvaluationResponse>[]>;
+}> {
+  const understanding: Record<string, RecordedAnswer<UnderstandingResponse>[]> = {};
+  const evaluation: Record<string, RecordedAnswer<EvaluationResponse>[]> = {};
+  const sources = await DemonstrationSources.start();
+  // The recording's own server and credential; neither reaches the recording.
+  const token = randomBytes(32).toString('base64url');
+  const visit = async (
+    index: number,
+    before: readonly EventEnvelope[],
+    held: ReadonlyMap<string, string>,
+  ): Promise<void> => {
+    const node = nodes[index];
+    if (node === undefined) throw new Error(`no node ${index}`);
+    const replay = replayOf([...prologue, ...before]);
+    const app = await createHttpServer({ logLevel: 'silent', token });
+    registerRoutes(app, replay, sources.sources);
+    const heldAfter = new Map<number, ReadonlyMap<string, string>>();
+    try {
+      await app.listen({ host: '127.0.0.1', port: 0 });
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') throw new Error('no port');
+      const now = new Map(held);
+      let played = 0;
+      while (played < node.events.length) {
+        const at = node.events[played]?.at_ms;
+        const changed: string[] = [];
+        let readAt = '';
+        for (;;) {
+          const next = node.events[played];
+          if (next === undefined || next.at_ms !== at) break;
+          replay.recorder.import(next.message.event);
+          for (const { execution_id } of next.message.changes.executions) {
+            if (!changed.includes(execution_id)) changed.push(execution_id);
+          }
+          readAt = next.message.event.ingested_at;
+          played += 1;
+        }
+        for (const executionId of changed) {
+          const execution = replay.projection.execution(executionId);
+          const story = execution && stories.get(execution.workstream_id);
+          if (execution === undefined || story === undefined) {
+            throw new Error(`no story for execution ${executionId}`);
+          }
+          const events = [...replay.journal.readAll()]
+            .map(({ event }) => event)
+            .filter((event) => event.execution_id === executionId);
+          sources.observe(execution, story, events);
+          const ask = (kind: 'understanding' | 'evaluation') =>
+            fetch(`http://127.0.0.1:${address.port}/api/executions/${executionId}/${kind}`, {
+              headers: { authorization: `Bearer ${token}` },
+            });
+          const read = await answerOf(await ask('understanding'), validateUnderstanding);
+          keep(understanding, now, 'understanding', executionId, read, index, played, readAt);
+          const measured = await answerOf(await ask('evaluation'), validateEvaluation);
+          keep(evaluation, now, 'evaluation', executionId, measured, index, played, readAt);
+        }
+        heldAfter.set(played, new Map(now));
+      }
+    } finally {
+      await app.close();
+      await replay.close();
+    }
+    for (const { after, node: child } of node.answers) {
+      const played = node.events.slice(0, after).map(({ message }) => message.event);
+      await visit(child, [...before, ...played], heldAfter.get(after) ?? held);
+    }
+  };
+  try {
+    await visit(0, [], new Map());
+  } finally {
+    await sources.close();
+  }
+  return { understanding, evaluation };
+}
+
+/** A control plane without runtimes that holds this journal, written through its recorder. */
+function replayOf(events: readonly EventEnvelope[]): ControlPlane {
+  const time = createVirtualTime(START);
+  const ids = createUuidV7Generator({
+    now: () => time.now().getTime(),
+    random: createSeededRandom(SEED),
+  });
+  const controlPlane = new ControlPlane({
+    journal: openSqliteJournal({ path: ':memory:', originIfNew: 'fixture', ids }),
+    adapters: [],
+    ids,
+    clock: time,
+    scheduler: time,
+    logger: silentLogger,
+    commandTimeoutMs: 30_000,
+  });
+  for (const event of events) controlPlane.recorder.import(event);
+  return controlPlane;
+}
+
+/**
+ * The route's answer, which must be one the demonstration may show: the stand-in's, marked
+ * synthetic, or the control plane's own word that the runtime has not named its session yet. A
+ * stand-in's refusal would name a product without saying it is simulated, so none is recorded.
+ */
+async function answerOf<T extends UnderstandingResponse | EvaluationResponse>(
+  response: Response,
+  validate: (value: unknown) => { ok: boolean },
+): Promise<T> {
+  const body: unknown = await response.json();
+  if (response.status !== 200 || !validate(body).ok) {
+    throw new Error(`the control plane answered ${response.status}: ${JSON.stringify(body)}`);
+  }
+  const { result } = body as T;
+  if (result.availability === 'available') {
+    const source =
+      'understanding' in result ? result.understanding.source : result.evaluation.source;
+    if (!source.synthetic) throw new Error('a stand-in answered without being marked synthetic');
+  } else if (result.availability !== 'not_found' || result.reason.code !== 'native_id_unknown') {
+    throw new Error(
+      `a stand-in answered ${result.availability} (${result.reason.code}): ${result.reason.message}`,
+    );
+  }
+  return body as T;
+}
+
+/** Keeps an answer where it differs from the one that held for its execution before it. */
+function keep<T>(
+  answers: Record<string, RecordedAnswer<T>[]>,
+  held: Map<string, string>,
+  kind: string,
+  executionId: string,
+  response: T,
+  node: number,
+  after: number,
+  readAt: string,
+): void {
+  const key = `${kind} ${executionId}`;
+  const text = JSON.stringify(response);
+  if (held.get(key) === text) return;
+  held.set(key, text);
+  answers[executionId] ??= [];
+  answers[executionId].push({ node, after, read_at: readAt, response });
 }
 
 const PLACEHOLDER: DemonstrationNode = {
@@ -741,6 +955,22 @@ function serializeDemonstration(demonstration: Demonstration): string {
       index < demonstration.nodes.length - 1 ? '    },' : '    }',
     ].join('\n'),
   );
+  const byExecution = (name: string, answers: RecordedAnswers<unknown>, last: boolean) => {
+    const entries = Object.entries(answers);
+    const end = last ? '' : ',';
+    if (entries.length === 0) return [`  "${name}": {}${end}`];
+    return [
+      `  "${name}": {`,
+      ...entries.map(([executionId, items], index) =>
+        [
+          `    ${json(executionId)}: [`,
+          items.map((item) => `      ${json(item)}`).join(',\n'),
+          index < entries.length - 1 ? '    ],' : '    ]',
+        ].join('\n'),
+      ),
+      `  }${end}`,
+    ];
+  };
   return [
     '{',
     `  "version": ${json(demonstration.version)},`,
@@ -749,7 +979,9 @@ function serializeDemonstration(demonstration: Demonstration): string {
     `  "snapshot": ${json(demonstration.snapshot)},`,
     '  "nodes": [',
     ...nodes,
-    '  ]',
+    '  ],',
+    ...byExecution('understanding', demonstration.understanding, false),
+    ...byExecution('evaluation', demonstration.evaluation, true),
     '}',
     '',
   ].join('\n');

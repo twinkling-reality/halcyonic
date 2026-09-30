@@ -157,7 +157,7 @@ describe('the evaluation contract', () => {
     },
   };
   const evaluation = {
-    source: { system: 'seorak', api_version: 'v1' },
+    source: { system: 'seorak', synthetic: false, api_version: 'v1' },
     cost: { ...read, estimated_usd: null, note: ESTIMATED_COST_NOTE },
     outcome: { ...read, measure: null },
     verification: {
@@ -169,6 +169,12 @@ describe('the evaluation contract', () => {
     },
   };
   const available = (value: object) => validate({ availability: 'available', evaluation: value });
+
+  test('says whether a stand-in rather than the source measured it', () => {
+    const { synthetic: _synthetic, ...unsaid } = evaluation.source;
+    assert.equal(available({ ...evaluation, source: unsaid }).ok, false);
+    assert.ok(available({ ...evaluation, source: { ...evaluation.source, synthetic: true } }).ok);
+  });
 
   test('keeps what the source does not know as null, and carries no score', () => {
     assert.ok(available(evaluation).ok);
