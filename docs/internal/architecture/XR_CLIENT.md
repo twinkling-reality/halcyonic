@@ -8,9 +8,9 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
         │                             workspace: gaze and hand peek, panel,           the workspace, the
-        │                             transition, first-time hint; Meta's rig;        room and the sound
-        │                             room: passthrough, MRUK, stage anchor;          are not verified on
-        │                             sound: the characters' voices                   a headset
+        │                             sections, transition, first-time hint;          room and the sound
+        │                             Meta's rig; room: passthrough, MRUK, stage      are not verified on
+        │                             anchor; sound: the characters' voices           a headset
         ▼
 Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,             built, .NET tested
         │                             CharacterPresenter, CharacterCues,
@@ -20,8 +20,11 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, CommandFactory,
+        │                             IntelligenceFeed, UnderstandingPresenter,
+        │                             EvaluationPresenter, IntelligenceText,
         │                             DemonstrationRecording, DemonstrationPlayer,
-        │                             DemonstrationTransport, DemonstrationFallback,
+        │                             DemonstrationTransport, DemonstrationReads,
+        │                             DemonstrationFallback,
         │                             StageSurfaces, PlacementMemory, RoomStatus,
         │                             GlazeSynthesizer, SoundCueSelector
         ▼
@@ -155,7 +158,39 @@ the same definition names, as the JSON Schema document:
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
   (`GetUnderstandingAsync`, `GetEvaluationAsync`). Each answer states its availability instead of
   failing. An evaluation spends three of Seorak's 60 requests a minute, so a client fetches it when
-  a workstream is opened, never on a timer.
+  a workstream is opened, never on a timer. As an **`IIntelligenceReader`** it returns each answer
+  with when it arrived; `DemonstrationReads` answers the same interface from the recorded
+  demonstration.
+- **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
+  never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
+  when it is shown for an execution it holds no answer about, and when the person refreshes; the
+  Understanding section also reads again once the execution changed and two seconds have passed,
+  while the Evaluation section never reads by itself again. The last answer stays while a new one is
+  read, and a failed read says why, "did not answer in time" for a timeout.
+  **`UnderstandingPresenter`** and **`EvaluationPresenter`** write every word a section shows, as a
+  provenance line and lines with a tag. The provenance line is the only place that names Salidium
+  or Seorak ("From Salidium 0.6.0, 2 minutes ago", "From Seorak, read just now"); an answer from a
+  synthetic source says "Simulated, not from Salidium" or "Simulated, not from Seorak" instead
+  ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)),
+  and a recorded answer says when it was recorded, with its relative times and staleness judged as
+  of then. Where there is no answer, the provenance line says why in words: "No understanding yet",
+  "Understanding unavailable", "unreadable" or "not allowed", with the control plane's reason, or
+  that it is being read, or could not be. Understanding shows each claim with the source's own
+  epistemic class as its tag (observed, reported, inferred, planned, explained), never upgraded:
+  the verdict, what the session waits for, the agent's latest statement quoted as "Agent says: “…”",
+  the changes, which files no passing check covers (inferred), the latest check of each kind, what
+  needs attention, a model's explanation (explained, never evidence, and marked when it predates
+  the latest evidence) and what remains. When they do not all fit, the most important stay, and
+  what the source says twice (a reason that is a check's label, a failing check listed as remaining)
+  is shown once. Evaluation shows the cost as "About $0.39." with the source's note "Estimated
+  from token counts at list prices. Not a bill.", the outcome and the checks, each followed by its
+  own availability, coverage and freshness, never combined, and read as stale once its `stale_at`
+  has passed. A value the source does not have reads as unknown, pending or "known once it ends",
+  never as zero; a measured zero reads as one ("no tool errors"). **`IntelligenceText`** makes
+  every text from a source plain (control and format characters, such as bidirectional overrides,
+  removed, whitespace collapsed, markup characters kept as written) and escapes it for TextMeshPro,
+  which turns backslash sequences into other characters even with rich text off
+  ([workspace-interaction.md](../validation/workspace-interaction.md)).
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
   ([quest-3-device.md](../validation/quest-3-device.md)); `wss://` is not verified there yet, and
@@ -178,7 +213,14 @@ the same definition names, as the JSON Schema document:
   runtime's capabilities; the work beside it runs first, on "Simulated agent (demonstration, watch
   only)", which declares nothing to direct. `WorkspacePresenter` therefore offers, as it does live
   and with no special case, exactly the actions the recording holds an answer for; a test checks
-  every point of every path.
+  every point of every path. Beside the tree, the recording holds the control plane's REST answers
+  about each execution's understanding and evaluation, keyed by execution id, each from the point of
+  the playback where it took effect: the recorder read them through the control plane's own routes
+  from stand-ins for Salidium and Seorak that speak their real contracts with invented content,
+  and every one is marked synthetic
+  ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)).
+  A recording with an answer that is not a stand-in's, or that is about another execution, holds
+  from where no instant ends, or is out of order, is refused; one without answers still plays.
   `DemonstrationPlayer` plays it as a `RealtimeSession`, through a `DemonstrationTransport` per
   connection that opens no socket and never uses the token. Hello is answered with the welcome and
   the beginning's snapshot, and the events follow at their recorded pace, one instant at a time. A
@@ -197,8 +239,10 @@ the same definition names, as the JSON Schema document:
   change. A new connection, as after the headset sleeps, also starts from the beginning. The
   player shares where the playback stands: `InstructionsFor` the recorded instructions offered for
   an execution, as `PresetInstruction`s; `Ended` while it holds one of its ends; `Plays`, how often
-  it started from the beginning. It can take a recording still being read on another thread and
-  connects once it is read. `DemonstrationFallback` chooses what is shown: the demonstration when
+  it started from the beginning; and `Reads`, a `DemonstrationReads` that answers the workspace's
+  understanding and evaluation reads with the answer in force where the playback stands, marked
+  recorded, and says the demonstration recorded nothing there when there is none. It can take a
+  recording still being read on another thread and connects once it is read. `DemonstrationFallback` chooses what is shown: the demonstration when
   no control plane is configured; otherwise the control plane, except while it has not been live
   since the start and its connection has failed, when the demonstration plays and the control plane
   is tried again behind it. Once the control plane is live the demonstration stops for good, and a
@@ -264,6 +308,17 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   after a real pause, and never for natural head motion or a long frame;
 - the evaluation read against a canned server: a full evaluation whose unknowns stay null, an
   answer without one, and a refusal;
+- the two sections' words: a real source's answer with each claim tagged with the source's own
+  class, whatever class it is and never upgraded, and the provenance naming the product and how long
+  ago; the most important lines kept in reading order when they do not all fit; what the source
+  says twice shown once; unknowns left out or said, never blank; every availability, reading and
+  failed read in words; a simulated answer saying so and when it was recorded; each evaluation part
+  with its own availability, coverage and freshness, stale after its `stale_at`, and a recorded
+  answer judged as of its recording; the cost always an estimate with its note; only the provenance
+  naming a product; source text made plain, markup kept as written, and every backslash doubled for
+  TextMeshPro; the feed asking once when shown, again on refresh, again after a change only when it
+  follows and the interval has passed, dropping a read for another execution, and saying why a read
+  failed or timed out;
 - the room placement's choices: a desk in front taking the lineup on its near half with the whole
   arc on it; a desk winning over furniture that sits better; the floor, shelves at eye level,
   surfaces out of reach, behind the person or too small for the lineup refused; a monitor on the
@@ -284,7 +339,13 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   same journal; the fallback shows it without a control plane, offers its instructions where it
   stands, says when it has ended, falls back to it from an unreachable control plane while trying
   that one again, switches to the control plane once it is live and never back, and plays it from
-  the beginning after a pause;
+  the beginning after a pause; every recorded understanding and evaluation answer reads strictly,
+  is a stand-in's, marked synthetic, with the version `simulated` and an instance of zeros; the
+  answer in force follows the path through the tree (waiting at the approval, a failing test after
+  approving, verified after the recorded instruction, unverified after denying); a real source's
+  answer, a refusal naming a source, another execution's answer, an answer inside an instant or out
+  of order is refused, and a recording without answers still plays; and `DemonstrationReads`
+  answers where the playback stands as a judge answers, marked recorded and simulated in words;
 - the sound: every render's length, peak and energy equal the soundbook page's own, computed by the
   page's code; renders repeat sample for sample; no sample is NaN or above the page's ceiling;
   each cue lasts as the soundbook says, starts and ends in silence, meets its loudness target and
@@ -299,7 +360,9 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the session against a real control plane process with the mock runtime: an approval round trip
   to a finished turn with the workspace offering exactly the admissible actions, history over REST
   matching what arrived live, understanding and evaluation answering that their providers do not
-  observe the mock runtime, resuming after a dropped connection without a snapshot, an approval
+  observe the mock runtime, read through `IIntelligenceReader` and said in the sections' words
+  ("Understanding unavailable: Salidium does not observe sessions of the mock runtime."), resuming
+  after a dropped connection without a snapshot, an approval
   and then an instruction steered from the workspace to results the runtime confirmed, and an
   execution in flight shown as stale during a control plane crash and as `unknown` after the
   restart;
@@ -402,8 +465,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   a target, a pinch of either hand at any height (look and pinch) opens `WorkspacePanel` next to
   that character, within reach and clear of the other characters, facing the eyes. It shows the title and status, the execution and its runtime,
   the objective, what needs the person, the actions offered (with a confirmation step on a separate
-  button where the policy asks for one), how requests are going, and the recent activity with
-  agent text in italics as a claim. Collapse, or pointing at the character and pinching again, returns to
+  button where the policy asks for one), and, under tabs, the details: Activity (how requests are
+  going, and the recent activity with agent text in italics as a claim), Understanding and
+  Evaluation. Collapse, or pointing at the character and pinching again, returns to
   ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
@@ -427,6 +491,22 @@ workstream into the new state, or collapses when the workstream is not there. On
 or a rewind it drops its activity and submissions, which no longer apply. Nothing is peeked, hinted or pressed while
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
 after the keyboard closes.
+
+**Understanding and Evaluation.** `WorkspaceSections`, added to each workspace panel by the
+director, puts three tabs under the actions, Activity, Understanding and Evaluation, with Refresh at
+the right while a section shows. They are the workspace's `PanelButton`s, 56 mm tall at the design
+distance (26 mm at the workspace's reach), pointed at and pinched or poked like every other button;
+a bar under the chosen tab marks it besides its color. Look and pinch opens a character, never a
+tab. A section reads through the director's `IIntelligenceReader`: the demonstration's
+`DemonstrationReads` while it is shown, else `ControlPlaneApi` for the configured control plane
+(`HttpClient`, the same instance that reads history). `SectionView` draws the provenance line,
+wrapping to up to four rows, then each line with its tag in a column beside it, a part's
+availability, coverage and freshness smaller and in at most two rows; seven lines fit under the
+provenance. Every label has rich text off and shows text through `IntelligenceText.ForTextMeshPro`
+with escape parsing on, so it shows exactly what the source wrote. A claim reads apart by its tag and
+color, not italics: an italic line cut short lost its ellipsis in the editor, and a quote cut short
+must say so. Pressing an action, a confirmation or a preset returns the details to Activity, where
+the request's result shows. Viewing a section sounds nothing.
 
 **Gaze, and look and pinch.** `GazeHover` adds an Interaction SDK gaze interactor
 (`GazeInteractor`, v207) that hovers the `GazeInteractable` on each character. It follows the
@@ -476,7 +556,10 @@ Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek and th
 Quest 3's roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays
 the same: body text has an x-height near 0.55 degrees (about 14 pixels), the smallest captions about
 10 pixels, buttons are about 3 degrees tall. Text is TextMeshPro with Liberation Sans SDF, never
-parsing markup, since it shows text from agents and tools. Plates and lines use `Sprites/Default`,
+parsing markup, since it shows text from agents and tools. Characters the committed static atlas
+lacks, such as the minus sign U+2212 in Salidium's change summaries, come from the dynamic fallback
+font asset at runtime; the editor renders draw them from the static atlas instead, so they never
+write glyphs into the committed fallback. Plates and lines use `Sprites/Default`,
 an always-included shader; the TextMeshPro shader reaches the build through the font asset in
 `Resources`. The workspace's plate is opaque and draws after everything at the characters'
 distance, so nothing behind it shows through: at 95 percent, in the project's linear color space,
@@ -703,7 +786,14 @@ place in the ray's active state group, with the SDK's pointer pose disabled.
 renders the workspace open over the stage with the characters 2.4 m away and on a desk, saves the
 renders in `apps/xr/Builds/WorkspaceRenders`, and fails if a pixel of the workspace changes with the
 stage drawn behind it, a character's body is behind it, or its center leaves the band. With the
-plate at its former 95 percent, it failed in both places.
+plate at its former 95 percent, it failed in both places. It then shows the Understanding and
+Evaluation sections with the bundled demonstration's answers for the directed work, at its approval
+and after approving, and renders each over the stage and as a close-up at a Quest 3's 25 pixels per
+degree; it fails if a pixel of a section changes with the stage behind it, a line of a section does
+not fit, or a part's own statement is cut short. On real labels it checks that source text shows as
+written: 45 characters of backslash sequences, markup and control characters show as 45 once
+escaped, where TextMeshPro showed 22 of them unescaped; and that a quote cut short ends in an
+ellipsis, which the same quote in italics did not.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
@@ -714,7 +804,8 @@ The project compiles in Unity and runs on a Meta Quest 3 against a live control 
 ([quest-3-device.md](../validation/quest-3-device.md)), where opening a workspace by pointing and
 pinching, approving and the runtime-confirmed result are verified; the calm peek, look and pinch,
 the seated rays, the workspace clear of the stage, the stage's placement with system windows open,
-the room placement and the sound compile and build but are not verified on a headset yet. The Meta XR Simulator fails every frame
+the room placement, the sound and the Understanding and Evaluation sections compile and build but
+are not verified on a headset yet. The Meta XR Simulator fails every frame
 on the development Mac ([meta-xr-platform.md](../validation/meta-xr-platform.md)). `QuestBuild`,
 in an editor-only assembly, builds a development APK, and a release APK that leaves Meta's
 development tools out, except the Immersive Debugger's runtime, disabled, which MRUK needs
@@ -723,9 +814,11 @@ files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELO
 
 ## Not built yet
 
-Code, diffs, tests and output in the workspace; what Salidium and Seorak say about an execution,
-which `ControlPlaneApi` reads but the workspace does not show, and recorded answers for them in the
-demonstration, whose format leaves room for them; token provisioning on a headset; `wss://`; the
+Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
+changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
+reading a real execution's understanding and evaluation end to end, which waits for a real Claude
+Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
+token provisioning on a headset; `wss://`; the
 soundbook's softer repeat of "Needs you" once nobody has looked at the character for two minutes,
 and a volume and mute for sound in the headset. On a Quest,
 the loopback-only control plane is reachable over USB with `adb reverse tcp:47800 tcp:47800`; there

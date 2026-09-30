@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using TMPro;
@@ -16,16 +17,21 @@ namespace Halcyonic.XR.Workspace.Editor
     /// Renders the workspace open over the stage, in the editor, where the characters stand 2.4 m away
     /// and where they stand on a desk half a meter away, and checks two things the headset showed
     /// wrong: that nothing behind the workspace shows through it, and that it opens clear of every
-    /// character's body, in the comfortable band. The Meta XR Simulator renders nothing on the
-    /// development Mac, so this is the check short of a headset. It saves each render as a PNG in
-    /// apps/xr/Builds/WorkspaceRenders, which git ignores. In the editor: Halcyonic > Render the
-    /// Workspace Over the Stage. In batch mode, with the editor closed, see
-    /// docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1 when a check fails.
+    /// character's body, in the comfortable band. It then renders its Understanding and Evaluation
+    /// sections with the demonstration's answers, checks that they are as opaque, that every line fits
+    /// on one line, and that source text shows exactly as written on a real TextMeshPro label. The
+    /// Meta XR Simulator renders nothing on the development Mac, so this is the check short of a
+    /// headset. It saves each render as a PNG in apps/xr/Builds/WorkspaceRenders, which git ignores.
+    /// In the editor: Halcyonic > Render the Workspace Over the Stage. In batch mode, with the editor
+    /// closed, see docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1 when a check fails.
     /// </summary>
     public static class WorkspaceRender
     {
         private const int Size = 1024;
         private const float EyeHeight = 1.2f;
+
+        /// <summary>A Quest 3's resolution near the middle of its lenses.</summary>
+        private const float QuestPixelsPerDegree = 25f;
 
         /// <summary>Two channels' worth of rounding, out of 255, before a pixel counts as changed.</summary>
         private const float Tolerance = 2f / 255f;
@@ -110,6 +116,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 panel.transform.SetPositionAndRotation(pose.position, pose.rotation);
                 panel.transform.localScale = Vector3.one * WorkspaceLayout.Scale;
                 panel.Show(Content());
+                // The tabs, with the activity chosen, as a workspace opens.
+                var sections = WorkspaceSections.Attach(panel, () => null, () => null);
                 foreach (var text in root.GetComponentsInChildren<TextMeshPro>(true)) text.ForceMeshUpdate();
 
                 var both = Render(camera, texture);
@@ -124,6 +132,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 File.WriteAllBytes(Path.Combine(folder, name + ".png"), both.EncodeToPNG());
                 File.WriteAllBytes(Path.Combine(folder, name + "-workspace.png"), panelAlone.EncodeToPNG());
                 File.WriteAllBytes(Path.Combine(folder, name + "-stage.png"), stageAlone.EncodeToPNG());
+                var activityCloseUp = CloseUp(camera, texture, panel.transform);
+                File.WriteAllBytes(Path.Combine(folder, name + "-closeup.png"), activityCloseUp.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(activityCloseUp);
 
                 var rect = ScreenRect(camera, panel.transform);
                 var (changed, largest) = Compare(both, panelAlone, rect);
@@ -147,6 +158,34 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(both);
                 UnityEngine.Object.DestroyImmediate(panelAlone);
                 UnityEngine.Object.DestroyImmediate(stageAlone);
+
+                // The Understanding and Evaluation sections under the tabs, as the demonstration shows them.
+                var swapped = new SortedSet<char>();
+                foreach (var (suffix, shown) in DemonstrationSections())
+                {
+                    var section = InStaticAtlas(shown, sections.View.Labels.First().font, swapped);
+                    sections.ShowFixed(section);
+                    foreach (var text in root.GetComponentsInChildren<TextMeshPro>(true)) text.ForceMeshUpdate();
+                    var withStage = Render(camera, texture);
+                    foreach (var (view, _) in characters) view.gameObject.SetActive(false);
+                    var sectionAlone = Render(camera, texture);
+                    foreach (var (view, _) in characters) view.gameObject.SetActive(true);
+                    File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + ".png"), withStage.EncodeToPNG());
+                    var closeUp = CloseUp(camera, texture, panel.transform);
+                    File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + "-closeup.png"), closeUp.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(closeUp);
+                    var (sectionChanged, _) = Compare(withStage, sectionAlone, rect);
+                    if (sectionChanged > 0) failures.Add(name + ": " + sectionChanged + " pixels of the " + suffix + " section change when the stage behind it is drawn.");
+                    failures.AddRange(Fits(sections.View, name + " " + suffix, section));
+                    UnityEngine.Object.DestroyImmediate(withStage);
+                    UnityEngine.Object.DestroyImmediate(sectionAlone);
+                }
+                if (swapped.Count > 0)
+                {
+                    Debug.Log("Halcyonic: workspace render " + name + ": drawn in the renders from the static atlas instead, since a headset draws them from the dynamic fallback: "
+                        + string.Join(", ", swapped.Select(character => "U+" + ((int)character).ToString("X4", CultureInfo.InvariantCulture))) + ".");
+                }
+                failures.AddRange(ShowsTextAsWritten(sections.View, name));
             }
             finally
             {
@@ -234,6 +273,158 @@ namespace Halcyonic.XR.Workspace.Editor
             var nearestX = Mathf.Clamp(center.x, rect.xMin - Inset, rect.xMax + Inset);
             var nearestY = Mathf.Clamp(center.y, rect.yMin - Inset, rect.yMax + Inset);
             return center.z > 0f && Vector2.Distance(new Vector2(center.x, center.y), new Vector2(nearestX, nearestY)) < radius;
+        }
+
+        /// <summary>
+        /// The workspace as a Quest 3 shows it, to judge legibility: the eyes turned to its center, at
+        /// about the headset's 25 pixels per degree near the middle of its lenses.
+        /// </summary>
+        private static Texture2D CloseUp(Camera camera, RenderTexture texture, Transform panel)
+        {
+            var rotation = camera.transform.rotation;
+            var fieldOfView = camera.fieldOfView;
+            camera.transform.rotation = Quaternion.LookRotation(panel.position - camera.transform.position, Vector3.up);
+            camera.fieldOfView = Size / QuestPixelsPerDegree;
+            var image = Render(camera, texture);
+            camera.transform.rotation = rotation;
+            camera.fieldOfView = fieldOfView;
+            return image;
+        }
+
+        /// <summary>
+        /// The directed work's sections as the bundled demonstration shows them: at its approval, and
+        /// once the approved turn has ended with a failing test.
+        /// </summary>
+        private static IEnumerable<(string Suffix, SectionPresentation Section)> DemonstrationSections()
+        {
+            var asset = Resources.Load<TextAsset>("HalcyonicDemonstration");
+            if (asset == null) throw new InvalidOperationException("The demonstration is missing from Resources.");
+            var recording = DemonstrationRecording.Parse(asset.text);
+            var beginning = recording.Nodes[0];
+            var approve = beginning.BranchesAfter(beginning.Events.Count).First(branch => branch.Answer.Kind == DemonstrationAnswerKind.Approve);
+            var executionId = approve.Answer.ExecutionId;
+            var now = DateTimeOffset.UtcNow;
+            var points = new[]
+            {
+                ("", 0, beginning.Events.Count),
+                ("-after-approving", approve.Node, recording.Nodes[approve.Node].Events.Count),
+            };
+            foreach (var (suffix, node, played) in points)
+            {
+                var understanding = recording.UnderstandingAt(executionId, node, played)
+                    ?? throw new InvalidOperationException("The demonstration holds no understanding there.");
+                var evaluation = recording.EvaluationAt(executionId, node, played)
+                    ?? throw new InvalidOperationException("The demonstration holds no evaluation there.");
+                yield return ("understanding" + suffix, UnderstandingPresenter.Present(executionId,
+                    new IntelligenceRead<UnderstandingResponse>(understanding.Response, understanding.ReadAt, recorded: true),
+                    false, null, now, TimeZoneInfo.Local, WorkspaceSections.UnderstandingLines));
+                yield return ("evaluation" + suffix, EvaluationPresenter.Present(executionId,
+                    new IntelligenceRead<EvaluationResponse>(evaluation.Response, evaluation.ReadAt, recorded: true),
+                    false, null, now, TimeZoneInfo.Local));
+            }
+        }
+
+        /// <summary>
+        /// The section with each character the committed static atlas lacks, such as the minus sign in
+        /// "(+71 −0)", swapped for one it has, for the render only. A headset draws such a character from
+        /// the dynamic fallback font asset at runtime; in the editor that would write the glyph into the
+        /// committed fallback asset, which this check must never change.
+        /// </summary>
+        private static SectionPresentation InStaticAtlas(SectionPresentation section, TMP_FontAsset font, SortedSet<char> swapped)
+        {
+            string Swap(string text)
+            {
+                var characters = text.ToCharArray();
+                for (var index = 0; index < characters.Length; index++)
+                {
+                    var character = characters[index];
+                    if (char.IsWhiteSpace(character) || font.HasCharacter(character)) continue;
+                    swapped.Add(character);
+                    characters[index] = character == '−' ? '-' : '?';
+                }
+                return new string(characters);
+            }
+            return new SectionPresentation(section.Kind, Swap(section.Provenance), section.ProvenanceTone,
+                section.Lines.Select(line => new SectionLine(Swap(line.Tag), Swap(line.Text), line.Tone, line.Detail)).ToList(), section.Simulated);
+        }
+
+        /// <summary>
+        /// Every line of a section is shown inside the details area, a claim on one row and a part's
+        /// availability, coverage and freshness on at most two, never cut short.
+        /// </summary>
+        private static IEnumerable<string> Fits(SectionView view, string what, SectionPresentation section)
+        {
+            var failures = new List<string>();
+            var lines = view.Labels.Where(label => label.name.StartsWith("Line ", StringComparison.Ordinal) && label.gameObject.activeSelf).ToList();
+            if (lines.Count != section.Lines.Count) failures.Add(what + ": " + lines.Count + " of its " + section.Lines.Count + " lines fit.");
+            var cut = 0;
+            for (var index = 0; index < lines.Count; index++)
+            {
+                var label = lines[index];
+                var rows = Mathf.RoundToInt(label.rectTransform.sizeDelta.y / SectionView.Pitch);
+                if (label.textInfo.lineCount > rows) failures.Add(what + ": " + label.name + " needs more rows than it has.");
+                if (label.rectTransform.localPosition.y - label.rectTransform.sizeDelta.y < WorkspacePanel.DetailsBottom - 0.001f)
+                {
+                    failures.Add(what + ": " + label.name + " runs past the bottom of the workspace.");
+                }
+                if (!label.isTextTruncated) continue;
+                cut++;
+                if (index < section.Lines.Count && section.Lines[index].Detail) failures.Add(what + ": a part's own statement is cut short: " + label.name);
+            }
+            Debug.Log("Halcyonic: workspace render " + what + ": " + lines.Count + " lines, " + cut + " ending in an ellipsis.");
+            return failures;
+        }
+
+        /// <summary>
+        /// Source text on a real label shows exactly as written: no markup, and backslash sequences as
+        /// they are. The same text unescaped shows how TextMeshPro would have changed it.
+        /// </summary>
+        private static IEnumerable<string> ShowsTextAsWritten(SectionView view, string name)
+        {
+            var failures = new List<string>();
+            // Every character is in the static atlas, so drawing it, escaped or not, adds no glyph anywhere.
+            var plain = IntelligenceText.Plain("<b>b</b> <sprite=0> \\n \\u0041 \\U00000042 \\\\ z‮​");
+            view.Show(new SectionPresentation(SectionKind.Understanding, plain, SectionTone.Secondary,
+                new[] { new SectionLine("reported", plain, SectionTone.Claim) }, simulated: true));
+            foreach (var label in view.Labels)
+            {
+                if (label.richText) failures.Add(name + ": the section label " + label.name + " interprets markup.");
+            }
+            var line = view.Labels.First(label => label.name == "Line 0");
+            line.ForceMeshUpdate();
+            var escaped = line.textInfo.characterCount;
+            if (escaped != plain.Length || line.textInfo.lineCount != 1)
+            {
+                failures.Add(name + ": source text of " + plain.Length + " characters shows as " + escaped + " on " + line.textInfo.lineCount + " lines.");
+            }
+            line.text = plain;
+            line.ForceMeshUpdate();
+            Debug.Log("Halcyonic: workspace render " + name + ": source text of " + plain.Length + " characters shows as " + escaped
+                + " escaped, and as " + line.textInfo.characterCount + " on " + line.textInfo.lineCount + " lines unescaped.");
+
+            // A quote too long for its line must end in an ellipsis, so it never reads as all that was said.
+            var quote = "Agent says: “" + string.Join(" ", Enumerable.Repeat("The migration ran and the limit works per address.", 4)) + "”";
+            view.Show(new SectionPresentation(SectionKind.Understanding, "Provenance", SectionTone.Secondary,
+                new[] { new SectionLine("reported", quote, SectionTone.Claim) }, simulated: true));
+            line.ForceMeshUpdate();
+            if (LastVisible(line) != '…') failures.Add(name + ": a quote cut short does not end in an ellipsis.");
+            line.fontStyle = FontStyles.Italic;
+            line.ForceMeshUpdate();
+            Debug.Log("Halcyonic: workspace render " + name + ": the same quote in italics ends in U+"
+                + ((int)LastVisible(line)).ToString("X4", CultureInfo.InvariantCulture) + (LastVisible(line) == '…' ? ", an ellipsis." : ", not an ellipsis."));
+            line.fontStyle = FontStyles.Normal;
+            return failures;
+        }
+
+        private static char LastVisible(TMP_Text label)
+        {
+            var last = '\0';
+            for (var index = 0; index < label.textInfo.characterCount; index++)
+            {
+                var character = label.textInfo.characterInfo[index];
+                if (character.isVisible) last = character.character;
+            }
+            return last;
         }
 
         private static string Degrees(float value) => value.ToString("0.0", CultureInfo.InvariantCulture);

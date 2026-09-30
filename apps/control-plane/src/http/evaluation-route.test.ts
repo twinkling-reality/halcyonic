@@ -57,7 +57,7 @@ const READ: Pick<Evaluation['cost'], 'availability' | 'coverage' | 'freshness'> 
 
 /** An evaluation of a session that has not matured: unknowns stay null, and zero is measured. */
 const EVALUATION: Evaluation = {
-  source: { system: 'seorak', api_version: 'v1' },
+  source: { system: 'seorak', synthetic: false, api_version: 'v1' },
   cost: { ...READ, estimated_usd: 1.37, note: ESTIMATED_COST_NOTE },
   outcome: {
     ...READ,
