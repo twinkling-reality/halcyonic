@@ -598,6 +598,14 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   draft, never a retry of the prior objective.
   The control plane checks the selected model again at start. The panel offers live work only while
   a real control plane is connected; the recorded demonstration does not stand in for creation.
+  Close and Move controls sit below the form. Move cycles the panel between the center and either
+  side of the person's current view to expose the stage; headset usability is not yet verified,
+  and it is not a grab gesture. The mock runtime uses its generic `simulated_start` scenario when
+  the panel sends no runtime options. That scenario explicitly says no software work was performed.
+  Codex and OpenCode still need an
+  existing working directory in their runtime options. The panel does not yet collect one, so a
+  start through either will be rejected after creating the workstream. The question of how projects
+  bind to directories remains in `OPEN_QUESTIONS.md`.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
