@@ -88,7 +88,7 @@ unit tests only.
 ## Consequences
 
 - The headset can create a project in a new folder, or connect an existing one, and start real
-  work in it by choosing from a list; lane B's review step renders the list and the refusals.
+  work in it by choosing from a list; the headset's Create flow renders the list and the refusals.
 - Where each execution ran is in the journal, and a moved or removed folder refuses the next start
   in words until the project is bound again. Executions already running keep their folder.
 - Paths and folder names reach every authenticated client, paired devices included: in the
