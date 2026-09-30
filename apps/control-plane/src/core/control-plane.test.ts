@@ -56,6 +56,7 @@ function stubRuntime(
       interrupt: false,
     },
     model_choice: 'none',
+    uses_project_location: false,
   };
   return {
     descriptor,
@@ -208,7 +209,7 @@ describe('command lifecycle', () => {
     assert.equal(again.disposition, 'duplicate');
     const head = controlPlane.journal.head();
     const conflict = controlPlane.commands.submit(
-      { ...command, payload: { name: 'Twice' } },
+      { ...command, payload: { name: 'Twice', location: null } },
       'internal',
     );
     assert.equal(conflict.disposition, 'conflict');
@@ -524,6 +525,47 @@ describe('restart', () => {
     );
     assert.ok(principals.length >= 3, 'the project, the workstream and the start');
     assert.ok(principals.every((principal) => principal === null));
+    await second.controlPlane.close();
+  });
+
+  test('a journal written before projects had folders, at schema version 3, opens and replays', async () => {
+    const path = join(directory, 'before-locations.db');
+    const first = createTestControlPlane({ path });
+    const workstreamId = await createWorkstream(first, FEATURE);
+    first.controlPlane.commands.submit(
+      first.commands.startExecution(workstreamId, FEATURE),
+      'internal',
+    );
+    await first.time.runUntilIdle();
+    const before = first.controlPlane.snapshot();
+    await first.controlPlane.close();
+
+    // What a build of schema version 3 wrote: no location on projects or their commands, and no
+    // directory on executions.
+    const db = new DatabaseSync(path);
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.location')
+         WHERE event_type = 'project.created'`,
+    );
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.command.payload.location')
+         WHERE event_type IN ('command.accepted', 'command.rejected')`,
+    );
+    db.exec(
+      `UPDATE events SET envelope = json_remove(envelope, '$.payload.directory')
+         WHERE event_type = 'execution.created'`,
+    );
+    db.exec('PRAGMA user_version = 3');
+    db.close();
+
+    const second = createTestControlPlane({ path, time: first.time });
+    assert.deepEqual(second.controlPlane.snapshot(), before);
+    assert.ok(
+      second.controlPlane.snapshot().projects.every((project) => project.location === null),
+    );
+    assert.ok(
+      second.controlPlane.snapshot().executions.every((execution) => execution.directory === null),
+    );
     await second.controlPlane.close();
   });
 

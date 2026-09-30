@@ -12,7 +12,8 @@ namespace Halcyonic.Client
 {
     /// <summary>
     /// The control plane's REST API, for what the realtime stream does not carry: journal history, what
-    /// the understanding and evaluation providers say about an execution, and the models a runtime lists.
+    /// the understanding and evaluation providers say about an execution, the models a runtime lists, and
+    /// where projects may live on the host.
     /// </summary>
     public sealed class ControlPlaneApi : IEventHistory, IIntelligenceReader, IDisposable
     {
@@ -103,6 +104,21 @@ namespace Halcyonic.Client
             var body = await GetAsync("api/runtimes/" + Uri.EscapeDataString(runtimeId) + "/models", cancellationToken)
                 .ConfigureAwait(false);
             return HalcyonicJson.Deserialize<RuntimeModelsResponse>(body);
+        }
+
+        /// <summary>
+        /// Where projects may live on the host (ADR 0020): its project roots and the visible folders
+        /// directly inside each, read from the file system on request and never journaled. Offer them to
+        /// the person, then send a root's <c>Path</c> and a folder's <c>Name</c> back unchanged in an
+        /// <see cref="ExistingFolderChoice"/>, or a new name in a <see cref="NewFolderChoice"/>; never
+        /// compose or take apart a path. No roots means the host allows no folder yet. Names are the file
+        /// system's, so show them through <see cref="LabelText"/>. Fetch it when the person opens the
+        /// choice, and never poll.
+        /// </summary>
+        public async Task<LocationsResponse> GetLocationsAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/locations", cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<LocationsResponse>(body);
         }
 
         public void Dispose() => http.Dispose();

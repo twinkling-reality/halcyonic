@@ -45,6 +45,12 @@ export const RuntimeDescriptor = Type.Object(
     synthetic: Type.Boolean(),
     capabilities: RuntimeCapabilities,
     model_choice: ModelChoice,
+    /**
+     * True when the runtime's agents work in the project's folder on the host, so a start is
+     * refused (`location_required`) for a project without one. False for a runtime that touches
+     * no files, such as the mock runtime.
+     */
+    uses_project_location: Type.Boolean(),
   },
   { additionalProperties: false },
 );

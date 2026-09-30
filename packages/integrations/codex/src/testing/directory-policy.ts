@@ -10,10 +10,14 @@ export function allowOnly(root: string): DirectoryPolicy {
     try {
       real = realpathSync(path);
     } catch {
-      return { ok: false, message: `${path} does not exist.` };
+      return { ok: false, code: 'location_missing', message: `${path} does not exist.` };
     }
     return real === allowed || real.startsWith(`${allowed}${sep}`)
       ? { ok: true, directory: real }
-      : { ok: false, message: `${path} is outside the directories this test allows.` };
+      : {
+          ok: false,
+          code: 'location_not_allowed',
+          message: `${path} is outside the directories this test allows.`,
+        };
   };
 }

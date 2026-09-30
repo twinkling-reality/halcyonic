@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -78,7 +78,8 @@ export async function createSandbox(options: FakeProviderOptions = {}): Promise<
   const loopback = '127.0.0.1,localhost,::1';
   return {
     root,
-    project: path('project'),
+    // A real path, as the host binds a project's folder; macOS's temporary directory is a link.
+    project: await realpath(path('project')),
     recordFile: path('halcyonic/opencode-server.json'),
     env: {
       HOME: path('home'),
@@ -95,7 +96,6 @@ export async function createSandbox(options: FakeProviderOptions = {}): Promise<
       https_proxy: proxy,
       NO_PROXY: loopback,
       no_proxy: loopback,
-      OPENCODE_DISABLE_MODELS_FETCH: 'true',
     },
     provider,
     egress,
