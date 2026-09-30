@@ -265,7 +265,8 @@ What left, or tried to leave, the Mac while OpenCode ran:
   OpenCode downloads ripgrep 15.1.0 from `github.com/BurntSushi/ripgrep/releases` the first time an
   agent searches files. Observed: the agent's first `glob` opened connections from the OpenCode
   process to 140.82.114.4 and 185.199.109.133 on port 443 (GitHub). There is no switch; a ripgrep on
-  the PATH Halcyonic passes to OpenCode, for example Homebrew's, prevents it. This Mac has none.
+  the PATH Halcyonic passes to OpenCode, for example Homebrew's, prevents it. Homebrew's
+  `/opt/homebrew/bin/rg` is installed on this Mac as of 2026-09-30.
 - **Tools.** `webfetch` and `websearch` are allowed by default (above); the runs denied them.
 - Nothing else. With the catalog fetch off and ripgrep in place, the monitor saw no socket beyond
   loopback from OpenCode's processes in any run, and none from Ollama's server once the model

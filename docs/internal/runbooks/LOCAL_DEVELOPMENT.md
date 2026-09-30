@@ -142,6 +142,7 @@ context. The adapter disables OpenCode's catalog fetch by default. Ensure ripgre
 passed to the control plane, so OpenCode does not download it when it searches files:
 
 ```bash
+export PATH="/opt/homebrew/bin:$PATH"
 command -v rg
 ```
 
