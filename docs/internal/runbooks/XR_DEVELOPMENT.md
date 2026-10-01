@@ -123,10 +123,12 @@ Over the Stage**, or in batch mode:
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.EntryRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-entry-render.log
 ```
 
-It saves the rail alone and every screen of the entry panel (welcome, Connect projects, More work,
-Create a project, the guided questions, the recap with and without Needs you, More options, the
-review's first and last pages, a refused start and a request that may have run) over both stages in
-`apps/xr/Builds/EntryRenders`, each with a close-up, and logs where the rail and the panel stand
+It saves the rail alone and every screen of the entry panel (welcome, Connect projects, More tasks,
+Create a project with and without hold to talk's words, the guided questions, the recap with and
+without the needs-you banner and with Start over's confirmation, More options, the review's first
+and last parts, a refused start, and a start that may have run, before and after its first press)
+over both stages in `apps/xr/Builds/EntryRenders`, each with a close-up at a Quest 3's density
+(`-closeup.png`) and the whole panel (`-panel.png`), and logs where the rail and the panel stand
 (`Halcyonic: entry render ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
 "Scene".
 
@@ -655,32 +657,36 @@ Before the session, on the Mac:
 
 In the headset:
 
-1. **Welcome.** Once connected: "Welcome", one line, Connect projects and Create a project, and Not
-   now. Running work stays on the stage behind it. Once any of them is chosen it does not come back.
-2. **Connect projects.** It says it lists the projects on your Mac that Halcyonic knows. Hide the
-   project whose work waits for approval: its characters leave the stage, its rail chip reads
-   "Hidden · 1 waiting", and More work lists that work first and reads "1 task waiting". Press it in
-   More work: it stands on the stage and opens; collapse it, show the project again.
+1. **Welcome.** Once connected: "Welcome", one line, the Connect projects and Create a project
+   cards, and Not now where Close usually is. Running work stays on the stage behind it. Once any of
+   them is chosen it does not come back.
+2. **Connect projects.** It says these are the projects already set up on your Mac. Hide the project
+   whose work waits for approval: its characters leave the stage, its tile and its rail chip read
+   "Hidden · 1 waiting", and See other tasks lists that work first in More tasks. Press it there: it
+   stands on the stage and opens; collapse it, show the project again.
 3. **Create from a typed idea.** Create a project, Type my idea, type a sentence on the system
-   keyboard: the recap names the project from its first words. More options: choose the runtime,
-   then the local model; it reads "on your Mac". The recap asks where its files live.
-4. **Choose a new folder.** Choose: the places your Mac allows, each with New folder, the place
-   itself and its folders. New folder, accept the offered name: the recap shows "new folder ... in
-   ...".
+   keyboard: the recap names the project from its first words. How it runs, More options: choose the
+   agent app, then the local model; Done; the recap reads "On your Mac". Start building stays
+   unavailable, saying to choose where its files live.
+4. **Choose a new folder.** Where its files live, Choose: the places your Mac allows, each with New
+   folder, Directly in the place and its folders. New folder, accept the offered name: the recap
+   shows "A new folder, ..., in ...".
 5. **The review.** Start building: the whole request in whole words across the panel, the folder
-   among it; Next part to the end; Yes, start building only on the last part, where Start building
-   was not.
-6. **Start building.** Each step reads "Sent, waiting for the result", then "Confirmed". A
-   character appears reading Starting, and Working only once the runtime confirms; note how long
-   that took. The new folder exists on the Mac, and the work runs there.
+   among it. Press where Start building was: it is Change, so nothing starts. Next to the end; Yes,
+   start building, left of Change, unlocks only on the last part.
+6. **Start building.** Each step reads "Sent. Waiting for your Mac…" (the start, "Waiting for the
+   agent…"), then "Confirmed". A character appears reading Starting, and Working only once the
+   runtime confirms; note how long that took. The new folder exists on the Mac, and the work runs
+   there.
 7. **Create from the fixed questions.** Create a project, Help me figure it out: four questions,
    said to be fixed questions and not an AI. Answer with choices, type one answer, skip the name:
    the recap reads "Make ... First, ...". Choose a new folder with the name used in step 4 and
    start building: it is refused because the folder exists, offering Use that folder; it returns
    through the review and starts there.
 8. **Open now from creating.** With a recap showing, start another approval
-   (`pnpm demo | sed '/approval requested/q'`): the line under the title names the work that needs
-   you, with Open now and Keep creating, and nothing switches by itself. Open now: that work opens
+   (`pnpm demo | sed '/approval requested/q'`): an amber banner under the title names the work that
+   waits for you, with Open now and Keep creating, the four facts still showing, and nothing switches
+   by itself. Open now: that work opens
    on What do you need from me?; collapse it: the recap returns exactly as it was.
 9. **The four questions.** In the opened workspace, What is it doing?, Help me understand and What
    was checked? read whole on their tabs, and What do you need from me? shows only while the approval
@@ -692,9 +698,9 @@ In the headset:
 
 Throughout, note whether the rail sits over a character, its label or a system window, whether
 anything needs leaning in to read, and whether any button pressed did nothing. Afterwards, the cases
-the journey does not reach: Add work to a project in another folder (the recap says all later work
-runs there, and the review shows the folder now and from now on), and a control plane without
-roots (the choice says your Mac doesn't allow any folder yet).
+the journey does not reach: Add a task to a project in another folder (the recap says every later
+task uses the new folder, and the review shows the folder now and from now on), and a control plane
+without roots (the choice says your Mac doesn't allow any folder yet).
 
 ### Hold to talk on a Quest
 
@@ -703,11 +709,11 @@ In a development build, with voice set up on the Mac
 control plane. The control plane's log names the engine and its warm-up at startup. Seated, in
 the virtual space:
 
-1. **The permission.** Create a project, then hold Hold to talk, under Type my idea: the first hold
-   asks for the microphone and records nothing, and beside the button it says to allow it and hold
+1. **The permission.** Create a project, then hold Hold to talk, beside Type my idea: the first hold
+   asks for the microphone and records nothing, and the line under them says to allow it and hold
    again. Allow it.
 2. **An idea.** Hold, say "A website for my bakery that shows the menu and the opening hours", let
-   go: beside the button, "Listening", then "Writing down what you said.", then the recap,
+   go: under the button, "Listening", then "Writing down what you said.", then the recap,
    which says "This is what your Mac heard. Check it before you go on." with the sentence as the first task
    and a name from its first words. Nothing has been sent; note how long from letting go to the
    recap.
@@ -954,8 +960,9 @@ did not happen as written. A step not tried stays unverified.
 
 ### The interface on a Quest
 
-The first surfaces of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
-to judge with the headset on: character labels and the stage's height. A session of 15 minutes,
+The surfaces of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
+to judge with the headset on so far: character labels and the stage's height, the rail and Settings,
+and the entry panel. A session of 15 minutes,
 seated, hands only, in passthrough, with `pnpm demo` running, or the demonstration. For each step,
 note what you saw and how it felt.
 
@@ -992,5 +999,18 @@ note what you saw and how it felt.
     development build, Your Mac. Switch to a virtual space and back; does the notice on the banner
     say what changed once the sheet is closed? Nothing should float low to your left or right any
     more.
+11. **Entry at touch distance.** Press Create a project. The panel opens 0.46 m away, under every
+    label, 44 by 26 degrees. Can you read it for a few minutes without strain, and poke every button
+    without leaning? If reading strains, note it: the fallback is the same panel at 1 m, ray only.
+12. **The same places.** Go through Connect projects, More tasks, Create a project, a fixed question,
+    the recap, More options and the review. Close stays at the top right, Back at the bottom left,
+    the button the screen leads to at the bottom right, and Previous and Next above it at the right.
+    Does your hand learn where to go?
+13. **Two columns.** Lists show four to a page in two columns, and the pager takes the last cell when
+    there is more. Is a page of four enough, and are the tiles easy to tell apart and to hit?
+14. **Confirming.** On the recap, press Start building, then on the review press where Start building
+    was: it is Change now, so nothing starts. Read to the last part; Yes, start building unlocks left
+    of Change. Then press Start over: the bar asks to confirm, Yes, start over in solid red. Does
+    pressing twice in one place ever do what you didn't mean?
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

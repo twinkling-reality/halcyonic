@@ -82,25 +82,20 @@ namespace Halcyonic.XR.UI.Editor
                 var panel = Surface.Create(behind, "Panel", -1);
                 panel.Draw(new Vector2(GlazeTokens.Units(90f), GlazeTokens.Units(60f)), GlazeTokens.Units(Glaze.PanelRadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel));
 
+                var first = new List<Transform>();
                 var badges = Badges();
                 var buttons = Buttons();
                 Banners();
-
-                ForceMeshes(root);
-                var render = Render(camera, texture);
-                File.WriteAllBytes(Path.Combine(folder, "gallery.png"), render.EncodeToPNG());
-
-                failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, "component render"));
-                failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons.Select(button => button.Button), eyes, "component render"));
-                failures.AddRange(GlazeChecks.NothingCut(root.GetComponentsInChildren<TMP_Text>(false), "component render"));
+                foreach (Transform holder in gallery) first.Add(holder);
+                failures.AddRange(Check(folder, "gallery.png", camera, texture, root, eyes, buttons));
                 failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, "component render"));
-                foreach (var (button, what) in buttons)
+
+                // A panel's list rows on a page of their own, in the middle of the view.
+                foreach (var holder in first)
                 {
-                    var contrast = LabelContrast(camera, render, button);
-                    Debug.Log("Halcyonic: component render: " + what + "'s label reaches " + contrast.ToString("0.0", CultureInfo.InvariantCulture) + ":1 on its fill.");
-                    if (contrast < 4.5f) failures.Add("component render: " + what + "'s label reaches only " + contrast.ToString("0.0", CultureInfo.InvariantCulture) + ":1 on its fill.");
+                    if (holder != behind) holder.gameObject.SetActive(false);
                 }
-                UnityEngine.Object.DestroyImmediate(render);
+                failures.AddRange(Check(folder, "gallery-rows.png", camera, texture, root, eyes, Rows()));
             }
             catch (Exception error)
             {
@@ -118,6 +113,30 @@ namespace Halcyonic.XR.UI.Editor
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: " + failure);
             if (failures.Count == 0) Debug.Log("Halcyonic: component render: every check passed; the render is in " + folder);
+            return failures;
+        }
+
+        /// <summary>
+        /// Renders what shows now as <paramref name="file"/> and checks it: words large enough, targets
+        /// large enough, nothing cut, and each button's label contrasting with its own fill as drawn.
+        /// </summary>
+        private static IEnumerable<string> Check(string folder, string file, Camera camera, RenderTexture texture, GameObject root, Vector3 eyes,
+            List<(GlazeButton Button, string What)> buttons)
+        {
+            var failures = new List<string>();
+            ForceMeshes(root);
+            var render = Render(camera, texture);
+            File.WriteAllBytes(Path.Combine(folder, file), render.EncodeToPNG());
+            failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, "component render"));
+            failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons.Where(button => !button.Button.Static).Select(button => button.Button), eyes, "component render"));
+            failures.AddRange(GlazeChecks.NothingCut(root.GetComponentsInChildren<TMP_Text>(false), "component render"));
+            foreach (var (button, what) in buttons)
+            {
+                var contrast = LabelContrast(camera, render, button);
+                Debug.Log("Halcyonic: component render: " + what + "'s label reaches " + contrast.ToString("0.0", CultureInfo.InvariantCulture) + ":1 on its fill.");
+                if (contrast < 4.5f) failures.Add("component render: " + what + "'s label reaches only " + contrast.ToString("0.0", CultureInfo.InvariantCulture) + ":1 on its fill.");
+            }
+            UnityEngine.Object.DestroyImmediate(render);
             return failures;
         }
 
@@ -209,6 +228,61 @@ namespace Halcyonic.XR.UI.Editor
                 button.PaintForRender(false, false);
             }
             return buttons;
+        }
+
+        /// <summary>
+        /// A panel's list rows: a choice at rest, pointed at, pressed and chosen, a filter on and off, a
+        /// fact with its line over the title and its end word, an unavailable one and one that only says
+        /// something; then a card, the attention button and a destructive action's confirmation.
+        /// </summary>
+        private static List<(GlazeButton Button, string What)> Rows()
+        {
+            var rows = new List<(GlazeButton, string)>();
+            var width = GlazeTokens.Units(19f);
+            var x = -31f;
+            var y = 18f;
+            void Add(string what, PanelRow words, ButtonRole role, bool pointed = false, bool pressed = false, bool on = false, bool available = true, bool still = false)
+            {
+                var button = GlazeButton.Create(Holder("Row " + what, 0f, 0f), "Row", role);
+                button.On = on;
+                button.Available = available;
+                button.Static = still;
+                var height = button.LayRow(words, width, still ? 0f : (float?)null);
+                button.ShowRow(words, Vector2.zero, new Vector2(width, height), still ? 0f : (float?)null);
+                if (x + 19f > 33f)
+                {
+                    x = -31f;
+                    y -= 9f;
+                }
+                Aim(button.transform.parent, x + 9.5f, y);
+                x += 19f + 1.5f;
+                button.PaintForRender(pointed, pressed);
+                rows.Add((button, what));
+            }
+            var choice = new PanelRow { Title = "New folder in Projects", Detail = "Your Mac makes a new, empty folder", Action = "choose" };
+            Add("a choice at rest", choice, ButtonRole.Choice);
+            Add("a choice pointed at", choice, ButtonRole.Choice, pointed: true);
+            Add("a choice pressed", choice, ButtonRole.Choice, pressed: true);
+            Add("a chosen choice", new PanelRow { Title = "shop", Detail = EntryText.Chosen + " · In Projects", Chosen = true, Action = "choose" }, ButtonRole.Choice, on: true);
+            Add("a filter shown", new PanelRow { Title = "Storefront API", Detail = "1 task waiting", DetailTone = GlazeTone.Attention, Filter = true, Chosen = true, Action = "toggle" },
+                ButtonRole.Filter, on: true);
+            Add("a filter hidden", new PanelRow { Title = "Recipe tracker", Detail = "Hidden · 1 waiting", DetailTone = GlazeTone.Attention, Filter = true, Action = "toggle" },
+                ButtonRole.Filter);
+            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On your Mac", Detail = "Chosen for you. Change it in More options.", DetailLines = 2,
+                End = EntryText.MoreOptions, Action = "options" }, ButtonRole.Choice);
+            Add("an unavailable choice", new PanelRow { Title = "Code", Detail = "Not on your Mac right now", Available = false, Action = "choose" }, ButtonRole.Choice, available: false);
+            Add("a step and how it went", new PanelRow { Title = "Create the project", Detail = "Confirmed", DetailTone = GlazeTone.Success }, ButtonRole.Choice, still: true);
+            Add("a card", new PanelRow { Card = true, Title = EntryText.CreateProject, Detail = EntryText.CreateInvite, Action = "create" }, ButtonRole.Choice);
+            var attention = GlazeButton.Create(Holder("Attention", 0f, 0f), "Button", ButtonRole.Attention, compact: true);
+            var after = Place(attention, EntryText.OpenNow, null, null, x, y);
+            attention.PaintForRender(false, false);
+            rows.Add((attention, "the attention button"));
+            var confirm = GlazeButton.Create(Holder("Confirm destructive", 0f, 0f), "Button", ButtonRole.Destructive);
+            confirm.On = true;
+            Place(confirm, EntryText.ConfirmStartOver, null, null, after, y);
+            confirm.PaintForRender(false, false);
+            rows.Add((confirm, "a destructive action's confirmation"));
+            return rows;
         }
 
         private static float Place(GlazeButton button, string label, string? detail, GlazeTone? tone, float x, float y)

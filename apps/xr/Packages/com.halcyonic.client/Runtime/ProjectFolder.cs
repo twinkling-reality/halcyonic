@@ -92,17 +92,18 @@ namespace Halcyonic.Client
             : new ExistingFolderChoice { Root = RootPath, FolderName = FolderName };
 
         /// <summary>
-        /// The choice in words, by the one rule: for example "new folder greeting-card in Projects",
-        /// "storefront in Projects", or "Projects itself".
+        /// The choice in words, by the one rule: for example "a new folder, greeting-card, in Projects",
+        /// "storefront in Projects", or "directly in Projects".
         /// </summary>
         /// <param name="name">How a name from the file system is shown: <see cref="LabelText.Plain"/> unless given, or as it is for a review that spells it itself.</param>
-        public string Describe(Func<string, string>? name = null)
+        /// <param name="startOfLine">Halcyonic's own first word capitalized, for a line of its own; a name from the file system stays as it is.</param>
+        public string Describe(Func<string, string>? name = null, bool startOfLine = false)
         {
             name ??= LabelText.Plain;
             var root = name(RootName);
-            if (FolderName == null) return root + " itself";
+            if (FolderName == null) return (startOfLine ? "Directly in " : "directly in ") + root;
             var folder = name(FolderName);
-            return IsNew ? "new folder " + folder + " in " + root : folder + " in " + root;
+            return IsNew ? (startOfLine ? "A new folder, " : "a new folder, ") + folder + ", in " + root : folder + " in " + root;
         }
 
         /// <summary>
@@ -120,8 +121,8 @@ namespace Halcyonic.Client
                     options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on your Mac right now"));
                     continue;
                 }
-                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, "New folder in " + name, "Your Mac makes it, empty"));
-                options.Add(new FolderOption(root, null, FolderOptionKind.Root, name + " itself", "The whole folder your Mac allows"));
+                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, "New folder in " + name, "Your Mac makes a new, empty folder"));
+                options.Add(new FolderOption(root, null, FolderOptionKind.Root, "Directly in " + name, "Files go straight into " + name));
                 foreach (var folder in root.Folders)
                 {
                     options.Add(new FolderOption(root, folder, FolderOptionKind.Folder, LabelText.Plain(folder.Name), "In " + name));

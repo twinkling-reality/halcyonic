@@ -69,8 +69,8 @@ public class ProjectFolderTests
     {
         var root = Root("Pro‮jects", LocationRootStatus.Available, "shop<b>x</b>​");
         Assert.That(ProjectFolder.Existing(root, root.Folders[0]).Describe(), Is.EqualTo("shop<b>x</b>‹U+200B› in Pro‹U+202E›jects"));
-        Assert.That(ProjectFolder.Existing(root, null).Describe(), Is.EqualTo("Pro‹U+202E›jects itself"));
-        Assert.That(ProjectFolder.New(Root(), "cards")!.Describe(), Is.EqualTo("new folder cards in Projects"));
+        Assert.That(ProjectFolder.Existing(root, null).Describe(), Is.EqualTo("directly in Pro‹U+202E›jects"));
+        Assert.That(ProjectFolder.New(Root(), "cards")!.Describe(), Is.EqualTo("a new folder, cards, in Projects"));
         var options = ProjectFolder.Options(new LocationsResponse { Roots = new List<LocationRoot> { root } });
         Assert.That(options.Select(option => option.Label), Has.Some.EqualTo("shop<b>x</b>‹U+200B›"));
     }
@@ -96,11 +96,14 @@ public class ProjectFolderTests
     {
         var chosen = ProjectFolder.New(Root(), "recipes")!;
         var current = new ProjectLocation { Path = "/Users/person/Projects/old", Name = "old", Created = false };
-        Assert.That(EntryText.FolderRecap(null, null, needed: true), Is.EqualTo("Where its files live: not chosen yet"));
-        Assert.That(EntryText.FolderRecap(null, null, needed: false), Is.EqualTo("Where its files live: none needed for this runtime"));
-        Assert.That(EntryText.FolderRecap(null, chosen, needed: true), Is.EqualTo("Where its files live: new folder recipes in Projects"));
-        Assert.That(EntryText.FolderRecap(current, null, needed: true), Is.EqualTo("Where its files live: old, the project's folder"));
-        Assert.That(EntryText.FolderRecap(current, chosen, needed: true), Is.EqualTo("Where its files live: old now; new folder recipes in Projects after this"));
+        Assert.That(EntryText.FolderFact(null, null, needed: true), Is.EqualTo("Not chosen yet"));
+        Assert.That(EntryText.FolderFact(null, null, needed: false), Is.EqualTo("Not needed"));
+        Assert.That(EntryText.FolderFact(null, chosen, needed: true), Is.EqualTo("A new folder, recipes, in Projects"));
+        Assert.That(EntryText.FolderFact(current, null, needed: true), Is.EqualTo("old, the project's folder"));
+        Assert.That(EntryText.FolderFact(current, chosen, needed: true), Is.EqualTo("old now, a new folder, recipes, in Projects from now on"));
+        var shop = Root("Projects", LocationRootStatus.Available, "shop");
+        Assert.That(EntryText.FolderFact(null, ProjectFolder.Existing(shop, shop.Folders[0]), needed: true), Is.EqualTo("shop in Projects"),
+            "a name from the file system starts the line as it is");
     }
 
     [Test]
@@ -175,7 +178,7 @@ public class FolderRefusalTests
         var step = sequence.StoppedAt!;
         Assert.That(step.Refusal, Is.EqualTo(RejectionCode.LocationRequired));
         Assert.That(EntryText.AboutFolder(step), Is.True);
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Could not do that: This project has no folder on your Mac yet. Choose where its files live, then try again."),
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: This project has no folder on your Mac yet. Choose where its files live, then try again."),
             "the next action comes from the code, not the message");
 
         var bind = sequence.Retry(folder: Folder("recipes"));
@@ -212,7 +215,7 @@ public class FolderRefusalTests
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
         var workstream = sequence.Begin();
         sequence.Advance(With(Refused(workstream, RejectionCode.InvalidState, "Not now‮.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Could not do that: Not now‹U+202E›."));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Couldn't do that: Not now‹U+202E›."));
         Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.False);
     }
 
@@ -228,7 +231,7 @@ public class FolderRefusalTests
         }));
         var step = sequence.StoppedAt!;
         Assert.That(EntryText.StepStatus(step), Does.Not.Contain("nothing was created"));
-        Assert.That(EntryText.StepStatus(step), Does.Contain("may have taken effect"));
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo(EntryText.NotSureItHappened));
         Assert.That(EntryText.AboutFolder(step), Is.False);
         Assert.That(sequence.CanRetry, Is.False);
     }

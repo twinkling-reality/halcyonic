@@ -89,6 +89,9 @@ snapshot, workstream, access token (an access code, only where the person must a
 | Unknown effect | Not sure it happened. {What to check first}. | Not sure it happened. Check the tasks on the stage before you try again. |
 | Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your Mac. Trying again… |
 | Provenance | From {source} · {when} | From Seorak · 2 min ago |
+| Confirmation | Yes, {verb}, left of Cancel, which stands where the first press was | Yes, start building · Change; Yes, clear · Cancel |
+| Locked final press | Read part {n} of {n} | Read part 3 of 3 |
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
-the interface of ADR 0023, one surface at a time.
+the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, and
+the entry panel have moved; the workspace, Usage left and the ambient lines have not yet.
