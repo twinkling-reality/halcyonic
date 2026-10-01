@@ -13,27 +13,19 @@ public class NewWorkSafetyTests
     });
 
     [Test]
-    public void ReviewShowsEveryCharacterBeforeTheLastPageCanConfirm()
+    public void ReviewShowsEveryValueWholeUnderItsLabel()
     {
         var objective = new string('W', 4000);
         var review = new NewWorkReview(new string('P', 200), "Workstream", "OpenCode", "Local model",
             "on this Mac, tools declared", "ollama/local:latest", objective);
-        Assert.That(review.PageCount, Is.GreaterThan(10));
-        Assert.That(review.CanConfirm, Is.False);
-        Assert.That(review.Pages.All(page => page.Split('\n').All(line => line.Length <= 24)), Is.True);
-        var shown = string.Concat(review.Pages).Replace("\n", "");
-        Assert.That(shown, Does.Contain(new string('P', 200)));
-        Assert.That(shown, Does.Contain("Workstream"));
-        Assert.That(shown, Does.Contain("OpenCode"));
-        Assert.That(shown, Does.Contain("Local model"));
-        Assert.That(shown, Does.Contain("ollama/local:latest"));
-        Assert.That(shown, Does.Contain(objective));
-        while (!review.CanConfirm) review.Next();
-        Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
-        review.Previous();
-        Assert.That(review.CanConfirm, Is.False);
-        review.Next();
-        Assert.That(review.CanConfirm, Is.True);
+        Assert.That(review.Items.Select(item => item.Label), Is.EqualTo(new[]
+        {
+            "Project: ", "Workstream title: ", "Runtime: ", "Model: ", "Model location: ", "Model reference: ", "Objective: ",
+        }));
+        Assert.That(review.Items[0].Value, Is.EqualTo(new string('P', 200)));
+        Assert.That(review.Items[^1].Value, Is.EqualTo(objective), "nothing is shortened");
+        Assert.That(review.Paginated, Is.False);
+        Assert.That(review.CanConfirm, Is.False, "nothing can be confirmed before the pages are laid out");
     }
 
     [Test]
@@ -41,22 +33,83 @@ public class NewWorkSafetyTests
     {
         var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref",
             "中かな🙂 \\u{4E2D}\nsecond\tthird\u202E");
-        var shown = string.Concat(review.Pages).Replace("\n", "");
+        var shown = review.Items[^1].Value;
         Assert.That(shown, Does.Contain("\\u{4E2D}\\u{304B}\\u{306A}\\u{1F642}"));
         Assert.That(shown, Does.Contain("\\\\u{4E2D}"));
         Assert.That(shown, Does.Contain("\\u{A}second\\u{9}third\\u{202E}"));
-        Assert.That(shown.All(value => value >= 0x20 && value <= 0x7E), Is.True);
-        Assert.That(review.Pages.All(page => page.Split('\n').All(line => line.Length <= 24)), Is.True);
+        Assert.That(review.Items.All(item => item.Text.All(value => value >= 0x20 && value <= 0x7E)), Is.True);
     }
 
     [Test]
-    public void ReviewKeepsEscapedCharactersTogetherAtLineBoundaries()
+    public void PagesHoldWholeItemsAndSplitOnlyAnItemTallerThanAPage()
     {
-        var review = new NewWorkReview(new string('A', 14) + "\\中", "Title", "Runtime", "Model",
-            "unknown", "ref", "Objective");
-        var lines = review.Pages.SelectMany(page => page.Split('\n')).ToArray();
-        Assert.That(lines, Does.Contain("\\\\\\u{4E2D}"));
-        Assert.That(lines.Any(line => line.EndsWith("\\") && !line.EndsWith("\\\\")), Is.False);
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective");
+        review.Paginate(new[] { 1, 2, 3, 1, 1, 1, 20 }, 6);
+        Assert.That(review.Pages.Select(page => string.Join(" ", page.Select(part => part.Item + ":" + part.FirstLine + "+" + part.Lines))), Is.EqualTo(new[]
+        {
+            "0:0+1 1:0+2 2:0+3",
+            "3:0+1 4:0+1 5:0+1",
+            "6:0+6",
+            "6:6+6",
+            "6:12+6",
+            "6:18+2",
+        }), "the third item never splits; the objective starts a page of its own and fills whole pages");
+        Assert.That(review.Pages.SelectMany(page => page).Where(part => part.Item == 6).Select(part => part.Part), Is.EqualTo(new[] { 0, 1, 2, 3 }));
+
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 8 }, 6);
+        Assert.That(review.Pages[^1].Select(part => part.Item), Is.EqualTo(new[] { 6 }), "a tall item's last part holds what remains");
+        var shorter = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective", "cards in Projects");
+        shorter.Paginate(new[] { 1, 1, 9, 1, 1, 1, 1, 1 }, 6);
+        Assert.That(shorter.Pages[2].Select(part => part.Item), Is.EqualTo(new[] { 2, 3, 4, 5 }), "what follows a tall item continues under its last part");
+    }
+
+    [Test]
+    public void EveryLineOfEveryItemIsOnExactlyOnePage()
+    {
+        var random = new Random(20260930);
+        for (var round = 0; round < 500; round++)
+        {
+            var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective", "folder", round % 2 == 0 ? "before" : null);
+            var pageLines = random.Next(1, 14);
+            var lines = review.Items.Select(_ => random.Next(1, 3 * pageLines + 2)).ToArray();
+            review.Paginate(lines, pageLines);
+            var seen = review.Items.Select(_ => new bool[0]).ToList();
+            for (var item = 0; item < lines.Length; item++) seen[item] = new bool[lines[item]];
+            foreach (var page in review.Pages)
+            {
+                Assert.That(page.Sum(part => part.Lines), Is.LessThanOrEqualTo(pageLines));
+                foreach (var part in page)
+                {
+                    for (var line = part.FirstLine; line < part.FirstLine + part.Lines; line++)
+                    {
+                        Assert.That(seen[part.Item][line], Is.False, "no line shows twice");
+                        seen[part.Item][line] = true;
+                    }
+                }
+            }
+            Assert.That(seen.All(item => item.All(shown => shown)), Is.True, "every line shows");
+            for (var item = 0; item < lines.Length; item++)
+            {
+                if (lines[item] <= pageLines) Assert.That(review.Pages.SelectMany(page => page).Count(part => part.Item == item), Is.EqualTo(1), "an item that fits a page is whole");
+            }
+        }
+    }
+
+    [Test]
+    public void OnlyTheLastPageCanConfirm()
+    {
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective");
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 30 }, 6);
+        Assert.That(review.PageCount, Is.GreaterThan(2));
+        Assert.That(review.CanConfirm, Is.False);
+        while (!review.CanConfirm) review.Next();
+        Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
+        review.Previous();
+        Assert.That(review.CanConfirm, Is.False);
+        review.Next();
+        Assert.That(review.CanConfirm, Is.True);
+        Assert.Throws<ArgumentException>(() => review.Paginate(new[] { 1, 2 }, 6));
+        Assert.Throws<ArgumentOutOfRangeException>(() => review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 1 }, 0));
     }
 
     [Test]

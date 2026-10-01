@@ -106,12 +106,10 @@ public class ProjectFolderTests
     [Test]
     public void TheReviewShowsTheFolderAndAMoveInFull()
     {
-        static string Whole(NewWorkReview shown) => string.Concat(shown.Pages).Replace("\n", "");
-        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", "Objective", 38, 12, folder: "recipes in Projects");
-        Assert.That(Whole(review), Does.Contain("Where its files live: recipes in Projects"));
-        var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", "Objective", 38, 12, folder: "shop in Projects", folderBefore: "none");
-        Assert.That(Whole(move), Does.Contain("Folder now: none"));
-        Assert.That(Whole(move), Does.Contain("Folder from now on: shop in Projects"));
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", "Objective", folder: "recipes in Projects");
+        Assert.That(review.Items.Select(item => item.Text), Has.Some.EqualTo("Where its files live: recipes in Projects"));
+        var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", "Objective", folder: "shop in Projects", folderBefore: "none");
+        Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project: Project", "Folder now: none", "Folder from now on: shop in Projects" }));
     }
 }
 

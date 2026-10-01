@@ -154,6 +154,14 @@
   review moving a project to a new folder, and a start refused over a taken folder name offering Use
   that folder; hostile folder and place names showed by the one rule. The first render found the
   folder row's Change touching More options on the recap, which moving the rows apart resolved.
+- On 2026-09-30 the review before Start building moved from a 38 by 12 character grid to items
+  wrapped at the panel's width. The first render found that a label in `TextOverflowModes.Page` at a
+  height of 14.3 measured lines laid out only 12 lines a page, so parts of a value taller than a page
+  went missing from the pages; such a value is now cut where its measured lines start and each part
+  shown whole, with the line height taken from the distance between two baselines. The render then
+  showed every character of each item exactly once across the pages for the longest name and task
+  (12 pages), a task of code points only (10), a task with no place to break (6) and a long task in
+  words (5), with no word broken that fits a line.
 
 ### System keyboard
 
