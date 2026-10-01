@@ -8,6 +8,12 @@ import type {
   StoredEvent,
 } from '@halcyonic/contracts';
 import { Projection } from './projection.ts';
+import {
+  fitQuestion,
+  QUESTION_TEXT_LIMIT,
+  questionTextLength,
+  SHOWN_QUESTIONS,
+} from './questions.ts';
 import { EventBuilder } from './testing/events.ts';
 
 function setup() {
@@ -242,6 +248,92 @@ describe('execution status is derived from observed facts', () => {
     apply(b.runtimeEvent(scope, 'runtime.turn.interrupted', { turn_id: 't1' }));
     assert.equal(status(), 'interrupted');
     assert.deepEqual(view()?.pending_questions, []);
+  });
+
+  test('a question too long for clients is shortened, each cut marked, and cannot be answered', () => {
+    const { b, apply, execution, scope, projection } = setup();
+    const prompt = {
+      key: 'q0',
+      header: 'h'.repeat(200),
+      text: 't'.repeat(4000),
+      options: Array.from({ length: 20 }, (_, index) => ({
+        label: `${index}${'l'.repeat(190)}`,
+        description: 'd'.repeat(1000),
+      })),
+      multiple: false,
+      free_text: true,
+      secret: false,
+    };
+    const prompts = Array.from({ length: 10 }, (_, index) => ({ ...prompt, key: `q${index}` }));
+    assert.ok(questionTextLength(prompts) > QUESTION_TEXT_LIMIT);
+    apply(execution.event, b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    apply(
+      b.runtimeEvent(scope, 'runtime.question.asked', {
+        question_id: 'frm_1',
+        prompts,
+        answerable: true,
+      }),
+    );
+    const shown = projection.execution(execution.executionId)?.pending_questions[0];
+    assert.equal(shown?.answerable, false);
+    assert.ok(questionTextLength(shown?.prompts ?? []) <= QUESTION_TEXT_LIMIT);
+    assert.equal(shown?.prompts.length, 4);
+    assert.ok(shown?.prompts.every((each) => each.text.endsWith(' [truncated]')));
+    assert.ok(shown?.prompts[0]?.options[0]?.description?.endsWith(' [truncated]'));
+    // One within the limit is kept whole, with its own answerability.
+    const within = { ...prompt, options: prompt.options.slice(0, 2) };
+    const small = fitQuestion([within], true);
+    assert.equal(small.answerable, true);
+    assert.equal(small.prompts[0], within);
+  });
+
+  test('a view shows the oldest pending questions; the others wait their turn but still count', () => {
+    const { b, apply, execution, scope, status, workstreamView, projection } = setup();
+    const prompts = [
+      {
+        key: 'q0',
+        header: null,
+        text: 'Which?',
+        options: [],
+        multiple: false,
+        free_text: true,
+        secret: false,
+      },
+    ];
+    apply(execution.event, b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    for (let index = 1; index <= 5; index += 1) {
+      apply(
+        b.runtimeEvent(scope, 'runtime.question.asked', {
+          question_id: `frm_${index}`,
+          prompts,
+          answerable: true,
+        }),
+      );
+    }
+    const shown = () =>
+      projection
+        .execution(execution.executionId)
+        ?.pending_questions.map((question) => question.question_id);
+    assert.deepEqual(shown(), ['frm_1', 'frm_2', 'frm_3']);
+    assert.equal(SHOWN_QUESTIONS, 3);
+    assert.equal(workstreamView()?.attention.reasons.length, 5);
+    apply(
+      b.runtimeEvent(scope, 'runtime.question.resolved', {
+        question_id: 'frm_1',
+        outcome: 'answered',
+      }),
+    );
+    assert.deepEqual(shown(), ['frm_2', 'frm_3', 'frm_4']);
+    for (const id of ['frm_2', 'frm_3', 'frm_4']) {
+      apply(
+        b.runtimeEvent(scope, 'runtime.question.resolved', {
+          question_id: id,
+          outcome: 'answered',
+        }),
+      );
+    }
+    assert.deepEqual(shown(), ['frm_5']);
+    assert.equal(status(), 'waiting_for_human');
   });
 
   test('a start failure is failed and an unknown start outcome is unknown', () => {
