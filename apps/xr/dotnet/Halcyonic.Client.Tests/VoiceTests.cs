@@ -179,7 +179,7 @@ public class LiveTranscriptionTests
         var whisper = Path.Combine(dataDir, "whisper-cli");
         File.WriteAllText(whisper, $$"""
             #!{{node}}
-            if (process.argv[2] === '--version') { process.stdout.write('whisper.cpp version: 1.9.4-test\n'); process.exit(0); }
+            if (process.argv[2] === '--version') { process.stdout.write('whisper.cpp version: 1.9.4-dev\n'); process.exit(0); }
             process.stdout.write(' Add a contact form to the home page.\n');
             """);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(whisper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
@@ -208,6 +208,6 @@ public class LiveTranscriptionTests
         }
         var heard = (HeardTranscription)answer!;
         Assert.That(heard.Text, Is.EqualTo("Add a contact form to the home page."));
-        Assert.That(heard.Engine.Version, Is.EqualTo("1.9.4-test"));
+        Assert.That(heard.Engine.Version, Is.EqualTo("1.9.4-dev"));
     }
 }

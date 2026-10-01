@@ -1,5 +1,6 @@
-import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
+import { rmSync } from 'node:fs';
+import { lstat, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TranscriptionEngine } from '@halcyonic/contracts';
@@ -8,6 +9,21 @@ import { writeWav } from './wav.ts';
 
 /** How long one transcription may take before the engine is stopped. */
 export const ENGINE_TIMEOUT_MS = 15_000;
+
+/**
+ * How long the warm-up may take: the first run after whisper.cpp is built compiles its GPU
+ * shaders, which took 23.5 s on the owner's Mac.
+ */
+export const WARM_UP_TIMEOUT_MS = 120_000;
+
+/** The whisper.cpp release Halcyonic runs: its release archive's build reports 1.9.4-dev, a tag checkout's 1.9.4. */
+const PINNED_VERSION = /^1\.9\.4(-dev)?$/;
+
+/** Each clip waits for the engine in a temporary directory of its own with this prefix. */
+const CLIP_PREFIX = 'halcyonic-speech-';
+
+/** A clip directory older than this was left by a control plane that stopped mid-clip; longer than any run. */
+const LEFTOVER_MS = 180_000;
 
 /** The language every clip is transcribed in, as whisper.cpp and BCP 47 both name it. */
 export const LANGUAGE = 'en';
@@ -21,6 +37,16 @@ export const PROMPT_WORDS = ['Halcyonic', 'Claude Code', 'Codex', 'OpenCode', 'O
 
 /** The most transcript read from the engine; a 30 s clip holds a few hundred bytes. */
 const MAX_OUTPUT_BYTES = 64 * 1024;
+
+/** A run in progress: its clip's directory and, once launched, the engine. */
+interface Run {
+  readonly directory: string;
+  child?: ChildProcess;
+}
+
+/** Runs in progress, stopped and removed if the control plane exits during one. */
+const running = new Set<Run>();
+let stopsOnExit = false;
 
 export type EngineResult =
   | { readonly kind: 'text'; readonly text: string }
@@ -38,26 +64,40 @@ export interface SpeechEngine {
  * whisper.cpp's `whisper-cli`, launched once per clip with no environment and no port (ADR 0021):
  * English, Halcyonic's own words as the prompt, and Silero voice activity detection with half a
  * second around speech, so a clip with no speech gives no text. The clip is written to a private
- * temporary directory that is removed as soon as the engine exits.
+ * temporary directory that is removed as soon as the engine exits, or as the control plane exits
+ * if it does first; one left by a control plane that was killed is removed at the next start. The
+ * engine runs in a process group of its own, which a timeout kills whole.
  */
 export class WhisperEngine implements SpeechEngine {
   readonly engine: TranscriptionEngine;
   readonly #config: SpeechConfig;
   readonly #prompt: string;
   readonly #timeoutMs: number;
+  readonly #warmUpTimeoutMs: number;
 
-  private constructor(config: SpeechConfig, version: string, timeoutMs: number) {
+  private constructor(
+    config: SpeechConfig,
+    version: string,
+    timeoutMs: number,
+    warmUpTimeoutMs: number,
+  ) {
     this.#config = config;
     this.engine = { name: 'whisper.cpp', version };
     this.#prompt = `${PROMPT_WORDS.join(', ')}.`;
     this.#timeoutMs = timeoutMs;
+    this.#warmUpTimeoutMs = warmUpTimeoutMs;
   }
 
-  /** Asks the binary for its version, so a binary that cannot answer stops startup. */
+  /**
+   * Removes clips a killed control plane left behind, then asks the binary for its version, so a
+   * binary that cannot answer, or is not the pinned release, stops startup.
+   */
   static async open(
     config: SpeechConfig,
     timeoutMs: number = ENGINE_TIMEOUT_MS,
+    warmUpTimeoutMs: number = WARM_UP_TIMEOUT_MS,
   ): Promise<WhisperEngine> {
+    await removeLeftovers();
     const output = await new Promise<string>((resolve, reject) => {
       execFile(config.binary, ['--version'], { env: {}, timeout: 5_000 }, (error, stdout) =>
         error === null ? resolve(stdout) : reject(error),
@@ -66,11 +106,20 @@ export class WhisperEngine implements SpeechEngine {
     const version = /whisper\.cpp version: (\S{1,64})/.exec(output)?.[1];
     if (version === undefined)
       throw new Error(`${config.binary} did not report a whisper.cpp version.`);
-    return new WhisperEngine(config, version, timeoutMs);
+    if (!PINNED_VERSION.test(version)) {
+      throw new Error(
+        `${config.binary} is whisper.cpp ${version}; Halcyonic runs whisper.cpp 1.9.4.`,
+      );
+    }
+    if (!stopsOnExit) {
+      stopsOnExit = true;
+      process.on('exit', stopRunning);
+    }
+    return new WhisperEngine(config, version, timeoutMs, warmUpTimeoutMs);
   }
 
   async transcribe(wav: Buffer): Promise<EngineResult> {
-    return this.#run(wav, true);
+    return this.#run(wav, true, this.#timeoutMs);
   }
 
   /**
@@ -79,13 +128,15 @@ export class WhisperEngine implements SpeechEngine {
    */
   async warmUp(): Promise<number> {
     const started = performance.now();
-    const result = await this.#run(writeWav(Buffer.alloc(32_000)), false);
+    const result = await this.#run(writeWav(Buffer.alloc(32_000)), false, this.#warmUpTimeoutMs);
     if (result.kind === 'failed') throw new Error(result.message);
     return Math.round(performance.now() - started);
   }
 
-  async #run(wav: Buffer, detectSpeech: boolean): Promise<EngineResult> {
-    const directory = await mkdtemp(join(tmpdir(), 'halcyonic-speech-'));
+  async #run(wav: Buffer, detectSpeech: boolean, timeoutMs: number): Promise<EngineResult> {
+    const run: Run = { directory: await mkdtemp(join(tmpdir(), CLIP_PREFIX)) };
+    const directory = run.directory;
+    running.add(run);
     try {
       const clip = join(directory, 'clip.wav');
       await writeFile(clip, wav, { mode: 0o600 });
@@ -101,53 +152,103 @@ export class WhisperEngine implements SpeechEngine {
       ];
       if (detectSpeech) args.push('--vad', '-vm', this.#config.vadModel, '-vp', '500');
       args.push('-f', clip);
-      return await this.#launch(args);
+      return await this.#launch(args, timeoutMs, run);
     } finally {
+      running.delete(run);
       await rm(directory, { recursive: true, force: true });
     }
   }
 
-  /** Runs the engine and answers once its process has ended, so no transcription overlaps another. */
-  #launch(args: string[]): Promise<EngineResult> {
+  /**
+   * Runs the engine and answers once it has ended, so no transcription overlaps another. Stopped,
+   * its whole process group is killed and the answer comes as the engine exits, whatever a
+   * descendant still holds open.
+   */
+  #launch(args: string[], timeoutMs: number, run: Run): Promise<EngineResult> {
     return new Promise((resolve) => {
       const child = spawn(this.#config.binary, args, {
         env: {},
         stdio: ['ignore', 'pipe', 'ignore'],
+        detached: true,
       });
+      run.child = child;
       const chunks: Buffer[] = [];
       let length = 0;
       let stopped: string | null = null;
+      let settled = false;
+      const settle = (result: EngineResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
       const stop = (reason: string) => {
-        stopped ??= reason;
-        child.kill('SIGKILL');
+        if (stopped !== null) return;
+        stopped = reason;
+        killGroup(child);
+        child.stdout.destroy();
       };
       const timer = setTimeout(
-        () => stop(`The engine took longer than ${this.#timeoutMs / 1000} s.`),
-        this.#timeoutMs,
+        () => stop(`The engine took longer than ${timeoutMs / 1000} s.`),
+        timeoutMs,
       );
       child.stdout.on('data', (chunk: Buffer) => {
         length += chunk.length;
         if (length > MAX_OUTPUT_BYTES) stop('The engine wrote more than a transcript.');
         else chunks.push(chunk);
       });
-      child.on('error', () => {
-        clearTimeout(timer);
-        resolve({ kind: 'failed', message: 'The engine could not be started.' });
+      child.on('error', () =>
+        settle({ kind: 'failed', message: 'The engine could not be started.' }),
+      );
+      child.on('exit', () => {
+        if (stopped !== null) settle({ kind: 'failed', message: stopped });
       });
       child.on('close', (code) => {
-        clearTimeout(timer);
-        if (stopped !== null) resolve({ kind: 'failed', message: stopped });
+        if (stopped !== null) settle({ kind: 'failed', message: stopped });
         else if (code !== 0)
-          resolve({ kind: 'failed', message: 'The engine stopped with an error.' });
+          settle({ kind: 'failed', message: 'The engine stopped with an error.' });
         else {
           const text = Buffer.concat(chunks)
             .toString('utf8')
             .split(/\s+/)
             .filter(Boolean)
             .join(' ');
-          resolve({ kind: 'text', text });
+          settle({ kind: 'text', text });
         }
       });
     });
+  }
+}
+
+/** Kills the engine and everything it started, which share its process group. */
+function killGroup(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  try {
+    process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    // Already gone.
+  }
+}
+
+/** As the control plane exits mid-clip: stops the engine and removes the clip, synchronously. */
+function stopRunning(): void {
+  for (const run of running) {
+    if (run.child !== undefined) killGroup(run.child);
+    rmSync(run.directory, { recursive: true, force: true });
+  }
+  running.clear();
+}
+
+/** Removes clip directories of this user's that a control plane killed mid-clip left behind. */
+async function removeLeftovers(): Promise<void> {
+  const base = tmpdir();
+  const now = Date.now();
+  for (const name of await readdir(base)) {
+    if (!name.startsWith(CLIP_PREFIX)) continue;
+    const path = join(base, name);
+    const info = await lstat(path).catch(() => null);
+    if (info === null || !info.isDirectory() || info.uid !== process.getuid?.()) continue;
+    if (now - info.mtimeMs < LEFTOVER_MS) continue;
+    await rm(path, { recursive: true, force: true });
   }
 }
