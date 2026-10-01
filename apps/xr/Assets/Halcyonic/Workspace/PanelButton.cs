@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Halcyonic.Client;
+using Halcyonic.XR.UI;
 using TMPro;
 using UnityEngine;
 

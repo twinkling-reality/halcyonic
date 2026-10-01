@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
 using TMPro;
 using UnityEngine;
 

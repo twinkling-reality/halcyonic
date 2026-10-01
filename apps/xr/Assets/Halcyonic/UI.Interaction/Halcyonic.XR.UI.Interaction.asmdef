@@ -1,15 +1,12 @@
 {
-  "name": "Halcyonic.XR.Workspace",
-  "rootNamespace": "Halcyonic.XR.Workspace",
+  "name": "Halcyonic.XR.UI.Interaction",
+  "rootNamespace": "Halcyonic.XR.UI",
   "references": [
     "Halcyonic.XR",
     "Halcyonic.XR.UI",
-    "Halcyonic.XR.UI.Interaction",
     "Halcyonic.Client",
-    "Halcyonic.Contracts",
     "Oculus.Interaction",
-    "Unity.TextMeshPro",
-    "UnityEngine.UI"
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

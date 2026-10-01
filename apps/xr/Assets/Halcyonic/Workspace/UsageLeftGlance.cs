@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
 using TMPro;
 using UnityEngine;
 

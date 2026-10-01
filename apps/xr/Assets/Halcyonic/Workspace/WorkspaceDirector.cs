@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace

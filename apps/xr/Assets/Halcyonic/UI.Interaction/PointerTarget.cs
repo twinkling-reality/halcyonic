@@ -5,12 +5,12 @@ using Oculus.Interaction;
 using Oculus.Interaction.Surfaces;
 using UnityEngine;
 
-namespace Halcyonic.XR.Workspace
+namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// Something a hand can point at with a ray and pinch, or reach and poke, and, for characters,
     /// look at, through the Meta Interaction SDK's interactables. The SDK's ray and poke interactors
-    /// are on the rig in Stage.unity, and <see cref="GazeHover"/> adds a gaze interactor; this adds
+    /// are on the rig in Stage.unity, and the workspace's gaze hover adds a gaze interactor; this adds
     /// the targets they look for. The SDK components check their dependencies in Start, so they are
     /// injected right after being added, in the same frame. Pointer events are ignored while
     /// <see cref="FocusGuard.InputSuspended"/>.
@@ -26,6 +26,8 @@ namespace Halcyonic.XR.Workspace
         private readonly HashSet<int> pressing = new HashSet<int>();
         private BoundsClipper? clipper;
         private PokeInteractable? poke;
+        private string logKind = "control";
+        private string? logId;
 
         /// <summary>A hand or the gaze started or stopped hovering.</summary>
         public event Action? HoverChanged;
@@ -108,6 +110,16 @@ namespace Halcyonic.XR.Workspace
             return target;
         }
 
+        /// <summary>
+        /// How the interaction log names this target when a ray enters or leaves it: a character by
+        /// its work's id; anything not named, a control by its instance.
+        /// </summary>
+        public void LogAs(string kind, string id)
+        {
+            logKind = kind;
+            logId = id;
+        }
+
         public void Resize(Vector2 size)
         {
             if (clipper != null) clipper.Size = new Vector3(size.x, size.y, 0.1f);
@@ -159,12 +171,9 @@ namespace Halcyonic.XR.Workspace
             var changed = Track(rays, pointer);
             OnHand(pointer);
             if (!changed) return;
-            var character = GetComponent<CharacterTarget>();
-            var kind = character != null ? "character" : "control";
-            var id = character != null ? character.WorkstreamId : GetInstanceID().ToString();
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
                 "Halcyonic interaction: ray target {0} {1} {2}",
-                pointer.Type == PointerEventType.Hover ? "entered" : "left", kind, id);
+                pointer.Type == PointerEventType.Hover ? "entered" : "left", logKind, logId ?? GetInstanceID().ToString());
         }
 
         private void OnGaze(PointerEvent pointer)

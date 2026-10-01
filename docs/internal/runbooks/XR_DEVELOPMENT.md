@@ -172,6 +172,16 @@ in `apps/xr/Builds/StageRenders`, and logs how far down the labels end and the s
 (`Halcyonic: stage render ...`). The interface's rules it checks are in
 [XR_CLIENT.md](../architecture/XR_CLIENT.md).
 
+Every component of the interface renders in every state, **Halcyonic > Render Every Component**, or
+in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.UI.Editor.GlazeRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-component-render.log
+```
+
+It saves the gallery in `apps/xr/Builds/GlazeRenders` and logs each button label's contrast on its
+fill (`Halcyonic: component render ...`).
+
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
 shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
