@@ -14,5 +14,6 @@ export const COMMAND_POLICY: Readonly<Record<CommandType, PolicyCategory>> = {
   'execution.start': 'low_consequence',
   'execution.send_instruction': 'low_consequence',
   'execution.respond_to_approval': 'review_required',
+  'execution.answer_question': 'low_consequence',
   'execution.interrupt': 'review_required',
 };

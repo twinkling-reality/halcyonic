@@ -16,6 +16,7 @@ const FULL: RuntimeCapabilities = {
   instruct_at_rest: true,
   instruct_while_running: false,
   respond_to_approval: true,
+  answer_question: false,
   interrupt: true,
 };
 
@@ -116,9 +117,26 @@ describe('command admission', () => {
       message: 'Runtime mock does not offer a choice of model.',
     });
     const admitted = admitCommand(choosing, projection, catalog(FULL, 'listed'));
-    assert.equal(admitted.admitted, true);
     // Whether the model is still listed is the runtime's to check, at the start itself.
-    assert.equal(admitCommand(start, projection, catalog(FULL, 'listed')).admitted, true);
+    assert.equal(admitted.admitted, true);
+  });
+
+  test('a runtime that lists its models never chooses one by itself: a start must name one', () => {
+    const { projection, commands, workstream } = setup();
+    const refused = admitCommand(
+      commands.start(workstream.workstreamId),
+      projection,
+      catalog(FULL, 'listed'),
+    );
+    assert.deepEqual(refused.admitted ? null : refused.rejection, {
+      code: 'model_required',
+      message: 'Choose a model: this runtime lists the models it can use.',
+    });
+    // A runtime without a list chooses its own model, as before.
+    assert.equal(
+      admitCommand(commands.start(workstream.workstreamId), projection, catalog()).admitted,
+      true,
+    );
   });
 
   test('a runtime that works in the project folder is refused for a project without one', () => {

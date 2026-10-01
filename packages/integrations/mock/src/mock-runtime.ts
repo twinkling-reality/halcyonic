@@ -2,6 +2,7 @@ import type {
   ApprovalDecision,
   EventOf,
   ExecutionId,
+  QuestionAnswer,
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeEventType,
@@ -35,6 +36,7 @@ export const MOCK_CAPABILITIES: RuntimeCapabilities = {
   instruct_at_rest: true,
   instruct_while_running: false,
   respond_to_approval: true,
+  answer_question: true,
   interrupt: true,
 };
 
@@ -217,6 +219,14 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     this.#session(request.execution).resolveApproval(request.approval_id, request.decision);
   }
 
+  async answerQuestion(request: {
+    execution: ExecutionContext;
+    question_id: string;
+    answers: readonly QuestionAnswer[];
+  }): Promise<void> {
+    this.#session(request.execution).answerQuestion(request.question_id, request.answers);
+  }
+
   async interrupt(request: { execution: ExecutionContext }): Promise<void> {
     this.#session(request.execution).interrupt();
   }
@@ -243,6 +253,10 @@ interface ActiveTurn {
   readonly id: string;
   readonly abort: AbortController;
   approval: { readonly id: string; readonly decide: (decision: ApprovalDecision) => void } | null;
+  question: {
+    readonly id: string;
+    readonly answer: (answers: readonly QuestionAnswer[]) => void;
+  } | null;
 }
 
 class MockSession {
@@ -307,6 +321,21 @@ class MockSession {
     approval.decide(decision);
   }
 
+  answerQuestion(questionId: string, answers: readonly QuestionAnswer[]): void {
+    this.#assertReachable();
+    const question = this.#turn?.question ?? null;
+    if (question === null || question.id !== questionId) {
+      throw new RuntimeActionError(
+        'question_not_pending',
+        `Question ${questionId} is not waiting for an answer.`,
+      );
+    }
+    // Reported before the call returns, as approvals are, so it is journaled before the command
+    // that caused it completes.
+    this.#emit('runtime.question.resolved', { question_id: questionId, outcome: 'answered' });
+    question.answer(answers);
+  }
+
   interrupt(): void {
     this.#assertReachable();
     const turn = this.#turn;
@@ -339,6 +368,7 @@ class MockSession {
       id: `${this.nativeId}-turn-${this.#turnCount}`,
       abort: new AbortController(),
       approval: null,
+      question: null,
     };
     this.#turn = turn;
     this.#emit('runtime.turn.started', { turn_id: turn.id });
@@ -364,6 +394,21 @@ class MockSession {
   /** Runs one step. Returns true when the turn is over. */
   async #runStep(turn: ActiveTurn, step: ScenarioStep): Promise<boolean> {
     if ('emit' in step || 'disconnect' in step) return this.#runBranchStep(turn, step);
+    if ('await_answer' in step) {
+      const { question_id, prompts, answerable, if_answered } = step.await_answer;
+      const answers = await new Promise<readonly QuestionAnswer[]>((resolve, reject) => {
+        turn.question = { id: question_id, answer: resolve };
+        turn.abort.signal.addEventListener('abort', () => reject(abortError()), { once: true });
+        this.#emit('runtime.question.asked', { question_id, prompts, answerable });
+      });
+      turn.question = null;
+      this.#emit('runtime.agent_message', { text: describeAnswers(prompts, answers) });
+      for (const branchStep of if_answered) {
+        await this.#scheduler.sleep(branchStep.after_ms, turn.abort.signal);
+        if (await this.#runBranchStep(turn, branchStep)) return true;
+      }
+      return false;
+    }
 
     const { approval_id, subject, if_approved, if_denied } = step.await_approval;
     const decision = await new Promise<ApprovalDecision>((resolve, reject) => {
@@ -435,6 +480,19 @@ class MockSession {
     } as RuntimeObservation;
     this.#emitObservation(observation);
   }
+}
+
+/** What the mock "heard", in the words an agent would report it, so a client can see it arrived. */
+function describeAnswers(
+  prompts: readonly { readonly key: string; readonly text: string }[],
+  answers: readonly QuestionAnswer[],
+): string {
+  const parts = prompts.map((prompt) => {
+    const answer = answers.find((each) => each.key === prompt.key);
+    const given = [...(answer?.selected ?? []), ...(answer?.text ? [answer.text] : [])];
+    return `"${prompt.text}": ${given.length > 0 ? given.join(', ') : 'no answer'}`;
+  });
+  return `Answers received (simulated): ${parts.join('; ')}.`.slice(0, 32000);
 }
 
 function abortError(): Error {

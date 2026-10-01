@@ -4,6 +4,8 @@ import type {
   ExecutionId,
   PolicyCategory,
   ProjectId,
+  QuestionAnswer,
+  QuestionPrompt,
   RejectionCode,
   RuntimeCapabilities,
   RuntimeDescriptor,
@@ -106,6 +108,15 @@ export function admitCommand(
           `Runtime ${runtime.runtime_id} does not offer a choice of model.`,
         );
       }
+      // A runtime that lists its models never chooses one by itself, where it could pick a
+      // hosted model nobody chose.
+      if (command.payload.model_ref === null && runtime.model_choice === 'listed') {
+        return reject(
+          scope,
+          'model_required',
+          'Choose a model: this runtime lists the models it can use.',
+        );
+      }
       const location = projection.project(workstream.project_id)?.location ?? null;
       if (runtime.uses_project_location && location === null) {
         return reject(
@@ -178,6 +189,41 @@ export function admitCommand(
       return { admitted: true, policy, scope, runtime };
     }
 
+    case 'execution.answer_question': {
+      const target = resolveExecution(command.payload.execution_id, projection, runtimes);
+      if (!target.found) return target.rejection;
+      const { facts, runtime, scope } = target;
+      const missing = requireCapability(runtime, 'answer_question', scope);
+      if (missing !== undefined) return missing;
+      const question = facts.pendingQuestions.find(
+        (pending) => pending.question_id === command.payload.question_id,
+      );
+      if (question === undefined) {
+        return reject(
+          scope,
+          'question_not_found',
+          `Question ${command.payload.question_id} is not waiting for an answer on this execution.`,
+        );
+      }
+      if (!question.answerable) {
+        return reject(
+          scope,
+          'capability_unsupported',
+          'This question cannot be answered through Halcyonic. Answer it where the agent runs, or stop the execution.',
+        );
+      }
+      if (facts.status !== 'waiting_for_human') {
+        return reject(
+          scope,
+          'invalid_state',
+          `The execution is ${facts.status}; the question cannot be answered now.`,
+        );
+      }
+      const problem = answerProblem(question.prompts, command.payload.answers);
+      if (problem !== null) return reject(scope, 'invalid_answer', problem);
+      return { admitted: true, policy, scope, runtime };
+    }
+
     case 'execution.interrupt': {
       const target = resolveExecution(command.payload.execution_id, projection, runtimes);
       if (!target.found) return target.rejection;
@@ -203,6 +249,46 @@ export function admitCommand(
       throw new Error(`unhandled command ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+/**
+ * Why answers do not fit the questions they answer, or null when they do: one answer per question,
+ * each choosing only offered labels, one unless several are allowed, and typed text only where the
+ * question takes it.
+ */
+export function answerProblem(
+  prompts: readonly QuestionPrompt[],
+  answers: readonly QuestionAnswer[],
+): string | null {
+  const byKey = new Map(prompts.map((prompt) => [prompt.key, prompt]));
+  const answered = new Set<string>();
+  for (const answer of answers) {
+    const prompt = byKey.get(answer.key);
+    if (prompt === undefined) return 'An answer names a question this request does not ask.';
+    if (answered.has(answer.key)) return 'A question is answered twice.';
+    answered.add(answer.key);
+    const labels = new Set(prompt.options.map((option) => option.label));
+    if (answer.selected.some((label) => !labels.has(label))) {
+      return 'An answer chooses an option the question does not offer.';
+    }
+    if (new Set(answer.selected).size !== answer.selected.length) {
+      return 'An answer chooses the same option twice.';
+    }
+    if (!prompt.multiple && answer.selected.length > 1) {
+      return 'An answer chooses several options for a question that takes one.';
+    }
+    if (answer.text !== null && !prompt.free_text) {
+      return 'An answer types text for a question that takes only its options.';
+    }
+    if (answer.selected.length === 0 && answer.text === null) {
+      return 'An answer leaves a question unanswered.';
+    }
+    if (!prompt.multiple && answer.selected.length === 1 && answer.text !== null) {
+      return 'An answer both chooses an option and types text for a question that takes one answer.';
+    }
+  }
+  if (answered.size !== prompts.length) return 'Every question of the request must be answered.';
+  return null;
 }
 
 type ResolvedExecution =

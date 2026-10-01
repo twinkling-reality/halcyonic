@@ -3,11 +3,12 @@ import type {
   ErrorInfo,
   EventOf,
   Provenance,
+  QuestionPrompt,
   RuntimeEventType,
   Timestamp,
 } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
-import { APPROVAL_METHODS, type RequestId } from './protocol.ts';
+import { APPROVAL_METHODS, QUESTION_METHOD, type RequestId } from './protocol.ts';
 
 export type ApprovalOutcome = 'approved' | 'denied';
 
@@ -18,6 +19,15 @@ export interface PendingApproval {
   readonly turnId: string;
   /** The decision sent to Codex, once the person answered. */
   answer: ApprovalOutcome | null;
+}
+
+/** A question Codex asked through `item/tool/requestUserInput` and has not resolved (ADR 0022). */
+export interface PendingQuestion {
+  readonly questionId: string;
+  readonly requestId: RequestId;
+  readonly turnId: string;
+  /** Whether the person's answer was sent to Codex. */
+  answered: boolean;
 }
 
 /** What the adapter knows about one hosted Codex thread, updated as its messages arrive. */
@@ -34,6 +44,10 @@ export interface ThreadState {
   readonly fileChanges: Map<string, string>;
   /** Approvals Codex asked for and has not resolved, by approval id. */
   readonly approvals: Map<string, PendingApproval>;
+  /** Questions Codex asked and has not resolved, by question id. */
+  readonly questions: Map<string, PendingQuestion>;
+  /** Whether the adapter carries answers back; when not, a question is shown and only stoppable. */
+  readonly answerable: boolean;
   /** The model provider Codex reported for the thread, from `thread/start` or `thread/resume`. */
   provider: string | null;
   /** The model Codex last reported for the thread, there or in `model/rerouted`. */
@@ -42,8 +56,10 @@ export interface ThreadState {
   sequence: number;
 }
 
-export function createThreadState(): ThreadState {
+export function createThreadState(answerable = true): ThreadState {
   return {
+    questions: new Map(),
+    answerable,
     activeTurnId: null,
     reportedTurns: new Set(),
     endedTurns: [],
@@ -77,6 +93,10 @@ export interface Observed {
   readonly requested?: PendingApproval;
   /** Approvals this message settled; `confirmed` when Codex took the person's decision. */
   readonly settled: { readonly approval: PendingApproval; readonly confirmed: boolean }[];
+  /** A question this request asked, to be answered. */
+  readonly question?: PendingQuestion;
+  /** Questions this message settled; `confirmed` when Codex took the person's answer. */
+  readonly questionsSettled?: { readonly question: PendingQuestion; readonly confirmed: boolean }[];
 }
 
 const ENDED_TURNS_KEPT = 16;
@@ -222,6 +242,34 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
     }
     case 'serverRequest/resolved': {
       const requestId = params.requestId;
+      const question = [...state.questions.values()].find((item) => item.requestId === requestId);
+      if (question !== undefined) {
+        state.questions.delete(question.questionId);
+        // Resolved without an answer while its turn still runs: withdrawn. When the turn ended,
+        // its end already settled the question.
+        const running = state.activeTurnId === question.turnId;
+        if (!question.answered && !running) {
+          return {
+            observations: [],
+            settled: [],
+            questionsSettled: [{ question, confirmed: false }],
+          };
+        }
+        return {
+          observations: [
+            make(
+              'runtime.question.resolved',
+              {
+                question_id: question.questionId,
+                outcome: question.answered ? 'answered' : 'dismissed',
+              },
+              `${question.questionId}:serverRequest/resolved`,
+            ),
+          ],
+          settled: [],
+          questionsSettled: [{ question, confirmed: question.answered }],
+        };
+      }
       const approval = [...state.approvals.values()].find((item) => item.requestId === requestId);
       if (approval === undefined) return none;
       state.approvals.delete(approval.approvalId);
@@ -253,6 +301,9 @@ function observeRequest(
 ): Observed {
   const turnId = nonBlank(params.turnId);
   const itemId = nonBlank(params.itemId);
+  if (method === QUESTION_METHOD) {
+    return observeQuestion(state, id, turnId, params, now);
+  }
   if (
     !(APPROVAL_METHODS as readonly string[]).includes(method) ||
     turnId === null ||
@@ -296,6 +347,86 @@ function observeRequest(
 }
 
 /**
+ * A `request_user_input` request as the agent's question. Codex 0.157.0 sends `{questions: [{id,
+ * header, question, isOther, isSecret, options: [{label, description}] | null}]}` and takes
+ * `{answers: {[id]: {answers: string[]}}}`. A question marked secret, an id that cannot come back
+ * unchanged, or more questions or options than the contract carries make the request unanswerable:
+ * it is shown, and the person can stop the execution. No question at all, or one from a turn that
+ * ended, is refused as before.
+ */
+function observeQuestion(
+  state: ThreadState,
+  id: RequestId,
+  turnId: string | null,
+  params: Readonly<Record<string, unknown>>,
+  now: Date,
+): Observed {
+  const raw = Array.isArray(params.questions) ? params.questions.filter(isRecord) : [];
+  if (turnId === null || raw.length === 0 || state.endedTurns.includes(turnId)) {
+    return { observations: [], settled: [] };
+  }
+  let answerable = state.answerable && raw.length <= 10;
+  const prompts: QuestionPrompt[] = [];
+  for (const [index, item] of raw.slice(0, 10).entries()) {
+    const key = nonBlank(item.id);
+    if (key === null || key.length > 256 || prompts.some((known) => known.key === key)) {
+      answerable = false;
+    }
+    const offered = Array.isArray(item.options) ? item.options.filter(isRecord) : [];
+    if (offered.length > 20) answerable = false;
+    const options: QuestionPrompt['options'] = [];
+    for (const option of offered.slice(0, 20)) {
+      const label = nonBlank(option.label);
+      if (label === null || label.length > 200) {
+        answerable = false;
+        if (label === null) continue;
+      }
+      const description = nonBlank(option.description);
+      options.push({
+        label: clip(label, 200),
+        description: description === null ? null : clip(description, 1000),
+      });
+    }
+    const secret = item.isSecret === true;
+    if (secret) answerable = false;
+    const header = nonBlank(item.header);
+    prompts.push({
+      key: clip(key ?? `question-${index}`, 256),
+      header: header === null ? null : clip(header, 200),
+      text: clip(nonBlank(item.question) ?? header ?? 'Question', 4000),
+      options,
+      multiple: false,
+      free_text: item.isOther === true || options.length === 0,
+      secret,
+    });
+  }
+  const question: PendingQuestion = {
+    questionId: `${turnId}:${String(id)}`,
+    requestId: id,
+    turnId,
+    answered: false,
+  };
+  state.questions.set(question.questionId, question);
+  state.sequence += 1;
+  return {
+    observations: [
+      observation(
+        'runtime.question.asked',
+        { question_id: question.questionId, prompts, answerable },
+        {
+          native_event_id: `${question.questionId}:${QUESTION_METHOD}`,
+          sequence: state.sequence,
+          occurred_at: now.toISOString(),
+          provenance: { epistemic: 'observed', native_type: nativeType(QUESTION_METHOD) },
+        },
+      ),
+    ],
+    question,
+    settled: [],
+  };
+}
+
+/**
  * Records the turn a `turn/start` answer names, given the turn that was running when the request
  * was sent. The same id as that turn means Codex steered it instead of starting one. Otherwise the
  * turn runs until `turn/completed`, which may already have arrived.
@@ -323,6 +454,7 @@ export function settleResumed(
 ): Observed & { readonly unsettled: string | null } {
   const settled = [...state.approvals.values()].map((approval) => ({ approval, confirmed: false }));
   state.approvals.clear();
+  state.questions.clear();
   state.tools.clear();
   state.fileChanges.clear();
   const running = state.activeTurnId;
@@ -392,6 +524,10 @@ export function endTurn(state: ThreadState, turnId: string): Observed['settled']
     if (approval.turnId !== turnId) continue;
     state.approvals.delete(approval.approvalId);
     settled.push({ approval, confirmed: false });
+  }
+  // A question ends with its turn too; Codex resolves its request afterwards.
+  for (const question of state.questions.values()) {
+    if (question.turnId === turnId) state.questions.delete(question.questionId);
   }
   return settled;
 }

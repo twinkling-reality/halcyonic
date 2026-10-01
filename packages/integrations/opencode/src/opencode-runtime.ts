@@ -3,6 +3,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type {
   ApprovalDecision,
   Provenance,
+  QuestionAnswer,
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
@@ -27,6 +28,7 @@ import { type HttpResponse, type OpenCodeClient, TransportError } from './client
 import {
   createSessionState,
   decodeEvent,
+  formAnswer,
   isRecord,
   type OpenCodeEvent,
   observation,
@@ -69,6 +71,8 @@ export const OPENCODE_CAPABILITIES: RuntimeCapabilities = {
   instruct_at_rest: true,
   instruct_while_running: true,
   respond_to_approval: true,
+  // The `question` tool's forms are answered through the form API (ADR 0022).
+  answer_question: true,
   interrupt: true,
 };
 
@@ -104,6 +108,11 @@ export interface OpenCodeRuntimeOptions {
    */
   readonly snapshotRetryDelaysMs?: readonly number[];
   /**
+   * Delays between attempts to read a session lost to read failures back, while its server still
+   * runs; the last repeats. Each attempt reopens the event stream and reconciles.
+   */
+  readonly recoveryDelaysMs?: readonly number[];
+  /**
    * How long a start waits for OpenCode to offer the execution's model, which it may not list yet
    * right after it starts. By default 10 s.
    */
@@ -134,6 +143,10 @@ interface Connection {
   readonly halted: AbortController;
   /** Settles when the event stream is connected; rejects when the server is given up. */
   readiness: Readiness;
+  /** Ends the event stream being read now, so it reopens and reconciles. */
+  stream: AbortController | null;
+  /** The next attempt to read back sessions lost to read failures, and how many came before. */
+  recovery: { timer: NodeJS.Timeout | null; attempts: number };
 }
 
 interface HostedSession {
@@ -147,6 +160,11 @@ interface HostedSession {
   /** Set while the session is reconciled; requests wait for it, so none races the snapshot. */
   reconciling: Promise<void> | null;
   lost: boolean;
+  /**
+   * Lost only because it could not be read back, while its server still runs: read it again later
+   * and, once it answers, report the connection restored.
+   */
+  recoverable: boolean;
 }
 
 const SESSION_CREATED: Provenance = {
@@ -195,6 +213,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #silenceTimeoutMs: number;
   readonly #reconnectDelaysMs: readonly number[];
   readonly #snapshotRetryDelaysMs: readonly number[];
+  readonly #recoveryDelaysMs: readonly number[];
   readonly #modelWaitMs: number;
   readonly #clock: Clock;
   readonly #sessions = new Map<string, HostedSession>();
@@ -213,6 +232,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#silenceTimeoutMs = options.streamSilenceTimeoutMs ?? 45_000;
     this.#reconnectDelaysMs = options.reconnectDelaysMs ?? [100, 250, 500, 1000, 2000, 4000];
     this.#snapshotRetryDelaysMs = options.snapshotRetryDelaysMs ?? [1000, 3000];
+    this.#recoveryDelaysMs = options.recoveryDelaysMs ?? [5000, 15_000, 30_000, 60_000, 300_000];
     this.#modelWaitMs = options.modelWaitMs ?? 10_000;
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
@@ -328,6 +348,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       inFlight: new Set(),
       reconciling: null,
       lost: false,
+      recoverable: false,
     };
     this.#sessions.set(request.execution.execution_id, session);
     this.#bySessionId.set(session.sessionId, session);
@@ -379,6 +400,38 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
           request.approval_id,
           request.decision === 'approve' ? 'approved' : 'denied',
         );
+      }
+    });
+  }
+
+  /**
+   * Answers the form OpenCode's `question` tool opened (ADR 0022). Its 204 confirms the answer;
+   * `form.replied` then reports it, or the next reconciliation does.
+   */
+  async answerQuestion(request: {
+    execution: ExecutionContext;
+    question_id: string;
+    answers: readonly QuestionAnswer[];
+  }): Promise<void> {
+    const session = this.#hosted(request.execution);
+    const fields = session.state.questions.get(request.question_id);
+    if (fields === undefined) {
+      throw new RuntimeActionError(
+        'question_not_pending',
+        `Question ${request.question_id} is not waiting for an answer.`,
+      );
+    }
+    const path = `/api/session/${encodeURIComponent(session.sessionId)}/form/${encodeURIComponent(request.question_id)}/reply`;
+    await this.#act(session, async () => {
+      await send(
+        session.connection,
+        'POST',
+        path,
+        { answer: formAnswer(fields, request.answers) },
+        'question_not_pending',
+      );
+      if (session.state.questions.has(request.question_id)) {
+        session.state.answered.add(request.question_id);
       }
     });
   }
@@ -462,6 +515,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       listingSince: null,
       halted: new AbortController(),
       readiness: readiness(),
+      stream: null,
+      recovery: { timer: null, attempts: 0 },
     };
     this.#current = connection;
     void server.exited.then((status) => this.#onExit(connection, status));
@@ -491,6 +546,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   /** Stops using a server: no more events, no more reconnection, actions refused. */
   #halt(connection: Connection): void {
     connection.halted.abort();
+    if (connection.recovery.timer !== null) clearTimeout(connection.recovery.timer);
+    connection.recovery.timer = null;
     connection.readiness.reject(unreachableError());
     if (this.#current === connection) this.#current = null;
   }
@@ -538,6 +595,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
    */
   async #readStream(connection: Connection, reconcile: boolean): Promise<boolean> {
     const stream = new AbortController();
+    connection.stream = stream;
     const stop = () => stream.abort();
     connection.halted.signal.addEventListener('abort', stop, { once: true });
     let timer: NodeJS.Timeout | undefined;
@@ -587,13 +645,40 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   }
 
   async #reconcileAll(connection: Connection): Promise<void> {
+    const readable = (session: HostedSession) => !session.lost || session.recoverable;
     const sessions = [...this.#bySessionId.values()].filter(
-      (session) => session.connection === connection && !session.lost,
+      (session) => session.connection === connection && readable(session),
     );
     for (const session of sessions) {
       if (connection.halted.signal.aborted) return;
-      if (!session.lost) await this.#reconcile(session);
+      if (readable(session)) await this.#reconcile(session);
     }
+    this.#scheduleRecovery(connection);
+  }
+
+  /**
+   * While sessions of a running server stay lost to read failures, as after the Mac woke and the
+   * server answered too slowly, tries again after a while: it ends the event stream, which reopens
+   * and reads every session back before any new event is applied, as after any reconnect.
+   */
+  #scheduleRecovery(connection: Connection): void {
+    const waiting = [...this.#bySessionId.values()].some(
+      (session) => session.connection === connection && session.lost && session.recoverable,
+    );
+    if (!waiting) {
+      connection.recovery.attempts = 0;
+      return;
+    }
+    if (connection.recovery.timer !== null || connection.halted.signal.aborted) return;
+    const delays = this.#recoveryDelaysMs;
+    const wait = delays[Math.min(connection.recovery.attempts, delays.length - 1)] ?? 300_000;
+    connection.recovery.attempts += 1;
+    connection.recovery.timer = setTimeout(() => {
+      connection.recovery.timer = null;
+      if (connection.halted.signal.aborted) return;
+      connection.stream?.abort();
+    }, wait);
+    connection.recovery.timer.unref?.();
   }
 
   /**
@@ -606,20 +691,23 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     session.reconciling = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const lost = (reason: string) =>
-      this.#lose(session, `After the OpenCode event stream reconnected, ${reason}`);
+    const recovering = session.lost && session.recoverable;
+    const lost = (reason: string, recoverable = false) =>
+      this.#lose(session, `After the OpenCode event stream reconnected, ${reason}`, recoverable);
     try {
       const answered = Promise.allSettled([...session.inFlight]);
       if (!(await settlesWithin(answered, READ_TIMEOUT_MS))) {
-        lost('a request for this session was still unanswered.');
+        lost('a request for this session was still unanswered.', true);
         return;
       }
       for (let reads = 1; ; reads += 1) {
         const snapshot = await this.#readSnapshotPatiently(session);
         if (snapshot === null) return;
-        if (session.connection.halted.signal.aborted || session.lost) return;
+        if (session.connection.halted.signal.aborted) return;
+        if (session.lost && !(recovering && session.recoverable)) return;
         const result = reconcileSession(session.state, snapshot, this.#clock.now());
         if (result.kind === 'settled') {
+          if (recovering) this.#restore(session);
           this.#emit(session, result.observations);
           return;
         }
@@ -634,7 +722,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         await delay(50);
       }
     } catch (error) {
-      lost(`the session could not be read (${message(error)}).`);
+      // The server still runs, so the session may answer later: the loss is recoverable.
+      lost(`the session could not be read (${message(error)}).`, true);
     } finally {
       session.reconciling = null;
       release();
@@ -656,7 +745,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         await delay(wait, undefined, { signal: session.connection.halted.signal }).catch(
           () => undefined,
         );
-        if (session.connection.halted.signal.aborted || session.lost) return null;
+        if (session.connection.halted.signal.aborted) return null;
+        if (session.lost && !session.recoverable) return null;
       }
     }
   }
@@ -817,8 +907,16 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     }
   }
 
-  #lose(session: HostedSession, reason: string): void {
-    if (session.lost) return;
+  /**
+   * Reports the session lost. A recoverable loss, by read failures while the server runs, is read
+   * back later; any other loss, a server that exited above all, is final.
+   */
+  #lose(session: HostedSession, reason: string, recoverable = false): void {
+    if (session.lost) {
+      if (!recoverable) session.recoverable = false;
+      return;
+    }
+    session.recoverable = recoverable;
     this.#emit(session, [
       observation(
         'runtime.connection.lost',
@@ -832,6 +930,27 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
       ),
     ]);
     session.lost = true;
+  }
+
+  /** The session answered again after a recoverable loss; what it reads now follows this. */
+  #restore(session: HostedSession): void {
+    session.lost = false;
+    session.recoverable = false;
+    this.#emit(session, [
+      observation(
+        'runtime.connection.restored',
+        {
+          reason:
+            'The OpenCode session could be read again; what changed while it could not follows.',
+        },
+        {
+          native_event_id: null,
+          sequence: null,
+          occurred_at: this.#clock.now().toISOString(),
+          provenance: { epistemic: 'observed', native_type: 'opencode/session.get' },
+        },
+      ),
+    ]);
   }
 
   #loseAll(connection: Connection, reason: string): void {
@@ -925,6 +1044,17 @@ async function readSnapshot(
     }
   }
   const permissions = await readData(client, `${base}/permission`);
+  const forms = await readData(client, `${base}/form`);
+  if (!Array.isArray(forms)) throw new Error('the pending forms had an unexpected shape');
+  const pendingForms = forms.filter(isRecord);
+  const listed = new Set(pendingForms.map((form) => form.id));
+  const settledForms = new Map<string, string>();
+  for (const id of session.state.questions.keys()) {
+    if (listed.has(id) || session.state.answered.has(id)) continue;
+    const detail = await readData(client, `${base}/form/${encodeURIComponent(id)}`);
+    const state = isRecord(detail) && isRecord(detail.state) ? detail.state.status : null;
+    if (typeof state === 'string') settledForms.set(id, state);
+  }
   const active = await readData(client, '/api/session/active');
   const info = await readData(client, base);
   if (!Array.isArray(permissions) || !isRecord(active) || !isRecord(info)) {
@@ -956,6 +1086,8 @@ async function readSnapshot(
     outcome: typeof info.outcome === 'string' ? info.outcome : null,
     idleAt: isRecord(info.time) && typeof info.time.idle === 'number' ? info.time.idle : null,
     toolStatus,
+    forms: pendingForms,
+    settledForms,
   };
 }
 

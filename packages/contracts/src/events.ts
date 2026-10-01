@@ -25,6 +25,7 @@ import {
   Uuid,
   WorkstreamId,
 } from './primitives.ts';
+import { QuestionPrompts } from './questions.ts';
 import { ModelRef, RuntimeRef } from './runtime.ts';
 import { EVENT_SCHEMA_VERSION } from './versions.ts';
 
@@ -352,6 +353,27 @@ export const RUNTIME_EVENT_PAYLOADS = {
     },
     strict,
   ),
+  /**
+   * The agent asked the person something through the runtime's own question surface and waits for
+   * the answer (ADR 0022). `answerable` is false when Halcyonic cannot carry an answer back: the
+   * runtime offers no way, a question is secret, or the runtime asks in a form Halcyonic cannot
+   * express. The person can still stop the execution.
+   */
+  'runtime.question.asked': Type.Object(
+    { question_id: NativeId, prompts: QuestionPrompts, answerable: Type.Boolean() },
+    strict,
+  ),
+  /**
+   * The runtime settled the question: `answered` once it applied an answer, `dismissed` when it
+   * was withdrawn without one. A turn that ends settles its questions without this event.
+   */
+  'runtime.question.resolved': Type.Object(
+    {
+      question_id: NativeId,
+      outcome: Type.Union([Type.Literal('answered'), Type.Literal('dismissed')]),
+    },
+    strict,
+  ),
   'runtime.tool.started': Type.Object(
     { tool_call_id: NativeId, tool_name: Text(128), title: Nullable(Text(500)) },
     strict,
@@ -383,6 +405,11 @@ export const RUNTIME_EVENT_PAYLOADS = {
   ),
   /** The adapter lost contact with the runtime and can no longer observe the execution. */
   'runtime.connection.lost': Type.Object({ reason: Text(2000) }, strict),
+  /**
+   * The adapter can observe the execution again after a lost connection, and reports what it found
+   * in the events that follow.
+   */
+  'runtime.connection.restored': Type.Object({ reason: Text(2000) }, strict),
   /**
    * The runtime reported the model it uses for the execution, named as the runtime's model list
    * names it (ADR 0016). Taken from the runtime's own report, never from the model chosen.
@@ -416,6 +443,14 @@ export const RuntimeApprovalResolved = runtimeEvent(
   'runtime.approval.resolved',
   P['runtime.approval.resolved'],
 );
+export const RuntimeQuestionAsked = runtimeEvent(
+  'runtime.question.asked',
+  P['runtime.question.asked'],
+);
+export const RuntimeQuestionResolved = runtimeEvent(
+  'runtime.question.resolved',
+  P['runtime.question.resolved'],
+);
 export const RuntimeToolStarted = runtimeEvent('runtime.tool.started', P['runtime.tool.started']);
 export const RuntimeToolCompleted = runtimeEvent(
   'runtime.tool.completed',
@@ -436,6 +471,10 @@ export const RuntimeTestRunCompleted = runtimeEvent(
 export const RuntimeConnectionLost = runtimeEvent(
   'runtime.connection.lost',
   P['runtime.connection.lost'],
+);
+export const RuntimeConnectionRestored = runtimeEvent(
+  'runtime.connection.restored',
+  P['runtime.connection.restored'],
 );
 export const RuntimeModelUsed = runtimeEvent('runtime.model.used', P['runtime.model.used']);
 
@@ -459,12 +498,15 @@ export const EVENT_VARIANTS = [
   RuntimeTurnInterrupted,
   RuntimeApprovalRequested,
   RuntimeApprovalResolved,
+  RuntimeQuestionAsked,
+  RuntimeQuestionResolved,
   RuntimeToolStarted,
   RuntimeToolCompleted,
   RuntimeAgentMessage,
   RuntimeTestRunStarted,
   RuntimeTestRunCompleted,
   RuntimeConnectionLost,
+  RuntimeConnectionRestored,
   RuntimeModelUsed,
 ] as const;
 

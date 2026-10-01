@@ -1,6 +1,13 @@
 import type { Provenance } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
-import { approvalSubject, endTurn, observation, type SessionState, toTimestamp } from './events.ts';
+import {
+  approvalSubject,
+  endTurn,
+  formQuestion,
+  observation,
+  type SessionState,
+  toTimestamp,
+} from './events.ts';
 
 /**
  * A session's state read over HTTP after the event stream reconnected. OpenCode 2.0.18 does not
@@ -24,6 +31,13 @@ export interface SessionSnapshot {
   readonly idleAt: number | null;
   /** Tool part status by tool call id, from `GET /api/session/{id}/message`, read only for active tools. */
   readonly toolStatus: ReadonlyMap<string, string>;
+  /** `GET /api/session/{id}/form`: the session's pending forms, the agent's questions (ADR 0022). */
+  readonly forms: readonly Readonly<Record<string, unknown>>[];
+  /**
+   * `state.status` of `GET /api/session/{id}/form/{formID}` for each question the adapter knew
+   * pending that the list no longer holds: `answered` or `cancelled`.
+   */
+  readonly settledForms: ReadonlyMap<string, string>;
 }
 
 export interface PendingPermission {
@@ -50,6 +64,14 @@ const PERMISSION_LIST: Provenance = {
 const CONFIRMED_REPLY: Provenance = {
   epistemic: 'observed',
   native_type: 'opencode/session.permission.reply',
+};
+const FORM_LIST: Provenance = {
+  epistemic: 'observed',
+  native_type: 'opencode/session.form.list',
+};
+const FORM_STATE: Provenance = {
+  epistemic: 'observed',
+  native_type: 'opencode/session.form.get',
 };
 const MESSAGE_LIST: Provenance = {
   epistemic: 'observed',
@@ -183,6 +205,35 @@ export function reconcileSession(
         'runtime.approval.requested',
         { approval_id: permission.id, subject },
         at(null, PERMISSION_LIST),
+      ),
+    );
+  }
+  const forms = new Set(snapshot.forms.map((form) => form.id));
+  for (const id of [...state.questions.keys()]) {
+    if (forms.has(id)) continue;
+    // Settled while the stream was down, by Halcyonic's answer or another client's; its own state
+    // says which. One whose state could not be read stays pending until the turn ends.
+    const status = state.answered.has(id) ? 'answered' : snapshot.settledForms.get(id);
+    if (status !== 'answered' && status !== 'cancelled') continue;
+    state.questions.delete(id);
+    state.answered.delete(id);
+    observations.push(
+      observation(
+        'runtime.question.resolved',
+        { question_id: id, outcome: status === 'answered' ? 'answered' : 'dismissed' },
+        at(null, FORM_STATE),
+      ),
+    );
+  }
+  for (const form of snapshot.forms) {
+    const asked = formQuestion(form);
+    if (asked === null || state.questions.has(asked.id)) continue;
+    state.questions.set(asked.id, asked.fields);
+    observations.push(
+      observation(
+        'runtime.question.asked',
+        { question_id: asked.id, prompts: asked.prompts, answerable: asked.answerable },
+        at(null, FORM_LIST),
       ),
     );
   }

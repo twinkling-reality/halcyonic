@@ -19,6 +19,8 @@ import type {
   EventOf,
   ExecutionId,
   Provenance,
+  QuestionAnswer,
+  QuestionPrompt,
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeEventType,
@@ -52,6 +54,8 @@ export const CLAUDE_AGENT_CAPABILITIES: RuntimeCapabilities = {
   instruct_at_rest: true,
   instruct_while_running: false,
   respond_to_approval: true,
+  // AskUserQuestion is answered through canUseTool's updatedInput (ADR 0022).
+  answer_question: true,
   interrupt: true,
 };
 
@@ -274,6 +278,14 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     );
   }
 
+  async answerQuestion(request: {
+    execution: ExecutionContext;
+    question_id: string;
+    answers: readonly QuestionAnswer[];
+  }): Promise<void> {
+    this.#session(request.execution).answer(request.question_id, request.answers);
+  }
+
   async interrupt(request: { execution: ExecutionContext }): Promise<void> {
     await this.#session(request.execution).interrupt();
   }
@@ -411,6 +423,17 @@ interface PendingApproval {
   readonly answer: (result: PermissionResult) => void;
 }
 
+/** An AskUserQuestion call waiting in canUseTool for the person's answers (ADR 0022). */
+interface PendingQuestion {
+  readonly input: Record<string, unknown>;
+  /** Each question's full text by its prompt key: Claude Code takes answers keyed by the text. */
+  readonly texts: ReadonlyMap<string, string>;
+  readonly answer: (result: PermissionResult) => void;
+}
+
+/** The tool through which Claude Code asks the person questions. */
+const ASK_USER_QUESTION = 'AskUserQuestion';
+
 const DENIED_MESSAGE = 'The person supervising this session in Halcyonic denied this request.';
 
 /** One Claude Code session: one SDK query, fed one user message per turn. */
@@ -421,6 +444,7 @@ class ClaudeSession {
   readonly #clock: Clock;
   readonly #input = new InputQueue();
   readonly #approvals = new Map<string, PendingApproval>();
+  readonly #questions = new Map<string, PendingQuestion>();
   readonly #activeTools = new Set<string>();
   #query: QueryHandle | null = null;
   #consuming: Promise<void> = Promise.resolve();
@@ -483,6 +507,35 @@ class ClaudeSession {
     );
   }
 
+  /**
+   * Answers a pending AskUserQuestion: Claude Code reads the answers from the tool's input, keyed by
+   * each question's text, the chosen labels and any typed text joined with ", " as it shows them.
+   */
+  answer(questionId: string, answers: readonly QuestionAnswer[]): void {
+    this.#assertOpen();
+    const question = this.#questions.get(questionId);
+    if (question === undefined) {
+      throw new RuntimeActionError(
+        'question_not_pending',
+        `Question ${questionId} is not waiting for an answer.`,
+      );
+    }
+    this.#questions.delete(questionId);
+    const byText: Record<string, string> = {};
+    for (const given of answers) {
+      const text = question.texts.get(given.key);
+      if (text === undefined) continue;
+      byText[text] = [...given.selected, ...(given.text === null ? [] : [given.text])].join(', ');
+    }
+    this.#emit(
+      'runtime.question.resolved',
+      { question_id: questionId, outcome: 'answered' },
+      observed('can_use_tool.response'),
+      `${questionId}:resolved`,
+    );
+    question.answer({ behavior: 'allow', updatedInput: { ...question.input, answers: byText } });
+  }
+
   /** Resolves when Claude Code confirms the interrupt; the turn's end is reported separately. */
   async interrupt(): Promise<void> {
     this.#assertOpen();
@@ -517,6 +570,7 @@ class ClaudeSession {
       ),
     );
     this.#approvals.clear();
+    this.#questions.clear();
     this.#input.end();
     this.#query?.close();
     await this.#consuming;
@@ -530,6 +584,25 @@ class ClaudeSession {
     this.#evidence(this.#nativeId ?? this.id, 'can_use_tool');
     const approvalId = options.requestId || options.toolUseID;
     const { promise, resolve, reject } = Promise.withResolvers<PermissionResult>();
+    const asked = toolName === ASK_USER_QUESTION ? askedQuestions(input) : null;
+    if (asked !== null) {
+      // A question, not a permission: approving it would answer nothing (agent-questions.md).
+      this.#questions.set(approvalId, { input, texts: asked.texts, answer: resolve });
+      options.signal.addEventListener(
+        'abort',
+        () => {
+          if (this.#questions.delete(approvalId)) reject(new Error('The question was withdrawn.'));
+        },
+        { once: true },
+      );
+      this.#emit(
+        'runtime.question.asked',
+        { question_id: approvalId, prompts: asked.prompts, answerable: asked.answerable },
+        observed('can_use_tool'),
+        `${approvalId}:asked`,
+      );
+      return promise;
+    }
     this.#approvals.set(approvalId, { input, answer: resolve });
     // Claude Code withdraws a request it no longer needs, for example when the turn is interrupted.
     options.signal.addEventListener(
@@ -867,6 +940,63 @@ function describeInput(input: unknown, max: number, markTruncation = false): str
     if (text !== null) return text;
   }
   return null;
+}
+
+/**
+ * AskUserQuestion's input as questions: `questions: [{question, header, options: [{label,
+ * description}], multiSelect}]`, a typed answer always possible. Null when the input does not have
+ * that shape, so it is shown as an ordinary approval instead. Not answerable here when a question
+ * text or label is cut to fit the contract, or repeated, since Claude Code matches answers by text.
+ */
+function askedQuestions(input: Record<string, unknown>): {
+  readonly prompts: QuestionPrompt[];
+  readonly texts: ReadonlyMap<string, string>;
+  readonly answerable: boolean;
+} | null {
+  const raw = Array.isArray(input.questions) ? input.questions : null;
+  if (raw === null || raw.length === 0) return null;
+  let answerable = raw.length <= 10;
+  const prompts: QuestionPrompt[] = [];
+  const texts = new Map<string, string>();
+  for (const [index, item] of raw.slice(0, 10).entries()) {
+    if (typeof item !== 'object' || item === null) return null;
+    const entry = item as Record<string, unknown>;
+    const question = typeof entry.question === 'string' ? entry.question : '';
+    const text = clip(question, 4000);
+    if (text === null) return null;
+    if (text !== question || [...texts.values()].includes(question)) answerable = false;
+    const offered = Array.isArray(entry.options) ? entry.options : [];
+    if (offered.length > 20) answerable = false;
+    const options: QuestionPrompt['options'] = [];
+    for (const option of offered.slice(0, 20)) {
+      const record =
+        typeof option === 'object' && option !== null ? (option as Record<string, unknown>) : {};
+      const label = typeof record.label === 'string' ? clip(record.label, 200) : null;
+      if (
+        label === null ||
+        label !== record.label ||
+        options.some((known) => known.label === label)
+      ) {
+        answerable = false;
+        if (label === null) continue;
+      }
+      const description =
+        typeof record.description === 'string' ? clip(record.description, 1000) : null;
+      options.push({ label, description });
+    }
+    const key = `q${index}`;
+    texts.set(key, question);
+    prompts.push({
+      key,
+      header: typeof entry.header === 'string' ? clip(entry.header, 200) : null,
+      text,
+      options,
+      multiple: entry.multiSelect === true,
+      free_text: true,
+      secret: false,
+    });
+  }
+  return { prompts, texts, answerable };
 }
 
 function approvalSummary(input: Record<string, unknown>): string {

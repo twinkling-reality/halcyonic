@@ -20,6 +20,7 @@ import {
   Timestamp,
   WorkstreamId,
 } from './primitives.ts';
+import { QuestionPrompts } from './questions.ts';
 import { ModelRef, RuntimeDescriptor, RuntimeRef } from './runtime.ts';
 
 const strict = { additionalProperties: false } as const;
@@ -61,6 +62,10 @@ export type AttentionLevel = Static<typeof AttentionLevel>;
 export const AttentionReason = Type.Union([
   Type.Object(
     { kind: Type.Literal('approval_pending'), execution_id: ExecutionId, approval_id: NativeId },
+    strict,
+  ),
+  Type.Object(
+    { kind: Type.Literal('question_pending'), execution_id: ExecutionId, question_id: NativeId },
     strict,
   ),
   Type.Object({ kind: Type.Literal('execution_failed'), execution_id: ExecutionId }, strict),
@@ -120,6 +125,18 @@ export const ApprovalView = Type.Object(
 );
 export type ApprovalView = Static<typeof ApprovalView>;
 
+/** A question the agent asked that waits for the person (ADR 0022). */
+export const QuestionView = Type.Object(
+  {
+    question_id: NativeId,
+    prompts: QuestionPrompts,
+    answerable: Type.Boolean(),
+    asked_at: Timestamp,
+  },
+  strict,
+);
+export type QuestionView = Static<typeof QuestionView>;
+
 export const ToolActivityView = Type.Object(
   {
     tool_call_id: NativeId,
@@ -173,6 +190,7 @@ export const ExecutionView = Type.Object(
     /** Why the execution is `failed`, `interrupted` or `unknown`, when known. */
     status_reason: Nullable(ErrorInfo),
     pending_approvals: Type.Array(ApprovalView),
+    pending_questions: Type.Array(QuestionView),
     active_tools: Type.Array(ToolActivityView),
     active_test_run: Nullable(TestRunView),
     last_test_run: Nullable(TestRunResultView),

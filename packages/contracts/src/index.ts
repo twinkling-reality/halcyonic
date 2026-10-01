@@ -5,6 +5,7 @@ export * from './evaluation.ts';
 export * from './events.ts';
 export * from './locations.ts';
 export * from './primitives.ts';
+export * from './questions.ts';
 export * from './realtime.ts';
 export * from './runtime.ts';
 export * from './schema-document.ts';

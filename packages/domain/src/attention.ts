@@ -5,7 +5,8 @@ import { deriveExecutionStatus, type ExecutionState } from './execution-state.ts
  * Whether a workstream needs its human, and why. Deterministic and derived only from observed
  * facts, so every signal can be explained by the events behind it.
  *
- * - Any execution blocked on an approval requires action.
+ * - Any execution blocked on an approval or on a question the agent asked requires action, even
+ *   one the person can only answer by stopping the execution.
  * - The current execution having failed or become unobservable is a notice.
  * - The current execution reporting completion after a test run that did not pass is a notice:
  *   "the agent says done" is not the same as "the work is verified".
@@ -25,6 +26,13 @@ export function deriveAttention(
         kind: 'approval_pending',
         execution_id: execution.executionId,
         approval_id: approval.approval_id,
+      });
+    }
+    for (const question of execution.pendingQuestions.values()) {
+      reasons.push({
+        kind: 'question_pending',
+        execution_id: execution.executionId,
+        question_id: question.question_id,
       });
     }
   }

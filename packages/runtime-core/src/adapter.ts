@@ -4,6 +4,7 @@ import type {
   ExecutionId,
   ProjectId,
   Provenance,
+  QuestionAnswer,
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeEventType,
@@ -171,6 +172,15 @@ export interface RuntimeAdapter {
     decision: ApprovalDecision;
     message: string | null;
   }): Promise<void>;
+  /**
+   * Carries the person's answers to a question the agent asked (ADR 0022), one per question, as
+   * admission checked them against the question. Resolves once the runtime has taken them.
+   */
+  answerQuestion?(request: {
+    execution: ExecutionContext;
+    question_id: string;
+    answers: readonly QuestionAnswer[];
+  }): Promise<void>;
   interrupt?(request: { execution: ExecutionContext }): Promise<void>;
   /** Releases native resources. Observations stop after this resolves. */
   close(): Promise<void>;
@@ -197,6 +207,7 @@ const CAPABILITY_METHODS: Readonly<Record<keyof RuntimeCapabilities, keyof Runti
   instruct_at_rest: 'sendInstruction',
   instruct_while_running: 'sendInstruction',
   respond_to_approval: 'respondToApproval',
+  answer_question: 'answerQuestion',
   interrupt: 'interrupt',
 };
 
