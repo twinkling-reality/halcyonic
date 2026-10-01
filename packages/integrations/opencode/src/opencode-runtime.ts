@@ -99,6 +99,11 @@ export interface OpenCodeRuntimeOptions {
   /** Delays before successive reconnection attempts; when they run out the server is given up. */
   readonly reconnectDelaysMs?: readonly number[];
   /**
+   * Delays before reading a session again when reading it back after a reconnect fails, as when
+   * the server is still waking with the Mac. When they run out, the session is reported lost.
+   */
+  readonly snapshotRetryDelaysMs?: readonly number[];
+  /**
    * How long a start waits for OpenCode to offer the execution's model, which it may not list yet
    * right after it starts. By default 10 s.
    */
@@ -189,6 +194,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
   readonly #startupTimeoutMs: number;
   readonly #silenceTimeoutMs: number;
   readonly #reconnectDelaysMs: readonly number[];
+  readonly #snapshotRetryDelaysMs: readonly number[];
   readonly #modelWaitMs: number;
   readonly #clock: Clock;
   readonly #sessions = new Map<string, HostedSession>();
@@ -206,6 +212,7 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 30_000;
     this.#silenceTimeoutMs = options.streamSilenceTimeoutMs ?? 45_000;
     this.#reconnectDelaysMs = options.reconnectDelaysMs ?? [100, 250, 500, 1000, 2000, 4000];
+    this.#snapshotRetryDelaysMs = options.snapshotRetryDelaysMs ?? [1000, 3000];
     this.#modelWaitMs = options.modelWaitMs ?? 10_000;
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
@@ -608,7 +615,8 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
         return;
       }
       for (let reads = 1; ; reads += 1) {
-        const snapshot = await readSnapshot(session.connection.server.client, session);
+        const snapshot = await this.#readSnapshotPatiently(session);
+        if (snapshot === null) return;
         if (session.connection.halted.signal.aborted || session.lost) return;
         const result = reconcileSession(session.state, snapshot, this.#clock.now());
         if (result.kind === 'settled') {
@@ -630,6 +638,26 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     } finally {
       session.reconciling = null;
       release();
+    }
+  }
+
+  /**
+   * Reads a session back, reading it again after a failure while retry delays remain: right after
+   * the Mac wakes, the server can be too slow to answer the first read. Null when the connection
+   * halted or the session was lost meanwhile; the last failure is thrown when the delays run out.
+   */
+  async #readSnapshotPatiently(session: HostedSession): Promise<SessionSnapshot | null> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await readSnapshot(session.connection.server.client, session);
+      } catch (error) {
+        const wait = this.#snapshotRetryDelaysMs[attempt];
+        if (wait === undefined) throw error;
+        await delay(wait, undefined, { signal: session.connection.halted.signal }).catch(
+          () => undefined,
+        );
+        if (session.connection.halted.signal.aborted || session.lost) return null;
+      }
     }
   }
 

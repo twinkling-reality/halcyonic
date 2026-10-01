@@ -815,6 +815,52 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     },
   );
 
+  test(
+    'a read that times out right after a reconnect, as when the Mac wakes, is retried rather than losing the session',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t, {
+        runtime: {
+          streamSilenceTimeoutMs: 1000,
+          reconnectDelaysMs: Array.from({ length: 10 }, () => 200),
+          snapshotRetryDelaysMs: [300, 300],
+        },
+      });
+      const execution = await start('Please RUN_SHELL for the end to end test.');
+      const requested = await execution.next('runtime.approval.requested');
+      assert.ok(requested.type === 'runtime.approval.requested');
+      // The next two reads of the session's permissions time out, as the overnight run's did.
+      let failures = 2;
+      const original = globalThis.fetch;
+      globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        if (failures > 0 && String(input).endsWith('/permission')) {
+          failures -= 1;
+          return Promise.reject(
+            new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
+          );
+        }
+        return original(input, init);
+      }) as typeof fetch;
+      t.after(() => {
+        globalThis.fetch = original;
+      });
+      await until(() => failures === 0, 10_000, 'a reconnect to read the session');
+      await delay(1500);
+      assert.deepEqual(
+        execution.types().filter((type) => type === 'runtime.connection.lost'),
+        [],
+      );
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: requested.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed', 1, 20_000);
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
   test('reconnecting while nothing changed reports nothing twice', SLOW_TEST, async (t) => {
     // A second of silence drops the stream again and again: during the first prompt, which
     // blocks a fresh OpenCode project for more than a second, while the approval waits, and
