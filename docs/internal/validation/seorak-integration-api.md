@@ -153,15 +153,22 @@ carry `source.synthetic`, false for everything read from Seorak
   released; it is not in Seorak's public text. Halcyonic's reader (`WireUsageLimits` in
   `packages/integrations/seorak/src/wire.ts`) is written from that specification in Halcyonic's
   own words.
-- **Status:** Tested against a stub Seorak plane only (`FakeSeorak` over real loopback HTTP, in
-  the client's tests and in the control plane's route tests). **The live read is unverified.**
+- **Status:** Tested against a stub Seorak plane (`FakeSeorak` over real loopback HTTP, in the
+  client's tests and in the control plane's route tests), and read live once on 2026-09-30 (below).
+
+Live read (2026-09-30): the owner's local Seorak daemon ran the build with this read (merged into
+the owner's checkout, not released), and the owner issued Halcyonic one credential with
+`sessions:read`, `replay:read` and `limits:read`. `GET /api/usage-limits` on the control plane at
+84772e2 answered `available` and complete, with one Codex weekly reading: fresh, account
+`unidentified`, source Seorak and not synthetic. There was no five-hour reading, and no Claude
+reading, as specified. The headset's rendering of a live answer is not yet checked on a Quest.
 
 What Halcyonic reads:
 
 - `GET /api/v1/usage-limits`, no query and no body, needs the new `limits:read` scope. A
   credential without it gets 403 `insufficient_scope`, even with every other scope; Halcyonic
-  answers `unauthorized` (`insufficient_scope`). The credential Halcyonic holds today has only
-  `sessions:read` and `replay:read`, so it gets this 403.
+  answers `unauthorized` (`insufficient_scope`). A credential with only `sessions:read` and
+  `replay:read`, which Halcyonic held until 2026-09-30, gets this 403.
 - An available answer lists readings sorted by agent, then window. Each has the agent (an open
   vocabulary, not only `codex` and `claude-code`), the window (`rolling-5h` or `weekly`), the used
   percentage the provider reported, when the window resets, when it was observed, a freshness flag
