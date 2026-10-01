@@ -4,6 +4,8 @@
   "references": [
     "Halcyonic.XR",
     "Halcyonic.XR.Workspace",
+    "Halcyonic.XR.UI",
+    "Halcyonic.XR.UI.Interaction",
     "Halcyonic.Client",
     "Oculus.VR",
     "meta.xr.mrutilitykit",

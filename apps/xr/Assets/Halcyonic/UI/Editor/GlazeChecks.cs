@@ -131,7 +131,9 @@ namespace Halcyonic.XR.UI.Editor
 
         /// <summary>
         /// Every label that shows text has an em of at least <paramref name="minimumDegrees"/> as seen
-        /// from <paramref name="eyes"/>: the caption's size unless a role asks for more.
+        /// from <paramref name="eyes"/>, the caption's size unless a role asks for more. Sizes are
+        /// measured at the distance of the plane the label lies on, as Meta's dp are: on a flat panel
+        /// facing the eyes, a word at the edge is the same size as one in the middle.
         /// </summary>
         public static IEnumerable<string> TextLargeEnough(GameObject root, Vector3 eyes, string what, float minimumDegrees = Glaze.CaptionDegrees)
         {
@@ -141,7 +143,7 @@ namespace Halcyonic.XR.UI.Editor
             {
                 if (string.IsNullOrEmpty(label.text)) continue;
                 var em = label.fontSize * 0.1f * label.transform.lossyScale.y;
-                var degrees = Glaze.DegreesOf(em, Vector3.Distance(eyes, label.transform.position));
+                var degrees = Glaze.DegreesOf(em, PlaneDistance(eyes, label.transform));
                 if (degrees < smallest)
                 {
                     smallest = degrees;
@@ -168,7 +170,7 @@ namespace Halcyonic.XR.UI.Editor
             foreach (var button in buttons)
             {
                 if (!button.gameObject.activeInHierarchy) continue;
-                var distance = Vector3.Distance(eyes, button.transform.position);
+                var distance = PlaneDistance(eyes, button.transform);
                 var scale = button.transform.lossyScale;
                 var tall = Glaze.DegreesOf(button.Size.y * scale.y, distance);
                 var wide = Glaze.DegreesOf(button.Size.x * scale.x, distance);
@@ -181,6 +183,9 @@ namespace Halcyonic.XR.UI.Editor
                 }
             }
         }
+
+        /// <summary>From the eyes to the plane something lies on, along that plane's normal: the distance its sizes are designed for.</summary>
+        public static float PlaneDistance(Vector3 eyes, Transform surface) => Mathf.Abs(Vector3.Dot(surface.position - eyes, surface.forward));
 
         /// <summary>No label shows its text cut short: Halcyonic's own words, on buttons, badges and tags, show whole.</summary>
         public static IEnumerable<string> NothingCut(IEnumerable<TMP_Text> labels, string what)

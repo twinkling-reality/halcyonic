@@ -239,12 +239,15 @@ the same definition names, as the JSON Schema document:
   peeked, and while a workspace is open only hands peek. A pinch of either hand opens a character
   only while its gaze peek is at least a quarter visible, no hand ray or finger is on any target, no
   workspace is open, and the app has focus.
-- **`WorkspacePlacement`** chooses where the workspace opens, seen from the eyes: toward its
-  character, at most 15 degrees to the side of where the person looks, and clear of every
-  character's body, below the ones it passes or above them, whichever keeps its center between 30
-  degrees below and 2 degrees above eye level (the nearer to 15 degrees down when both do); never so
-  low that its lower edge comes within 5 cm of the surface the characters stand on. Where neither
-  clears, it moves the least into the band and may cover a body.
+- **`WorkspacePlacement`** chooses where the workspace, or any foreground panel of its own size,
+  opens, seen from the eyes: toward its character, at most 15 degrees to the side of where the
+  person looks, and clear of every character it passes, below their labels or above their bodies,
+  whichever keeps its center between 31 degrees below and 2 degrees above eye level (the nearer to
+  15 degrees down when both do); never so low that its lower edge comes within 5 cm of the surface
+  the characters stand on. It keeps 1.5 degrees from bodies, which move, and 1.2 from labels, which
+  do not, measured at the panel's corners: a flat panel's corners are farther than its edges'
+  middles, so below eye level they look higher (`CornerElevation`). Where neither side clears, it
+  moves the least into the band and may cover a character.
 - **`SeatedPointing`** makes a hand ray for a seated person: through the index knuckle from a pivot
   0.40 m below the eyes, 0.10 m behind them and 0.13 m to the hand's side, so a hand resting a
   little above a desk points ahead; on only while the hand is tracked with high confidence, in
@@ -841,21 +844,35 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   pointing at the character and pinching again, returns to ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
-- **Project rail:** `ProjectRail`, low under the stage and within reach, in two rows. Above, the
-  projects that matter most now, what needs the person first, each with its most important count
-  ("1 task waiting", or for a hidden project "Hidden · 1 finished", short enough for the chip; Connect projects says "1 task is waiting for you"), pressed to show or hide that project's work on the stage;
-  and More work, while some work has no character, with how much of it needs the person. Below,
-  Connect projects, with how many projects show, and Create a project (Continue creating while a
-  draft waits). The lower row's right end is left free (`UsageLeftRoom`) for an optional Usage
-  left glance added separately; the rail adds no floating control. It rests 0.43 m ahead of the eyes
-  and 0.42 m below them, about 44 degrees down, within about 17 degrees to either side, clear of the
-  room and pairing controls 26 degrees out; over a desk, 0.36 m ahead and never into the desk, below
-  the lineup's label plates, about 48 degrees down and 18 to either side. It is placed in front of the person when the app starts and when the
-  stage moves onto or off a surface, and again by Reset position, and it steps out of the way while
-  the entry panel, a workspace or the Usage left panel is open. Which projects show is kept on the device for each
-  journal (`StageVisibility`); hiding a project hides its characters only.
-- **Usage left:** `UsageLeftGlance` puts a "Usage left" chip in the room the project rail leaves
-  at its lower row's right end, and nothing anywhere else: no floating control. Pressing it opens a
+- **Project rail:** `ProjectRail`, low under the stage and within reach, in two rows of
+  `GlazeButton`s ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
+  Above, filters: the projects that matter most now, what waits for the person first, each a pill
+  outlined in the accent while its work is on the stage and quiet while hidden, with its counts in
+  full where the pill has room ("1 task is waiting for you", `EntryText.ChipDetailInFull`) and in
+  their short form where it has not ("1 task waiting", "Hidden · 1 waiting"), in the attention
+  colour while something waits, pressed to show or hide that project's work on the stage; and See
+  other tasks, while some work has no character, with how much of it waits for the person. Below,
+  actions: Connect projects, with how many projects show, and Create a project (Keep creating while
+  a draft waits) at the left; Usage left, when its glance offers it, and Settings, compact, at the
+  right, since they open sheets rather than act on work. Every button is 60 dp tall (48 compact) and
+  12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
+  to either side, its rows 40 to 49 degrees down; over a desk, 0.3 m ahead and never into the desk,
+  about 53 degrees down, under the lineup's labels. It is placed in front of the person when the app
+  starts and when the stage moves onto or off a surface, and again by Reset position, and it steps
+  out of the way while the entry panel, a workspace, the Usage left panel or Settings is open. Which
+  projects show is kept on the device for each journal (`StageVisibility`); hiding a project hides
+  its characters only.
+- **Settings:** `SettingsSheet`, which the rail's Settings opens, is one foreground panel, 36 by
+  about 20 degrees at 0.46 m, placed where the entry panel would be, clear of every character and
+  label, with Close at its top right. It holds the controls that change how Halcyonic is arranged
+  rather than act on work, each feature in a section of its own (`SettingsSection`): Your room, with
+  the room's line and its switch, offer and Make room for a window, and, in development builds, Your
+  Mac, with pairing. Their news no longer comes up in front of the person: a section's line also
+  shows on the stage's banner as a short notice for eight seconds (`CharacterStage.ShowNotice`). It
+  closes when the entry panel or a workspace opens and folds while another window keeps focus.
+- **Usage left:** `UsageLeftGlance` offers its "Usage left" chip to the project rail, which places it
+  at its lower row's right end (`ProjectRail.OfferUsageLeft`), and nothing anywhere else: no
+  floating control. Pressing it opens a
   panel 0.7 wide where the entry panel would open (`WorkspaceLayout.PlaceForeground`), clear of every
   character, at the edge of that space away from them (below the characters 2.4 m away, above a desk
   lineup) so it clears their label plates too, and reads the control plane once. The rail steps out of
@@ -865,8 +882,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   workspace opens; while another window has focus its controls take no input and the chip hides,
   and once focus stays away the panel folds with what it read and comes back as it was. The recorded demonstration offers no usage limits. It is not Workstream status and not part
   of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
-- **Make room for a window:** while the stage stands in front of the person, the room controls offer
-  Make room for a window, which turns the lineup 32 degrees to their right
+- **Make room for a window:** while the stage stands in front of the person, Settings' Your room
+  offers Make room for a window, which turns the lineup 32 degrees to their right
   (`CharacterStage.SetAside`, kept on the device), and Characters in front, which turns it back. On
   a desk the room placement decides where it stands. Halcyonic cannot see the window, so this
   reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m straight ahead,
@@ -1019,13 +1036,13 @@ two feet, so a seated person pokes its buttons without leaning or standing. It i
 its designed angular size, which puts its buttons about 33 mm tall there. `WorkspaceLayout` hands
 every character as seen from the eyes, its body and how low and wide its label reaches, to
 `WorkspacePlacement`, which opens it clear of all of them: with the characters 2.4 m away, below
-their labels, its center about 29 degrees down, 30 with marked labels of two lines, clear of every
+their labels, its center about 29 degrees down, 30 to 31 with marked labels of two lines, clear of every
 title and badge (ADR 0023; it used to open over the labels of the characters it passed); with the characters on a desk half a meter
 away, above them, its center 10 to 15 degrees down, its lower edge at least 5 cm above the desk.
 The rest of the stage stays in view. `WorkspaceRender` renders both in the editor and checks it.
 
 **Field of view.** The workspace spans about 34 by 27 degrees wherever it opens. Its center stays
-within 15 degrees of where the person looks, and between 30 degrees below and 2 degrees above eye
+within 15 degrees of where the person looks, and between 31 degrees below and 2 degrees above eye
 level, so all of it, controls included, sits in the middle of a narrower field of view than the
 Quest 3's (as on a Quest 3S), never at an edge; with the characters 2.4 m away, its actions row
 is about 20 degrees below them, and its activity lines, at the bottom, may need the head tilted
@@ -1119,14 +1136,12 @@ neither the scene nor the stage refers to it; the stage finds it as its `IStageP
   (`OVRScene.RequestSpaceSetup`, which pauses the app until the person finishes or cancels), and
   the room is read again afterwards. A placement without a saved anchor holds for the session.
   Nothing waits on the room before the characters appear.
-- **Controls.** `RoomControls` shows the switch ("Show a virtual space" or "Show my room") and the
-  offer ("Allow room access" or "Set up this room") as the workspace's `PanelButton`s, pointed at
-  and pinched or poked and ignoring input while `FocusGuard.InputSuspended`. They rest 26 degrees
-  to the right, 0.4 m out and 0.4 m below the eyes, about 45 degrees down, within a seated
-  person's reach and under the lineup on a desk; they come up in front of the person, a little
-  below the eyes, for 6 seconds when there is something to read or offered, and return to rest
-  when the person has faced more than 50 degrees away for 1.5 seconds. Above them, one line from
-  `RoomStatus.Line` shows for 8 seconds after it changes.
+- **Controls.** `RoomControls` puts the switch ("Show a virtual space" or "Show my room"), the
+  offer ("Allow room access" or "Set up this room") and Make room for a window in the Your room
+  section of Settings, under its line from `RoomStatus.Line`; they ignore input while
+  `FocusGuard.InputSuspended` or the sheet is closed. When the line changes, and when the room is
+  about to ask for access, the stage's banner shows it as a notice for eight seconds, instead of the
+  controls coming up in front of the person as they used to.
 - **Logs.** `Halcyonic: room ...` lines say what was shown, asked, read, chosen, restored, kept,
   lost and erased, and why, with distances and angles, and never an anchor or room id or a
   position.
@@ -1279,10 +1294,12 @@ the room's and the sound's bootstraps do, so neither the scene nor the stage ref
 release build, such as the one judges run, offers no pairing
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 
-- **The panel** is one of the workspace's `PanelButton`s, low and 26 degrees to the person's left,
-  mirroring the room controls, with a line above it that comes up in front of the person while
-  something is in progress or has just changed. Like every button, it ignores input while
-  `FocusGuard.InputSuspended`.
+- **The panel** is a button and a line in the Your Mac section of Settings (ADR 0023); the line
+  shows while something is in progress or for ten seconds after it changed, and the stage's banner
+  shows each line as a notice too, for a result reached with the sheet closed. Moving into Settings
+  changed only where it shows and how it looks: the code entry, the confirmation and every message
+  are as they were. "Forget this Mac" and its confirmation are outlined in red. The button ignores
+  input while `FocusGuard.InputSuspended` or the sheet is closed.
 - **Pairing.** "Pair with a Mac" opens the system keyboard for the Mac's address, as `pnpm pair`
   prints it (the last one typed is offered, and the port may be left out), then the number pad for
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
@@ -1360,7 +1377,8 @@ of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-an
 through `GlazeChecks` (`Assets/Halcyonic/UI/Editor`), which every render can use: labels, bodies,
 the banner and the peek at least a degree apart as seen from the eyes, measured from each mesh's own
 corners and each body across the line of sight, and a label at least 0.3 degrees from its own body;
-every word at least the caption's 0.94 degrees at its own distance; every plate at least 96 percent
+every word at least the caption's 0.94 degrees, at the distance of the plane it lies on as Meta's dp
+are; every plate at least 96 percent
 opaque; every badge showing its whole word; a plate's pixel in its token's color; and a title's
 strokes at 7:1 or more on its plate as drawn. It fails if the banner still shows while the peek is
 where it goes, or does not come back when the peek leaves.
@@ -1373,9 +1391,13 @@ lines with Refresh clear of them in the same row.
 renders the project rail and every screen of the entry panel over the same two stages, and saves
 them in `apps/xr/Builds/EntryRenders`. It fails if the panel lets anything behind it show through
 (compared inside its own outline), covers a character's body or leaves the comfortable band; if
-the rail reaches farther to the side than the pairing panel's button begins (18.6 degrees), runs
-into the room kept for Usage left, overlaps itself or covers a character's body or label;
-if any of Halcyonic's own words is cut short. It pages through the whole request for the longest
+the rail reaches more than 24 degrees from its middle, runs past its ends, puts two buttons closer
+than 12 mm, has a target under 60 dp (48 compact) or a word under the caption's size, or comes
+within a degree of a character's body or label as the eyes see them; if any of Halcyonic's own
+words is cut short. It opens Settings from the rail, with the sections the room and pairing fill,
+and fails if the sheet comes within a degree of a character or label, leaves the comfortable band,
+has a target or word too small, cuts our words short, or shows a refusal from outside otherwise
+than as written. It pages through the whole request for the longest
 name and task in one unbroken word, a task made only of characters shown as code points, a task with
 no place to break, and a long task in words, and fails unless every character of every item shows
 exactly once across the pages, inside the space above the page buttons, no item overlaps another, a

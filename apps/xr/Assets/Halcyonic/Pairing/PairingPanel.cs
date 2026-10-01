@@ -4,51 +4,35 @@ using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 using Halcyonic.Client;
+using Halcyonic.XR.UI;
 using Halcyonic.XR.Workspace;
-using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Pairing
 {
     /// <summary>
-    /// Pairs this headset with a control plane over the network (ADR 0017): one small button, low and
-    /// to the person's left, and a line above it. "Pair with a Mac" asks on the system keyboard for
-    /// the address and the eight-digit code <c>pnpm pair</c> shows on the Mac, pairs in the
-    /// background, keeps the pairing through <see cref="ControlPlaneSettings.PairingStore"/>, and
+    /// Pairs this headset with a control plane over the network (ADR 0017): one button and a line in
+    /// the Your Mac section of the Settings sheet (ADR 0023). "Pair with a Mac" asks on the system
+    /// keyboard for the address and the eight-digit code <c>pnpm pair</c> shows on the Mac, pairs in
+    /// the background, keeps the pairing through <see cref="ControlPlaneSettings.PairingStore"/>, and
     /// connects again. Once paired, the same button forgets the Mac, after a second, deliberate
-    /// press, and asks the Mac to revoke this headset's credential.
+    /// press, and asks the Mac to revoke this headset's credential. What it says also shows on the
+    /// stage's banner as a short notice, so a result reached while the sheet is closed is not missed.
     /// </summary>
     /// <remarks>
-    /// The button is the workspace's <see cref="PanelButton"/>, pointed at and pinched or poked, which
-    /// ignores input while <see cref="FocusGuard.InputSuspended"/>. The keyboard's answer counts
-    /// anyway, since focus returns only after the keyboard closes. The code is passed to the pairing
-    /// and kept nowhere, and neither it nor the credential is logged.
+    /// Moving into Settings changed only where the button and line show and how they look; the
+    /// pairing itself, the code entry, the confirmation and every message are as they were. The
+    /// button ignores input while <see cref="FocusGuard.InputSuspended"/> or the sheet is closed. The
+    /// keyboard's answer counts anyway, since focus returns only after the keyboard closes. The code
+    /// is passed to the pairing and kept nowhere, and neither it nor the credential is logged.
     /// </remarks>
     internal sealed class PairingPanel : MonoBehaviour
     {
-        /// <summary>Where the controls rest, relative to where the person faces: to the left, near, and low.</summary>
-        private const float RestTurnDegrees = -26f;
-        private const float RestReach = 0.40f;
-        private const float RestBelowEyes = 0.40f;
-
-        /// <summary>Where they come up while pairing: ahead, a little below the eyes.</summary>
-        private const float PresentReach = 0.50f;
-        private const float PresentBelowEyes = 0.10f;
-
         /// <summary>How long the line shows after it changes, once nothing is in progress.</summary>
         private const float LineSeconds = 10f;
 
         /// <summary>How long the second press that forgets the Mac is waited for.</summary>
         private const float ConfirmSeconds = 6f;
-
-        /// <summary>Out of the comfortable zone for this long, the controls return to their resting place.</summary>
-        private const float AwaySeconds = 1.5f;
-        private const float AwayDegrees = 50f;
-
-        private const float Gap = 0.02f;
-        private const float LineWidth = 0.56f;
-        private const float LinePadding = 0.02f;
-        private const float MinButtonWidth = 0.24f;
 
         /// <summary>The network listener's port when the typed address names none.</summary>
         private const int DefaultPort = 47801;
@@ -66,11 +50,9 @@ namespace Halcyonic.XR.Pairing
         }
 
         private ControlPlaneConnection connection = null!;
-        private Transform root = null!;
-        private PanelButton button = null!;
-        private Transform lineRoot = null!;
-        private SpriteRenderer linePlate = null!;
-        private TextMeshPro line = null!;
+        private CharacterStage? stage;
+        private SettingsSection section = null!;
+        private GlazeButton button = null!;
         private Step step;
         private TouchScreenKeyboard? keyboard;
         private string host = "";
@@ -81,27 +63,17 @@ namespace Halcyonic.XR.Pairing
         private string shownLine = "";
         private float lineUntil;
         private float confirmUntil;
-        private bool placed;
-        private bool presenting;
-        private float awayFor;
+        private bool lineShown;
 
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
+            stage = GetComponent<CharacterStage>();
             paired = ControlPlaneSettings.ReadPairing();
-            root = new GameObject("Pairing controls").transform;
-            lineRoot = new GameObject("Line").transform;
-            lineRoot.SetParent(root, false);
-            linePlate = PairingVisuals.Plate(lineRoot, "Plate");
-            line = PairingVisuals.Text(lineRoot, "Text", new Vector2(LineWidth, 0.2f));
-            button = PanelButton.Create(root, "Pairing");
+            section = SettingsSheet.On(gameObject).Section(SettingsText.YourMac, 1);
+            button = section.Button("Pairing", ButtonRole.Secondary);
             button.Pressed += OnPressed;
             Layout();
-        }
-
-        private void OnDestroy()
-        {
-            if (root != null) Destroy(root.gameObject);
         }
 
         private void OnEnable() => FocusGuard.Left += OnFocusLeft;
@@ -126,10 +98,7 @@ namespace Halcyonic.XR.Pairing
                 confirmUntil = 0f;
                 Layout();
             }
-            if (presenting && step == Step.Idle && now >= lineUntil) Place(presentingNow: false);
-            if (!placed) Place(presentingNow: false);
-            if (lineRoot.gameObject.activeSelf != LineShown(now)) Layout();
-            FollowPerson(Time.unscaledDeltaTime);
+            if (lineShown != LineShown(now)) Layout();
         }
 
         private void OnPressed()
@@ -266,84 +235,33 @@ namespace Halcyonic.XR.Pairing
         {
             shownLine = text;
             lineUntil = Time.unscaledTime + LineSeconds;
-            if (!presenting || !placed) Place(presentingNow: true);
+            // The banner says it too, for a result reached with the sheet closed.
+            if (stage != null) stage.ShowNotice(text);
             Layout();
         }
 
         private bool LineShown(float now) => shownLine.Length > 0 && (now < lineUntil || step != Step.Idle);
 
-        /// <summary>The button and, above it while it shows, the line, centered on the controls' origin.</summary>
+        /// <summary>
+        /// The section's button, Forget and its confirmation outlined in red, and, while it shows, the
+        /// line above it. A refusal can carry the words of whatever answered at the typed address, and
+        /// a failure an exception's: the section shows them by the one rule for text Halcyonic did not write.
+        /// </summary>
         private void Layout()
         {
             if (step == Step.Idle)
             {
                 var confirming = paired != null && confirmUntil > 0f;
                 var text = paired == null ? "Pair with a Mac" : confirming ? "Yes, forget this Mac" : "Forget this Mac";
-                button.Show(text, Vector2.zero, button.Measure(text, MinButtonWidth), confirm: confirming);
+                button.Role = paired == null ? ButtonRole.Secondary : ButtonRole.Destructive;
+                section.Offer(button, text);
             }
             else
             {
-                button.Hide();
+                section.Offer(button, null);
             }
-            var shown = LineShown(Time.unscaledTime);
-            lineRoot.gameObject.SetActive(shown);
-            if (!shown) return;
-            // A refusal can carry the words of whatever answered at the typed address, and a failure an
-            // exception's: shown by the one rule for text Halcyonic did not write.
-            line.text = LabelText.ForTextMeshPro(shownLine);
-            var size = line.GetPreferredValues(line.text, LineWidth, 0f);
-            var textHeight = Mathf.Min(size.y, 0.2f);
-            line.rectTransform.sizeDelta = new Vector2(LineWidth, textHeight);
-            var plateSize = new Vector2(Mathf.Min(size.x, LineWidth) + 2f * LinePadding, textHeight + 2f * LinePadding);
-            linePlate.size = plateSize;
-            linePlate.transform.localPosition = new Vector3(0f, 0f, 0.002f);
-            var buttonTop = step == Step.Idle ? PanelButton.Height / 2f + Gap : 0f;
-            lineRoot.localPosition = new Vector3(0f, buttonTop + plateSize.y / 2f, 0f);
-        }
-
-        /// <summary>
-        /// Stands the controls where they rest, or up in front of the person, facing the eyes and
-        /// scaled to keep the button's designed angular size.
-        /// </summary>
-        private void Place(bool presentingNow)
-        {
-            var head = Camera.main != null ? Camera.main.transform : null;
-            if (head == null) return;
-            presenting = presentingNow;
-            placed = true;
-            awayFor = 0f;
-            var eyes = head.position;
-            var direction = Quaternion.AngleAxis(presentingNow ? 0f : RestTurnDegrees, Vector3.up) * Level(head);
-            var position = eyes + direction * (presentingNow ? PresentReach : RestReach)
-                + Vector3.down * (presentingNow ? PresentBelowEyes : RestBelowEyes);
-            var toPanel = position - eyes;
-            root.SetPositionAndRotation(position, Quaternion.LookRotation(toPanel.normalized, Vector3.up));
-            root.localScale = Vector3.one * (toPanel.magnitude / PairingVisuals.DesignDistance);
-        }
-
-        /// <summary>Returns the controls to rest when the person has faced well away from them for a moment.</summary>
-        private void FollowPerson(float deltaTime)
-        {
-            var head = Camera.main != null ? Camera.main.transform : null;
-            if (head == null || presenting) return;
-            var toPanel = root.position - head.position;
-            var level = new Vector3(toPanel.x, 0f, toPanel.z);
-            var away = level.sqrMagnitude < 1e-4f || Vector3.Angle(Level(head), level) > AwayDegrees || level.magnitude > 1.0f;
-            awayFor = away ? awayFor + Mathf.Min(deltaTime, 0.1f) : 0f;
-            if (awayFor > AwaySeconds) Place(presentingNow: false);
-        }
-
-        /// <summary>Where the head faces on the level, even looking straight down.</summary>
-        private static Vector3 Level(Transform head)
-        {
-            var forward = head.forward;
-            var level = new Vector3(forward.x, 0f, forward.z);
-            if (level.sqrMagnitude < 0.01f)
-            {
-                var up = head.up;
-                level = new Vector3(up.x, 0f, up.z) * (forward.y < 0f ? 1f : -1f);
-            }
-            return level.sqrMagnitude < 1e-6f ? Vector3.forward : level.normalized;
+            lineShown = LineShown(Time.unscaledTime);
+            section.Say(lineShown ? shownLine : "");
         }
 
         /// <summary>

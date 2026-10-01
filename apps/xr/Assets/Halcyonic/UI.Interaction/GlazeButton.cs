@@ -105,7 +105,17 @@ namespace Halcyonic.XR.UI
 
         public PointerTarget Target => target;
 
-        public ButtonRole Role => role;
+        /// <summary>What the button does, which sets its look; a button can change role, as Forget becomes its confirmation.</summary>
+        public ButtonRole Role
+        {
+            get => role;
+            set
+            {
+                if (role == value) return;
+                role = value;
+                paintedState = -1;
+            }
+        }
 
         public static float HeightOf(bool compact) => GlazeTokens.Units(compact ? CompactHeightDegrees : HeightDegrees);
 

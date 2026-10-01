@@ -8,6 +8,7 @@ using System.Text;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -345,6 +346,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return Rect.MinMaxRect(minX, minY, maxX, maxY);
+        }
+
+        /// <summary>A body as seen from the eyes: its shell's own extent around where it is now, across the line of sight.</summary>
+        internal static GlazeChecks.Extent BodyExtent(CharacterView view, Vector3 eyes)
+        {
+            var shell = view.Body.Find("Shell");
+            var extents = shell.GetComponent<MeshFilter>().sharedMesh.bounds.extents;
+            var scale = shell.lossyScale;
+            return GlazeChecks.Facing(view.WorkstreamId + "'s body", eyes, shell.position, Mathf.Max(extents.x * scale.x, extents.z * scale.z), extents.y * scale.y);
         }
 
         /// <summary>Whether any part of a character's body falls inside the workspace's outline on the render.</summary>

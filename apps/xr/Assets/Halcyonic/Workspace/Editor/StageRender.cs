@@ -159,7 +159,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var failures = new List<string>();
             var labels = characters.Select(character => GlazeChecks.Of(character.View.WorkstreamId + "'s label", eyes, character.View.Label.gameObject)).ToList();
-            var bodies = characters.Select(character => Body(character.View, eyes)).ToList();
+            var bodies = characters.Select(character => WorkspaceRender.BodyExtent(character.View, eyes)).ToList();
 
             // Different things keep a degree apart: labels from each other and from other bodies, and the banner and the peek from all.
             var apart = new List<GlazeChecks.Extent>(labels);
@@ -192,15 +192,6 @@ namespace Halcyonic.XR.Workspace.Editor
             Debug.Log("Halcyonic: stage render " + name + ": labels end " + GlazeChecks.Degrees(-lowest) + " degrees below eye level; widest "
                 + GlazeChecks.Degrees(labels.Max(label => label.Right - label.Left)) + " degrees.");
             return failures;
-        }
-
-        /// <summary>A body as seen from the eyes: its shell's own extent around where it is now, across the line of sight.</summary>
-        private static GlazeChecks.Extent Body(CharacterView view, Vector3 eyes)
-        {
-            var shell = view.Body.Find("Shell");
-            var extents = shell.GetComponent<MeshFilter>().sharedMesh.bounds.extents;
-            var scale = shell.lossyScale;
-            return GlazeChecks.Facing(view.WorkstreamId + "'s body", eyes, shell.position, Mathf.Max(extents.x * scale.x, extents.z * scale.z), extents.y * scale.y);
         }
 
         /// <summary>

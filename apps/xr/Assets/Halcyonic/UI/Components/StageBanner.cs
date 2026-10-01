@@ -20,9 +20,9 @@ namespace Halcyonic.XR.UI
 
     /// <summary>
     /// The stage's banner (ADR 0023): one plate in the ambient strip under the characters, saying
-    /// whether what they show is live, and, while another window keeps focus, how many need the
-    /// person, in the attention colour. Built in units of the distance from the eyes, its top edge's
-    /// middle on its origin.
+    /// whether what they show is live, then any short notice from the room or the Mac, and, while
+    /// another window keeps focus, how many tasks wait for the person, in the attention colour. Built
+    /// in units of the distance from the eyes, its top edge's middle on its origin.
     /// </summary>
     public sealed class StageBanner : MonoBehaviour
     {
@@ -36,6 +36,7 @@ namespace Halcyonic.XR.UI
 
         private Surface plate = null!;
         private TextMeshPro line = null!;
+        private TextMeshPro notice = null!;
         private TextMeshPro waiting = null!;
 
         public float Height { get; private set; }
@@ -55,13 +56,17 @@ namespace Halcyonic.XR.UI
             var banner = go.AddComponent<StageBanner>();
             banner.plate = Surface.Create(go.transform, "Plate", 0);
             banner.line = GlazeText.Create(go.transform, "Line", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2);
+            banner.notice = GlazeText.Create(go.transform, "Notice", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
             banner.waiting = GlazeText.Create(go.transform, "Waiting", GlazeType.Body, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground),
                 TextAlignmentOptions.Top, 2, strong: true);
             return banner;
         }
 
-        /// <summary>Shows <paramref name="text"/> as written, and under it <paramref name="needsYou"/> when something waits for the person.</summary>
-        public void Show(string text, BannerKind kind, string? needsYou)
+        /// <summary>
+        /// Shows <paramref name="text"/> as written, under it <paramref name="news"/> when there is a
+        /// notice, and under that <paramref name="needsYou"/> when something waits for the person.
+        /// </summary>
+        public void Show(string text, BannerKind kind, string? needsYou, string? news = null)
         {
             var side = GlazeTokens.Units(SideDegrees);
             var end = GlazeTokens.Units(EndDegrees);
@@ -71,6 +76,15 @@ namespace Halcyonic.XR.UI
             var (lines, width) = GlazeText.Lay(line, room, needsYou == null ? MaxLines : MaxLines - 1);
             line.transform.localPosition = new Vector3(0f, -end, -0.001f);
             var bottom = -end - lines * GlazeText.LineHeight(line);
+            notice.gameObject.SetActive(news != null);
+            if (news != null)
+            {
+                GlazeText.SetLiteral(notice, news);
+                var (newsLines, newsWidth) = GlazeText.Lay(notice, room, 2);
+                notice.transform.localPosition = new Vector3(0f, bottom, -0.001f);
+                bottom -= newsLines * GlazeText.LineHeight(notice);
+                width = Mathf.Max(width, newsWidth);
+            }
             waiting.gameObject.SetActive(needsYou != null);
             if (needsYou != null)
             {

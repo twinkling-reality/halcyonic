@@ -12,8 +12,8 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// The optional Usage left glance: a chip in the room the project rail leaves at its lower row's
-    /// right end (<see cref="ProjectRail.UsageLeftRoom"/>) that opens a small panel with the provider
+    /// The optional Usage left glance: a chip the project rail places at its lower row's right end
+    /// (<see cref="ProjectRail.UsageLeft"/>) that opens a small panel with the provider
     /// limits the Mac last saw. It reads the control plane only when opened or when Read again is
     /// pressed, never on its own, and shows nothing that belongs to a Workstream.
     /// </summary>
@@ -42,7 +42,7 @@ namespace Halcyonic.XR.Workspace
         private EntryPanel? entry;
         private WorkspaceDirector? director;
         private CharacterStage? stage;
-        private PanelButton chip = null!;
+        private GlazeButton chip = null!;
         private Transform panel = null!;
         private SpriteRenderer plate = null!;
         private PointerTarget target = null!;
@@ -61,8 +61,8 @@ namespace Halcyonic.XR.Workspace
         private bool built;
         private float nextLayout;
 
-        /// <summary>The chip on the rail, for the editor's renders.</summary>
-        public PanelButton Chip => chip;
+        /// <summary>The chip on the rail, which the rail places and this answers, for the editor's renders.</summary>
+        public GlazeButton Chip => chip;
 
         /// <summary>The panel is open; the rail steps aside meanwhile.</summary>
         public bool Open => open;
@@ -145,12 +145,9 @@ namespace Halcyonic.XR.Workspace
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
             if (open && foreground) Close();
             ApplyFold();
-            if (FocusGuard.InputSuspended)
-            {
-                if (chip.gameObject.activeSelf) chip.Hide();
-                return;
-            }
-            if (!chip.gameObject.activeSelf) Layout();
+            // The chip hides while the app lacks focus, the return's grace included, and comes back after.
+            rail!.OfferUsageLeft(FocusGuard.InputSuspended ? null : Label);
+            if (FocusGuard.InputSuspended) return;
             if (read != null && read.IsCompleted) Finish();
             // A window can pass its reset while the panel is open; it then goes, rather than stay wrong.
             if (open && Time.unscaledTime >= nextLayout) Layout();
@@ -158,9 +155,10 @@ namespace Halcyonic.XR.Workspace
 
         private void Build()
         {
-            chip = PanelButton.Create(rail!.Root, Label, ProjectRail.ChipHeight, ProjectRail.ChipText);
-            chip.Accepting = () => !FocusGuard.InputSuspended;
+            // The rail makes and places the chip; the glance answers it and says when it shows.
+            chip = rail!.UsageLeft;
             chip.Pressed += Toggle;
+            rail.OfferUsageLeft(Label);
             panel = new GameObject("Usage left panel").transform;
             panel.SetParent(transform, false);
             // The stage's banner steps aside while the panel shows where it goes.
@@ -259,13 +257,10 @@ namespace Halcyonic.XR.Workspace
             panel.localScale = Vector3.one * WorkspaceLayout.Scale;
         }
 
-        /// <summary>The chip in the rail's free room; the panel, when open: its title and Close, the readings, the note, and Read again.</summary>
+        /// <summary>The panel, when open: its title and Close, the readings, the note, and Read again.</summary>
         private void Layout()
         {
             nextLayout = Time.unscaledTime + 15f;
-            var room = ProjectRail.UsageLeftRoom - ProjectRail.Gap;
-            var lower = -(ProjectRail.ChipHeight / 2f + ProjectRail.Gap / 2f);
-            chip.Show(Label, new Vector2(ProjectRail.RailWidth / 2f - room / 2f, lower), room);
             panel.gameObject.SetActive(open && !FocusGuard.Folded);
             if (!open) return;
 

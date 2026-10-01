@@ -49,11 +49,12 @@ namespace Halcyonic.XR.Workspace
         /// characters it opens 15 degrees below eye level.
         /// </summary>
         public static (Pose Pose, PanelDirection Direction) PlaceForeground(IEnumerable<CharacterTarget> all, Vector3 eyes, Vector3 looking,
-            float? surfaceHeight, List<BodyInView> scratch)
+            float? surfaceHeight, List<BodyInView> scratch, PanelSize? panel = null)
         {
             scratch.Clear();
             var lookYaw = Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg;
-            var size = new PanelSize(Reach, WorkspacePanel.Width / 2f * Scale, WorkspacePanel.Height / 2f * Scale);
+            // The workspace's size unless a panel says its own, as the Settings sheet does.
+            var size = panel ?? new PanelSize(Reach, WorkspacePanel.Width / 2f * Scale, WorkspacePanel.Height / 2f * Scale);
             BodyInView? nearest = null;
             foreach (var other in all)
             {
@@ -66,7 +67,7 @@ namespace Halcyonic.XR.Workspace
             var opened = nearest ?? new BodyInView(lookYaw, WorkspacePlacement.NaturalDegrees + size.HalfHeightDegrees + WorkspacePlacement.ClearanceDegrees, 0f);
             var direction = WorkspacePlacement.Place(lookYaw, opened, scratch, size, surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null);
             var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
-            return (new Pose(eyes + forward * Reach, Quaternion.LookRotation(forward, Vector3.up)), direction);
+            return (new Pose(eyes + forward * size.Distance, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }
 
         /// <summary>
