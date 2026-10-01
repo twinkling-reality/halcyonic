@@ -358,6 +358,17 @@ public class WorkspaceScreensTests
         Assert.That(Titles(model), Is.EqualTo(new[] { "Which colour scheme should the dashboard use?", WorkspaceText.CannotAnswer(question) }));
         Assert.That(model.PartsNote, Is.EqualTo(WorkspaceText.AgentWaits));
         Assert.That(model.Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop" }), "Stop is the way on");
+
+        // An agent app that takes instructions while it waits: nothing invites typing or saying the secret.
+        var instructable = Offering(work.Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
+        Assert.That(Screen(instructable, new WorkspaceSteering(factory), new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Speak = true })
+            .Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop" }), "no Tell it or Hold to talk while a secret is asked for");
+        var cut = AskingWork.Scripted();
+        cut.Answerable = false;
+        cut.Prompts[0].Text = "Which colour scheme [truncated]";
+        var cutWork = Offering(new AskingWork(cut).Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
+        Assert.That(Screen(cutWork, new WorkspaceSteering(factory)).Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Tell it" }),
+            "a question cut to fit asks for nothing secret");
     }
 
     [Test]

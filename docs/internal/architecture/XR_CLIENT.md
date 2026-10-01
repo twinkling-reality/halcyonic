@@ -902,7 +902,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   beside it drafts the answer from what the Mac heard. The row under them says which prompt shows,
   how it is answered ("Choose one, or type your own.") and how many more questions wait, with the
   pager. A question Halcyonic cannot answer shows why (a secret, or cut to fit) and that the agent
-  waits. The bar holds Stop at its left, outlined in red; Deny, Hold to talk (in development builds,
+  waits; while it asks for a secret, the bar offers no Tell it or Hold to talk, so nothing invites
+  typing or saying it where it would be journaled, and Stop is the way on. The bar holds Stop at its left, outlined in red; Deny, Hold to talk (in development builds,
   beside Tell it, only where the bar has room) and Tell it; and at its right end the action the work
   leads to: Approve, Send answer, or Tell it while nothing waits. While an answer this headset sent
   may still take effect, an unavailable Sent… stands where Send answer stood, so none races it.
