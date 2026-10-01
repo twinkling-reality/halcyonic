@@ -143,6 +143,14 @@ namespace Halcyonic.Client
                         }
                     }
                     return "Approval needed.";
+                case QuestionPendingReason question:
+                    foreach (var pending in execution?.PendingQuestions ?? new List<QuestionView>())
+                    {
+                        if (pending.QuestionId != question.QuestionId || pending.Prompts.Count == 0) continue;
+                        var first = pending.Prompts[0];
+                        return "Asks you: " + (string.IsNullOrWhiteSpace(first.Header) ? first.Text : first.Header + ": " + first.Text);
+                    }
+                    return "It asks you a question.";
                 case ExecutionFailedReason _:
                     return execution?.StatusReason is { } failure ? "Failed: " + failure.Message : "The execution failed.";
                 case ExecutionStateUnknownReason _:

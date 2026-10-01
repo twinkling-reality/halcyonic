@@ -11,6 +11,9 @@ namespace Halcyonic.Client
         Deny,
         Interrupt,
         Instruct,
+
+        /// <summary>Send the answers chosen to the question shown (ADR 0022).</summary>
+        Answer,
     }
 
     /// <summary>How a command issued against the execution is going, in words.</summary>
@@ -86,6 +89,13 @@ namespace Halcyonic.Client
         /// <summary>The approval that approving or denying answers: the oldest one pending.</summary>
         public ApprovalView? ApprovalToAnswer =>
             Execution?.PendingApprovals.OrderBy(approval => approval.RequestedAt, System.StringComparer.Ordinal).FirstOrDefault();
+
+        /// <summary>
+        /// The question the person answers here: the first the execution shows, which the control
+        /// plane orders answerable first, then oldest first; at most three are shown, and more may
+        /// follow as those are answered.
+        /// </summary>
+        public QuestionView? QuestionToAnswer => Execution?.PendingQuestions.FirstOrDefault();
 
         /// <summary>The action needs an explicit, deliberate gesture, per the control plane's command policy.</summary>
         public bool RequiresConfirmation(WorkspaceAction action) => confirm.Contains(action);
@@ -164,6 +174,11 @@ namespace Halcyonic.Client
                 actions.Add(WorkspaceAction.Approve);
                 actions.Add(WorkspaceAction.Deny);
             }
+            if (capabilities.AnswerQuestion && status == ExecutionStatus.WaitingForHuman
+                && execution.PendingQuestions.FirstOrDefault()?.Answerable == true)
+            {
+                actions.Add(WorkspaceAction.Answer);
+            }
             if (capabilities.Interrupt && turnActive) actions.Add(WorkspaceAction.Interrupt);
             if (started && ((atRest && capabilities.InstructAtRest) || (turnActive && capabilities.InstructWhileRunning)))
             {
@@ -177,6 +192,7 @@ namespace Halcyonic.Client
             WorkspaceAction.Approve => CommandType.ExecutionRespondToApproval,
             WorkspaceAction.Deny => CommandType.ExecutionRespondToApproval,
             WorkspaceAction.Interrupt => CommandType.ExecutionInterrupt,
+            WorkspaceAction.Answer => CommandType.ExecutionAnswerQuestion,
             _ => CommandType.ExecutionSendInstruction,
         };
 
@@ -196,12 +212,17 @@ namespace Halcyonic.Client
                     // and how the recording continues; "Refused" would contradict what plays next.
                     text = command.Rejection?.Code == RejectionCode.Demonstration
                         ? command.Rejection.Message
+                        : command.Rejection?.Code == RejectionCode.QuestionNotFound
+                        ? "Refused: the agent no longer waits for this answer."
                         : "Refused: " + (command.Rejection?.Message ?? "no reason given");
                     break;
                 default:
                     var failure = command.Failure;
-                    text = "Failed: " + (failure?.Message ?? "no reason given")
-                        + (failure?.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : "");
+                    // An answer the runtime never confirmed may or may not have reached the agent.
+                    text = command.CommandType == CommandType.ExecutionAnswerQuestion && failure?.Effect == FailureEffect.Unknown
+                        ? WorkspaceText.AnswerNotConfirmed
+                        : "Failed: " + (failure?.Message ?? "no reason given")
+                            + (failure?.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : "");
                     break;
             }
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);
@@ -210,6 +231,7 @@ namespace Halcyonic.Client
         internal static string Pending(CommandType type) => type switch
         {
             CommandType.ExecutionRespondToApproval => "Answering the approval…",
+            CommandType.ExecutionAnswerQuestion => "Sent, waiting for the result…",
             CommandType.ExecutionInterrupt => "Stopping the turn…",
             CommandType.ExecutionSendInstruction => "Sending the instruction…",
             CommandType.ExecutionStart => "Starting…",
@@ -219,6 +241,7 @@ namespace Halcyonic.Client
         private static string Done(CommandType type) => type switch
         {
             CommandType.ExecutionRespondToApproval => "Approval answered",
+            CommandType.ExecutionAnswerQuestion => "The runtime took the answer",
             CommandType.ExecutionInterrupt => "Turn stopped",
             CommandType.ExecutionSendInstruction => "Instruction delivered",
             CommandType.ExecutionStart => "Started",

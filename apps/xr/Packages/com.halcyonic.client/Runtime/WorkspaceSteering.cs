@@ -66,6 +66,7 @@ namespace Halcyonic.Client
         private readonly Func<DateTimeOffset> now;
         private readonly TimeSpan window;
         private DateTimeOffset armedAt;
+        private QuestionDraft? armedDraft;
         private int shownPart;
 
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
@@ -107,6 +108,8 @@ namespace Halcyonic.Client
         {
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
+            // An answer goes only with the answers chosen, through SendAnswer.
+            if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Choose your answers, then press Send answer.");
             if (!workspace.Actions.Contains(action))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "That is no longer possible, so nothing was sent.");
@@ -126,6 +129,35 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The person pressed Send answer for the question shown (ADR 0022): the answers go as they
+        /// are in <paramref name="draft"/>, only for the question the workspace shows now, only when
+        /// every prompt is answered and was shown whole, and, should the control plane's policy ask
+        /// for it, only after a second press. Nothing else sends an answer, so the gesture that brings
+        /// focus back cannot.
+        /// </summary>
+        public SteeringOutcome SendAnswer(QuestionDraft draft, WorkspacePresentation workspace)
+        {
+            if (Typing) return SteeringOutcome.Nothing;
+            Cancel();
+            if (!workspace.Actions.Contains(WorkspaceAction.Answer))
+            {
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "It no longer waits for this answer, so nothing was sent.");
+            }
+            if (!draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
+            {
+                return SteeringOutcome.Explain("The question changed, so nothing was sent. Check it again.");
+            }
+            if (draft.Problem is string problem) return SteeringOutcome.Explain(problem);
+            if (workspace.RequiresConfirmation(WorkspaceAction.Answer))
+            {
+                Arm(WorkspaceAction.Answer, null, null);
+                armedDraft = draft;
+                return SteeringOutcome.Of(SteeringStep.Confirm);
+            }
+            return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
+        }
+
+        /// <summary>
         /// The person confirmed the armed action. An approval whose whole request has not been shown
         /// sends nothing and stays armed, so the rest can still be read.
         /// </summary>
@@ -137,8 +169,17 @@ namespace Halcyonic.Client
             var action = Armed.Value;
             var approvalId = ArmedApprovalId;
             var instruction = Instruction;
+            var draft = armedDraft;
             Cancel();
             if (lapse != null) return SteeringOutcome.Explain(lapse);
+            if (action == WorkspaceAction.Answer)
+            {
+                if (draft == null || draft.Problem != null || !draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
+                {
+                    return SteeringOutcome.Explain("The question changed, so nothing was sent. Check it again.");
+                }
+                return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
+            }
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, instruction));
         }
 
@@ -183,7 +224,6 @@ namespace Halcyonic.Client
         /// <summary>The keyboard closed without text.</summary>
         public void StopTyping() => Typing = false;
 
-        /// <summary>Drops a pending confirmation or instruction.</summary>
         /// <summary>
         /// Focus went to another window. A confirmation half done is dropped, so the person confirms
         /// afresh once back, from the start of the request; nothing is sent, and the runtime's request
@@ -196,8 +236,10 @@ namespace Halcyonic.Client
             return SteeringOutcome.Explain(WorkspaceText.ConfirmAfresh);
         }
 
+        /// <summary>Drops a pending confirmation or instruction.</summary>
         public void Cancel()
         {
+            armedDraft = null;
             Armed = null;
             ArmedApprovalId = null;
             Instruction = null;

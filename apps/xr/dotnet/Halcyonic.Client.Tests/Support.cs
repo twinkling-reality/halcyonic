@@ -157,6 +157,7 @@ internal static class Samples
                 InstructAtRest = true,
                 InstructWhileRunning = false,
                 RespondToApproval = true,
+                AnswerQuestion = true,
                 Interrupt = true,
             },
         };
@@ -207,6 +208,7 @@ internal static class Samples
                 new() { CommandType = CommandType.ExecutionRespondToApproval, Policy = PolicyCategory.ReviewRequired },
                 new() { CommandType = CommandType.ExecutionInterrupt, Policy = PolicyCategory.ReviewRequired },
                 new() { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence },
+                new() { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.LowConsequence },
             },
         };
 }
