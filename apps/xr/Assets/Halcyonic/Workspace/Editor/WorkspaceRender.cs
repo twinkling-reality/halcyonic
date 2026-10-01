@@ -202,6 +202,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(ShowsTextAsWritten(sections.View, name));
                 failures.AddRange(ShowsTheWholeRequest(name, folder, camera, texture, root, panel, sections));
                 failures.AddRange(ShowsUntrustedTextLiterally(name, folder, camera, texture, root, panel, sections, characters));
+                failures.AddRange(OffersHoldToTalk(name, folder, camera, texture, root, panel));
             }
             finally
             {
@@ -570,6 +571,65 @@ namespace Halcyonic.XR.Workspace.Editor
             sections.EndRequest();
             panel.Show(Content());
             return failures;
+        }
+
+        /// <summary>
+        /// Hold to talk at the end of the action row, for work that takes instructions (ADR 0021):
+        /// whole, on the row, touching no action; and left out, never squeezed in, where the actions
+        /// fill the row.
+        /// </summary>
+        private static IEnumerable<string> OffersHoldToTalk(string name, string folder, Camera camera, RenderTexture texture, GameObject root,
+            WorkspacePanel panel)
+        {
+            var failures = new List<string>();
+            foreach (var (actions, expected) in new[]
+            {
+                (new[] { WorkspaceAction.Interrupt, WorkspaceAction.Instruct }, true),
+                (new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt, WorkspaceAction.Instruct }, (bool?)null),
+            })
+            {
+                var content = Content();
+                content.Actions = actions;
+                content.Speak = true;
+                panel.Show(content);
+                ForceMeshes(root);
+                var what = name + " hold to talk beside " + actions.Length + " actions";
+                var speak = panel.transform.Find("Hold to talk")?.GetComponent<PanelButton>();
+                var shown = speak != null && speak.gameObject.activeSelf;
+                if (expected == true && !shown) failures.Add(what + ": it does not show.");
+                if (!shown)
+                {
+                    Debug.Log("Halcyonic: workspace render " + what + ": left out");
+                    continue;
+                }
+                failures.AddRange(EntryRender.NothingOfOursCut(new Component[] { speak! }, what));
+                var right = WorkspacePanel.Width / 2f - 0.035f;
+                var speakRect = Extent(speak!);
+                if (speakRect.xMax > right + 0.001f) failures.Add(what + ": it runs past the panel's margin.");
+                for (var index = 0; index < actions.Length; index++)
+                {
+                    var action = panel.transform.Find("Action " + index)?.GetComponent<PanelButton>();
+                    if (action != null && action.gameObject.activeSelf && EntryRender.Overlap(Extent(action), speakRect))
+                    {
+                        failures.Add(what + ": it touches " + WorkspaceText.Label(actions[index]) + ".");
+                    }
+                }
+                if (expected == true)
+                {
+                    var closeUp = CloseUp(camera, texture, panel.transform);
+                    File.WriteAllBytes(Path.Combine(folder, name + "-hold-to-talk-closeup.png"), closeUp.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(closeUp);
+                }
+                Debug.Log("Halcyonic: workspace render " + what + ": shown");
+            }
+            panel.Show(Content());
+            return failures;
+
+            static Rect Extent(PanelButton button)
+            {
+                var center = button.transform.localPosition;
+                return new Rect(center.x - button.Width / 2f, center.y - PanelButton.Height / 2f, button.Width, PanelButton.Height);
+            }
         }
 
         /// <summary>

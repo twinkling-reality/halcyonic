@@ -180,7 +180,17 @@ the same definition names, as the JSON Schema document:
   seconds again, and until the last part has shown the question says to read the whole request
   first (`CanConfirm` is false) and a confirmation sends nothing and stays armed. Denying needs no
   reading, since refusing what one has not read in full can do no harm. Instruct asks for text
-  first, and an empty text sends nothing.
+  first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
+  the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
+  starts "Heard on your Mac." and names the text, so a mishearing is never sent unread.
+- **`SpeechClip`** makes a held clip of speech into what `POST /api/transcriptions` takes (ADR
+  0021): the microphone's samples, at its own rate and channels, mixed to mono and resampled to
+  16 kHz (the mean of the input each output sample spans going down, a straight line going up),
+  as 16-bit PCM in a WAV, cut at 30 seconds, and no clip at all under half a second.
+  `ControlPlaneApi.TranscribeAsync` posts it and returns `HeardTranscription`, whose text is
+  untrusted and shown through `LabelText`, or `NothingHeardTranscription`; a refusal throws
+  `ControlPlaneRequestException` with the control plane's code, which **`VoiceText`** puts in
+  words that offer typing or trying again.
 - **`PeekChoice`** decides, frame by frame, which one character shows its peek, how visible it is,
   and what a look and pinch opens. A hand pointing at a character, or a finger about to poke it,
   peeks at once. The gaze peeks only after resting 0.4 s on one character within 10 degrees
@@ -1267,13 +1277,46 @@ development tools out, except the Immersive Debugger's runtime, disabled, which 
 ([horizon-store-release.md](../validation/horizon-store-release.md)). Project settings, `.meta`
 files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
 
+### Voice
+
+Hold to talk, in development builds only (ADR 0021), as another way to give an idea, a task or an
+instruction; typing always stays:
+
+- **`PanelButton`'s hold mode** (`Holds`): a press held for 0.3 s starts the hold (`HoldStarted`);
+  letting go ends it (`HoldEnded(true)`); the hand leaving the button, the button no longer
+  accepting (as when input is suspended) or the button going away drops it (`HoldEnded(false)`).
+  A press let go sooner is a tap, which says to hold while speaking. `PointerTarget.Released`
+  reports the end of a press.
+- **`HoldToTalk`** owns the microphone while a hold lasts, one clip at a time, at most 30
+  seconds, then sends it through `SpeechClip` and `TranscribeAsync`. The microphone permission is
+  asked on the first hold, which records nothing; the person holds again once they allow it.
+  Capture stops and the clip is discarded, never sent, the frame input is suspended (the rule
+  agreed with the focus work), and a hold that starts while suspended is ignored.
+- **Where it shows.** On Create a project's start screen, under Type my idea, the same width, with
+  what it is doing beside it; a heard idea or task becomes the recap's first task, which says
+  "Heard on your Mac. Check it before you go on.", and nothing is sent until Start building and
+  the review. In an open workspace, at the end of the action row when the work takes
+  instructions and the row has room; a heard instruction always asks "Heard on your Mac. Send this
+  instruction?". Never in the recorded demonstration, and never for approve, deny, stop or any
+  confirmation.
+- **Release builds carry none of it.** The microphone code compiles only with `DEVELOPMENT_BUILD`
+  or in the editor, so a release player never uses `Microphone`, which is what makes Unity add
+  `RECORD_AUDIO`; `QuestBuild.BuildReleaseApk` also deletes and fails a release APK whose manifest
+  asks for it.
+
+The editor's renders show the start screen with hold to talk and its longest words, and the
+workspace's action row with it beside running work's actions and left out where approve, deny, stop
+and instruct fill the row. Not checked on a headset: the Quest microphone's rate and level, the
+permission prompt, and whether a ray that leaves the button while pinching ends the hold.
+
 ## Not built yet
 
 Code, diffs, tests and output in the workspace; the Understanding section's full lists (every
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
-choosing a folder deeper than one level inside a place the Mac allows; a companion that converses (Help me figure it out asks fixed questions), voice, and a
+choosing a folder deeper than one level inside a place the Mac allows; a companion that converses (Help me figure it out asks fixed questions); voice for the
+fixed questions' own answers, a folder's name and the recap's Change, and voice in release builds; and a
 creation draft that survives an app restart; discovering or attaching work Halcyonic did not
 start; the soundbook's softer repeat of "Needs you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding

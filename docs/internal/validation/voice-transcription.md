@@ -226,6 +226,22 @@ So the engine runs with the hint and voice activity detection at 500 ms.
 - **The log:** each clip logged its outcome, audio length and time, and no word of any draft.
 - **Leftovers:** no temporary directory remained afterwards.
 
+**On the headset's side**, without a Quest:
+
+- **The client core:** a stand-in `whisper-cli` behind a real control plane answered
+  `ControlPlaneApi.TranscribeAsync` with the draft.
+  - `SpeechClip` resampled 48 kHz stereo, 44.1 kHz and 8 kHz tones to 16 kHz mono and kept their
+    pitch and level.
+  - A spoken instruction was always held for "Heard on your Mac. Send this instruction?".
+- **The editor's renders:** the start screen shows hold to talk and its longest words whole. The
+  workspace shows it beside running work's two actions, and leaves it out beside four.
+- **The builds** of Unity 6000.3.25f1 on 2026-10-01:
+  - The development APK asks for `android.permission.RECORD_AUDIO`.
+  - The release APK, built with `QuestBuild.BuildReleaseApk`, does not, and passed its checks.
+  - Before this change neither asked for it, so nothing but hold to talk adds it.
+  - The release check's failing path was not run; it reads the manifest as the check for Meta's
+    tools does.
+
 ## Consequences
 
 - **Engine: whisper.cpp, large-v3-turbo q5_0.** On the words people use it is far more accurate:
