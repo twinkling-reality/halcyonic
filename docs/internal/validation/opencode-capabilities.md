@@ -200,5 +200,8 @@ that still ran, and the execution stayed `unknown` overnight ([quest-3-device.md
   the session answers it records `runtime.connection.restored`, then what changed meanwhile, as
   after any reconnect. A server that exits, and a session whose state after the reconnect cannot be
   settled, are still lost for good.
+- **A question's form** no longer listed as pending is read on its own to learn whether it was
+  answered or cancelled; when that read fails, the question stays pending until its turn ends, and
+  the session is not lost for it.
 - **Not verified:** a real sleep and wake with the adapter running; how long OpenCode takes to
   answer after a long sleep.
