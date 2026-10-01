@@ -435,6 +435,8 @@ interface PendingQuestion {
 const ASK_USER_QUESTION = 'AskUserQuestion';
 
 const DENIED_MESSAGE = 'The person supervising this session in Halcyonic denied this request.';
+const WITHDRAWN_MESSAGE =
+  'The question was withdrawn: the person stopped the work in Halcyonic before answering it.';
 
 /** One Claude Code session: one SDK query, fed one user message per turn. */
 class ClaudeSession {
@@ -542,6 +544,8 @@ class ClaudeSession {
     const turn = this.#turn;
     const handle = this.#query;
     if (turn === null || handle === null) {
+      // A question asked outside a turn, as by a background task, would otherwise wait for good.
+      if (this.#withdrawQuestions() > 0) return;
       throw new RuntimeActionError('no_running_turn', 'There is no running turn to interrupt.');
     }
     turn.interruptRequested = true;
@@ -781,12 +785,36 @@ class ClaudeSession {
     }
   }
 
-  /** The CLI emits exactly one result per turn; it ends the turn. */
+  /**
+   * Denies every question still waiting, each reported dismissed: the person can no longer answer
+   * it once the turn it belongs to has ended or they stopped the work. Returns how many there were.
+   */
+  #withdrawQuestions(): number {
+    const waiting = [...this.#questions.entries()];
+    this.#questions.clear();
+    for (const [questionId, question] of waiting) {
+      this.#emit(
+        'runtime.question.resolved',
+        { question_id: questionId, outcome: 'dismissed' },
+        observed('can_use_tool.response'),
+        `${questionId}:resolved`,
+      );
+      question.answer({ behavior: 'deny', message: WITHDRAWN_MESSAGE });
+    }
+    return waiting.length;
+  }
+
+  /**
+   * The CLI emits exactly one result per turn; it ends the turn. A question still waiting then was
+   * asked outside the turn, since a question asked in it holds the turn open; the turn's end takes
+   * it away from the person, so it is withdrawn rather than left for an agent to wait on.
+   */
   #finishTurn(result: SDKResultMessage): void {
     const turn = this.#turn;
     if (turn === null) return;
     this.#turn = null;
     this.#activeTools.clear();
+    this.#withdrawQuestions();
     const provenance = observed(`result.${result.subtype}`);
     const succeeded = result.subtype === 'success' && !result.is_error;
     const aborted =
@@ -842,6 +870,7 @@ class ClaudeSession {
       this.#emit('runtime.connection.lost', { reason }, observed('query.end'), 'connection_lost');
     }
     this.#approvals.clear();
+    this.#questions.clear();
     this.#activeTools.clear();
     this.#input.end();
   }

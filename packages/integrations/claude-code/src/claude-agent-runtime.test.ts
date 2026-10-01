@@ -1077,6 +1077,41 @@ describe('questions', () => {
     );
   });
 
+  test('a question asked outside a turn is withdrawn when the person stops the work', async () => {
+    const { adapter, startConfirmed, observed, types } = setup();
+    const scripted = await startConfirmed();
+    scripted.emit(success(scripted.sessionId));
+    await settle();
+    assert.equal(types().at(-1), 'runtime.turn.completed');
+    // As a background task might, once the turn is over.
+    const decision = scripted.requestPermission('AskUserQuestion', ASKED, 'req-late');
+    await settle();
+    assert.equal(types().at(-1), 'runtime.question.asked');
+    await adapter.interrupt({ execution });
+    assert.deepEqual(observed.at(-1)?.payload, { question_id: 'req-late', outcome: 'dismissed' });
+    const result = await decision;
+    assert.equal(result?.behavior, 'deny');
+    assert.equal(scripted.interrupts, 0, 'nothing ran, so Claude Code was not interrupted');
+    await assert.rejects(adapter.interrupt({ execution }), actionError('no_running_turn'));
+    assertContractValid(observed);
+  });
+
+  test('a turn that ends while a question waits withdraws the question before it ends', async () => {
+    const { startConfirmed, observed, types } = setup();
+    const scripted = await startConfirmed();
+    const decision = scripted.requestPermission('AskUserQuestion', ASKED, 'req-bg');
+    await settle();
+    scripted.emit(success(scripted.sessionId));
+    await settle();
+    assert.deepEqual(types().slice(-3), [
+      'runtime.question.asked',
+      'runtime.question.resolved',
+      'runtime.turn.completed',
+    ]);
+    assert.deepEqual(observed.at(-2)?.payload, { question_id: 'req-bg', outcome: 'dismissed' });
+    assert.equal((await decision)?.behavior, 'deny');
+  });
+
   test('an AskUserQuestion without questions is shown as an ordinary approval', async () => {
     const { startConfirmed, observed } = setup();
     const scripted = await startConfirmed();
