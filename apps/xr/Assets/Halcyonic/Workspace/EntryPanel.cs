@@ -519,11 +519,11 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>The items on the current page, keeping the page within the list.</summary>
-        private List<T> Paged<T>(IReadOnlyList<T> items)
+        private List<T> Paged<T>(IReadOnlyList<T> items, int perPage = Rows)
         {
-            var pages = Math.Max(1, (items.Count + Rows - 1) / Rows);
+            var pages = Math.Max(1, (items.Count + perPage - 1) / perPage);
             page = Mathf.Clamp(page, 0, pages - 1);
-            return items.Skip(page * Rows).Take(Rows).ToList();
+            return items.Skip(page * perPage).Take(perPage).ToList();
         }
 
         /// <summary>Previous and Next page at the bottom, with where the page is, while the list takes more than one.</summary>

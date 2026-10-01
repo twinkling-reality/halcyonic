@@ -507,7 +507,7 @@ namespace Halcyonic.XR
                 case ConnectionPhase.Refused:
                     return ConnectionText.WhyNotLive(status);
                 default:
-                    return status.Phase + origin;
+                    return ConnectionText.Phase(status) + origin;
             }
         }
 
