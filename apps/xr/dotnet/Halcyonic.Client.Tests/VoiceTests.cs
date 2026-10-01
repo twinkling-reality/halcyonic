@@ -147,6 +147,14 @@ public class TranscriptionTests
         }
         Assert.That(VoiceText.Refusal(null), Is.EqualTo(VoiceText.Unreachable));
     }
+
+    [Test]
+    public void NoMicrophoneNeverAsksToAllowOneAndARefusalSaysWhereToAllowIt()
+    {
+        Assert.That(VoiceText.NoMicrophone, Does.Not.Contain("Allow"));
+        Assert.That(VoiceText.MicrophoneRefused, Does.Contain("settings"));
+        Assert.That(VoiceText.Shown, Does.Contain(VoiceText.NoMicrophone).And.Contain(VoiceText.MicrophoneRefused));
+    }
 }
 
 public class LiveTranscriptionTests
