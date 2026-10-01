@@ -83,7 +83,8 @@ public class QuestionTests
         var work = new AskingWork();
         var workspace = work.Present();
         Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Needs you"));
-        Assert.That(WorkspaceText.Peek(workspace), Is.EqualTo("Asks you: Colour scheme: Which colour scheme should the dashboard use?"));
+        Assert.That(WorkspaceText.Peek(workspace), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"),
+            "the whole question, never only the prompt the body may not show");
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         Assert.That(workspace.QuestionToAnswer, Is.SameAs(work.Question));
         Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt));
@@ -267,5 +268,18 @@ public class QuestionTests
         draft.Choose(0, "Dark");
         Assert.That(steering.FocusLeft().Step, Is.EqualTo(SteeringStep.None), "nothing was armed");
         Assert.That(draft.IsChosen(0, "Dark"), Is.True);
+    }
+
+    [Test]
+    public void TheAnswerLineNamesTheWholeQuestionWhicheverPromptShows()
+    {
+        var question = AskingWork.Scripted();
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"));
+        question.Prompts[1].Header = null;
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you 2 questions."), "no header named unless every prompt has one");
+        question.Prompts.RemoveAt(1);
+        Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you: Colour scheme: Which colour scheme should the dashboard use?"));
+        var work = new AskingWork();
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Asks you 2 questions: Colour scheme; Pages" }));
     }
 }
