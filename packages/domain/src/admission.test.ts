@@ -420,6 +420,29 @@ describe('answering a question', () => {
     }
   });
 
+  test('a question asked outside a turn can still be stopped, which withdraws it', () => {
+    const { b, projection, scope, commands } = setup();
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    projection.apply(b.runtimeEvent(scope, 'runtime.turn.completed', { turn_id: 't1' }));
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.question.asked', {
+        question_id: 'req-late',
+        prompts,
+        answerable: false,
+      }),
+    );
+    assert.equal(projection.executionFacts(scope.executionId)?.status, 'waiting_for_human');
+    const stop = admitCommand(commands.interrupt(), projection, catalog(ANSWERS));
+    assert.equal(stop.admitted, true);
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.question.resolved', {
+        question_id: 'req-late',
+        outcome: 'dismissed',
+      }),
+    );
+    assert.equal(projection.executionFacts(scope.executionId)?.status, 'completed');
+  });
+
   test('a question on an unobservable execution cannot be answered', () => {
     const { b, projection, scope, command } = asked();
     projection.apply(b.runtimeEvent(scope, 'runtime.connection.lost', { reason: 'Gone.' }));
