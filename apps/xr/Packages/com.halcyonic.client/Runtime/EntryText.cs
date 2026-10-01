@@ -256,6 +256,9 @@ namespace Halcyonic.Client
             _ => "tools unknown",
         };
 
+        /// <summary>The recap's note after focus left a review whose final press waited.</summary>
+        public const string ReviewAfresh = "You went to another window, so nothing was started. Press Start building to check it again.";
+
         /// <summary>A simulated runtime in a live session, named for what it does, so no one takes it for a real one.</summary>
         public const string PracticeRun = "Practice run: builds nothing";
 
