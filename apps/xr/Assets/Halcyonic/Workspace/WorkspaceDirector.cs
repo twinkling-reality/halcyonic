@@ -52,6 +52,7 @@ namespace Halcyonic.XR.Workspace
         private string peekLine = "";
         private Opened? opened;
         private HoldToTalk voice = null!;
+        private HoldToTalk answerVoice = null!;
         private string? journalId;
         private int shownSubmissions = -1;
         private float nextRefresh;
@@ -103,6 +104,21 @@ namespace Halcyonic.XR.Workspace
             voice.Heard += text =>
             {
                 if (opened != null) Steer(opened, s => s.Spoken(text, opened.Now!), byHand: false);
+            };
+            // Hold to talk for a typed answer: what the Mac heard becomes the draft, sent only by Send answer.
+            answerVoice = gameObject.AddComponent<HoldToTalk>();
+            answerVoice.Said += words =>
+            {
+                if (opened == null) return;
+                Notify(opened, words);
+                RefreshPanel();
+            };
+            answerVoice.Heard += text =>
+            {
+                var workspace = opened;
+                if (workspace?.Draft == null) return;
+                Notify(workspace, workspace.Draft.Type(workspace.AnswerPrompt, text) ?? VoiceText.HeardOnYourMac + " Check it, then press Send answer.");
+                RefreshPanel();
             };
         }
 
@@ -402,13 +418,30 @@ namespace Halcyonic.XR.Workspace
             // Work the person just opened keeps its character a while after closing (CharacterLineup.KeepFor).
             stage.Keep(target.WorkstreamId);
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
-            workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader, WorkspaceText.FirstQuestion(presentation));
+            workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader, WorkspaceText.FirstQuestion(presentation),
+                () => workspace.Draft, () => HoldToTalk.Offered && connection.DemonstrationReads == null);
+            workspace.Sections.TypeAnswer += prompt => OpenAnswerKeyboard(workspace, prompt);
+            workspace.Sections.Asking.SpeakStarted += prompt =>
+            {
+                if (opened != workspace) return;
+                workspace.AnswerPrompt = prompt;
+                answerVoice.Begin();
+            };
+            workspace.Sections.Asking.SpeakEnded += answerVoice.End;
+            workspace.Sections.Asking.SpeakTapped += () =>
+            {
+                Notify(workspace, VoiceText.TooShort);
+                RefreshPanel();
+            };
             workspace.Sections.RequestTurned += () =>
             {
                 if (opened == workspace) RefreshPanel();
             };
             panel.Accepting = () => opened == workspace && transition.Open;
-            panel.ActionPressed += action => Steer(workspace, s => s.Press(action, workspace.Now!));
+            // Only Send answer sends an answer, with the answers chosen; no other gesture does.
+            panel.ActionPressed += action => Steer(workspace, s => action == WorkspaceAction.Answer && workspace.Draft != null
+                ? s.SendAnswer(workspace.Draft, workspace.Now!)
+                : s.Press(action, workspace.Now!));
             panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
             panel.PresetPressed += preset =>
             {
@@ -465,6 +498,7 @@ namespace Halcyonic.XR.Workspace
             opened = null;
             CloseKeyboard(closing);
             voice.Drop();
+            answerVoice.Drop();
             if (closing.Character != null) FacePerson(closing.Character, closing.Character == facing);
             // Gone already when its character left the stage.
             if (closing.Transition != null) closing.Transition.Collapse(immediately || closing.Character == null);
@@ -483,6 +517,11 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             workspace.Now = presentation;
+            // The answers chosen belong to one question; another question starts afresh.
+            var asked = presentation.QuestionToAnswer;
+            var execution = presentation.Execution?.ExecutionId;
+            if (asked == null || execution == null) workspace.Draft = null;
+            else if (workspace.Draft == null || !workspace.Draft.Answers(execution, asked)) workspace.Draft = new QuestionDraft(execution, asked);
             var lapse = workspace.Steering.Refresh(presentation);
             if (lapse != null) Notify(workspace, lapse);
             ShowRequest(workspace, presentation);
@@ -591,6 +630,8 @@ namespace Halcyonic.XR.Workspace
             }
             workspace.Notice = null;
             Report(submissions.SubmitAsync(sent => session.SubmitAsync(sent), command, execution.ExecutionId));
+            // An answer sent shows how it goes with the activity: sent, then taken, refused or not confirmed.
+            if (command is ExecutionAnswerQuestionCommand) workspace.Sections.Show(WorkspaceQuestion.Doing);
             if (WorkspaceActs.Of(command) is WorkspaceAct act) Acted?.Invoke(workspace.Character.WorkstreamId, act);
         }
 
@@ -628,8 +669,35 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
+        /// <summary>The system keyboard for a typed answer to a prompt; the text becomes part of the draft, never sent by itself.</summary>
+        private void OpenAnswerKeyboard(Opened workspace, int prompt)
+        {
+            if (opened != workspace || FocusGuard.InputSuspended || workspace.Draft == null) return;
+            if (!TouchScreenKeyboard.isSupported)
+            {
+                Notify(workspace, "Typing an answer needs the headset's system keyboard.");
+                RefreshPanel();
+                return;
+            }
+            workspace.AnswerPrompt = prompt;
+            workspace.AnswerKeyboard = FocusGuard.Track(TouchScreenKeyboard.Open(workspace.Draft.Typed(prompt) ?? "", TouchScreenKeyboardType.Default,
+                true, false, false, false, "Your answer"));
+        }
+
+        private void PollAnswerKeyboard()
+        {
+            var workspace = opened;
+            var keyboard = workspace?.AnswerKeyboard;
+            if (workspace == null || keyboard == null || keyboard.status == TouchScreenKeyboard.Status.Visible) return;
+            workspace.AnswerKeyboard = null;
+            if (keyboard.status != TouchScreenKeyboard.Status.Done || workspace.Draft == null) return;
+            if (workspace.Draft.Type(workspace.AnswerPrompt, keyboard.text) is string problem) Notify(workspace, problem);
+            RefreshPanel();
+        }
+
         private void PollKeyboard()
         {
+            PollAnswerKeyboard();
             var workspace = opened;
             var keyboard = workspace?.Keyboard;
             if (workspace == null || keyboard == null || keyboard.status == TouchScreenKeyboard.Status.Visible) return;
@@ -647,6 +715,11 @@ namespace Halcyonic.XR.Workspace
 
         private static void CloseKeyboard(Opened workspace)
         {
+            if (workspace.AnswerKeyboard != null)
+            {
+                workspace.AnswerKeyboard.active = false;
+                workspace.AnswerKeyboard = null;
+            }
             if (workspace.Keyboard == null) return;
             workspace.Keyboard.active = false;
             workspace.Keyboard = null;
@@ -755,6 +828,14 @@ namespace Halcyonic.XR.Workspace
             public WorkspacePresentation? Now { get; set; }
 
             public TouchScreenKeyboard? Keyboard { get; set; }
+
+            /// <summary>The person's answers to the agent's question shown, kept until another question shows.</summary>
+            public QuestionDraft? Draft { get; set; }
+
+            /// <summary>The system keyboard open for a typed answer, and the prompt it answers.</summary>
+            public TouchScreenKeyboard? AnswerKeyboard { get; set; }
+
+            public int AnswerPrompt { get; set; }
 
             public bool Presets { get; set; }
 

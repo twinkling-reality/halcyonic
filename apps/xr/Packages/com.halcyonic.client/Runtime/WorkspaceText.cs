@@ -108,14 +108,17 @@ namespace Halcyonic.Client
             SomethingWaits(workspace) ? WorkspaceQuestion.NeedFromYou : WorkspaceQuestion.Doing;
 
         /// <summary>
-        /// The line over an agent's question: that it asks, and, when the most the control plane shows
-        /// at once (three) are shown, that more may follow, since how many more is not known.
+        /// Said before an agent's question when it asks more than one: how many show, that this is the
+        /// first, and, when the most the control plane shows at once (three) are shown, that more may
+        /// follow, since how many more is not known. Empty for one question, which the workspace's
+        /// answer line already names.
         /// </summary>
         public static string QuestionLead(WorkspacePresentation workspace)
         {
             var shown = workspace.Execution?.PendingQuestions.Count ?? 0;
-            var lead = shown > 1 ? "It asks you " + shown.ToString(CultureInfo.InvariantCulture) + " things; this is the first." : "It asks you:";
-            return shown >= 3 ? lead + " More may follow." : lead;
+            if (shown <= 1) return "";
+            var lead = "First of " + shown.ToString(CultureInfo.InvariantCulture) + " questions shown";
+            return shown >= 3 ? lead + "; more may follow." : lead + ".";
         }
 
         /// <summary>Which prompt of the question shows, with its header as the agent wrote it.</summary>

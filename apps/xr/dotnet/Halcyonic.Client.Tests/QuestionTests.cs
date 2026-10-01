@@ -87,7 +87,7 @@ public class QuestionTests
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         Assert.That(workspace.QuestionToAnswer, Is.SameAs(work.Question));
         Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer).And.Contain(WorkspaceAction.Interrupt));
-        Assert.That(WorkspaceText.QuestionLead(workspace), Is.EqualTo("It asks you:"));
+        Assert.That(WorkspaceText.QuestionLead(workspace), Is.Empty, "the answer line already names one question");
         Assert.That(WorkspaceText.PromptHeading(work.Question, 0), Is.EqualTo("Question 1 of 2 · Colour scheme"));
         Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[0]), Is.EqualTo("Choose one, or type your own."));
         Assert.That(WorkspaceText.PromptHow(work.Question.Prompts[1]), Is.EqualTo("Choose any that apply."));
@@ -239,7 +239,7 @@ public class QuestionTests
                 execution.PendingQuestions.Add(more);
             }
         });
-        Assert.That(WorkspaceText.QuestionLead(work.Present()), Is.EqualTo("It asks you 3 things; this is the first. More may follow."));
+        Assert.That(WorkspaceText.QuestionLead(work.Present()), Is.EqualTo("First of 3 questions shown; more may follow."));
     }
 
     [Test]

@@ -289,6 +289,39 @@ public class LiveControlPlaneTests
     }
 
     [Test]
+    public async Task TheHeadsetAnswersTheAgentsQuestionOnlyThroughSendAnswer()
+    {
+        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        Connect(controlPlane);
+        await Until(s => s.Status.IsLive, "the session is live");
+        var (workstreamId, executionId) = await StartWorkAsync("question_asked");
+        await Until(s => s.State.Executions[executionId].PendingQuestions.Count == 1, "the agent asks");
+
+        // What the workspace shows and does, from the live state and the control plane's own policies.
+        WorkspacePresentation Now() => WorkspacePresenter.Present(session!.State.Workstreams[workstreamId], session.State, activity, live: true);
+        var workspace = Now();
+        Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
+        Assert.That(workspace.Actions, Does.Contain(WorkspaceAction.Answer));
+        Assert.That(workspace.RequiresConfirmation(WorkspaceAction.Answer), Is.False, "low consequence, per the control plane");
+        var draft = new QuestionDraft(executionId, workspace.QuestionToAnswer!);
+        var steering = new WorkspaceSteering(commands);
+        Assert.That(steering.SendAnswer(draft, workspace).Step, Is.EqualTo(SteeringStep.Explain), "nothing goes unanswered");
+
+        draft.Choose(0, "Dark");
+        draft.Choose(1, "Orders");
+        draft.Choose(1, "Settings");
+        draft.ShownWhole(0);
+        draft.ShownWhole(1);
+        var outcome = steering.SendAnswer(draft, Now());
+        Assert.That(outcome.Step, Is.EqualTo(SteeringStep.Send));
+        await RunAsync(outcome.Command!);
+        Assert.That(WorkspacePresenter.Feedback(session!.State.Commands[outcome.Command!.CommandId]).Text, Is.EqualTo("The runtime took the answer"));
+        await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes after the answer");
+        Assert.That(Now().QuestionToAnswer, Is.Null);
+        Assert.That(WorkspaceText.Questions(Now()), Does.Not.Contain(WorkspaceQuestion.NeedFromYou), "the question's tab goes once it is answered");
+    }
+
+    [Test]
     public async Task BindsProjectsToFoldersTheHostLists()
     {
         var root = Directory.CreateTempSubdirectory("halcyonic-client-projects-").FullName;

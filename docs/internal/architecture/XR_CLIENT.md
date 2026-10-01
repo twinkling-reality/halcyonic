@@ -171,6 +171,23 @@ the same definition names, as the JSON Schema document:
   sent, outcome unknown, acknowledged) until the control plane's record of it arrives in the
   projection. From then on only that record speaks, so a result reads as done only after the
   runtime confirmed it. `WorkspacePresenter.Present` merges the two, newest first.
+- **`QuestionDraft`** holds the person's answers to one question an agent asked
+  ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)), keeping to the rules the
+  control plane admits answers by, so a send is never refused for its shape: every prompt answered
+  once, labels among those offered, at most one unless the prompt takes several, typed text only
+  where allowed, and for a prompt that takes one answer a label or text, never both (choosing one
+  drops the other). Typed text that is not whole characters (a lone surrogate) is refused in words
+  rather than sent as an invalid command. Each prompt must also have been shown whole
+  (`ShownWhole`) before a send, as an approval's request must be read; focus going to another
+  window keeps every choice. `WorkspaceSteering.SendAnswer` is the only way an answer is sent: on
+  the deliberate Send answer press, for the question the workspace shows now, once the draft has no
+  problem, after a second press only should the policy ask for one (it is low consequence today).
+  Its feedback reads "Sent, waiting for the result…" until the runtime confirms ("The runtime took
+  the answer"); a question that went away first reads "Refused: the agent no longer waits for this
+  answer.", and an answer the runtime never confirmed (Codex's `question_unconfirmed` and
+  `answer_ambiguous`) reads "Not confirmed: the agent may or may not have your answer. Check What
+  is it doing?", never as sent. The panel follows `ExecutionView.pending_questions`, not resolution
+  events: a question that leaves the list is gone, whether or not one was reported.
 - **`WorkspaceSteering`** turns presses in an open workspace into commands. It takes only offered
   actions. One the control plane's policy marks for review waits for a second, deliberate press on
   a separate button whose question names what will be sent; the confirmation lapses after 15
@@ -746,9 +763,19 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   confirmation step on a separate button where the policy asks for one), and, under them, the
   person's questions as tabs: What is it doing? (how requests are going, and the recent activity
   with agent text leaning as a claim), Help me understand (the understanding section), What was
-  checked? (the evaluation section), and, only while an approval waits, What do you need from me?
-  (`NeedView`: the oldest request as the runtime reported it, over up to three rows, and what each
-  answer does). A workspace opens on that last question when a request waits. Collapse, or
+  checked? (the evaluation section), and, only while an approval or an agent's question waits, What
+  do you need from me? For an approval, `NeedView`: the oldest request as the runtime reported it,
+  over up to three rows, and what each answer does. For a question (and only while no approval
+  waits, as the runtime blocks on that first), `AskedView`: which prompt shows and its header, the
+  agent's question over two lines, in parts when longer, how it is answered ("Choose one, or type
+  your own."; when three questions show, the most at once, "First of 3 questions shown; more may
+  follow."), and the answers offered two to a page, each with the agent's description, chosen ones
+  marked in words and color; Type an answer opens the system keyboard, and in development builds
+  Hold to talk beside it drafts the answer from what the Mac heard. Previous and Next step through
+  the parts and pages, then to the next prompt. Send answer, among the actions, sends it; the
+  workspace then shows how it goes with the activity. A question Halcyonic cannot answer shows why
+  (a secret, or cut to fit), that the agent waits, and Stop the turn. A workspace opens on What do
+  you need from me? when something waits. Collapse, or
   pointing at the character and pinching again, returns to ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
