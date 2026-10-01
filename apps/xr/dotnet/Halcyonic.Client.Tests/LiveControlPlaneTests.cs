@@ -314,7 +314,13 @@ public class LiveControlPlaneTests
         draft.ShownWhole(1);
         var outcome = steering.SendAnswer(draft, Now());
         Assert.That(outcome.Step, Is.EqualTo(SteeringStep.Send));
-        await RunAsync(outcome.Command!);
+        // Sent as the headset sends it, through its submissions, which once threw on an answer.
+        var submissions = new CommandSubmissions();
+        await submissions.SubmitAsync(sent => session!.SubmitAsync(sent), outcome.Command!, executionId);
+        Assert.That(submissions.StateOf(outcome.Command!.CommandId), Is.EqualTo(SubmissionState.Acknowledged));
+        Assert.That(WorkspacePresenter.Present(session!.State.Workstreams[workstreamId], session.State, activity, live: true, submissions).Actions,
+            Does.Not.Contain(WorkspaceAction.Answer), "no second answer races the first");
+        await Until(s => s.State.Commands.TryGetValue(outcome.Command!.CommandId, out var view) && view.Status == CommandStatus.Completed, "the answer completes");
         Assert.That(WorkspacePresenter.Feedback(session!.State.Commands[outcome.Command!.CommandId]).Text, Is.EqualTo("The runtime took the answer"));
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes after the answer");
         Assert.That(Now().QuestionToAnswer, Is.Null);
