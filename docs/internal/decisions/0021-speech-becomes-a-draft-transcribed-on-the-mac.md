@@ -1,6 +1,6 @@
 # ADR 0021: Speech becomes a draft, transcribed on the Mac, that the person confirms like typed text
 
-- Status: Proposed
+- Status: Accepted on 2026-10-01 by the owner, with whisper.cpp as the engine.
 - Date: 2026-09-30
 
 ## Context
