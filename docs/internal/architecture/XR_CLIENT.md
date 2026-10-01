@@ -80,7 +80,17 @@ the same definition names, as the JSON Schema document:
   hello with the resume cursor, snapshot or resume, events, command acknowledgements, and
   reconnection with capped exponential backoff and jitter. It pings every 10 seconds and abandons a
   connection that delivers nothing for 30 seconds, because a silently broken network is otherwise
-  noticed only by TCP.
+  noticed only by TCP. A control plane that answers the connection with 401 has refused the
+  credential, so the session stops trying and its status says `AccessRefused`, with what to do in
+  `ConnectionText`'s words: for the access token (a development build, as over USB) "Your Mac
+  refused this headset's access token: it doesn't match the Mac's. Put the Mac's current access
+  token on the headset, then restart the app."; for a pairing, that the Mac no longer accepts it and
+  to forget the Mac and pair again. `ClientWebSocket` reports only that it could not connect, so
+  after a failed connect `ClientWebSocketTransport` asks the control plane's REST API once with the
+  same token to tell a 401 from a Mac that does not answer; the pinned transport reads the status
+  itself. A Mac that does not answer reads "Can't reach your Mac; trying again", with the technical
+  reason after it. In the fifth headset session a stale token read as "Unable to connect to the
+  remote server" ([quest-3-device.md](../validation/quest-3-device.md)).
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
   calling thread and returns what changed, so the Unity main thread calls it once per frame and no
   state is shared across threads. A consumer that falls more than 10,000 messages behind is
@@ -115,6 +125,14 @@ the same definition names, as the JSON Schema document:
   The person can ask for one the lineup did not choose (`Request`, from More work): it takes the
   place of the character that ranks last and keeps a slot until another is asked for or it leaves;
   the one it replaced waits like any other. `Compare` orders workstreams as the lineup ranks them.
+  Given the device's clock, the lineup also keeps new work in view: a workstream that appears after
+  the journal's first update, as work the person just started, and one the person just opened
+  (`Keep`, from the workspace), hold a slot for five minutes whatever their rank, taking the place of
+  the lowest ranked character that is neither asked for nor kept; at most all slots but one are
+  kept, newest first, so the work that ranks first keeps a place. Another journal's work is never
+  new (`UseJournal`), and only the device's clock is used. More work stays exact, since it lists
+  whatever has no slot. In the fifth headset session, older work flagged for attention pushed
+  just-started work off the stage.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
@@ -231,8 +249,13 @@ the same definition names, as the JSON Schema document:
 - **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A
   runtime change drops its previous model. It accepts a model only from the selected runtime's
   current list, builds a workstream with a short title from the objective, and sends the objective
-  as the first instruction. The model's opaque reference goes back unchanged. A runtime whose
-  `ModelChoice` is `None` leaves the choice to that runtime.
+  as the first instruction. The model's opaque reference goes back unchanged. When the list
+  arrives, the first model served on this Mac is chosen for the person (`ModelPreselected`), and the
+  recap says so; a model that runs elsewhere, or where it runs is not known, is never chosen for
+  them: the first press only says where it runs and that the person's code and instructions go
+  there, and a second press in a row chooses it. It never builds a start without a model for a
+  runtime that lists them; the control plane refuses one too (`model_required`, lane A). A runtime
+  whose `ModelChoice` is `None` leaves the choice to that runtime.
 - **`NewWorkReview`** holds the full request as items, Halcyonic's own label and the value it names:
   the project, its folder (now and from now on for a move), the workstream title, runtime, model,
   where it runs, the model reference and the objective. Each value is spelled in ASCII, every
@@ -733,9 +756,12 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     out asks the fixed questions of `ProjectIdea`, one at a time, with offered answers, typing one's
     own, skipping the name and Back, and says "Fixed questions, not an AI." The recap shows the
     project's name and first task, each with Change; where its files live, with Choose or Change;
-    and what runs it, with More options: the runtimes that can start work, then
-    the chosen runtime's own models, read on demand, each with where it runs. Nothing is chosen for
-    the person, and a remote model says that the person's code and instructions go there. Start
+    and what runs it, with More options: the runtimes that can start work, real ones first and a
+    simulated one last, named "Practice run: builds nothing" in a live session (the recorded
+    demonstration keeps its names), then the chosen runtime's own models, read on demand, each with
+    where it runs. No runtime is chosen for the person. A model on the Mac is ("Runs with: OpenCode
+    2.0.18, qwen3.6 (Ollama), on your Mac", "Chosen for you: it runs on your Mac"); a model that runs
+    elsewhere takes a second press, the first saying that the person's code and instructions go there. Start
     building, offered once nothing is missing, shows the whole request (`NewWorkReview`), wrapped at
     the panel's width between words, a page at a time, each item whole on one page unless it alone is
     taller than a page; Yes, start building appears on the last page only, in the bottom
