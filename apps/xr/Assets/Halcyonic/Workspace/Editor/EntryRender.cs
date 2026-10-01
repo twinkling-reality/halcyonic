@@ -163,6 +163,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what));
                     failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));
+                    if (suffix == "options-models-pages") failures.AddRange(PagesAndDone(panel, what));
                     if (hostile && !suffix.StartsWith("review", StringComparison.Ordinal))
                     {
                         failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what));
@@ -234,6 +235,8 @@ namespace Halcyonic.XR.Workspace.Editor
             });
             yield return ("options-runtimes", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: false)));
             yield return ("options-models", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: true)));
+            // More models than a page holds: Next page and Done each keep a place.
+            yield return ("options-models-pages", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: true, extra: 7)));
             // A model on the Mac chosen for the person, and the first press on one that runs elsewhere, which chooses nothing yet.
             yield return ("recap-chosen-for-you", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true, chosen: false)));
             yield return ("options-models-elsewhere", panel =>
@@ -320,7 +323,8 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <param name="chosen">Whether the person chose the model on the Mac themselves; otherwise it stands as chosen for them.</param>
-        private static NewWorkDraft Draft(ClientProjection state, bool listed, bool chosen = true)
+        /// <param name="extra">More local models than one page holds, to page through.</param>
+        private static NewWorkDraft Draft(ClientProjection state, bool listed, bool chosen = true, int extra = 0)
         {
             var draft = new NewWorkDraft(Commands());
             var runtime = state.Runtimes.First(each => (each.ModelChoice == ModelChoice.Listed) == listed);
@@ -335,11 +339,31 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         new() { ModelRef = "ollama/render-local:latest", DisplayName = "Local model (render)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared },
                         new() { ModelRef = "hosted/render-remote", DisplayName = "Hosted model (render)", Served = ModelServed.Remote, ToolCalling = ModelToolCalling.Unknown },
-                    },
+                    }.Concat(Enumerable.Range(1, extra).Select(index => new RuntimeModel
+                    {
+                        ModelRef = "ollama/render-" + index.ToString(CultureInfo.InvariantCulture),
+                        DisplayName = "Local model " + index.ToString(CultureInfo.InvariantCulture) + " (render)",
+                        Served = ModelServed.ThisMac,
+                        ToolCalling = ModelToolCalling.Declared,
+                    })).ToList(),
                 },
             });
             if (chosen) draft.ChooseModel(draft.Models[0]);
             return draft;
+        }
+
+        /// <summary>A list of more than a page shows both Next page and Done, apart, so every page and the way back can be reached.</summary>
+        private static IEnumerable<string> PagesAndDone(EntryPanel panel, string what)
+        {
+            var buttons = panel.ShownParts.OfType<PanelButton>().Where(button => button.gameObject.activeInHierarchy).ToList();
+            var next = buttons.FirstOrDefault(button => button.Label.text == "Next page");
+            var done = buttons.FirstOrDefault(button => button.Label.text == EntryText.Done);
+            if (next == null) yield return what + ": a list longer than a page offers no Next page.";
+            if (done == null) yield return what + ": Done does not show beside a list longer than a page.";
+            if (next != null && done != null && Vector3.Distance(next.transform.localPosition, done.transform.localPosition) < 0.05f)
+            {
+                yield return what + ": Next page and Done stand in the same place.";
+            }
         }
 
         /// <summary>A start the runtime refused after the project and its work were made, as a runtime without a folder refuses.</summary>

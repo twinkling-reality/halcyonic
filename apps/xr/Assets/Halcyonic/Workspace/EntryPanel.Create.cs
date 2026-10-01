@@ -481,7 +481,7 @@ namespace Halcyonic.XR.Workspace
                 // The Mac's models, then a line saying what the rest mean, then the rest.
                 var entries = new List<RuntimeModel?>(draft.Models);
                 if (draft.Elsewhere < draft.Models.Count) entries.Insert(draft.Elsewhere, null);
-                var models = Paged(entries);
+                var models = Paged(entries, OptionRows(entries.Count));
                 for (var index = 0; index < models.Count; index++)
                 {
                     if (models[index] is not RuntimeModel model)
@@ -503,7 +503,7 @@ namespace Halcyonic.XR.Workspace
                     }, detail: detail,
                         detailColor: !NewWorkDraft.RunsHere(model) ? WorkspaceVisuals.AttentionColor : (Color?)null);
                 }
-                Pager(entries.Count);
+                OptionsPager(entries.Count);
                 Put(bottomLeft, "Change runtime", new Vector2(Left + 0.12f, BottomCenter), 0.24f, () =>
                 {
                     showModels = false;
@@ -517,7 +517,7 @@ namespace Halcyonic.XR.Workspace
                 var runtimes = now == null ? new List<RuntimeDescriptor>() : EntryText.RuntimeChoices(now.Runtimes);
                 var live = demonstration() == null;
                 if (runtimes.Count == 0) Say(body, EntryText.NoRuntimes, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.1f));
-                var shown = Paged(runtimes);
+                var shown = Paged(runtimes, OptionRows(runtimes.Count));
                 for (var index = 0; index < shown.Count; index++)
                 {
                     var runtime = shown[index];
@@ -527,9 +527,27 @@ namespace Halcyonic.XR.Workspace
                     Put(rows[index], EntryText.RuntimeName(runtime, live), new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth,
                         () => ChooseRuntime(runtime), detail: (chosen ? "Chosen · " : "") + detail);
                 }
-                Pager(runtimes.Count);
+                OptionsPager(runtimes.Count);
             }
             PutRightAligned(bottomRight, EntryText.Done, Right, BottomCenter, () => Open(Screen.Recap));
+        }
+
+        /// <summary>
+        /// Rows on a page of How it runs: all four while the list fits one page, else three, so its own
+        /// Previous and Next sit in the fourth row's place and Done keeps the bottom right.
+        /// </summary>
+        private static int OptionRows(int count) => count > Rows ? Rows - 1 : Rows;
+
+        /// <summary>Previous and Next page for How it runs, above the bottom row, where the review's parts turn.</summary>
+        private void OptionsPager(int count)
+        {
+            var perPage = OptionRows(count);
+            var pages = (count + perPage - 1) / perPage;
+            if (pages <= 1) return;
+            const float y = -0.18f;
+            Say(pageCaption, "Page " + (page + 1) + " of " + pages, new Vector2(-0.08f, y + 0.015f), new Vector2(0.16f, 0.03f));
+            if (page > 0) Put(pagePrevious, "Previous page", new Vector2(Left + 0.1f, y), 0.2f, () => { page--; Layout(); });
+            if (page < pages - 1) Put(pageNext, "Next page", new Vector2(Right - 0.1f, y), 0.2f, () => { page++; Layout(); });
         }
 
         /// <summary>
