@@ -252,3 +252,43 @@ The owner wore the headset at their desk.
   of the reticle, seated ray or peek depth.
 - **Still open:** system menu behavior, Virtual Display, a long approval request, real runtime
   start from the headset, and room re-read after a valid room scan.
+
+## Fifth session: the first-time journey, partly (2026-09-30, evening)
+
+- **Environment:** Quest 3 over USB, development APK built from main `a952b04` (the project rail,
+  entry panel, folder step and Usage left), a live control plane on main with the owner's journal,
+  one project root (a dedicated, empty folder), OpenCode 2.0.18 registered with a Halcyonic-only
+  OpenCode configuration directory, Ollama serving local models, and simulated projects added so one
+  approval waited. `adb reverse` on port 47800.
+- **Connecting:** the new build first played the recorded demonstration and logged "Unable to connect
+  to the remote server". The control plane had answered the headset's `/realtime` with 401: the
+  access token pushed in an earlier session no longer matched the Mac's. Pushing the current token
+  and restarting the app connected it live. The app's wording did not distinguish a refused token
+  from an unreachable Mac.
+- **Welcome and Create:** the owner found Create a project without help. The first project ran on
+  the mock runtime, listed as "Mock runtime (development fixture)" beside OpenCode: it finished at
+  once, built nothing and asked for no folder, because the mock runtime uses none. A newcomer took
+  the simulated runtime for a real one.
+- **A real start from the headset:** the second project chose OpenCode and the project root itself
+  as its folder. The control plane recorded project, workstream and `execution.start` completed
+  after `runtime.execution.started`, and the character appeared. No model was chosen, so the review
+  said the runtime would choose; OpenCode then used a free hosted model, not the local one the
+  Halcyonic-only configuration named. A remote model therefore started without a deliberate choice.
+- **Approvals with a real agent:** OpenCode asked for approval; the owner approved in the headset,
+  and `execution.respond_to_approval` completed with `runtime.approval.resolved`. Two approvals went
+  through this way.
+- **A question the headset could not show:** the agent then called OpenCode's `question` tool to ask
+  the person something. Halcyonic recorded only a tool start, so the character kept reading Working
+  while the agent waited for an answer it could not receive. The owner stopped the turn
+  (`runtime.turn.interrupted`, command completed). No files were written.
+- **The stage:** stale simulated work flagged for attention outranked the new work, which left the
+  six-character stage; Connect projects hid those projects and brought it back.
+- **Usage left:** read live through Seorak (one Codex weekly reading, account not identified); the
+  headset's rendering of it was not confirmed with the owner.
+- **Afterwards:** about two hours later the adapter recorded `runtime.connection.lost` for the
+  OpenCode server while the server process still ran, and the execution stayed `unknown` overnight.
+- **Owner feedback:** typing on the system keyboard is tiring; voice input was requested
+  ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), proposed).
+- **Still open:** the rest of the journey (fixed questions, Open now while creating, Move and Reset
+  position, the system menu), legibility and comfort, a local model through the headset, and
+  recovery after the connection loss.
