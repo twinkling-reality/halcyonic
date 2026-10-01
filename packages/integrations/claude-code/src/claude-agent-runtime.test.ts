@@ -22,6 +22,8 @@ import {
   type ExecutionId,
   type ProjectId,
   parseEventEnvelope,
+  QUESTION_TEXT_LIMIT,
+  questionTextLength,
   RuntimeDescriptor,
   type RuntimeId,
   type RuntimeOptions,
@@ -1092,6 +1094,27 @@ describe('questions', () => {
       }),
       actionError('question_not_pending'),
     );
+  });
+
+  test('a question past the size limit is reported shortened and unanswerable', async () => {
+    const { startConfirmed, observed } = setup();
+    const scripted = await startConfirmed();
+    const questions = Array.from({ length: 10 }, (_, index) => ({
+      question: `${index}${'t'.repeat(3990)}`,
+      header: 'h'.repeat(200),
+      options: Array.from({ length: 20 }, (_, option) => ({
+        label: `${option}${'l'.repeat(150)}`,
+        description: 'd'.repeat(1000),
+      })),
+      multiSelect: false,
+    }));
+    void scripted.requestPermission('AskUserQuestion', { questions }, 'req-big');
+    await settle();
+    const asked = observed.at(-1);
+    assert.ok(asked?.type === 'runtime.question.asked');
+    assert.equal(asked.payload.answerable, false);
+    assert.ok(questionTextLength(asked.payload.prompts) <= QUESTION_TEXT_LIMIT);
+    assertContractValid(observed);
   });
 
   test('a question asked outside a turn is withdrawn when the person stops the work', async () => {

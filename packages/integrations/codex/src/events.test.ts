@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { QUESTION_TEXT_LIMIT, questionTextLength } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import {
   acceptTurnStart,
@@ -456,6 +457,23 @@ describe('Codex approval summaries', () => {
       assert.equal(payload.answerable, false, JSON.stringify(question).slice(0, 60));
       assert.match(JSON.stringify(payload.prompts), / \[truncated\]/);
     }
+  });
+
+  test('a question past the size limit is reported shortened and unanswerable', () => {
+    const questions = Array.from({ length: 10 }, (_, index) => ({
+      id: `q${index}`,
+      header: 'h'.repeat(200),
+      question: 't'.repeat(4000),
+      isOther: true,
+      options: Array.from({ length: 20 }, (_, option) => ({
+        label: `${option}${'l'.repeat(150)}`,
+        description: 'd'.repeat(1000),
+      })),
+    }));
+    const item = request('item/tool/requestUserInput', { questions }).observed.observations[0];
+    assert.ok(item?.type === 'runtime.question.asked');
+    assert.equal(item.payload.answerable, false);
+    assert.ok(questionTextLength(item.payload.prompts) <= QUESTION_TEXT_LIMIT);
   });
 
   test('an approval for a turn that already ended is not raised', () => {

@@ -8,6 +8,8 @@ import {
   type ExecutionId,
   type ProjectId,
   parseEventEnvelope,
+  QUESTION_TEXT_LIMIT,
+  questionTextLength,
   type RuntimeId,
   type WorkstreamId,
 } from '@halcyonic/contracts';
@@ -156,6 +158,22 @@ describe('mock runtime scenarios', () => {
   });
 });
 
+/** A question within every per-field limit of the contract, far past its limit in all. */
+function bigPrompts() {
+  return Array.from({ length: 10 }, (_, index) => ({
+    key: `q${index}`,
+    header: 'h'.repeat(200),
+    text: 't'.repeat(4000),
+    options: Array.from({ length: 20 }, (_, option) => ({
+      label: `${option}${'l'.repeat(150)}`,
+      description: 'd'.repeat(1000),
+    })),
+    multiple: false,
+    free_text: true,
+    secret: false,
+  }));
+}
+
 describe('mock runtime actions', () => {
   test('an approval blocks the turn until it is answered; approval continues the work', async () => {
     const { time, runtime, start, observed, types } = setup();
@@ -248,6 +266,48 @@ describe('mock runtime actions', () => {
       runtime.answerQuestion({ execution, question_id: 'question-1', answers: [] }),
       actionError('question_not_pending'),
     );
+  });
+
+  test("a scenario's question past the size limit is reported shortened and unanswerable", async () => {
+    const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
+    const big = parseScenario(
+      {
+        format: 1,
+        id: 'big_question',
+        description: 'Asks one very long question.',
+        steps: [
+          {
+            after_ms: 10,
+            await_answer: {
+              question_id: 'question-1',
+              answerable: true,
+              prompts: bigPrompts(),
+              if_answered: [],
+            },
+          },
+        ],
+      },
+      'big_question.json',
+    );
+    const runtime = new MockRuntimeAdapter({
+      scenarios: new Map([...SCENARIOS, ['big_question', big]]),
+      clock: time,
+      scheduler: time,
+    });
+    const observed: RuntimeObservation[] = [];
+    await runtime.startExecution({
+      execution,
+      instruction: 'Do the work.',
+      options: { scenario: 'big_question' },
+      model_ref: null,
+      directory: null,
+      emit: (observation) => observed.push(observation),
+    });
+    await time.runUntilIdle();
+    const asked = observed.find((item) => item.type === 'runtime.question.asked');
+    assert.ok(asked?.type === 'runtime.question.asked');
+    assert.equal(asked.payload.answerable, false);
+    assert.ok(questionTextLength(asked.payload.prompts) <= QUESTION_TEXT_LIMIT);
   });
 
   test('two answers or two decisions in the same tick: only the first is taken', async () => {
