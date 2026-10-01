@@ -101,6 +101,28 @@ describe('configuration', () => {
     }
   });
 
+  test('voice is off unless the whisper.cpp binary, model and voice activity model are all set, as existing absolute files', () => {
+    assert.equal(loadConfig({}).speech, null);
+    const files = ['whisper-cli', 'model.bin', 'vad.bin'].map((name) => {
+      const path = join(base, name);
+      writeFileSync(path, '');
+      return path;
+    });
+    const [binary, model, vadModel] = files as [string, string, string];
+    const all = {
+      HALCYONIC_WHISPER_BIN: binary,
+      HALCYONIC_WHISPER_MODEL: model,
+      HALCYONIC_WHISPER_VAD_MODEL: vadModel,
+    };
+    assert.deepEqual(loadConfig(all).speech, { binary, model, vadModel });
+    for (const name of Object.keys(all)) {
+      assert.throws(() => loadConfig({ ...all, [name]: '' }), /Voice needs all of/, name);
+      for (const path of ['relative', join(base, 'missing'), base]) {
+        assert.throws(() => loadConfig({ ...all, [name]: path }), ConfigError, `${name} ${path}`);
+      }
+    }
+  });
+
   test('agent environment pass-through takes variable names only', () => {
     assert.deepEqual(
       loadConfig({ HALCYONIC_AGENT_ENV: 'SSH_AUTH_SOCK, HTTPS_PROXY' }).agentEnvironment,

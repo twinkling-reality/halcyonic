@@ -29,6 +29,8 @@ import {
   DEFAULT_NETWORK_LIMITS,
   type NetworkLimits,
 } from '../network/server.ts';
+import { Transcriptions } from '../speech/transcriptions.ts';
+import type { SpeechEngine } from '../speech/whisper.ts';
 import type { TlsTarget } from './tls-client.ts';
 
 /** Test support only. Not used by the running control plane. */
@@ -113,6 +115,8 @@ export interface TestServerOptions extends TestControlPlaneOptions {
   readonly logLevel?: LogLevel;
   /** Receives both listeners' log lines, for tests that check what is logged. */
   readonly logStream?: NodeJS.WritableStream;
+  /** The engine behind `POST /api/transcriptions`; without one, voice is off. */
+  readonly speech?: SpeechEngine;
 }
 
 export interface TestNetworkListener {
@@ -149,6 +153,7 @@ export async function startTestServer(options: TestServerOptions = {}) {
     ...(options.modelListTimeoutMs !== undefined && {
       modelListTimeoutMs: options.modelListTimeoutMs,
     }),
+    transcriptions: new Transcriptions({ engine: options.speech ?? null, clock: harness.time }),
   };
   const devices = new DeviceAccess({
     controlPlane: harness.controlPlane,

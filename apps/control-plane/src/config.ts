@@ -21,6 +21,16 @@ export interface NetworkListenerConfig {
   readonly port: number;
 }
 
+/**
+ * The pinned whisper.cpp command-line binary, its model and its voice activity model, which
+ * transcribe a held clip of speech into a draft (ADR 0021).
+ */
+export interface SpeechConfig {
+  readonly binary: string;
+  readonly model: string;
+  readonly vadModel: string;
+}
+
 export interface ControlPlaneConfig {
   readonly host: string;
   readonly port: number;
@@ -45,6 +55,8 @@ export interface ControlPlaneConfig {
    * is registered only when it is set.
    */
   readonly codexBinary: string | null;
+  /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
+  readonly speech: SpeechConfig | null;
   /**
    * Whether the end of stdin shuts the control plane down as SIGTERM does. For a launcher, such as
    * a test harness, that runs it as a child and holds its stdin open without writing to it: when
@@ -102,6 +114,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     agentEnvironment: parseNames('HALCYONIC_AGENT_ENV', env.HALCYONIC_AGENT_ENV),
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
+    speech: parseSpeech(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
   };
 }
@@ -151,6 +164,31 @@ function parseExecutable(name: string, raw: string | undefined): string | null {
   }
   if (!isFile) throw new ConfigError(`${name} ${raw} is not a file.`);
   return raw;
+}
+
+const SPEECH_VARIABLES = [
+  'HALCYONIC_WHISPER_BIN',
+  'HALCYONIC_WHISPER_MODEL',
+  'HALCYONIC_WHISPER_VAD_MODEL',
+] as const;
+
+function parseSpeech(env: NodeJS.ProcessEnv): SpeechConfig | null {
+  const set = SPEECH_VARIABLES.filter((name) => env[name] !== undefined && env[name] !== '');
+  if (set.length === 0) return null;
+  if (set.length < SPEECH_VARIABLES.length) {
+    const missing = SPEECH_VARIABLES.filter((name) => !set.includes(name));
+    throw new ConfigError(
+      `Voice needs all of ${SPEECH_VARIABLES.join(', ')}; ${missing.join(', ')} is not set.`,
+    );
+  }
+  return {
+    binary: parseExecutable('HALCYONIC_WHISPER_BIN', env.HALCYONIC_WHISPER_BIN) as string,
+    model: parseExecutable('HALCYONIC_WHISPER_MODEL', env.HALCYONIC_WHISPER_MODEL) as string,
+    vadModel: parseExecutable(
+      'HALCYONIC_WHISPER_VAD_MODEL',
+      env.HALCYONIC_WHISPER_VAD_MODEL,
+    ) as string,
+  };
 }
 
 function parseNames(name: string, raw: string | undefined): string[] {

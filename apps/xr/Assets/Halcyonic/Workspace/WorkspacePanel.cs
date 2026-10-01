@@ -45,6 +45,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The confirmation can be given now; an approval's only once its whole request has shown.</summary>
         public bool CanConfirm = true;
+
+        /// <summary>Hold to talk is offered for an instruction, at the end of the action row where it fits (ADR 0021).</summary>
+        public bool Speak;
         public IReadOnlyList<PresetInstruction> Presets = Array.Empty<PresetInstruction>();
         public string? Notice;
         public IReadOnlyList<string> Feedback = Array.Empty<string>();
@@ -120,6 +123,7 @@ namespace Halcyonic.XR.Workspace
         private PanelButton collapse = null!;
         private PanelButton confirm = null!;
         private PanelButton cancel = null!;
+        private PanelButton speak = null!;
 
         public event Action<WorkspaceAction>? ActionPressed;
 
@@ -130,6 +134,15 @@ namespace Halcyonic.XR.Workspace
         public event Action? CollapsePressed;
 
         public event Action<PresetInstruction>? PresetPressed;
+
+        /// <summary>Hold to talk was held long enough: start listening.</summary>
+        public event Action? SpeakStarted;
+
+        /// <summary>Hold to talk ended: let go (true) or dropped (false).</summary>
+        public event Action<bool>? SpeakEnded;
+
+        /// <summary>Hold to talk was pressed and let go before its hold started.</summary>
+        public event Action? SpeakTapped;
 
         /// <summary>Buttons ignore presses while this is false.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
@@ -180,6 +193,10 @@ namespace Halcyonic.XR.Workspace
             collapse = Button("Collapse", () => CollapsePressed?.Invoke());
             confirm = Button("Confirm", () => ConfirmPressed?.Invoke());
             cancel = Button("Cancel", () => CancelPressed?.Invoke());
+            speak = Button("Hold to talk", () => SpeakTapped?.Invoke());
+            speak.Holds = true;
+            speak.HoldStarted += () => SpeakStarted?.Invoke();
+            speak.HoldEnded += sent => SpeakEnded?.Invoke(sent);
             for (var index = 0; index < 4; index++)
             {
                 var slot = index;
@@ -272,8 +289,14 @@ namespace Halcyonic.XR.Workspace
             {
                 case ControlsMode.Actions:
                     shownActions.AddRange(content.Actions);
-                    ShowRow(actionButtons, shownActions.ConvertAll(WorkspaceText.Label), center, shown);
+                    var end = ShowRow(actionButtons, shownActions.ConvertAll(WorkspaceText.Label), center, shown);
                     if (shownActions.Count == 0) SetControlsText(content.WhyNoActions ?? "", Left, right, WorkspaceVisuals.SecondaryColor);
+                    var speakWidth = speak.Measure(VoiceText.HoldToTalk, 0.14f);
+                    if (content.Speak && end + speakWidth <= right)
+                    {
+                        speak.Show(VoiceText.HoldToTalk, new Vector2(right - speakWidth / 2f, center), speakWidth);
+                        shown.Add(speak);
+                    }
                     break;
                 case ControlsMode.Confirm:
                     // The confirmation goes where no action button was, so pressing twice in one place never
@@ -311,6 +334,7 @@ namespace Halcyonic.XR.Workspace
             foreach (var button in presetButtons) HideUnless(button, shown);
             HideUnless(confirm, shown);
             HideUnless(cancel, shown);
+            HideUnless(speak, shown);
         }
 
         private static void HideUnless(PanelButton button, HashSet<PanelButton> shown)
@@ -318,8 +342,8 @@ namespace Halcyonic.XR.Workspace
             if (!shown.Contains(button)) button.Hide();
         }
 
-        /// <summary>Buttons left to right from the panel's left edge.</summary>
-        private static void ShowRow(List<PanelButton> buttons, List<string> labels, float center, HashSet<PanelButton> shown)
+        /// <summary>Buttons left to right from the panel's left edge; returns where the next could start.</summary>
+        private static float ShowRow(List<PanelButton> buttons, List<string> labels, float center, HashSet<PanelButton> shown)
         {
             var x = Left;
             for (var index = 0; index < buttons.Count && index < labels.Count; index++)
@@ -329,6 +353,7 @@ namespace Halcyonic.XR.Workspace
                 shown.Add(buttons[index]);
                 x += width + Gap;
             }
+            return x;
         }
 
         private void SetControlsText(string text, float left, float right, Color color)

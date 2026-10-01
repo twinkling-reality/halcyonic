@@ -87,6 +87,9 @@ namespace Halcyonic.Client
         /// <summary>The keyboard is open for an instruction.</summary>
         public bool Typing { get; private set; }
 
+        /// <summary>The armed instruction was spoken and heard on the Mac, not typed.</summary>
+        public bool Heard { get; private set; }
+
         /// <summary>
         /// Every part of the request the armed approval or denial answers has been shown
         /// (<see cref="RequestShown"/>).
@@ -157,6 +160,26 @@ namespace Halcyonic.Client
             return SteeringOutcome.Send(commands.SendInstruction(workspace.Execution!.ExecutionId, instruction));
         }
 
+        /// <summary>
+        /// The Mac heard this instruction in a held clip (ADR 0021). Unlike a typed one, it is always
+        /// held for a deliberate confirmation that shows it as heard, so a mishearing is never sent
+        /// unread; an empty transcript sends nothing.
+        /// </summary>
+        public SteeringOutcome Spoken(string? text, WorkspacePresentation workspace)
+        {
+            if (Typing) return SteeringOutcome.Nothing;
+            Cancel();
+            var instruction = text?.Trim() ?? "";
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was heard, so nothing was sent.");
+            if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
+            {
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions, so nothing was sent.");
+            }
+            Arm(WorkspaceAction.Instruct, null, instruction);
+            Heard = true;
+            return SteeringOutcome.Of(SteeringStep.Confirm);
+        }
+
         /// <summary>The keyboard closed without text.</summary>
         public void StopTyping() => Typing = false;
 
@@ -178,6 +201,7 @@ namespace Halcyonic.Client
             Armed = null;
             ArmedApprovalId = null;
             Instruction = null;
+            Heard = false;
             WholeRequestShown = false;
             shownPart = 0;
         }
@@ -225,7 +249,9 @@ namespace Halcyonic.Client
         public string? Prompt(WorkspacePresentation workspace)
         {
             if (Armed == null) return null;
-            return CanConfirm ? WorkspaceText.ConfirmationPrompt(Armed.Value, Instruction) : WorkspaceText.ReadRequestFirst;
+            if (!CanConfirm) return WorkspaceText.ReadRequestFirst;
+            var prompt = WorkspaceText.ConfirmationPrompt(Armed.Value, Instruction);
+            return Heard ? VoiceText.HeardOnYourMac + " " + prompt : prompt;
         }
 
         private void Arm(WorkspaceAction action, string? approvalId, string? instruction)
@@ -233,6 +259,7 @@ namespace Halcyonic.Client
             Armed = action;
             ArmedApprovalId = approvalId;
             Instruction = instruction;
+            Heard = false;
             WholeRequestShown = false;
             shownPart = 0;
             armedAt = now();

@@ -205,6 +205,12 @@ namespace Halcyonic.XR.Workspace.Editor
             yield return ("connect", panel => panel.ShowForRender(EntryPanel.Screen.Connect));
             yield return ("more-work", panel => panel.ShowForRender(EntryPanel.Screen.MoreWork));
             yield return ("create", panel => panel.ShowForRender(EntryPanel.Screen.CreateStart, new ProjectIdea(), Draft(state, listed: false)));
+            // Hold to talk's longest words, beside it.
+            yield return ("create-voice", panel =>
+            {
+                panel.ShowForRender(EntryPanel.Screen.CreateStart, new ProjectIdea(), Draft(state, listed: false));
+                panel.SayForRender(VoiceText.Shown.OrderByDescending(words => words.Length).First());
+            });
             yield return ("guide", panel =>
             {
                 var idea = new ProjectIdea();
