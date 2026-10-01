@@ -38,9 +38,11 @@ public class NewWorkDraftTests
         {
             RuntimeId = "opencode", Result = new AvailableModels { Models = new List<RuntimeModel> { model } },
         });
-        Assert.That(draft.Problem, Is.EqualTo("Choose a model."));
+        Assert.That(draft.Model, Is.SameAs(model), "the model on this Mac is chosen for the person");
+        Assert.That(draft.ModelPreselected, Is.True);
         Assert.Throws<ArgumentException>(() => draft.ChooseModel(Model("hosted/other")));
-        draft.ChooseModel(model);
+        Assert.That(draft.ChooseModel(model), Is.True);
+        Assert.That(draft.ModelPreselected, Is.False, "now the person's own choice");
         Assert.That(draft.Problem, Is.Null);
         var workstream = draft.CreateWorkstream();
         Assert.That(workstream.Payload.Title, Is.EqualTo(draft.Objective));
@@ -57,12 +59,12 @@ public class NewWorkDraftTests
     {
         var draft = Draft();
         draft.ChooseRuntime(Runtime("opencode"));
-        var model = Model("ollama/local");
+        var model = Model("ollama/local", ModelServed.ThisMac);
         draft.SetModels(new RuntimeModelsResponse
         {
             RuntimeId = "opencode", Result = new AvailableModels { Models = new List<RuntimeModel> { model } },
         });
-        draft.ChooseModel(model);
+        Assert.That(draft.Model, Is.SameAs(model));
         draft.ChooseRuntime(Runtime("codex"));
         draft.SetModels(new RuntimeModelsResponse
         {
@@ -102,5 +104,50 @@ public class NewWorkDraftTests
         Assert.That(draft.Title, Is.EqualTo("Fix <b>search</b> with tests"));
         Assert.That(draft.CreateWorkstream().Payload.Title, Is.EqualTo("Fix <b>search</b> with tests"));
         Assert.That(draft.CreateWorkstream().Payload.Objective, Is.EqualTo(draft.Objective));
+    }
+
+    [Test]
+    public void AModelThatRunsElsewhereIsNeverChosenWithoutASecondPress()
+    {
+        var draft = Draft();
+        draft.ChooseRuntime(Runtime("opencode"));
+        var hosted = Model("opencode/space-bunny-free", ModelServed.Remote);
+        var unknown = Model("gateway/unknown");
+        var local = Model("ollama/qwen3.6", ModelServed.ThisMac);
+        draft.SetModels(new RuntimeModelsResponse
+        {
+            RuntimeId = "opencode", Result = new AvailableModels { Models = new List<RuntimeModel> { hosted, unknown, local } },
+        });
+        Assert.That(draft.Model, Is.SameAs(local), "the first model on this Mac, though a hosted one is listed first");
+
+        Assert.That(draft.ChooseModel(hosted), Is.False);
+        Assert.That(draft.Model, Is.SameAs(local), "one press changes nothing");
+        Assert.That(draft.PendingModel, Is.SameAs(hosted));
+        Assert.That(draft.ChooseModel(unknown), Is.False, "pressing another model starts over");
+        Assert.That(draft.PendingModel, Is.SameAs(unknown));
+        Assert.That(draft.ChooseModel(hosted), Is.False);
+        Assert.That(draft.ChooseModel(hosted), Is.True, "a second press in a row chooses it");
+        Assert.That(draft.Model, Is.SameAs(hosted));
+        Assert.That(draft.PendingModel, Is.Null);
+        Assert.That(draft.StartExecution(Guid.NewGuid().ToString("D")).Payload.ModelRef, Is.EqualTo("opencode/space-bunny-free"));
+    }
+
+    [Test]
+    public void NoStartIsBuiltWithoutAModelForARuntimeThatListsThem()
+    {
+        var draft = Draft();
+        draft.ChooseRuntime(Runtime("opencode"));
+        var hosted = Model("hosted/only", ModelServed.Remote);
+        draft.SetModels(new RuntimeModelsResponse
+        {
+            RuntimeId = "opencode", Result = new AvailableModels { Models = new List<RuntimeModel> { hosted } },
+        });
+        Assert.That(draft.Model, Is.Null, "nothing on this Mac, so nothing is chosen");
+        Assert.That(draft.Problem, Is.EqualTo("Choose a model."));
+        Assert.Throws<InvalidOperationException>(() => draft.StartExecution(Guid.NewGuid().ToString("D")));
+
+        var none = Draft();
+        none.ChooseRuntime(Runtime("claude", ModelChoice.None));
+        Assert.That(none.StartExecution(Guid.NewGuid().ToString("D")).Payload.ModelRef, Is.Null, "a runtime that lists no models keeps its own choice");
     }
 }

@@ -111,7 +111,7 @@ namespace Halcyonic.XR.Workspace
             recapProject = Label("Project", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, wrap: false);
             recapTask = Label("First task", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: true);
             recapLocation = Label("Where its files live", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
-            recapRuns = Label("Runs with", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: false);
+            recapRuns = Label("Runs with", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: true);
             recapServed = Label("Model", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
             changeName = MakeSlot("Change name", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             changeTask = MakeSlot("Change task", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
@@ -333,7 +333,8 @@ namespace Halcyonic.XR.Workspace
                 });
             y -= 0.068f;
             var optionsWidth = moreOptions.Button.Measure(EntryText.MoreOptions, 0.18f);
-            Say(recapRuns, EntryText.RunsWith(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.034f));
+            // The runtime, the model and where it runs: two lines at most.
+            Say(recapRuns, EntryText.RunsWith(draft, demonstration() == null), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.06f));
             Put(moreOptions, draft.Runtime == null ? EntryText.ChooseHowItRuns : EntryText.MoreOptions,
                 new Vector2(Right - optionsWidth / 2f, y - 0.017f), optionsWidth, () =>
                 {
@@ -341,8 +342,8 @@ namespace Halcyonic.XR.Workspace
                     showModels = draft.Runtime?.ModelChoice == ModelChoice.Listed;
                     Open(Screen.Options);
                 });
-            y -= 0.04f;
-            Say(recapServed, EntryText.ModelLine(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.05f));
+            y -= 0.064f;
+            Say(recapServed, EntryText.ModelLine(draft), new Vector2(Left, y), new Vector2(ContentWidth - optionsWidth - Gap, 0.04f));
             var problem = StartProblem();
             // Moving a project changes where all its later work runs, so the recap says so before the review.
             var warning = problem ?? (current.Folder != null && current.ExistingProjectId != null ? EntryText.RebindWarning : null);
@@ -393,7 +394,7 @@ namespace Halcyonic.XR.Workspace
             review = new NewWorkReview(
                 idea.Name,
                 draft.Title,
-                EntryText.RuntimeName(draft.Runtime!),
+                EntryText.RuntimeName(draft.Runtime!, demonstration() == null),
                 model?.DisplayName ?? "Chosen by the runtime",
                 model == null ? "The runtime does not list models" : EntryText.ServedShort(model.Served) + ", " + EntryText.Tools(model.ToolCalling),
                 model?.ModelRef ?? "No model selected",
@@ -421,12 +422,17 @@ namespace Halcyonic.XR.Workspace
                 {
                     var model = models[index];
                     var chosen = draft.Model?.ModelRef == model.ModelRef;
+                    var pending = draft.PendingModel == model;
+                    // A model that runs elsewhere is chosen only by a second press, after it says where it runs.
+                    var detail = pending ? EntryText.ConfirmElsewhere(model)
+                        : (chosen ? (draft.ModelPreselected ? "Chosen for you · " : "Chosen · ") : "")
+                            + EntryText.ServedShort(model.Served) + " · " + EntryText.Tools(model.ToolCalling);
                     Put(rows[index], LabelText.Plain(model.DisplayName), new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth, () =>
                     {
                         draft.ChooseModel(model);
                         Layout();
-                    }, detail: (chosen ? "Chosen · " : "") + EntryText.ServedShort(model.Served) + " · " + EntryText.Tools(model.ToolCalling),
-                        detailColor: model.Served == ModelServed.Remote ? WorkspaceVisuals.AttentionColor : (Color?)null);
+                    }, detail: detail,
+                        detailColor: !NewWorkDraft.RunsHere(model) ? WorkspaceVisuals.AttentionColor : (Color?)null);
                 }
                 Pager(draft.Models.Count);
                 Put(bottomLeft, "Change runtime", new Vector2(Left + 0.12f, BottomCenter), 0.24f, () =>
@@ -438,16 +444,18 @@ namespace Halcyonic.XR.Workspace
             }
             else
             {
-                var runtimes = now?.Runtimes.Where(runtime => runtime.Capabilities.StartExecution)
-                    .OrderBy(runtime => runtime.DisplayName, StringComparer.Ordinal).ToList() ?? new List<RuntimeDescriptor>();
+                // Simulated runtimes after the real ones, named for what they do in a live session.
+                var runtimes = now == null ? new List<RuntimeDescriptor>() : EntryText.RuntimeChoices(now.Runtimes);
+                var live = demonstration() == null;
                 if (runtimes.Count == 0) Say(body, EntryText.NoRuntimes, new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.1f));
                 var shown = Paged(runtimes);
                 for (var index = 0; index < shown.Count; index++)
                 {
                     var runtime = shown[index];
                     var chosen = draft.Runtime?.RuntimeId == runtime.RuntimeId;
-                    var detail = runtime.Synthetic ? "simulated work" : runtime.ModelChoice == ModelChoice.Listed ? "lists its models" : "chooses its own model";
-                    Put(rows[index], EntryText.RuntimeName(runtime), new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth,
+                    var detail = runtime.Synthetic ? (live ? EntryText.PracticeDetail : "simulated work")
+                        : runtime.ModelChoice == ModelChoice.Listed ? "lists its models" : "chooses its own model";
+                    Put(rows[index], EntryText.RuntimeName(runtime, live), new Vector2(0f, BodyTop - RowHeight / 2f - index * RowPitch), ContentWidth,
                         () => ChooseRuntime(runtime), detail: (chosen ? "Chosen · " : "") + detail);
                 }
                 Pager(runtimes.Count);
