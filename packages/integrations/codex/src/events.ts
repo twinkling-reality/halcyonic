@@ -31,6 +31,8 @@ export interface PendingQuestion {
   answered: boolean;
   /** Whether an answer is on its way and Codex has not confirmed it yet. */
   awaiting: boolean;
+  /** How many answers were sent: after more than one, a confirmation cannot say which was taken. */
+  sent: number;
 }
 
 /** What the adapter knows about one hosted Codex thread, updated as its messages arrive. */
@@ -418,6 +420,7 @@ function observeQuestion(
     turnId,
     answered: false,
     awaiting: false,
+    sent: 0,
   };
   state.questions.set(question.questionId, question);
   state.sequence += 1;
