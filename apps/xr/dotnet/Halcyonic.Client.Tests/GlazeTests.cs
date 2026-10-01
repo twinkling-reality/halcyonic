@@ -256,7 +256,7 @@ public class CharacterLabelTests
     public void TheLabelHasATitleABadgeAndMarksAndNoReason()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "It wants to use bash: Run the migration" }, approvals: 1, synthetic: true);
+            new[] { "It wants to run: Run the migration" }, approvals: 1, synthetic: true);
         var label = CharacterLabel.Of(character);
         Assert.That(label.Title, Is.EqualTo("Fix the authentication regression"));
         Assert.That(label.Badge.Text, Is.EqualTo("Waiting for you"));
@@ -291,7 +291,7 @@ public class CharacterLabelTests
             Entry(1, ActivityKind.Tool, "bash succeeded"),
             Entry(2, ActivityKind.Message, "The migration ran\nand the tests pass.", reported: true),
             Entry(3, ActivityKind.Turn, "Turn started")));
-        Assert.That(peek.Reason, Is.EqualTo("Agent says: “The migration ran and the tests pass.”"), "round boundaries skipped; agent text a claim");
+        Assert.That(peek.Reason, Is.EqualTo("It says: “The migration ran and the tests pass.”"), "round boundaries skipped; agent text a claim");
         Assert.That(peek.Next, Is.Null);
         Assert.That(PeekCard.Of(Workspace(character)).Reason, Is.Empty, "nothing known yet: the badge says it all");
     }
@@ -300,9 +300,9 @@ public class CharacterLabelTests
     public void ThePeekCountsTheReasonsBehindTheFirst()
     {
         var character = StateLanguageTests.Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired,
-            new[] { "It wants to use bash: Run the migration", "Asks you: Which colour?" }, approvals: 1);
+            new[] { "It wants to run: Run the migration", "Asks you: Which colour?" }, approvals: 1);
         var peek = PeekCard.Of(Workspace(character));
-        Assert.That(peek.ReasonLine, Is.EqualTo("It wants to use bash: Run the migration (+1 more)"));
+        Assert.That(peek.ReasonLine, Is.EqualTo("It wants to run: Run the migration (+1 more)"));
         Assert.That(peek.Next, Is.EqualTo("Open it to answer."));
     }
 

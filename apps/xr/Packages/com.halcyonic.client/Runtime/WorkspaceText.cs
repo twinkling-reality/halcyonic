@@ -82,15 +82,15 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
-        /// A question on its tab, in two lines: the four whole questions do not fit one row of tabs at
-        /// a size a headset shows legibly, and none is shortened.
+        /// A question's tab, in a short name (ADR 0023): what waits for the person under the state's own
+        /// word, and the others in one word each. The whole question heads the tab's answer.
         /// </summary>
-        public static IReadOnlyList<string> TabLines(WorkspaceQuestion question) => question switch
+        public static string TabLabel(WorkspaceQuestion question) => question switch
         {
-            WorkspaceQuestion.Doing => new[] { "What is it", "doing?" },
-            WorkspaceQuestion.Understand => new[] { "Help me", "understand" },
-            WorkspaceQuestion.Checked => new[] { "What was", "checked?" },
-            WorkspaceQuestion.NeedFromYou => new[] { "What do you", "need from me?" },
+            WorkspaceQuestion.Doing => "Doing",
+            WorkspaceQuestion.Understand => "Understand",
+            WorkspaceQuestion.Checked => "Checked",
+            WorkspaceQuestion.NeedFromYou => StateLanguage.WordOf(WorkState.WaitingForYou),
             _ => throw new ArgumentOutOfRangeException(nameof(question), question, "Unhandled question."),
         };
 
@@ -98,27 +98,28 @@ namespace Halcyonic.Client
         public static bool SomethingWaits(WorkspacePresentation workspace) =>
             workspace.ApprovalToAnswer != null || workspace.QuestionToAnswer != null;
 
-        /// <summary>The questions to offer now: What do you need from me? only while a real request or question waits.</summary>
+        /// <summary>
+        /// The questions to offer now, in the tabs' order: What do you need from me? first, and only
+        /// while a real request or question waits.
+        /// </summary>
         public static IReadOnlyList<WorkspaceQuestion> Questions(WorkspacePresentation workspace) => !SomethingWaits(workspace)
             ? new[] { WorkspaceQuestion.Doing, WorkspaceQuestion.Understand, WorkspaceQuestion.Checked }
-            : new[] { WorkspaceQuestion.Doing, WorkspaceQuestion.Understand, WorkspaceQuestion.Checked, WorkspaceQuestion.NeedFromYou };
+            : new[] { WorkspaceQuestion.NeedFromYou, WorkspaceQuestion.Doing, WorkspaceQuestion.Understand, WorkspaceQuestion.Checked };
 
         /// <summary>The question a workspace opens on: what waits for the person, else what it is doing.</summary>
         public static WorkspaceQuestion FirstQuestion(WorkspacePresentation workspace) =>
             SomethingWaits(workspace) ? WorkspaceQuestion.NeedFromYou : WorkspaceQuestion.Doing;
 
         /// <summary>
-        /// Said before an agent's question when it asks more than one: how many show, that this is the
-        /// first, and, when the most the control plane shows at once (three) are shown, that more may
-        /// follow, since how many more is not known. Empty for one question, which the workspace's
-        /// answer line already names.
+        /// Said with an agent's question when more wait after it: how many, and, when the most the
+        /// control plane shows at once (three) are shown, that there may be more, since how many more is
+        /// not known. Empty for one question.
         /// </summary>
         public static string QuestionLead(WorkspacePresentation workspace)
         {
             var shown = workspace.Execution?.PendingQuestions.Count ?? 0;
             if (shown <= 1) return "";
-            var lead = "First of " + shown.ToString(CultureInfo.InvariantCulture) + " questions shown";
-            return shown >= 3 ? lead + "; more may follow." : lead + ".";
+            return shown >= 3 ? "At least 2 more questions wait after this one." : "1 more question waits after this one.";
         }
 
         /// <summary>Which prompt of the question shows, with its header as the agent wrote it.</summary>
@@ -126,7 +127,7 @@ namespace Halcyonic.Client
         {
             var header = question.Prompts[prompt].Header;
             var heading = string.IsNullOrWhiteSpace(header) ? "" : OneLine(header!);
-            if (question.Prompts.Count <= 1) return heading.Length == 0 ? "The question" : heading;
+            if (question.Prompts.Count <= 1) return heading.Length == 0 ? "It asks you" : heading;
             var count = "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture) + " of " + question.Prompts.Count.ToString(CultureInfo.InvariantCulture);
             return heading.Length == 0 ? count : count + " · " + heading;
         }
@@ -135,17 +136,9 @@ namespace Halcyonic.Client
         public static string PromptHow(QuestionPrompt prompt)
         {
             var offers = prompt.Options.Count > 0;
-            if (!offers) return prompt.FreeText ? "Type your answer." : "It offers no answer.";
+            if (!offers) return prompt.FreeText ? "Type your answer." : "It offers no answers to choose.";
             if (prompt.Multiple) return prompt.FreeText ? "Choose any that apply, and type more if you like." : "Choose any that apply.";
             return prompt.FreeText ? "Choose one, or type your own." : "Choose one.";
-        }
-
-        /// <summary>Under an offered answer: chosen or not, and the agent's description of it.</summary>
-        public static string? OptionDetail(QuestionOption option, bool chosen)
-        {
-            var description = string.IsNullOrWhiteSpace(option.Description) ? null : OneLine(option.Description!);
-            if (!chosen) return description;
-            return description == null ? "Chosen" : "Chosen · " + description;
         }
 
         /// <summary>The typed answer's button: what it says before and after typing.</summary>
@@ -157,19 +150,19 @@ namespace Halcyonic.Client
         /// </summary>
         public static string CannotAnswer(QuestionView question)
         {
-            if (question.Prompts.Any(prompt => prompt.Secret)) return "The agent asks for something secret. Halcyonic can't send it; stop the turn to go on.";
+            if (question.Prompts.Any(prompt => prompt.Secret)) return "It asks for something secret, which can't be sent from here. Press Stop to go on.";
             if (question.Prompts.Any(prompt => IsCut(prompt.Header) || IsCut(prompt.Text) || prompt.Options.Any(option => IsCut(option.Label) || IsCut(option.Description))))
             {
-                return "This question was too long to show whole, so Halcyonic can't answer it. Stop the turn to go on.";
+                return "This question is too long to show in full, so it can't be answered here. Press Stop to go on.";
             }
-            return "Halcyonic can't send an answer to this question. Stop the turn to go on.";
+            return "This question can't be answered from here. Press Stop to go on.";
         }
 
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>
-        public const string AgentWaits = "The agent is waiting for an answer.";
+        public const string AgentWaits = "It's waiting for an answer.";
 
         /// <summary>An answer sent whose effect the runtime never confirmed (Codex's question_unconfirmed, answer_ambiguous).</summary>
-        public const string AnswerNotConfirmed = "Not confirmed: the agent may or may not have your answer. Check What is it doing?";
+        public const string AnswerNotConfirmed = "Not sure it has your answer. Check its activity before you answer again.";
 
         private static bool IsCut(string? text) => text != null && text.Contains("[truncated]");
 
@@ -177,11 +170,14 @@ namespace Halcyonic.Client
         public static string Goal(WorkspacePresentation workspace) => "Goal: " + Objective(workspace);
 
         /// <summary>
-        /// The one plain answer under the goal: what needs the person or went wrong, one line per
-        /// reason; else that nothing does, and what it did last.
+        /// The one plain answer under the goal: what waits for the person, pointing to where it shows
+        /// whole, or what went wrong, one line per reason; else that nothing waits, and what it did last.
         /// </summary>
         public static IReadOnlyList<string> Answer(WorkspacePresentation workspace)
         {
+            // The request or question shows whole under Waiting for you, so the answer names it once.
+            if (workspace.ApprovalToAnswer != null) return new[] { "It wants your approval. See it under " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
+            if (workspace.QuestionToAnswer != null) return new[] { "It asks you a question. See it under " + TabLabel(WorkspaceQuestion.NeedFromYou) + "." };
             var attention = Attention(workspace);
             if (attention.Count > 0) return attention;
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
@@ -189,6 +185,12 @@ namespace Halcyonic.Client
             if (workspace.Character.Stale) line = "Last known. " + line;
             return new[] { "Nothing is waiting for you.", line };
         }
+
+        /// <summary>The tools whose approvals run a command, as the agent apps name them: the request reads as a command.</summary>
+        private static readonly string[] CommandTools = { "shell", "bash", "commandExecution" };
+
+        /// <summary>Whether an approval's tool runs a command, by the name its agent app gave it; an unknown name is not one.</summary>
+        public static bool RunsCommand(string toolName) => CommandTools.Any(tool => string.Equals(tool, toolName, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
         /// The answer to What do you need from me?: the request the work waits on, as the runtime
@@ -202,12 +204,12 @@ namespace Halcyonic.Client
             var tool = approval.Subject as ToolUseSubject;
             var notes = new List<string>();
             var waiting = workspace.Execution?.PendingApprovals.Count ?? 0;
-            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests wait; this is the oldest.");
+            if (waiting > 1) notes.Add(waiting.ToString(CultureInfo.InvariantCulture) + " requests are waiting. This is the oldest.");
             notes.Add("Approve lets it go ahead. Deny refuses; it may try another way.");
-            notes.Add("Either answer counts once the runtime confirms it.");
-            notes.Add("Approve or Deny shows the whole request before you confirm.");
+            notes.Add("Your answer counts once the agent confirms it.");
+            notes.Add("Approve and Deny both show the whole request before you confirm.");
             return new NeedAnswer(
-                tool == null ? "It asks for approval." : "It asks for approval to use " + OneLine(tool.ToolName) + ":",
+                tool == null ? "It wants your approval." : RunsCommand(tool.ToolName) ? "It wants to run a command:" : "It wants to use " + OneLine(tool.ToolName) + ":",
                 tool == null ? null : OneLine(tool.Summary),
                 notes);
         }
@@ -220,11 +222,20 @@ namespace Halcyonic.Client
         {
             new PresetInstruction("Continue", "Continue."),
             new PresetInstruction("Summarize", "Summarize what you changed and why."),
-            new PresetInstruction("Rerun tests", "Run the tests again and report the results."),
+            new PresetInstruction("Run checks again", "Run the tests again and report the results."),
         };
 
         /// <summary>What the workspace says while the system keyboard is open.</summary>
-        public const string TypingPrompt = "Type the instruction on the keyboard, then press Enter.";
+        public const string TypingPrompt = "Type what to tell it, then press Enter.";
+
+        /// <summary>The caption over the workspace's log of what the work did.</summary>
+        public const string RecentActivity = "Recent activity";
+
+        /// <summary>Reads a section's source again: Understand's or Checked's.</summary>
+        public const string Refresh = "Refresh";
+
+        /// <summary>Stands, taking no press, where Send answer was while the answer sent may still take effect.</summary>
+        public const string Sent = "Sent…";
 
         /// <summary>
         /// The first-time hint beside a pinch cue, three words that teach look and pinch: rest the gaze
@@ -232,11 +243,8 @@ namespace Halcyonic.Client
         /// </summary>
         public const string OpenHint = "Look, then pinch";
 
-        /// <summary>What the workspace says when it offers presets instead of the keyboard.</summary>
-        public const string PresetPrompt = "No keyboard here. Send one of these instead:";
-
         /// <summary>What the confirmation asks while part of the request it answers has not been shown yet.</summary>
-        public const string ReadRequestFirst = "Read the whole request below before approving it.";
+        public const string ReadRequestFirst = "Read the whole request above before approving it.";
 
         /// <summary>A confirmation dropped because focus went to another window.</summary>
         public const string ConfirmAfresh = "You went to another window, so nothing was sent. Press it again to confirm.";
@@ -244,35 +252,24 @@ namespace Halcyonic.Client
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
         public const string RequestNotRead = "Nothing was sent: read the whole request before approving it.";
 
-        /// <summary>The buttons that step through a request shown in parts.</summary>
-        public const string PreviousPart = "Previous part";
-
-        public const string NextPart = "Next part";
-
-        /// <summary>The status label with its qualifiers, for example "Needs you · simulated · last known".</summary>
-        public static string StatusLine(CharacterPresentation character)
-        {
-            var line = character.StatusLabel;
-            if (character.PendingApprovals > 1) line += " (" + character.PendingApprovals + " approvals)";
-            if (character.Synthetic) line += " · simulated";
-            if (character.Recorded) line += " · recorded";
-            if (character.Stale) line += " · last known";
-            return line;
-        }
+        /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
+        public const string NothingSentYet = "Nothing sent from here yet.";
 
         public static string Objective(WorkspacePresentation workspace) =>
-            string.IsNullOrWhiteSpace(workspace.Objective) ? "No objective was given." : OneLine(workspace.Objective!);
+            string.IsNullOrWhiteSpace(workspace.Objective) ? "No goal was given." : OneLine(workspace.Objective!);
 
-        /// <summary>The execution and its runtime, for example "On Mock runtime, simulated work · 2 turns".</summary>
+        /// <summary>
+        /// What runs the work and how far it got, for example "Agent app: OpenCode 2.0.18 · Round 2",
+        /// or "Practice run: builds nothing · Round 1" for simulated work.
+        /// </summary>
         public static string Execution(WorkspacePresentation workspace)
         {
             var execution = workspace.Execution;
-            if (execution == null) return "No execution yet.";
-            var line = "On " + OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
-            if (execution.Runtime.Synthetic) line += ", simulated work";
-            line += execution.TurnCount == 1 ? " · 1 turn" : " · " + execution.TurnCount.ToString(CultureInfo.InvariantCulture) + " turns";
+            if (execution == null) return "Nothing has run yet.";
+            var line = execution.Runtime.Synthetic ? EntryText.PracticeRun : "Agent app: " + OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
+            if (execution.TurnCount > 0) line += " · Round " + execution.TurnCount.ToString(CultureInfo.InvariantCulture);
             // Gone from the control plane, or never there, as in a recording.
-            if (workspace.Runtime == null) line += " · the runtime is not available here";
+            if (workspace.Runtime == null) line += " · not available on your Mac now";
             return line;
         }
 
@@ -293,23 +290,23 @@ namespace Halcyonic.Client
         {
             WorkspaceAction.Approve => "Approve",
             WorkspaceAction.Deny => "Deny",
-            WorkspaceAction.Interrupt => "Stop the turn",
-            WorkspaceAction.Instruct => "Instruct",
+            WorkspaceAction.Interrupt => "Stop",
+            WorkspaceAction.Instruct => "Tell it",
             WorkspaceAction.Answer => "Send answer",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
         /// <summary>
         /// The question a deliberate confirmation asks, naming exactly what would be sent. Approving
-        /// and denying ask about the request shown whole below the question (<see cref="Request"/>).
+        /// and denying ask about the request shown whole above the question (<see cref="Request"/>).
         /// </summary>
         public static string ConfirmationPrompt(WorkspaceAction action, string? instruction) => action switch
         {
-            WorkspaceAction.Approve => "Approve the request below?",
-            WorkspaceAction.Deny => "Deny the request below?",
-            WorkspaceAction.Interrupt => "Stop the current turn? The runtime confirms when it has stopped.",
-            WorkspaceAction.Instruct => "Send this instruction? “" + OneLine(instruction ?? "") + "”",
-            WorkspaceAction.Answer => "Send these answers to the agent?",
+            WorkspaceAction.Approve => "Approve the request above?",
+            WorkspaceAction.Deny => "Deny the request above?",
+            WorkspaceAction.Interrupt => "Stop what it's doing now? It counts as stopped once the agent confirms.",
+            WorkspaceAction.Instruct => "Tell it this? “" + OneLine(instruction ?? "") + "”",
+            WorkspaceAction.Answer => "Send these answers?",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
 
@@ -321,7 +318,7 @@ namespace Halcyonic.Client
         public static string Request(ApprovalView? approval) => approval?.Subject switch
         {
             ToolUseSubject tool => OneLine(tool.ToolName) + ": " + OneLine(tool.Summary),
-            _ => "The runtime asked for approval.",
+            _ => "It wants your approval.",
         };
 
         /// <summary>The caption over a request shown whole, with which part shows when it takes more than one.</summary>
@@ -333,8 +330,8 @@ namespace Halcyonic.Client
         {
             WorkspaceAction.Approve => "Yes, approve",
             WorkspaceAction.Deny => "Yes, deny",
-            WorkspaceAction.Interrupt => "Yes, stop it",
-            WorkspaceAction.Instruct => "Yes, send",
+            WorkspaceAction.Interrupt => "Yes, stop",
+            WorkspaceAction.Instruct => "Yes, tell it",
             WorkspaceAction.Answer => "Yes, send answer",
             _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
         };
@@ -343,14 +340,14 @@ namespace Halcyonic.Client
         public static string? WhyNoActions(WorkspacePresentation workspace)
         {
             if (workspace.Actions.Count > 0) return null;
-            if (workspace.Character.Stale) return "Nothing can be sent until the connection is live again.";
-            if (workspace.Execution == null) return "Nothing to steer until work starts.";
-            if (workspace.Runtime == null) return "Nothing can be sent: the runtime is not available here.";
+            if (workspace.Character.Stale) return "Nothing can be sent until your Mac reconnects.";
+            if (workspace.Execution == null) return "Nothing to send until it starts.";
+            if (workspace.Runtime == null) return "Nothing can be sent: it isn't available on your Mac now.";
             return workspace.Character.Activity switch
             {
-                CharacterActivity.Starting => "Nothing to steer while it starts.",
-                CharacterActivity.Unknown => "Nothing can be sent while its state is unknown.",
-                _ => "Its runtime offers no action in this state.",
+                CharacterActivity.Starting => "Nothing to send while it starts.",
+                CharacterActivity.Unknown => "Can't tell yet what it's doing, so nothing can be sent.",
+                _ => "Nothing you can send right now.",
             };
         }
 
@@ -376,6 +373,6 @@ namespace Halcyonic.Client
 
         /// <summary>An activity entry in one line, agent text quoted as the agent's.</summary>
         public static string Describe(ActivityEntry entry) =>
-            entry.Reported ? "Agent says: “" + OneLine(entry.Text) + "”" : OneLine(entry.Text);
+            entry.Reported ? "It says: “" + OneLine(entry.Text) + "”" : OneLine(entry.Text);
     }
 }

@@ -122,9 +122,10 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// The second step of an action that needs confirming, shown in place of the bar: the question at
-    /// the left, then Yes, then Cancel at the bar's right end, where the action that led here stood.
-    /// Pressing twice in one place therefore lands on Cancel, never on Yes.
+    /// The second step of an action that needs confirming, shown in place of the bar: the question,
+    /// Cancel at the bar's right end, and Yes where no control of the screen stood a moment before, in
+    /// the bar's free middle or in a row just above it. Pressing twice in one place therefore lands on
+    /// Cancel or on nothing, never on Yes.
     /// </summary>
     public sealed class ConfirmStep
     {
@@ -162,6 +163,30 @@ namespace Halcyonic.Client
         public GlazeTone Tone { get; }
 
         public IReadOnlyList<PanelAction> Actions { get; }
+    }
+
+    /// <summary>
+    /// One of a panel's tabs, as the workspace's questions: a short name, whether it is the one
+    /// showing, and whether it is for what waits for the person, which only it shows in the
+    /// attention colour.
+    /// </summary>
+    public sealed class PanelTab
+    {
+        public PanelTab(string id, string label, bool chosen, bool attention = false)
+        {
+            Id = id ?? throw new ArgumentNullException(nameof(id));
+            Label = label ?? throw new ArgumentNullException(nameof(label));
+            Chosen = chosen;
+            Attention = attention;
+        }
+
+        public string Id { get; }
+
+        public string Label { get; }
+
+        public bool Chosen { get; }
+
+        public bool Attention { get; }
     }
 
     /// <summary>The size of a line of text in a panel's list: a question asked, what a person reads, or a note between rows.</summary>
@@ -235,6 +260,19 @@ namespace Halcyonic.Client
         /// <summary>A line's tone; the primary text colour when none.</summary>
         public GlazeTone? Tone { get; set; }
 
+        /// <summary>A line of the agent's own words: quoted and leaning, so it never reads as Halcyonic's or as fact.</summary>
+        public bool Claim { get; set; }
+
+        /// <summary>A line that goes on from the one before it, as the next entry of a log: no gap between them.</summary>
+        public bool Continues { get; set; }
+
+        /// <summary>
+        /// An entry of a log the list may leave out where it has no room, the first of them first, so
+        /// the newest stay in view and a log never pages. A line that starts a group, as a log's
+        /// caption, goes only after every line that continues it.
+        /// </summary>
+        public bool Droppable { get; set; }
+
         public bool Pressable => Action != null && !Line;
     }
 
@@ -246,12 +284,13 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class PanelModel
     {
-        /// <summary>What the header's window controls raise, and the pager of a body the screen pages itself.</summary>
+        /// <summary>What the header's window controls raise, the pager of a body the screen pages itself, and a tab, with its id as the key.</summary>
         public const string Move = "move";
         public const string ResetPosition = "reset-position";
         public const string Close = "close";
         public const string PreviousPart = "previous-part";
         public const string NextPart = "next-part";
+        public const string Tab = "tab";
 
         public PanelModel(string title) => Title = title ?? throw new ArgumentNullException(nameof(title));
 
@@ -263,8 +302,38 @@ namespace Halcyonic.Client
         /// <summary>A short line under the title, such as "Question 2 of 4".</summary>
         public string? Context { get; set; }
 
+        /// <summary>The context line holds text from outside, such as the work's goal, which may end in an ellipsis where it doesn't fit.</summary>
+        public bool ContextIsData { get; set; }
+
+        /// <summary>The state badge at the header's right, as the work's character wears it.</summary>
+        public StateBadge? Badge { get; set; }
+
+        /// <summary>Practice, Demo or Recorded beside the badge.</summary>
+        public IReadOnlyList<WorkMark> Marks { get; set; } = Array.Empty<WorkMark>();
+
+        /// <summary>What something the person just did came to, or what hold to talk is doing: said in the title's and its context's place, for a few seconds.</summary>
+        public string? Notice { get; set; }
+
+        /// <summary>
+        /// The panel offers Move and Reset position beside Close. A panel that stays beside its
+        /// character, as the workspace, offers only Close, at the end of its tabs.
+        /// </summary>
+        public bool Movable { get; set; } = true;
+
         /// <summary>The header's close button, "Close" unless the screen says otherwise.</summary>
         public string CloseLabel { get; set; } = EntryText.Close;
+
+        /// <summary>The panel's tabs, under its title, when it answers more than one question.</summary>
+        public IList<PanelTab> Tabs { get; } = new List<PanelTab>();
+
+        /// <summary>
+        /// The whole question the screen answers, over its body in the caption size, as each of the
+        /// workspace's tabs has under its short name.
+        /// </summary>
+        public string? Heading { get; set; }
+
+        /// <summary>An action at the heading's right, the body's top right, as Refresh on a section that reads its source.</summary>
+        public PanelAction? HeadingAction { get; set; }
 
         /// <summary>The line at the top of the body; a banner, when there is one, shows in its place.</summary>
         public string? Lead { get; set; }
@@ -281,8 +350,30 @@ namespace Halcyonic.Client
         /// <summary>The body is drawn by the screen itself, as the whole request is, in the space the frame leaves for it.</summary>
         public bool CustomBody { get; set; }
 
-        /// <summary>A pager for a body the screen pages itself, as the whole request's parts: the page from 0 and the count.</summary>
+        /// <summary>The screen's own body only says something, as a section does: nothing in it to press, so it needs less room from the bar.</summary>
+        public bool CustomBodyIsText { get; set; }
+
+        /// <summary>
+        /// A pager for a body the screen pages itself, as the whole request's parts: the page from 0
+        /// and the count. It stands at the body's bottom, and at its top while the confirm step shows,
+        /// so stepping through the parts never presses where Yes comes.
+        /// </summary>
         public (int Page, int Pages)? Parts { get; set; }
+
+        /// <summary>What the pager says beside its buttons, "Part n of m" unless given.</summary>
+        public string? PartsCaption { get; set; }
+
+        /// <summary>
+        /// A line over the pager's note, as which prompt of the agent's question shows: text from
+        /// outside, cut short with an ellipsis where it doesn't fit.
+        /// </summary>
+        public string? PartsHeading { get; set; }
+
+        /// <summary>Halcyonic's words at the left of the pager's row, under its heading, such as how to answer the question shown: never cut.</summary>
+        public string? PartsNote { get; set; }
+
+        /// <summary>A line at the bar's left, as what to do while the keyboard is open.</summary>
+        public string? BarNote { get; set; }
 
         public ActionSet Actions { get; set; } = ActionSet.None;
 

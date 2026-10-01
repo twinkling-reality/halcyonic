@@ -119,6 +119,30 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
+        /// Leans a label's letters, as an agent's words lean so they never read as Halcyonic's or as
+        /// fact: called from the label's OnPreRenderText. TextMeshPro's own italics would find no
+        /// italic face in this font and cut text short without its ellipsis.
+        /// </summary>
+        public static void Lean(TMP_TextInfo info)
+        {
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                // About the middle of a capital, as TextMeshPro shears, so the letter keeps its place.
+                var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
+                {
+                    vertices[corner].x += LeanShear * (vertices[corner].y - middle);
+                }
+            }
+        }
+
+        /// <summary>How far a leaning letter's top stands right of its foot, for each unit of its height.</summary>
+        private const float LeanShear = 0.35f;
+
+        /// <summary>
         /// The font's own material with thicker glyphs, for strong text. TextMeshPro keeps a glyph's
         /// room around it from the material, so the thicker glyphs are not clipped.
         /// </summary>

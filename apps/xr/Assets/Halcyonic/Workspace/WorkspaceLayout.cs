@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Halcyonic.Client;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
@@ -12,19 +13,25 @@ namespace Halcyonic.XR.Workspace
     public static class WorkspaceLayout
     {
         /// <summary>
-        /// About two feet from the eyes: within a seated person's reach, so the workspace's buttons
-        /// can be poked without leaning or standing, and near enough to read at its scaled size.
+        /// About two feet from the eyes, where the workspace opened before it moved onto the frame at
+        /// touch distance: Usage left still opens there, and is scaled by <see cref="Scale"/>, until it
+        /// moves too (ADR 0023).
         /// </summary>
         public const float Reach = 0.6f;
 
-        /// <summary>The workspace is scaled to keep the angular size it was designed with.</summary>
+        /// <summary>The scale that keeps Usage left the angular size it was designed with at <see cref="Reach"/>.</summary>
         public static float Scale => Reach / WorkspaceVisuals.PanelDistance;
+
+        /// <summary>A frame's size as placement takes it: at touch distance, half its width and height in meters.</summary>
+        public static PanelSize FrameSize =>
+            new PanelSize(PanelFrame.Distance, PanelFrame.UnitSize.x / 2f * PanelFrame.Distance, PanelFrame.UnitSize.y / 2f * PanelFrame.Distance);
 
         /// <summary>
         /// The workspace's pose for <paramref name="opened"/>, with the person's eyes at
         /// <paramref name="eyes"/> looking along <paramref name="looking"/>, every character on the
         /// stage in <paramref name="all"/>, and the surface they stand on at
-        /// <paramref name="surfaceHeight"/>, if any. <paramref name="scratch"/> is filled and reused.
+        /// <paramref name="surfaceHeight"/>, if any: at touch distance, the frame's size, beside its
+        /// character and clear of every other and its label. <paramref name="scratch"/> is filled and reused.
         /// </summary>
         public static (Pose Pose, PanelDirection Direction) Place(CharacterTarget opened, IEnumerable<CharacterTarget> all, Vector3 eyes,
             Vector3 looking, float? surfaceHeight, List<BodyInView> scratch)
@@ -34,17 +41,17 @@ namespace Halcyonic.XR.Workspace
             {
                 if (other != null) scratch.Add(InView(other, eyes));
             }
-            var size = new PanelSize(Reach, WorkspacePanel.Width / 2f * Scale, WorkspacePanel.Height / 2f * Scale);
+            var size = FrameSize;
             var direction = WorkspacePlacement.Place(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, InView(opened, eyes), scratch, size,
                 surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null);
             var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
-            return (new Pose(eyes + forward * Reach, Quaternion.LookRotation(forward, Vector3.up)), direction);
+            return (new Pose(eyes + forward * size.Distance, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }
 
         /// <summary>
-        /// The pose of a panel of the workspace's size that belongs to no character, such as the
-        /// entry panel: where the person looks, and clear of every character and its label as the
-        /// workspace is. It is placed as if beside the character nearest where the person looks, so it
+        /// The pose of a panel that belongs to no character, such as the entry panel, of the size it
+        /// gives, or Usage left's when it gives none: where the person looks, and clear of every
+        /// character and its label as the workspace is. It is placed as if beside the character nearest where the person looks, so it
         /// goes below the labels of the characters 2.4 m away and above a desk lineup; with no
         /// characters it opens 15 degrees below eye level.
         /// </summary>
@@ -53,7 +60,7 @@ namespace Halcyonic.XR.Workspace
         {
             scratch.Clear();
             var lookYaw = Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg;
-            // The workspace's size unless a panel says its own, as the Settings sheet does.
+            // Usage left's size unless a panel says its own, as the entry panel and the Settings sheet do.
             var size = panel ?? new PanelSize(Reach, WorkspacePanel.Width / 2f * Scale, WorkspacePanel.Height / 2f * Scale);
             BodyInView? nearest = null;
             foreach (var other in all)

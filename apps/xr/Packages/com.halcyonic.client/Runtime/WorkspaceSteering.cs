@@ -62,6 +62,9 @@ namespace Halcyonic.Client
     {
         public static readonly TimeSpan DefaultConfirmationWindow = TimeSpan.FromSeconds(15);
 
+        private const string QuestionChanged = "Nothing was sent: the question changed. Check it again.";
+        private const string NoInstructions = "Nothing was sent: it no longer takes instructions.";
+
         private readonly CommandFactory commands;
         private readonly Func<DateTimeOffset> now;
         private readonly TimeSpan window;
@@ -112,7 +115,7 @@ namespace Halcyonic.Client
             if (action == WorkspaceAction.Answer) return SteeringOutcome.Explain("Choose your answers, then press Send answer.");
             if (!workspace.Actions.Contains(action))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "That is no longer possible, so nothing was sent.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: you can't do that now.");
             }
             if (action == WorkspaceAction.Instruct)
             {
@@ -141,11 +144,11 @@ namespace Halcyonic.Client
             Cancel();
             if (!workspace.Actions.Contains(WorkspaceAction.Answer))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "It no longer waits for this answer, so nothing was sent.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: it's no longer waiting for this answer.");
             }
             if (!draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
             {
-                return SteeringOutcome.Explain("The question changed, so nothing was sent. Check it again.");
+                return SteeringOutcome.Explain(QuestionChanged);
             }
             if (draft.Problem is string problem) return SteeringOutcome.Explain(problem);
             if (workspace.RequiresConfirmation(WorkspaceAction.Answer))
@@ -176,7 +179,7 @@ namespace Halcyonic.Client
             {
                 if (draft == null || draft.Problem != null || !draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
                 {
-                    return SteeringOutcome.Explain("The question changed, so nothing was sent. Check it again.");
+                    return SteeringOutcome.Explain(QuestionChanged);
                 }
                 return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
             }
@@ -188,10 +191,10 @@ namespace Halcyonic.Client
         {
             Typing = false;
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was typed, so nothing was sent.");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was sent: nothing was typed.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions, so nothing was sent.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
             }
             if (workspace.RequiresConfirmation(WorkspaceAction.Instruct))
             {
@@ -214,7 +217,7 @@ namespace Halcyonic.Client
             if (instruction.Length == 0) return SteeringOutcome.Explain("I didn't catch anything, so nothing was sent.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
-                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions, so nothing was sent.");
+                return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? NoInstructions);
             }
             Arm(WorkspaceAction.Instruct, null, instruction);
             Heard = true;
@@ -309,12 +312,12 @@ namespace Halcyonic.Client
         /// <summary>Why the armed confirmation no longer holds, or null while it does.</summary>
         private string? Lapse(WorkspacePresentation workspace)
         {
-            if (now() - armedAt > window) return "The confirmation timed out, so nothing was sent.";
-            if (!workspace.Actions.Contains(Armed!.Value)) return "The state changed before the confirmation, so nothing was sent.";
+            if (now() - armedAt > window) return "Nothing was sent: you didn't confirm in time. Press it again.";
+            if (!workspace.Actions.Contains(Armed!.Value)) return "Nothing was sent: things changed before you confirmed. Check it, then try again.";
             if (IsAnswer(Armed.Value)
                 && workspace.Execution?.PendingApprovals.Any(pending => pending.ApprovalId == ArmedApprovalId) != true)
             {
-                return "That approval was already answered, so nothing was sent.";
+                return "Nothing was sent: that request was already answered.";
             }
             return null;
         }

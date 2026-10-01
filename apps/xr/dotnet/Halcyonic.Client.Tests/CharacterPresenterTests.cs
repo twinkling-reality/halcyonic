@@ -59,7 +59,7 @@ public class CharacterPresenterTests
         Assert.That(character.StatusLabel, Is.EqualTo("Waiting for you"));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.PendingApprovals, Is.EqualTo(1));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "It wants to use bash: Run the migration" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "It wants to run: Run the migration" }));
         Assert.That(character.Synthetic, Is.True);
         Assert.That(character.Stale, Is.False);
     }

@@ -1,46 +1,46 @@
 #nullable enable
-using System;
 using System.Collections.Generic;
 using Halcyonic.Client;
+using Halcyonic.XR.UI;
 using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// Draws a section, Understanding or Evaluation, in the workspace's details area: the provenance
-    /// line, which may wrap, then each claim with its epistemic class beside it, or each measurement
-    /// with its part. It derives nothing; the client core's presenters write every word.
+    /// Draws a section, Understanding or Evaluation, in the space the workspace's frame leaves under
+    /// the section's heading: the provenance line, which may wrap, then each claim with its epistemic
+    /// class beside it, or each measurement with its part. It derives nothing; the client core's
+    /// presenters write every word. A claim, the agent's words or a source quoting them, leans, as
+    /// every claim in the workspace does.
     ///
     /// Everything it shows can come from a source, which may quote an agent, so it is untrusted. Every
-    /// label shows its text through <see cref="WorkspaceVisuals.SetLiteral"/>, the one rule for text
-    /// Halcyonic did not write: no markup, every backslash doubled for escape parsing, since
-    /// TextMeshPro turns backslash sequences into other characters even with rich text off, and what
-    /// would not show as itself shown as its code point. Each label shows exactly what was written.
-    /// WorkspaceRender checks it on real labels in the editor.
+    /// label shows its text by the one rule for text Halcyonic did not write
+    /// (<see cref="GlazeText.SetLiteral"/>): no markup, every backslash doubled for escape parsing,
+    /// and what would not show as itself shown as its code point. WorkspaceRender checks it on real
+    /// labels in the editor.
     /// </summary>
     public sealed class SectionView : MonoBehaviour
     {
-        /// <summary>The distance between lines, so a provenance line and seven more fit the details area.</summary>
-        public const float Pitch = 0.025f;
-
         private const int MaxRows = 8;
-        private const int MaxProvenanceRows = 4;
-        private const float TagWidth = 0.085f;
-        private const float TagGap = 0.01f;
-
-        /// <summary>For what passed or holds; a lighter green that keeps its distance from the attention amber.</summary>
-        private static readonly Color GoodColor = new Color(0.56f, 0.86f, 0.64f);
+        private const int MaxProvenanceRows = 2;
+        private const float TagDegrees = 5f;
+        private const float TagGapDegrees = 0.5f;
+        private const float ProvenanceGapDegrees = 0.4f;
+        private const int Order = 12;
 
         private readonly List<(TextMeshPro Tag, TextMeshPro Text)> rows = new List<(TextMeshPro, TextMeshPro)>();
+        private readonly HashSet<TMP_Text> leaning = new HashSet<TMP_Text>();
         private TextMeshPro provenance = null!;
+        private Rect area;
 
-        public static SectionView Create(Transform panel)
+        public static SectionView Create(Transform parent)
         {
             var go = new GameObject("Section");
-            go.transform.SetParent(panel, false);
+            go.transform.SetParent(parent, false);
             var view = go.AddComponent<SectionView>();
             view.Build();
+            go.SetActive(false);
             return view;
         }
 
@@ -58,74 +58,100 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        public void Show(SectionPresentation section)
-        {
-            provenance.color = ColorOf(section.ProvenanceTone);
-            provenance.fontStyle = FontStyles.Normal;
-            // The provenance wraps when it has to, as a reason for no answer often does.
-            var y = WorkspacePanel.DetailsTop;
-            y -= Place(provenance, section.Provenance, WorkspacePanel.DetailsLeft, y, MaxProvenanceRows) * Pitch;
+        /// <summary>Where it draws, in the frame's units.</summary>
+        public Rect Area => area;
 
-            var left = WorkspacePanel.DetailsLeft + TagWidth + TagGap;
+        /// <summary>Whether a line leans, as a claim does.</summary>
+        public bool Leans(TMP_Text label) => leaning.Contains(label);
+
+        /// <summary>
+        /// Draws <paramref name="section"/> in <paramref name="space"/>, the frame's units, its lines
+        /// kept left of <paramref name="notch"/> where it reaches down into the space, as Refresh does;
+        /// lines with no room left are not shown.
+        /// </summary>
+        public void Show(SectionPresentation section, Rect space, Rect? notch = null)
+        {
+            area = space;
+            gameObject.SetActive(true);
+            provenance.color = ColorOf(section.ProvenanceTone);
+            float Right(float top, float height) =>
+                notch is Rect beside && top - height < beside.yMax && top > beside.yMin ? beside.xMin - GlazeTokens.Units(ProvenanceGapDegrees) : space.xMax;
+            var y = space.yMax;
+            var provenanceHeight = GlazeText.LineHeight(provenance) * MaxProvenanceRows;
+            y -= Place(provenance, section.Provenance, space.xMin, Right(y, provenanceHeight), y, MaxProvenanceRows) + GlazeTokens.Units(ProvenanceGapDegrees);
+
+            var tagWidth = GlazeTokens.Units(TagDegrees);
+            var left = space.xMin + tagWidth + GlazeTokens.Units(TagGapDegrees);
             for (var index = 0; index < rows.Count; index++)
             {
                 var (tag, text) = rows[index];
-                var room = Mathf.FloorToInt((y - WorkspacePanel.DetailsBottom) / Pitch + 0.01f);
+                var lineHeight = GlazeText.LineHeight(text);
+                var room = Mathf.FloorToInt((y - space.yMin) / lineHeight + 0.01f);
                 var shown = index < section.Lines.Count && room >= 1;
                 tag.gameObject.SetActive(shown);
                 text.gameObject.SetActive(shown);
                 if (!shown) continue;
                 var line = section.Lines[index];
-                WorkspaceVisuals.SetLiteral(tag, line.Tag);
-                tag.rectTransform.localPosition = new Vector3(WorkspacePanel.DetailsLeft, y, -0.001f);
-                text.fontSize = line.Detail ? WorkspaceVisuals.CaptionSize : WorkspaceVisuals.DetailSize;
-                text.color = line.Detail && line.Tone == SectionTone.Secondary ? WorkspaceVisuals.SecondaryColor : ColorOf(line.Tone);
-                // A claim reads apart by its class and color, not by italics: an italic line cut short
-                // lost its ellipsis in the editor, and a quote cut short must say so.
-                text.fontStyle = FontStyles.Normal;
+                GlazeText.SetLiteral(tag, line.Tag);
+                GlazeText.Lay(tag, tagWidth, 1);
+                tag.transform.localPosition = new Vector3(space.xMin, y, -0.0005f);
+                text.color = line.Detail && line.Tone == SectionTone.Secondary ? GlazeTokens.TextSecondary : ColorOf(line.Tone);
+                Lean(text, line.Tone == SectionTone.Claim);
                 // A part's availability, coverage and freshness may take two rows, so none is cut off.
-                y -= Place(text, line.Text, left, y, line.Detail ? Mathf.Min(2, room) : 1) * Pitch;
+                var lines = line.Detail ? Mathf.Min(2, room) : 1;
+                y -= Place(text, line.Text, left, Right(y, lines * lineHeight), y, lines);
             }
         }
 
-        /// <summary>Shows text at a row, wrapping to at most <paramref name="maxRows"/> rows; returns how many it takes.</summary>
-        private static int Place(TextMeshPro label, string text, float left, float top, int maxRows)
+        public void Hide() => gameObject.SetActive(false);
+
+        /// <summary>Shows text at a row, wrapping to at most <paramref name="maxRows"/> rows; returns how tall it is.</summary>
+        private static float Place(TextMeshPro label, string text, float left, float right, float top, int maxRows)
         {
-            var width = WorkspacePanel.DetailsLeft + WorkspacePanel.DetailsWidth - left;
-            WorkspaceVisuals.SetLiteral(label, text);
-            label.textWrappingMode = maxRows > 1 ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
-            label.rectTransform.localPosition = new Vector3(left, top, -0.001f);
-            label.rectTransform.sizeDelta = new Vector2(width, maxRows * Pitch);
-            if (maxRows <= 1) return 1;
-            label.ForceMeshUpdate();
-            var rows = Mathf.Clamp(label.textInfo.lineCount, 1, maxRows);
-            label.rectTransform.sizeDelta = new Vector2(width, rows * Pitch);
-            return rows;
+            GlazeText.SetLiteral(label, text);
+            var (count, _) = GlazeText.Lay(label, right - left, Mathf.Max(1, maxRows));
+            label.transform.localPosition = new Vector3(left, top, -0.0005f);
+            return Mathf.Max(1, count) * GlazeText.LineHeight(label);
+        }
+
+        /// <summary>A claim leans; a label that changes from one to the other is drawn again.</summary>
+        private void Lean(TextMeshPro label, bool claim)
+        {
+            if (claim == leaning.Contains(label)) return;
+            if (claim) leaning.Add(label);
+            else leaning.Remove(label);
+            label.havePropertiesChanged = true;
         }
 
         private void Build()
         {
-            provenance = WorkspaceVisuals.Text(transform, "Provenance", WorkspaceVisuals.DetailSize, WorkspaceVisuals.SecondaryColor,
-                new Vector2(WorkspacePanel.DetailsWidth, Pitch), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
-            provenance.rectTransform.localPosition = new Vector3(WorkspacePanel.DetailsLeft, WorkspacePanel.DetailsTop, -0.001f);
+            provenance = Label("Provenance", GlazeTokens.TextSecondary);
             for (var index = 0; index < MaxRows; index++)
             {
-                var tag = WorkspaceVisuals.Text(transform, "Class " + index, WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor,
-                    new Vector2(TagWidth, Pitch), TextAlignmentOptions.TopLeft, order: WorkspaceVisuals.PanelTextOrder);
-                var text = WorkspaceVisuals.Text(transform, "Line " + index, WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor,
-                    new Vector2(WorkspacePanel.DetailsWidth - TagWidth - TagGap, Pitch), TextAlignmentOptions.TopLeft, order: WorkspaceVisuals.PanelTextOrder);
+                var tag = Label("Class " + index, GlazeTokens.TextSecondary);
+                var text = Label("Line " + index, GlazeTokens.Text);
+                text.OnPreRenderText += info =>
+                {
+                    if (leaning.Contains(text)) GlazeText.Lean(info);
+                };
                 rows.Add((tag, text));
             }
         }
 
+        private TextMeshPro Label(string name, Color color)
+        {
+            var label = GlazeText.Create(transform, name, GlazeType.Caption, color, TextAlignmentOptions.TopLeft, Order);
+            label.rectTransform.pivot = new Vector2(0f, 1f);
+            return label;
+        }
+
         private static Color ColorOf(SectionTone tone) => tone switch
         {
-            SectionTone.Secondary => WorkspaceVisuals.SecondaryColor,
-            SectionTone.Claim => WorkspaceVisuals.ClaimColor,
-            SectionTone.Attention => WorkspaceVisuals.AttentionColor,
-            SectionTone.Problem => WorkspaceVisuals.ProblemColor,
-            SectionTone.Good => GoodColor,
-            _ => WorkspaceVisuals.TextColor,
+            SectionTone.Secondary => GlazeTokens.TextSecondary,
+            SectionTone.Attention => GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground),
+            SectionTone.Problem => GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Failure).Foreground),
+            SectionTone.Good => GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Success).Foreground),
+            _ => GlazeTokens.Text,
         };
     }
 }

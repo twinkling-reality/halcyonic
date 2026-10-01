@@ -28,7 +28,8 @@ can do next.
 6. **"You" for the person, "it" for the agent, "your Mac" for the host.**
 7. **No blame, and a next step.** Every refusal ends with what to do: "Couldn't start: this project
    has no folder yet. Choose where its files live."
-8. **The agent's words are its own**, quoted and tagged ("Agent says: “…”"), never restated as fact.
+8. **The agent's words are its own**, quoted, tagged ("It says: “…”" in the workspace's log, "Agent
+   says" in a section) and leaning, never restated as fact.
 9. **No exclamation marks, emoji, em dashes or capitals for emphasis.** Numerals for numbers.
 10. **Practice, Demo, Recorded and Last known** are said wherever they apply, beside a state and
     never inside its word.
@@ -81,17 +82,19 @@ snapshot, workstream, access token (an access code, only where the person must a
 
 | Kind | Pattern | Example |
 | --- | --- | --- |
-| A peek | {badge}, then the reason without the state's words | Waiting for you · It wants to use shell: make migrate |
+| A peek | {badge}, then the reason without the state's words | Waiting for you · It wants to run: make migrate |
 | Nothing waiting | Nothing is waiting for you. Latest: {activity}. | Nothing is waiting for you. Latest: edit: src/auth/rate-limit.ts |
 | Sent | Sent. Waiting for {who}… | Sent. Waiting for the agent… |
+| Still on its way | Sent…, unavailable, where the action that sent it stood | Sent… |
 | Confirmed | Confirmed: {what}. | Confirmed: it has your answer. |
 | Refusal | Couldn't {verb}: {cause}. {Next step}. | Couldn't start: this project has no folder yet. Choose where its files live. |
 | Unknown effect | Not sure it happened. {What to check first}. | Not sure it happened. Check the tasks on the stage before you try again. |
 | Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your Mac. Trying again… |
 | Provenance | From {source} · {when} | From Seorak · 2 min ago |
-| Confirmation | Yes, {verb}, left of Cancel, which stands where the first press was | Yes, start building · Change; Yes, clear · Cancel |
+| Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
+| Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
 | Locked final press | Read part {n} of {n} | Read part 3 of 3 |
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
-the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, and
-the entry panel have moved; the workspace, Usage left and the ambient lines have not yet.
+the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the
+entry panel and the workspace have moved; Usage left and the ambient lines have not yet.

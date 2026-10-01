@@ -52,7 +52,10 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   interaction. Panels are no darker than #1B222D.
 - **Panels at touch distance.** Foreground panels open 0.46 m from the eyes, 44 × 26° (the Medium
   size 30 × 18°), facing the eyes, with Move, Reset position and Close in the header and every
-  action in a bottom bar.
+  action in a bottom bar. (On 2026-10-01 the workspace, which stays beside its character and so
+  neither moves nor resets, took only Close, at the end of its row of tabs, and Refresh beside a
+  section's heading, so its body keeps room for the question and the log; a confirmation whose
+  content pages shows its pager at the top, away from Yes.)
 - **Words and decisions stay in the client core.** A state language maps every work state to a
   word, a tone, an icon, an edge and a motion, so no state is told by colour alone; an action set
   admits one primary, two secondary, one destructive and an overflow, and nothing more;

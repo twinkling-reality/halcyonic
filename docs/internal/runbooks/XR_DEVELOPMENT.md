@@ -88,33 +88,34 @@ batch mode, without `-quit`, since it exits by itself, with status 1 when a chec
 ```
 
 It opens the workspace for the character that needs the person, with six characters 2.4 m away
-and again on a desk half a meter away, saves `far.png`, `desk.png` and each part alone in
-`apps/xr/Builds/WorkspaceRenders`, and logs where the workspace opened. It fails if a pixel of the
-workspace changes when the stage behind it is drawn, if a character's body is behind it, or if its
-center leaves the comfortable band. It then shows the Understanding and Evaluation sections with
-the bundled demonstration's answers, at the story's approval and after approving, and saves
-`far-understanding.png`, `desk-evaluation-after-approving.png` and so on, each with a
-`-closeup.png` at a Quest 3's 25 pixels per degree, for judging legibility (`far-closeup.png` is
-the activity). It fails if a section lets the stage show through, a line does not fit, or a part's
-availability, coverage and freshness is cut short, and it checks on real labels that source text
-shows exactly as written and that a quote cut short ends in an ellipsis. Then it confirms an
-approval of a very long shell command and saves `far-approval.png`, `far-approval-closeup.png` (its
-first part) and `far-approval-last-closeup.png`, and the demonstration's short one as
-`far-approval-short-closeup.png`, and the same for the desk; it fails unless the parts together are
-the whole request and "Yes, approve" shows on the last part only. It shows an agent's question
-(the mock's scripted one, as `far-question.png` and its close-up): with an answer chosen, its
-second prompt with several, its typed answer beside Hold to talk, three questions shown, a question
-longer than two lines in parts, twenty answers offered and a secret question Halcyonic cannot
-answer; it fails if any of it lets the stage show through, cuts a word short, or runs below the
-workspace, if Next does not reach the second prompt, or if a long question counts as read before
-its last part shows. Last, it puts hostile text on
-every label that shows text from outside (saved as `far-untrusted-closeup.png` and
-`far-untrusted-activity-closeup.png`) and fails if a label interprets markup or an escape sequence,
-shows text that did not go through the one rule, or cuts a line short without an ellipsis; the log
-says how many labels each pass checked. It works in a new, unsaved
-scene, and leaves the committed TextMeshPro font assets as they were, which drawing text in the
-editor would otherwise upgrade and save; characters the static atlas lacks, such as the minus sign
-in a change summary, are drawn from it as look-alikes for the render only, and the log names them.
+and again on a desk half a meter away, every screen drawn from the client core's models on the frame
+at touch distance, saves `far.png`, `desk.png` and each part alone in
+`apps/xr/Builds/WorkspaceRenders`, and logs where the workspace opened. Each screen is saved with a
+`-closeup.png` at a Quest 3's 25 pixels per degree, for judging legibility, and a `-panel.png` of
+the whole panel, whose edges the close-up crops: `far-need` (an approval under Waiting for you),
+`far-doing` and `far-doing-stop`, `far-understanding`, `far-evaluation-after-approving` and so on,
+the questions (`far-question`, `-typed`, `-three`, `-several`, `-long`, `-options`, `-long-label`,
+`-secret`, `-sent`), the whole request (`far-approval`, its first part, `far-approval-last`,
+`far-approval-short`, `far-deny`), the other confirmations (`far-stop`, `far-stop-beside-hold`,
+`far-heard`, `far-answers`), `far-hold-to-talk` and the hostile text (`far-untrusted`,
+`far-untrusted-activity`), and the same for the desk. It fails if a pixel of the workspace changes
+when the stage behind it is drawn, a character's body or label is behind it, or its center leaves
+the comfortable band; if a target is too small or two closer than 12 mm, a word too small, any of
+our words cut short, the list pages or a line runs below the body; if the tabs don't show whole
+beside Close; if a section's line does not fit under its heading; if the log loses its newest line
+or the agent's words don't lean; if a question's text is cut, a long one counts as read before its
+last part shows, or anything but the unavailable Sent… stands at the bar's right end while an answer
+may still take effect; if the whole request's parts are not the whole request, its pager is not at
+the top, or "Yes, approve" unlocks before the last part; and if any confirmation's Yes stands within
+12 mm of a control shown before its confirm step or since. It checks on real labels that source text
+shows exactly as written and that a quote cut short ends in an ellipsis, and it puts hostile text on
+every label that shows text from outside and fails if a label interprets markup or an escape
+sequence, shows text that did not go through the one rule, or cuts a line short without an ellipsis;
+the log says how many labels each pass checked, how many log lines gave way, and how many places
+each Yes stands clear of. It works in a new, unsaved scene, and leaves the committed TextMeshPro
+font assets as they were, which drawing text in the editor would otherwise upgrade and save;
+characters the static atlas lacks, such as the minus sign in a change summary, are drawn from it as
+look-alikes for the render only, and the log names them.
 
 The project rail and the entry panel render the same way, **Halcyonic > Render the Entry Panel
 Over the Stage**, or in batch mode:
@@ -125,8 +126,9 @@ Over the Stage**, or in batch mode:
 
 It saves the rail alone and every screen of the entry panel (welcome, Connect projects, More tasks,
 Create a project with and without hold to talk's words, the guided questions, the recap with and
-without the needs-you banner and with Start over's confirmation, More options, the review's first
-and last parts, a refused start, and a start that may have run, before and after its first press)
+without the needs-you banner and with Start over's confirmation, More options, the review reached
+with Start building and its last part reached with Next, the first and last part of each hard
+review, a refused start, and a start that may have run, before and after its first press)
 over both stages in `apps/xr/Builds/EntryRenders`, each with a close-up at a Quest 3's density
 (`-closeup.png`) and the whole panel (`-panel.png`), and logs where the rail and the panel stand
 (`Halcyonic: entry render ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),

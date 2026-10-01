@@ -392,19 +392,33 @@ the same definition names, as the JSON Schema document:
   follow the glossary: a task, an agent app, your Mac, never a workstream, a runtime or the control
   plane.
 - **`PanelModel`** is what one screen of a foreground panel shows, never where (ADR 0023): its
-  title and a short context, a lead line or a `PanelBanner` in its place, its list of `PanelRow`s
-  (choices, facts with a line over the title and a word saying what pressing does, filters, steps
-  and how they went, and lines of text) in one column or two, a pager for a body the screen pages
-  itself, and its actions: an `ActionSet`, which refuses a second primary, a third secondary, a
-  second destructive or a second Back, or a `ConfirmStep` in the bar's place, Yes left of Cancel.
-  Text from outside comes in as `LabelText.Plain` shows it and says it is data, which alone may end
-  in an ellipsis.
+  title and a short context, or, on a panel that stays beside its character, the work's state badge
+  and marks and a notice in the title's place for a few seconds; its tabs (`PanelTab`), the one
+  showing chosen and what waits for the person in the attention colour; the whole question a tab
+  answers as a heading, with an action beside it such as Refresh; a lead line or a `PanelBanner` in
+  its place; its list of `PanelRow`s (choices, facts with a line over the title and a word saying
+  what pressing does, filters, steps and how they went, and lines of text, which may go on from the
+  line before with no gap, lean as the agent's words, or give way where there is no room, as a log's
+  older lines do) in one column or two; a pager for a body the screen pages itself, with a heading
+  and a note at its left; a note at the bar's left; and its actions: an `ActionSet`, which refuses a
+  second primary, a third secondary, a second destructive or a second Back, or a `ConfirmStep` in
+  the bar's place, whose Yes stands where no control of the screen stood a moment before. Text from
+  outside comes in as `LabelText.Plain` shows it and says it is data, which alone may end in an
+  ellipsis.
 - **`EntryScreens`** builds every entry screen as a `PanelModel` from the draft, the overview and
   the Mac's state, so the Unity layer only draws it and acts on the id a press raises, and decides
   what each offers: Start building at the right end, unavailable with what is missing
   (`StartProblem`, the recap's checks in their order); the whole request (`ReviewOf`, given names as
   they are, so the review spells each once); Yes, start building locked until the last part; the
   next action a step's outcome allows; and the two presses that clear a start that may have run.
+- **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
+  presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
+  tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or
+  the whole request as the panel split them at its width): the header, the tabs, each tab's answer
+  and the bar, by the rules under "The workspace" below. **`QuestionPlace`** keeps where the person
+  is in an agent's question, a step at a time across its prompts: each part of a prompt's text, as
+  the panel measured it, then each further page of its answers; a prompt counts as shown whole once
+  the last part of its text has shown, and another draft starts from its first step.
 - **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
   never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
   when it is shown for an execution it holds no answer about, and when the person refreshes; the
@@ -795,14 +809,24 @@ scripts use only long-stable core Unity APIs:
   presses keep `PanelButton`'s rules: none within 0.35 s of taking a new role or new words, or of
   becoming available, and a hold button's hold starts after 0.3 s and ends let go, dropped or taken
   away. `PanelFrame` draws any `PanelModel` as a foreground panel 44 by 26 degrees at 0.46 m: the
-  title, its context and the window controls (Move, Reset position, Close) along the top; the lead
-  or the banner; the list in one column or two, pressable rows in cells of equal height 12 mm apart,
-  lines and, in one column, rows that only say something as tall as their words, a page at a time,
-  with the pager in the body's bottom right cell; and the bar, Back and the destructive action at the
-  left and the primary at a right end at least 14 degrees wide, or the confirm step in its place,
-  Cancel at that right end and Yes left of it, so Yes never stands where the action that led to it
-  did. It raises the id of what was pressed, with the row's key. `PanelButton` stays until every
-  surface has moved.
+  title, its context and the window controls (Move, Reset position, Close) along the top, or, on a
+  panel that stays beside its character, the title over its context at the left (a notice in their
+  place, two lines tall) and the state badge and marks at the right, with a row of tabs under them
+  that ends in Close; the heading, its action at its right, or the lead or the banner; the list in
+  one column or two, pressable rows in cells of equal height 12 mm apart, lines and, in one column,
+  rows that only say something as tall as their words, a page at a time, a log's older lines left
+  out rather than paged, with the pager in the body's bottom right cell, or a screen's own pager in a
+  row under the body with its heading and note at the left; and the bar, Back and the destructive
+  action at the left and the primary at a right end at least 14 degrees wide, or the confirm step in
+  its place. Targets keep 12 mm apart; words need less, so a body that starts or ends in words sits
+  closer to what is above or below it. The frame records where every control stood on each screen
+  without a confirm step and every control it shows while one shows (`Recorded`); the step puts
+  Cancel at the right end and Yes at the right-most place in the bar's row 12 mm clear of all of
+  them where its question fits beside it, else in a row just above the bar, the question beside it
+  and the bar's row keeping only Cancel. While the step pages through what it confirms, the pager
+  stands at the top, in the tabs' row or a row under the header, never in Yes's rows. It raises the
+  id of what was pressed, with the row's or the tab's key, and splits text into parts of whole lines
+  at the list's width (`SplitLines`). `PanelButton` stays until every surface has moved.
 - A player build leaves out shaders that nothing in the build references; the first device build
   rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
   Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
@@ -855,26 +879,37 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   highest the character reaches instead.
 - **Open:** a pinch on the ray, a poke, or, while a gaze peek shows and no hand ray or finger is on
   a target, a pinch of either hand at any height (look and pinch) opens `WorkspacePanel` next to
-  that character, within reach and clear of the other characters, facing the eyes. It leads with
-  the title and status, the execution and its runtime, the goal, and one plain answer: what needs
-  the person, else that nothing does and what it did last. Then the actions offered (with a
-  confirmation step on a separate button where the policy asks for one), and, under them, the
-  person's questions as tabs: What is it doing? (how requests are going, and the recent activity
-  with agent text leaning as a claim), Help me understand (the understanding section), What was
-  checked? (the evaluation section), and, only while an approval or an agent's question waits, What
-  do you need from me? For an approval, `NeedView`: the oldest request as the runtime reported it,
-  over up to three rows, and what each answer does. For a question (and only while no approval
-  waits, as the runtime blocks on that first), `AskedView`: which prompt shows and its header, the
-  agent's question over two lines, in parts when longer, how it is answered ("Choose one, or type
-  your own."; when three questions show, the most at once, "First of 3 questions shown; more may
-  follow."), and the answers offered two to a page, each with the agent's description, chosen ones
-  marked in words and color; Type an answer opens the system keyboard, and in development builds
-  Hold to talk beside it drafts the answer from what the Mac heard. Previous and Next step through
-  the parts and pages, then to the next prompt. Send answer, among the actions, sends it; the
-  workspace then shows how it goes with the activity. A question Halcyonic cannot answer shows why
-  (a secret, or cut to fit), that the agent waits, and Stop the turn. A workspace opens on What do
-  you need from me? when something waits. Collapse, or
-  pointing at the character and pinching again, returns to ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
+  that character, at touch distance and clear of the other characters, facing the eyes: a
+  `PanelFrame` drawing the screens `WorkspaceScreens` builds (ADR 0023). Along the top, the work's
+  title over its goal and, at the right, its state badge and marks as its character wears them; a
+  notice, such as why nothing was sent or what hold to talk is doing, takes the title's place for
+  eight seconds. Under them, the person's questions as tabs in short names, each whole question
+  heading its answer: Waiting for you (What do you need from me?), first and in the attention colour,
+  only while an approval or an agent's question waits; Doing (What is it doing?); Understand (Help me
+  understand, the understanding section) and Checked (What was checked?, the evaluation section),
+  with Refresh beside their heading; and Close at the row's end. The workspace offers no Move or
+  Reset position: it stays beside its character. Doing answers in one plain answer, what needs the
+  person, else that nothing does and what it did last; what this headset sent and how it went,
+  newest first, or "Nothing sent from here yet."; and Recent activity, a log whose newest line is
+  last, the agent's words quoted and leaning, its older lines giving way where there is no room. For
+  an approval, Waiting for you says what it wants ("It wants to run a command:", or "It wants to use
+  {tool}:" for a tool it does not know), the oldest request as the runtime reported it over up to
+  three lines, and what each answer does. For a question (and only while no approval waits, as the
+  runtime blocks on that first), a step at a time (`QuestionPlace`): two lines of the agent's
+  question, in parts when longer and never cut, over a page of its answers, two to a page, each
+  label with the agent's description after it, chosen ones marked in words ("Chosen: ") and by
+  their edge; Type an answer opens the system keyboard, and in development builds Hold to talk
+  beside it drafts the answer from what the Mac heard. The row under them says which prompt shows,
+  how it is answered ("Choose one, or type your own.") and how many more questions wait, with the
+  pager. A question Halcyonic cannot answer shows why (a secret, or cut to fit) and that the agent
+  waits. The bar holds Stop at its left, outlined in red; Deny, Hold to talk (in development builds,
+  beside Tell it, only where the bar has room) and Tell it; and at its right end the action the work
+  leads to: Approve, Send answer, or Tell it while nothing waits. While an answer this headset sent
+  may still take effect, an unavailable Sent… stands where Send answer stood, so none races it.
+  Pressing an action returns the answer showing to Doing, where its result shows, except Send
+  answer, after which the workspace switches to Doing once the answer is sent. A workspace opens on
+  Waiting for you when something waits. Close, or pointing at the character and pinching again,
+  returns to ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
 - **Project rail:** `ProjectRail`, low under the stage and within reach, in two rows of
@@ -968,10 +1003,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     is missing until nothing is; Start over, at the left, is confirmed in place. Start building shows
     the whole request (`NewWorkReview`, Check before starting, "This is exactly what will be
     sent."), wrapped at the body's width between words, a part at a time, each item whole in one part
-    unless it alone is taller than a part. Yes, start building stands left of Change, which takes the
-    right end where Start building stood, so pressing twice in one place never confirms; until the
-    last part it stays there locked, saying what is left to read ("Read part 2 of 2"), and once
-    unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
+    unless it alone is taller than a part, with the pager in a row under the header. Change takes
+    the right end where Start building stood, and Yes, start building stands where no control of
+    the recap stood nor any shown since, the pager on every part included, so pressing twice in one
+    place never confirms; until the last part it stays there locked, saying what is left to read
+    ("Read part 2 of 2"), and once unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
     step shows how it went, in words and in its tone; a refusal offers Try again and Change, one
     about a folder the action its code names, and an unknown outcome only Next, to Not sure it
     happened. A project made here is shown on the stage whatever was chosen before. While a
@@ -1032,37 +1068,32 @@ or a rewind it drops its activity and submissions, which no longer apply. Nothin
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
 after the keyboard closes.
 
-**The questions.** `WorkspaceSections`, added to each workspace panel by the director, puts the
-person's questions as tabs under the actions, each whole in two lines: What is it doing? (the
-activity), Help me understand (Understanding), What was checked? (Evaluation) and, only while an
-approval waits, What do you need from me?, with Refresh at the right while a section shows. The
-sources' names stay in each answer's provenance line, never on a tab. They are the workspace's `PanelButton`s, 56 mm tall at the design
-distance (26 mm at the workspace's reach), pointed at and pinched or poked like every other button;
-a bar under the chosen tab marks it besides its color. Look and pinch opens a character, never a
-tab. A section reads through the director's `IIntelligenceReader`: the demonstration's
-`DemonstrationReads` while it is shown, else `ControlPlaneApi` for the configured control plane
-(`ControlPlaneSettings.Api()`, the same instance that reads history, made again when pairing,
-forgetting or a new token changes the control plane). `SectionView` draws the provenance line,
-wrapping to up to four rows, then each line with its tag in a column beside it, a part's
-availability, coverage and freshness smaller and in at most two rows; seven lines fit under the
-provenance. Every label shows its text by the one rule, as every workspace label does (under
-"Words" below), so it shows exactly what the source wrote. A claim reads apart by its tag and
-color, not italics, which would lose the ellipsis of a quote cut short. Pressing an action, a
-confirmation or a preset returns the details to Activity, where the request's result shows.
-Viewing a section sounds nothing.
+**The questions.** The tabs are the frame's compact buttons, 48 dp tall and 12 mm apart, pointed at
+and pinched or poked like every other button; the one showing is edged in the accent, and its whole
+question heads its answer, so it reads without its color. The sources' names stay in each answer's
+provenance line, never on a tab. Look and pinch opens a character, never a tab. `WorkspaceSections`
+reads the sections for the tab chosen through the director's `IIntelligenceReader`: the
+demonstration's `DemonstrationReads` while it is shown, else `ControlPlaneApi` for the configured
+control plane (`ControlPlaneSettings.Api()`, the same instance that reads history, made again when
+pairing, forgetting or a new token changes the control plane). `SectionView` draws a section under
+its heading in the space the frame leaves, its first lines beside Refresh: the provenance line,
+wrapping to two rows, then each line with its tag in a column beside it, a part's availability,
+coverage and freshness in at most two rows; six lines of Understanding fit under the provenance.
+Every label shows its text by the one rule, as every workspace label does (under "Words" below), so
+it shows exactly what the source wrote, and a claim leans. Viewing a section sounds nothing.
 
-**The whole request.** Approving or denying asks its question in the actions row, "Approve the
-request below?", and while it asks, the tab row and the details show the whole request the answer
-is for (`RequestView`): the tool and what it would do, as the runtime reported it and never
-shortened, wrapped over the details' eight rows. A longer request shows in parts, with "The whole
-request, part 1 of 4" at the left of the tab row and Next part and Previous part at its right,
-each button in a place of its own. "Yes, approve" appears only once the last part has shown, in its
-place at the right end of the row, where nothing was, since Cancel keeps its place beside it;
-until then the question reads "Read the whole request below before approving it." Each part turned
-to starts the confirmation's 15 seconds again. Denying shows the request too, and can be confirmed
-at once. The lines of what needs the person above keep their two rows and end in an ellipsis when
-the request is longer. `WorkspaceRender` renders a 1,694 character shell command in four parts at
-both distances.
+**The whole request.** While approving or denying asks to be confirmed, the whole request the
+answer is for shows in place of the tabs and their answers: the tool and what it would do, as the
+runtime reported it and never shortened, in parts of as many whole lines as the body holds
+(`SplitLines`), with "The whole request, part 1 of 5", Previous and Next in the tabs' row, away from
+Yes; Cancel brings the tabs back. Cancel takes the bar's right end, and Yes stands in a row just
+above the bar with its question beside it, clear of every control the screen had and every one
+shown since. Until the last part has shown, Yes stays in its place, locked, saying what is left to
+read ("Read part 5 of 5"), and the question reads "Read the whole request above before approving
+it."; then "Approve the request above?" and "Yes, approve". Each part turned to starts the
+confirmation's 15 seconds again. Denying shows the request too, and can be confirmed at once. The
+request under Waiting for you keeps its three lines and ends in an ellipsis when it is longer.
+`WorkspaceRender` renders a 1,694 character shell command in five parts at both distances.
 
 **Gaze, and look and pinch.** `GazeHover` adds an Interaction SDK gaze interactor
 (`GazeInteractor`, v207) that hovers the `GazeInteractable` on each character. It follows the
@@ -1084,17 +1115,17 @@ characters without raising a hand to shoulder height, which the headset's own ra
 within 20 degrees of facing the floor, resting or typing, has no ray. This smaller palm exclusion
 is a device trial, not yet verified to separate pointing from typing on a desk.
 
-**Seated, and within reach, clear of the stage.** The workspace opens 0.6 m from the eyes, about
-two feet, so a seated person pokes its buttons without leaning or standing. It is scaled to keep
-its designed angular size, which puts its buttons about 33 mm tall there. `WorkspaceLayout` hands
-every character as seen from the eyes, its body and how low and wide its label reaches, to
-`WorkspacePlacement`, which opens it clear of all of them: with the characters 2.4 m away, below
-their labels, its center about 29 degrees down, 30 to 31 with marked labels of two lines, clear of every
-title and badge (ADR 0023; it used to open over the labels of the characters it passed); with the characters on a desk half a meter
-away, above them, its center 10 to 15 degrees down, its lower edge at least 5 cm above the desk.
-The rest of the stage stays in view. `WorkspaceRender` renders both in the editor and checks it.
+**Seated, and within reach, clear of the stage.** The workspace opens at touch distance, 0.46 m from
+the eyes (ADR 0023), so a seated person pokes its buttons without leaning or standing; built in
+units of that distance, its buttons are 60 dp (48 for the tabs, Close and the pager), 30 mm tall
+there. `WorkspaceLayout` hands every character as seen from the eyes, its body and how low and wide
+its label reaches, to `WorkspacePlacement` with the frame's size, which opens it clear of all of
+them: with the characters 2.4 m away, below their labels, its center about 30 degrees down, clear
+of every title and badge; with the characters on a desk half a meter away, above them, its center
+about 7 degrees down. The rest of the stage stays in view. `WorkspaceRender` renders both in the
+editor and checks it.
 
-**Field of view.** The workspace spans about 34 by 27 degrees wherever it opens. Its center stays
+**Field of view.** The workspace spans 44 by 26 degrees wherever it opens. Its center stays
 within 15 degrees of where the person looks, and between 31 degrees below and 2 degrees above eye
 level, so all of it, controls included, sits in the middle of a narrower field of view than the
 Quest 3's (as on a Quest 3S), never at an edge; with the characters 2.4 m away, its actions row
@@ -1111,17 +1142,18 @@ preference, not state).
 
 **Words.** The app's own words name no brand (a test checks them); names in the data, such as a
 runtime's display name, are shown as they arrive, by the one rule for text Halcyonic did not
-write. Every workspace label that can show such text, the title, the execution, the objective,
-what needs the person, the question, requests, the activity, the whole request, the sections, the
-peek and preset buttons, gets it through `WorkspaceVisuals.SetLiteral`: rich text off, escape
+write. Every workspace label that can show such text, the title, the goal, a notice, what needs
+the person, the question, what was sent, the activity, the whole request, the sections, the peek
+and the recorded instructions offered, gets it through `GlazeText.SetLiteral`: rich text off, escape
 parsing on and `LabelText.ForTextMeshPro`, so it interprets no markup and no escape sequence, and
-hides nothing. A line cut short ends in an ellipsis. Agent text in the activity leans as a claim,
-its letters sheared after TextMeshPro lays them out (`WorkspaceVisuals.Lean`), because no label
+hides nothing. A line cut short ends in an ellipsis. Agent text in the activity and the sections
+leans as a claim, its letters sheared after TextMeshPro lays them out (`GlazeText.Lean`), because no label
 may use TextMeshPro's italics or bold: the font has no italic or bold typeface, so TextMeshPro
 finds no ellipsis for them and switches the label to cutting text short without one, for good
 ([workspace-interaction.md](../validation/workspace-interaction.md)).
 
-Sizes are designed at a distance (1.3 m for the panel, 1.6 m for the peek and the hint) for the
+The workspace's sizes are the tokens' angles (ADR 0023). The other sizes here are designed at a
+distance (1.6 m for the peek and the hint) for the
 Quest 3's roughly 25 pixels per degree, and scaled by the actual distance, so the angular size stays
 the same: body text has an x-height near 0.55 degrees (about 14 pixels), the smallest captions about
 10 pixels, buttons are about 3 degrees tall. Text is TextMeshPro with Liberation Sans SDF, never
@@ -1136,8 +1168,11 @@ white labels behind it read through it.
 
 Instructions are typed on the Quest system keyboard (`TouchScreenKeyboard`, with Require System
 Keyboard on in `OculusProjectConfig`, from which Meta's build step adds
-`oculus.software.overlay_keyboard` to the manifest). Where no keyboard is supported, such as the
-editor, the workspace offers three preset instructions instead.
+`oculus.software.overlay_keyboard` to the manifest). Its prompt says "What to tell it:" and the
+work's title, and while it is open the bar says "Type what to tell it, then press Enter." beside
+Cancel. Where no keyboard is supported, such as the editor, the workspace offers three preset
+instructions in place of the tab's answer, and the recorded demonstration offers the instructions it
+recorded.
 
 ### The room
 
@@ -1388,22 +1423,40 @@ rays: a `SeatedHandRay` on each hand ray's pointer pose object, in the SDK's `Ha
 place in the ray's active state group, with the SDK's pointer pose disabled.
 
 `WorkspaceRender` (**Halcyonic > Render the Workspace Over the Stage**, also runnable in batch mode)
-renders the workspace open over the stage with the characters 2.4 m away and on a desk, saves the
-renders in `apps/xr/Builds/WorkspaceRenders`, and fails if a pixel of the workspace changes with the
-stage drawn behind it, a character's body or label is behind it, or its center leaves the band.
-With the plate at its former 95 percent, it failed in both places. The workspace now opens clear of
-every label, so a bright backdrop drawn with the stage stands behind it for the checks that nothing
-shows through, compared inside the panel's outline, a trapezoid since it leans back to face the eyes. It then shows the Understanding and
-Evaluation sections with the bundled demonstration's answers for the directed work, at its approval
-and after approving, and renders each over the stage and as a close-up at a Quest 3's 25 pixels per
-degree; it fails if a pixel of a section changes with the stage behind it, a line of a section does
-not fit, or a part's own statement is cut short. On real labels it checks that source text shows as
-written: 61 characters of backslash sequences, markup and control characters shown by code show as
-61 once escaped, where TextMeshPro showed 22 of them unescaped; and that a quote cut short ends in
-an ellipsis. It renders an approval's confirmation for a 1,694 character shell command at both
-distances, and fails unless its four parts together hold every character, each shows only its own,
-the question is never cut, and "Yes, approve" shows on the last part only; the demonstration's
-short request must fit one part and be confirmable at once. Last, it puts hostile text on every
+renders the workspace open over the stage with the characters 2.4 m away and on a desk, every screen
+drawn from the client core's models on the frame at touch distance, saves each with a close-up at a
+Quest 3's 25 pixels per degree and a view of the whole panel in `apps/xr/Builds/WorkspaceRenders`,
+and fails if a pixel of the workspace changes with the stage drawn behind it, a character's body or
+label is behind it, or its center leaves the band. The workspace opens clear of every label, so a
+bright backdrop drawn with the stage stands behind it for the checks that nothing shows through,
+compared inside the panel's outline, a trapezoid since it leans back to face the eyes. On every
+screen it fails if a target is under 60 dp (48 for the tabs, Close and the pager), two targets are
+closer than 12 mm, a button runs past the panel's edge, a word is under the caption's size, any of
+Halcyonic's own words is cut short, the list pages, or a line runs below the body. It fails unless
+the four tabs show whole, Waiting for you first and chosen in the attention colour, 12 mm from
+Close. It shows the Understanding and Evaluation sections with the bundled demonstration's answers
+for the directed work, at its approval and after approving, and fails if a line of a section does
+not fit under its heading, beside Refresh, or a part's own statement is cut short. It shows Doing
+with a log of the agent's words and fails unless the newest line shows last under its caption, the
+agent's words lean and keep their ellipsis, and nothing pages, also while Stop asks to be confirmed.
+It shows the agent's questions: one with an answer chosen, which must say so in words; its typed
+answer with Hold to talk beside it; three questions waiting, whose note must say more wait; the
+second prompt reached with Next; a question longer than two lines, which must show in parts whose
+text together is the question, never cut, and count as read only once its last part has shown; twenty
+answers, eleven steps; a long label, which must show whole; a secret question, with no answers to
+choose; and one whose answer was sent and may still take effect, where only an unavailable Sent…
+may stand at the bar's right end. On real labels it checks that source text shows as written: 61
+characters of backslash sequences, markup and control characters shown by code show as 61 once
+escaped, where TextMeshPro showed 22 of them unescaped; and that a quote cut short ends in an
+ellipsis. It shows a 1,694 character shell command under Waiting for you, presses Approve, and steps
+through every part with Next, and fails unless the parts together hold every character, none is cut,
+the tabs give way to the pager at the top, and "Yes, approve" is locked until the last part; the
+demonstration's short request must fit one part and be confirmable at once, and Deny needs no
+reading. Every confirmation, reached by showing its screen and then pressing (Approve, Deny, Stop
+beside Hold to talk and without it, a spoken instruction, and answers a policy reviews), fails unless
+Yes stands 12 mm clear of every control shown before its confirm step and since, never in the
+pager's row, its question whole. Hold to talk must show beside Stop and Tell it and be left out where
+Deny and Tell it fill the bar. Last, it puts hostile text on every
 label that shows text from outside, through the code that shows it: markup, backslash sequences,
 an end of text character, a carriage return and a line break, a bidirectional override, a zero
 width space, a tag character and half a surrogate pair. It fails if any label interprets markup or
@@ -1415,7 +1468,8 @@ same way, their TextMeshPro labels by the same rule.
 `GlazeRender` (**Halcyonic > Render Every Component**, also runnable in batch mode) renders every
 component in every state on a panel at touch distance, 0.46 m, each facing the eyes: every state's
 badge, a count and a last known one, the marks, every role of button at rest, pointed at and pressed,
-an unavailable, a done and a compact button and one with a second line, and the banner's kinds,
+an unavailable, a done and a compact button and one with a second line, a tab in the attention
+colour showing, and the banner's kinds,
 saved at a Quest 3's 25 pixels per degree in `apps/xr/Builds/GlazeRenders`. It fails if a word is
 under the caption's size, a button under 60 dp (48 compact), anything of ours cut short, a badge
 missing its word, or a button's label under 4.5:1 on its own fill as drawn, as an off filter's grey
@@ -1436,10 +1490,6 @@ opaque; every badge showing its whole word; a plate's pixel in its token's color
 strokes at 7:1 or more on its plate as drawn. It fails if the banner still shows while the peek is
 where it goes, or does not come back when the peek leaves.
 
-It also renders What do you need from me? and fails if it lets the stage show through or cuts a
-line, and, with a section chosen while a request waits, unless all four questions show whole in two
-lines with Refresh clear of them in the same row.
-
 `EntryRender` (**Halcyonic > Render the Entry Panel Over the Stage**, also runnable in batch mode)
 renders the project rail and every screen of the entry panel over the same two stages, and saves
 each in `apps/xr/Builds/EntryRenders`, with a close-up at a Quest 3's 25 pixels per degree and a
@@ -1449,20 +1499,24 @@ body or label as the eyes see them, or leaves the comfortable band; if a target 
 for the window controls, the banner's and the pager's), two targets are closer than 12 mm, a button
 runs past the panel's edge, or a word is under the caption's size; if any of Halcyonic's own words
 is cut short (only text from outside, which the model says is data, may end in an ellipsis); unless
-Close, the bar's right end, Back and the pager stand in the same place on every screen; and unless
-Yes, start building stands clear of where Start building stood. It also renders Start over's
-confirmation and the second press that clears a start that may have run. It fails if the rail
+Close, the bar's right end, Back and the pager stand in the same place on every screen (a
+confirmation's pager, which stands at the top, apart). Every confirmation, reached by showing its
+screen and then pressing (Start building on the recap, then Next through every part; Start over;
+the second press that clears a start that may have run), fails unless Yes stands 12 mm clear of
+every control shown before its confirm step and since, never in the pager's row, and, while it
+pages, its pager stands above the body. It fails if the rail
 reaches more than 24 degrees from its middle, runs past its ends, puts two buttons closer than
 12 mm, has a target under 60 dp (48 compact) or a word under the caption's size, or comes within a
 degree of a character's body or label. It opens Settings from the rail, with the sections the room
 and pairing fill, and fails if the sheet comes within a degree of a character or label, leaves the
 comfortable band, has a target or word too small, cuts our words short, or shows a refusal from
-outside otherwise than as written. It pages through the whole request for the longest name and task
-in one unbroken word, a task made only of characters shown as code points, a task with no place to
-break, and a long task in words, and fails unless every character of every item shows exactly once
+outside otherwise than as written. It reaches the whole request from the recap with Start building
+and steps through it with Next, for the longest name and task in one unbroken word, a task made only
+of characters shown as code points, a task with no place to break, and a long task in words, saving
+the first and last part of each, and fails unless every character of every item shows exactly once
 across the parts, inside the space above the pager, no item overlaps another, a line breaks inside a
-word only where the word is longer than a line, and Yes, start building is unlocked on the last part
-only. It renders Where its files live with a listing cut short and a place no longer on the Mac, and
+word only where the word is longer than a line, the pager stands above the body, and Yes, start
+building is unlocked on the last part only, clear of every control shown before and since. It renders Where its files live with a listing cut short and a place no longer on the Mac, and
 with no places; a recap and review that move a project to a new folder; and a start refused because
 the new folder's name is taken, offering Use that folder. With hostile project, folder and place
 names and titles, every label must show them by the one rule.

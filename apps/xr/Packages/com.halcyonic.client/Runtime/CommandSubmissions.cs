@@ -116,7 +116,7 @@ namespace Halcyonic.Client
             }
             catch (SessionUnavailableException)
             {
-                NotSent(command.CommandId, "not connected to the control plane.");
+                NotSent(command.CommandId, "your Mac isn't connected. Try again when it is.");
             }
             catch (Exception error)
             {
@@ -261,11 +261,12 @@ namespace Halcyonic.Client
                 switch (State)
                 {
                     case SubmissionState.Sending:
-                        return Local("Sending to the control plane…");
+                        return Local("Sending…");
                     case SubmissionState.NotSent:
-                        return Local("Not sent: " + Reason);
+                        return Local("Couldn't send: " + Reason);
                     case SubmissionState.OutcomeUnknown:
-                        return Local("Outcome unknown: " + Reason + " If it arrived, it shows here after reconnecting.");
+                        // Whether it arrived can't be told, so it is never said to have gone or not.
+                        return Local("Not sure it was sent. If it was, it shows here once your Mac reconnects.");
                 }
                 var ack = Ack!;
                 if (ack.Command != null && ack.Disposition != CommandAckDisposition.Conflict)
@@ -274,9 +275,9 @@ namespace Halcyonic.Client
                 }
                 return ack.Disposition switch
                 {
-                    CommandAckDisposition.Rejected => Local("Refused by the control plane."),
-                    CommandAckDisposition.Conflict => Local("Refused: this command id was already used for another command."),
-                    CommandAckDisposition.Duplicate => Local("Already received by the control plane."),
+                    CommandAckDisposition.Rejected => Local("Couldn't do that: your Mac refused it. Check the task, then try again."),
+                    CommandAckDisposition.Conflict => Local("Couldn't do that: it clashed with something sent before. Try again."),
+                    CommandAckDisposition.Duplicate => Local("Already sent. Waiting for the agent…"),
                     _ => Local(WorkspacePresenter.Pending(CommandType)),
                 };
             }

@@ -130,7 +130,6 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 var panel = EntryPanel.ForRender(root.transform, state, overview, targets, surface);
                 var places = new List<(string Screen, Places Places)>();
-                Rect? startBuilding = null;
                 foreach (var (suffix, show) in Screens(state, before, hostile))
                 {
                     show(panel);
@@ -164,8 +163,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));
                     if (suffix == "options-models-pages") failures.AddRange(PagesAndDone(frame, what));
                     places.Add((suffix, Places.Of(frame)));
-                    if (suffix == "recap") startBuilding = frame.ButtonFor(EntryScreens.StartBuilding) is GlazeButton start ? RectOf(start) : (Rect?)null;
-                    if (suffix == "review-last") failures.AddRange(YesNotWhereStartBuildingWas(frame, startBuilding, what));
+                    // Every confirmation, reached by showing its screen and then pressing: Yes clear of every control shown before it and since.
+                    if (frame.Shown?.Confirm != null) failures.AddRange(WorkspaceRender.YesClear(frame, what));
+                    if (frame.Shown?.Confirm != null && frame.Shown.Parts is (_, var parts) && parts > 1) failures.AddRange(PagerOnTop(frame, what));
                     if (hostile && !suffix.StartsWith("review", StringComparison.Ordinal))
                     {
                         failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what));
@@ -255,18 +255,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 draft.ChooseModel(draft.Models[1]);
                 panel.ShowForRender(EntryPanel.Screen.Options, Idea(), draft);
             });
-            yield return ("review", panel => panel.ShowForRender(EntryPanel.Screen.Review, Idea(), Draft(state, listed: true)));
+            // The review as the person reaches it: the recap, then Start building; then every part with Next.
+            yield return ("review", panel =>
+            {
+                panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
+                panel.PressForRender(EntryScreens.StartBuilding);
+            });
             yield return ("review-last", panel =>
             {
-                panel.ShowForRender(EntryPanel.Screen.Review, Idea(), Draft(state, listed: true));
-                while (panel.Review != null && !panel.Review.CanConfirm) panel.Review.Next();
-                panel.RedrawForRender();
+                panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
+                panel.PressForRender(EntryScreens.StartBuilding);
+                while (panel.Review != null && !panel.Review.CanConfirm) panel.PressForRender(PanelModel.NextPart);
             });
             yield return ("sending-refused", panel => panel.ShowForRender(EntryPanel.Screen.Sending, Idea(), Draft(state, listed: true), Refused(state)));
             yield return ("folder", panel => panel.ShowForRender(EntryPanel.Screen.Folder, Idea(), Draft(state, listed: true), listing: listing));
             yield return ("folder-none", panel => panel.ShowForRender(EntryPanel.Screen.Folder, Idea(), Draft(state, listed: true), listing: new LocationsResponse()));
             yield return ("recap-move", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Moving(), Draft(state, listed: true)));
-            yield return ("review-move", panel => panel.ShowForRender(EntryPanel.Screen.Review, Moving(), Draft(state, listed: true)));
+            yield return ("review-move", panel =>
+            {
+                panel.ShowForRender(EntryPanel.Screen.Recap, Moving(), Draft(state, listed: true));
+                panel.PressForRender(EntryScreens.StartBuilding);
+            });
             yield return ("sending-folder-exists", panel =>
             {
                 var idea = Idea();
@@ -710,7 +719,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var end = frame.RightEnd;
                 var rightEnd = end != null ? new Vector2(RectOf(end).xMax, RectOf(end).center.y) : (Vector2?)null;
                 var backRect = back != null ? RectOf(back) : (Rect?)null;
-                var next = frame.NextPage;
+                // A confirmation's pager stands at the top, away from Yes (PagerOnTop); every other screen's at the body's bottom right.
+                var next = frame.Shown?.Confirm == null ? frame.NextPage : null;
                 return new Places(close != null ? new Vector2(RectOf(close).xMax, RectOf(close).center.y) : (Vector2?)null, rightEnd,
                     backRect.HasValue ? new Vector2(backRect.Value.xMin, backRect.Value.center.y) : (Vector2?)null,
                     next != null ? new Vector2(RectOf(next).xMax, RectOf(next).center.y) : (Vector2?)null);
@@ -741,13 +751,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 .Concat(Same("the pager", places => places.Pager));
         }
 
-        /// <summary>Yes, start building stands where Start building never did, so pressing twice in one place never confirms.</summary>
-        private static IEnumerable<string> YesNotWhereStartBuildingWas(PanelFrame frame, Rect? startBuilding, string what)
+        /// <summary>While a confirmation pages through what it confirms, its pager stands under the header, above the body, away from Yes.</summary>
+        private static IEnumerable<string> PagerOnTop(PanelFrame frame, string what)
         {
-            var yes = frame.ButtonFor(EntryScreens.ConfirmStart);
-            if (yes == null) yield return what + ": Yes, start building does not show.";
-            else if (startBuilding == null) yield return what + ": the recap showed no Start building to compare with.";
-            else if (RectOf(yes).Overlaps(startBuilding.Value)) yield return what + ": Yes, start building stands where Start building stood.";
+            var next = frame.NextPage;
+            if (next == null) yield return what + ": the confirmation pages but shows no pager.";
+            else if (RectOf(next).yMin < frame.CustomBody.yMax - 1e-4f) yield return what + ": the confirmation's pager does not stand above the body.";
         }
 
         /// <summary>The whole panel, the eyes turned to its middle, a little wider than the panel: to see every edge, not to judge size.</summary>
@@ -806,7 +815,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 idea.UseIdea(task);
                 idea.Rename(projectName);
                 idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], "recipe-tracker"));
-                panel.ShowForRender(EntryPanel.Screen.Review, idea, Draft(state, listed: true));
+                // As the person reaches it: the recap, then Start building.
+                panel.ShowForRender(EntryPanel.Screen.Recap, idea, Draft(state, listed: true));
+                panel.PressForRender(EntryScreens.StartBuilding);
                 var review = panel.Review;
                 if (review == null || !review.Paginated)
                 {
@@ -845,14 +856,23 @@ namespace Halcyonic.XR.Workspace.Editor
                     var confirming = panel.Frame.ButtonFor(EntryScreens.ConfirmStart) is GlazeButton yes && yes.Available
                         && yes.Label.text == LabelText.ForTextMeshPro(EntryText.ConfirmStart);
                     if (confirming != review.CanConfirm) failures.Add(what + ": Yes, start building " + (confirming ? "shows before" : "does not show on") + " the last page.");
+                    if (review.PageCount > 1) failures.AddRange(PagerOnTop(panel.Frame, what + " page " + (page + 1)));
+                    // Every part stepped through with Next first, so Yes keeps clear of the pager on every part too.
+                    if (review.CanConfirm) failures.AddRange(WorkspaceRender.YesClear(panel.Frame, what));
                     if (page == 0 && suffix == "words" && name == "far")
                     {
                         var closeUp = WorkspaceRender.CloseUp(camera, texture, panel.Root);
                         File.WriteAllBytes(Path.Combine(folder, name + "-review-words-closeup.png"), closeUp.EncodeToPNG());
                         UnityEngine.Object.DestroyImmediate(closeUp);
                     }
-                    review.Next();
-                    panel.RedrawForRender();
+                    if (page == 0 || page == review.PageCount - 1)
+                    {
+                        // The first and last part of each hard case, the whole panel, to see the pager and Yes.
+                        var whole = Whole(camera, texture, panel.Root);
+                        File.WriteAllBytes(Path.Combine(folder, name + "-review-" + suffix + "-" + (page + 1).ToString(CultureInfo.InvariantCulture) + "-panel.png"), whole.EncodeToPNG());
+                        UnityEngine.Object.DestroyImmediate(whole);
+                    }
+                    if (page < review.PageCount - 1) panel.PressForRender(PanelModel.NextPart);
                 }
                 for (var item = 0; item < review.Items.Count; item++)
                 {
