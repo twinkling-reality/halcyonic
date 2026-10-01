@@ -39,6 +39,16 @@ namespace Halcyonic.Client
     /// the place of the character that ranks last, and keeps a slot until another is asked for or it
     /// leaves the workstreams given. The one it replaced is not lost; it waits like any other.
     /// </para>
+    /// <para>
+    /// Given the device's clock (<see cref="Update(IEnumerable{WorkstreamView}, DateTimeOffset)"/>),
+    /// the lineup also keeps new work in view: a workstream that appears after its first update, as
+    /// when the person just started it, and one the person just opened (<see cref="Keep"/>), hold a
+    /// slot for <see cref="KeepFor"/> whatever their rank, so new work does not vanish behind older
+    /// notices. A kept workstream takes the place of the lowest ranked character that is neither
+    /// asked for nor kept, and at most all slots but one are kept, newest first, so the work that
+    /// ranks first always has a slot. The time is the device's own, never a control plane's, so a
+    /// clock that differs between the two cannot cut a hold short.
+    /// </para>
     /// </remarks>
     public sealed class CharacterLineup
     {
@@ -49,7 +59,15 @@ namespace Halcyonic.Client
         private readonly Dictionary<string, WorkstreamView> present = new Dictionary<string, WorkstreamView>();
         private readonly HashSet<string> shown = new HashSet<string>();
         private readonly List<WorkstreamView> waiting = new List<WorkstreamView>();
+        private readonly Dictionary<string, DateTimeOffset> kept = new Dictionary<string, DateTimeOffset>();
+        private readonly HashSet<string> known = new HashSet<string>();
+        private readonly HashSet<string> holding = new HashSet<string>();
+        private bool primed;
+        private string? journal;
         private string? requested;
+
+        /// <summary>How long new or just opened work keeps its slot.</summary>
+        public static readonly TimeSpan KeepFor = TimeSpan.FromMinutes(5);
 
         public CharacterLineup(int capacity)
         {
@@ -85,13 +103,44 @@ namespace Halcyonic.Client
         /// </summary>
         public void Request(string? workstreamId) => requested = workstreamId;
 
-        /// <summary>Brings the lineup up to date with the current workstreams. Returns whether any slot changed.</summary>
-        public bool Update(IEnumerable<WorkstreamView> workstreams)
+        /// <summary>
+        /// Follows the journal shown: another journal's work is not new work, so what was seen and kept
+        /// is forgotten, and the first update afterwards counts nothing as new.
+        /// </summary>
+        public void UseJournal(string? journalId)
+        {
+            if (journalId == journal) return;
+            journal = journalId;
+            known.Clear();
+            kept.Clear();
+            primed = false;
+        }
+
+        /// <summary>Keeps a workstream in view until <see cref="KeepFor"/> after <paramref name="now"/>, as when the person opened it.</summary>
+        public void Keep(string workstreamId, DateTimeOffset now) => kept[workstreamId] = now + KeepFor;
+
+        /// <summary>Whether a workstream holds its slot now because it is new or was just opened.</summary>
+        public bool IsKept(string workstreamId) => holding.Contains(workstreamId);
+
+        /// <summary>
+        /// Brings the lineup up to date with the current workstreams, ranking only: nothing is kept in
+        /// view for being new. Returns whether any slot changed.
+        /// </summary>
+        public bool Update(IEnumerable<WorkstreamView> workstreams) => Update(workstreams, null);
+
+        /// <summary>
+        /// Brings the lineup up to date with the current workstreams at <paramref name="now"/> on the
+        /// device's clock, keeping new and just opened work in view. Returns whether any slot changed.
+        /// </summary>
+        public bool Update(IEnumerable<WorkstreamView> workstreams, DateTimeOffset now) => Update(workstreams, (DateTimeOffset?)now);
+
+        private bool Update(IEnumerable<WorkstreamView> workstreams, DateTimeOffset? now)
         {
             if (workstreams == null) throw new ArgumentNullException(nameof(workstreams));
             present.Clear();
             foreach (var workstream in workstreams) present[workstream.WorkstreamId] = workstream;
             if (requested != null && !present.ContainsKey(requested)) requested = null;
+            Hold(now);
 
             var changed = false;
             shown.Clear();
@@ -126,11 +175,20 @@ namespace Halcyonic.Client
                 changed = true;
             }
 
-            // The one asked for first, wherever it ranks, then the rest by rank.
+            // The one asked for first, wherever it ranks, then new and just opened work, then the rest by rank.
             if (requested != null && SlotOf(requested) < 0)
             {
                 slots[WeakestSlot()] = requested;
                 waiting.RemoveAll(workstream => workstream.WorkstreamId == requested);
+                changed = true;
+            }
+            foreach (var id in NewestHeldFirst())
+            {
+                if (SlotOf(id) >= 0) continue;
+                var weakest = WeakestSlot();
+                if (weakest < 0) break;
+                slots[weakest] = id;
+                waiting.RemoveAll(workstream => workstream.WorkstreamId == id);
                 changed = true;
             }
             while (next < waiting.Count)
@@ -226,15 +284,53 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The occupied slot whose workstream ranks last, never the one asked for, or -1 when that is
-        /// the only one. Only called when every slot is occupied.
+        /// Which workstreams hold a slot now: those kept and not yet expired, of the workstreams given;
+        /// a workstream seen for the first time after the first update is kept from now. Without a clock
+        /// nothing is held.
+        /// </summary>
+        private void Hold(DateTimeOffset? now)
+        {
+            holding.Clear();
+            if (now is not DateTimeOffset at) return;
+            foreach (var id in present.Keys)
+            {
+                if (known.Add(id) && primed) kept[id] = at + KeepFor;
+            }
+            // What stands when work first arrives is not new; an empty stage waits for some.
+            if (present.Count > 0) primed = true;
+            var expired = new List<string>();
+            foreach (var pair in kept)
+            {
+                if (pair.Value <= at || !present.ContainsKey(pair.Key)) expired.Add(pair.Key);
+            }
+            foreach (var id in expired) kept.Remove(id);
+            // All slots but one at most, newest first, so the work that ranks first keeps a place.
+            var newest = new List<KeyValuePair<string, DateTimeOffset>>(kept);
+            newest.Sort((a, b) => b.Value != a.Value ? b.Value.CompareTo(a.Value) : string.CompareOrdinal(a.Key, b.Key));
+            foreach (var pair in newest)
+            {
+                if (holding.Count == slots.Length - 1) break;
+                if (pair.Key != requested) holding.Add(pair.Key);
+            }
+        }
+
+        private List<string> NewestHeldFirst()
+        {
+            var ids = new List<string>(holding);
+            ids.Sort((a, b) => kept[b] != kept[a] ? kept[b].CompareTo(kept[a]) : string.CompareOrdinal(a, b));
+            return ids;
+        }
+
+        /// <summary>
+        /// The occupied slot whose workstream ranks last, never the one asked for nor one kept in view,
+        /// or -1 when there is none. Only called when every slot is occupied.
         /// </summary>
         private int WeakestSlot()
         {
             var weakest = -1;
             for (var slot = 0; slot < slots.Length; slot++)
             {
-                if (slots[slot] == requested) continue;
+                if (slots[slot] == requested || holding.Contains(slots[slot]!)) continue;
                 if (weakest < 0 || Rank(present[slots[slot]!], present[slots[weakest]!]) > 0) weakest = slot;
             }
             return weakest;

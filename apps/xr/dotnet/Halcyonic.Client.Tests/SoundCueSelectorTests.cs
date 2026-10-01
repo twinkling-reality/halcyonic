@@ -219,6 +219,21 @@ public class SoundCueSelectorTests
     }
 
     [Test]
+    public void WithTheOptionOnlyNeedsYouSoundsWhileAwayAndOnlyOnce()
+    {
+        Stand(("w1", 1), ("w2", 2));
+        Observe(Snapshot(W("w1", WorkstreamStatus.Running), W("w2", WorkstreamStatus.Running)), 0);
+
+        // A browser video has focus, and the person chose to hear Needs you meanwhile.
+        Assert.That(Observe(Event(W("w2", WorkstreamStatus.Completed)), 1, audible: false, whileAway: true), Is.Empty, "nothing but Needs you");
+        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 2, audible: false, whileAway: true)),
+            Is.EqualTo(new[] { SoundCue.NeedsYou }));
+        Assert.That(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 3, audible: false, whileAway: true), Is.Empty, "never an alarm");
+        Assert.That(Observe(new StateChanges(), 4, Status(ConnectionPhase.WaitingToRetry), audible: false, whileAway: true), Is.Empty,
+            "a dropped connection stays silent while away");
+    }
+
+    [Test]
     public void NothingPlaysWhileItCannotBeHeardNorAfterwards()
     {
         Stand(("w1", 1), ("w2", 2));
@@ -480,6 +495,6 @@ public class SoundCueSelectorTests
         return changes;
     }
 
-    private IReadOnlyList<CueOnset> Observe(StateChanges changes, double now, ConnectionStatus? status = null, bool audible = true) =>
-        selector.Observe(changes, state, status ?? Live, SlotOf, now, audible);
+    private IReadOnlyList<CueOnset> Observe(StateChanges changes, double now, ConnectionStatus? status = null, bool audible = true, bool whileAway = false) =>
+        selector.Observe(changes, state, status ?? Live, SlotOf, now, audible, whileAway);
 }

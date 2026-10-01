@@ -271,9 +271,12 @@ The owner wore the headset at their desk.
   the simulated runtime for a real one.
 - **A real start from the headset:** the second project chose OpenCode and the project root itself
   as its folder. The control plane recorded project, workstream and `execution.start` completed
-  after `runtime.execution.started`, and the character appeared. No model was chosen, so the review
-  said the runtime would choose; OpenCode then used a free hosted model, not the local one the
-  Halcyonic-only configuration named. A remote model therefore started without a deliberate choice.
+  after `runtime.execution.started`, and the character appeared. The start carried
+  `opencode/space-bunny-free`, a free hosted model the owner picked in More options: OpenCode's list
+  puts its seven hosted models before every local one, and the local model the Halcyonic-only
+  configuration names came twelfth. The model list's wording marks hosted models, but their order
+  made a remote model the easy first choice. (Corrected 2026-10-01: an earlier version of this
+  record said no model was chosen; the journal shows the choice.)
 - **Approvals with a real agent:** OpenCode asked for approval; the owner approved in the headset,
   and `execution.respond_to_approval` completed with `runtime.approval.resolved`. Two approvals went
   through this way.

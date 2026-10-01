@@ -50,6 +50,17 @@ namespace Halcyonic.XR
         [Tooltip("How many characters the stage shows at most.")]
         [SerializeField] private int maxCharacters = 6;
 
+        /// <summary>
+        /// How far to the person's right the lineup's middle turns when they make room for a window
+        /// (<see cref="SetAside"/>): the arc then runs from about straight ahead to 62 degrees right,
+        /// so a window in front of them covers fewer characters. Halcyonic cannot see the window, so
+        /// this reduces overlap; it guarantees nothing.
+        /// </summary>
+        public const float AsideDegrees = 32f;
+
+        private const string AsidePreference = "halcyonic.stage.aside";
+        private bool aside;
+
         /// <summary>The nearest and the default reach to a surface, in meters.</summary>
         private const float NearestSurface = 0.4f;
         private const float DefaultSurface = 0.8f;
@@ -129,6 +140,33 @@ namespace Halcyonic.XR
             Refresh();
         }
 
+        /// <summary>
+        /// Keeps a workstream's character on the stage for <see cref="CharacterLineup.KeepFor"/>, as
+        /// when the person opened it, whatever older work needs attention.
+        /// </summary>
+        public void Keep(string workstreamId)
+        {
+            lineup.Keep(workstreamId, System.DateTimeOffset.UtcNow);
+            Refresh();
+        }
+
+        /// <summary>The lineup stands to the person's right, making room for a window in front of them.</summary>
+        public bool Aside => aside;
+
+        /// <summary>
+        /// Stands the lineup to the person's right, or back in front of them, and keeps the choice on
+        /// the device. On a surface the room placement decides where it stands, so this waits until the
+        /// stage stands in front of the person again.
+        /// </summary>
+        public void SetAside(bool value)
+        {
+            if (value == aside) return;
+            aside = value;
+            PlayerPrefs.SetInt(AsidePreference, value ? 1 : 0);
+            PlayerPrefs.Save();
+            if (placedOnce && !onSurface) Place(null, value ? "the person made room for a window" : "the person brought the characters back in front");
+        }
+
         /// <summary>Raised after the characters were brought up to date, so the rail can count what has none.</summary>
         public event System.Action? Refreshed;
 
@@ -136,6 +174,7 @@ namespace Halcyonic.XR
         {
             connection = GetComponent<ControlPlaneConnection>();
             lineup = new CharacterLineup(Mathf.Max(1, maxCharacters));
+            aside = PlayerPrefs.GetInt(AsidePreference, 0) == 1;
             radius = distance;
             CharacterMaterials.Prepare();
 
@@ -151,11 +190,16 @@ namespace Halcyonic.XR
             connectionPlateBlock = new MaterialPropertyBlock();
         }
 
-        private void OnEnable() => connection.Changed += OnChanged;
+        private void OnEnable()
+        {
+            connection.Changed += OnChanged;
+            FocusGuard.FoldChanged += Refresh;
+        }
 
         private void OnDisable()
         {
             connection.Changed -= OnChanged;
+            FocusGuard.FoldChanged -= Refresh;
             placement.Stop();
             if (source != null) source.Changed -= OnPreferredChanged;
             source = null;
@@ -254,9 +298,13 @@ namespace Halcyonic.XR
             var session = connection.Session;
             // A demonstration says so in its own words, so a recording is never read as live work.
             var demonstration = connection.DemonstrationLine;
+            // While another window keeps focus, the line also counts what needs the person, so it stays
+            // findable when the window covers the characters.
+            var waiting = FocusGuard.Folded && session != null ? AmbientText.NeedsYouLine(AmbientText.NeedsYou(session.State)) : null;
             ShowConnection(
                 demonstration ?? (session == null ? connection.SetupProblem ?? "Not connected" : Describe(session)),
-                demonstration == null && session != null && session.Status.IsLive);
+                demonstration == null && session != null && session.Status.IsLive,
+                waiting);
             if (session == null)
             {
                 Refreshed?.Invoke();
@@ -270,7 +318,9 @@ namespace Halcyonic.XR
             {
                 if (visibility.Shows(workstream.ProjectId) || workstream.WorkstreamId == lineup.Requested) eligible.Add(workstream);
             }
-            lineup.Update(eligible);
+            // New and just opened work keeps its slot a while, by this device's clock.
+            lineup.UseJournal(session.State.Journal?.JournalId);
+            lineup.Update(eligible, System.DateTimeOffset.UtcNow);
             departed.Clear();
             foreach (var id in views.Keys)
             {
@@ -337,6 +387,7 @@ namespace Halcyonic.XR
             var facing = forward.sqrMagnitude > 1e-4f
                 ? Quaternion.LookRotation(forward, Vector3.up)
                 : Quaternion.Euler(0f, head.eulerAngles.y, 0f);
+            if (aside) facing *= Quaternion.Euler(0f, AsideDegrees, 0f);
             arc.SetPositionAndRotation(head.position, facing);
         }
 
@@ -420,16 +471,19 @@ namespace Halcyonic.XR
             character.localScale = Vector3.one * radius;
         }
 
-        private void ShowConnection(string text, bool live)
+        /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
+        private void ShowConnection(string text, bool live, string? waiting = null)
         {
+            var attention = waiting != null;
+            if (attention) text = LabelText.Plain(text) + "\n" + waiting;
             if (text == shownConnection && live == shownLive) return;
             shownConnection = text;
             shownLive = live;
             const float width = 0.6f;
             const float padding = 0.01f;
             // A connection's detail or a setup problem can carry a server's or an exception's words.
-            connectionLabel.text = Labels.Wrap(connectionLabel, LabelText.Plain(text), width - 2f * padding, 3, out var lines);
-            connectionLabel.color = live ? new Color(0.72f, 0.76f, 0.84f) : new Color(1f, 0.86f, 0.62f);
+            connectionLabel.text = Labels.Wrap(connectionLabel, attention ? text : LabelText.Plain(text), width - 2f * padding, attention ? 4 : 3, out var lines);
+            connectionLabel.color = attention ? new Color(0.96f, 0.77f, 0.32f) : live ? new Color(0.72f, 0.76f, 0.84f) : new Color(1f, 0.86f, 0.62f);
             var plateWidth = Labels.WidestLine(connectionLabel) + 2f * padding;
             var plateHeight = lines * Labels.LineHeight(connectionLabel) + 2f * padding;
             var plate = connectionPlate.transform;
@@ -451,7 +505,7 @@ namespace Halcyonic.XR
                 case ConnectionPhase.WaitingToRetry:
                     return "Disconnected, showing the last known state. " + status.Detail;
                 case ConnectionPhase.Refused:
-                    return "The control plane refused this client. " + status.Detail;
+                    return ConnectionText.WhyNotLive(status);
                 default:
                     return status.Phase + origin;
             }
