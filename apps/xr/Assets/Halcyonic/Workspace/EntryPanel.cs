@@ -169,6 +169,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The whole request shown for review, for the editor's renders.</summary>
         public NewWorkReview? Review => review;
 
+        /// <summary>Folded while another window keeps focus; back exactly as it was when focus returns. Public for the editor's renders.</summary>
+        public void ApplyFold()
+        {
+            if (root.gameObject.activeSelf != (visible && !FocusGuard.Folded)) root.gameObject.SetActive(visible && !FocusGuard.Folded);
+        }
+
         /// <summary>Lays the panel out again, as after the editor turned the review's page.</summary>
         public void RedrawForRender() => Layout();
 
@@ -244,6 +250,7 @@ namespace Halcyonic.XR.Workspace
             if (director == null) return;
             director.WorkOpened += OnWorkOpened;
             director.WorkClosed += OnWorkClosed;
+            FocusGuard.Left += OnFocusLeft;
         }
 
         private void OnDisable()
@@ -251,6 +258,7 @@ namespace Halcyonic.XR.Workspace
             if (director == null) return;
             director.WorkOpened -= OnWorkOpened;
             director.WorkClosed -= OnWorkClosed;
+            FocusGuard.Left -= OnFocusLeft;
         }
 
         private void OnDestroy()
@@ -262,6 +270,7 @@ namespace Halcyonic.XR.Workspace
         private void Update()
         {
             if (director == null) return;
+            ApplyFold();
             PollKeyboard();
             UpdateCreate();
             if (!visible && !welcomed && returnAfter == null && director.OpenWorkstream == null && Live && keyboard == null) Open(Screen.Welcome);
@@ -618,7 +627,7 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             typed = done;
-            keyboard = TouchScreenKeyboard.Open(initial, TouchScreenKeyboardType.Default, true, false, false, false, prompt);
+            keyboard = FocusGuard.Track(TouchScreenKeyboard.Open(initial, TouchScreenKeyboardType.Default, true, false, false, false, prompt));
         }
 
         private void PollKeyboard()

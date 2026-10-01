@@ -682,7 +682,25 @@ scripts use only long-stable core Unity APIs:
   240,000 pixels a frame across both eyes. The lookbook computed fractal noise per pixel, about ten
   times the arithmetic. Edges are anti-aliased in the shaders, because the Android quality level
   has no MSAA.
-- `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
+- `FocusGuard` follows input focus through the client core's `FocusPresence`, so Halcyonic can sit
+  beside another window (a Mac's Virtual Display, a browser video) in passthrough. When focus goes,
+  to that window, the system keyboard or the Meta menu, it hides the assigned hand visuals and
+  suspends input at once; work keeps running and updating, since losing focus is not a pause.
+  Input stays suspended for half a second after focus returns, so the pinch that brings focus back
+  never presses a control. After focus has stayed away for three seconds, large panels (the entry
+  panel, an open workspace with its ring and link, the Usage left panel) fold out of the way with
+  their content kept (`Folded`), and they come back exactly as they were once input is ready again.
+  Focus that flaps, as the Quest's system windows make it, folds nothing. The app's own system
+  keyboard is tracked (`Track` wraps every `TouchScreenKeyboard.Open`), so typing folds nothing and
+  drops no confirmation. Every other loss raises `Left`: a confirmation half done is dropped and
+  must be given afresh once back (an armed approval, denial, stop or instruction says "You went to
+  another window, so nothing was sent. Press it again to confirm."; a review whose final press
+  waited goes back to the recap; a first press on a model elsewhere lapses; Forget this Mac asks
+  again), while the runtime's request itself stays pending. Hold to talk (`HoldToTalk`, lane B)
+  stops and discards its recording when input is suspended. While panels are folded, the line
+  above the stage also counts what needs the person across every project ("2 need you", in the
+  attention color), so it stays findable when the window covers the characters. Whether Unity
+  reports each of these as a focus change on the Quest is verified only on the device.
 
 ### The workspace
 
@@ -733,10 +751,17 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   lineup) so it clears their label plates too, and reads the control plane once. The rail steps out of
   the way meanwhile. The panel shows its title and Close, the readings, the note and Read again, which
   reads once more; it only lays out again every 15 s, to drop a window that has reset. An agent name
-  longer than 32 characters ends in an ellipsis. It closes by Close, when the entry panel or a
-  workspace opens, and while the app lacks focus, as when a 2D window has it; the chip hides then
-  too. The recorded demonstration offers no usage limits. It is not Workstream status and not part
+  longer than 32 characters ends in an ellipsis. It closes by Close, and when the entry panel or a
+  workspace opens; while another window has focus its controls take no input and the chip hides,
+  and once focus stays away the panel folds with what it read and comes back as it was. The recorded demonstration offers no usage limits. It is not Workstream status and not part
   of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
+- **Make room for a window:** while the stage stands in front of the person, the room controls offer
+  Make room for a window, which turns the lineup 32 degrees to their right
+  (`CharacterStage.SetAside`, kept on the device), and Characters in front, which turns it back. On
+  a desk the room placement decides where it stands. Halcyonic cannot see the window, so this
+  reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m straight ahead,
+  the render (`AmbientRender`) shows it covering 4 of 6 characters' bodies in front and 3 aside, the
+  labels clear of it in both.
 - **Entry panel:** `EntryPanel`, the one foreground panel for entering work, the workspace's size,
   opened where the workspace would open, clear of every character
   (`WorkspaceLayout.PlaceForeground`). Its top row holds the title, Move (to the right, the left and
@@ -1052,7 +1077,11 @@ them:
   later. An instruction typed on the system keyboard is sent as the keyboard closes, just before
   focus returns, so the person's act waits up to 2 s for focus and sounds then. Whether silence is
   right while the person works in Virtual Display is open
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)), so one option is there to try, off by
+  default: with the file `needs-you-sound-while-away` in the app's data directory, a character that
+  comes to need the person sounds Needs you once, at 60% of the usual level, while another window
+  has focus; nothing else sounds and nothing repeats (`SoundCueSelector.Observe`'s
+  `needsYouWhileAway`).
 - **Calm.** Low energy: spectral centroids of 350 Hz on average and 649 Hz at most, power-weighted
   as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for needs
   you to -29 for instruct; peaks at most 0.6 before the room.

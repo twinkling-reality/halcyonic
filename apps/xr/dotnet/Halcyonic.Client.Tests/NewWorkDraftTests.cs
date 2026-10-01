@@ -181,4 +181,18 @@ public class NewWorkDraftTests
         Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere).Where(model => model.Served == ModelServed.Remote)),
             Is.EqualTo("Runs on a remote service: your code and instructions go there."));
     }
+
+    [Test]
+    public void AFirstPressOnAModelElsewhereLapsesWhenFocusLeaves()
+    {
+        var draft = Draft();
+        draft.ChooseRuntime(Runtime("opencode"));
+        var hosted = Model("hosted/x", ModelServed.Remote);
+        draft.SetModels(new RuntimeModelsResponse { RuntimeId = "opencode", Result = new AvailableModels { Models = new List<RuntimeModel> { hosted } } });
+        Assert.That(draft.ChooseModel(hosted), Is.False);
+        draft.FocusLeft();
+        Assert.That(draft.PendingModel, Is.Null);
+        Assert.That(draft.ChooseModel(hosted), Is.False, "the press after returning is a first press again");
+        Assert.That(draft.ChooseModel(hosted), Is.True);
+    }
 }

@@ -97,12 +97,28 @@ namespace Halcyonic.XR.Workspace
         {
             connection.Changed += OnChanged;
             stage.CharacterCreated += Attach;
+            FocusGuard.Left += OnFocusLeft;
         }
 
         private void OnDisable()
         {
             connection.Changed -= OnChanged;
             stage.CharacterCreated -= Attach;
+            FocusGuard.Left -= OnFocusLeft;
+        }
+
+        /// <summary>
+        /// Focus went to another window: a confirmation half done is dropped and said so, to be given
+        /// afresh once back. The runtime's request stays pending; nothing is sent.
+        /// </summary>
+        private void OnFocusLeft()
+        {
+            var workspace = opened;
+            if (workspace == null) return;
+            var outcome = workspace.Steering.FocusLeft();
+            if (outcome.Step != SteeringStep.Explain) return;
+            Notify(workspace, outcome.Message!);
+            RefreshPanel();
         }
 
         private void Start()
@@ -199,6 +215,9 @@ namespace Halcyonic.XR.Workspace
         private void Update()
         {
             if (opened != null && opened.Character == null) Close(immediately: true);
+            // Folded while another window keeps focus; back exactly as it was when focus returns.
+            var shown = opened?.Transition;
+            if (shown != null && shown.gameObject.activeSelf == FocusGuard.Folded) shown.gameObject.SetActive(!FocusGuard.Folded);
             if (opened != null && opened.Transition != null
                 && Vector3.Distance(opened.Transition.PlacedBeside, opened.Character!.BodyPosition) > MovedFar * opened.Character.Scale)
             {
@@ -574,8 +593,8 @@ namespace Halcyonic.XR.Workspace
             }
             if (TouchScreenKeyboard.isSupported)
             {
-                workspace.Keyboard = TouchScreenKeyboard.Open("", TouchScreenKeyboardType.Default, true, false, false, false,
-                    "Instruction for " + workspace.Now?.Character.Title);
+                workspace.Keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.Default, true, false, false, false,
+                    "Instruction for " + workspace.Now?.Character.Title));
             }
             if (workspace.Keyboard == null)
             {
