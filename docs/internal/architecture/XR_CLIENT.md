@@ -1261,24 +1261,28 @@ neither the scene nor the stage refers to it. The sound is the Glaze direction, 
 chose on 2026-09-29 from the soundbook, a single page that played three directions (Glaze, Hum and
 Tide) side by side, each synthesized by the page's own code with no recordings, samples or
 libraries; the page stays outside the repository. In Glaze each character is a small glazed
-ceramic object that events strike softly with a felt mallet, and silence means all is well.
+ceramic object that events strike softly with a felt mallet, and silence means all is well. Each
+cue is named by the words the person reads (`SoundCue`): a state's cue by its state's word, an act's
+by its button's.
 
 | Cue | When | What it sounds like | From |
 | --- | --- | --- | --- |
-| Working | A turn starts, or resumes after the person answered | A soft double tap, like the hop | Its character |
-| Running tests | A test run starts | Four muted taps, up and back | Its character |
-| Needs you | It rises and looks at the person | Two strikes rising; the second rings on | Its character |
-| Turn finished | It settles; a finished turn proves nothing, so no celebration | The pair falling onto its own note | Its character |
-| Failed | The turn failed | A dull, cracked strike, then a lower one | Its character |
-| State unknown | Halcyonic cannot see the work right now | A strike whose pitch will not settle | Its character |
+| Working | A round starts, or resumes after the person answered | A soft double tap, like the hop | Its character |
+| Checking its work | A test run starts | Four muted taps, up and back | Its character |
+| Waiting for you | It rises and looks at the person | Two strikes rising; the second rings on | Its character |
+| Finished this round | It settles; a finished round proves nothing, so no celebration | The pair falling onto its own note | Its character |
+| Couldn't finish | The round failed | A dull, cracked strike, then a lower one | Its character |
+| Can't tell yet | Halcyonic cannot see the work right now | A strike whose pitch will not settle | Its character |
 | Stopped | Interrupted, as the runtime confirmed | A strike caught by a hand | Its character |
 | Last known | The connection dropped: one cue for the whole room | All six notes through a wall, fading | The whole stage |
 | Open | The person expands a bot into its workspace | A chord unfolding toward them | The workspace |
-| Collapse | The person folds the workspace back into the bot | The chord folding back into the bot | The workspace |
+| Close | The person closes the workspace back into the bot | The chord folding back into the bot | The workspace |
 | Approve | Sent, not yet confirmed | Two notes struck together, open and warm | The workspace |
 | Deny | A decision, not an error | A short step down, damped | The workspace |
-| Instruct | The person's words were sent | Three light taps | The workspace |
-| Interrupt | The stop was sent; the bot confirms later | A hand pressed flat on it | The workspace |
+| Tell it | The person's words were sent | Three light taps | The workspace |
+| Stop | The stop was sent; the bot confirms later | A hand pressed flat on it | The workspace |
+| Touch | A button took a press that has no cue of its own | One soft felt tap, Working's first strike on D4 | The button |
+| Not now | A button refused a press, being unavailable now | Deny's damped step, a note lower and quieter | The button |
 
 Nothing else sounds: not a start completing, a test run ending, work going on, or a workstream
 that has not started. The rules come from the soundbook's research, and `SoundCueSelector` applies
@@ -1289,6 +1293,13 @@ them:
 - **Sent, not done.** The person's actions sound in front of them as the command is handed to the
   session (`WorkspaceDirector.Acted`), and say only that it was sent. The result arrives later as
   the character's own cue, because an accepted command is not success.
+- **Every press answered.** A press any button takes (`GlazeButton.AnyPressed`) sounds Touch from
+  the button, unless it sent an act in the same frame, whose own cue answers it; a press on a button
+  shown but unavailable now (`GlazeButton.AnyRefused`) sounds Not now. Both start at once, keep no
+  gap and hold up no other cue, and neither is ever dropped as a repeat. A press refused because the
+  app lacks focus, in the half second after it returns, or within a button's settle time reached
+  nothing, so it sounds nothing; the button's look and the reason beside it are the visual twins.
+  Both have one render, on D4, the key's own note, since a press belongs to no bot.
 - **One at a time.** Cues that arrive together start at least 300 ms apart, the most pressing
   first (needs you, failed, unknown, finished, stopped, tests, work), and before the room's cue.
   The same cue from the same character within ten seconds is dropped, unless the person acted on
@@ -1312,13 +1323,15 @@ them:
   focus returns, so the person's act waits up to 2 s for focus and sounds then. Whether silence is
   right while the person works in Virtual Display is open
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)), so one option is there to try, off by
-  default: with the file `needs-you-sound-while-away` in the app's data directory, a character that
-  comes to need the person sounds Needs you once, at 60% of the usual level, while another window
-  has focus; nothing else sounds and nothing repeats (`SoundCueSelector.Observe`'s
-  `needsYouWhileAway`).
-- **Calm.** Low energy: spectral centroids of 350 Hz on average and 649 Hz at most, power-weighted
-  as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for needs
-  you to -29 for instruct; peaks at most 0.6 before the room.
+  default: with the file `waiting-for-you-sound-while-away` in the app's data directory (or
+  `needs-you-sound-while-away`, its name before the cue was renamed, still read), a character that
+  comes to wait for the person sounds Waiting for you once, at 60% of the usual level, while another
+  window has focus; nothing else sounds and nothing repeats (`SoundCueSelector.Observe`'s
+  `waitingForYouWhileAway`).
+- **Calm.** Low energy: spectral centroids of 347 Hz on average and 649 Hz at most, power-weighted
+  as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for
+  Waiting for you to -29 for Tell it, -30 for Not now and -32 for Touch; peaks at most 0.6 before
+  the room.
 - **Never the only signal.** Every cue has a visual twin on the stage, the character's eyes, motion
   and light and its written status ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)),
   so Halcyonic works on mute.
@@ -1334,8 +1347,8 @@ with (FFT overlap-add), cut where it stays 60 dB below its peak. The page's per-
 left out, because in the headset a cue sounds from a place. On the development Mac the port matches
 the page's own output bit for bit, at 48 kHz in all but one of 3,950,400 samples, which differs by
 1e-16 of the peak, and at 44.1 kHz in all ([sound-rendering.md](../validation/sound-rendering.md)).
-`StageSound` renders all 79 clips (13 cues for each of the 6 notes, and Last known once) at the
-output sample rate on a worker thread at startup, and makes them audio clips on the main thread,
+`StageSound` renders all 81 clips (13 cues for each of the 6 notes, and Last known, Touch and Not
+now once) at the output sample rate on a worker thread at startup, and makes them audio clips on the main thread,
 four a frame. Nothing is synthesized while sound plays; `OnAudioFilterRead` is not used.
 
 **Voices.** Each character has two audio sources on its `Body`, so a cue can start while the last
@@ -1600,7 +1613,7 @@ Code or Codex run ([understanding-and-evaluation.md](../validation/understanding
 choosing a folder deeper than one level inside a place the Mac allows; a companion that converses (Help me figure it out asks fixed questions); voice for the
 fixed questions' own answers, a folder's name and the recap's Change, and voice in release builds; and a
 creation draft that survives an app restart; discovering or attaching work Halcyonic did not
-start; the soundbook's softer repeat of "Needs you" once nobody has
+start; the soundbook's softer repeat of "Waiting for you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
 the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
 and keeping the credential under an Android Keystore key. On a Quest, the control plane is

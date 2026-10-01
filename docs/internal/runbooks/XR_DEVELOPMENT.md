@@ -884,22 +884,28 @@ hours. Follow the cues in the log, which names each cue, its place and its note,
 adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
 ```
 
-- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 79 clips rendered at 48000 Hz in
-  ... ms on a worker thread, 17.7 MiB of samples, ...`. Record the milliseconds and the rate: the
+- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 81 clips rendered at 48000 Hz in
+  ... ms on a worker thread, 18.1 MiB of samples, ...`. Record the milliseconds and the rate: the
   Quest 3's render time is not measured yet. `adb logcat -s VrApi` stays at 72 fps while it renders.
 - **Silence while work goes well.** With the demonstration, nothing sounds while characters work,
   run tests or wait, except a soft double tap when work starts and four muted taps when a test run
   starts. Nothing loops, and a character that keeps working stays silent.
-- **Needs you.** Two strikes rising, the second ringing on, from the character that rises and turns
-  to you. It is the loudest cue, yet not alarming.
+- **Waiting for you.** Two strikes rising, the second ringing on, from the character that rises and
+  turns to you. It is the loudest cue, yet not alarming.
 - **Finished.** The pair falling onto the character's own note, with nothing celebratory about it,
   also when its tests failed.
 - **Your actions.** Open a character (pinch, or look and pinch): a chord unfolding in front of you.
   Approve, and confirm: two notes struck together in front of you, then later, from the character,
-  the soft double tap as it works again. Collapse: the chord folding back. Instruct and Stop the
-  turn sound too; Stop's result is the character's own caught strike once the recording or the
-  runtime confirms it. An instruction typed on the system keyboard sounds its three light taps as
-  the keyboard closes and the app has focus again.
+  the soft double tap as it works again. Close: the chord folding back. Tell it and Stop sound too;
+  Stop's result is the character's own caught strike once the recording or the runtime confirms it.
+  An instruction typed on the system keyboard sounds its three light taps as the keyboard closes and
+  the app has focus again.
+- **Presses.** Press a tab, the pager or a rail filter: one soft tap from the button you pressed,
+  at once, and nothing more. Press Yes on an approval: only Approve, no tap with it. Press a button
+  that is unavailable, such as Refresh while Usage left reads or a locked Yes: Not now, a damped step
+  down, quieter than Deny. Press anything just after coming back from another window: nothing,
+  since that pinch only returns focus. Follow them in the log as `sound Touch from the control
+  pressed` and `sound NotNow from the control pressed`.
 - **Where each sounds from.** Turn your head: each character's cues come from where it stands, on
   the desk and after "Show a virtual space" 2.4 m away, at about the same level in both. Characters
   on the left sound from the left, and each keeps its own note while it is shown, the lowest on the
@@ -957,15 +963,16 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
     stops; nothing is transcribed and the field keeps its text.
 11. **Sleep and resume.** Take the headset off until it sleeps, put it back on. Does the stage say
     Last known, then Live, and is no action offered while it says Last known?
-12. **Sound options.** First silent (the default): does a Needs you while watching go unnoticed?
-    Then turn on the option and repeat step 3:
+12. **Sound options.** First silent (the default): does a Waiting for you while watching go
+    unnoticed? Then turn on the option and repeat step 3:
 
     ```bash
-    adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/needs-you-sound-while-away
+    adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/waiting-for-you-sound-while-away
     ```
 
-    One quieter Needs you, never repeated. Was it helpful or an interruption? Remove the file to
-    turn it off again (`adb shell rm` the same path).
+    One quieter Waiting for you, never repeated. Was it helpful or an interruption? Remove the file
+    to turn it off again (`adb shell rm` the same path). A headset set up with the option's earlier
+    name, `needs-you-sound-while-away`, keeps it until that file is removed too.
 
 Record what each step showed in [quest-3-device.md](../validation/quest-3-device.md), including what
 did not happen as written. A step not tried stays unverified.

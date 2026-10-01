@@ -23,17 +23,17 @@ public class SoundCueSelectorTests
         position = 0;
     }
 
-    [TestCase(CharacterActivity.Working, CharacterActivity.WaitingForHuman, SoundCue.NeedsYou)]
-    [TestCase(CharacterActivity.Verifying, CharacterActivity.WaitingForHuman, SoundCue.NeedsYou)]
-    [TestCase(CharacterActivity.Working, CharacterActivity.TurnFinished, SoundCue.TurnFinished)]
-    [TestCase(CharacterActivity.Verifying, CharacterActivity.TurnFinished, SoundCue.TurnFinished)]
-    [TestCase(CharacterActivity.Working, CharacterActivity.Failed, SoundCue.Failed)]
-    [TestCase(CharacterActivity.Starting, CharacterActivity.Failed, SoundCue.Failed)]
-    [TestCase(CharacterActivity.Working, CharacterActivity.Unknown, SoundCue.Unknown)]
+    [TestCase(CharacterActivity.Working, CharacterActivity.WaitingForHuman, SoundCue.WaitingForYou)]
+    [TestCase(CharacterActivity.Verifying, CharacterActivity.WaitingForHuman, SoundCue.WaitingForYou)]
+    [TestCase(CharacterActivity.Working, CharacterActivity.TurnFinished, SoundCue.FinishedThisRound)]
+    [TestCase(CharacterActivity.Verifying, CharacterActivity.TurnFinished, SoundCue.FinishedThisRound)]
+    [TestCase(CharacterActivity.Working, CharacterActivity.Failed, SoundCue.CouldNotFinish)]
+    [TestCase(CharacterActivity.Starting, CharacterActivity.Failed, SoundCue.CouldNotFinish)]
+    [TestCase(CharacterActivity.Working, CharacterActivity.Unknown, SoundCue.CantTellYet)]
     [TestCase(CharacterActivity.WaitingForHuman, CharacterActivity.Interrupted, SoundCue.Stopped)]
     [TestCase(CharacterActivity.Working, CharacterActivity.Interrupted, SoundCue.Stopped)]
-    [TestCase(CharacterActivity.Working, CharacterActivity.Verifying, SoundCue.Verifying)]
-    [TestCase(CharacterActivity.WaitingForHuman, CharacterActivity.Verifying, SoundCue.Verifying)]
+    [TestCase(CharacterActivity.Working, CharacterActivity.Verifying, SoundCue.CheckingItsWork)]
+    [TestCase(CharacterActivity.WaitingForHuman, CharacterActivity.Verifying, SoundCue.CheckingItsWork)]
     [TestCase(CharacterActivity.Idle, CharacterActivity.Starting, SoundCue.Working)]
     [TestCase(CharacterActivity.Idle, CharacterActivity.Working, SoundCue.Working)]
     [TestCase(CharacterActivity.TurnFinished, CharacterActivity.Working, SoundCue.Working)]
@@ -73,6 +73,7 @@ public class SoundCueSelectorTests
         foreach (var cue in GlazeSynthesizer.Cues)
         {
             var expected = cue == SoundCue.LastKnown ? CuePlace.Stage
+                : cue >= SoundCue.Touch ? CuePlace.Control
                 : cue >= SoundCue.Open ? CuePlace.Workspace
                 : CuePlace.Character;
             Assert.That(SoundCueSelector.PlaceOf(cue), Is.EqualTo(expected), cue.ToString());
@@ -88,7 +89,7 @@ public class SoundCueSelectorTests
         var cues = Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 3);
 
         var cue = cues.Single();
-        Assert.That(cue.Cue, Is.EqualTo(SoundCue.NeedsYou));
+        Assert.That(cue.Cue, Is.EqualTo(SoundCue.WaitingForYou));
         Assert.That(cue.WorkstreamId, Is.EqualTo("w1"));
         Assert.That(cue.Bot, Is.EqualTo(4), "the note of the slot it stood in when it appeared");
         Assert.That(cue.Place, Is.EqualTo(CuePlace.Character));
@@ -101,7 +102,7 @@ public class SoundCueSelectorTests
         Stand(("w1", 2), ("w2", 3));
         Assert.That(Observe(Snapshot(W("w1", WorkstreamStatus.Running), W("w2", WorkstreamStatus.WaitingForHuman)), 0), Is.Empty,
             "the first state heard is a snapshot, and says nothing about what changed");
-        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Completed)), 1)), Is.EqualTo(new[] { SoundCue.TurnFinished }));
+        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Completed)), 1)), Is.EqualTo(new[] { SoundCue.FinishedThisRound }));
 
         // Another journal, or the session after a reconnection that could not resume.
         Assert.That(Observe(Snapshot(W("w1", WorkstreamStatus.Failed), W("w2", WorkstreamStatus.Completed)), 20), Is.Empty,
@@ -121,7 +122,7 @@ public class SoundCueSelectorTests
         position = 10;
         Observe(changes, 0);
         Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Running)), 1)), Is.EqualTo(new[] { SoundCue.Working }));
-        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 2)), Is.EqualTo(new[] { SoundCue.NeedsYou }));
+        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 2)), Is.EqualTo(new[] { SoundCue.WaitingForYou }));
 
         // The same journal at its beginning again, as the recorded demonstration starts over.
         changes = new StateChanges();
@@ -151,7 +152,7 @@ public class SoundCueSelectorTests
             W("w3", WorkstreamStatus.Failed)), 5);
 
         Assert.That(together.Select(cue => (cue.Cue, cue.WorkstreamId)),
-            Is.EqualTo(new[] { (SoundCue.NeedsYou, "w2"), (SoundCue.Failed, "w3"), (SoundCue.TurnFinished, "w1") }));
+            Is.EqualTo(new[] { (SoundCue.WaitingForYou, "w2"), (SoundCue.CouldNotFinish, "w3"), (SoundCue.FinishedThisRound, "w1") }));
         Assert.That(together.Select(cue => cue.At), Is.EqualTo(new[] { 5, 5.3, 5.6 }).Within(1e-9));
 
         // The person's own action waits its turn too.
@@ -197,7 +198,7 @@ public class SoundCueSelectorTests
 
         var cues = Observe(Event(W("w1", WorkstreamStatus.Completed)), 1, Status(ConnectionPhase.WaitingToRetry));
 
-        Assert.That(Cues(cues), Is.EqualTo(new[] { SoundCue.TurnFinished, SoundCue.LastKnown }));
+        Assert.That(Cues(cues), Is.EqualTo(new[] { SoundCue.FinishedThisRound, SoundCue.LastKnown }));
         Assert.That(cues[1].At - cues[0].At, Is.EqualTo(SoundCueSelector.MinimumGap).Within(1e-9));
     }
 
@@ -219,15 +220,15 @@ public class SoundCueSelectorTests
     }
 
     [Test]
-    public void WithTheOptionOnlyNeedsYouSoundsWhileAwayAndOnlyOnce()
+    public void WithTheOptionOnlyWaitingForYouSoundsWhileAwayAndOnlyOnce()
     {
         Stand(("w1", 1), ("w2", 2));
         Observe(Snapshot(W("w1", WorkstreamStatus.Running), W("w2", WorkstreamStatus.Running)), 0);
 
-        // A browser video has focus, and the person chose to hear Needs you meanwhile.
-        Assert.That(Observe(Event(W("w2", WorkstreamStatus.Completed)), 1, audible: false, whileAway: true), Is.Empty, "nothing but Needs you");
+        // A browser video has focus, and the person chose to hear Waiting for you meanwhile.
+        Assert.That(Observe(Event(W("w2", WorkstreamStatus.Completed)), 1, audible: false, whileAway: true), Is.Empty, "nothing but Waiting for you");
         Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 2, audible: false, whileAway: true)),
-            Is.EqualTo(new[] { SoundCue.NeedsYou }));
+            Is.EqualTo(new[] { SoundCue.WaitingForYou }));
         Assert.That(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 3, audible: false, whileAway: true), Is.Empty, "never an alarm");
         Assert.That(Observe(new StateChanges(), 4, Status(ConnectionPhase.WaitingToRetry), audible: false, whileAway: true), Is.Empty,
             "a dropped connection stays silent while away");
@@ -248,7 +249,7 @@ public class SoundCueSelectorTests
         // Focus returns: nothing missed plays late, and changes compare with what was seen meanwhile.
         Assert.That(Observe(new StateChanges(), 5), Is.Empty);
         Assert.That(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 6), Is.Empty, "it already needed the person");
-        Assert.That(Cues(Observe(Event(W("w2", WorkstreamStatus.Completed)), 7)), Is.EqualTo(new[] { SoundCue.TurnFinished }));
+        Assert.That(Cues(Observe(Event(W("w2", WorkstreamStatus.Completed)), 7)), Is.EqualTo(new[] { SoundCue.FinishedThisRound }));
         Assert.That(Observe(new StateChanges(), 8, Status(ConnectionPhase.WaitingToRetry)).Single().At, Is.EqualTo(8),
             "nothing unheard held the gap");
     }
@@ -259,13 +260,13 @@ public class SoundCueSelectorTests
         Stand(("w1", 1), ("w2", 2));
         Observe(Snapshot(W("w1", WorkstreamStatus.Running), W("w2", WorkstreamStatus.Running)), 0);
 
-        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Verifying)), 1)), Is.EqualTo(new[] { SoundCue.Verifying }));
+        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Verifying)), 1)), Is.EqualTo(new[] { SoundCue.CheckingItsWork }));
         Assert.That(Observe(Event(W("w1", WorkstreamStatus.Running)), 2), Is.Empty);
         Assert.That(Observe(Event(W("w1", WorkstreamStatus.Verifying)), 6), Is.Empty, "five seconds after the last test run's cue");
-        Assert.That(Cues(Observe(Event(W("w2", WorkstreamStatus.Verifying)), 7)), Is.EqualTo(new[] { SoundCue.Verifying }),
+        Assert.That(Cues(Observe(Event(W("w2", WorkstreamStatus.Verifying)), 7)), Is.EqualTo(new[] { SoundCue.CheckingItsWork }),
             "another character's cue is its own");
         Observe(Event(W("w1", WorkstreamStatus.Running)), 8);
-        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Verifying)), 11.5)), Is.EqualTo(new[] { SoundCue.Verifying }));
+        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Verifying)), 11.5)), Is.EqualTo(new[] { SoundCue.CheckingItsWork }));
     }
 
     [Test]
@@ -274,7 +275,7 @@ public class SoundCueSelectorTests
         Stand(("w1", 3));
         Observe(Snapshot(W("w1", WorkstreamStatus.Created)), 0);
         Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.Running)), 1)), Is.EqualTo(new[] { SoundCue.Working }));
-        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 4)), Is.EqualTo(new[] { SoundCue.NeedsYou }));
+        Assert.That(Cues(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 4)), Is.EqualTo(new[] { SoundCue.WaitingForYou }));
 
         Assert.That(selector.Act(WorkspaceAct.Approve, "w1", 6, audible: true)!.Cue, Is.EqualTo(SoundCue.Approve));
 
@@ -324,7 +325,7 @@ public class SoundCueSelectorTests
         Stand(("w1", 5));
         Observe(Snapshot(W("w1", WorkstreamStatus.WaitingForHuman)), 0);
         var acts = new[] { WorkspaceAct.Open, WorkspaceAct.Approve, WorkspaceAct.Deny, WorkspaceAct.Instruct, WorkspaceAct.Interrupt, WorkspaceAct.Collapse };
-        var expected = new[] { SoundCue.Open, SoundCue.Approve, SoundCue.Deny, SoundCue.Instruct, SoundCue.Interrupt, SoundCue.Collapse };
+        var expected = new[] { SoundCue.Open, SoundCue.Approve, SoundCue.Deny, SoundCue.TellIt, SoundCue.Stop, SoundCue.Close };
 
         for (var i = 0; i < acts.Length; i++)
         {
@@ -336,6 +337,32 @@ public class SoundCueSelectorTests
     }
 
     [Test]
+    public void APressIsAnsweredAtOnceFromTheControlAndHoldsUpNothing()
+    {
+        Stand(("w1", 1));
+        Observe(Snapshot(W("w1", WorkstreamStatus.Running)), 0);
+
+        var touch = selector.Touch(5, audible: true)!;
+        Assert.That((touch.Cue, touch.Place, touch.WorkstreamId, touch.Bot, touch.At), Is.EqualTo((SoundCue.Touch, CuePlace.Control, (string?)null, -1, 5.0)));
+        var refused = selector.NotNow(5.1, audible: true)!;
+        Assert.That((refused.Cue, refused.Place, refused.At), Is.EqualTo((SoundCue.NotNow, CuePlace.Control, 5.1)), "at once, with no gap kept after the tap");
+        Assert.That(Observe(Event(W("w1", WorkstreamStatus.WaitingForHuman)), 5.15).Single().At, Is.EqualTo(5.15), "a control's cue holds up no other");
+        Assert.That(selector.Touch(5.2, audible: true), Is.Not.Null, "every press is answered, never dropped as a repeat");
+    }
+
+    [Test]
+    public void NoPressIsAnsweredWhileCuesCannotBeHeardNorAfterwards()
+    {
+        Stand(("w1", 1));
+        Observe(Snapshot(W("w1", WorkstreamStatus.Running)), 0);
+
+        // Another window has focus, or it has just returned: the press reached nothing.
+        Assert.That(selector.Touch(1, audible: false), Is.Null);
+        Assert.That(selector.NotNow(1, audible: false), Is.Null);
+        Assert.That(selector.HeardAgain(1.2), Is.Null, "nor later");
+    }
+
+    [Test]
     public void AnActSentAsTheKeyboardClosesSoundsOnceFocusReturns()
     {
         Stand(("w1", 1));
@@ -344,7 +371,7 @@ public class SoundCueSelectorTests
         // The system keyboard closes with the instruction a moment before the app has focus again.
         Assert.That(selector.Act(WorkspaceAct.Instruct, "w1", 10, audible: false), Is.Null);
         var cue = selector.HeardAgain(10.4)!;
-        Assert.That((cue.Cue, cue.Place, cue.WorkstreamId, cue.Bot, cue.At), Is.EqualTo((SoundCue.Instruct, CuePlace.Workspace, "w1", 1, 10.4)));
+        Assert.That((cue.Cue, cue.Place, cue.WorkstreamId, cue.Bot, cue.At), Is.EqualTo((SoundCue.TellIt, CuePlace.Workspace, "w1", 1, 10.4)));
         Assert.That(selector.HeardAgain(11), Is.Null, "it sounds once");
 
         // Focus back later than that is for something else, and an act heard at once waits for nothing.
@@ -441,16 +468,16 @@ public class SoundCueSelectorTests
         foreach (var watched in new[] { "Paginate the order history endpoint", "Send an order confirmation email" })
         {
             Assert.That(heard.Where(cue => cue.Title == watched).Select(cue => cue.Cue),
-                Is.EqualTo(new[] { SoundCue.Working, SoundCue.Verifying, SoundCue.TurnFinished }), watched);
+                Is.EqualTo(new[] { SoundCue.Working, SoundCue.CheckingItsWork, SoundCue.FinishedThisRound }), watched);
         }
         Assert.That(heard.Where(cue => cue.Title == Demonstration.Directed).Select(cue => cue.Cue), Is.EqualTo(new[]
         {
-            SoundCue.Working, SoundCue.NeedsYou,
-            SoundCue.Open, SoundCue.Approve, SoundCue.Collapse,
+            SoundCue.Working, SoundCue.WaitingForYou,
+            SoundCue.Open, SoundCue.Approve, SoundCue.Close,
             // The approval's result, confirmed by the recording's runtime, as the character's own cues.
-            SoundCue.Working, SoundCue.Verifying, SoundCue.TurnFinished,
-            SoundCue.Open, SoundCue.Instruct, SoundCue.Collapse,
-            SoundCue.Working, SoundCue.Verifying, SoundCue.TurnFinished,
+            SoundCue.Working, SoundCue.CheckingItsWork, SoundCue.FinishedThisRound,
+            SoundCue.Open, SoundCue.TellIt, SoundCue.Close,
+            SoundCue.Working, SoundCue.CheckingItsWork, SoundCue.FinishedThisRound,
         }));
 
         // Starting again: the same journal at its beginning, heard as nothing.

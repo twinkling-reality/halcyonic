@@ -100,6 +100,19 @@ namespace Halcyonic.XR.UI
         /// <summary>A hold that started has ended: let go on the button (true), or dropped (false).</summary>
         public event Action<bool>? HoldEnded;
 
+        /// <summary>
+        /// Any button took a press, raised after its own handlers, so the stage's sound can answer the
+        /// hand from where the button stands, unless the press sent an act with a cue of its own.
+        /// </summary>
+        public static event Action<GlazeButton>? AnyPressed;
+
+        /// <summary>
+        /// Any button refused a press because it can't be taken now (<see cref="Available"/> false),
+        /// while presses are otherwise accepted: never one refused while the app lacks focus, in the
+        /// moment after it returns, or within the settle time, which reached nothing.
+        /// </summary>
+        public static event Action<GlazeButton>? AnyRefused;
+
         /// <summary>A hold button: it starts something while held, as hold to talk does, instead of acting on a press.</summary>
         public bool Holds { get; set; }
 
@@ -391,9 +404,22 @@ namespace Halcyonic.XR.UI
             Paint();
         }
 
+        /// <summary>Forgets who listens to every button when play mode starts without a domain reload.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ForgetListeners()
+        {
+            AnyPressed = null;
+            AnyRefused = null;
+        }
+
         private void OnSelected()
         {
-            if (isStatic || !available || !Accepting() || Time.unscaledTime - shownAt < SettleSeconds) return;
+            if (isStatic || !Accepting() || Time.unscaledTime - shownAt < SettleSeconds) return;
+            if (!available)
+            {
+                AnyRefused?.Invoke(this);
+                return;
+            }
             if (Holds)
             {
                 pressedAt = Time.unscaledTime;
@@ -401,6 +427,7 @@ namespace Halcyonic.XR.UI
             }
             flash = Glaze.PressSeconds + Glaze.ReleaseSeconds;
             Pressed?.Invoke();
+            AnyPressed?.Invoke(this);
         }
 
         private void OnReleased(bool cancelled)
@@ -409,7 +436,11 @@ namespace Halcyonic.XR.UI
             var started = holding;
             EndPress();
             if (started) HoldEnded?.Invoke(!cancelled);
-            else if (!cancelled) Pressed?.Invoke();
+            else if (!cancelled)
+            {
+                Pressed?.Invoke();
+                AnyPressed?.Invoke(this);
+            }
         }
 
         private void EndPress()

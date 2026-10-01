@@ -33,36 +33,36 @@ public class GlazeSynthesizerTests
         (SoundCue.Working, 3, 48000, 0.138072609901, 38.6466068440, 1.54586427522),
         (SoundCue.Working, 4, 48000, 0.124590694904, 38.1865322383, 1.52746129018),
         (SoundCue.Working, 5, 48000, 0.157426998019, 36.9367701752, 1.47747080626),
-        (SoundCue.Verifying, 0, 43200, 0.127335175872, 42.4935053340, 1.69974021191),
-        (SoundCue.Verifying, 1, 43200, 0.122979931533, 41.2463727998, 1.64985491036),
-        (SoundCue.Verifying, 2, 43200, 0.142329305410, 40.7567496261, 1.63026998546),
-        (SoundCue.Verifying, 3, 43200, 0.118773162365, 40.8814488163, 1.63525795193),
-        (SoundCue.Verifying, 4, 43200, 0.128530055285, 39.2239226899, 1.56895690806),
-        (SoundCue.Verifying, 5, 43200, 0.127771124244, 38.3731587121, 1.53492634860),
-        (SoundCue.NeedsYou, 0, 76800, 0.336215704679, 317.100313311, 15.3476551543),
-        (SoundCue.NeedsYou, 1, 76800, 0.358438044786, 303.548015232, 14.6917239436),
-        (SoundCue.NeedsYou, 2, 76800, 0.332976758480, 295.668893076, 14.3103744144),
-        (SoundCue.NeedsYou, 3, 76800, 0.328801065683, 281.339057824, 13.6168103950),
-        (SoundCue.NeedsYou, 4, 76800, 0.336004763842, 268.389581607, 12.9900557475),
-        (SoundCue.NeedsYou, 5, 76800, 0.346810221672, 289.706109091, 14.0217756717),
-        (SoundCue.TurnFinished, 0, 72000, 0.222885787487, 133.781166784, 6.47500847105),
-        (SoundCue.TurnFinished, 1, 72000, 0.185867562890, 121.674219452, 5.88903222440),
-        (SoundCue.TurnFinished, 2, 72000, 0.172247812152, 110.741532611, 5.35989017562),
-        (SoundCue.TurnFinished, 3, 72000, 0.185952603817, 108.222933544, 5.23798998392),
-        (SoundCue.TurnFinished, 4, 72000, 0.213334470987, 117.039875777, 5.66472998964),
-        (SoundCue.TurnFinished, 5, 72000, 0.221496447921, 108.220692996, 5.23788153879),
-        (SoundCue.Failed, 0, 48000, 0.406873226166, 185.795892743, 7.43183571004),
-        (SoundCue.Failed, 1, 48000, 0.266214877367, 176.573315935, 7.06293263656),
-        (SoundCue.Failed, 2, 48000, 0.356272339821, 168.547601888, 6.74190407313),
-        (SoundCue.Failed, 3, 48000, 0.289590418339, 161.627103905, 6.46508415746),
-        (SoundCue.Failed, 4, 48000, 0.405309945345, 155.267820009, 6.21071280077),
-        (SoundCue.Failed, 5, 48000, 0.335527867079, 152.662822777, 6.10651290722),
-        (SoundCue.Unknown, 0, 67200, 0.171646028757, 111.459063407, 8.73839057321),
-        (SoundCue.Unknown, 1, 67200, 0.164420947433, 131.366642836, 10.2991447999),
-        (SoundCue.Unknown, 2, 67200, 0.166451275349, 101.513142222, 7.95863034870),
-        (SoundCue.Unknown, 3, 67200, 0.183333024383, 94.6149163165, 7.41780943476),
-        (SoundCue.Unknown, 4, 67200, 0.173840582371, 97.7097877797, 7.66044736524),
-        (SoundCue.Unknown, 5, 67200, 0.185242474079, 103.462716402, 8.11147696246),
+        (SoundCue.CheckingItsWork, 0, 43200, 0.127335175872, 42.4935053340, 1.69974021191),
+        (SoundCue.CheckingItsWork, 1, 43200, 0.122979931533, 41.2463727998, 1.64985491036),
+        (SoundCue.CheckingItsWork, 2, 43200, 0.142329305410, 40.7567496261, 1.63026998546),
+        (SoundCue.CheckingItsWork, 3, 43200, 0.118773162365, 40.8814488163, 1.63525795193),
+        (SoundCue.CheckingItsWork, 4, 43200, 0.128530055285, 39.2239226899, 1.56895690806),
+        (SoundCue.CheckingItsWork, 5, 43200, 0.127771124244, 38.3731587121, 1.53492634860),
+        (SoundCue.WaitingForYou, 0, 76800, 0.336215704679, 317.100313311, 15.3476551543),
+        (SoundCue.WaitingForYou, 1, 76800, 0.358438044786, 303.548015232, 14.6917239436),
+        (SoundCue.WaitingForYou, 2, 76800, 0.332976758480, 295.668893076, 14.3103744144),
+        (SoundCue.WaitingForYou, 3, 76800, 0.328801065683, 281.339057824, 13.6168103950),
+        (SoundCue.WaitingForYou, 4, 76800, 0.336004763842, 268.389581607, 12.9900557475),
+        (SoundCue.WaitingForYou, 5, 76800, 0.346810221672, 289.706109091, 14.0217756717),
+        (SoundCue.FinishedThisRound, 0, 72000, 0.222885787487, 133.781166784, 6.47500847105),
+        (SoundCue.FinishedThisRound, 1, 72000, 0.185867562890, 121.674219452, 5.88903222440),
+        (SoundCue.FinishedThisRound, 2, 72000, 0.172247812152, 110.741532611, 5.35989017562),
+        (SoundCue.FinishedThisRound, 3, 72000, 0.185952603817, 108.222933544, 5.23798998392),
+        (SoundCue.FinishedThisRound, 4, 72000, 0.213334470987, 117.039875777, 5.66472998964),
+        (SoundCue.FinishedThisRound, 5, 72000, 0.221496447921, 108.220692996, 5.23788153879),
+        (SoundCue.CouldNotFinish, 0, 48000, 0.406873226166, 185.795892743, 7.43183571004),
+        (SoundCue.CouldNotFinish, 1, 48000, 0.266214877367, 176.573315935, 7.06293263656),
+        (SoundCue.CouldNotFinish, 2, 48000, 0.356272339821, 168.547601888, 6.74190407313),
+        (SoundCue.CouldNotFinish, 3, 48000, 0.289590418339, 161.627103905, 6.46508415746),
+        (SoundCue.CouldNotFinish, 4, 48000, 0.405309945345, 155.267820009, 6.21071280077),
+        (SoundCue.CouldNotFinish, 5, 48000, 0.335527867079, 152.662822777, 6.10651290722),
+        (SoundCue.CantTellYet, 0, 67200, 0.171646028757, 111.459063407, 8.73839057321),
+        (SoundCue.CantTellYet, 1, 67200, 0.164420947433, 131.366642836, 10.2991447999),
+        (SoundCue.CantTellYet, 2, 67200, 0.166451275349, 101.513142222, 7.95863034870),
+        (SoundCue.CantTellYet, 3, 67200, 0.183333024383, 94.6149163165, 7.41780943476),
+        (SoundCue.CantTellYet, 4, 67200, 0.173840582371, 97.7097877797, 7.66044736524),
+        (SoundCue.CantTellYet, 5, 67200, 0.185242474079, 103.462716402, 8.11147696246),
         (SoundCue.Stopped, 0, 24000, 0.217809945345, 81.9693901344, 2.65580824224),
         (SoundCue.Stopped, 1, 24000, 0.197244897485, 79.4842297622, 2.57528904485),
         (SoundCue.Stopped, 2, 24000, 0.204441055655, 76.9284390501, 2.49248142686),
@@ -76,12 +76,12 @@ public class GlazeSynthesizerTests
         (SoundCue.Open, 3, 62400, 0.258797258139, 99.9246754837, 1.43843595373),
         (SoundCue.Open, 4, 62400, 0.238438546658, 97.6049261811, 1.40440753858),
         (SoundCue.Open, 5, 62400, 0.267101705074, 93.7056125297, 1.34893564813),
-        (SoundCue.Collapse, 0, 57600, 0.193671792746, 66.7409195449, 0.960455068550),
-        (SoundCue.Collapse, 1, 57600, 0.186529785395, 63.8618353438, 0.918985556064),
-        (SoundCue.Collapse, 2, 57600, 0.172718688846, 62.9584943391, 0.905899425059),
-        (SoundCue.Collapse, 3, 57600, 0.207994267344, 61.0430290964, 0.878350866024),
-        (SoundCue.Collapse, 4, 57600, 0.165225446224, 60.6609985120, 0.872795890219),
-        (SoundCue.Collapse, 5, 57600, 0.189382746816, 59.2167234641, 0.851390132491),
+        (SoundCue.Close, 0, 57600, 0.193671792746, 66.7409195449, 0.960455068550),
+        (SoundCue.Close, 1, 57600, 0.186529785395, 63.8618353438, 0.918985556064),
+        (SoundCue.Close, 2, 57600, 0.172718688846, 62.9584943391, 0.905899425059),
+        (SoundCue.Close, 3, 57600, 0.207994267344, 61.0430290964, 0.878350866024),
+        (SoundCue.Close, 4, 57600, 0.165225446224, 60.6609985120, 0.872795890219),
+        (SoundCue.Close, 5, 57600, 0.189382746816, 59.2167234641, 0.851390132491),
         (SoundCue.Approve, 0, 57600, 0.257693409920, 105.761100475, 1.05761100554),
         (SoundCue.Approve, 1, 57600, 0.247049778700, 102.351064120, 1.02351064195),
         (SoundCue.Approve, 2, 57600, 0.272319287062, 98.9811910655, 0.989811911115),
@@ -94,18 +94,18 @@ public class GlazeSynthesizerTests
         (SoundCue.Deny, 3, 33600, 0.216817870736, 77.3806648657, 0.495236255582),
         (SoundCue.Deny, 4, 33600, 0.206532061100, 75.4875738098, 0.483120472809),
         (SoundCue.Deny, 5, 33600, 0.238140404224, 74.5974561687, 0.477423719482),
-        (SoundCue.Instruct, 0, 28800, 0.176377698779, 32.1590276726, 0.205817777214),
-        (SoundCue.Instruct, 1, 28800, 0.171710833907, 30.8653017023, 0.197537930971),
-        (SoundCue.Instruct, 2, 28800, 0.165351822972, 30.1232922413, 0.192789070536),
-        (SoundCue.Instruct, 3, 28800, 0.146796301007, 29.7819908288, 0.190604741155),
-        (SoundCue.Instruct, 4, 28800, 0.146898359060, 29.4863534914, 0.188712662390),
-        (SoundCue.Instruct, 5, 28800, 0.171587496996, 29.0099081488, 0.185663412101),
-        (SoundCue.Interrupt, 0, 24000, 0.275215446949, 91.2806489421, 0.328610336369),
-        (SoundCue.Interrupt, 1, 24000, 0.291355997324, 86.3314028450, 0.310793049810),
-        (SoundCue.Interrupt, 2, 24000, 0.298363953829, 82.0809844336, 0.295491543665),
-        (SoundCue.Interrupt, 3, 24000, 0.262529045343, 79.5890148811, 0.286520453533),
-        (SoundCue.Interrupt, 4, 24000, 0.278060406446, 77.0131329277, 0.277247278114),
-        (SoundCue.Interrupt, 5, 24000, 0.313692092896, 75.7458120016, 0.272684922930),
+        (SoundCue.TellIt, 0, 28800, 0.176377698779, 32.1590276726, 0.205817777214),
+        (SoundCue.TellIt, 1, 28800, 0.171710833907, 30.8653017023, 0.197537930971),
+        (SoundCue.TellIt, 2, 28800, 0.165351822972, 30.1232922413, 0.192789070536),
+        (SoundCue.TellIt, 3, 28800, 0.146796301007, 29.7819908288, 0.190604741155),
+        (SoundCue.TellIt, 4, 28800, 0.146898359060, 29.4863534914, 0.188712662390),
+        (SoundCue.TellIt, 5, 28800, 0.171587496996, 29.0099081488, 0.185663412101),
+        (SoundCue.Stop, 0, 24000, 0.275215446949, 91.2806489421, 0.328610336369),
+        (SoundCue.Stop, 1, 24000, 0.291355997324, 86.3314028450, 0.310793049810),
+        (SoundCue.Stop, 2, 24000, 0.298363953829, 82.0809844336, 0.295491543665),
+        (SoundCue.Stop, 3, 24000, 0.262529045343, 79.5890148811, 0.286520453533),
+        (SoundCue.Stop, 4, 24000, 0.278060406446, 77.0131329277, 0.277247278114),
+        (SoundCue.Stop, 5, 24000, 0.313692092896, 75.7458120016, 0.272684922930),
     };
 
     /// <summary>
@@ -116,26 +116,30 @@ public class GlazeSynthesizerTests
     private static readonly Dictionary<SoundCue, double> Brightest = new()
     {
         [SoundCue.Working] = 520,
-        [SoundCue.Verifying] = 560,
-        [SoundCue.NeedsYou] = 630,
-        [SoundCue.TurnFinished] = 570,
-        [SoundCue.Failed] = 380,
-        [SoundCue.Unknown] = 520,
+        [SoundCue.CheckingItsWork] = 560,
+        [SoundCue.WaitingForYou] = 630,
+        [SoundCue.FinishedThisRound] = 570,
+        [SoundCue.CouldNotFinish] = 380,
+        [SoundCue.CantTellYet] = 520,
         [SoundCue.Stopped] = 520,
         [SoundCue.LastKnown] = 370,
         [SoundCue.Open] = 760,
-        [SoundCue.Collapse] = 650,
+        [SoundCue.Close] = 650,
         [SoundCue.Approve] = 650,
         [SoundCue.Deny] = 480,
-        [SoundCue.Instruct] = 570,
-        [SoundCue.Interrupt] = 400,
+        [SoundCue.TellIt] = 570,
+        [SoundCue.Stop] = 400,
+        [SoundCue.Touch] = 520,
+        [SoundCue.NotNow] = 480,
     };
 
     [Test]
     public void EveryRenderIsThePagesOwnBeforeTheRoom()
     {
+        // Every cue the page played; a control's two came after it (ADR 0023) and are checked by their limits.
+        var played = GlazeSynthesizer.Cues.Where(cue => cue != SoundCue.Touch && cue != SoundCue.NotNow);
         Assert.That(Page.Select(row => (row.Cue, row.Bot)),
-            Is.EquivalentTo(GlazeSynthesizer.Cues.SelectMany(cue => Enumerable.Range(0, GlazeSynthesizer.VoicesOf(cue)).Select(bot => (cue, bot)))));
+            Is.EquivalentTo(played.SelectMany(cue => Enumerable.Range(0, GlazeSynthesizer.VoicesOf(cue)).Select(bot => (cue, bot)))));
         foreach (var row in Page)
         {
             var voice = GlazeSynthesizer.RenderVoice(row.Cue, row.Bot, Rate);
@@ -158,17 +162,19 @@ public class GlazeSynthesizerTests
             Assert.That(again[i].Samples, Is.EqualTo(Played.Value[i].Samples), again[i].Cue + " for bot " + again[i].Bot);
         }
         var room = GlazeRoom.Create(Rate);
-        foreach (var (cue, bot) in new[] { (SoundCue.NeedsYou, 3), (SoundCue.LastKnown, 0), (SoundCue.Open, 4), (SoundCue.Deny, 1) })
+        foreach (var (cue, bot) in new[] { (SoundCue.WaitingForYou, 3), (SoundCue.LastKnown, 0), (SoundCue.Open, 4), (SoundCue.Deny, 1) })
         {
             Assert.That(GlazeSynthesizer.Render(cue, bot, room), Is.EqualTo(Clip(cue, bot).Samples), "rendered alone, " + cue + " for bot " + bot);
         }
     }
 
     [Test]
-    public void EveryCueHasItsOwnRenderPerBotAndTheRoomsCueOne()
+    public void EveryCueHasItsOwnRenderPerBotAndTheRoomsAndAControlsCuesOne()
     {
-        Assert.That(Played.Value, Has.Count.EqualTo(13 * GlazeSynthesizer.Bots + 1));
+        Assert.That(Played.Value, Has.Count.EqualTo(13 * GlazeSynthesizer.Bots + 3));
         Assert.That(GlazeSynthesizer.VoicesOf(SoundCue.LastKnown), Is.EqualTo(1));
+        Assert.That(GlazeSynthesizer.VoicesOf(SoundCue.Touch), Is.EqualTo(1), "a press belongs to no bot");
+        Assert.That(GlazeSynthesizer.VoicesOf(SoundCue.NotNow), Is.EqualTo(1));
         Assert.Throws<ArgumentOutOfRangeException>(() => GlazeSynthesizer.RenderVoice(SoundCue.Working, GlazeSynthesizer.Bots, Rate));
         Assert.Throws<ArgumentOutOfRangeException>(() => GlazeSynthesizer.Render(SoundCue.LastKnown, 1, GlazeRoom.Create(Rate)));
         Assert.Throws<ArgumentOutOfRangeException>(() => GlazeSynthesizer.RenderAll(4000).ToList());
@@ -192,19 +198,21 @@ public class GlazeSynthesizerTests
         var seconds = new Dictionary<SoundCue, double>
         {
             [SoundCue.Working] = 1.0,
-            [SoundCue.Verifying] = 0.9,
-            [SoundCue.NeedsYou] = 1.6,
-            [SoundCue.TurnFinished] = 1.5,
-            [SoundCue.Failed] = 1.0,
-            [SoundCue.Unknown] = 1.4,
+            [SoundCue.CheckingItsWork] = 0.9,
+            [SoundCue.WaitingForYou] = 1.6,
+            [SoundCue.FinishedThisRound] = 1.5,
+            [SoundCue.CouldNotFinish] = 1.0,
+            [SoundCue.CantTellYet] = 1.4,
             [SoundCue.Stopped] = 0.5,
             [SoundCue.LastKnown] = 1.9,
             [SoundCue.Open] = 1.3,
-            [SoundCue.Collapse] = 1.2,
+            [SoundCue.Close] = 1.2,
             [SoundCue.Approve] = 1.2,
             [SoundCue.Deny] = 0.7,
-            [SoundCue.Instruct] = 0.6,
-            [SoundCue.Interrupt] = 0.5,
+            [SoundCue.TellIt] = 0.6,
+            [SoundCue.Stop] = 0.5,
+            [SoundCue.Touch] = 0.6,
+            [SoundCue.NotNow] = 0.7,
         };
         Assert.That(seconds.Keys, Is.EquivalentTo(GlazeSynthesizer.Cues));
         foreach (var clip in Played.Value)
@@ -230,14 +238,22 @@ public class GlazeSynthesizerTests
     public void EachCueIsSetToTheLoudnessOfItsImportance()
     {
         var targets = GlazeSynthesizer.Cues.ToDictionary(cue => cue, GlazeSynthesizer.TargetOf);
-        Assert.That(targets[SoundCue.NeedsYou], Is.EqualTo(-20), "the loudest: it asks for the person");
+        Assert.That(targets[SoundCue.WaitingForYou], Is.EqualTo(-20), "the loudest: it asks for the person");
         Assert.That(targets.Values.Max(), Is.EqualTo(-20));
         Assert.That(targets[SoundCue.Working], Is.EqualTo(-28), "work starting is among the quietest");
-        Assert.That(targets[SoundCue.Instruct], Is.EqualTo(-29));
+        Assert.That(targets[SoundCue.TellIt], Is.EqualTo(-29));
+        Assert.That(targets[SoundCue.Touch], Is.EqualTo(-32), "a press's tap is the quietest of all");
+        Assert.That(targets.Values.Min(), Is.EqualTo(-32));
+        Assert.That(targets[SoundCue.NotNow], Is.EqualTo(-30), "quieter than Deny, whose step it takes");
+        Assert.That(targets[SoundCue.NotNow], Is.LessThan(targets[SoundCue.Deny]));
         foreach (var row in Page)
         {
             var voice = GlazeSynthesizer.RenderVoice(row.Cue, row.Bot, Rate);
             Assert.That(GlazeSynthesizer.Loudness(voice.Dry, Rate), Is.EqualTo(targets[row.Cue]).Within(0.01), row.Cue + " for bot " + row.Bot);
+        }
+        foreach (var cue in new[] { SoundCue.Touch, SoundCue.NotNow })
+        {
+            Assert.That(GlazeSynthesizer.Loudness(GlazeSynthesizer.RenderVoice(cue, 0, Rate).Dry, Rate), Is.EqualTo(targets[cue]).Within(0.01), cue.ToString());
         }
     }
 
@@ -255,8 +271,8 @@ public class GlazeSynthesizerTests
     public void TheRoomIsTheSendConvolvedWithItsResponse()
     {
         var room = GlazeRoom.Create(Rate);
-        // Needs you is long enough to take two segments of the room's transform.
-        foreach (var (cue, bot) in new[] { (SoundCue.NeedsYou, 3), (SoundCue.Working, 0) })
+        // Waiting for you is long enough to take two segments of the room's transform.
+        foreach (var (cue, bot) in new[] { (SoundCue.WaitingForYou, 3), (SoundCue.Working, 0) })
         {
             var voice = GlazeSynthesizer.RenderVoice(cue, bot, Rate);
             var played = GlazeSynthesizer.Render(cue, bot, room);
@@ -315,7 +331,7 @@ public class GlazeSynthesizerTests
     {
         const int rate = 44100;
         var room = GlazeRoom.Create(rate);
-        foreach (var cue in new[] { SoundCue.NeedsYou, SoundCue.LastKnown, SoundCue.Unknown })
+        foreach (var cue in new[] { SoundCue.WaitingForYou, SoundCue.LastKnown, SoundCue.CantTellYet })
         {
             var voice = GlazeSynthesizer.RenderVoice(cue, 0, rate);
             Assert.That(voice.Dry, Has.Length.EqualTo((int)Math.Ceiling(GlazeSynthesizer.DurationOf(cue) * rate)), cue.ToString());
