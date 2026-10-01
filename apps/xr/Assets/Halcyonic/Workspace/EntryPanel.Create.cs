@@ -473,6 +473,28 @@ namespace Halcyonic.XR.Workspace
             PutRightAligned(bottomRight, EntryText.Done, Right, BottomCenter, () => Open(Screen.Recap));
         }
 
+        /// <summary>
+        /// Focus went to another window. A confirmation half done is confirmed afresh once back: a
+        /// first press on a model elsewhere lapses, a recovery clear disarms, and a review whose final
+        /// press waits goes back to the recap, so Start building shows the whole request again.
+        /// Nothing is sent, and the draft is kept.
+        /// </summary>
+        private void OnFocusLeft()
+        {
+            draft.FocusLeft();
+            recoveryArmed = false;
+            if (visible && screen == Screen.Review && review != null)
+            {
+                // Open waits for input, which is suspended now; the screen changes while the panel is shown.
+                review = null;
+                screen = Screen.Recap;
+                notice = EntryText.ReviewAfresh;
+                Layout();
+                return;
+            }
+            if (visible) Layout();
+        }
+
         private void ChooseRuntime(RuntimeDescriptor runtime)
         {
             modelCancellation?.Cancel();

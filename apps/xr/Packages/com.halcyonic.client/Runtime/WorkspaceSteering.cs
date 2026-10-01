@@ -161,6 +161,18 @@ namespace Halcyonic.Client
         public void StopTyping() => Typing = false;
 
         /// <summary>Drops a pending confirmation or instruction.</summary>
+        /// <summary>
+        /// Focus went to another window. A confirmation half done is dropped, so the person confirms
+        /// afresh once back, from the start of the request; nothing is sent, and the runtime's request
+        /// itself stays pending. Typing an instruction is the app's own keyboard and carries on.
+        /// </summary>
+        public SteeringOutcome FocusLeft()
+        {
+            if (Armed == null) return SteeringOutcome.Nothing;
+            Cancel();
+            return SteeringOutcome.Explain(WorkspaceText.ConfirmAfresh);
+        }
+
         public void Cancel()
         {
             Armed = null;

@@ -7,8 +7,10 @@ using UnityEngine;
 namespace Halcyonic.XR.Room
 {
     /// <summary>
-    /// The room's two small controls: a switch between the real room and a virtual space, and, when
-    /// it would help, an offer to allow room access or to set up the room. They are the workspace's
+    /// The room's small controls: a switch between the real room and a virtual space; when it would
+    /// help, an offer to allow room access or to set up the room; and, while the stage stands in front
+    /// of the person, Make room for a window, which turns the lineup to their right
+    /// (<see cref="CharacterStage.SetAside"/>). They are the workspace's
     /// <see cref="PanelButton"/>s, the Interaction SDK's ray and poke targets, so they are pointed at
     /// and pinched, or poked, like every other button, and ignore input while
     /// <see cref="FocusGuard.InputSuspended"/>. Above them, one line says where the agents are and
@@ -49,9 +51,16 @@ namespace Halcyonic.XR.Room
         private const float LinePadding = 0.02f;
         private const float MinButtonWidth = 0.2f;
 
+        /// <summary>Turns the lineup aside so a window in front covers fewer characters; it cannot see the window.</summary>
+        private const string AsideMake = "Make room for a window";
+
+        private const string AsideBack = "Characters in front";
+
         private RoomPlacement placement = null!;
         private PanelButton switchButton = null!;
         private PanelButton offerButton = null!;
+        private PanelButton asideButton = null!;
+        private CharacterStage? stage;
         private Transform lineRoot = null!;
         private SpriteRenderer linePlate = null!;
         private TextMeshPro line = null!;
@@ -91,6 +100,10 @@ namespace Halcyonic.XR.Room
             switchButton.Pressed += OnSwitch;
             offerButton = PanelButton.Create(transform, "Room offer");
             offerButton.Pressed += OnOffer;
+            stage = placement.GetComponent<CharacterStage>();
+            asideButton = PanelButton.Create(transform, "Aside");
+            asideButton.Accepting = () => !FocusGuard.InputSuspended;
+            asideButton.Pressed += OnAside;
             placement.StatusChanged += OnStatusChanged;
             placement.Changed += OnPlacementChanged;
             OnStatusChanged(placement.Status);
@@ -107,12 +120,24 @@ namespace Halcyonic.XR.Room
         private void OnPlacementChanged()
         {
             if (placed && !presenting) Place(presentingNow: false);
+            Layout();
         }
 
         private void OnSwitch() =>
             placement.SetSpace(placement.Status.Shown == RoomSpace.Room ? RoomSpace.Virtual : RoomSpace.Room);
 
         private void OnOffer() => placement.TakeOffer();
+
+        /// <summary>Turns the lineup to the right to make room for a window in front, or back.</summary>
+        private void OnAside()
+        {
+            if (stage == null || FocusGuard.InputSuspended) return;
+            stage.SetAside(!stage.Aside);
+            Layout();
+        }
+
+        /// <summary>The aside choice is offered while the stage stands in front of the person, not on a surface.</summary>
+        private bool AsideOffered => stage != null && placement.Preferred == null;
 
         private void OnStatusChanged(RoomStatus status)
         {
@@ -147,12 +172,27 @@ namespace Halcyonic.XR.Room
             var offerLabel = RoomStatus.OfferLabel(offer);
             var switchWidth = status.CanSwitch ? switchButton.Measure(switchLabel, MinButtonWidth) : 0f;
             var offerWidth = offer != RoomOffer.None ? offerButton.Measure(offerLabel, MinButtonWidth) : 0f;
-            var total = switchWidth + offerWidth + (switchWidth > 0f && offerWidth > 0f ? Gap : 0f);
+            var asideLabel = stage != null && stage.Aside ? AsideBack : AsideMake;
+            var asideWidth = AsideOffered ? asideButton.Measure(asideLabel, MinButtonWidth) : 0f;
+            var widths = new[] { switchWidth, offerWidth, asideWidth };
+            var total = 0f;
+            foreach (var width in widths)
+            {
+                if (width > 0f) total += (total > 0f ? Gap : 0f) + width;
+            }
             var left = -total / 2f;
-            if (switchWidth > 0f) switchButton.Show(switchLabel, new Vector2(left + switchWidth / 2f, 0f), switchWidth);
-            else switchButton.Hide();
-            if (offerWidth > 0f) offerButton.Show(offerLabel, new Vector2(left + total - offerWidth / 2f, 0f), offerWidth);
-            else offerButton.Hide();
+            var buttons = new[] { switchButton, offerButton, asideButton };
+            var labels = new[] { switchLabel, offerLabel, asideLabel };
+            for (var index = 0; index < buttons.Length; index++)
+            {
+                if (widths[index] <= 0f)
+                {
+                    buttons[index].Hide();
+                    continue;
+                }
+                buttons[index].Show(labels[index], new Vector2(left + widths[index] / 2f, 0f), widths[index]);
+                left += widths[index] + Gap;
+            }
 
             var shown = LineShown(Time.unscaledTime);
             lineRoot.gameObject.SetActive(shown);
