@@ -118,7 +118,7 @@ logged or passed to launched agents:
 | Agent permissions | Runtime permission modes that take decisions away from the supervising person (`bypassPermissions`, `auto`) are refused as start options, and so are Codex's approval policy `never`, its granular policies and `danger-full-access` with `on-request`, under which Codex runs every command it does not flag as dangerous without asking |
 | Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode and Codex servers are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal. Codex starts each command in a session of its own, beyond the reach of a signal to its server's process group: ending the server's input makes Codex stop them, and a server that has to be killed is killed with all its descendants. A Codex server killed by anything else leaves its running commands behind |
 | OpenCode server | Launched from the configured binary only, never from PATH; bound to 127.0.0.1 on a free port with a password generated per launch and kept in memory; refused unless it reports version 2.0.18 and the process id Halcyonic started; recorded (without the password, mode 0600) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
-| Codex server | Launched from the configured native binary only, never from PATH, in its own process group, speaking JSON-RPC over its stdin and stdout, so it listens on no port; refused unless both `codex --version` and its answer to `initialize` report 0.157.0 and `ps` shows the launched binary; remote control switched off; a thread Codex reports working in another folder than the project's is refused; only methods on the stable API surface, never the experimental opt-in; requests Halcyonic does not show the person (permission grants, questions, MCP elicitations) are refused, which Codex takes as a denial or an empty answer; recorded (mode 0600, no secrets) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
+| Codex server | Launched from the configured native binary only, never from PATH, in its own process group, speaking JSON-RPC over its stdin and stdout, so it listens on no port; refused unless both `codex --version` and its answer to `initialize` report 0.157.0 and `ps` shows the launched binary; remote control switched off; a thread Codex reports working in another folder than the project's is refused; only methods on the stable API surface, never the experimental opt-in, with one under-development feature switched on per thread so the agent can ask the person questions (`default_mode_request_user_input`, guarded by an end to end test and withdrawn by the adapter option `answerQuestions: false`, [ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)); a question marked secret is shown but never answerable through Halcyonic; requests Halcyonic does not show the person (permission grants, MCP elicitations) are refused, which Codex takes as a denial or an empty answer; recorded (mode 0600, no secrets) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
 
 ## Project folders and clients
 
@@ -171,8 +171,11 @@ through which transport and from which principal, its policy category, the admis
 and the runtime confirmed outcome or failure (including whether the effect is unknown). Commands
 journaled before principals were recorded read with a null principal. Pairing and revoking
 devices are journaled too (`device.paired`, `device.revoked`, [EVENTS.md](EVENTS.md)); pairing
-windows and failed attempts are logged, without the code. Instructions are work content and are
-journaled locally; they are never logged.
+windows and failed attempts are logged, without the code. Instructions and answers to an agent's
+questions are work content and are journaled locally; they are never logged. No question asking
+for a secret can be answered through Halcyonic, so no secret reaches the journal that way; a
+question that asks for one in plain words, without the runtime marking it secret, cannot be told
+apart and is answerable like any other.
 
 ## Devices on the network
 
@@ -221,8 +224,8 @@ fill the listener's 32, a connection that sends no request for at most 10 second
 ## Untrusted text in the client
 
 The XR client shows text Halcyonic did not write: workstream titles and objectives, which come
-from commands; anything an agent or a tool wrote, such as messages, activity and approval requests
-naming a shell command or a file path; refusals and failures; setup problems carrying exception
+from commands; anything an agent or a tool wrote, such as messages, activity, approval requests
+naming a shell command or a file path, and questions with their options; refusals and failures; setup problems carrying exception
 text; what Salidium and Seorak say; names from runtimes; and, while pairing, a refusal in the words
 of whatever answers at the typed address. TextMeshPro interprets text even with
 rich text off: a backslash with u and four hex digits becomes that character whatever its

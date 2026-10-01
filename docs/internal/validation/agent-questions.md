@@ -92,6 +92,29 @@ the character read Working while the agent waited for an answer nobody could giv
   message, and the turn goes on. Interrupting the query while the callback waits aborts the
   callback's signal within milliseconds and ends the turn.
 
+## Through the adapters
+
+Built from the surfaces above ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md))
+and tested on 2026-10-01:
+
+- **OpenCode**, end to end against the pinned binary and a fake provider whose model calls the
+  question tool: the question reported with its prompts, answered through the adapter, and the
+  agent receiving the answer; an interrupt while it waits reported as `dismissed` and the turn
+  interrupted. The event mapping is also tested on streams captured from the runs above.
+- **Codex**, end to end against the pinned binary and a fake provider whose model calls
+  `request_user_input`: the question reported with its prompts (Codex marks every one as taking
+  typed text too), the answer reaching the model as the tool's output, and a second answer refused.
+  An interrupt while it waits ends the turn before Codex settles the request, so the turn's end
+  withdraws the question and no `runtime.question.resolved` is reported. A test drives a bare
+  app-server client with the feature switch off and on, and fails if the tool stops being refused
+  without it ("request_user_input is unavailable in Default mode"), if the request stops arriving
+  with it, or if the start warning changes. Secret questions and the switch that turns questions off
+  are tested against a stand-in binary only.
+- **Claude Agent SDK**, against a scripted SDK only: `AskUserQuestion` reported as a question
+  rather than an approval, the answers returned in the tool's input keyed by question text, several
+  labels and typed text joined with ", ", a withdrawn question no longer answerable, and input of
+  another shape shown as an approval. The adapter has not run a question with a real model.
+
 ## Consequences
 
 - All three runtimes have a structured, answerable question surface; for Codex it needs the per

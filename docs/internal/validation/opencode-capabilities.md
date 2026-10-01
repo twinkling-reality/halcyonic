@@ -114,14 +114,15 @@ Runtime observed unless stated.
   then becomes `waiting_for_human`. A turn ended by interrupt clears pending approvals, which
   matches v2 removing them silently.
 - A server that dies mid-turn loses its runs: the adapter reports `runtime.connection.lost` rather
-  than waiting for a recovery that was not observed.
+  than waiting for a recovery that was not observed. A server that still runs but cannot be read is
+  another matter (below, 2026-10-01).
 - Denials cannot carry a reason to the model on 2.0.18; the adapter still sends it, and the defect
   must be re-checked on every upgrade.
 
 ## Not yet tested
 
-Several pending approvals at once and the cascade on reject; `always` replies; the question tool;
-subagents; compaction; `--stdio` and `--service`; Linux and Windows; real providers; long or
+Several pending approvals at once and the cascade on reject; `always` replies; the question tool
+(since verified, [agent-questions.md](agent-questions.md)); subagents; compaction; `--stdio` and `--service`; Linux and Windows; real providers; long or
 concurrent runs.
 
 ## Adapter build (2026-09-26)
@@ -177,3 +178,27 @@ the control plane; the runs, the network and the measurements are in
 - **Network.** The model catalog fetch from `models.opencode.ai` and the download of ripgrep from
   GitHub are described in the local models record; `OPENCODE_DISABLE_MODELS_FETCH=true` stops the
   first, and a ripgrep on the PATH prevents the second.
+
+## Reading sessions back after the Mac sleeps (2026-10-01)
+
+In the fifth headset session the adapter reported `runtime.connection.lost` for an OpenCode server
+that still ran, and the execution stayed `unknown` overnight ([quest-3-device.md](quest-3-device.md)).
+
+- **What happened.** The journal and the Mac's power log, read afterwards: the Mac went to sleep
+  with its lid closed at 03:17:30 UTC and woke at 03:48:56; the loss was recorded in that same
+  second. The event stream had reconnected, and the adapter's first read of the session back
+  timed out while the server was still waking. The adapter took a read failure as final, and from
+  then on ignored the session's events, so nothing could clear `unknown`.
+- **Tested** with the pinned binary and a fake provider: the end to end tests make the adapter's
+  reads of a session fail after a reconnect, once (as on waking) and then until they are let
+  through, by an injected fetch, while the server keeps running. Without the new retry, the first
+  test fails the way the session did.
+- **The adapter now** reads a session again after a failed read (after 1 s and 3 s). When reads
+  still fail, or a request for the session is still unanswered, while the server runs, it reports
+  the loss as before but keeps the session: it reopens the event stream and reads every session
+  back after 5 s, 15 s, 30 s, 60 s and then every 5 minutes, for as long as the server runs. When
+  the session answers it records `runtime.connection.restored`, then what changed meanwhile, as
+  after any reconnect. A server that exits, and a session whose state after the reconnect cannot be
+  settled, are still lost for good.
+- **Not verified:** a real sleep and wake with the adapter running; how long OpenCode takes to
+  answer after a long sleep.

@@ -98,3 +98,12 @@ where each runs and whether it calls tools, and start work on the one chosen.
   configuration. Claude Code's list is verified only against the SDK's types.
 - Revisit when Codex lists a provider's own models, when OpenCode reports whether Ollama serves a
   model locally, and when the XR client starts work.
+
+## Note, 2026-10-01
+
+In the fifth headset session a start reached OpenCode with a hosted model the person had not
+meant to choose ([quest-3-device.md](../validation/quest-3-device.md)). The client now lists the
+Mac's models first and preselects the best local one; as a backstop, admission refuses a start
+without a model on a runtime whose `model_choice` is `'listed'`, in words, with the rejection code
+`model_required` ("Choose a model: this runtime lists the models it can use."). A start may still
+carry no model on a runtime that does not list them. The decision is otherwise unchanged.

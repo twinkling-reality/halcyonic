@@ -33,3 +33,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0019](0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md) | The demonstration reads simulated understanding and evaluation sources through the real contracts and routes, and says so | Accepted |
 | [0020](0020-a-project-works-in-one-host-approved-folder.md) | A project works in one folder the host approves, and clients never name a path | Accepted |
 | [0021](0021-speech-becomes-a-draft-transcribed-on-the-mac.md) | Speech becomes a draft, transcribed on the Mac, that the person confirms like typed text | Proposed |
+| [0022](0022-agent-questions-reach-the-person.md) | An agent's questions reach the person, who answers them through the runtime's own surface | Proposed |
