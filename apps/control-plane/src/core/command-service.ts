@@ -76,17 +76,21 @@ interface ActionOutcome {
  */
 /** How many refused answers' digests are kept to tell a resent answer from another one. */
 const REFUSED_ANSWERS_KEPT = 1000;
+/** How many resends of refused answers one principal may have compared in each fixed minute. */
+const REFUSED_RESENDS_PER_MINUTE = 6;
 
 export class CommandService {
   readonly #deps: CommandServiceDeps;
   /**
-   * Keyed digests of refused commands as sent, by id, for those the journal keeps only in part
-   * (journaledRejection), so a reused id with another answer is still a conflict. The key is drawn
-   * per process and never stored, so a digest cannot be tested against guesses of a short secret.
-   * Gone after a restart, when such a command sent again is answered as a conflict.
+   * Keyed digests of refused commands as sent, by id, with who sent them, for those the journal
+   * keeps only in part (journaledRejection), so a reused id with another answer is still a
+   * conflict. The key is drawn per process and never stored, so a digest cannot be tested against
+   * guesses of a short secret. Gone after a restart, when such a command sent again is a conflict.
    */
-  readonly #refusedDigests = new Map<string, string>();
+  readonly #refusedDigests = new Map<string, { readonly digest: string; readonly by: string }>();
   readonly #digestKey = randomBytes(32);
+  /** Resends of refused answers compared in the current fixed minute, by principal. */
+  readonly #resends = new Map<string, { readonly minute: number; count: number }>();
 
   constructor(deps: CommandServiceDeps) {
     this.#deps = deps;
@@ -107,7 +111,7 @@ export class CommandService {
   ): SubmitOutcome {
     const known = this.#deps.projection.commandEnvelope(command.command_id);
     if (known !== undefined) {
-      return this.#sameAsKnown(known, command)
+      return this.#sameAsKnown(known, command, principal)
         ? { disposition: 'duplicate', command: this.#view(command) }
         : { disposition: 'conflict', command: null };
     }
@@ -120,7 +124,7 @@ export class CommandService {
           'command.rejected',
           admission.scope,
           {
-            command: this.#journaledRejection(command),
+            command: this.#journaledRejection(command, principal),
             // Messages can quote what the client sent; the contract caps them, so they are cut.
             rejection: {
               code: admission.rejection.code,
@@ -564,18 +568,43 @@ export class CommandService {
    * Whether a command sent again under a known id is the one recorded. A refused command the
    * journal keeps only in part is compared by its keyed digest, and is a conflict once that is gone.
    */
-  #sameAsKnown(known: CommandEnvelope, command: CommandEnvelope): boolean {
+  #sameAsKnown(
+    known: CommandEnvelope,
+    command: CommandEnvelope,
+    principal: Principal | null,
+  ): boolean {
     if (canonicalJson(known) === canonicalJson(command)) return true;
     const kept = journaledRejection(command);
     if (kept === command || canonicalJson(known) !== canonicalJson(kept)) return false;
-    return this.#refusedDigests.get(command.command_id) === this.#digest(command);
+    // Every client sees the refusal, all but what was answered. Were anyone told whether a guess
+    // matches, a short answer such as a code could be recovered by resending guesses, so only the
+    // principal that sent it is compared, and only a few times a minute; everyone else gets 409.
+    const refused = this.#refusedDigests.get(command.command_id);
+    if (refused === undefined || refused.by !== principalKey(principal)) return false;
+    if (!this.#mayCompareResend(principal)) return false;
+    return refused.digest === this.#digest(command);
+  }
+
+  #mayCompareResend(principal: Principal | null): boolean {
+    const minute = Math.floor(this.#deps.clock.now().getTime() / 60_000);
+    const key = principalKey(principal);
+    const window = this.#resends.get(key);
+    if (window === undefined || window.minute !== minute) {
+      this.#resends.set(key, { minute, count: 1 });
+      return true;
+    }
+    window.count += 1;
+    return window.count <= REFUSED_RESENDS_PER_MINUTE;
   }
 
   /** The command as a rejection journals it, keeping a digest of what the journal leaves out. */
-  #journaledRejection(command: CommandEnvelope): CommandEnvelope {
+  #journaledRejection(command: CommandEnvelope, principal: Principal | null): CommandEnvelope {
     const kept = journaledRejection(command);
     if (kept !== command) {
-      this.#refusedDigests.set(command.command_id, this.#digest(command));
+      this.#refusedDigests.set(command.command_id, {
+        digest: this.#digest(command),
+        by: principalKey(principal),
+      });
       if (this.#refusedDigests.size > REFUSED_ANSWERS_KEPT) {
         const oldest = this.#refusedDigests.keys().next().value;
         if (oldest !== undefined) this.#refusedDigests.delete(oldest);
@@ -707,4 +736,10 @@ function canonicalJson(value: unknown): string {
       ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
       : inner,
   );
+}
+
+/** Who sent a command, as one key: inside the control plane, the local token, or one device. */
+function principalKey(principal: Principal | null): string {
+  if (principal === null) return 'internal';
+  return principal.kind === 'device' ? `device:${principal.device_id}` : 'local';
 }

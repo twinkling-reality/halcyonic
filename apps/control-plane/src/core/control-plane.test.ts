@@ -312,6 +312,48 @@ describe('command lifecycle', () => {
     await restarted.controlPlane.close();
   });
 
+  test('only who sent a refused answer learns whether a resend matches it, a few times a minute', async () => {
+    const harness = createTestControlPlane();
+    const { controlPlane, commands, time } = harness;
+    const asking = { ...FEATURE, scenario: 'question_asked' };
+    const workstreamId = await createWorkstream(harness, asking);
+    controlPlane.commands.submit(commands.startExecution(workstreamId, asking), 'internal');
+    await time.runUntilIdle();
+    const executionId = controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(executionId !== null && executionId !== undefined);
+    const base = commands.interrupt(executionId);
+    const answer = (pin: string) =>
+      ({
+        ...base,
+        command_type: 'execution.answer_question',
+        payload: {
+          execution_id: executionId,
+          question_id: 'question-1',
+          answers: [{ key: 'q0', selected: [], text: pin }],
+        },
+      }) as never;
+    const local: Principal = { kind: 'local' };
+    const other = { kind: 'device', device_id: createUuidV7Generator().next() } as Principal;
+    const submit = (pin: string, principal: Principal) =>
+      controlPlane.commands.submit(answer(pin), 'websocket', principal).disposition;
+    // Refused: the second question is left unanswered.
+    assert.equal(submit('4821', local), 'rejected');
+    const head = controlPlane.journal.head();
+    // Another principal learns nothing: a correct guess is a conflict like a wrong one.
+    assert.equal(submit('4821', other), 'conflict');
+    assert.equal(submit('0000', other), 'conflict');
+    // Who sent it still gets a duplicate for the same answer, and a conflict for another.
+    assert.equal(submit('4821', local), 'duplicate');
+    assert.equal(submit('1234', local), 'conflict');
+    // A few comparisons a minute: past them, even the same answer is a conflict until the next.
+    for (let resend = 0; resend < 4; resend += 1) submit('1111', local);
+    assert.equal(submit('4821', local), 'conflict');
+    await time.advance(60_000);
+    assert.equal(submit('4821', local), 'duplicate');
+    assert.equal(controlPlane.journal.head(), head, 'no resend is journaled');
+    await controlPlane.close();
+  });
+
   test('instructions follow the declared capabilities', async () => {
     const harness = createTestControlPlane();
     const { controlPlane, commands, time } = harness;

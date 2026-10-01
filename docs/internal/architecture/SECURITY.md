@@ -176,7 +176,9 @@ windows and failed attempts are logged, without the code. Instructions and answe
 questions are work content and are journaled locally; they are never logged. No question asking
 for a secret can be answered through Halcyonic: admission refuses an answer to any prompt marked
 secret, whatever the adapter said, and a refused answer is journaled with its keys only, so what a
-client sent with it never reaches the journal or the other clients. A question that asks for a
+client sent with it never reaches the journal or the other clients. Nor can another client learn it
+by resending guesses under its command id: only the principal that sent it is told whether a
+resend matches, at most six times a minute (DOMAIN_MODEL.md). A question that asks for a
 secret in plain words, without the runtime marking it secret, cannot be told apart and is
 answerable like any other.
 
