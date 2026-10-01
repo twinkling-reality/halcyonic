@@ -813,6 +813,73 @@ describe('Codex runtime against a stand-in binary', () => {
     assertValidObservations(observations);
   });
 
+  test('an answer Codex never confirms may be sent again; one in flight blocks another', async (t) => {
+    const { runtime, start, observations, received } = fake(t, ['ask', 'deaf-once'], {
+      approvalTimeoutMs: 300,
+    });
+    await start();
+    await until(
+      () => observations.some((item) => item.type === 'runtime.question.asked'),
+      'the question',
+    );
+    const asked = observations.find((item) => item.type === 'runtime.question.asked');
+    assert.ok(asked?.type === 'runtime.question.asked');
+    const answer = (selected: string) =>
+      runtime.answerQuestion({
+        execution: TEST_EXECUTION,
+        question_id: asked.payload.question_id,
+        answers: [{ key: 'colour', selected: [selected], text: null }],
+      });
+    const first = answer('red');
+    await assert.rejects(answer('blue'), actionError('answer_in_flight'));
+    await assert.rejects(first, actionError('question_unconfirmed', 'unknown'));
+    assert.equal(
+      observations.some((item) => item.type === 'runtime.question.resolved'),
+      false,
+    );
+    await answer('blue');
+    assert.deepEqual(observations.at(-1)?.payload, {
+      question_id: asked.payload.question_id,
+      outcome: 'answered',
+    });
+    const sent = received().filter((message) => message.id === 0 && message.method === undefined);
+    assert.deepEqual(
+      sent.map((message) => message.result),
+      [
+        { answers: { colour: { answers: ['red'] } } },
+        { answers: { colour: { answers: ['blue'] } } },
+      ],
+    );
+  });
+
+  test('an answer holding a lone surrogate is refused before it reaches Codex', async (t) => {
+    const { runtime, start, observations, received } = fake(t, ['ask']);
+    await start();
+    await until(
+      () => observations.some((item) => item.type === 'runtime.question.asked'),
+      'the question',
+    );
+    const asked = observations.find((item) => item.type === 'runtime.question.asked');
+    assert.ok(asked?.type === 'runtime.question.asked');
+    await assert.rejects(
+      runtime.answerQuestion({
+        execution: TEST_EXECUTION,
+        question_id: asked.payload.question_id,
+        answers: [{ key: 'colour', selected: [], text: 'navy \udc00' }],
+      }),
+      actionError('invalid_answer'),
+    );
+    assert.equal(
+      received().some((message) => message.id === 0 && message.method === undefined),
+      false,
+    );
+    await runtime.answerQuestion({
+      execution: TEST_EXECUTION,
+      question_id: asked.payload.question_id,
+      answers: [{ key: 'colour', selected: [], text: 'navy' }],
+    });
+  });
+
   test('a secret question is shown as unanswerable and left for the person to stop', async (t) => {
     const { runtime, start, observations, received } = fake(t, ['ask-secret']);
     await start();

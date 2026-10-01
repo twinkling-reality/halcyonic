@@ -107,6 +107,13 @@ for other languages. The same command generates the C# bindings for the Unity cl
 ([XR_CLIENT.md](XR_CLIENT.md)). A test fails if either is stale, or if the document validates
 anything differently from the TypeScript validators. See [ADR 0005](../decisions/0005-typebox-contracts-as-single-source.md).
 
+A few rules cannot be written in JSON Schema and are checked by the TypeScript parsers alone:
+an event naming an execution names its workstream, one naming a workstream names its project,
+agent text is `reported`, and every string in a command, keys included, is well-formed Unicode,
+so a lone surrogate never reaches a runtime (Codex drops a message holding one,
+[agent-questions.md](../validation/agent-questions.md)). A command breaking one is answered 400
+`invalid_command`, as for any other contract violation.
+
 To change a contract:
 
 1. Edit the schema in `packages/contracts`.

@@ -428,10 +428,29 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     while (thread.recovering !== null) await thread.recovering;
     const question = thread.state.questions.get(request.question_id);
     if (thread.lost) throw unreachableError();
-    if (question === undefined || question.answered) {
+    if (question === undefined) {
       throw new RuntimeActionError(
         'question_not_pending',
         `Question ${request.question_id} is not waiting for an answer.`,
+      );
+    }
+    if (question.awaiting) {
+      throw new RuntimeActionError(
+        'answer_in_flight',
+        `An answer to question ${request.question_id} is already on its way to Codex.`,
+      );
+    }
+    const answers = Object.fromEntries(
+      request.answers.map((answer) => [
+        answer.key,
+        { answers: [...answer.selected, ...(answer.text === null ? [] : [answer.text])] },
+      ]),
+    );
+    // Codex 0.157.0 drops a message holding a lone surrogate, so such an answer would never arrive.
+    if (Object.values(answers).some(({ answers: given }) => given.some((v) => !v.isWellFormed()))) {
+      throw new RuntimeActionError(
+        'invalid_answer',
+        'The answer holds text that is not well-formed Unicode, which Codex cannot take.',
       );
     }
     const rpc = thread.connection.server.rpc;
@@ -440,24 +459,20 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       thread.confirmations.set(question.questionId, { resolve, reject });
     });
     question.answered = true;
-    const answers = Object.fromEntries(
-      request.answers.map((answer) => [
-        answer.key,
-        { answers: [...answer.selected, ...(answer.text === null ? [] : [answer.text])] },
-      ]),
-    );
+    question.awaiting = true;
     rpc.respond(question.requestId, { answers });
-    const timer = setTimeout(
-      () =>
-        this.#settleWaiter(
-          thread,
-          question.questionId,
-          false,
-          'question_unconfirmed',
-          'Codex did not confirm that it took the answer.',
-        ),
-      this.#approvalTimeoutMs,
-    );
+    const timer = setTimeout(() => {
+      // Codex may not have taken it: the question stays pending and may be answered again. A
+      // later resolution still counts as answered, since an answer was sent.
+      question.awaiting = false;
+      this.#settleWaiter(
+        thread,
+        question.questionId,
+        false,
+        'question_unconfirmed',
+        'Codex did not confirm that it took the answer; it may be answered again.',
+      );
+    }, this.#approvalTimeoutMs);
     try {
       await confirmed;
     } finally {
