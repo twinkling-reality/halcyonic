@@ -813,7 +813,7 @@ describe('Codex runtime against a stand-in binary', () => {
     assertValidObservations(observations);
   });
 
-  test('an answer Codex never confirms may be sent again; one in flight blocks another', async (t) => {
+  test('an answer Codex never confirms may be sent again, then which was taken is unknown', async (t) => {
     const { runtime, start, observations, received } = fake(t, ['ask', 'deaf-once'], {
       approvalTimeoutMs: 300,
     });
@@ -837,7 +837,8 @@ describe('Codex runtime against a stand-in binary', () => {
       observations.some((item) => item.type === 'runtime.question.resolved'),
       false,
     );
-    await answer('blue');
+    // The stand-in ignored the first, but Codex might have taken it late: it confirms only the request.
+    await assert.rejects(answer('blue'), actionError('answer_ambiguous', 'unknown'));
     assert.deepEqual(observations.at(-1)?.payload, {
       question_id: asked.payload.question_id,
       outcome: 'answered',

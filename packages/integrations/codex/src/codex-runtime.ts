@@ -460,6 +460,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     });
     question.answered = true;
     question.awaiting = true;
+    question.sent += 1;
     rpc.respond(question.requestId, { answers });
     const timer = setTimeout(() => {
       // Codex may not have taken it: the question stays pending and may be answered again. A
@@ -794,6 +795,17 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       );
     }
     for (const { question, confirmed } of observed.questionsSettled ?? []) {
+      if (confirmed && question.sent > 1) {
+        // Codex confirms the request, not an answer: the first may have arrived late and been taken.
+        this.#settleWaiter(
+          thread,
+          question.questionId,
+          false,
+          'answer_ambiguous',
+          `Codex took one of the ${question.sent} answers sent to this question and does not say which.`,
+        );
+        continue;
+      }
       this.#settleWaiter(
         thread,
         question.questionId,
