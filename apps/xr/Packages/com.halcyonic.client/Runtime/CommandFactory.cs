@@ -91,6 +91,22 @@ namespace Halcyonic.Client
                 },
             });
 
+        /// <summary>
+        /// Answers a question the agent asked (ADR 0022): one answer per prompt, by the prompt's
+        /// <c>Key</c>, with the labels of the options chosen and any typed text. Send it only on a
+        /// deliberate press, never on the gesture that returns focus to the app.
+        /// </summary>
+        public ExecutionAnswerQuestionCommand AnswerQuestion(string executionId, string questionId, IEnumerable<QuestionAnswer> answers) =>
+            Stamp(new ExecutionAnswerQuestionCommand
+            {
+                Payload = new ExecutionAnswerQuestionPayload
+                {
+                    ExecutionId = executionId,
+                    QuestionId = questionId,
+                    Answers = new List<QuestionAnswer>(answers),
+                },
+            });
+
         public ExecutionInterruptCommand Interrupt(string executionId) =>
             Stamp(new ExecutionInterruptCommand { Payload = new ExecutionInterruptPayload { ExecutionId = executionId } });
 

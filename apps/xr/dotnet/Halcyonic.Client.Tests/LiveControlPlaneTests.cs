@@ -93,7 +93,9 @@ public class LiveControlPlaneTests
             workstream.WorkstreamId,
             "mock",
             "Write and apply the migration.",
-            new Dictionary<string, JToken> { ["scenario"] = scenario }));
+            new Dictionary<string, JToken> { ["scenario"] = scenario },
+            // The mock lists models in a live control plane, so a start chooses one (model_required).
+            modelRef: "mock/fast"));
         return (workstream.WorkstreamId, execution.ExecutionId);
     }
 
@@ -220,6 +222,45 @@ public class LiveControlPlaneTests
         Assert.That(Workspace().Commands.First().Text, Is.EqualTo("Instruction delivered"));
         Assert.That(activity.For(executionId).Last(entry => entry.Kind == ActivityKind.Command).Text,
             Is.EqualTo(Samples.Client.Name + " asked to send an instruction"));
+    }
+
+    [Test]
+    public async Task AnswersAQuestionTheAgentAsked()
+    {
+        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        Connect(controlPlane);
+        await Until(s => s.Status.IsLive, "the session is live");
+        var mock = session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock");
+        Assert.That(mock.Capabilities.AnswerQuestion, Is.True);
+
+        var (workstreamId, executionId) = await StartWorkAsync("question_asked");
+        await Until(
+            s => s.State.Executions[executionId].PendingQuestions.Count == 1,
+            "the agent asks");
+        Assert.That(session.State.Workstreams[workstreamId].Status, Is.EqualTo(WorkstreamStatus.WaitingForHuman));
+        var question = session.State.Executions[executionId].PendingQuestions.Single();
+        Assert.That(question.Answerable, Is.True);
+        Assert.That(question.Prompts.Select(prompt => prompt.Key), Is.EqualTo(new[] { "q0", "q1" }));
+        Assert.That(session.State.Workstreams[workstreamId].Attention.Reasons.Single(), Is.TypeOf<QuestionPendingReason>());
+
+        // An answer that does not fit the questions is refused in words, and nothing changes.
+        var wrong = await session.SubmitAsync(commands.AnswerQuestion(executionId, question.QuestionId, new[]
+        {
+            new QuestionAnswer { Key = "q0", Selected = new List<string> { "Purple" } },
+        }));
+        Assert.That(wrong.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
+        Assert.That(wrong.Command!.Rejection!.Code, Is.EqualTo(RejectionCode.InvalidAnswer));
+
+        await RunAsync(commands.AnswerQuestion(executionId, question.QuestionId, new[]
+        {
+            new QuestionAnswer { Key = "q0", Selected = new List<string>(), Text = "Dark, with the brand blue" },
+            new QuestionAnswer { Key = "q1", Selected = new List<string> { "Orders", "Settings" } },
+        }));
+        await Until(
+            s => s.State.Executions[executionId].Status == ExecutionStatus.Completed,
+            "the turn finishes after the answer");
+        Assert.That(session.State.Executions[executionId].PendingQuestions, Is.Empty);
+        AssertEveryServerMessageRoundTrips();
     }
 
     [Test]
