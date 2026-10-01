@@ -144,7 +144,10 @@ submitted ──> rejected                  (journaled with a reason; nothing el
 - A start that fails with an unknown effect makes the execution `unknown`, not `failed`.
 - Effects are observed separately: an approved request completes as a command, and the runtime's
   `runtime.approval.resolved` shows that the runtime applied it. An answer likewise counts once
-  `runtime.question.resolved` says the runtime took it.
+  `runtime.question.resolved` says the runtime took it. When the turn ends first, as Codex 0.157.0
+  ends an interrupted turn before it settles the request, the turn's end withdraws the question,
+  no resolution is reported, and an answer the runtime had not yet confirmed fails with an unknown
+  effect.
 
 ## Invariants
 
