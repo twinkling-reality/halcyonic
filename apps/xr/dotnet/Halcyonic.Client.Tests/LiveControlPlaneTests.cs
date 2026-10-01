@@ -149,7 +149,7 @@ public class LiveControlPlaneTests
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.WaitingForHuman));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.Synthetic, Is.True);
-        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Approval needed to use bash"));
+        Assert.That(character.AttentionNotes.Single(), Does.StartWith("It wants to use bash"));
         var waiting = WorkspacePresenter.Present(session.State.Workstreams[workstreamId], session.State, activity, live: true);
         Assert.That(waiting.Actions, Is.EqualTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(waiting.Actions.All(waiting.RequiresConfirmation), Is.True, "approving and interrupting are review_required");
@@ -536,7 +536,7 @@ public class LiveControlPlaneTests
         var character = CharacterPresenter.Present(session.State.Workstreams[workstreamId], session.State, session.Status.IsLive);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
         Assert.That(character.Stale, Is.False);
-        Assert.That(character.AttentionNotes.Single(), Does.StartWith("State unknown"));
+        Assert.That(character.AttentionNotes.Single(), Does.StartWith("Can't tell what it's doing"));
 
         AssertEveryServerMessageRoundTrips();
     }

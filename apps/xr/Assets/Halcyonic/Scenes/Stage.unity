@@ -202,7 +202,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Halcyonic.XR::Halcyonic.XR.CharacterStage
   distance: 2.4
-  heightFromEyes: -0.45
+  heightFromEyes: -0.17
   spanDegrees: 60
   maxCharacters: 6
 --- !u!114 &247873108

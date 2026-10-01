@@ -63,9 +63,9 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                failures.AddRange(RenderStage("far", folder, radius: 2.4f, bodyDrop: 0.45f, surfaceDrop: null, hostile: false));
-                failures.AddRange(RenderStage("desk", folder, radius: 0.55f, bodyDrop: 0.36f, surfaceDrop: 0.46f, hostile: false));
-                failures.AddRange(RenderStage("far-untrusted", folder, radius: 2.4f, bodyDrop: 0.45f, surfaceDrop: null, hostile: true));
+                failures.AddRange(RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: false));
+                failures.AddRange(RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f, hostile: false));
+                failures.AddRange(RenderStage("far-untrusted", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: true));
             }
             catch (Exception error)
             {
@@ -80,7 +80,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        private static IEnumerable<string> RenderStage(string name, string folder, float radius, float bodyDrop, float? surfaceDrop, bool hostile)
+        private static IEnumerable<string> RenderStage(string name, string folder, float radius, float? surfaceDrop, bool hostile)
         {
             var failures = new List<string>();
             var root = new GameObject("Entry render " + name);
@@ -89,18 +89,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
-                var characters = new List<(CharacterView View, CharacterTarget Target)>();
-                var slots = new[] { -30f, -18f, -6f, 6f, 18f, 30f };
-                for (var slot = 0; slot < slots.Length; slot++)
-                {
-                    var id = "render-" + slot.ToString(CultureInfo.InvariantCulture);
-                    var view = CharacterView.Create(root.transform, id);
-                    var level = Quaternion.Euler(0f, slots[slot], 0f) * Vector3.forward;
-                    view.transform.SetPositionAndRotation(eyes + level * radius + Vector3.down * bodyDrop, Quaternion.LookRotation(-level, Vector3.up));
-                    view.transform.localScale = Vector3.one * radius;
-                    view.Show(WorkspaceRender.Presentation(id, slot));
-                    characters.Add((view, CharacterTarget.Attach(view, id)));
-                }
+                var characters = WorkspaceRender.Lineup(root.transform, eyes, radius, surfaceDrop, WorkspaceRender.Presentation);
                 var targets = characters.ConvertAll(character => character.Target);
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
 
@@ -126,9 +115,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var railRect = RailRect(camera, rail);
                 foreach (var (view, target) in characters)
                 {
-                    if (Overlap(railRect, ScreenBounds(camera, view.transform.Find("Labels/Plate").GetComponent<Renderer>().bounds)))
+                    if (Overlap(railRect, WorkspaceRender.LabelRect(camera, view)))
                     {
-                        failures.Add(name + ": the rail covers " + view.WorkstreamId + "'s label plate.");
+                        failures.Add(name + ": the rail covers " + view.WorkstreamId + "'s label.");
                     }
                     var body = camera.WorldToScreenPoint(target.BodyPosition);
                     if (railRect.Contains(new Vector2(body.x, body.y))) failures.Add(name + ": the rail covers " + view.WorkstreamId + "'s body.");

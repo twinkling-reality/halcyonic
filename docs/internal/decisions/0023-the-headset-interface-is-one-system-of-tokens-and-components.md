@@ -59,8 +59,15 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   presentation models per surface (character label, rail, panel, ambient strip) say what to show,
   never where. The Unity layer draws a model and lays it out by the tokens.
 - **Character labels in three parts.** A title plate (at most two lines, 96% opaque, TextMeshPro),
-  a state badge on its top edge, and marks for practice, demonstration and recorded work; the
-  reason shows only in the peek.
+  a state badge on its top edge, and marks for practice, demonstration and recorded work on its
+  bottom edge; the reason shows only in the peek. (On 2026-10-01 the marks moved from beside the
+  badge to the plate's bottom edge: beside it, a badge and a mark reach 11 to 13.5 degrees, and
+  neighbours stand 12 apart.)
+- **One word per state.** Not started, Starting, Working, Checking its work, Waiting for you,
+  Finished this round, Checks failed, Couldn't finish, Stopped and Can't tell yet, kept once in the
+  client core (`StateLanguage`). A badge says the short word; a sentence says the same state in
+  full, as a person would ("1 task is waiting for you"). On 2026-10-01 the owner changed "Needs
+  you" to "Waiting for you", after count lines such as "1 needs you" became sentences.
 - **Zones from the eyes.** The virtual stage rises so bodies stand about 4° below eye level;
   foreground panels open below every plate there and above every body on a desk; the rail, peek,
   ambient strip and, in a window mode the person chooses, a lane for a 2D window each have a zone,

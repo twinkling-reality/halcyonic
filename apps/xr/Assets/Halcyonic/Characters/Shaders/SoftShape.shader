@@ -1,15 +1,15 @@
 // Flat, soft-edged shapes around a character, one profile per material: the halo behind it (a
-// radial glow), the ring that sweeps around it while tests run (a band with a bright head and a
-// fading tail), and the plate behind its labels (a rounded rectangle). Edges are anti-aliased in
-// the shader, so they stay smooth without MSAA. CharacterView sets _Color and _Rect per renderer.
+// radial glow), and the ring that sweeps around it while tests run (a band with a bright head and a
+// fading tail). Edges are anti-aliased in the shader, so they stay smooth without MSAA.
+// CharacterView sets _Color per renderer. Its label's shapes are the interface's own
+// (Halcyonic/Glaze Surface).
 Shader "Halcyonic/Soft Shape"
 {
     Properties
     {
-        [Enum(Disc, 0, Band, 1, Plate, 2)] _Profile ("Profile", Float) = 0
+        [Enum(Disc, 0, Band, 1)] _Profile ("Profile", Float) = 0
         _Color ("Color", Color) = (1, 1, 1, 1)
         _Falloff ("Disc falloff", Float) = 1.6
-        _Rect ("Plate width, height and corner radius", Vector) = (1, 1, 0.1, 0)
     }
 
     SubShader
@@ -32,7 +32,6 @@ Shader "Halcyonic/Soft Shape"
             float _Profile;
             float4 _Color;
             float _Falloff;
-            float4 _Rect;
 
             struct appdata
             {
@@ -73,22 +72,13 @@ Shader "Halcyonic/Soft Shape"
                     // A glow: it lightens what is behind it more than it hides it.
                     cover = 0.55;
                 }
-                else if (_Profile < 1.5)
+                else
                 {
                     // Across the band: solid in the middle, a pixel of softness at each edge.
                     float across = saturate((0.5 - abs(i.uv.y - 0.5)) / pixel.y);
                     // Along it: a faint ring, brightening toward a head that ends in a short fade.
                     float along = 0.15 + 0.85 * i.uv.x * i.uv.x * i.uv.x * saturate((1.0 - i.uv.x) * 30.0);
                     alpha = across * along;
-                }
-                else
-                {
-                    float2 extent = _Rect.xy * 0.5;
-                    float2 p = (i.uv - 0.5) * _Rect.xy;
-                    float2 q = abs(p) - extent + _Rect.z;
-                    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - _Rect.z;
-                    float aa = 0.5 * (pixel.x * _Rect.x + pixel.y * _Rect.y);
-                    alpha = saturate(0.5 - d / aa);
                 }
                 float a = _Color.a * alpha;
                 return float4(_Color.rgb * a, a * cover);

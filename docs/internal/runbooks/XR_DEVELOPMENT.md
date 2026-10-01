@@ -155,9 +155,22 @@ It saves the chip on the rail, then the panel with two readings, not set up, no 
 reading, a partial answer and with an agent name from outside, over both stages in `apps/xr/Builds/UsageLeftRenders`,
 each with a close-up, and logs how far below eye level the panel spans (`Halcyonic: usage left
 render ...`). It fails if the chip leaves the rail's free room or comes near a rail button, if the
-panel covers a character's body or label plate or reaches beyond the space the workspace may take,
+panel covers a character's body or label or reaches beyond the space the workspace may take,
 if one of its own words is cut short, or if outside text does not show as written. It reads no
 control plane.
+
+Every state of a task on the stage renders the same way, **Halcyonic > Render Every State on the
+Stage**, or in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.StageRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-stage-render.log
+```
+
+It saves every state at the stage's default distance and height, with the banner and with a peek,
+the demonstration's marked stage, and a desk, each with close-ups at a Quest 3's pixels per degree,
+in `apps/xr/Builds/StageRenders`, and logs how far down the labels end and the smallest text
+(`Halcyonic: stage render ...`). The interface's rules it checks are in
+[XR_CLIENT.md](../architecture/XR_CLIENT.md).
 
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
@@ -185,8 +198,8 @@ pnpm demo
 
 Enter Play mode with the Meta XR Simulator active. The client reads the token from
 `~/.halcyonic/access-token` (override with `HALCYONIC_TOKEN_FILE` or `HALCYONIC_DATA_DIR`) and
-connects to `ws://127.0.0.1:47800/realtime` (override with `HALCYONIC_ENDPOINT`). The line above
-the characters says whether the state is live.
+connects to `ws://127.0.0.1:47800/realtime` (override with `HALCYONIC_ENDPOINT`). The banner under
+the characters' labels says whether the state is live.
 
 - **Keep the editor frontmost.** The editor submitted XR frames only while it was the active
   application; hidden or merely visible, the session stayed at READY and nothing rendered. Run In
@@ -207,11 +220,12 @@ workstream.
 
 - Three characters appear for the demo's three workstreams, each with its title and a written
   status.
-- The approval workstream shows "Needs you" with the approval explained, and rises toward the eye
-  line; after the demo approves it, it returns to working and then "Turn finished".
+- The approval workstream shows "Waiting for you", with the approval explained in its peek, and
+  rises toward the eye line; after the demo approves it, it returns to working and then "Finished
+  this round".
 - The replayed traces show the same states, labeled as recorded, including the failure trace's
   failed, unknown and interrupted characters, each with its reason written out.
-- Stopping the control plane shows "Disconnected, showing the last known state"; restarting it
+- Stopping the control plane shows "Last known: can't reach your Mac. Trying again…"; restarting it
   reconnects without restarting Play mode.
 - Everything works with hands only; no controller is needed.
 - Opening the system menu hides the hands and keeps the scene rendering (VRC.Quest.Input.4).
@@ -896,8 +910,9 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
 2. **Watch.** Select the video. The log says focus went to another window; three seconds later,
    large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
    on the stage moves. Characters keep animating.
-3. **Needs you while watching.** Make a workstream need you. The character rises and turns, and the
-   line above the stage says "1 task is waiting for you" in amber. Can you see either past the window?
+3. **Waiting for you while watching.** Make a workstream need you. The character rises and turns,
+   and the banner under the stage says "1 task is waiting for you" in amber. Can you see either past
+   the window?
 4. **Return by hand.** Pinch on a character, the rail or empty space. The first pinch only returns
    focus: nothing opens or presses, and panels come back as they were. Then open the character and
    read the request.
@@ -926,5 +941,36 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
 
 Record what each step showed in [quest-3-device.md](../validation/quest-3-device.md), including what
 did not happen as written. A step not tried stays unverified.
+
+### The interface on a Quest
+
+The first surfaces of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
+to judge with the headset on: character labels and the stage's height. A session of 15 minutes,
+seated, hands only, in passthrough, with `pnpm demo` running, or the demonstration. For each step,
+note what you saw and how it felt.
+
+1. **Stage height.** The characters stand 2.4 m away with their centers about 4 degrees below your
+   eyes (`heightFromEyes` -0.17 on the stage in `Stage.unity`, was -0.45). Sitting comfortably,
+   are the bodies easy to see without lifting your chin, and do they ever sit where a system window
+   would open? If a value feels better, try -0.12 or -0.22 and note which.
+2. **Labels.** Each label has a state badge on top, the task's title on a dark plate, and Practice,
+   Demo or Recorded on the plate's bottom edge. From your seat, can you read every title and badge
+   without leaning? Do neighbours' labels ever touch? Does any title cut off where you need its end?
+3. **The badge words.** Waiting for you, Working, Checking its work, Finished this round, Checks
+   failed, Couldn't finish, Can't tell yet, Stopped. Do they say what each character is doing,
+   without the colours?
+4. **Waiting for you.** Make a task wait for you. Its badge turns amber and breathes slowly, and the
+   character rises. Is the breath noticeable but calm?
+5. **The banner.** Under the labels, centred, it says "Connected to your Mac". Stop the control
+   plane: it says "Last known: can't reach your Mac. Trying again…", and every badge turns grey and
+   dotted. Can you still read the badges' words?
+6. **The peek.** Rest your gaze on a character, then point at one. The card hangs under its label,
+   faces you and shows the state, the reason and what opening is for, and the banner steps aside.
+   Is it near enough to read without reaching, and does it ever cover another label?
+7. **The workspace.** Open a character. The workspace opens under every label, about 30 degrees
+   down. Is that comfortable to read, and can you still see the badges above it?
+8. **A desk** (room placement on). The characters stand on the desk with their labels resting on
+   it, spread a little wider, the banner above them. Can you read the labels looking down, and does
+   any body hide its own badge?
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

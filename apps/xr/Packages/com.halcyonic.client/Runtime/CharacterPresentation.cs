@@ -41,7 +41,8 @@ namespace Halcyonic.Client
             int pendingApprovals,
             bool synthetic,
             bool recorded,
-            bool stale)
+            bool stale,
+            IReadOnlyList<string>? attentionDetails = null)
         {
             WorkstreamId = workstreamId;
             Title = title;
@@ -53,6 +54,7 @@ namespace Halcyonic.Client
             Synthetic = synthetic;
             Recorded = recorded;
             Stale = stale;
+            AttentionDetails = attentionDetails ?? attentionNotes;
         }
 
         public string WorkstreamId { get; }
@@ -68,6 +70,13 @@ namespace Halcyonic.Client
 
         /// <summary>Why the character needs attention, one line per reason, as <see cref="LabelText.Plain"/> shows it.</summary>
         public IReadOnlyList<string> AttentionNotes { get; }
+
+        /// <summary>
+        /// The same reasons without the words the state already says, for the peek beside a state
+        /// badge: "The model provider rejected the request." under Couldn't finish, never "Couldn't finish: ...".
+        /// Empty where a reason has nothing more to say than its state. Shown as <see cref="LabelText.Plain"/> shows it.
+        /// </summary>
+        public IReadOnlyList<string> AttentionDetails { get; }
 
         public int PendingApprovals { get; }
 
@@ -88,18 +97,25 @@ namespace Halcyonic.Client
             var execution = state.CurrentExecution(workstream);
             var activity = ActivityOf(workstream.Status);
             var notes = new List<string>();
-            foreach (var reason in workstream.Attention.Reasons) notes.Add(LabelText.Plain(Explain(reason, state)));
+            var details = new List<string>();
+            foreach (var reason in workstream.Attention.Reasons)
+            {
+                var (note, detail) = Explain(reason, state);
+                notes.Add(LabelText.Plain(note));
+                details.Add(LabelText.Plain(detail));
+            }
             return new CharacterPresentation(
                 workstream.WorkstreamId,
                 LabelText.Plain(workstream.Title),
                 activity,
-                LabelOf(activity),
+                StateLanguage.WordOf(StateLanguage.StateOf(activity, workstream.Attention.Level)),
                 workstream.Attention.Level,
                 notes,
                 execution?.PendingApprovals.Count ?? 0,
                 execution?.Runtime.Synthetic ?? false,
                 state.Journal?.Origin == JournalOrigin.Fixture,
-                !live);
+                !live,
+                details);
         }
 
         public static CharacterActivity ActivityOf(WorkstreamStatus status) => status switch
@@ -116,19 +132,11 @@ namespace Halcyonic.Client
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unhandled workstream status."),
         };
 
-        public static string LabelOf(CharacterActivity activity) => activity switch
-        {
-            CharacterActivity.Idle => "Not started",
-            CharacterActivity.Starting => "Starting",
-            CharacterActivity.Working => "Working",
-            CharacterActivity.Verifying => "Running tests",
-            CharacterActivity.WaitingForHuman => "Needs you",
-            CharacterActivity.TurnFinished => "Turn finished",
-            CharacterActivity.Failed => "Failed",
-            CharacterActivity.Interrupted => "Stopped",
-            CharacterActivity.Unknown => "State unknown",
-            _ => throw new ArgumentOutOfRangeException(nameof(activity), activity, "Unhandled activity."),
-        };
+        /// <summary>
+        /// The state word for an activity alone, where its attention is not known: the state language's
+        /// word (<see cref="StateLanguage"/>), so every surface says the same.
+        /// </summary>
+        public static string LabelOf(CharacterActivity activity) => StateLanguage.WordOf(StateLanguage.StateOf(activity, AttentionLevel.None));
 
         /// <summary>
         /// A question in one line: its one prompt whole, or, for several, how many and their headers,
@@ -146,7 +154,11 @@ namespace Halcyonic.Client
             return headers.Count == question.Prompts.Count ? count + ": " + string.Join("; ", headers) : count + ".";
         }
 
-        private static string Explain(AttentionReason reason, ClientProjection state)
+        /// <summary>
+        /// A reason in words, and the same without what the state already says: under Couldn't finish
+        /// the peek gives only why. A reason that has nothing more to say than its state has no detail.
+        /// </summary>
+        private static (string Note, string Detail) Explain(AttentionReason reason, ClientProjection state)
         {
             state.Executions.TryGetValue(reason.ExecutionId, out var execution);
             switch (reason)
@@ -156,30 +168,32 @@ namespace Halcyonic.Client
                     {
                         if (pending.ApprovalId == approval.ApprovalId && pending.Subject is ToolUseSubject tool)
                         {
-                            return "Approval needed to use " + tool.ToolName + ": " + tool.Summary;
+                            var note = "It wants to use " + tool.ToolName + ": " + tool.Summary;
+                            return (note, note);
                         }
                     }
-                    return "Approval needed.";
+                    return ("It wants your approval.", "It wants your approval.");
                 case QuestionPendingReason question:
                     foreach (var pending in execution?.PendingQuestions ?? new List<QuestionView>())
                     {
                         if (pending.QuestionId != question.QuestionId || pending.Prompts.Count == 0) continue;
-                        return AsksYou(pending);
+                        var asks = AsksYou(pending);
+                        return (asks, asks);
                     }
-                    return "It asks you a question.";
+                    return ("It asks you a question.", "It asks you a question.");
                 case ExecutionFailedReason _:
-                    return execution?.StatusReason is { } failure ? "Failed: " + failure.Message : "The execution failed.";
+                    return execution?.StatusReason is { } failure ? ("Couldn't finish: " + failure.Message, failure.Message) : ("It couldn't finish.", "");
                 case ExecutionStateUnknownReason _:
                     return execution?.StatusReason is { } unknown
-                        ? "State unknown: " + unknown.Message
-                        : "Halcyonic cannot currently observe this execution.";
+                        ? ("Can't tell what it's doing: " + unknown.Message, unknown.Message)
+                        : ("Can't tell what it's doing right now.", "");
                 case VerificationFailedReason tests:
                     var run = execution?.LastTestRun;
                     return run != null && run.TestRunId == tests.TestRunId && run.Summary != null
-                        ? "Tests failed: " + run.Summary
-                        : "Tests failed.";
+                        ? ("Checks: " + run.Summary, run.Summary)
+                        : ("Its checks didn't pass.", "");
                 default:
-                    return "Needs attention.";
+                    return ("It needs a look.", "");
             }
         }
     }

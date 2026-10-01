@@ -1,7 +1,7 @@
 {
   "name": "Halcyonic.XR",
   "rootNamespace": "Halcyonic.XR",
-  "references": ["Halcyonic.Client", "Halcyonic.Contracts"],
+  "references": ["Halcyonic.Client", "Halcyonic.Contracts", "Halcyonic.XR.UI", "Unity.TextMeshPro"],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

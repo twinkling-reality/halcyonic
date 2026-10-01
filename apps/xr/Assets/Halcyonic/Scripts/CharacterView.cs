@@ -1,14 +1,16 @@
 #nullable enable
 using Halcyonic.Client;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR
 {
     /// <summary>
     /// A workstream's character: a glossy bot whose shape and color are the workstream's identity
-    /// and whose eyes, motion and light show its state, with the title, the status and the
-    /// attention notes written underneath, so no state depends on color or motion alone
-    /// (docs/internal/decisions/0013-characters-are-bots-with-a-living-surface.md).
+    /// and whose eyes, motion and light show its state
+    /// (docs/internal/decisions/0013-characters-are-bots-with-a-living-surface.md), with its label
+    /// underneath: the state badge, the task's title and its mark, kept apart
+    /// (<see cref="CharacterLabelView"/>, ADR 0023), so no state depends on color or motion alone.
     /// </summary>
     /// <remarks>
     /// The character's own transform is its place on the stage: its forward axis points at the
@@ -37,17 +39,11 @@ namespace Halcyonic.XR
         /// </summary>
         private const float BodyScale = 0.07f;
 
-        /// <summary>The widest a label plate gets: about 11 degrees, less than the 12 between slots.</summary>
-        private const float LabelWidth = 0.2f;
-        private const float LabelTop = -0.1f;
-        private const float LabelPadding = 0.01f;
-        private const float LabelGap = 0.005f;
-        private const float TitleEm = 0.021f;
-        private const float StatusEm = 0.018f;
-        private const float NotesEm = 0.016f;
-
         /// <summary>How far a character that needs its person rises, at most.</summary>
         private const float RiseHeight = 0.085f;
+
+        /// <summary>The highest a character's body reaches above its place, risen and moving, in its own units.</summary>
+        public const float HighestReach = RiseHeight + BodyRadius;
 
         private const float EyeSwitchSeconds = 0.18f;
 
@@ -65,7 +61,6 @@ namespace Halcyonic.XR
         private static readonly int LookId = Shader.PropertyToID("_Look");
         private static readonly int EyeLayoutId = Shader.PropertyToID("_EyeLayout");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
-        private static readonly int RectId = Shader.PropertyToID("_Rect");
 
         private static readonly Color NeedsYouLight = new Color(1f, 0.68f, 0.24f);
         private static readonly Color FailedLight = new Color(1f, 0.35f, 0.31f);
@@ -80,15 +75,10 @@ namespace Halcyonic.XR
         private MeshRenderer haloRenderer = null!;
         private Transform ring = null!;
         private MeshRenderer ringRenderer = null!;
-        private Transform labels = null!;
-        private MeshRenderer plateRenderer = null!;
-        private TextMesh title = null!;
-        private TextMesh status = null!;
-        private TextMesh notes = null!;
+        private CharacterLabelView label = null!;
         private MaterialPropertyBlock bodyBlock = null!;
         private MaterialPropertyBlock haloBlock = null!;
         private MaterialPropertyBlock ringBlock = null!;
-        private MaterialPropertyBlock plateBlock = null!;
         private CharacterIdentity identity = null!;
         private Vector4 bodyColor;
         private Vector4 eyeLayout;
@@ -96,11 +86,6 @@ namespace Halcyonic.XR
         private CharacterPresentation? presentation;
         private CharacterCues? cues;
         private bool lookAtPerson;
-        private string shownTitle = "";
-        private string shownStatus = "";
-        private string shownNotes = "";
-        private CharacterHalo shownHalo;
-        private bool shownGhosted;
 
         // The animation, advanced every frame toward the cues' targets.
         private float clock;
@@ -139,10 +124,22 @@ namespace Halcyonic.XR
         internal Transform? Person { get; set; }
 
         /// <summary>
-        /// The lowest point of the character at rest, the bottom of its label plate, in its own units
-        /// below its origin: what rests on a surface.
+        /// The lowest point of the character at rest, the bottom of its label, mark included, in its
+        /// own units below its origin: what rests on a surface.
         /// </summary>
-        internal float Footing { get; private set; } = LabelTop;
+        internal float Footing => label.Bottom;
+
+        /// <summary>Half the width of the character's label, in its own units: how far to each side it reaches.</summary>
+        public float LabelHalfWidth => label.HalfWidth;
+
+        /// <summary>How far below the character's origin its label reaches, in its own units: a negative height.</summary>
+        public float LabelBottom => label.Bottom;
+
+        /// <summary>The label under the character, for renders and their checks.</summary>
+        public CharacterLabelView Label => label;
+
+        /// <summary>How far below or above eye level the person sees the character, in degrees, which sets how low its label hangs.</summary>
+        public void ViewedFrom(float elevationDegrees) => label.ViewFrom(elevationDegrees);
 
         public static CharacterView Create(Transform parent, string workstreamId)
         {
@@ -170,7 +167,7 @@ namespace Halcyonic.XR
                 nextEyeKind = kind;
                 eyeSwitch = EyeSwitchSeconds;
             }
-            ShowLabels(next, cues);
+            label.Show(CharacterLabel.Of(next));
             if (first) Advance(0f, true);
         }
 
@@ -211,18 +208,14 @@ namespace Halcyonic.XR
             ringRenderer.enabled = false;
 
             // Text reads along its parent's forward axis, and the character faces the person.
-            labels = new GameObject("Labels").transform;
+            var labels = new GameObject("Labels").transform;
             labels.SetParent(transform, false);
             labels.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            plateRenderer = Labels.CreatePlate(labels, "Plate");
-            title = Labels.CreateSized(labels, "Title", Vector3.zero, TitleEm, FontStyle.Bold, TextAnchor.UpperCenter);
-            status = Labels.CreateSized(labels, "Status", Vector3.zero, StatusEm, FontStyle.Normal, TextAnchor.UpperCenter);
-            notes = Labels.CreateSized(labels, "Notes", Vector3.zero, NotesEm, FontStyle.Normal, TextAnchor.UpperCenter);
+            label = CharacterLabelView.Create(labels);
 
             bodyBlock = new MaterialPropertyBlock();
             haloBlock = new MaterialPropertyBlock();
             ringBlock = new MaterialPropertyBlock();
-            plateBlock = new MaterialPropertyBlock();
         }
 
         private static MeshRenderer CreateRenderer(Transform parent, string name, Mesh mesh, Material material)
@@ -512,70 +505,6 @@ namespace Halcyonic.XR
                 default:
                     return 0f;
             }
-        }
-
-        /// <summary>Writes the title, status and notes under the character, wrapped to its width, on a plate.</summary>
-        private void ShowLabels(CharacterPresentation next, CharacterCues nextCues)
-        {
-            var statusLine = StatusLine(next);
-            var noteText = string.Join("\n", next.AttentionNotes);
-            if (next.Title == shownTitle && statusLine == shownStatus && noteText == shownNotes
-                && nextCues.Halo == shownHalo && nextCues.Ghosted == shownGhosted)
-            {
-                return;
-            }
-            shownTitle = next.Title;
-            shownStatus = statusLine;
-            shownNotes = noteText;
-            shownHalo = nextCues.Halo;
-            shownGhosted = nextCues.Ghosted;
-
-            var width = LabelWidth - 2f * LabelPadding;
-            title.text = Labels.Wrap(title, next.Title, width, 3, out var titleLines);
-            status.text = Labels.Wrap(status, statusLine, width, 2, out var statusLines);
-            var noteLines = 0;
-            notes.text = noteText.Length == 0 ? "" : Labels.Wrap(notes, noteText, width, 4, out noteLines);
-
-            var y = LabelTop - LabelPadding;
-            title.transform.localPosition = new Vector3(0f, y, 0f);
-            y -= titleLines * Labels.LineHeight(title) + LabelGap;
-            status.transform.localPosition = new Vector3(0f, y, 0f);
-            y -= statusLines * Labels.LineHeight(status);
-            if (noteLines > 0)
-            {
-                y -= LabelGap;
-                notes.transform.localPosition = new Vector3(0f, y, 0f);
-                y -= noteLines * Labels.LineHeight(notes);
-            }
-            var bottom = y - LabelPadding;
-            Footing = bottom;
-
-            title.color = new Color(0.97f, 0.98f, 1f);
-            status.color = nextCues.Halo == CharacterHalo.NeedsYou ? new Color(1f, 0.8f, 0.47f)
-                : nextCues.Halo == CharacterHalo.Failed ? new Color(1f, 0.66f, 0.62f)
-                : new Color(0.8f, 0.85f, 0.93f);
-            notes.color = new Color(0.86f, 0.89f, 0.94f);
-
-            // As wide as the widest line, so neighbours' plates keep apart. Behind the text as the
-            // person sees it; the labels' forward axis points away from them.
-            var textWidth = Mathf.Max(Labels.WidestLine(title), Mathf.Max(Labels.WidestLine(status), Labels.WidestLine(notes)));
-            var plateWidth = Mathf.Min(LabelWidth, textWidth + 2f * LabelPadding);
-            var plate = plateRenderer.transform;
-            plate.localPosition = new Vector3(0f, (LabelTop + bottom) / 2f, 0.002f);
-            plate.localScale = new Vector3(plateWidth, LabelTop - bottom, 1f);
-            plateBlock.SetColor(ColorId, new Color(0.06f, 0.07f, 0.09f, nextCues.Ghosted ? 0.45f : 0.62f));
-            plateBlock.SetVector(RectId, new Vector4(plateWidth, LabelTop - bottom, 0.016f, 0f));
-            plateRenderer.SetPropertyBlock(plateBlock);
-        }
-
-        private static string StatusLine(CharacterPresentation character)
-        {
-            var line = character.StatusLabel;
-            if (character.PendingApprovals > 1) line += " (" + character.PendingApprovals + " approvals)";
-            if (character.Synthetic) line += " · simulated";
-            if (character.Recorded) line += " · recorded";
-            if (character.Stale) line += " · last known";
-            return line;
         }
     }
 }

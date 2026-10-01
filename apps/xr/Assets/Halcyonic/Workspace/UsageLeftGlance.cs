@@ -162,6 +162,8 @@ namespace Halcyonic.XR.Workspace
             chip.Pressed += Toggle;
             panel = new GameObject("Usage left panel").transform;
             panel.SetParent(transform, false);
+            // The stage's banner steps aside while the panel shows where it goes.
+            AmbientCover.Add(panel.gameObject, panel: true);
             plate = WorkspaceVisuals.Plate(panel, "Background", new Vector2(Width, 0.2f), WorkspaceVisuals.PanelColor, WorkspaceVisuals.PanelPlateOrder);
             target = PointerTarget.Rectangle(panel.gameObject, new Vector2(Width, 0.2f), ray: true, poke: false);
             title = WorkspaceVisuals.Text(panel, "Title", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor,

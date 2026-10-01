@@ -1,71 +1,65 @@
 #nullable enable
 using System.Collections.Generic;
 using Halcyonic.Client;
-using TMPro;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// The peek: one line beside a character, saying what it needs from the person or what it did
-    /// last, fading in and out as <see cref="Halcyonic.Client.PeekChoice"/> decides. It sits on the
-    /// side facing the middle of the person's view, a little in front of the character so a
-    /// neighbour never hides it.
+    /// The peek: a card for one character (<see cref="PeekCardView"/>) with its state, the reason in
+    /// a sentence or two and what opening it is for, fading in and out as
+    /// <see cref="Halcyonic.Client.PeekChoice"/> decides. It hangs just under the character's label,
+    /// where the banner steps aside for it (<see cref="AmbientCover"/>); while a panel is open under
+    /// the labels, or the characters stand on a surface, it stands just above the highest the
+    /// character reaches instead (ADR 0023). It faces the eyes, nearer than the characters, at
+    /// <see cref="WorkspaceVisuals.PeekDistance"/> or less, so no character hides it.
     /// </summary>
     public sealed class PeekLabel : MonoBehaviour
     {
-        private const float MaxWidth = 0.9f;
-        private const float LineHeight = 0.045f;
-        private const float Beside = 0.19f;
-        private const float Forward = 0.08f;
-        private readonly List<PeekObstacle> obstacles = new List<PeekObstacle>();
+        /// <summary>The angle between the card and what it hangs under or stands over: more than the degree kept between things.</summary>
+        private const float GapDegrees = 1.25f;
 
-        private TextMeshPro text = null!;
-        private SpriteRenderer plate = null!;
+        /// <summary>How near the card comes, as a share of the character's distance, when the characters stand near.</summary>
+        private const float NearerShare = 0.8f;
+
+        private PeekCardView card = null!;
         private CharacterTarget? character;
         private IEnumerable<CharacterTarget>? neighbors;
-        private string shownLine = "";
-        private float width;
-        private float side = 1f;
+        private bool above;
+
+        /// <summary>The card, for renders and their checks.</summary>
+        public PeekCardView Card => card;
 
         public static PeekLabel Create(Transform parent)
         {
             var go = new GameObject("Peek");
             go.transform.SetParent(parent, false);
             var peek = go.AddComponent<PeekLabel>();
-            peek.plate = WorkspaceVisuals.Plate(go.transform, "Plate", new Vector2(0.1f, 0.06f), WorkspaceVisuals.PanelColor, WorkspaceVisuals.PlateOrder);
-            peek.text = WorkspaceVisuals.Text(go.transform, "Line", WorkspaceVisuals.PeekSize, WorkspaceVisuals.TextColor,
-                new Vector2(MaxWidth, LineHeight), TextAlignmentOptions.MidlineLeft);
+            peek.card = PeekCardView.Create(go.transform);
+            AmbientCover.Add(go, panel: false);
             go.SetActive(false);
             return peek;
         }
 
-        /// <summary>Shows <paramref name="line"/> beside <paramref name="target"/>, as visible as <paramref name="opacity"/>, from 0 to 1.</summary>
-        public void Show(CharacterTarget target, IEnumerable<CharacterTarget> neighbors, string line, float opacity)
+        /// <summary>
+        /// Shows <paramref name="peek"/> for <paramref name="target"/>, as visible as
+        /// <paramref name="opacity"/>, from 0 to 1, above the character when <paramref name="aboveCharacter"/>,
+        /// and under its label and those of <paramref name="others"/> it would pass in front of otherwise.
+        /// </summary>
+        public void Show(CharacterTarget target, IEnumerable<CharacterTarget> others, PeekCard peek, float opacity, bool aboveCharacter)
         {
             if (opacity <= 0f)
             {
                 Hide();
                 return;
             }
-            if (target != character)
-            {
-                // Chosen once per peek, so it does not flip sides while the person looks around.
-                side = SideFacingTheMiddle(target.BodyPosition);
-            }
             character = target;
-            this.neighbors = neighbors;
-            if (line != shownLine)
-            {
-                shownLine = line;
-                // What needs the person or what it did last: words from agents and tools, shown as written.
-                WorkspaceVisuals.SetLiteral(text, line);
-                width = Mathf.Min(MaxWidth, text.GetPreferredValues(text.text).x + 0.01f);
-            }
-            var eased = Mathf.SmoothStep(0f, 1f, opacity);
-            text.color = WithAlpha(WorkspaceVisuals.TextColor, eased);
-            plate.color = WithAlpha(WorkspaceVisuals.PanelColor, eased);
+            neighbors = others;
+            above = aboveCharacter;
             gameObject.SetActive(true);
+            card.Show(peek);
+            card.Fade(Mathf.SmoothStep(0f, 1f, opacity));
             Place();
         }
 
@@ -87,50 +81,59 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// +1 for the person's right of <paramref name="position"/>, -1 for its left: toward the middle
-        /// of the view, so a character right of where the person looks gets its peek on its left.
+        /// Hangs the card just under the character's label, or stands it just over the highest its
+        /// body reaches: its middle where that puts it, facing the eyes with no roll, at the angular
+        /// size it was built for.
         /// </summary>
-        public static float SideFacingTheMiddle(Vector3 position)
-        {
-            var toward = WorkspaceVisuals.FacingPerson(position) * Vector3.forward;
-            var head = WorkspaceVisuals.Head;
-            var looking = head != null ? Vector3.ProjectOnPlane(head.forward, Vector3.up) : toward;
-            return Vector3.SignedAngle(looking, toward, Vector3.up) > 0f ? -1f : 1f;
-        }
-
-        private static Color WithAlpha(Color color, float alpha) => new Color(color.r, color.g, color.b, color.a * alpha);
-
         private void Place()
         {
             if (character == null) return;
-            var body = character.BodyPosition;
-            var rotation = WorkspaceVisuals.FacingPerson(body);
-            // The same angular size at any distance, like the characters themselves.
-            var scale = WorkspaceVisuals.ScaleFor(body, WorkspaceVisuals.PeekDistance);
-            var left = side > 0f ? Beside : -Beside - width;
-            obstacles.Clear();
-            if (neighbors != null)
+            var eyes = WorkspaceVisuals.HeadPosition;
+            var view = character.View;
+            var place = view.transform.position;
+            var yaw = Mathf.Atan2(place.x - eyes.x, place.z - eyes.z) * Mathf.Rad2Deg;
+            // The card's size as angles: it is built in units of its distance.
+            var half = Mathf.Atan(card.Height / 2f) * Mathf.Rad2Deg;
+            var halfWidth = Mathf.Atan(PeekCardView.Width / 2f) * Mathf.Rad2Deg;
+            float edge;
+            if (above)
             {
-                var rightward = rotation * Vector3.right;
-                var upward = rotation * Vector3.up;
-                var away = rotation * Vector3.forward;
-                foreach (var neighbor in neighbors)
-                {
-                    if (neighbor == null || neighbor == character) continue;
-                    var difference = neighbor.BodyPosition - body;
-                    obstacles.Add(new PeekObstacle(Vector3.Dot(difference, rightward), Vector3.Dot(difference, upward),
-                        Vector3.Dot(difference, away), CharacterView.BodyRadius * neighbor.Scale));
-                }
+                edge = Elevation(eyes, place + Vector3.up * (CharacterView.HighestReach * view.transform.lossyScale.y)) + GapDegrees;
             }
-            var offset = PeekPlacement.FrontOffset(CharacterView.BodyRadius * character.Scale, Forward * scale,
-                (left - 0.025f) * scale, (left + width + 0.025f) * scale,
-                (LineHeight + 0.02f) * scale / 2f, obstacles);
-            transform.localScale = Vector3.one * scale;
-            transform.SetPositionAndRotation(body - rotation * Vector3.forward * offset, rotation);
-            text.rectTransform.localPosition = new Vector3(left, LineHeight / 2f, -0.001f);
-            text.rectTransform.sizeDelta = new Vector2(width, LineHeight);
-            plate.transform.localPosition = new Vector3(left + width / 2f, 0f, 0f);
-            plate.size = new Vector2(width + 0.05f, LineHeight + 0.02f);
+            else
+            {
+                // Under its own label, and under any neighbour's it reaches across, whichever is lower.
+                edge = Elevation(eyes, place + Vector3.up * (view.LabelBottom * view.transform.lossyScale.y));
+                if (neighbors != null)
+                {
+                    foreach (var other in neighbors)
+                    {
+                        if (other == null || other == character) continue;
+                        var otherView = other.View;
+                        var otherPlace = otherView.transform.position;
+                        var scale = otherView.transform.lossyScale.y;
+                        var otherYaw = Mathf.Atan2(otherPlace.x - eyes.x, otherPlace.z - eyes.z) * Mathf.Rad2Deg;
+                        var otherHalf = Mathf.Atan2(otherView.LabelHalfWidth * scale, Vector3.Distance(eyes, otherPlace)) * Mathf.Rad2Deg;
+                        if (Mathf.Abs(Mathf.DeltaAngle(yaw, otherYaw)) >= halfWidth + otherHalf + GapDegrees) continue;
+                        edge = Mathf.Min(edge, Elevation(eyes, otherPlace + Vector3.up * (otherView.LabelBottom * scale)));
+                    }
+                }
+                edge -= GapDegrees;
+            }
+            var elevation = above ? edge + half : edge - half;
+            var distance = Mathf.Min(WorkspaceVisuals.PeekDistance, NearerShare * Vector3.Distance(eyes, place));
+            var direction = Quaternion.Euler(-elevation, yaw, 0f) * Vector3.forward;
+            transform.SetPositionAndRotation(eyes + direction * distance, Quaternion.LookRotation(direction, Vector3.up));
+            transform.localScale = Vector3.one * distance;
+            // The card hangs from its top edge's middle; its own middle goes where the direction points.
+            card.transform.localPosition = new Vector3(0f, card.Height / 2f, 0f);
+        }
+
+        /// <summary>The elevation of a point from the eyes, in degrees, up from eye level.</summary>
+        private static float Elevation(Vector3 eyes, Vector3 point)
+        {
+            var toward = point - eyes;
+            return Mathf.Atan2(toward.y, Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 0.01f)) * Mathf.Rad2Deg;
         }
     }
 }

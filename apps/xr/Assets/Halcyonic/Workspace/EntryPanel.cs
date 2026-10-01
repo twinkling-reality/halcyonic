@@ -210,6 +210,8 @@ namespace Halcyonic.XR.Workspace
             welcomed = PlayerPrefs.GetInt(WelcomedPreference, 0) == 1;
             root = new GameObject("Entry panel").transform;
             root.SetParent(transform, false);
+            // The stage's banner steps aside while the panel shows where it goes.
+            AmbientCover.Add(root.gameObject, panel: true);
             WorkspaceVisuals.Plate(root, "Background", new Vector2(Width, Height), WorkspaceVisuals.PanelColor, WorkspaceVisuals.PanelPlateOrder);
             // The background takes the ray, so nothing behind the panel is pointed at through it.
             PointerTarget.Rectangle(root.gameObject, new Vector2(Width, Height), ray: true, poke: false);

@@ -7,16 +7,16 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Plate
-  m_Shader: {fileID: 4800000, guid: 6ea8b063c2bdf45369379f482eb76509, type: 3}
+  m_Name: Surface
+  m_Shader: {fileID: 4800000, guid: 4fc848522ede487a8cd1e17faeb8643d, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2995
+  m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -24,11 +24,11 @@ Material:
     serializedVersion: 3
     m_TexEnvs: []
     m_Ints: []
-    m_Floats:
-    - _Falloff: 1.6
-    - _Profile: 2
+    m_Floats: []
     m_Colors:
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
-    - _Rect: {r: 1, g: 1, b: 0.1, a: 0}
+    - _Edge: {r: 0, g: 0, b: 0, a: 0}
+    - _Fill: {r: 1, g: 1, b: 1, a: 1}
+    - _Pattern: {r: 0, g: 0, b: 0, a: 0}
+    - _Shape: {r: 1, g: 1, b: 0.1, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
