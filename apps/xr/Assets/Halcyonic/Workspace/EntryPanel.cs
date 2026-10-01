@@ -397,6 +397,7 @@ namespace Halcyonic.XR.Workspace
             body.fontSize = WorkspaceVisuals.BodySize;
             pageCaption.alignment = TextAlignmentOptions.Center;
             Frame();
+            DropStaleNotice();
             switch (screen)
             {
                 case Screen.Welcome:
@@ -622,7 +623,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (!TouchScreenKeyboard.isSupported)
             {
-                notice = "Typing needs the headset's system keyboard.";
+                notice = (screen, "Typing needs the headset's system keyboard.");
                 Layout();
                 return;
             }
