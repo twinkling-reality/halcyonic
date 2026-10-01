@@ -86,7 +86,12 @@ namespace Halcyonic.Client
             Pairing == null ? (IRealtimeTransport)new ClientWebSocketTransport() : new PinnedWebSocketTransport(Pairing.CertificateSha256);
 
         public RealtimeSession CreateSession(ClientInfo client) =>
-            new RealtimeSession(new RealtimeSessionOptions(Endpoint, Credential, client), CreateTransport);
+            new RealtimeSession(
+                new RealtimeSessionOptions(Endpoint, Credential, client)
+                {
+                    AccessRefused = Pairing == null ? ConnectionText.AccessTokenRefused : ConnectionText.PairingRefused,
+                },
+                CreateTransport);
 
         public ControlPlaneApi CreateApi() =>
             Pairing == null

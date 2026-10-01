@@ -25,6 +25,12 @@ namespace Halcyonic.Client
 
         public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
+        /// <summary>
+        /// What the person is told when the control plane refuses the credential: how to fix it
+        /// depends on how this device reaches the Mac (<see cref="ControlPlaneTarget"/>).
+        /// </summary>
+        public string AccessRefused { get; set; } = ConnectionText.AccessRefused;
+
         /// <summary>How often the session pings, so that a silently broken network is noticed.</summary>
         public TimeSpan PingInterval { get; set; } = TimeSpan.FromSeconds(10);
 
@@ -288,7 +294,7 @@ namespace Halcyonic.Client
                 if (stop.IsCancellationRequested) break;
                 if (ending.Refused)
                 {
-                    Publish(new ConnectionStatus(ConnectionPhase.Refused, ending.Reason));
+                    Publish(new ConnectionStatus(ConnectionPhase.Refused, ending.Reason, accessRefused: ending.AccessRefused));
                     return;
                 }
                 failures = ending.WasLive ? 1 : failures + 1;
@@ -392,6 +398,11 @@ namespace Halcyonic.Client
             {
                 return Ending.Stopped;
             }
+            catch (UpgradeRefusedException refused) when (refused.Status == 401)
+            {
+                // The Mac answered and refused the credential; the same credential will be refused again.
+                return Ending.RefuseAccess(options.AccessRefused);
+            }
             catch (Exception error)
             {
                 // Any failure ends this connection and never the session: the next attempt resynchronizes.
@@ -477,11 +488,12 @@ namespace Halcyonic.Client
         {
             public static readonly Ending Stopped = new Ending(null, false, false);
 
-            private Ending(string? reason, bool wasLive, bool refused)
+            private Ending(string? reason, bool wasLive, bool refused, bool accessRefused = false)
             {
                 Reason = reason;
                 WasLive = wasLive;
                 Refused = refused;
+                AccessRefused = accessRefused;
             }
 
             public string? Reason { get; }
@@ -490,9 +502,13 @@ namespace Halcyonic.Client
 
             public bool Refused { get; }
 
+            public bool AccessRefused { get; }
+
             public static Ending Failed(string reason, bool wasLive) => new Ending(reason, wasLive, false);
 
             public static Ending Refuse(string reason) => new Ending(reason, false, true);
+
+            public static Ending RefuseAccess(string words) => new Ending(words, false, true, accessRefused: true);
         }
     }
 

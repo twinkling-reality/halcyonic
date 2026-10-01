@@ -129,6 +129,16 @@ namespace Halcyonic.XR
             Refresh();
         }
 
+        /// <summary>
+        /// Keeps a workstream's character on the stage for <see cref="CharacterLineup.KeepFor"/>, as
+        /// when the person opened it, whatever older work needs attention.
+        /// </summary>
+        public void Keep(string workstreamId)
+        {
+            lineup.Keep(workstreamId, System.DateTimeOffset.UtcNow);
+            Refresh();
+        }
+
         /// <summary>Raised after the characters were brought up to date, so the rail can count what has none.</summary>
         public event System.Action? Refreshed;
 
@@ -270,7 +280,9 @@ namespace Halcyonic.XR
             {
                 if (visibility.Shows(workstream.ProjectId) || workstream.WorkstreamId == lineup.Requested) eligible.Add(workstream);
             }
-            lineup.Update(eligible);
+            // New and just opened work keeps its slot a while, by this device's clock.
+            lineup.UseJournal(session.State.Journal?.JournalId);
+            lineup.Update(eligible, System.DateTimeOffset.UtcNow);
             departed.Clear();
             foreach (var id in views.Keys)
             {
@@ -451,7 +463,7 @@ namespace Halcyonic.XR
                 case ConnectionPhase.WaitingToRetry:
                     return "Disconnected, showing the last known state. " + status.Detail;
                 case ConnectionPhase.Refused:
-                    return "The control plane refused this client. " + status.Detail;
+                    return ConnectionText.WhyNotLive(status);
                 default:
                     return status.Phase + origin;
             }
