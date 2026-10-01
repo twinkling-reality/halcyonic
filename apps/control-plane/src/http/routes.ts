@@ -16,6 +16,7 @@ import {
   type RuntimeModelsResponse,
   type RuntimesResponse,
   type Snapshot,
+  TRANSCRIPTION_MAX_BYTES,
   UnderstandingResponse,
   type UnderstandingResult,
   UsageLimitsResponse,
@@ -26,6 +27,7 @@ import type { ControlPlane } from '../core/control-plane.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
+import type { Transcriptions } from '../speech/transcriptions.ts';
 import { errorBody } from './server.ts';
 
 const validateEventsQuery = compileValidator(EventsQuery);
@@ -41,6 +43,8 @@ export interface RouteSources {
   readonly evaluation: EvaluationSource;
   /** How long a runtime has to list its models; `MODEL_LIST_TIMEOUT_MS` by default. */
   readonly modelListTimeoutMs?: number;
+  /** Speech to drafts, shared by both listeners so its bounds hold across them; absent, voice is off. */
+  readonly transcriptions?: Transcriptions;
 }
 
 /**
@@ -244,6 +248,41 @@ export function registerRoutes(
         },
       },
     };
+  });
+
+  // The one route that takes anything but JSON (ADR 0021), in a scope of its own so no other route
+  // gains a parser: one audio/wav clip, refused with 413 once it passes the limit, before more of
+  // it is read. Neither the clip nor its text is logged.
+  void app.register(async (scope) => {
+    scope.removeAllContentTypeParsers();
+    scope.addContentTypeParser(
+      'audio/wav',
+      { parseAs: 'buffer', bodyLimit: TRANSCRIPTION_MAX_BYTES },
+      (_request, body, done) => done(null, body),
+    );
+    scope.post(
+      '/api/transcriptions',
+      { bodyLimit: TRANSCRIPTION_MAX_BYTES },
+      async (request, reply) => {
+        if (sources.transcriptions === undefined) {
+          return reply
+            .code(503)
+            .send(errorBody('transcription_unavailable', 'Voice is not set up on this Mac.'));
+        }
+        const started = performance.now();
+        const answer = await sources.transcriptions.transcribe(request.principal, request.body);
+        const ms = Math.round(performance.now() - started);
+        if (answer.kind === 'refused') {
+          request.log.info({ code: answer.code, ms }, 'transcription refused');
+          return reply.code(answer.status).send(errorBody(answer.code, answer.message));
+        }
+        request.log.info(
+          { outcome: answer.body.outcome, audio_seconds: answer.seconds, ms },
+          'transcribed a clip',
+        );
+        return answer.body;
+      },
+    );
   });
 
   app.post('/api/commands', async (request, reply) => {

@@ -22,6 +22,7 @@ How Halcyonic is built today, what depends on what, and what is not built yet.
 | Salidium client: consumer contract v1, understanding per execution | `packages/integrations/salidium` | Built against Salidium's release candidate |
 | Seorak client: integration API v1, evaluation per execution and account-wide provider usage limits | `packages/integrations/seorak` | Built; evaluation verified against `seorak` 0.3.0, usage limits read live once against an unreleased Seorak build (2026-09-30) |
 | Device pairing and serving paired devices on the local network: SRP with a code, pinned TLS, per-device credentials, `pnpm pair` and `pnpm devices` | `apps/control-plane/src/network`, the client core, `apps/xr/Assets/Halcyonic/Pairing` | Built, verified off the headset; [ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), [SECURITY.md](SECURITY.md) |
+| Voice: a held clip of speech becomes a draft, transcribed on the Mac by whisper.cpp | `apps/control-plane/src/speech` | Control plane built and verified on this Mac with synthetic speech; [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), [record](../validation/voice-transcription.md) |
 | Remote relay | none | Not started; see [SECURITY.md](SECURITY.md) |
 
 ## Dependency rules
@@ -105,6 +106,7 @@ Environment variables, all optional:
 | `HALCYONIC_AGENT_ENV` | none | Names of variables, separated by commas, copied into every launched agent's environment (for example `SSH_AUTH_SOCK`) |
 | `HALCYONIC_OPENCODE_BIN` | none | Absolute path of the pinned OpenCode 2.0.18 binary; registers the OpenCode runtime |
 | `HALCYONIC_CODEX_BIN` | none | Absolute path of the pinned Codex 0.157.0 native binary; registers the Codex runtime |
+| `HALCYONIC_WHISPER_BIN`, `HALCYONIC_WHISPER_MODEL`, `HALCYONIC_WHISPER_VAD_MODEL` | none | Absolute paths of whisper.cpp's `whisper-cli`, its large-v3-turbo q5_0 model and its Silero voice activity model; all three or none. With them, `POST /api/transcriptions` turns clips of speech into drafts ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md)) |
 
 Files in the data directory besides the journal and the access token, all optional and mode 0600:
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and

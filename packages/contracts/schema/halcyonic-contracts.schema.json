@@ -8013,6 +8013,78 @@
         }
       ]
     },
+    "TranscriptionEngine": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "\\S"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TranscriptionResponse": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "outcome",
+            "text",
+            "language",
+            "engine"
+          ],
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "const": "heard"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "language": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8}){0,4}$"
+            },
+            "engine": {
+              "$ref": "#/$defs/TranscriptionEngine"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "outcome",
+            "engine"
+          ],
+          "properties": {
+            "outcome": {
+              "type": "string",
+              "const": "nothing_heard"
+            },
+            "engine": {
+              "$ref": "#/$defs/TranscriptionEngine"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "ExecutionStatus": {
       "anyOf": [
         {

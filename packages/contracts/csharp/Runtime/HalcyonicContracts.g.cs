@@ -3383,6 +3383,79 @@ namespace Halcyonic.Contracts
         public ErrorInfo Reason { get; set; } = default!;
     }
 
+    public sealed class TranscriptionEngine
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("version", Required = Required.Always)]
+        public string Version { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(TranscriptionResponseConverter))]
+    public abstract class TranscriptionResponse
+    {
+        [JsonProperty("outcome", Order = -2)]
+        public string Outcome => Discriminator;
+
+        protected abstract string Discriminator { get; }
+
+        [JsonProperty("engine", Required = Required.Always)]
+        public TranscriptionEngine Engine { get; set; } = default!;
+    }
+
+    public sealed class TranscriptionResponseConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(TranscriptionResponse).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["outcome"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            TranscriptionResponse value = tag switch
+            {
+                "heard" => new HeardTranscription(),
+                "nothing_heard" => new NothingHeardTranscription(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "TranscriptionResponse has no string outcome."
+                    : "Unknown outcome \"" + tag + "\" for TranscriptionResponse."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but outcome is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class HeardTranscription : TranscriptionResponse
+    {
+        protected override string Discriminator => "heard";
+
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("language", Required = Required.Always)]
+        public string Language { get; set; } = default!;
+    }
+
+    public sealed class NothingHeardTranscription : TranscriptionResponse
+    {
+        protected override string Discriminator => "nothing_heard";
+    }
+
     [JsonConverter(typeof(PairingClientMessageConverter))]
     public abstract class PairingClientMessage
     {

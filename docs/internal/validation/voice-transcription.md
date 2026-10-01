@@ -14,8 +14,9 @@
   process, as the control plane would launch it, and again in one warm process per engine. The
   engines, the model, the clips and the scripts live in `~/.halcyonic/speech/`, outside the
   repository. No hosted model or service was called.
-- **Status:** Runtime verified on this Mac with synthetic voices. Not checked with people's voices,
-  the Quest's microphone or a room; real clips come at a headset session.
+- **Status:** Runtime verified on this Mac with synthetic voices, and through the control plane's
+  `POST /api/transcriptions` with the chosen configuration. Not checked with people's voices, the
+  Quest's microphone or a room; real clips come at a headset session.
 
 ## The engines
 
@@ -187,9 +188,10 @@ whisper.cpp invents text when nothing is said; Apple does not. Two ways to stop 
 
 - **Voice activity detection.** whisper.cpp 1.9.4 offers it (`--vad --vad-model`). It needs a
   Silero model, `ggml-silero-v6.2.0.bin` from `huggingface.co/ggml-org/whisper-vad` (MIT, 885,098
-  bytes, SHA-256 `2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987` as listed, at
-  commit `9ffd54a1e1ee413ddf265af9913beaf518d1639b`). It was not downloaded, because it was not
-  among the downloads approved for this trial.
+  bytes, SHA-256 `2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987`, at commit
+  `9ffd54a1e1ee413ddf265af9913beaf518d1639b`). The owner approved its download after the first
+  measurement; the downloaded file matched that hash. Results are in
+  [With voice activity detection](#with-voice-activity-detection).
 - **A loudness gate**, with no download. Each 30 ms frame's level is taken; the spread is the
   95th percentile level minus the 10th:
   - Every speech clip spread at least 9.5 dB, including those at 5 dB SNR.
@@ -198,6 +200,31 @@ whisper.cpp invents text when nothing is said; Apple does not. Two ways to stop 
   
   Real rooms are not steady (keys, voices, a door), so the gate catches silence and steady noise
   only.
+
+## With voice activity detection
+
+whisper.cpp with the hint and `--vad -vm ggml-silero-v6.2.0.bin`, every clip in a fresh process:
+
+- **No speech:** silence, and pink, brown and white noise at four levels, each 1, 3 and 10 s long.
+  All 15 holds gave no text.
+- **The default 30 ms kept around speech clipped word endings:** "run the test", "show me the
+  plans", "Switched". Drafts needing a fix rose from 13 to 17.
+- **With 250 ms:** 15 needed a fix.
+- **With 500 ms (`-vp 500`):** 13 needed a fix, the same count as without detection: word error
+  rate 4.2%, 99 of 116 exact.
+- **Speed and memory at 500 ms:** 0.54 s median per clip (0.72 s slowest), at most 933 MiB.
+
+So the engine runs with the hint and voice activity detection at 500 ms.
+
+**Through the control plane.** A control plane on a scratch port and data folder, with the three
+`HALCYONIC_WHISPER_` variables set, the pinned binary and both models:
+
+- **Startup:** it logged the engine as whisper.cpp 1.9.4-dev and warmed up in 760 ms.
+- **Clips:** `POST /api/transcriptions` answered five clips `heard`, each in 0.56 to 0.76 s from
+  the client, with the texts above, for example "Switch the model to Qwen running on Ollama." Two
+  seconds of silence was answered `nothing_heard`, and a JSON body 415.
+- **The log:** each clip logged its outcome, audio length and time, and no word of any draft.
+- **Leftovers:** no temporary directory remained afterwards.
 
 ## Consequences
 
@@ -208,10 +235,10 @@ whisper.cpp invents text when nothing is said; Apple does not. Two ways to stop 
 - **`whisper-cli` is launched once per clip, from a configured binary and model,** with
   `-l en -nt -np`. No server listens on a port.
 - **The prompt names Halcyonic's own words.**
-- **Nothing said is answered as nothing heard,** never with invented text. The control plane
-  gates on loudness before launching the engine, and voice activity detection is added if its
-  model is approved.
-- **Setup runs one transcription after installing,** so the first person to speak does not wait
+- **Nothing said is answered as nothing heard,** never with invented text: voice activity
+  detection with 500 ms around speech, which cost no accuracy. The loudness gate is not needed
+  and was not built.
+- **The control plane warms the engine at startup,** so the first person to speak does not wait
   for the shaders.
 - **The Apple helper is not built.**
 
@@ -220,5 +247,5 @@ whisper.cpp invents text when nothing is said; Apple does not. Two ways to stop 
 - Accuracy with people's voices and the Quest's microphone, which may apply its own gain and noise
   suppression.
 - The gate's threshold on real clips.
-- Whether whisper.cpp still invents text in a real room once gated.
+- Whether whisper.cpp still invents text in a real room despite voice activity detection.
 - Whether a restart or a macOS update makes the first transcription slow again.

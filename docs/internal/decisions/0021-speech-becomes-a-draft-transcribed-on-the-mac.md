@@ -47,10 +47,11 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   measurement, is whisper.cpp's `whisper-cli` with the pinned large-v3-turbo q5_0 model, launched
   once per clip from a configured binary and model, in English, prompted with Halcyonic's own
   words (the product's, the runtimes' and the local models' names). It listens on no port and
-  downloads nothing because someone spoke; the model is fetched only in a setup step the owner
-  runs, which ends with one transcription so the first person to speak does not wait. A clip
-  with no speech is answered as nothing heard, never with invented text: the control plane gates
-  on loudness before launching the engine. Meta's Voice SDK is not used.
+  downloads nothing because someone spoke; the models are fetched only in a setup step the owner
+  runs, and the control plane warms the engine once at startup so the first person to speak does
+  not wait. A clip with no speech is answered as nothing heard, never with invented text:
+  whisper.cpp's voice activity detection, with the pinned Silero model and half a second kept
+  around speech, finds none, so no text is made. Meta's Voice SDK is not used.
 - **One bounded route, nothing kept.** `POST /api/transcriptions` accepts, from any authenticated
   principal, one `audio/wav` clip of 16-bit mono PCM at 16 kHz, 0.5 to 30 s, at most 960,044
   bytes, and answers with the text, the locale and the engine's name and version, or a reason in
@@ -98,6 +99,6 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
 - Lane F's focus rules decide when capture may run; this decision only stops capture when focus
   is lost.
 - Revisit when real clips from the headset are measured, if whisper.cpp still invents text in a
-  real room once gated (voice activity detection needs a further model the owner approves), if
+  real room despite voice activity detection, if
   voice is wanted in the release build (store review of `RECORD_AUDIO` and a privacy policy), or
   if people want to speak beyond about 30 s.
