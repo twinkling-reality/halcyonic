@@ -1,0 +1,109 @@
+# ADR 0023: The headset's interface is one system of tokens, components and render-checked rules
+
+- Status: Proposed
+- Date: 2026-10-01
+
+## Context
+
+After the fifth headset session (2026-09-30) the owner found the function better and the
+experience a headache: panels and labels over characters, over each other and under system
+windows; actions placed wherever each screen needed them; every button the same grey rectangle
+with text only, no icons and no colour meaning; confusing words; and character plates that mix the
+title, the status and the reason in one shape ([quest-3-device.md](../validation/quest-3-device.md)).
+
+An audit on 2026-10-01 rendered every screen with the four editor checks on main (2da2010) and every
+character state at 2.4 m and on a desk, and read the Unity layer. All four checks pass, because they
+test what they were written for: nothing is cut, nothing shows through a panel, no panel covers a
+body. The causes of what the owner saw are structural:
+
+- Each surface lays itself out with its own constants (`WorkspacePanel`, `EntryPanel`,
+  `ProjectRail`, `UsageLeftGlance`, `RoomControls`, `PairingPanel`, `CharacterView`), and three
+  assemblies keep their own visuals helpers with their own colours.
+- `WorkspacePlacement` clears bodies but not labels, so every foreground panel at 2.4 m opens over
+  the plates of the characters it passes, the one that needs the person included.
+- Nothing models actions, so the primary action sits in a different place on each screen, and
+  primary, navigation and destructive actions share one look. Amber means needs you, confirm,
+  chosen, hidden and error.
+- Character labels use `TextMesh` with the built-in bitmap font, panels TextMeshPro SDF.
+- Three bugs come from the same causes: a note label shared by every entry screen leaves a voice
+  error over the folder list; the answer line shows the first question while the body shows the
+  second; the review spells Halcyonic's own ellipsis as a code point.
+
+Meta's current guidance, read the same day
+([headset-ui-guidance.md](../validation/headset-ui-guidance.md)), sets numbers the interface does not
+meet: hand targets of at least 48 dp and 60 dp for primary controls, 12 mm between targets, touch
+panels at 42 to 46 cm and not at 0.5 to 0.8 m (panels sit at 0.6 m), text of at least 14 dp,
+dark backgrounds no darker than #1A1A1A, a sound for every successful selection, filled icons.
+
+## Decision
+
+- **One UI layer.** `Halcyonic.XR.UI` holds the tokens, the primitives (one SDF surface shader,
+  TextMeshPro labels by type role that set text only through `LabelText`, icon glyphs), the
+  components that take no input (badge, tag, count, title plate, peek card, banner, toast, empty
+  and loading states) and layout (stacks, grids, zones). `Halcyonic.XR.UI.Interaction` holds the
+  components on the Interaction SDK (button, list row, tabs, text field with hold to talk, confirm
+  step, pager, action bar, panel frame); `PointerTarget` moves there, and `PanelButton` stays as an
+  adapter with its API until every surface has moved. The stage assembly references only the first.
+  No surface sets a colour, size or position of its own.
+- **Tokens in code, once.** Colour roles with fixed meanings (amber only for needs you, red only
+  for something that went wrong, the cobalt accent only for what can be acted on), sizes as angles
+  (1 dp = 0.0625°, from Meta's 48 dp = 3°): body text 1.125°, nothing under 0.94°; standard targets
+  3.75°, none under 3°, 1.5° apart; radii, depth, motion durations and the Glaze cue for each
+  interaction. Panels are no darker than #1B222D.
+- **Panels at touch distance.** Foreground panels open 0.46 m from the eyes, 44 × 26° (the Medium
+  size 30 × 18°), facing the eyes, with Move, Reset position and Close in the header and every
+  action in a bottom bar.
+- **Words and decisions stay in the client core.** A state language maps every work state to a
+  word, a tone, an icon, an edge and a motion, so no state is told by colour alone; an action set
+  admits one primary, two secondary, one destructive and an overflow, and nothing more;
+  presentation models per surface (character label, rail, panel, ambient strip) say what to show,
+  never where. The Unity layer draws a model and lays it out by the tokens.
+- **Character labels in three parts.** A title plate (at most two lines, 96% opaque, TextMeshPro),
+  a state badge on its top edge, and marks for practice, demonstration and recorded work; the
+  reason shows only in the peek.
+- **Zones from the eyes.** The virtual stage rises so bodies stand about 4° below eye level;
+  foreground panels open below every plate there and above every body on a desk; the rail, peek,
+  ambient strip and, in a window mode the person chooses, a lane for a 2D window each have a zone,
+  and nothing Halcyonic draws pops up in front of the person.
+- **One icon set.** Material Symbols Rounded (Apache-2.0), filled, weight 500, as a static
+  TextMeshPro SDF atlas of only the glyphs used, made with fontTools, named by meaning in the
+  client core.
+- **The renders enforce the rules.** Every render checks overlap between zones, target size and
+  spacing, text size, contrast, that no state is told by colour alone, that navigation and the
+  primary action stand in the same place on every screen, and Halcyonic's own words. A stage
+  render of every state and a component gallery render are added.
+- **One surface per commit.** Character labels and state, the rail, entry and Create, the
+  workspace and its questions, then Usage left and the ambient strip.
+
+## Alternatives considered
+
+- **Meta's Interaction SDK UI Set.** Meta's own components and look, but built on uGUI canvases
+  with a `PointableCanvasModule`, the second UI stack ADR 0014 declined for this job; its icons are
+  bitmap atlases; and its licence allows no derivative works beyond samples (1.2.1) and forbids
+  making its materials subject to an open-source licence (1.2.8), while re-theming it means copying
+  its assets into this Apache-2.0 repository. It stays a reference for patterns and numbers.
+- **Restyling each surface where it is.** Quickest, but leaves the causes: per-screen constants,
+  shared labels, no action model. The same problems would return with the next screen.
+- **Unity's world-space UI Toolkit.** Not evaluated: it would replace the TextMeshPro labels and
+  plane targets the editor checks are built on, and its input from the Interaction SDK on a Quest is
+  unverified here.
+- **Lucide or Phosphor icons.** Lucide is outline only, against Meta's filled icons for immersive
+  apps; Phosphor (MIT, with a fill weight) would also work.
+- **Panels kept at 0.6 m.** Inside the 0.5 to 0.8 m range Meta's hands guidance asks to avoid. A
+  ray layout at 1 m with the same tokens is the fallback if reading at 0.46 m strains.
+
+## Consequences
+
+- Every surface looks and behaves alike, a token change reaches all of them, a new screen is a new
+  model, and the rules fail the build when broken.
+- About fifteen Unity files and their renders change, one surface at a time, coordinated with the
+  lanes working in the same files. `PointerTarget` moves assembly.
+- Larger targets and gaps mean fewer rows per page: lists show four a page.
+- Fonts (Liberation Sans Bold and Liberation Mono, SIL OFL) and the icon atlas (Apache-2.0) are
+  committed with their licences, and NOTICE names them.
+- Two quiet Glaze cues are proposed for presses that register and presses refused; they need the
+  owner's approval.
+- To check on the headset: reading at 0.46 m, list density with 60 dp targets, the stage's new
+  height, a desk with little room above the lineup, the window lane, and the new cues.
+- Revisit if reading at 0.46 m strains, if 60 dp targets make lists unusable, if Meta licenses its
+  set compatibly, or if the draw call budget (60 a panel, 220 a scene) is exceeded.

@@ -34,3 +34,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0020](0020-a-project-works-in-one-host-approved-folder.md) | A project works in one folder the host approves, and clients never name a path | Accepted |
 | [0021](0021-speech-becomes-a-draft-transcribed-on-the-mac.md) | Speech becomes a draft, transcribed on the Mac, that the person confirms like typed text | Accepted |
 | [0022](0022-agent-questions-reach-the-person.md) | An agent's questions reach the person, who answers them through the runtime's own surface | Accepted |
+| [0023](0023-the-headset-interface-is-one-system-of-tokens-and-components.md) | The headset's interface is one system of tokens, components and render-checked rules | Proposed |

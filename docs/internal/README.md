@@ -58,6 +58,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [understanding-and-evaluation.md](validation/understanding-and-evaluation.md) | The workspace's Understanding and Evaluation sections: real sources read only, the demonstration's simulated answers, TextMeshPro escapes, renders |
 | [sound-rendering.md](validation/sound-rendering.md) | The Glaze sound's port checked against the soundbook page, and what rendering it costs |
 | [network-pairing.md](validation/network-pairing.md) | Pairing a headset over the local network: certificate callbacks in Unity's Android class libraries, SRP, the pinned transports off the headset |
+| [headset-ui-guidance.md](validation/headset-ui-guidance.md) | Meta's guidance for hand targets, type, distance, contrast, feedback, icons and system windows, and whether the Interaction SDK UI Set and open icon sets fit this project |
 
 ## Private documents
 
