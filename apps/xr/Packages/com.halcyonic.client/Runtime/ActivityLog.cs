@@ -51,6 +51,7 @@ namespace Halcyonic.Client
         private readonly int capacity;
         private readonly Dictionary<string, List<ActivityEntry>> entries = new Dictionary<string, List<ActivityEntry>>();
         private readonly Dictionary<string, string> toolNames = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> runtimeNames = new Dictionary<string, string>();
 
         public ActivityLog(int capacityPerExecution = 200)
         {
@@ -92,6 +93,7 @@ namespace Halcyonic.Client
         {
             entries.Clear();
             toolNames.Clear();
+            runtimeNames.Clear();
         }
 
         private ActivityEntry? Describe(StoredEvent stored)
@@ -103,7 +105,14 @@ namespace Halcyonic.Client
             switch (e)
             {
                 case ExecutionCreatedEvent created:
-                    return Entry(ActivityKind.Lifecycle, "Started on " + created.Payload.Runtime.DisplayName);
+                    // Recorded when the control plane accepts the start, before the runtime has started anything.
+                    if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = created.Payload.Runtime.DisplayName;
+                    return Entry(ActivityKind.Lifecycle, "Asked " + created.Payload.Runtime.DisplayName + " to start");
+                case RuntimeExecutionStartedEvent _:
+                    // Started only once the runtime says so.
+                    return Entry(ActivityKind.Lifecycle, e.ExecutionId != null && runtimeNames.TryGetValue(e.ExecutionId, out var runtime)
+                        ? "Started on " + runtime
+                        : "Started");
                 case ExecutionStartFailedEvent failed:
                     return Entry(ActivityKind.Lifecycle, "Could not start: " + failed.Payload.Error.Message);
                 case ExecutionStateUnknownEvent unknown:
@@ -144,7 +153,7 @@ namespace Halcyonic.Client
                     return Entry(ActivityKind.Command, "A request failed: " + commandFailed.Payload.Failure.Message
                         + (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : ""));
                 default:
-                    // Runtime session start and command completion add nothing a person needs to read here,
+                    // Command completion adds nothing a person needs to read here,
                     // and the model a runtime reports using is on the execution itself.
                     return null;
             }
