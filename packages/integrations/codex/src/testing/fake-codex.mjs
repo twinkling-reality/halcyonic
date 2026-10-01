@@ -15,7 +15,10 @@
  *   `/somewhere/else` (otherwise in the `cwd` asked for);
  * - `silent-interrupt`: `turn/interrupt` is never answered;
  * - `writer-held`: `thread/resume` fails as when another Codex process holds the thread;
- * - `ask`: every turn raises an `item/tool/requestUserInput` request.
+ * - `ask`: every turn raises an `item/tool/requestUserInput` request with one question, red or blue,
+ *   and `ask-secret` one whose question is secret; an answer to it is confirmed with
+ *   `serverRequest/resolved`, as Codex does;
+ * - `elicit`: every turn raises an `mcpServer/elicitation/request`.
  *
  * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
  * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page.
@@ -43,6 +46,8 @@ const SANDBOX_TYPES = {
 };
 let counter = 0;
 let serverRequests = 0;
+/** Threads of server requests still waiting for an answer, by request id. */
+const pendingRequests = new Map();
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
 const notify = (method, params) => send({ method, params, emittedAtMs: Date.now() });
 const turn = (id, status) => ({ id, items: [], status, error: null });
@@ -51,7 +56,15 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   if (process.env.FAKE_CODEX_LOG) appendFileSync(process.env.FAKE_CODEX_LOG, `${line}\n`);
   const message = JSON.parse(line);
   const { id, method, params } = message;
-  if (method === undefined) return;
+  if (method === undefined) {
+    // An answer to a server request: Codex confirms that it took it.
+    const threadId = pendingRequests.get(id);
+    if (threadId !== undefined) {
+      pendingRequests.delete(id);
+      notify('serverRequest/resolved', { threadId, requestId: id });
+    }
+    return;
+  }
   const respond = (result) => send({ id, result });
   const refuse = (text) => send({ id, error: { code: -32600, message: text } });
   switch (method) {
@@ -107,11 +120,46 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       const turnId = `turn-${process.pid}-${counter}`;
       respond({ turn: turn(turnId, 'inProgress') });
       notify('turn/started', { threadId: params.threadId, turn: turn(turnId, 'inProgress') });
-      if (flags.has('ask')) {
+      if (flags.has('ask') || flags.has('ask-secret')) {
+        const requestId = serverRequests++;
+        pendingRequests.set(requestId, params.threadId);
+        send({
+          id: requestId,
+          method: 'item/tool/requestUserInput',
+          params: {
+            threadId: params.threadId,
+            turnId,
+            itemId: 'call-1',
+            questions: [
+              {
+                id: 'colour',
+                header: 'Colour',
+                question: 'Which colour should the file mention?',
+                isOther: true,
+                isSecret: flags.has('ask-secret'),
+                options: [
+                  { label: 'red', description: 'The warm one' },
+                  { label: 'blue', description: 'The calm one' },
+                ],
+              },
+            ],
+            isBlocking: false,
+            autoResolutionMs: null,
+          },
+        });
+      }
+      if (flags.has('elicit')) {
         send({
           id: serverRequests++,
-          method: 'item/tool/requestUserInput',
-          params: { threadId: params.threadId, turnId, itemId: 'call-1', questions: [] },
+          method: 'mcpServer/elicitation/request',
+          params: {
+            threadId: params.threadId,
+            turnId,
+            serverName: 'asker',
+            mode: 'form',
+            message: 'Which file?',
+            requestedSchema: { type: 'object', properties: {} },
+          },
         });
       }
       if (params.input.some((input) => input.text.includes('COMPLETE'))) {
@@ -129,6 +177,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
         threadId: params.threadId,
         turn: turn(params.turnId, 'interrupted'),
       });
+      // As Codex does, the interrupted turn's pending requests are resolved after it ends.
+      for (const [requestId, threadId] of pendingRequests) {
+        if (threadId !== params.threadId) continue;
+        pendingRequests.delete(requestId);
+        notify('serverRequest/resolved', { threadId, requestId });
+      }
       return;
     default:
       refuse(`unknown method ${method}`);

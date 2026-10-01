@@ -748,7 +748,7 @@ describe('Codex runtime against a stand-in binary', () => {
   });
 
   test('a request Halcyonic does not show the person is refused with an error', async (t) => {
-    const { start, received } = fake(t, ['ask']);
+    const { start, received } = fake(t, ['elicit']);
     await start();
     await until(
       () => received().some((message) => message.id === 0 && message.error !== undefined),
@@ -757,8 +757,97 @@ describe('Codex runtime against a stand-in binary', () => {
     const refusal = received().find((message) => message.id === 0 && message.method === undefined);
     assert.deepEqual(refusal?.error, {
       code: -32601,
-      message: 'Halcyonic does not handle item/tool/requestUserInput requests.',
+      message: 'Halcyonic does not handle mcpServer/elicitation/request requests.',
     });
+  });
+
+  test('a question Codex asks is shown, and the answer goes back as Codex takes it', async (t) => {
+    const { runtime, start, observations, received } = fake(t, ['ask']);
+    await start();
+    await until(
+      () => observations.some((item) => item.type === 'runtime.question.asked'),
+      'the question',
+    );
+    const asked = observations.find((item) => item.type === 'runtime.question.asked');
+    assert.ok(asked?.type === 'runtime.question.asked');
+    assert.deepEqual(asked.payload.prompts, [
+      {
+        key: 'colour',
+        header: 'Colour',
+        text: 'Which colour should the file mention?',
+        options: [
+          { label: 'red', description: 'The warm one' },
+          { label: 'blue', description: 'The calm one' },
+        ],
+        multiple: false,
+        free_text: true,
+        secret: false,
+      },
+    ]);
+    assert.equal(asked.payload.answerable, true);
+    await runtime.answerQuestion({
+      execution: TEST_EXECUTION,
+      question_id: asked.payload.question_id,
+      answers: [{ key: 'colour', selected: ['blue'], text: 'navy, if you can' }],
+    });
+    const answer = received().find((message) => message.id === 0 && message.method === undefined);
+    assert.deepEqual(answer?.result, {
+      answers: { colour: { answers: ['blue', 'navy, if you can'] } },
+    });
+    await until(
+      () => observations.some((item) => item.type === 'runtime.question.resolved'),
+      'the resolution',
+    );
+    assert.deepEqual(observations.at(-1)?.payload, {
+      question_id: asked.payload.question_id,
+      outcome: 'answered',
+    });
+    await assert.rejects(
+      runtime.answerQuestion({
+        execution: TEST_EXECUTION,
+        question_id: asked.payload.question_id,
+        answers: [{ key: 'colour', selected: ['red'], text: null }],
+      }),
+      actionError('question_not_pending'),
+    );
+    assertValidObservations(observations);
+  });
+
+  test('a secret question is shown as unanswerable and left for the person to stop', async (t) => {
+    const { runtime, start, observations, received } = fake(t, ['ask-secret']);
+    await start();
+    await until(
+      () => observations.some((item) => item.type === 'runtime.question.asked'),
+      'the question',
+    );
+    const asked = observations.find((item) => item.type === 'runtime.question.asked');
+    assert.ok(asked?.type === 'runtime.question.asked');
+    assert.equal(asked.payload.answerable, false);
+    assert.equal(asked.payload.prompts[0]?.secret, true);
+    // Not refused: the agent waits, and stopping the turn withdraws the question.
+    assert.equal(
+      received().some((message) => message.id === 0 && message.method === undefined),
+      false,
+    );
+    await runtime.interrupt({ execution: TEST_EXECUTION });
+    await until(
+      () => observations.some((item) => item.type === 'runtime.turn.interrupted'),
+      'the interrupt',
+    );
+    assert.equal(
+      observations.some((item) => item.type === 'runtime.question.resolved'),
+      false,
+      'the turn ending settles it',
+    );
+  });
+
+  test('with questions switched off, threads leave the feature off and declare no answers', async (t) => {
+    const { runtime, start, received } = fake(t, [], { answerQuestions: false });
+    assert.equal(runtime.descriptor.capabilities.answer_question, false);
+    await start();
+    const threadStart = received().find((message) => message.method === 'thread/start');
+    assert.ok(threadStart !== undefined);
+    assert.equal((threadStart.params as { config?: unknown }).config, undefined);
   });
 
   test('after a restart, a thread another Codex process holds is refused clearly', async (t) => {
