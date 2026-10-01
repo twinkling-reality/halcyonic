@@ -992,7 +992,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   side would reach past 45 degrees, so the render's own measure decided two rows, the outermost
   label at about 37 degrees, a little past the 36 of the arc. The peek card stands out from its
   character, never nearer the lane. The line says where they stand and that the window is assumed,
-  in one row: "The characters stand either side of a window assumed straight ahead." On a desk the
+  in one row: "With a window straight ahead, the characters stand either side of it." On a desk the
   room placement decides where the stage stands, and the line says so. The first time focus comes
   back after it stayed away three seconds, with the characters in front, the banner says once
   "Window in the way? Settings can move the characters." Halcyonic cannot see the window, so every

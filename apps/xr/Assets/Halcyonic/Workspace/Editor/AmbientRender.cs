@@ -100,10 +100,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     var eyes = new Vector3(0f, EyeHeight, 0f);
                     var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
                     var beside = arrangement == StageArrangement.BesideAWindow;
+                    var work = beside ? WindowWork() : null;
                     var characters = beside
-                        ? WorkspaceRender.Lineup(root.transform, eyes, CharacterStage.DefaultDistance, null, WindowPresentation, besideWindow: true).ConvertAll(character => character.Target)
+                        ? WorkspaceRender.Lineup(root.transform, eyes, CharacterStage.DefaultDistance, null, (_, slot) => work!.Shown[slot], besideWindow: true).ConvertAll(character => character.Target)
                         : Characters(root.transform, eyes, arrangement == StageArrangement.TurnedAside ? CharacterStage.AsideDegrees : 0f);
-                    var banner = beside ? Strip(root.transform, eyes) : null;
+                    var banner = beside ? Strip(root.transform, eyes, work!) : null;
                     var window = Window(root.transform, eyes);
                     WorkspaceRender.ForceMeshes(root);
                     var render = WorkspaceRender.Render(camera, texture);
@@ -129,6 +130,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (count > 0 || labels > 0) failures.Add("beside a window, the window covers " + count + " bodies and " + labels + " labels.");
                         failures.AddRange(LaneClear(eyes, characters));
                         failures.AddRange(StripUnderTheLane(eyes, banner!, outline, camera, characters));
+                        failures.AddRange(StripCounts(banner!, work!));
                         failures.AddRange(NothingTouches(eyes, characters));
                     }
                 }
@@ -143,19 +145,48 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>The work beside a window: every task, the four the stage's lineup stands there, and what each shows.</summary>
+        private sealed class Beside
+        {
+            public Beside(ClientProjection state, CharacterLineup lineup, List<CharacterPresentation> shown)
+            {
+                State = state;
+                Lineup = lineup;
+                Shown = shown;
+            }
+
+            public ClientProjection State { get; }
+
+            public CharacterLineup Lineup { get; }
+
+            /// <summary>What each slot's character shows, from the person's left, as the stage presents it.</summary>
+            public List<CharacterPresentation> Shown { get; }
+        }
+
         /// <summary>
-        /// Beside a window, what waits for the person in an upper place, as the lineup's middle-first
-        /// slots stand it, and, under it, more that waits, risen as high as it rises: the case where
-        /// a body comes nearest the badge above it.
+        /// The portfolio's ten tasks with three waiting for the person, stood as the stage stands them
+        /// beside a window: its four-slot lineup, which fills the middle first, and its presenter. Two
+        /// waiting tasks take the upper places and the third stands under one, risen as high as it rises:
+        /// the case where a body comes nearest the badge above it.
         /// </summary>
-        private static CharacterPresentation WindowPresentation(string id, int slot) =>
-            WorkspaceRender.Presentation(id, slot switch { 0 => 3, 1 => 3, 2 => 1, _ => 5 });
+        private static Beside WindowWork()
+        {
+            var state = EntryRender.Portfolio(hostile: false, needsYouNow: true);
+            var third = state.Workstreams["w-c"];
+            third.Status = WorkstreamStatus.WaitingForHuman;
+            third.Attention = new Attention { Level = AttentionLevel.ActionRequired, Reasons = new List<AttentionReason>() };
+            var lineup = new CharacterLineup(CharacterStage.WindowCapacity);
+            lineup.Update(state.Workstreams.Values);
+            var shown = lineup.Slots.Select(id => CharacterPresenter.Present(state.Workstreams[id!], state, live: true)).ToList();
+            return new Beside(state, lineup, shown);
+        }
 
         /// <summary>
         /// The stage's banner where the stage hangs it beside a window (<see cref="CharacterStage.BannerTopBesideWindow"/>),
-        /// saying what it says while another window keeps focus: live, what waits, what is not shown, and the panel still open.
+        /// saying what it says there while another window keeps focus, from the work as the stage counts
+        /// it: live, what waits across every task, how many tasks have no character, and the panel still open.
         /// </summary>
-        private static StageBanner Strip(Transform parent, Vector3 eyes)
+        private static StageBanner Strip(Transform parent, Vector3 eyes, Beside work)
         {
             var radius = CharacterStage.DefaultDistance;
             var holder = new GameObject("Banner").transform;
@@ -163,9 +194,33 @@ namespace Halcyonic.XR.Workspace.Editor
             holder.SetPositionAndRotation(eyes + new Vector3(0f, CharacterStage.BannerTopBesideWindow(radius), radius), Quaternion.identity);
             holder.localScale = Vector3.one * radius;
             var banner = StageBanner.Create(holder);
-            banner.Show("Connected to your Mac", BannerKind.Live, AmbientText.NeedsYouLine(1), null, AmbientText.NotShown(2),
-                AmbientText.StillOpen("Add rate limiting to the sign-in endpoint"));
+            banner.Show("Connected to your Mac", BannerKind.Live, AmbientText.NeedsYouLine(AmbientText.NeedsYou(work.State)), null,
+                AmbientText.NotShown(work.State.Workstreams.Count - work.Shown.Count), AmbientText.StillOpen("Add rate limiting to the sign-in endpoint"));
             return banner;
+        }
+
+        /// <summary>
+        /// The banner's count of what waits is the badges that say Waiting for you plus the waiting
+        /// tasks with no character, and its count of what is not shown is the tasks with no character.
+        /// </summary>
+        private static IEnumerable<string> StripCounts(StageBanner banner, Beside work)
+        {
+            var waitingShown = work.Shown.Count(shown => StateLanguage.StateOf(shown.Activity, shown.Attention) == WorkState.WaitingForYou);
+            var offStage = work.State.Workstreams.Values.Where(workstream => work.Lineup.SlotOf(workstream.WorkstreamId) < 0).ToList();
+            var waitingOff = offStage.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.NeedsYou);
+            var counted = AmbientText.NeedsYou(work.State);
+            Debug.Log("Halcyonic: ambient render: beside a window, " + waitingShown + " badges say Waiting for you, " + waitingOff + " waiting tasks have no character, "
+                + offStage.Count + " tasks are not shown, and the banner counts " + counted + " waiting.");
+            if (counted != waitingShown + waitingOff)
+            {
+                yield return "beside a window, the banner counts " + counted + " waiting, but " + waitingShown + " badges say Waiting for you and " + waitingOff + " waiting tasks have no character.";
+            }
+            if (banner.Waiting.text != LabelText.ForTextMeshPro(AmbientText.NeedsYouLine(counted)!)) yield return "beside a window, the banner says \"" + banner.Waiting.text + "\" for " + counted + " waiting.";
+            var notShown = AmbientText.NotShown(offStage.Count);
+            if (notShown == null ? banner.NotShown != null : banner.NotShown == null || banner.NotShown.text != LabelText.ForTextMeshPro(notShown))
+            {
+                yield return "beside a window, the banner does not say that " + offStage.Count + " tasks are not shown.";
+            }
         }
 
         /// <summary>
