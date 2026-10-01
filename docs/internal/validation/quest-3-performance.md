@@ -60,6 +60,11 @@ seconds. Before this pass every label built its text mesh again each time, with 
   when the label's box changed or TextMeshPro says a property did: every TextMeshPro setter marks a
   change only for a new value (read in the package's source, `TMP_Text.cs`), so an unchanged label
   keeps its mesh.
+- A line whose words stay the same but which becomes the agent's words, or stops being, is built
+  again for the lean alone: the frame marks it changed when its lean flips, before laying it out.
+  Measured on the mesh, drawn once after each change: 0.35 of its height, then upright, then 0.35.
+  TextMeshPro runs the lean's hook only for a label that is active, so a line shown for the first
+  time leans when it is first drawn, as it is activated, never earlier; nothing reads its mesh before.
 - Two labels were still built twice each time, measured with one text and shown with another: a
   row's detail, when its short form was the one that fit, now remembers which fit for the same words
   and width (`GlazeButton.LayRow`); and a list's lines, which the frame measured on the first line
