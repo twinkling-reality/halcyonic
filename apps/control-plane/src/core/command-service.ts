@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from 'node:crypto';
 import type {
   CommandEnvelope,
   CommandFailure,
@@ -73,8 +74,19 @@ interface ActionOutcome {
  * confirms the action, and a timeout is recorded as a failure whose effect is unknown, because
  * the runtime may still have acted.
  */
+/** How many refused answers' digests are kept to tell a resent answer from another one. */
+const REFUSED_ANSWERS_KEPT = 1000;
+
 export class CommandService {
   readonly #deps: CommandServiceDeps;
+  /**
+   * Keyed digests of refused commands as sent, by id, for those the journal keeps only in part
+   * (journaledRejection), so a reused id with another answer is still a conflict. The key is drawn
+   * per process and never stored, so a digest cannot be tested against guesses of a short secret.
+   * Gone after a restart, when such a command sent again is answered as a conflict.
+   */
+  readonly #refusedDigests = new Map<string, string>();
+  readonly #digestKey = randomBytes(32);
 
   constructor(deps: CommandServiceDeps) {
     this.#deps = deps;
@@ -95,10 +107,7 @@ export class CommandService {
   ): SubmitOutcome {
     const known = this.#deps.projection.commandEnvelope(command.command_id);
     if (known !== undefined) {
-      // A rejected command is journaled as journaledRejection made it, so it is compared so too.
-      const rejected = this.#deps.projection.command(command.command_id)?.status === 'rejected';
-      const sent = rejected ? journaledRejection(command) : command;
-      return canonicalJson(known) === canonicalJson(sent)
+      return this.#sameAsKnown(known, command)
         ? { disposition: 'duplicate', command: this.#view(command) }
         : { disposition: 'conflict', command: null };
     }
@@ -111,7 +120,7 @@ export class CommandService {
           'command.rejected',
           admission.scope,
           {
-            command: journaledRejection(command),
+            command: this.#journaledRejection(command),
             // Messages can quote what the client sent; the contract caps them, so they are cut.
             rejection: {
               code: admission.rejection.code,
@@ -549,6 +558,34 @@ export class CommandService {
       throw new Error('admitted a runtime command without a registered runtime');
     }
     return { runtime, adapter };
+  }
+
+  /**
+   * Whether a command sent again under a known id is the one recorded. A refused command the
+   * journal keeps only in part is compared by its keyed digest, and is a conflict once that is gone.
+   */
+  #sameAsKnown(known: CommandEnvelope, command: CommandEnvelope): boolean {
+    if (canonicalJson(known) === canonicalJson(command)) return true;
+    const kept = journaledRejection(command);
+    if (kept === command || canonicalJson(known) !== canonicalJson(kept)) return false;
+    return this.#refusedDigests.get(command.command_id) === this.#digest(command);
+  }
+
+  /** The command as a rejection journals it, keeping a digest of what the journal leaves out. */
+  #journaledRejection(command: CommandEnvelope): CommandEnvelope {
+    const kept = journaledRejection(command);
+    if (kept !== command) {
+      this.#refusedDigests.set(command.command_id, this.#digest(command));
+      if (this.#refusedDigests.size > REFUSED_ANSWERS_KEPT) {
+        const oldest = this.#refusedDigests.keys().next().value;
+        if (oldest !== undefined) this.#refusedDigests.delete(oldest);
+      }
+    }
+    return kept;
+  }
+
+  #digest(command: CommandEnvelope): string {
+    return createHmac('sha256', this.#digestKey).update(canonicalJson(command)).digest('base64url');
   }
 
   #view(command: CommandEnvelope): CommandView {

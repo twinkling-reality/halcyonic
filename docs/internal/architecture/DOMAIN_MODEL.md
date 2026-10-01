@@ -140,7 +140,10 @@ submitted ──> rejected                  (journaled with a reason; nothing el
 ```
 
 - Command ids come from the client. Resubmitting the same command returns its current state;
-  reusing an id for a different command is a conflict and is not journaled.
+  reusing an id for a different command is a conflict and is not journaled. A refused answer is
+  journaled with its keys only, so the control plane tells it apart from another answer by a
+  keyed digest it holds in memory, with a key drawn per process; after a restart, sending it again
+  is a conflict.
 - A runtime action that is not confirmed within the timeout fails with `code: timeout` and
   `effect: unknown`, because the runtime may still act.
 - A start that fails with an unknown effect makes the execution `unknown`, not `failed`.

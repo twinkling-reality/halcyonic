@@ -248,7 +248,8 @@ describe('command lifecycle', () => {
   });
 
   test('a refused answer is journaled without what was chosen or typed; resubmitting it is a duplicate', async () => {
-    const harness = createTestControlPlane();
+    const path = join(directory, 'refused-answer.db');
+    const harness = createTestControlPlane({ path });
     const { controlPlane, commands, time } = harness;
     const asking = { ...FEATURE, scenario: 'question_asked' };
     const workstreamId = await createWorkstream(harness, asking);
@@ -280,6 +281,15 @@ describe('command lifecycle', () => {
     );
     const head = controlPlane.journal.head();
     assert.equal(controlPlane.commands.submit(refused, 'internal').disposition, 'duplicate');
+    // The same id with another answer is a conflict, though the journal kept neither text.
+    const reused = {
+      ...(refused as { payload: object }),
+      payload: {
+        ...(refused as { payload: object }).payload,
+        answers: [{ key: 'q0', selected: [], text: 'my password is hunter3' }],
+      },
+    } as never;
+    assert.equal(controlPlane.commands.submit(reused, 'internal').disposition, 'conflict');
     assert.equal(controlPlane.journal.head(), head);
     const answered = controlPlane.commands.submit(
       answer([
@@ -292,6 +302,14 @@ describe('command lifecycle', () => {
     await time.runUntilIdle();
     assert.equal(controlPlane.projection.workstream(workstreamId)?.status, 'completed');
     await controlPlane.close();
+
+    // After a restart nothing tells a refused answer sent again from another one: a conflict.
+    const restarted = createTestControlPlane({ path });
+    assert.equal(
+      restarted.controlPlane.commands.submit(refused, 'internal').disposition,
+      'conflict',
+    );
+    await restarted.controlPlane.close();
   });
 
   test('instructions follow the declared capabilities', async () => {
