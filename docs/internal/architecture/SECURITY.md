@@ -245,7 +245,9 @@ So ([XR_CLIENT.md](XR_CLIENT.md), "Words"):
   no markup, in TextMeshPro and in Unity's `TextMesh` alike; every backslash doubled for
   TextMeshPro's escape parsing, so a backslash sequence shows as written; line breaks and tabs as
   spaces; and every control, format or default ignorable character, and half a surrogate pair,
-  shown as its code point, as ‹U+202E›, so nothing is hidden or reordered.
+  shown as its code point, as ‹U+202E›, so nothing is hidden or reordered. Every Private Use Area
+  character shows as its code point too, as ‹U+E769›: Halcyonic's icons are drawn from those code
+  points in their own font, so text from outside cannot draw a state's icon among its words.
 - Nothing is cut short silently: a label cut short ends in an ellipsis, and no label uses
   TextMeshPro's italics or bold, which lose it. An approval is confirmed only once the whole
   request it answers has shown, in parts when it is long.

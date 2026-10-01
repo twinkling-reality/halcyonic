@@ -28,6 +28,7 @@ public class LabelTextTests
         "lone \uD800 high, lone \uDC00 low, pair \U0001F600 kept",
         "controls \u0000\u0001\u001A\u001B[31m\u007F\u0080\u009F end",
         "\tleading and trailing \u3000 \u00A0",
+        "icons \uE769\uE153 \uF8FF \U000F0000 \U0010FFFD",
         "",
     };
 
@@ -60,6 +61,28 @@ public class LabelTextTests
         Assert.That(LabelText.Plain("a\uD800b\uDC00"), Is.EqualTo("a‹U+D800›b‹U+DC00›"));
         Assert.That(LabelText.Plain("a\uDC00\uD800"), Is.EqualTo("a‹U+DC00›‹U+D800›"));
         Assert.That(LabelText.Plain("emoji 😀 stays"), Is.EqualTo("emoji 😀 stays"));
+    }
+
+    /// <summary>
+    /// Halcyonic's icons are Private Use Area characters of its icon font (ADR 0023), so text from
+    /// outside shows every such character as its code, never as an icon among its words, and the
+    /// characters just outside those areas as themselves.
+    /// </summary>
+    [Test]
+    public void EveryPrivateUseCharacterShowsItsCodeSoTextFromOutsideDrawsNoIcon()
+    {
+        Assert.That(LabelText.Plain("Fix login \uE769 \uE153 done"), Is.EqualTo("Fix login ‹U+E769› ‹U+E153› done"), "Waiting for you's and Finished this round's icons");
+        Assert.That(LabelText.Plain("\uE000\uF8FF\U000F0000\U000FFFFD\U00100000\U0010FFFF"),
+            Is.EqualTo("‹U+E000›‹U+F8FF›‹U+F0000›‹U+FFFFD›‹U+100000›‹U+10FFFF›"));
+        Assert.That(LabelText.Plain("\uD7FB\uF900 \U000EFFFD"), Is.EqualTo("\uD7FB\uF900 \U000EFFFD"), "just outside them");
+        var missed = new List<string>();
+        for (var codePoint = 0xE000; codePoint <= 0x10FFFF; codePoint++)
+        {
+            if (codePoint == 0xF900) codePoint = 0xF0000;
+            var code = "‹U+" + codePoint.ToString("X4", CultureInfo.InvariantCulture) + "›";
+            if (LabelText.Plain("a" + char.ConvertFromUtf32(codePoint) + "b") != "a" + code + "b") missed.Add(code);
+        }
+        Assert.That(missed, Is.Empty);
     }
 
     [Test]

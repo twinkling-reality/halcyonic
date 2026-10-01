@@ -1510,7 +1510,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         internal static string Hostile(string field) =>
             Marker + " " + field + " <alpha=#00>hidden</alpha><sprite=0><br>" + Char(0x0003) + "after the end " + Backslash + "u0041" + Backslash + "n"
-            + Char(0x202E) + "desrever" + Char(0x200B) + Char(0xE0041) + "\r\n" + (char)0xD800 + " tail";
+            + Char(0x202E) + "desrever" + Char(0x200B) + Char(0xE0041) + Char(0xE769) + "\r\n" + (char)0xD800 + " tail";
 
         private static SectionPresentation HostileSection() => new SectionPresentation(SectionKind.Understanding, Hostile("provenance"), SectionTone.Secondary,
             new[]
