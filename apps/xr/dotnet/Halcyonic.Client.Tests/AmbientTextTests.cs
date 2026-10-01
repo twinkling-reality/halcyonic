@@ -43,8 +43,8 @@ public class AmbientTextTests
     public void EveryArrangementSaysWhereTheCharactersStandAndThatTheWindowIsAssumed()
     {
         Assert.That(SettingsText.Arrangement(StageArrangement.InFront), Is.EqualTo("The characters stand in front of you, where a window often opens."));
-        Assert.That(SettingsText.Arrangement(StageArrangement.TurnedAside), Is.EqualTo("The characters are turned right of a window assumed straight ahead."));
-        Assert.That(SettingsText.Arrangement(StageArrangement.BesideAWindow), Is.EqualTo("The characters stand either side of a window assumed straight ahead."));
+        Assert.That(SettingsText.Arrangement(StageArrangement.TurnedAside), Is.EqualTo("With a window straight ahead, the characters stand to its right."));
+        Assert.That(SettingsText.Arrangement(StageArrangement.BesideAWindow), Is.EqualTo("With a window straight ahead, the characters stand either side of it."));
         foreach (var arrangement in (StageArrangement[])System.Enum.GetValues(typeof(StageArrangement)))
         {
             Assert.That(SettingsText.Arrangement(arrangement).Length, Is.LessThanOrEqualTo(70), "one row of the Settings sheet");

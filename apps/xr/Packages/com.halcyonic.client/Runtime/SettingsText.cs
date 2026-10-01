@@ -35,12 +35,12 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Where the characters stand now, in a line of its own under the room's: Halcyonic can't see
-        /// a window, so the two arrangements made for one say it is assumed straight ahead.
+        /// a window, so the two arrangements made for one say where they assume it, straight ahead.
         /// </summary>
         public static string Arrangement(StageArrangement arrangement) => arrangement switch
         {
-            StageArrangement.TurnedAside => "The characters are turned right of a window assumed straight ahead.",
-            StageArrangement.BesideAWindow => "The characters stand either side of a window assumed straight ahead.",
+            StageArrangement.TurnedAside => "With a window straight ahead, the characters stand to its right.",
+            StageArrangement.BesideAWindow => "With a window straight ahead, the characters stand either side of it.",
             _ => "The characters stand in front of you, where a window often opens.",
         };
 
