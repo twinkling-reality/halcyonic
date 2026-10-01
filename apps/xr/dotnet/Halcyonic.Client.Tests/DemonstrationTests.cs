@@ -704,7 +704,7 @@ public class DemonstrationFallbackTests
         var pumped = await Until(fallback, () => fallback.Reason == DemonstrationReason.Unreachable, "the demonstration is shown");
         Assert.That(pumped[^1].Resynchronized && pumped[^1].ConnectionChanged, Is.True, "consumers redraw everything");
         Assert.That(fallback.Current, Is.SameAs(fallback.Demonstration));
-        Assert.That(fallback.Line, Does.Contain("not live").And.Contain("The control plane is not reachable; trying again."));
+        Assert.That(fallback.Line, Does.Contain("not live").And.Contain(ConnectionText.Unreachable));
 
         await Until(fallback, () => server.Attempts >= 3 && fallback.Line!.Contains("Connection refused"), "the control plane is tried again");
         Assert.That(fallback.Current, Is.SameAs(fallback.Demonstration));
@@ -791,13 +791,18 @@ public class DemonstrationFallbackTests
     {
         var waiting = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.WaitingToRetry, "The control plane did not answer within 10 s."));
-        Assert.That(waiting, Does.EndWith("The control plane is not reachable; trying again. The control plane did not answer within 10 s."));
+        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + " (The control plane did not answer within 10 s.)"));
 
         var refused = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, "The control plane speaks realtime protocol 2."));
-        Assert.That(refused, Does.EndWith("The control plane refused this client. The control plane speaks realtime protocol 2."));
+        Assert.That(refused, Does.EndWith("Your Mac refused this app. The control plane speaks realtime protocol 2."));
 
-        foreach (var line in new[] { waiting, refused, DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null) })
+        var token = DemonstrationFallback.Describe(
+            DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.AccessTokenRefused, accessRefused: true));
+        Assert.That(token, Does.EndWith("\n" + ConnectionText.AccessTokenRefused), "a refused token says what to do, and never that the Mac is unreachable");
+        Assert.That(token, Does.Not.Contain("Can't reach"));
+
+        foreach (var line in new[] { waiting, refused, token, DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null) })
         {
             Assert.That(line, Does.StartWith(
                 "Demonstration: recorded, simulated work played on this device, not live.\nIt follows your answers, and nothing reaches an agent."));

@@ -97,6 +97,31 @@ public class LiveControlPlaneTests
         return (workstream.WorkstreamId, execution.ExecutionId);
     }
 
+    [Test]
+    public async Task TellsARefusedAccessTokenFromAnUnreachableMac()
+    {
+        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        // The fifth headset session: a token pushed earlier no longer matched the Mac's, and the app
+        // said "Unable to connect to the remote server" although the control plane answered 401.
+        session = ControlPlaneTarget.Local(controlPlane.RealtimeEndpoint, "an-access-token-from-an-earlier-session").CreateSession(Samples.Client);
+        session.Start();
+        await Until(s => s.Status.Phase == ConnectionPhase.Refused, "the stale token is refused", seconds: 20);
+        Assert.That(session.Status.AccessRefused, Is.True);
+        Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.AccessTokenRefused));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Your Mac refused this headset's access token"));
+        Assert.That(DemonstrationFallback.Describe(DemonstrationReason.Unreachable, session.Status),
+            Does.EndWith(ConnectionText.AccessTokenRefused));
+        await session.StopAsync();
+
+        // Nothing listening: unreachable, retried, and never called a refusal.
+        session = ControlPlaneTarget.Local(new Uri($"ws://127.0.0.1:{ControlPlaneProcess.FreePort()}/realtime"), controlPlane.AccessToken)
+            .CreateSession(Samples.Client);
+        session.Start();
+        await Until(s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "nothing answers", seconds: 20);
+        Assert.That(session.Status.AccessRefused, Is.False);
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith(ConnectionText.Unreachable));
+    }
+
     private void AssertEveryServerMessageRoundTrips()
     {
         var received = connections.SelectMany(connection => connection.Received).ToList();

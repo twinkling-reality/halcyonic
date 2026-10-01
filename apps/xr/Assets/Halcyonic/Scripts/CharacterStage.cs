@@ -451,7 +451,7 @@ namespace Halcyonic.XR
                 case ConnectionPhase.WaitingToRetry:
                     return "Disconnected, showing the last known state. " + status.Detail;
                 case ConnectionPhase.Refused:
-                    return "The control plane refused this client. " + status.Detail;
+                    return ConnectionText.WhyNotLive(status);
                 default:
                     return status.Phase + origin;
             }
