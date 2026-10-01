@@ -211,7 +211,7 @@ namespace Halcyonic.Client
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
             var instruction = text?.Trim() ?? "";
-            if (instruction.Length == 0) return SteeringOutcome.Explain("Nothing was heard, so nothing was sent.");
+            if (instruction.Length == 0) return SteeringOutcome.Explain("I didn't catch anything, so nothing was sent.");
             if (!workspace.Actions.Contains(WorkspaceAction.Instruct))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "It no longer takes instructions, so nothing was sent.");
@@ -292,8 +292,7 @@ namespace Halcyonic.Client
         {
             if (Armed == null) return null;
             if (!CanConfirm) return WorkspaceText.ReadRequestFirst;
-            var prompt = WorkspaceText.ConfirmationPrompt(Armed.Value, Instruction);
-            return Heard ? VoiceText.HeardOnYourMac + " " + prompt : prompt;
+            return Heard ? VoiceText.SendHeard(Instruction ?? "") : WorkspaceText.ConfirmationPrompt(Armed.Value, Instruction);
         }
 
         private void Arm(WorkspaceAction action, string? approvalId, string? instruction)

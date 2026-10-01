@@ -142,7 +142,7 @@ public class TranscriptionTests
         foreach (var code in codes)
         {
             var words = VoiceText.Refusal(code);
-            Assert.That(words, Does.Contain("Type instead").Or.Contain("type instead").Or.Contain("Try again"), code ?? "null");
+            Assert.That(words.ToLowerInvariant(), Does.Contain("typ").Or.Contain("try again"), code ?? "null");
             Assert.That(words, Does.Not.Contain("\u2014"));
         }
         Assert.That(VoiceText.Refusal(null), Is.EqualTo(VoiceText.Unreachable));

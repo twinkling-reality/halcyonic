@@ -199,7 +199,7 @@ the same definition names, as the JSON Schema document:
   reading, since refusing what one has not read in full can do no harm. Instruct asks for text
   first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
   the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
-  starts "Heard on your Mac." and names the text, so a mishearing is never sent unread.
+  reads "Your Mac heard: ... Send it?" with the text, so a mishearing is never sent unread.
 - **`SpeechClip`** makes a held clip of speech into what `POST /api/transcriptions` takes (ADR
   0021): the microphone's samples, at its own rate and channels, mixed to mono and resampled to
   16 kHz (the mean of the input each output sample spans going down, a straight line going up),
@@ -784,7 +784,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
 - **Project rail:** `ProjectRail`, low under the stage and within reach, in two rows. Above, the
   projects that matter most now, what needs the person first, each with its most important count
-  ("1 needs you", "Hidden · 1 to check"), pressed to show or hide that project's work on the stage;
+  ("1 task waiting", or for a hidden project "Hidden · 1 finished", short enough for the chip; Connect projects says "1 task is waiting for you"), pressed to show or hide that project's work on the stage;
   and More work, while some work has no character, with how much of it needs the person. Below,
   Connect projects, with how many projects show, and Create a project (Continue creating while a
   draft waits). The lower row's right end is left free (`UsageLeftRoom`) for an optional Usage
@@ -827,7 +827,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     project, and Add work starts new work in it. It discovers and attaches nothing. Without a live
     control plane it says the list is last known; during the demonstration, that it is the example's.
   - **More work** lists every workstream without a character, what needs the person first, with its
-    status, project and why it has none (project hidden, stage full); pressing one brings it to the
+    status, project and why it has none (its project is hidden, no room on the stage); pressing one brings it to the
     stage (`WorkspaceDirector.OpenWork`, which asks the stage for it) and opens it on the next
     frame, once it stands in its slot. It stays on the stage after it is collapsed, until other work
     is brought forward or its project is hidden.
@@ -1335,10 +1335,10 @@ instruction; typing always stays:
   agreed with the focus work), and a hold that starts while suspended is ignored.
 - **Where it shows.** On Create a project's start screen, under Type my idea, the same width, with
   what it is doing beside it; a heard idea or task becomes the recap's first task, which says
-  "Heard on your Mac. Check it before you go on.", and nothing is sent until Start building and
+  "This is what your Mac heard. Check it before you go on.", and nothing is sent until Start building and
   the review. In an open workspace, at the end of the action row when the work takes
-  instructions and the row has room; a heard instruction always asks "Heard on your Mac. Send this
-  instruction?". Never in the recorded demonstration, and never for approve, deny, stop or any
+  instructions and the row has room; a heard instruction always asks "Your Mac heard: ... Send it?".
+  Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
 - **Release builds carry none of it.** The microphone code compiles only with `DEVELOPMENT_BUILD`
   or in the editor, so a release player never uses `Microphone`, which is what makes Unity add

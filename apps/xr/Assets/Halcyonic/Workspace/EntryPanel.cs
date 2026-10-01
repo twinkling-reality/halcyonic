@@ -557,7 +557,7 @@ namespace Halcyonic.XR.Workspace
                 watch.Dismiss(work.WorkstreamId);
                 director?.OpenWork(work.WorkstreamId);
             });
-            Say(bannerText, EntryText.NeedsYouNow(LabelText.Plain(work.Title)), new Vector2(Left, LineTop), new Vector2(x - Left, 0.058f));
+            Say(bannerText, EntryText.WaitingNow(LabelText.Plain(work.Title)), new Vector2(Left, LineTop), new Vector2(x - Left, 0.058f));
             return true;
         }
 

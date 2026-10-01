@@ -232,7 +232,7 @@ So the engine runs with the hint and voice activity detection at 500 ms.
   `ControlPlaneApi.TranscribeAsync` with the draft.
   - `SpeechClip` resampled 48 kHz stereo, 44.1 kHz and 8 kHz tones to 16 kHz mono and kept their
     pitch and level.
-  - A spoken instruction was always held for "Heard on your Mac. Send this instruction?".
+  - A spoken instruction was always held for a confirmation that names what the Mac heard (now "Your Mac heard: ... Send it?").
 - **The editor's renders:** the start screen shows hold to talk and its longest words whole. The
   workspace shows it beside running work's two actions, and leaves it out beside four.
 - **The builds** of Unity 6000.3.25f1 on 2026-10-01:

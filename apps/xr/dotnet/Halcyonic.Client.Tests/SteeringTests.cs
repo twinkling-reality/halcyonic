@@ -739,12 +739,12 @@ public class WorkspaceSteeringTests
 
         Assert.That(steering.Spoken("  Add a test for the expiry.  ", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Heard, Is.True);
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Heard on your Mac. Send this instruction? “Add a test for the expiry.”"));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Your Mac heard: “Add a test for the expiry.” Send it?"));
         var command = (ExecutionSendInstructionCommand)steering.Confirm(work.Present()).Command!;
         Assert.That(command.Payload.Text, Is.EqualTo("Add a test for the expiry."));
         Assert.That(steering.Heard, Is.False);
 
-        Assert.That(steering.Spoken("", work.Present()).Message, Is.EqualTo("Nothing was heard, so nothing was sent."));
+        Assert.That(steering.Spoken("", work.Present()).Message, Is.EqualTo("I didn't catch anything, so nothing was sent."));
         steering.Spoken("Add a test.", work.Present());
         Assert.That(steering.FocusLeft().Step, Is.EqualTo(SteeringStep.Explain), "focus away drops it unsent");
         Assert.That(steering.Armed, Is.Null);

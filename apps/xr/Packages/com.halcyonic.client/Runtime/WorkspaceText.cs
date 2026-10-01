@@ -187,7 +187,7 @@ namespace Halcyonic.Client
             var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
             var line = "Latest: " + (latest == null ? workspace.Character.StatusLabel : Describe(latest));
             if (workspace.Character.Stale) line = "Last known. " + line;
-            return new[] { "Nothing needs you now.", line };
+            return new[] { "Nothing is waiting for you.", line };
         }
 
         /// <summary>
