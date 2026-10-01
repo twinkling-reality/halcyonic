@@ -93,7 +93,7 @@ snapshot, workstream, access token (an access code, only where the person must a
 | Provenance | From {source} · {when} | From Seorak · 2 min ago |
 | Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
-| Locked final press | Read part {n} of {n} | Read part 3 of 3 |
+| Locked final press | Read to part {n} first | Read to part 3 first |
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
 the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the

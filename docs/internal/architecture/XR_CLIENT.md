@@ -163,16 +163,16 @@ the same definition names, as the JSON Schema document:
   policies in `welcome`; unknown counts as needed), feedback on recent commands in words, and the
   activity. Approving or denying answers the oldest pending approval.
 - **`WorkspaceText`** writes every word the workspace shows, so the Unity layer only
-  lays them out: the person's questions (What is it doing?, Help me understand, What was
-  checked?, and What do you need from me? only while an approval waits, each in two lines for its
-  tab, never shortened), the goal, one plain answer under it (what needs the person, else "Nothing
-  is waiting for you." and the latest activity), the answer to What do you need from me? (`NeedAnswer`:
-  the oldest request as the runtime reported it and what each answer does), the status with its
-  qualifiers ("simulated", "recorded", "last known"), the
-  execution and its runtime, what needs the person, activity lines with the local time and agent
-  text quoted as "Agent says: “…”", action labels, a confirmation question that names exactly what
-  would be sent (for approving or denying, "Approve the request below?" over the whole request,
-  `Request`: the tool and what it would do, never shortened), and why no action is offered. Text
+  lays them out: the person's questions, whole as headings (What is it doing?, Help me understand,
+  What was checked?, and What do you need from me? only while an approval or a question waits) and
+  short on their tabs (Waiting for you, Doing, Understand, Checked), the goal, one plain answer
+  (what needs the person, else "Nothing is waiting for you." and the latest activity), the answer to
+  What do you need from me? (`NeedAnswer`: what it wants, the oldest request as the runtime reported
+  it and what each answer does), the run line (`Execution`, which no surface shows until a Details
+  screen exists), what needs the person, activity lines with the local time and the agent's words
+  quoted as "It says: “…”", action labels, a confirmation question that names exactly what would be
+  sent (for approving or denying, "Approve the request above?" over the whole request, `Request`:
+  the tool and what it would do, never shortened), and why no action is offered. Text
   from outside in any of them shows by `LabelText`'s rule, and a cut never splits a character in
   two. `Describe` writes one activity entry in one line, for the peek too.
 - **`LabelText`** is the one rule for showing text Halcyonic did not write: workstream titles and
@@ -1002,13 +1002,13 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     model that runs elsewhere takes a second press, the first saying that the person's code and
     instructions go there. Start building stays at the bar's right end, unavailable and saying what
     is missing until nothing is; Start over, at the left, is confirmed in place. Start building shows
-    the whole request (`NewWorkReview`, Check before starting, "This is exactly what will be
-    sent."), wrapped at the body's width between words, a part at a time, each item whole in one part
+    the whole request (`NewWorkReview`, Check before starting, "Check every part before you
+    start.", since its items are Halcyonic's account of the command, not the command), wrapped at the body's width between words, a part at a time, each item whole in one part
     unless it alone is taller than a part, with the pager in a row under the header. Change takes
     the right end where Start building stood, and Yes, start building stands where no control of
     the recap stood nor any shown since, the pager on every part included, so pressing twice in one
     place never confirms; until the last part it stays there locked, saying what is left to read
-    ("Read part 2 of 2"), and once unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
+    ("Read to part 2 first"), and once unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
     step shows how it went, in words and in its tone; a refusal offers Try again and Change, one
     about a folder the action its code names, and an unknown outcome only Next, to Not sure it
     happened. A project made here is shown on the stage whatever was chosen before. While a
@@ -1090,7 +1090,7 @@ runtime reported it and never shortened, in parts of as many whole lines as the 
 Yes; Cancel brings the tabs back. Cancel takes the bar's right end, and Yes stands in a row just
 above the bar with its question beside it, clear of every control the screen had and every one
 shown since. Until the last part has shown, Yes stays in its place, locked, saying what is left to
-read ("Read part 5 of 5"), and the question reads "Read the whole request above before approving
+read ("Read to part 5 first"), and the question reads "Read the whole request above before approving
 it."; then "Approve the request above?" and "Yes, approve". Each part turned to starts the
 confirmation's 15 seconds again. Denying shows the request too, and can be confirmed at once. The
 request under Waiting for you keeps its three lines and ends in an ellipsis when it is longer.
