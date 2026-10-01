@@ -1,6 +1,6 @@
 # ADR 0021: Speech becomes a draft, transcribed on the Mac, that the person confirms like typed text
 
-- Status: Proposed
+- Status: Accepted on 2026-10-01 by the owner, with whisper.cpp as the engine.
 - Date: 2026-09-30
 
 ## Context
@@ -28,8 +28,11 @@ Read in official documentation on 2026-09-30, nothing installed or run:
   `RECORD_AUDIO` is a permission Meta's store reviews; Meta's focus requirement restricts hands and
   controllers and allows audio input without focus.
 
-The comparison, sources and the measurement still to do are in the owner's design note (not
-tracked) and will move into a validation record once measured. The control plane accepts JSON
+Measured on this Mac on 2026-10-01 with synthetic speech ([voice-transcription.md](../validation/voice-transcription.md)):
+whisper.cpp with large-v3-turbo q5_0 left 4 of 104 drafts of ordinary words needing a fix against
+Apple's 31, in 0.55 s against 0.26 s per clip with launch, holding about 900 MiB for that half
+second; neither reached the network; Apple returned nothing for a hold with no speech, while
+whisper.cpp invented a word or two. The control plane accepts JSON
 bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md](../architecture/SECURITY.md)).
 
 ## Decision
@@ -40,11 +43,14 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   this instruction?" first, though a typed one is sent as the keyboard closes. Voice is never wired
   to approve, deny, stop or confirm anything.
 - **Transcribed on the Mac, never by a cloud service.** The headset sends one clip to the control
-  plane, which hands it to a local engine and returns the draft. The engine is the owner's choice
-  after a measurement on this Mac: Apple's SpeechTranscriber through a small helper the control
-  plane runs is proposed, whisper.cpp with a pinned model the fallback. Either is launched from a
-  configured binary only, listens on no port, and downloads nothing because someone spoke; assets
-  and models are fetched only in a setup step the owner runs. Meta's Voice SDK is not used.
+  plane, which hands it to a local engine and returns the draft. The engine, chosen by the
+  measurement, is whisper.cpp's `whisper-cli` with the pinned large-v3-turbo q5_0 model, launched
+  once per clip from a configured binary and model, in English, prompted with Halcyonic's own
+  words (the product's, the runtimes' and the local models' names). It listens on no port and
+  downloads nothing because someone spoke; the model is fetched only in a setup step the owner
+  runs, which ends with one transcription so the first person to speak does not wait. A clip
+  with no speech is answered as nothing heard, never with invented text: the control plane gates
+  on loudness before launching the engine. Meta's Voice SDK is not used.
 - **One bounded route, nothing kept.** `POST /api/transcriptions` accepts, from any authenticated
   principal, one `audio/wav` clip of 16-bit mono PCM at 16 kHz, 0.5 to 30 s, at most 960,044
   bytes, and answers with the text, the locale and the engine's name and version, or a reason in
@@ -62,6 +68,9 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
 
 ## Alternatives considered
 
+- **Apple's SpeechTranscriber through a small helper.** Twice as fast, light, silent when nothing
+  is said, and it needed no app bundle or authorization in the trial; but it got ordinary words
+  wrong in about a third of the drafts, and a hint of Halcyonic's own words changed nothing.
 - **The Quest keyboard's own dictation.** Exists today and needs no work, but it is not hold to
   talk, its online recognition is Meta's and United States only, and Halcyonic cannot see or
   control it. It stays available beside this.
@@ -88,6 +97,7 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   release builds.
 - Lane F's focus rules decide when capture may run; this decision only stops capture when focus
   is lost.
-- Revisit when the measurement picks the engine, if Apple's helper needs an app bundle or an
-  authorization a command-line tool cannot get, if voice is wanted in the release build (store
-  review of `RECORD_AUDIO` and a privacy policy), or if people want to speak beyond about 30 s.
+- Revisit when real clips from the headset are measured, if whisper.cpp still invents text in a
+  real room once gated (voice activity detection needs a further model the owner approves), if
+  voice is wanted in the release build (store review of `RECORD_AUDIO` and a privacy policy), or
+  if people want to speak beyond about 30 s.

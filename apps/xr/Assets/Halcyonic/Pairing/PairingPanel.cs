@@ -104,6 +104,18 @@ namespace Halcyonic.XR.Pairing
             if (root != null) Destroy(root.gameObject);
         }
 
+        private void OnEnable() => FocusGuard.Left += OnFocusLeft;
+
+        private void OnDisable() => FocusGuard.Left -= OnFocusLeft;
+
+        /// <summary>A Forget half confirmed when focus went to another window is asked again once back.</summary>
+        private void OnFocusLeft()
+        {
+            if (confirmUntil <= 0f) return;
+            confirmUntil = 0f;
+            Layout();
+        }
+
         private void Update()
         {
             PollKeyboard();
@@ -149,8 +161,8 @@ namespace Halcyonic.XR.Pairing
                 return;
             }
             step = Step.Address;
-            keyboard = TouchScreenKeyboard.Open(PlayerPrefs.GetString(AddressPreference, ""), TouchScreenKeyboardType.URL,
-                false, false, false, false, "The Mac's address, as pnpm pair shows it");
+            keyboard = FocusGuard.Track(TouchScreenKeyboard.Open(PlayerPrefs.GetString(AddressPreference, ""), TouchScreenKeyboardType.URL,
+                false, false, false, false, "The Mac's address, as pnpm pair shows it"));
             Say("Type the Mac's address, as pnpm pair shows it, such as 192.168.1.23:47801.");
         }
 
@@ -178,8 +190,8 @@ namespace Halcyonic.XR.Pairing
                 PlayerPrefs.SetString(AddressPreference, typed.Trim());
                 PlayerPrefs.Save();
                 step = Step.Code;
-                keyboard = TouchScreenKeyboard.Open("", TouchScreenKeyboardType.NumberPad, false, false, false, false,
-                    "The eight-digit code pnpm pair shows");
+                keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.NumberPad, false, false, false, false,
+                    "The eight-digit code pnpm pair shows"));
                 Say("Type the eight-digit code pnpm pair shows on the Mac.");
                 return;
             }

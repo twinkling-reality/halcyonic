@@ -28,7 +28,10 @@ namespace Halcyonic.XR.Sound
     /// panning places them; nothing else is needed. No cue starts while the app lacks focus, as while
     /// the system menu or a window such as Virtual Display's has it, and cues scheduled but not yet
     /// started are cancelled when focus goes; the person's act that arrives just before focus
-    /// returns, as the system keyboard's result does, waits for it. The recorded demonstration
+    /// returns, as the system keyboard's result does, waits for it. With the option
+    /// <see cref="WhileAwayFile"/>, off by default, a character that comes to need the person still
+    /// sounds Needs you once, quieter, while another window has focus; nothing else does, and nothing
+    /// repeats. The recorded demonstration
     /// sounds as live work does: the same data, the same flow. Once the clips are made nothing runs
     /// per frame: cues are scheduled on the audio clock as the state changes.
     /// </remarks>
@@ -56,6 +59,15 @@ namespace Halcyonic.XR.Sound
 
         private const int ClipsPerFrame = 4;
 
+        /// <summary>
+        /// The file whose presence in the app's data directory turns on one gentle Needs you while
+        /// another window has focus. Off by default: an option to try on the headset, not a decision.
+        /// </summary>
+        public const string WhileAwayFile = "needs-you-sound-while-away";
+
+        /// <summary>A cue heard while away plays this much quieter than usual.</summary>
+        private const float AwayLevel = 0.6f;
+
         [Tooltip("The level of every cue, from 0 to 1. The soundbook played them at half, its starting volume; the headset's own volume applies on top.")]
         [SerializeField] private float volume = 0.5f;
 
@@ -70,6 +82,7 @@ namespace Halcyonic.XR.Sound
         private Voice workspace = null!;
         private Voice whole = null!;
         private bool ready;
+        private bool whileAway;
 
         /// <summary>When the last cue was scheduled to start, on the audio clock.</summary>
         private double lastStart = double.NegativeInfinity;
@@ -119,6 +132,7 @@ namespace Halcyonic.XR.Sound
 
         private void Start()
         {
+            ReadWhileAway();
             if (director == null) Log("sound for the person's actions off, because the stage has no workspace");
             StartCoroutine(Load());
         }
@@ -128,6 +142,7 @@ namespace Halcyonic.XR.Sound
             if (!hasFocus)
             {
                 CancelPending();
+                ReadWhileAway();
                 return;
             }
             // An act that came as focus was returning, as the system keyboard's result does, sounds now.
@@ -185,9 +200,10 @@ namespace Halcyonic.XR.Sound
             var session = connection.Session;
             if (session == null) return;
             ForgetSilentVoices();
-            foreach (var cue in selector.Observe(changes, session.State, session.Status, slotOf, Now, Audible))
+            var away = !Audible && ready && whileAway;
+            foreach (var cue in selector.Observe(changes, session.State, session.Status, slotOf, Now, Audible, needsYouWhileAway: away))
             {
-                Play(cue);
+                Play(cue, away ? AwayLevel : 1f);
             }
         }
 
@@ -205,7 +221,7 @@ namespace Halcyonic.XR.Sound
             voices[workstreamId] = CreateVoice(view.Body.gameObject, 0f);
         }
 
-        private void Play(CueOnset cue)
+        private void Play(CueOnset cue, float level = 1f)
         {
             var clip = clips[(int)cue.Cue][Math.Max(0, cue.Bot)];
             if (clip == null) return;
@@ -229,7 +245,7 @@ namespace Halcyonic.XR.Sound
             // while the output is suspended; on the audio clock onsets keep their gap too.
             var start = Math.Max(AudioSettings.dspTime + Math.Max(0, cue.At - Now) + Lead, lastStart + SoundCueSelector.MinimumGap);
             lastStart = start;
-            voice.Play(clip, start);
+            voice.Play(clip, start, Mathf.Clamp01(volume) * level);
             Log("sound " + cue.Cue + " from " + (cue.Place == CuePlace.Character ? "its character" : cue.Place == CuePlace.Workspace ? "the workspace" : "the whole stage")
                 + (cue.Bot >= 0 ? ", note " + cue.Bot : ""));
         }
@@ -293,6 +309,14 @@ namespace Halcyonic.XR.Sound
             return source;
         }
 
+        /// <summary>Reads the option on start and whenever focus goes, so a file pushed meanwhile counts.</summary>
+        private void ReadWhileAway()
+        {
+            var on = System.IO.File.Exists(System.IO.Path.Combine(Application.persistentDataPath, WhileAwayFile));
+            if (on != whileAway) Log(on ? "Needs you sounds once while another window has focus (" + WhileAwayFile + ")" : "silent while another window has focus");
+            whileAway = on;
+        }
+
         private void Log(string message) =>
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", message);
 
@@ -315,10 +339,11 @@ namespace Halcyonic.XR.Sound
             public bool Alive => sources[0] != null;
 
             /// <summary>Schedules a clip on the audio clock, on the source that falls silent first.</summary>
-            public void Play(AudioClip clip, double at)
+            public void Play(AudioClip clip, double at, float level)
             {
                 var i = ends[0] <= ends[1] ? 0 : 1;
                 sources[i].clip = clip;
+                sources[i].volume = level;
                 sources[i].PlayScheduled(at);
                 starts[i] = at;
                 ends[i] = at + clip.length;

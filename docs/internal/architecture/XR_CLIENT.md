@@ -80,7 +80,17 @@ the same definition names, as the JSON Schema document:
   hello with the resume cursor, snapshot or resume, events, command acknowledgements, and
   reconnection with capped exponential backoff and jitter. It pings every 10 seconds and abandons a
   connection that delivers nothing for 30 seconds, because a silently broken network is otherwise
-  noticed only by TCP.
+  noticed only by TCP. A control plane that answers the connection with 401 has refused the
+  credential, so the session stops trying and its status says `AccessRefused`, with what to do in
+  `ConnectionText`'s words: for the access token (a development build, as over USB) "Your Mac
+  refused this headset's access token: it doesn't match the Mac's. Put the Mac's current access
+  token on the headset, then restart the app."; for a pairing, that the Mac no longer accepts it and
+  to forget the Mac and pair again. `ClientWebSocket` reports only that it could not connect, so
+  after a failed connect `ClientWebSocketTransport` asks the control plane's REST API once with the
+  same token to tell a 401 from a Mac that does not answer; the pinned transport reads the status
+  itself. A Mac that does not answer reads "Can't reach your Mac; trying again", with the technical
+  reason after it. In the fifth headset session a stale token read as "Unable to connect to the
+  remote server" ([quest-3-device.md](../validation/quest-3-device.md)).
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
   calling thread and returns what changed, so the Unity main thread calls it once per frame and no
   state is shared across threads. A consumer that falls more than 10,000 messages behind is
@@ -115,6 +125,14 @@ the same definition names, as the JSON Schema document:
   The person can ask for one the lineup did not choose (`Request`, from More work): it takes the
   place of the character that ranks last and keeps a slot until another is asked for or it leaves;
   the one it replaced waits like any other. `Compare` orders workstreams as the lineup ranks them.
+  Given the device's clock, the lineup also keeps new work in view: a workstream that appears after
+  the journal's first update, as work the person just started, and one the person just opened
+  (`Keep`, from the workspace), hold a slot for five minutes whatever their rank, taking the place of
+  the lowest ranked character that is neither asked for nor kept; at most all slots but one are
+  kept, newest first, so the work that ranks first keeps a place. Another journal's work is never
+  new (`UseJournal`), and only the device's clock is used. More work stays exact, since it lists
+  whatever has no slot. In the fifth headset session, older work flagged for attention pushed
+  just-started work off the stage.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
   would admit now (from declared capabilities and status; nothing while not live or when the
@@ -242,8 +260,17 @@ the same definition names, as the JSON Schema document:
 - **`NewWorkDraft`** keeps the headset's selected project, runtime, model and typed objective. A
   runtime change drops its previous model. It accepts a model only from the selected runtime's
   current list, builds a workstream with a short title from the objective, and sends the objective
-  as the first instruction. The model's opaque reference goes back unchanged. A runtime whose
-  `ModelChoice` is `None` leaves the choice to that runtime.
+  as the first instruction. The model's opaque reference goes back unchanged. When the list
+  arrives, it keeps the models served on this Mac first, in the runtime's order, then the rest
+  (`Elsewhere`): OpenCode lists hosted models before local ones, and in the fifth headset session
+  a hosted model at the top of the list was chosen. A model on this Mac is chosen for the person
+  (`Preferred`, `ModelPreselected`): one that declares tool calling first, then the larger context,
+  then the runtime's order; the list says neither which model the runtime uses by default nor how
+  large a model is. The recap says so; a model that runs elsewhere, or where it runs is not known, is never chosen for
+  them: the first press only says where it runs and that the person's code and instructions go
+  there, and a second press in a row chooses it. It never builds a start without a model for a
+  runtime that lists them; the control plane refuses one too (`model_required`, lane A). A runtime
+  whose `ModelChoice` is `None` leaves the choice to that runtime.
 - **`NewWorkReview`** holds the full request as items, Halcyonic's own label and the value it names:
   the project, its folder (now and from now on for a move), the workstream title, runtime, model,
   where it runs, the model reference and the objective. Each value is spelled in ASCII, every
@@ -666,7 +693,25 @@ scripts use only long-stable core Unity APIs:
   240,000 pixels a frame across both eyes. The lookbook computed fractal noise per pixel, about ten
   times the arithmetic. Edges are anti-aliased in the shaders, because the Android quality level
   has no MSAA.
-- `FocusGuard` hides the assigned hand visuals and suspends input when the app loses focus.
+- `FocusGuard` follows input focus through the client core's `FocusPresence`, so Halcyonic can sit
+  beside another window (a Mac's Virtual Display, a browser video) in passthrough. When focus goes,
+  to that window, the system keyboard or the Meta menu, it hides the assigned hand visuals and
+  suspends input at once; work keeps running and updating, since losing focus is not a pause.
+  Input stays suspended for half a second after focus returns, so the pinch that brings focus back
+  never presses a control. After focus has stayed away for three seconds, large panels (the entry
+  panel, an open workspace with its ring and link, the Usage left panel) fold out of the way with
+  their content kept (`Folded`), and they come back exactly as they were once input is ready again.
+  Focus that flaps, as the Quest's system windows make it, folds nothing. The app's own system
+  keyboard is tracked (`Track` wraps every `TouchScreenKeyboard.Open`), so typing folds nothing and
+  drops no confirmation. Every other loss raises `Left`: a confirmation half done is dropped and
+  must be given afresh once back (an armed approval, denial, stop or instruction says "You went to
+  another window, so nothing was sent. Press it again to confirm."; a review whose final press
+  waited goes back to the recap; a first press on a model elsewhere lapses; Forget this Mac asks
+  again), while the runtime's request itself stays pending. Hold to talk (`HoldToTalk`, lane B)
+  stops and discards its recording when input is suspended. While panels are folded, the line
+  above the stage also counts what needs the person across every project ("2 need you", in the
+  attention color), so it stays findable when the window covers the characters. Whether Unity
+  reports each of these as a focus change on the Quest is verified only on the device.
 
 ### The workspace
 
@@ -717,10 +762,17 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   lineup) so it clears their label plates too, and reads the control plane once. The rail steps out of
   the way meanwhile. The panel shows its title and Close, the readings, the note and Read again, which
   reads once more; it only lays out again every 15 s, to drop a window that has reset. An agent name
-  longer than 32 characters ends in an ellipsis. It closes by Close, when the entry panel or a
-  workspace opens, and while the app lacks focus, as when a 2D window has it; the chip hides then
-  too. The recorded demonstration offers no usage limits. It is not Workstream status and not part
+  longer than 32 characters ends in an ellipsis. It closes by Close, and when the entry panel or a
+  workspace opens; while another window has focus its controls take no input and the chip hides,
+  and once focus stays away the panel folds with what it read and comes back as it was. The recorded demonstration offers no usage limits. It is not Workstream status and not part
   of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
+- **Make room for a window:** while the stage stands in front of the person, the room controls offer
+  Make room for a window, which turns the lineup 32 degrees to their right
+  (`CharacterStage.SetAside`, kept on the device), and Characters in front, which turns it back. On
+  a desk the room placement decides where it stands. Halcyonic cannot see the window, so this
+  reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m straight ahead,
+  the render (`AmbientRender`) shows it covering 4 of 6 characters' bodies in front and 3 aside, the
+  labels clear of it in both.
 - **Entry panel:** `EntryPanel`, the one foreground panel for entering work, the workspace's size,
   opened where the workspace would open, clear of every character
   (`WorkspaceLayout.PlaceForeground`). Its top row holds the title, Move (to the right, the left and
@@ -744,9 +796,13 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     out asks the fixed questions of `ProjectIdea`, one at a time, with offered answers, typing one's
     own, skipping the name and Back, and says "Fixed questions, not an AI." The recap shows the
     project's name and first task, each with Change; where its files live, with Choose or Change;
-    and what runs it, with More options: the runtimes that can start work, then
-    the chosen runtime's own models, read on demand, each with where it runs. Nothing is chosen for
-    the person, and a remote model says that the person's code and instructions go there. Start
+    and what runs it, with More options: the runtimes that can start work, real ones first and a
+    simulated one last, named "Practice run: builds nothing" in a live session (the recorded
+    demonstration keeps its names), then the chosen runtime's own models, read on demand, each with
+    where it runs, the Mac's first and the rest under a line saying where they run (`ElsewhereDivider`).
+    No runtime is chosen for the person. A model on the Mac is ("Runs with: OpenCode
+    2.0.18, qwen3.6 (Ollama), on your Mac", "Chosen for you: it runs on your Mac"); a model that runs
+    elsewhere takes a second press, the first saying that the person's code and instructions go there. Start
     building, offered once nothing is missing, shows the whole request (`NewWorkReview`), wrapped at
     the panel's width between words, a page at a time, each item whole on one page unless it alone is
     taller than a page; Yes, start building appears on the last page only, in the bottom
@@ -1032,7 +1088,11 @@ them:
   later. An instruction typed on the system keyboard is sent as the keyboard closes, just before
   focus returns, so the person's act waits up to 2 s for focus and sounds then. Whether silence is
   right while the person works in Virtual Display is open
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)), so one option is there to try, off by
+  default: with the file `needs-you-sound-while-away` in the app's data directory, a character that
+  comes to need the person sounds Needs you once, at 60% of the usual level, while another window
+  has focus; nothing else sounds and nothing repeats (`SoundCueSelector.Observe`'s
+  `needsYouWhileAway`).
 - **Calm.** Low energy: spectral centroids of 350 Hz on average and 649 Hz at most, power-weighted
   as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for needs
   you to -29 for instruct; peaks at most 0.6 before the room.

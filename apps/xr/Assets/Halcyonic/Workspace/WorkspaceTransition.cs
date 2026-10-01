@@ -77,6 +77,17 @@ namespace Halcyonic.XR.Workspace
             if (immediately) Finish();
         }
 
+        // The link and ring fold and come back with the panel (FocusGuard.Folded).
+        private void OnDisable()
+        {
+            if (decorations != null) decorations.gameObject.SetActive(false);
+        }
+
+        private void OnEnable()
+        {
+            if (decorations != null) decorations.gameObject.SetActive(true);
+        }
+
         private void LateUpdate()
         {
             if (finished) return;
