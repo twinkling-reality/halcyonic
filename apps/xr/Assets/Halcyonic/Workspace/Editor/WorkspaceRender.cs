@@ -572,7 +572,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Status = "Needs you · simulated",
             Execution = "On Mock runtime, simulated work · 1 turn",
             Goal = "Goal: Give the dashboard the colour scheme people choose.",
-            Answer = new[] { "Asks you: Colour scheme: Which colour scheme should the dashboard use?" },
+            Answer = new[] { "Asks you 2 questions: Colour scheme; Pages" },
             AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Actions = answerable ? new[] { WorkspaceAction.Answer, WorkspaceAction.Interrupt } : new[] { WorkspaceAction.Interrupt },
             ActivityCaption = "Recent activity",

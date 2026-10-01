@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -129,6 +130,22 @@ namespace Halcyonic.Client
             _ => throw new ArgumentOutOfRangeException(nameof(activity), activity, "Unhandled activity."),
         };
 
+        /// <summary>
+        /// A question in one line: its one prompt whole, or, for several, how many and their headers,
+        /// so it names the question as a whole and never the one prompt the workspace may not show.
+        /// </summary>
+        public static string AsksYou(QuestionView question)
+        {
+            if (question.Prompts.Count == 1)
+            {
+                var only = question.Prompts[0];
+                return "Asks you: " + (string.IsNullOrWhiteSpace(only.Header) ? only.Text : only.Header + ": " + only.Text);
+            }
+            var count = "Asks you " + question.Prompts.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " questions";
+            var headers = question.Prompts.Where(prompt => !string.IsNullOrWhiteSpace(prompt.Header)).Select(prompt => prompt.Header!).ToList();
+            return headers.Count == question.Prompts.Count ? count + ": " + string.Join("; ", headers) : count + ".";
+        }
+
         private static string Explain(AttentionReason reason, ClientProjection state)
         {
             state.Executions.TryGetValue(reason.ExecutionId, out var execution);
@@ -147,8 +164,7 @@ namespace Halcyonic.Client
                     foreach (var pending in execution?.PendingQuestions ?? new List<QuestionView>())
                     {
                         if (pending.QuestionId != question.QuestionId || pending.Prompts.Count == 0) continue;
-                        var first = pending.Prompts[0];
-                        return "Asks you: " + (string.IsNullOrWhiteSpace(first.Header) ? first.Text : first.Header + ": " + first.Text);
+                        return AsksYou(pending);
                     }
                     return "It asks you a question.";
                 case ExecutionFailedReason _:
