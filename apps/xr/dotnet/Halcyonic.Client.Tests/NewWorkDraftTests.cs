@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Contracts;
 using NUnit.Framework;
 
@@ -149,5 +150,35 @@ public class NewWorkDraftTests
         var none = Draft();
         none.ChooseRuntime(Runtime("claude", ModelChoice.None));
         Assert.That(none.StartExecution(Guid.NewGuid().ToString("D")).Payload.ModelRef, Is.Null, "a runtime that lists no models keeps its own choice");
+    }
+
+    [Test]
+    public void TheMacsModelsComeFirstAndTheBestLocalOneIsChosen()
+    {
+        // As OpenCode listed them in the fifth headset session: seven hosted models first, then the Mac's.
+        RuntimeModel Listed(string reference, ModelServed served, ModelToolCalling tools, int? context) => new()
+        {
+            ModelRef = reference, DisplayName = reference, Served = served, ToolCalling = tools, ContextTokens = context,
+        };
+        var listed = new List<RuntimeModel>();
+        for (var i = 0; i < 7; i++) listed.Add(Listed("opencode/zen-" + i, ModelServed.Remote, ModelToolCalling.Declared, 200_000));
+        listed.Add(Listed("ollama/small:latest", ModelServed.ThisMac, ModelToolCalling.Declared, 32_768));
+        listed.Add(Listed("ollama/no-tools:latest", ModelServed.ThisMac, ModelToolCalling.NotDeclared, 1_000_000));
+        listed.Add(Listed("gateway/unknown", ModelServed.Unknown, ModelToolCalling.Unknown, null));
+        listed.Add(Listed("ollama/qwen3.6:35b-a3b-nvfp4", ModelServed.ThisMac, ModelToolCalling.Declared, 262_144));
+
+        var draft = Draft();
+        draft.ChooseRuntime(Runtime("opencode"));
+        draft.SetModels(new RuntimeModelsResponse { RuntimeId = "opencode", Result = new AvailableModels { Models = listed } });
+
+        Assert.That(draft.Models.Take(3).Select(model => model.ModelRef),
+            Is.EqualTo(new[] { "ollama/small:latest", "ollama/no-tools:latest", "ollama/qwen3.6:35b-a3b-nvfp4" }), "the Mac's, in the runtime's order");
+        Assert.That(draft.Elsewhere, Is.EqualTo(3));
+        Assert.That(draft.Models.Skip(3).Select(model => model.ModelRef), Has.Member("gateway/unknown").And.Member("opencode/zen-0"));
+        Assert.That(draft.Model!.ModelRef, Is.EqualTo("ollama/qwen3.6:35b-a3b-nvfp4"), "tool calling declared, then the larger context");
+        Assert.That(draft.ModelPreselected, Is.True);
+        Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere)), Does.StartWith("Not known to run on your Mac"));
+        Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere).Where(model => model.Served == ModelServed.Remote)),
+            Is.EqualTo("Runs on a remote service: your code and instructions go there."));
     }
 }
