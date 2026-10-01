@@ -1,6 +1,8 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -228,6 +230,18 @@ namespace Halcyonic.Client
             _ => "Where it runs is not known",
         };
 
+        /// <summary>
+        /// The line between a runtime's models on this Mac and the rest, which take a second press:
+        /// where they run decides where the person's code and instructions go.
+        /// </summary>
+        public static string ElsewhereDivider(IEnumerable<RuntimeModel> elsewhere) =>
+            elsewhere.All(model => model.Served == ModelServed.Remote)
+                ? "Runs on a remote service: your code and instructions go there."
+                : "Not known to run on your Mac: your code and instructions may go elsewhere.";
+
+        /// <summary>The first press on a model that runs elsewhere, under its name: what choosing it means, and how.</summary>
+        public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + ". Press again to use it.";
+
         public static string ServedShort(ModelServed served) => served switch
         {
             ModelServed.ThisMac => "on your Mac",
@@ -242,12 +256,39 @@ namespace Halcyonic.Client
             _ => "tools unknown",
         };
 
-        /// <summary>A runtime as a choice: its name as it arrives, and whether its work is simulated.</summary>
-        public static string RuntimeName(RuntimeDescriptor runtime) => LabelText.Plain(runtime.DisplayName) + (runtime.Synthetic ? " (simulated)" : "");
+        /// <summary>A simulated runtime in a live session, named for what it does, so no one takes it for a real one.</summary>
+        public const string PracticeRun = "Practice run: builds nothing";
 
-        /// <summary>What runs the work, for the recap: the runtime, or that it is still to choose.</summary>
-        public static string RunsWith(NewWorkDraft draft) =>
-            draft.Runtime == null ? "Runs with: not chosen yet" : "Runs with: " + RuntimeName(draft.Runtime);
+        /// <summary>Under <see cref="PracticeRun"/> in the choice: what it is, in a few words.</summary>
+        public const string PracticeDetail = "simulated: no agent, no files";
+
+        /// <summary>
+        /// A runtime as a choice: its name as it arrives, and whether its work is simulated. In a live
+        /// session a simulated runtime is named <see cref="PracticeRun"/>; the recorded demonstration,
+        /// where nothing starts, keeps its runtimes' names.
+        /// </summary>
+        public static string RuntimeName(RuntimeDescriptor runtime, bool live = false) =>
+            runtime.Synthetic && live ? PracticeRun : LabelText.Plain(runtime.DisplayName) + (runtime.Synthetic ? " (simulated)" : "");
+
+        /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
+        public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>
+            runtimes.Where(runtime => runtime.Capabilities.StartExecution)
+                .OrderBy(runtime => runtime.Synthetic)
+                .ThenBy(runtime => runtime.DisplayName, StringComparer.Ordinal)
+                .ToList();
+
+        /// <summary>
+        /// What runs the work, for the recap: the runtime, then the model and where it runs, as in
+        /// "Runs with: OpenCode 2.0.18, qwen3.6 (Ollama), on your Mac"; or what is still to choose.
+        /// </summary>
+        public static string RunsWith(NewWorkDraft draft, bool live = false)
+        {
+            if (draft.Runtime == null) return "Runs with: not chosen yet";
+            var line = "Runs with: " + RuntimeName(draft.Runtime, live);
+            if (draft.Runtime.ModelChoice != ModelChoice.Listed) return line;
+            var model = draft.Model;
+            return model == null ? line + ", no model yet" : line + ", " + LabelText.Plain(model.DisplayName) + ", " + ServedShort(model.Served);
+        }
 
         /// <summary>
         /// The model under the runtime in the recap, and what choosing it means: where it runs, which
@@ -259,11 +300,13 @@ namespace Halcyonic.Client
             if (runtime == null) return "Choose what runs it in More options. Nothing is chosen for you.";
             if (runtime.ModelChoice == ModelChoice.None)
             {
-                return "Model: the runtime's own choice." + (runtime.Synthetic ? " Simulated: no software work is done." : "");
+                return "The runtime chooses its model." + (runtime.Synthetic ? " Simulated: nothing is built." : "");
             }
             var model = draft.Model;
             if (model == null) return "Model: " + (draft.ModelProblem ?? "choose one in More options.");
-            return "Model: " + LabelText.Plain(model.DisplayName) + ". " + Served(model.Served) + "; " + Tools(model.ToolCalling) + ".";
+            // The model's name and where it runs are on the line above (RunsWith); this says what that means.
+            if (draft.ModelPreselected) return "Chosen for you: it runs on your Mac; " + Tools(model.ToolCalling) + ".";
+            return Served(model.Served) + "; " + Tools(model.ToolCalling) + ".";
         }
 
         private static string Count(int value) => value.ToString(CultureInfo.InvariantCulture);

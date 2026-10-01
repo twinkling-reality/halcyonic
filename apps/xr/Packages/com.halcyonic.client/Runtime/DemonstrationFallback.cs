@@ -136,11 +136,7 @@ namespace Halcyonic.Client
                 + "It follows your answers, and nothing reaches an agent.";
             if (ended) line += "\nThis recording has ended and starts again shortly.";
             if (reason == DemonstrationReason.NotConfigured) return line;
-            var detail = controlPlane?.Detail;
-            var refused = controlPlane != null && controlPlane.Phase == ConnectionPhase.Refused;
-            return line
-                + (refused ? "\nThe control plane refused this client." : "\nThe control plane is not reachable; trying again.")
-                + (detail == null ? "" : " " + detail);
+            return line + "\n" + ConnectionText.WhyNotLive(controlPlane);
         }
 
         /// <summary>Only the demonstration's first start: once shown and stopped, it is never shown again.</summary>
