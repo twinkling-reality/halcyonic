@@ -35,7 +35,8 @@ public class ActivityLogTests
         Assert.That(texts[0], Is.EqualTo("Asked Mock runtime (development fixture) to start"), "accepted is not started");
         Assert.That(texts[1], Is.EqualTo("Started on Mock runtime (development fixture)"), "started once the runtime says so");
         Assert.That(texts.Any(text => text.StartsWith("Approval requested to use bash: ", StringComparison.Ordinal)), Is.True);
-        Assert.That(texts, Does.Contain("halcyonic-fixture-recorder asked to approve"));
+        Assert.That(texts, Does.Contain("Asked to approve"), "a client's name is never shown as a person's");
+        Assert.That(texts, Has.None.Contains("halcyonic"));
         Assert.That(texts, Does.Contain("Approved"));
         Assert.That(texts, Does.Contain("bash succeeded"));
         Assert.That(texts[^1], Is.EqualTo("Turn finished"));
