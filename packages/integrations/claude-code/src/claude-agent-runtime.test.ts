@@ -955,6 +955,167 @@ describe('approvals', () => {
   });
 });
 
+const ASKED = {
+  questions: [
+    {
+      question: 'Which database should the migration target?',
+      header: 'Database',
+      options: [
+        { label: 'Staging', description: 'The shared staging database' },
+        { label: 'Local', description: 'Your own database' },
+      ],
+      multiSelect: false,
+    },
+    {
+      question: 'Which checks should run afterwards?',
+      header: 'Checks',
+      options: [
+        { label: 'Unit', description: 'Fast' },
+        { label: 'End to end', description: 'Slow' },
+      ],
+      multiSelect: true,
+    },
+  ],
+};
+
+describe('questions', () => {
+  test('AskUserQuestion is a question, not an approval; the answers go back keyed by question text', async () => {
+    const { adapter, startConfirmed, observed } = setup();
+    const scripted = await startConfirmed();
+    const decision = scripted.requestPermission('AskUserQuestion', ASKED, 'req-q');
+    await settle();
+    assert.equal(observed.at(-1)?.type, 'runtime.question.asked');
+    assert.deepEqual(observed.at(-1)?.payload, {
+      question_id: 'req-q',
+      prompts: [
+        {
+          key: 'q0',
+          header: 'Database',
+          text: 'Which database should the migration target?',
+          options: [
+            { label: 'Staging', description: 'The shared staging database' },
+            { label: 'Local', description: 'Your own database' },
+          ],
+          multiple: false,
+          free_text: true,
+          secret: false,
+        },
+        {
+          key: 'q1',
+          header: 'Checks',
+          text: 'Which checks should run afterwards?',
+          options: [
+            { label: 'Unit', description: 'Fast' },
+            { label: 'End to end', description: 'Slow' },
+          ],
+          multiple: true,
+          free_text: true,
+          secret: false,
+        },
+      ],
+      answerable: true,
+    });
+    assert.equal(
+      observed.some((item) => item.type === 'runtime.approval.requested'),
+      false,
+    );
+    await assert.rejects(
+      adapter.respondToApproval({
+        execution,
+        approval_id: 'req-q',
+        decision: 'approve',
+        message: null,
+      }),
+      actionError('approval_not_pending'),
+    );
+
+    await adapter.answerQuestion({
+      execution,
+      question_id: 'req-q',
+      answers: [
+        { key: 'q0', selected: [], text: 'The read replica' },
+        { key: 'q1', selected: ['Unit', 'End to end'], text: 'and lint' },
+      ],
+    });
+    assert.deepEqual(observed.at(-1)?.payload, { question_id: 'req-q', outcome: 'answered' });
+    assert.deepEqual(await decision, {
+      behavior: 'allow',
+      updatedInput: {
+        ...ASKED,
+        answers: {
+          'Which database should the migration target?': 'The read replica',
+          'Which checks should run afterwards?': 'Unit, End to end, and lint',
+        },
+      },
+    });
+    await assert.rejects(
+      adapter.answerQuestion({
+        execution,
+        question_id: 'req-q',
+        answers: [{ key: 'q0', selected: ['Local'], text: null }],
+      }),
+      actionError('question_not_pending'),
+    );
+    assertContractValid(observed);
+  });
+
+  test('a question Claude Code withdraws can no longer be answered', async () => {
+    const { adapter, startConfirmed } = setup();
+    const scripted = await startConfirmed();
+    const abort = new AbortController();
+    const decision = scripted.requestPermission('AskUserQuestion', ASKED, 'req-w', abort.signal);
+    await settle();
+    abort.abort();
+    await assert.rejects(decision, /withdrawn/);
+    await assert.rejects(
+      adapter.answerQuestion({
+        execution,
+        question_id: 'req-w',
+        answers: [{ key: 'q0', selected: ['Local'], text: null }],
+      }),
+      actionError('question_not_pending'),
+    );
+  });
+
+  test('an AskUserQuestion without questions is shown as an ordinary approval', async () => {
+    const { startConfirmed, observed } = setup();
+    const scripted = await startConfirmed();
+    void scripted.requestPermission('AskUserQuestion', { prompt: 'Anything?' }, 'req-m');
+    await settle();
+    assert.equal(observed.at(-1)?.type, 'runtime.approval.requested');
+  });
+
+  test('questions Claude Code could not match an answer to are shown but not answerable', async () => {
+    const { startConfirmed, observed } = setup();
+    const scripted = await startConfirmed();
+    const repeated = { questions: [ASKED.questions[0], ASKED.questions[0]] };
+    const long = {
+      questions: [{ ...ASKED.questions[0], question: 'x'.repeat(4001) }],
+    };
+    const sameLabel = {
+      questions: [
+        {
+          ...ASKED.questions[0],
+          options: [
+            { label: 'Staging', description: null },
+            { label: 'Staging', description: null },
+          ],
+        },
+      ],
+    };
+    void scripted.requestPermission('AskUserQuestion', repeated, 'req-r');
+    void scripted.requestPermission('AskUserQuestion', long, 'req-l');
+    void scripted.requestPermission('AskUserQuestion', sameLabel, 'req-s');
+    await settle();
+    const asked = observed.filter((item) => item.type === 'runtime.question.asked');
+    assert.deepEqual(
+      asked.map((item) => item.payload.answerable),
+      [false, false, false],
+    );
+    assertContractValid(observed);
+  });
+});
+
 describe('interrupting', () => {
   test('an interrupt is confirmed by Claude Code and the aborted turn ends as interrupted', async () => {
     const { adapter, startConfirmed, observed, types } = setup();

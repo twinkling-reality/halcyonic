@@ -202,6 +202,70 @@ describe('mock runtime actions', () => {
     ]);
   });
 
+  test('a question blocks the turn until it is answered; the answers are repeated back', async () => {
+    const { time, runtime, start, observed, types } = setup();
+    await start('question_asked');
+    await time.runUntilIdle();
+    const asked = observed.at(-1);
+    assert.ok(asked?.type === 'runtime.question.asked');
+    assert.equal(asked.payload.question_id, 'question-1');
+    assert.deepEqual(
+      asked.payload.prompts.map((prompt) => [prompt.key, prompt.multiple]),
+      [
+        ['q0', false],
+        ['q1', true],
+      ],
+    );
+    await assert.rejects(
+      runtime.answerQuestion({ execution, question_id: 'question-2', answers: [] }),
+      actionError('question_not_pending'),
+    );
+    await runtime.answerQuestion({
+      execution,
+      question_id: 'question-1',
+      answers: [
+        { key: 'q0', selected: [], text: 'High contrast' },
+        { key: 'q1', selected: ['Orders', 'Settings'], text: null },
+      ],
+    });
+    const resolved = observed.find((item) => item.type === 'runtime.question.resolved');
+    assert.deepEqual(resolved?.payload, { question_id: 'question-1', outcome: 'answered' });
+    await time.runUntilIdle();
+    const afterAnswer = types().slice(types().indexOf('runtime.question.resolved') + 1);
+    assert.deepEqual(afterAnswer, [
+      'runtime.agent_message',
+      'runtime.agent_message',
+      'runtime.turn.completed',
+    ]);
+    const echo = observed.find(
+      (item) => item.type === 'runtime.agent_message' && item.payload.text.startsWith('Answers'),
+    );
+    assert.equal(
+      echo?.type === 'runtime.agent_message' && echo.payload.text,
+      'Answers received (simulated): "Which colour scheme should the dashboard use?": High contrast; "Which pages should I restyle first?": Orders, Settings.',
+    );
+    await assert.rejects(
+      runtime.answerQuestion({ execution, question_id: 'question-1', answers: [] }),
+      actionError('question_not_pending'),
+    );
+  });
+
+  test('interrupting a turn that asks a question ends it and withdraws the question', async () => {
+    const { time, runtime, start, types } = setup();
+    await start('question_asked');
+    await time.runUntilIdle();
+    await runtime.interrupt({ execution });
+    assert.equal(types().at(-1), 'runtime.turn.interrupted');
+    await assert.rejects(
+      runtime.answerQuestion({
+        execution,
+        question_id: 'question-1',
+        answers: [{ key: 'q0', selected: ['Light'], text: null }],
+      }),
+      actionError('question_not_pending'),
+    );
+  });
+
   test('an instruction the scenario scripts plays its turn; any other plays the default one', async () => {
     const { time, runtime, start, observed, types } = setup();
     await start('sign_in_rate_limit');
