@@ -142,11 +142,14 @@ namespace Halcyonic.Client
 
         public static string NeedsYouNow(string title) => title + " needs you.";
 
+        /// <summary>How much work needs the person, agreeing with its count: "1 needs you", "2 need you".</summary>
+        public static string NeedYou(int count) => count == 1 ? "1 needs you" : Count(count) + " need you";
+
         /// <summary>A project's work in words, what needs the person first, for example "1 needs you · 2 active".</summary>
         public static string Counts(ProjectSummary project)
         {
             var parts = new List<string>();
-            if (project.NeedsYou > 0) parts.Add(Count(project.NeedsYou) + " needs you");
+            if (project.NeedsYou > 0) parts.Add(NeedYou(project.NeedsYou));
             if (project.Notice > 0) parts.Add(Count(project.Notice) + " to check");
             if (project.Active > 0) parts.Add(Count(project.Active) + " active");
             if (parts.Count > 0) return string.Join(" · ", parts);
@@ -162,7 +165,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string ChipDetail(ProjectSummary project)
         {
-            var most = project.NeedsYou > 0 ? Count(project.NeedsYou) + " needs you"
+            var most = project.NeedsYou > 0 ? NeedYou(project.NeedsYou)
                 : project.Notice > 0 ? Count(project.Notice) + " to check"
                 : project.Active > 0 ? Count(project.Active) + " active"
                 : project.Work == 0 ? "no work yet" : "at rest";
@@ -182,7 +185,7 @@ namespace Halcyonic.Client
         public static string MoreWorkDetail(WorkOverview overview)
         {
             var needing = overview.NeedsYouOffStage;
-            return needing > 0 ? Count(needing) + " needs you" : Count(overview.OffStage.Count) + " off the stage";
+            return needing > 0 ? NeedYou(needing) : Count(overview.OffStage.Count) + " off the stage";
         }
 
         /// <summary>A More work row's second line: its status, its project, and why it has no character.</summary>

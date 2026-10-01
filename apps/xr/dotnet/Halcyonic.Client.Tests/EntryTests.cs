@@ -588,6 +588,19 @@ public class EntryWordsTests
     }
 
     [Test]
+    public void HowMuchNeedsYouAgreesWithItsCount()
+    {
+        ProjectSummary Project(bool shown, int needsYou) => new("p", "Project", shown, 5, 0, needsYou, 0, 0);
+        Assert.That(EntryText.NeedYou(1), Is.EqualTo("1 needs you"));
+        Assert.That(EntryText.NeedYou(2), Is.EqualTo("2 need you"));
+        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("2 need you"));
+        Assert.That(EntryText.ChipDetail(Project(false, 3)), Is.EqualTo("Hidden · 3 need you"));
+        Assert.That(EntryText.ProjectDetail(Project(true, 2)), Is.EqualTo("Shown · 2 need you"));
+        Assert.That(EntryText.ProjectDetail(Project(true, 1)), Is.EqualTo("Shown · 1 needs you"));
+        Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.NeedYou(2)), "the ambient line and the entry agree");
+    }
+
+    [Test]
     public void TheRecapSaysWhereTheModelRunsAndChoosesNothing()
     {
         var draft = new NewWorkDraft(new CommandFactory(Samples.Client));
