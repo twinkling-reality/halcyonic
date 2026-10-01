@@ -38,7 +38,19 @@ as it does on SIGTERM. Leave it unset otherwise: input that has already ended, s
 `pnpm demo` connects over the realtime protocol, creates a project with three workstreams on the
 mock runtime, prints every state change as it streams in, approves the one approval request after
 three seconds, and prints the final state. It exits non-zero if any server message fails
-contract validation.
+contract validation. It approves only its own workstreams' requests, and starts each with a model
+the mock lists, since a runtime that lists models refuses a start without one (`model_required`).
+
+For a device check, `pnpm demo --scenario <name>` starts one mock scenario in a project of its own,
+named "Scenario: <name>", and leaves whatever it asks waiting for the person: nothing answers it.
+The names are the files in `fixtures/scenarios`, for example:
+
+```bash
+pnpm demo --scenario question_asked
+```
+
+`approval_required` leaves an approval waiting instead. An unknown name is refused with the list of
+those there are.
 
 For manual REST calls:
 

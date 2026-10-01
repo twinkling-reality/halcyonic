@@ -489,7 +489,10 @@ with a broken pipe error before it answers:
 pnpm demo | sed '/approval requested/q'
 ```
 
-Run it again for each approval you need. Check seated at a desk, with the characters in the
+Run it again for each approval you need, or leave one waiting with
+`pnpm demo --scenario approval_required`, which never answers it; `pnpm demo --scenario
+question_asked` leaves the agent's question waiting for What do you need from me?
+([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md#drive-it)). Check seated at a desk, with the characters in the
 virtual space (2.4 m away) and on the desk (the real room), and never pick up a controller. Then,
 in the headset:
 
@@ -878,8 +881,9 @@ adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
 ### Beside a window on a Quest
 
 A session of 20 minutes or less, seated at the desk, hands only, in passthrough, with a live
-control plane that has three to six workstreams and a way to make one need you (the mock runtime's
-`approval_flow`, or a real runtime that asks). Follow focus and folding in the log:
+control plane that has three to six workstreams and a way to make one need you
+(`pnpm demo --scenario approval_required` or `--scenario question_asked`, or a real runtime that
+asks). Follow focus and folding in the log:
 
 ```bash
 adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|sound|placed the stage|kept the stage)"
