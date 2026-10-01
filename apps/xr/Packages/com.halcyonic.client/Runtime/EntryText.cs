@@ -138,12 +138,13 @@ namespace Halcyonic.Client
         public const string Done = "Done";
 
         public const string ReviewTitle = "Check before starting";
-        public const string ReviewLine = "This is exactly what will be sent.";
+        /// <summary>Under the review's title: the items are Halcyonic's own account of what will be sent, so it asks to check them, never claims to be the command.</summary>
+        public const string ReviewLine = "Check every part before you start.";
         public const string ConfirmStart = "Yes, start building";
         public const string Change = "Change";
 
-        /// <summary>The final press, locked in its place until the person has seen the last part.</summary>
-        public static string ReadToPart(int pages) => "Read part " + Count(pages) + " of " + Count(pages);
+        /// <summary>The final press, locked in its place until the person has seen the last part: what is left to do, not a part's name.</summary>
+        public static string ReadToPart(int pages) => "Read to part " + Count(pages) + " first";
 
         /// <summary>The pager's words, everywhere in the entry panel: a word with its direction, never Back, which leaves the screen.</summary>
         public const string Previous = "Previous";

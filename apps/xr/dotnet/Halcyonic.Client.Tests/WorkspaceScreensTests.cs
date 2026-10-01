@@ -266,7 +266,7 @@ public class WorkspaceScreensTests
         Assert.That((Titles(model).Single(), model.Rows[0].TitleLines), Is.EqualTo(("bash: Run the ", 5)));
         Assert.That((model.Parts, model.PartsCaption), Is.EqualTo(((0, 2), "The whole request, part 1 of 2")));
         Assert.That(model.Confirm!.Question, Is.EqualTo(WorkspaceText.ReadRequestFirst));
-        Assert.That((model.Confirm.Yes.Label, model.Confirm.Yes.Available), Is.EqualTo(("Read part 2 of 2", false)));
+        Assert.That((model.Confirm.Yes.Label, model.Confirm.Yes.Available), Is.EqualTo(("Read to part 2 first", false)));
         Assert.That((model.Confirm.Cancel.Id, model.Confirm.Cancel.Label), Is.EqualTo((WorkspaceScreens.Cancel, "Cancel")));
         Assert.That(model.Actions.All, Is.Empty, "the confirm step stands in the bar's place");
 
