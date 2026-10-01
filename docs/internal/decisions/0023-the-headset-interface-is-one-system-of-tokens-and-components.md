@@ -44,6 +44,8 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   components on the Interaction SDK (button, list row, tabs, text field with hold to talk, confirm
   step, pager, action bar, panel frame); `PointerTarget` moves there, and `PanelButton` stays as an
   adapter with its API until every surface has moved. The stage assembly references only the first.
+  (On 2026-10-01 Usage left, the last surface on `PanelButton`, moved onto the frame and
+  `PanelButton` was removed, with the sizes kept for it.)
   No surface sets a colour, size or position of its own.
 - **Tokens in code, once.** Colour roles with fixed meanings (amber only for needs you, red only
   for something that went wrong, the cobalt accent only for what can be acted on), sizes as angles
@@ -55,7 +57,8 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   action in a bottom bar. (On 2026-10-01 the workspace, which stays beside its character and so
   neither moves nor resets, took only Close, at the end of its row of tabs, and Refresh beside a
   section's heading, so its body keeps room for the question and the log; a confirmation whose
-  content pages shows its pager at the top, away from Yes.)
+  content pages shows its pager at the top, away from Yes. Usage left, which belongs to no character
+  and stays where it opened, took only Close, in its header.)
 - **Words and decisions stay in the client core.** A state language maps every work state to a
   word, a tone, an icon, an edge and a motion, so no state is told by colour alone; an action set
   admits one primary, two secondary, one destructive and an overflow, and nothing more;

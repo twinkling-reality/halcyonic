@@ -11,10 +11,11 @@ namespace Halcyonic.XR.UI
     /// <summary>
     /// A foreground panel (ADR 0023), drawn from a <see cref="PanelModel"/> by the tokens, so every
     /// screen puts the same things in the same places: the header along the top, the title and its
-    /// context at its left and Move, Reset position and Close at its right, or, on a panel that stays
-    /// beside its character, the work's state at its right and under it a row of tabs that ends in
-    /// Close; a banner, a heading or a lead line; the body, a list in one column or two, a page at a
-    /// time, with the pager at its bottom right; and the action bar along the bottom, Back and the
+    /// context at its left and Move, Reset position and Close at its right, or Close alone on a panel
+    /// that stays put, or, on a panel that stays beside its character, the work's state at its right
+    /// and under it a row of tabs that ends in Close; a banner, a heading or a lead line; the body, a
+    /// list in one column or two, a page at a time, its lines with a meter at their right where they
+    /// have one, with the pager at its bottom right; and the action bar along the bottom, Back and the
     /// destructive action at the left, the primary at the right end, or the confirm step in the bar's
     /// place. It is 44 by 26 degrees, built in units of its distance from the eyes, under a root the
     /// panel scales by that distance and places at touch distance.
@@ -56,6 +57,9 @@ namespace Halcyonic.XR.UI
         private const int NoticeLines = 2;
         private const float CardMinimumDegrees = 7.5f;
 
+        /// <summary>Between a line's words and its meter.</summary>
+        private const float MeterGapDegrees = 1f;
+
         /// <summary>
         /// The bar's right end, the primary's place, is at least this wide, and so is Cancel when the
         /// confirm step takes it: a second press where the action stood lands on Cancel.
@@ -78,6 +82,8 @@ namespace Halcyonic.XR.UI
         private readonly List<Rect> recorded = new List<Rect>();
         private readonly List<(GlazeButton Button, PanelRow Row)> shownRows = new List<(GlazeButton, PanelRow)>();
         private readonly List<(TextMeshPro Label, PanelRow Row)> shownLines = new List<(TextMeshPro, PanelRow)>();
+        private readonly List<MeterView> meters = new List<MeterView>();
+        private readonly List<(Rect Track, float Filled, PanelRow Row)> shownMeters = new List<(Rect, float, PanelRow)>();
         private Transform content = null!;
         private Surface plate = null!;
         private PointerTarget background = null!;
@@ -239,6 +245,12 @@ namespace Halcyonic.XR.UI
         public IReadOnlyList<(TextMeshPro Label, PanelRow Row)> ShownLines => shownLines;
 
         /// <summary>
+        /// The meters that show, for the editor's checks: each track's place in the frame's units, how
+        /// much of it is filled, the open end included, and the line it stands on.
+        /// </summary>
+        public IReadOnlyList<(Rect Track, float Filled, PanelRow Row)> ShownMeters => shownMeters;
+
+        /// <summary>
         /// Where every control stood on the screen before the confirm step and since it began, in the
         /// frame's units: the places Yes must keep clear of.
         /// </summary>
@@ -374,16 +386,18 @@ namespace Halcyonic.XR.UI
             var bottom = -size.y / 2f + Units(PaddingDegrees);
             var compact = GlazeButton.HeightOf(true);
 
-            // The header, then, on a panel that stays put, its row of tabs and Close; a confirmation
-            // that pages shows its pager there, or under the header, away from Yes.
+            // The header, then, on a panel that stays beside its character, its row of tabs and Close;
+            // a confirmation that pages shows its pager there, or under the header, away from Yes. A
+            // panel that stays put with no tabs keeps Close in its header.
             var pagerOnTop = model.Confirm != null && model.Parts != null;
-            var y = model.Movable ? LayWindowHeader(model, left, right, top) : LayStatusHeader(model, left, right, top);
-            var above = model.Movable;
+            var tabbed = !model.Movable && model.Tabs.Count > 0;
+            var y = tabbed ? LayStatusHeader(model, left, right, top) : LayWindowHeader(model, left, right, top);
+            var above = !tabbed;
             foreach (var tab in tabs) tab.Hide();
             previous.Hide();
             next.Hide();
             pageCaption.gameObject.SetActive(false);
-            if (!model.Movable)
+            if (tabbed)
             {
                 y -= Units(SectionGapDegrees);
                 var middle = y - compact / 2f;
@@ -470,7 +484,8 @@ namespace Halcyonic.XR.UI
                 listArea = customBody;
                 pages.Clear();
                 dropped = 0;
-                HideRows(0, 0, 0);
+                shownMeters.Clear();
+                HideRows(0, 0, 0, 0);
             }
             else
             {
@@ -505,7 +520,10 @@ namespace Halcyonic.XR.UI
 
         private static float Gap(bool above, bool below) => above && below ? TargetGap : Units(SectionGapDegrees);
 
-        /// <summary>The title and its context at the left, Move, Reset position and Close at the right: returns the header's bottom.</summary>
+        /// <summary>
+        /// The title and its context at the left, Move, Reset position and Close at the right, or Close
+        /// alone on a panel that stays put: returns the header's bottom.
+        /// </summary>
         private float LayWindowHeader(PanelModel model, float left, float right, float top)
         {
             notice.gameObject.SetActive(false);
@@ -515,9 +533,17 @@ namespace Halcyonic.XR.UI
             var middle = top - headerHeight / 2f;
             var x = right;
             x = PutRight(close, PanelModel.Close, model.CloseLabel, x, middle);
-            x = PutRight(reset, PanelModel.ResetPosition, EntryText.ResetPosition, x, middle);
-            x = PutRight(move, PanelModel.Move, EntryText.Move, x, middle);
-            foreach (var button in new[] { close, reset, move }) laidOut.Add(RectOf(button));
+            reset.Hide();
+            move.Hide();
+            if (model.Movable)
+            {
+                x = PutRight(reset, PanelModel.ResetPosition, EntryText.ResetPosition, x, middle);
+                x = PutRight(move, PanelModel.Move, EntryText.Move, x, middle);
+            }
+            foreach (var button in new[] { close, reset, move })
+            {
+                if (button.gameObject.activeSelf) laidOut.Add(RectOf(button));
+            }
             LayTitle(model, left, x - left, middle);
             return top - headerHeight;
         }
@@ -940,9 +966,11 @@ namespace Halcyonic.XR.UI
 
             shownRows.Clear();
             shownLines.Clear();
+            shownMeters.Clear();
             var used = 0;
             var usedSides = 0;
             var usedLines = 0;
+            var usedMeters = 0;
             var y = area.yMax;
             var afterFlow = true;
             if (pages.Count > 0)
@@ -953,7 +981,12 @@ namespace Halcyonic.XR.UI
                     {
                         var item = rowsOf[kept[slot.First]];
                         if (y < area.yMax) y -= item.Continues && afterFlow ? 0f : Units(LineGapDegrees);
-                        if (item.Line) LayLine(LineLabel(usedLines++), item, area.xMin, area.width, y);
+                        if (item.Line)
+                        {
+                            var label = LineLabel(usedLines++);
+                            LayLine(label, item, area.xMin, area.width, y);
+                            if (item.Meter is float share) LayMeter(Meter(usedMeters++), item, share, area.xMax, y - GlazeText.LineHeight(label) / 2f);
+                        }
                         else ShowRow(RowButton(used++), item, area.xMin, area.width, y, heightOf[kept[slot.First]]);
                         y -= heightOf[kept[slot.First]];
                         afterFlow = true;
@@ -982,7 +1015,7 @@ namespace Halcyonic.XR.UI
                     afterFlow = false;
                 }
             }
-            HideRows(used, usedSides, usedLines);
+            HideRows(used, usedSides, usedLines, usedMeters);
             if (pages.Count > 1)
             {
                 // At the body's bottom right, in its last cell, where every screen's pager stands.
@@ -1161,16 +1194,20 @@ namespace Halcyonic.XR.UI
             var label = LineLabel(0);
             Style(label, row);
             GlazeText.SetLiteral(label, row.Title);
-            var (count, _) = GlazeText.Lay(label, width, Mathf.Max(1, row.TitleLines));
+            var (count, _) = GlazeText.Lay(label, WordsWidth(row, width), Mathf.Max(1, row.TitleLines));
             return Mathf.Max(1, count) * GlazeText.LineHeight(label);
         }
+
+        /// <summary>The width a line's words get: less its meter and the gap before it.</summary>
+        private static float WordsWidth(PanelRow row, float width) =>
+            row.Meter.HasValue ? width - MeterView.Width - Units(MeterGapDegrees) : width;
 
         private float LayLine(TextMeshPro label, PanelRow row, float left, float width, float top)
         {
             Style(label, row);
             GlazeText.SetLiteral(label, row.Title);
             Lean(label, row.Claim);
-            var (count, _) = GlazeText.Lay(label, width, Mathf.Max(1, row.TitleLines));
+            var (count, _) = GlazeText.Lay(label, WordsWidth(row, width), Mathf.Max(1, row.TitleLines));
             label.transform.localPosition = new Vector3(left, top, -0.0005f);
             label.gameObject.SetActive(true);
             if (row.TitleIsData) data.Add(label);
@@ -1195,11 +1232,27 @@ namespace Halcyonic.XR.UI
                 : row.Size == PanelTextSize.Caption ? GlazeTokens.TextSecondary : GlazeTokens.Text;
         }
 
-        private void HideRows(int usedRows, int usedSides, int usedLines)
+        /// <summary>A line's meter at the list's right end, centred on the line's first row.</summary>
+        private void LayMeter(MeterView meter, PanelRow row, float share, float right, float middle)
+        {
+            meter.Show(share, row.MeterWaiting);
+            meter.transform.localPosition = new Vector3(right - MeterView.Width / 2f, middle, -0.0005f);
+            meter.gameObject.SetActive(true);
+            shownMeters.Add((new Rect(right - MeterView.Width, middle - MeterView.Height / 2f, MeterView.Width, MeterView.Height), meter.Filled, row));
+        }
+
+        private void HideRows(int usedRows, int usedSides, int usedLines, int usedMeters)
         {
             for (var index = usedRows; index < rows.Count; index++) rows[index].Hide();
             for (var index = usedSides; index < sides.Count; index++) sides[index].Hide();
             for (var index = usedLines; index < lines.Count; index++) lines[index].gameObject.SetActive(false);
+            for (var index = usedMeters; index < meters.Count; index++) meters[index].gameObject.SetActive(false);
+        }
+
+        private MeterView Meter(int index)
+        {
+            while (meters.Count <= index) meters.Add(MeterView.Create(content, "Meter " + meters.Count, 11));
+            return meters[index];
         }
 
         private GlazeButton RowButton(int index)

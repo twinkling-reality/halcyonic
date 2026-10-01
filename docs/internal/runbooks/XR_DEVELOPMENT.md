@@ -155,13 +155,19 @@ batch mode:
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.UsageLeftRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-usage-left-render.log
 ```
 
-It saves the chip on the rail, then the panel with two readings, not set up, no reading yet, while
-reading, a partial answer and with an agent name from outside, over both stages in `apps/xr/Builds/UsageLeftRenders`,
-each with a close-up, and logs how far below eye level the panel spans (`Halcyonic: usage left
-render ...`). It fails if the chip leaves the rail's free room or comes near a rail button, if the
-panel covers a character's body or label or reaches beyond the space the workspace may take,
-if one of its own words is cut short, or if outside text does not show as written. It reads no
-control plane.
+It saves the chip on the rail, then the panel with two readings, four, six over three pages, two
+being read again, not set up, no reading yet, while reading, a partial answer, an unreachable Mac,
+the demonstration and an agent name from outside, over both stages in
+`apps/xr/Builds/UsageLeftRenders`, each with a close-up and the whole panel (`-panel.png`), and logs
+how far below eye level the panel spans (`Halcyonic: usage left render ...`). It fails if the chip
+leaves the rail's free room or comes near a rail button; if the panel covers a character's body or
+label, comes within a degree of one, or reaches beyond the space the workspace may take; if a
+target is too small, closer than 12 mm to another or past the panel's edge, or a word too small; if
+one of its own words is cut short; if four windows page or six do not, or a page leaves out where
+the windows come from or what is unknown; if a meter does not stand over its own "at most" words,
+fills other than that share of its track, or fills at all while a read is in flight; if Close is not
+in the header, Refresh takes a press while reading or shows in the demonstration; if anything but
+a failure is said in red; or if outside text does not show as written. It reads no control plane.
 
 Every state of a task on the stage renders the same way, **Halcyonic > Render Every State on the
 Stage**, or in batch mode:
@@ -184,7 +190,9 @@ in batch mode:
 ```
 
 It saves the gallery in `apps/xr/Builds/GlazeRenders` and logs each button label's contrast on its
-fill (`Halcyonic: component render ...`).
+fill (`Halcyonic: component render ...`). It fails if a word is too small or cut short, a target too
+small, a label short of 4.5:1 on its fill, a badge's word wrong, or a meter filled other than to its
+share, or at all while waiting.
 
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
@@ -693,8 +701,10 @@ In the headset:
 9. **The four questions.** In the opened workspace, What is it doing?, Help me understand and What
    was checked? read whole on their tabs, and What do you need from me? shows only while the approval
    waits. Approve, read the whole request, confirm: the answer counts once the runtime confirms it.
-10. **Usage left.** At the right end of the rail's lower row, Usage left: pressed, it says "Usage
-    left isn't set up on your Mac." It steps aside when the entry panel or a workspace opens.
+10. **Usage left.** At the right end of the rail's lower row, Usage left: pressed, it opens a panel
+    at touch distance that says "Usage left isn't set up on your Mac yet. Set it up there to see it
+    here.", in white, not red, with Close at its top right and Refresh at its bottom right. It steps
+    aside when the entry panel or a workspace opens.
 11. **Reset position.** Move steps the panel right, left and back. Turn in the chair and press
     Reset position: the panel and the rail come in front of you.
 

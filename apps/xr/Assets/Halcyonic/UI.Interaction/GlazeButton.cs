@@ -38,11 +38,10 @@ namespace Halcyonic.XR.UI
     /// and its detail in lines of their own, and a word at its right saying what pressing it does.
     /// </summary>
     /// <remarks>
-    /// Its presses follow the workspace's button (<c>PanelButton</c>), whose API it keeps: a press
-    /// within <see cref="SettleSeconds"/> of the button taking a new role, new words or becoming
-    /// available is not a press of it, so a confirmation needs a separate, deliberate gesture, and a
-    /// hold button starts its hold after <see cref="HoldSeconds"/> and ends it when let go, dropped or
-    /// taken away, as hold to talk needs.
+    /// A press within <see cref="SettleSeconds"/> of the button taking a new role, new words or
+    /// becoming available is not a press of it, so a confirmation needs a separate, deliberate
+    /// gesture, and a hold button starts its hold after <see cref="HoldSeconds"/> and ends it when let
+    /// go, dropped or taken away, as hold to talk needs.
     /// </remarks>
     public sealed class GlazeButton : MonoBehaviour
     {

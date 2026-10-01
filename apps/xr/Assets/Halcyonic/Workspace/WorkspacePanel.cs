@@ -18,15 +18,6 @@ namespace Halcyonic.XR.Workspace
     /// </summary>
     public sealed class WorkspacePanel : MonoBehaviour
     {
-        /// <summary>
-        /// The size the workspace had before it moved onto the frame, in the units Usage left still
-        /// sizes and places itself by until it moves too (ADR 0023). The workspace itself is the frame's size.
-        /// </summary>
-        public const float Width = 0.80f;
-
-        /// <summary>See <see cref="Width"/>.</summary>
-        public const float Height = 0.62f;
-
         private PanelFrame frame = null!;
         private SectionView section = null!;
 

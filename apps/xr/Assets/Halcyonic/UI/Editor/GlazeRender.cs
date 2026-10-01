@@ -17,10 +17,11 @@ namespace Halcyonic.XR.UI.Editor
     /// Renders every component of the interface in every state it has, on a panel at touch distance
     /// (ADR 0023): the state badges, the last known badge and a count, the marks, every role of
     /// button at rest, pointed at, pressed, unavailable and done, compact buttons and buttons with a
-    /// second line, and the banner's kinds. It checks each by <see cref="GlazeChecks"/>: words at
-    /// least the caption's size, targets at least 60 dp (48 compact), nothing of ours cut short,
-    /// every badge's whole word, and each button's label contrasting with its own fill as drawn, at
-    /// least 4.5:1. A token changed shows here everywhere at once. It saves the gallery at a Quest
+    /// second line, the banner's kinds, and meters full, nearly empty, in between and waiting. It
+    /// checks each by <see cref="GlazeChecks"/>: words at least the caption's size, targets at least
+    /// 60 dp (48 compact), nothing of ours cut short, every badge's whole word, each button's label
+    /// contrasting with its own fill as drawn, at least 4.5:1, and each meter filled to its share, or
+    /// not at all while waiting. A token changed shows here everywhere at once. It saves the gallery at a Quest
     /// 3's 25 pixels per degree in apps/xr/Builds/GlazeRenders, which git ignores. In the editor:
     /// Halcyonic > Render Every Component. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md;
     /// it exits with 1 when a check fails.
@@ -86,9 +87,11 @@ namespace Halcyonic.XR.UI.Editor
                 var badges = Badges();
                 var buttons = Buttons();
                 Banners();
+                var meters = Meters();
                 foreach (Transform holder in gallery) first.Add(holder);
                 failures.AddRange(Check(folder, "gallery.png", camera, texture, root, eyes, buttons));
                 failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, "component render"));
+                failures.AddRange(MetersFilled(meters));
 
                 // A panel's list rows on a page of their own, in the middle of the view.
                 foreach (var holder in first)
@@ -337,6 +340,48 @@ namespace Halcyonic.XR.UI.Editor
                 var width = GlazeTokens.DegreesOf(banner.Width);
                 Aim(holder, x + width / 2f, -14f);
                 x += width + 1.5f;
+            }
+        }
+
+        /// <summary>Meters with the words they picture under them: at most 60%, 3% and 100% left, and one waiting for a read.</summary>
+        private static List<(MeterView Meter, float Share, bool Waiting)> Meters()
+        {
+            var meters = new List<(MeterView, float, bool)>();
+            var x = -33f;
+            foreach (var (share, waiting, words) in new[]
+            {
+                (0.6f, false, "At most 60% left"),
+                (0.03f, false, "At most 3% left"),
+                (1f, false, "At most 100% left"),
+                (0.39f, true, UsageLeftPresenter.Reading),
+            })
+            {
+                var holder = Holder("Meter " + words, 0f, 0f);
+                var meter = MeterView.Create(holder, "Meter", 1);
+                meter.Show(share, waiting);
+                var label = GlazeText.Create(holder, "Words", GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 2);
+                label.rectTransform.pivot = new Vector2(0f, 1f);
+                GlazeText.SetLiteral(label, words);
+                GlazeText.Lay(label, MeterView.Width, 1);
+                label.transform.localPosition = new Vector3(-MeterView.Width / 2f, -GlazeTokens.Units(0.6f), -0.0005f);
+                Aim(holder, x + MeterView.WidthDegrees / 2f, -22f);
+                x += MeterView.WidthDegrees + 2.5f;
+                meters.Add((meter, share, waiting));
+            }
+            return meters;
+        }
+
+        /// <summary>Each meter is filled to its share of its track, or not at all while it waits for a read.</summary>
+        private static IEnumerable<string> MetersFilled(List<(MeterView Meter, float Share, bool Waiting)> meters)
+        {
+            foreach (var (meter, share, waiting) in meters)
+            {
+                var expected = waiting ? 0f : share * MeterView.Width;
+                if (Mathf.Abs(meter.Filled - expected) > 1e-5f)
+                {
+                    yield return "component render: a meter of " + share.ToString("0.00", CultureInfo.InvariantCulture) + (waiting ? " waiting" : "") + " fills "
+                        + meter.Filled.ToString("0.0000", CultureInfo.InvariantCulture) + ", not " + expected.ToString("0.0000", CultureInfo.InvariantCulture) + ".";
+                }
             }
         }
 

@@ -12,16 +12,6 @@ namespace Halcyonic.XR.Workspace
     /// </summary>
     public static class WorkspaceLayout
     {
-        /// <summary>
-        /// About two feet from the eyes, where the workspace opened before it moved onto the frame at
-        /// touch distance: Usage left still opens there, and is scaled by <see cref="Scale"/>, until it
-        /// moves too (ADR 0023).
-        /// </summary>
-        public const float Reach = 0.6f;
-
-        /// <summary>The scale that keeps Usage left the angular size it was designed with at <see cref="Reach"/>.</summary>
-        public static float Scale => Reach / WorkspaceVisuals.PanelDistance;
-
         /// <summary>A frame's size as placement takes it: at touch distance, half its width and height in meters.</summary>
         public static PanelSize FrameSize =>
             new PanelSize(PanelFrame.Distance, PanelFrame.UnitSize.x / 2f * PanelFrame.Distance, PanelFrame.UnitSize.y / 2f * PanelFrame.Distance);
@@ -49,19 +39,17 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// The pose of a panel that belongs to no character, such as the entry panel, of the size it
-        /// gives, or Usage left's when it gives none: where the person looks, and clear of every
-        /// character and its label as the workspace is. It is placed as if beside the character nearest where the person looks, so it
-        /// goes below the labels of the characters 2.4 m away and above a desk lineup; with no
+        /// The pose of a panel that belongs to no character, such as the entry panel or Usage left, of
+        /// the size it gives: where the person looks, and clear of every character and its label as
+        /// the workspace is. It is placed as if beside the character nearest where the person looks,
+        /// so it goes below the labels of the characters 2.4 m away and above a desk lineup; with no
         /// characters it opens 15 degrees below eye level.
         /// </summary>
         public static (Pose Pose, PanelDirection Direction) PlaceForeground(IEnumerable<CharacterTarget> all, Vector3 eyes, Vector3 looking,
-            float? surfaceHeight, List<BodyInView> scratch, PanelSize? panel = null)
+            float? surfaceHeight, List<BodyInView> scratch, PanelSize size)
         {
             scratch.Clear();
             var lookYaw = Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg;
-            // Usage left's size unless a panel says its own, as the entry panel and the Settings sheet do.
-            var size = panel ?? new PanelSize(Reach, WorkspacePanel.Width / 2f * Scale, WorkspacePanel.Height / 2f * Scale);
             BodyInView? nearest = null;
             foreach (var other in all)
             {

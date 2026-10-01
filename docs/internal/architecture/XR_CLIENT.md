@@ -278,13 +278,19 @@ the same definition names, as the JSON Schema document:
   account wide (`GET /api/usage-limits`), and **`UsageLeftPresenter`** writes every word of the
   Usage left glance. A reading says "At most X% left, seen today at 15:18, resets 6 Oct at 09:00", with the day named whenever it is not today in the person's time zone, and each row names the agent and window ("Codex, 5-hour window", "Codex, weekly"): the
   most that was left when the provider reported it, rounded up so that "at most" stays true, never
-  a current value, never an allowance. A window past its reset, by the device's clock, is not
-  shown. Under the readings, a note names the source ("From Seorak, as the provider reported", or
-  "Simulated, not from Seorak") and says the account is not identified, so no reading is tied to
-  the selected runtime, account or model. Every setup problem, a missing credential, one without
-  the scope, a restricted one or no source at all, reads "Usage left isn't set up on your Mac.";
-  the scope details stay in the Mac runbook. When the source could read only some limits, the note
-  starts "Some limits couldn't be read this time." and no missing window is inferred. No reading reads "No usage reading yet.", never 0%.
+  a current value, never an allowance; each row also carries that share (`UsageLeftRow.Left`), which
+  its meter draws. A window past its reset, by the device's clock, is not shown ("No reading since
+  the last reset. Refresh later." when none is left). The source is named with the readings ("From
+  Seorak, as the provider reported", or "Simulated, not from Seorak", `Source`), and a note says the
+  account is not identified, so no reading is tied to the selected runtime, account or model. Every
+  setup problem, a missing credential, one without the scope, a restricted one or no source at all,
+  reads "Usage left isn't set up on your Mac yet. Set it up there to see it here.", said as plainly
+  as any other answer; the scope details stay in the Mac runbook. Only a failure (`Failed`) is said
+  in the failure colour: "Usage left can't be read right now. Try again later.", or "Couldn't reach
+  your Mac. Press Refresh to try again." When the source could read only some limits, the note
+  starts "Some limits couldn't be read this time." and no missing window is inferred. No reading
+  reads "No usage reading yet.", never 0%. While the recorded demonstration plays, the glance says
+  "Usage left isn't part of the demo." **`UsageLeftScreens`** builds its panel model.
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
@@ -805,18 +811,24 @@ scripts use only long-stable core Unity APIs:
   and quiet, taking no press), done (in the success colours) and set aside while the app lacks focus
   (faded). As a row of a panel's list (`ShowRow`) its words are left-aligned: a line over the title,
   the title and its detail wrapping to their lines, a shorter detail where the full one doesn't fit,
-  and an end word in the accent; a static row only says something, with no tile and no press. Its
-  presses keep `PanelButton`'s rules: none within 0.35 s of taking a new role or new words, or of
-  becoming available, and a hold button's hold starts after 0.3 s and ends let go, dropped or taken
-  away. `PanelFrame` draws any `PanelModel` as a foreground panel 44 by 26 degrees at 0.46 m: the
-  title, its context and the window controls (Move, Reset position, Close) along the top, or, on a
-  panel that stays beside its character, the title over its context at the left (a notice in their
-  place, two lines tall) and the state badge and marks at the right, with a row of tabs under them
-  that ends in Close; the heading, its action at its right, or the lead or the banner; the list in
-  one column or two, pressable rows in cells of equal height 12 mm apart, lines and, in one column,
-  rows that only say something as tall as their words, a page at a time, a log's older lines left
-  out rather than paged, with the pager in the body's bottom right cell, or a screen's own pager in a
-  row under the body with its heading and note at the left; and the bar, Back and the destructive
+  and an end word in the accent; a static row only says something, with no tile and no press. No
+  press counts within 0.35 s of it taking a new role or new words, or of becoming available, and a
+  hold button's hold starts after 0.3 s and ends let go, dropped or taken away. It is every button
+  of the interface; the workspace's first button, `PanelButton`, is gone. A meter (`MeterView`)
+  draws a share as a slim bar on its track, 14 degrees wide wherever it stands so meters compare at
+  a glance: a picture of words beside it, never in their place. The share it draws is an upper
+  bound, as usage left's "at most" is, so its end is open, the last 1.5 degrees in dots, and while
+  what it measures is read again it shows only its track. `PanelFrame` draws any `PanelModel` as a
+  foreground panel 44 by 26 degrees at 0.46 m: the title, its context and the window controls
+  (Move, Reset position, Close) along the top, or Close alone on a panel that stays put without
+  tabs, as Usage left, or, on a panel that stays beside its character, the title over its context
+  at the left (a notice in their place, two lines tall) and the state badge and marks at the right,
+  with a row of tabs under them that ends in Close; the heading, its action at its right, or the
+  lead or the banner; the list in one column or two, pressable rows in cells of equal height 12 mm
+  apart, lines, with a meter at their right end where they have one, and, in one column, rows that
+  only say something as tall as their words, a page at a time, a log's older lines left out rather
+  than paged, with the pager in the body's bottom right cell, or a screen's own pager in a row under
+  the body with its heading and note at the left; and the bar, Back and the destructive
   action at the left and the primary at a right end at least 14 degrees wide, or the confirm step in
   its place. Targets keep 12 mm apart; words need less, so a body that starts or ends in words sits
   closer to what is above or below it. The frame records where every control stood on each screen
@@ -826,7 +838,7 @@ scripts use only long-stable core Unity APIs:
   and the bar's row keeping only Cancel. While the step pages through what it confirms, the pager
   stands at the top, in the tabs' row or a row under the header, never in Yes's rows. It raises the
   id of what was pressed, with the row's or the tab's key, and splits text into parts of whole lines
-  at the list's width (`SplitLines`). `PanelButton` stays until every surface has moved.
+  at the list's width (`SplitLines`).
 - A player build leaves out shaders that nothing in the build references; the first device build
   rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
   Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
@@ -862,7 +874,7 @@ scripts use only long-stable core Unity APIs:
 ### The workspace
 
 `Assets/Halcyonic/Workspace` is its own assembly, the one that builds the Meta Interaction SDK's
-targets; the room's controls reuse its `PanelButton`. Three levels of detail show the same work,
+targets. Three levels of detail show the same work,
 all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interaction-sdk.md)):
 
 - **Ambient:** the characters as the stage shows them.
@@ -941,16 +953,22 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   closes when the entry panel or a workspace opens and folds while another window keeps focus.
 - **Usage left:** `UsageLeftGlance` offers its "Usage left" chip to the project rail, which places it
   at its lower row's right end (`ProjectRail.OfferUsageLeft`), and nothing anywhere else: no
-  floating control. Pressing it opens a
-  panel 0.7 wide where the entry panel would open (`WorkspaceLayout.PlaceForeground`), clear of every
-  character, at the edge of that space away from them (below the characters 2.4 m away, above a desk
-  lineup) so it clears their label plates too, and reads the control plane once. The rail steps out of
-  the way meanwhile. The panel shows its title and Close, the readings, the note and Read again, which
-  reads once more; it only lays out again every 15 s, to drop a window that has reset. An agent name
-  longer than 32 characters ends in an ellipsis. It closes by Close, and when the entry panel or a
-  workspace opens; while another window has focus its controls take no input and the chip hides,
-  and once focus stays away the panel folds with what it read and comes back as it was. The recorded demonstration offers no usage limits. It is not Workstream status and not part
-  of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
+  floating control. Pressing it opens a panel on the frame, 44 by 26 degrees at 0.46 m, where the
+  entry panel would open (`WorkspaceLayout.PlaceForeground`), clear of every character and its
+  label, and reads the control plane once. The rail steps out of the way meanwhile. Each screen is a
+  `PanelModel` from `UsageLeftScreens`: "Usage left" and where the readings come from along the top,
+  Close in the header; each window's name with a meter at its right and, under it, what was seen,
+  in words, the meter drawn from the same rounded-up share; the note that the account is not
+  identified, and that some limits couldn't be read, under the list, so every page says it; and
+  Refresh on the bar, which reads once more. Four windows show on one page; more page. While a read
+  is in flight the rows read before stay, their meters show only their tracks, the bar says
+  "Reading usage left…" and Refresh waits; with nothing read yet, the list says it. In the recorded
+  demonstration there is nothing to read, so it offers no Refresh. It only lays out again every
+  15 s, to drop a window that has reset. An agent name longer than 32 characters ends in an
+  ellipsis. It closes by Close or the chip, and when the entry panel or a workspace opens; while
+  another window has focus its controls take no input and the chip hides, and once focus stays away
+  the panel folds with what it read and comes back as it was. It is not Workstream status and not
+  part of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
 - **Make room for a window:** while the stage stands in front of the person, Settings' Your room
   offers Make room for a window, which turns the lineup 32 degrees to their right
   (`CharacterStage.SetAside`, kept on the device), and Characters in front, which turns it back. On
@@ -1545,7 +1563,7 @@ files and the lock file are committed ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELO
 Hold to talk, in development builds only (ADR 0021), as another way to give an idea, a task or an
 instruction; typing always stays:
 
-- **`GlazeButton`'s and `PanelButton`'s hold mode** (`Holds`): a press held for 0.3 s starts the hold (`HoldStarted`);
+- **`GlazeButton`'s hold mode** (`Holds`): a press held for 0.3 s starts the hold (`HoldStarted`);
   letting go ends it (`HoldEnded(true)`); the hand leaving the button, the button no longer
   accepting (as when input is suspended) or the button going away drops it (`HoldEnded(false)`).
   A press let go sooner is a tap, which says to hold while speaking. `PointerTarget.Released`
