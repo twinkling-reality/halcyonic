@@ -106,13 +106,19 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Lays a label out in a box <paramref name="width"/> wide with room for at most
         /// <paramref name="maxLines"/> lines, the last ending in an ellipsis when the text runs over,
-        /// and says how many lines it takes and how wide its widest is.
+        /// and says how many lines it takes and how wide its widest is. A label whose words, look and
+        /// box are as they were keeps the mesh it has: panels lay every label out again every half
+        /// second, and building text meshes again is what that would cost on the headset.
         /// </summary>
         public static (int Lines, float Width) Lay(TMP_Text label, float width, int maxLines)
         {
-            label.rectTransform.sizeDelta = new Vector2(width, maxLines * LineHeight(label));
-            // Laid out whether it shows yet or not, so a card is measured before it appears.
-            label.ForceMeshUpdate(true);
+            var box = new Vector2(width, maxLines * LineHeight(label));
+            var resized = label.rectTransform.sizeDelta != box;
+            if (resized) label.rectTransform.sizeDelta = box;
+            // Laid out whether it shows yet or not, so a card is measured before it appears. Every
+            // TextMeshPro setter marks a change only when the value changes, so an unchanged label
+            // has nothing to build again.
+            if (resized || label.havePropertiesChanged) label.ForceMeshUpdate(true);
             var info = label.textInfo;
             if (info.characterCount == 0) return (0, 0f);
             return (Mathf.Clamp(info.lineCount, 1, maxLines), Mathf.Min(width, label.textBounds.size.x));

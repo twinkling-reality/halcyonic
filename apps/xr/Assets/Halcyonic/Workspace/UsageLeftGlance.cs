@@ -136,8 +136,8 @@ namespace Halcyonic.XR.Workspace
             if (!built)
             {
                 // The workspace director adds the rail in its Start; without one there is no glance.
-                if (connection == null || (rail = GetComponent<ProjectRail>()) == null) return;
-                if (entry == null) entry = GetComponent<EntryPanel>();
+                if (connection == null || !TryGetComponent(out rail)) return;
+                if (entry == null) TryGetComponent(out entry);
                 Build();
             }
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);

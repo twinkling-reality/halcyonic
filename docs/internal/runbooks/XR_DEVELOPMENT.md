@@ -200,6 +200,22 @@ fill (`Halcyonic: component render ...`). It fails if a word is too small or cut
 small, a label short of 4.5:1 on its fill, a badge's word wrong, or a meter filled other than to its
 share, or at all while waiting.
 
+What the interface costs a Quest 3, measured off the device, **Halcyonic > Measure the Interface**,
+or in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.MeasureRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-measure.log
+```
+
+It builds the stage with the rail, the stage beside a window while another window has focus, the
+entry panel, a workspace, Usage left and Settings, and logs for each the draw calls at most, the text
+labels and their characters, the vertices and triangles; for each panel, what showing the same
+screen again costs (text meshes built again, the editor's milliseconds, bytes); and what each
+per-frame method allocates a frame (`Halcyonic: interface measure ...`). It fails if a panel could
+draw more than 60 times or everything showing more than 220 (ADR 0023), if showing an unchanged
+screen again builds any text mesh, or if any frame allocates. Its times are a Mac's; what only the
+headset tells is in [quest-3-performance.md](../validation/quest-3-performance.md).
+
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
 shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
@@ -991,57 +1007,63 @@ did not happen as written. A step not tried stays unverified.
 
 ### The interface on a Quest
 
-The surfaces of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
-to judge with the headset on so far: character labels and the stage's height, the rail and Settings,
-and the entry panel. A session of 15 minutes,
-seated, hands only, in passthrough, with `pnpm demo` running, or the demonstration. For each step,
-note what you saw and how it felt.
+The whole redesign of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
+in one session of 20 minutes, the checks that matter most first, so a short session still answers
+them. Seated at the desk, hands only, in passthrough, with a development build (Settings shows Your
+Mac and Hold to talk works), `pnpm demo` running against the control plane so something waits for
+you, and a browser video to hand. Follow the log while you go:
 
-1. **Stage height.** The characters stand 2.4 m away with their centers about 4 degrees below your
-   eyes (`heightFromEyes` -0.17 on the stage in `Stage.unity`, was -0.45). Sitting comfortably,
-   are the bodies easy to see without lifting your chin, and do they ever sit where a system window
-   would open? If a value feels better, try -0.12 or -0.22 and note which. Then open a window
-   straight ahead: at this height it hides the middle characters' labels as well as their bodies.
-   How much does that matter, and does Make room for a window or Either side of a window fix it?
-2. **Labels.** Each label has a state badge on top, the task's title on a dark plate, and Practice,
-   Demo or Recorded on the plate's bottom edge. From your seat, can you read every title and badge
-   without leaning? Do neighbours' labels ever touch? Does any title cut off where you need its end?
-3. **The badge words.** Waiting for you, Working, Checking its work, Finished this round, Checks
-   failed, Couldn't finish, Can't tell yet, Stopped. Do they say what each character is doing,
-   without the colours?
-4. **Waiting for you.** Make a task wait for you. Its badge turns amber and breathes slowly, and the
-   character rises. Is the breath noticeable but calm?
-5. **The banner.** Under the labels, centred, it says "Connected to your Mac". Stop the control
-   plane: it says "Last known: can't reach your Mac. Trying again…", and every badge turns grey and
-   dotted. Can you still read the badges' words?
-6. **The peek.** Rest your gaze on a character, then point at one. The card hangs under its label,
-   faces you and shows the state, the reason and what opening is for, and the banner steps aside.
-   Is it near enough to read without reaching, and does it ever cover another label?
-7. **The workspace.** Open a character. The workspace opens under every label, about 30 degrees
-   down. Is that comfortable to read, and can you still see the badges above it?
-8. **A desk** (room placement on). The characters stand on the desk with their labels resting on
-   it, spread a little wider, the banner above them. Can you read the labels looking down, and does
-   any body hide its own badge?
-9. **The rail.** Under the stage, about 44 degrees down and 0.43 m away: project pills above (outlined
-   in blue while shown), actions below, Settings at the right end. Can you reach and press every
-   button without leaning, and read the counts? On a desk it sits nearer, about 53 degrees down:
-   is that too low?
-10. **Settings.** Press Settings. The sheet opens under the labels with Your room and, in a
-    development build, Your Mac. Switch to a virtual space and back; does the notice on the banner
-    say what changed once the sheet is closed? Nothing should float low to your left or right any
-    more.
-11. **Entry at touch distance.** Press Create a project. The panel opens 0.46 m away, under every
-    label, 44 by 26 degrees. Can you read it for a few minutes without strain, and poke every button
-    without leaning? If reading strains, note it: the fallback is the same panel at 1 m, ray only.
-12. **The same places.** Go through Connect projects, More tasks, Create a project, a fixed question,
-    the recap, More options and the review. Close stays at the top right, Back at the bottom left,
-    the button the screen leads to at the bottom right, and Previous and Next above it at the right.
-    Does your hand learn where to go?
-13. **Two columns.** Lists show four to a page in two columns, and the pager takes the last cell when
-    there is more. Is a page of four enough, and are the tiles easy to tell apart and to hit?
-14. **Confirming.** On the recap, press Start building, then on the review press where Start building
-    was: it is Change now, so nothing starts. Read to the last part; Yes, start building unlocks left
-    of Change. Then press Start over: the bar asks to confirm, Yes, start over in solid red. Does
-    pressing twice in one place ever do what you didn't mean?
+```bash
+adb logcat -s Unity VrApi | grep --line-buffered -E "Halcyonic: (sound|focus|large panels|placed the stage)|FPS="
+```
+
+For each step write down what you saw and how it felt, in
+[quest-3-device.md](../validation/quest-3-device.md), including what did not happen as written.
+
+1. **Reading at touch distance (3 minutes).** Open the character that waits for you: the workspace
+   opens 0.46 m away, 44 by 26 degrees, beside it. Read the whole request, part by part, and poke
+   Next, Approve and Cancel. Then press Create a project and read the first screen. Can you read for
+   a few minutes without strain, and poke every button without leaning or stretching? If reading
+   strains, say so: the fallback is the same panel at 1 m, ray only.
+2. **The stage's height and the labels (2 minutes).** The characters stand 2.4 m away, their centres
+   about 4 degrees below your eyes. Without lifting your chin, can you see every body and read every
+   badge and title? Do neighbours' labels ever touch? Do the badge words (Waiting for you, Working,
+   Checking its work, Finished this round, Couldn't finish, Can't tell yet, Stopped) say what each
+   is doing without the colours?
+3. **A window in front, three ways (5 minutes).** Put the browser video straight ahead. Count the
+   characters it covers. In Settings (the rail's Settings, Your room), press Make room for a window:
+   the lineup turns 32 degrees right, the outermost label about 67 degrees from straight ahead. Is
+   turning your head that far comfortable? Count again. Then press Either side of a window: four
+   characters, two each side of the window at 32 degrees, one just above eye level and one below,
+   badges without titles. Count again. Can you tell the tasks apart before peeking? Did the window
+   really sit where Halcyonic assumed, straight ahead? Then Characters in front. Record the three
+   counts and which arrangement you would keep.
+4. **Watching beside the characters (2 minutes).** With the workspace open, select the video. Three
+   seconds later the panel folds, and the banner under the characters, or under the window beside
+   it, says how many tasks wait for you, that the workspace is still open ("Still open: ..."), and
+   beside a window how many more tasks are not shown. Can you see it past the video? Pinch to come
+   back: the first pinch only returns focus, and the panel comes back as it was. On a device that
+   has never shown it, the banner says once "Window in the way? Settings can move the characters."
+5. **Sounds (3 minutes).** Press a tab, the pager and a rail pill: one soft tap from the button
+   each time. Press a locked Yes, or Refresh while Usage left reads: Not now, a damped step down.
+   Approve a request and confirm: the confirming press sounds Approve's two notes, with no tap.
+   Make a task wait for you:
+   two strikes rising from its character. Press anything just after coming back from the video:
+   nothing. Are the taps welcome or too much over an hour?
+6. **Pressing twice in one place (2 minutes).** Approve, then press again where Approve was: it is
+   Cancel or nothing, never Yes. On the review, press where Start building was: nothing starts.
+   Does a double press ever do what you didn't mean?
+7. **Smoothness (throughout).** With a workspace open for a minute, the log's `FPS=` stays at 72.
+   Does anything stutter, for example every half second while a panel is open?
+8. **Usage left (1 minute).** Open it from the rail. Each window's meter ends in dots: does it read
+   as "at most"? Press Refresh: the meters empty to their tracks and Refresh waits until the read
+   is back.
+9. **The same places (1 minute).** Through Connect projects, Create a project, a question and the
+   review: Close stays at the top right, Back at the bottom left, the button the screen leads to at
+   the bottom right, the pager above it at the right. Does your hand learn where to go?
+
+If time remains: the stage's banner when the control plane stops (Last known, every badge grey and
+dotted, still readable); the peek, which never covers another label; a desk, its labels resting on
+it, read looking down; lists four to a page in two columns.
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).
