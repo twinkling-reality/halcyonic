@@ -100,6 +100,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var scene in Scenes()) Measure(scene, warmUp: true).ToList();
                 if (!AllocationsCounted()) failures.Add("this editor cannot count allocations, so no frame's bytes can be checked.");
                 foreach (var scene in Scenes()) failures.AddRange(Measure(scene, warmUp: false));
+                failures.AddRange(LeaningFollowsTheWords());
             }
             catch (Exception error)
             {
@@ -318,6 +319,65 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(texture);
             }
             return failures;
+        }
+
+        /// <summary>
+        /// A line whose words stay the same but which becomes the agent's, or stops being, leans or
+        /// stands upright as soon as it is drawn: its mesh is built again for the lean alone, though
+        /// nothing else about it changed and an unchanged label keeps its mesh. Each screen is drawn
+        /// once before its line is looked at, as the headset draws it; nothing forces the meshes.
+        /// </summary>
+        private static IEnumerable<string> LeaningFollowsTheWords()
+        {
+            var failures = new List<string>();
+            var root = new GameObject("Interface measure leaning");
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            try
+            {
+                var eyes = new Vector3(0f, EyeHeight, 0f);
+                var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
+                var holder = new GameObject("Panel").transform;
+                holder.SetParent(root.transform, false);
+                var forward = Quaternion.Euler(18f, 0f, 0f) * Vector3.forward;
+                holder.SetPositionAndRotation(eyes + forward * PanelFrame.Distance, Quaternion.LookRotation(forward, Vector3.up));
+                holder.localScale = Vector3.one * PanelFrame.Distance;
+                var frame = PanelFrame.Create(holder, "Frame");
+                foreach (var claim in new[] { true, false, true })
+                {
+                    var model = new PanelModel("Leaning");
+                    model.Rows.Add(new PanelRow { Line = true, Title = "I added the rate limiter and ran the tests.", Claim = claim });
+                    frame.Show(model);
+                    UnityEngine.Object.DestroyImmediate(WorkspaceRender.Render(camera, texture));
+                    var (label, _) = frame.ShownLines[0];
+                    var shear = Shear(label);
+                    Debug.Log("Halcyonic: interface measure: a line " + (claim ? "of the agent's words" : "of Halcyonic's") + " leans by "
+                        + shear.ToString("0.000", CultureInfo.InvariantCulture) + " of its height.");
+                    if (claim != shear > 0.1f) failures.Add("a line that " + (claim ? "became the agent's words does not lean" : "stopped being the agent's words still leans") + " though its words stayed the same.");
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        /// <summary>How far a line's first letter's top stands right of its foot, for each unit of its height, as its mesh is now.</summary>
+        private static float Shear(TMP_Text label)
+        {
+            var info = label.textInfo;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (!character.isVisible) continue;
+                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
+                var foot = vertices[character.vertexIndex];
+                var top = vertices[character.vertexIndex + 1];
+                return (top.x - foot.x) / Mathf.Max(top.y - foot.y, 1e-6f);
+            }
+            return 0f;
         }
 
         /// <summary>

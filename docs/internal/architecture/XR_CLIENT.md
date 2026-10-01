@@ -1554,8 +1554,9 @@ draw calls at most, before batching, the text labels, vertices and triangles; fo
 text meshes built again, the editor's time and the bytes allocated when the same screen is shown
 again; and the bytes every per-frame method allocates, by Unity's own count of the managed heap
 ("GC Allocated In Frame"). It fails if a panel could draw more than 60 times or everything showing
-more than 220, as ADR 0023 budgets, if showing an unchanged screen builds a text mesh again, or if a
-frame allocates. Its results and what only the headset tells are in
+more than 220, as ADR 0023 budgets, if showing an unchanged screen builds a text mesh again, if a
+frame allocates, or if a line whose words stay the same does not lean, or stand upright, once drawn
+after it becomes the agent's words or Halcyonic's: the lean alone builds its mesh again. Its results and what only the headset tells are in
 [quest-3-performance.md](../validation/quest-3-performance.md). The client core's per-frame code
 (`FocusPresence`, `PeekChoice`, `InFrontPlacement`, a section's `IntelligenceFeed`) is held to
 allocate nothing by `PerFrameTests`.

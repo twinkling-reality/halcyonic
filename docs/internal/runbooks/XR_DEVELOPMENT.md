@@ -213,7 +213,9 @@ labels and their characters, the vertices and triangles; for each panel, what sh
 screen again costs (text meshes built again, the editor's milliseconds, bytes); and what each
 per-frame method allocates a frame (`Halcyonic: interface measure ...`). It fails if a panel could
 draw more than 60 times or everything showing more than 220 (ADR 0023), if showing an unchanged
-screen again builds any text mesh, or if any frame allocates. Its times are a Mac's; what only the
+screen again builds any text mesh, if any frame allocates, or if a line whose words stay the same
+does not lean, or stand upright, as soon as it is drawn after becoming the agent's words or
+Halcyonic's. Its times are a Mac's; what only the
 headset tells is in [quest-3-performance.md](../validation/quest-3-performance.md).
 
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
