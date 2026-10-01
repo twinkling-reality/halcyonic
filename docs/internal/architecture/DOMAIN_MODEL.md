@@ -29,6 +29,11 @@ in `packages/domain`.
 - **Command**: a request to change state. It is admitted or rejected, and if admitted it later
   completes or fails. Sending a command is never proof that it happened.
 - **Event**: an immutable fact in the journal. See [EVENTS.md](EVENTS.md).
+- **Question**: something an agent asks the person through its runtime's structured surface, one
+  or more prompts with options and perhaps typed text, answered with `execution.answer_question`
+  when the runtime has `answer_question` and the adapter can carry the answer back faithfully.
+  A prompt asking for a secret is never answerable through Halcyonic
+  ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)).
 - **Principal**: who sent a command, as the control plane authenticated it: `local`, whoever holds
   the access token on the control plane's machine, or a paired **device**, such as a headset on
   the same network. Devices belong to no project; the owner pairs them with a code and revokes
@@ -37,7 +42,8 @@ in `packages/domain`.
 A **model provider** (Anthropic, OpenAI, Ollama and so on) sits below the runtime and is not a
 Halcyonic concept; runtimes such as OpenCode already manage providers. A **model** is known only
 through the runtime: a runtime whose `model_choice` is `listed` lists the models it can run, a
-start may carry one of them by its opaque `model_ref`, and an execution's `model_ref` is the model
+start on such a runtime must carry one of them by its opaque `model_ref`, and an execution's
+`model_ref` is the model
 the runtime last reported running on, null until it reports one
 ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 
@@ -47,9 +53,9 @@ Status is derived from facts, never stored. Precedence, highest first:
 
 | Status | Derived when |
 | --- | --- |
-| `unknown` | Contact with the runtime was lost, or the control plane restarted, or a start may or may not have happened. Cleared by the next runtime observation. |
+| `unknown` | Contact with the runtime was lost, or the control plane restarted, or a start may or may not have happened. Cleared by the next runtime observation, such as `runtime.connection.restored`. |
 | `failed` | The runtime refused to start the execution. |
-| `waiting_for_human` | At least one approval is pending. |
+| `waiting_for_human` | At least one approval or question is pending. |
 | `verifying` | A turn is running and a test run it reported is in progress. |
 | `running` | A turn is running. |
 | `completed` / `failed` / `interrupted` | No turn is running; this is how the last turn ended. |
@@ -73,7 +79,7 @@ Whether a workstream needs its human, and why. Every signal names the facts behi
 
 | Level | Reasons |
 | --- | --- |
-| `action_required` | `approval_pending`: an execution is waiting for an approval. |
+| `action_required` | `approval_pending`: an execution is waiting for an approval; `question_pending`: an agent is waiting for an answer, whether or not it can be answered through Halcyonic. |
 | `notice` | `execution_failed` or `execution_state_unknown` for the current execution; `verification_failed`: the current execution completed while its last test run did not pass. |
 | `none` | Nothing needs the human. |
 
@@ -100,9 +106,10 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 | `project.create` | low consequence | always, and when it names a location, the host can bind it (below) |
 | `project.set_location` | low consequence | the project exists and the host can bind the location |
 | `workstream.create` | low consequence | the project exists |
-| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is null or the runtime's `model_choice` is `listed`, for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |
+| `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is given exactly when the runtime's `model_choice` is `listed` (`model_required` when it is missing), for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |
 | `execution.send_instruction` | low consequence | the runtime has started a session, and: at rest (`completed`, `failed`, `interrupted`) with `instruct_at_rest`, or running (`running`, `verifying`, `waiting_for_human`) with `instruct_while_running` |
 | `execution.respond_to_approval` | review required | the approval is pending, the execution is `waiting_for_human`, and the runtime has `respond_to_approval` |
+| `execution.answer_question` | low consequence | the question is pending (`question_not_found` otherwise), the execution is `waiting_for_human`, the runtime has `answer_question`, the question is answerable (`capability_unsupported` otherwise), and the answers fit its prompts (`invalid_answer` otherwise) |
 | `execution.interrupt` | review required | a turn is running and the runtime has `interrupt` |
 
 A location is refused with `location_not_allowed` when it is not one of the host's project roots
@@ -117,7 +124,8 @@ the host's policy again before it starts anything, so a folder removed after adm
 start with effect `none` and the execution reads `failed`.
 
 Policy categories are recorded with every accepted command and sent to realtime clients in
-`welcome`. Clients must require a deliberate, explicit action for `review_required` commands. Authorization is currently a single local
+`welcome`. Clients must require a deliberate, explicit action for `review_required` commands,
+and send an answer to a question only when the person presses the control that sends it. Authorization is currently a single local
 principal, so categories do not yet restrict who may act ([SECURITY.md](SECURITY.md)).
 
 ## Command lifecycle
@@ -134,14 +142,15 @@ submitted ──> rejected                  (journaled with a reason; nothing el
   `effect: unknown`, because the runtime may still act.
 - A start that fails with an unknown effect makes the execution `unknown`, not `failed`.
 - Effects are observed separately: an approved request completes as a command, and the runtime's
-  `runtime.approval.resolved` shows that the runtime applied it.
+  `runtime.approval.resolved` shows that the runtime applied it. An answer likewise counts once
+  `runtime.question.resolved` says the runtime took it.
 
 ## Invariants
 
 - An event naming an execution also names its workstream and project.
 - A runtime event with a source sequence not after the last applied one does not change state; the
   projection reports it.
-- Ending a turn clears everything in flight: pending approvals, active tools and the active test
-  run.
+- Ending a turn clears everything in flight: pending approvals and questions, active tools and
+  the active test run. There is no command to dismiss a question; stopping the turn withdraws it.
 - Agent text is `reported`; it never becomes `observed`.
 - The same journal always produces the same state.

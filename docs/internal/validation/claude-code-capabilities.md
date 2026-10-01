@@ -229,7 +229,9 @@ approval is pending.
 - How the CLI treats a message queued while a turn runs.
 - Cloud provider authentication end to end; only the variable names were checked.
 - `AskUserQuestion` reaches the adapter as an ordinary approval; approving it gives Claude Code no
-  answers, with unknown effect.
+  answers, with unknown effect. Since verified: approving it tells the model "The user did not
+  answer the questions."; the adapter now reports it as a question and answers it in the tool's
+  input ([agent-questions.md](agent-questions.md), 2026-10-01).
 - What a CLI orphaned by a hard-killed host does when it next needs a permission.
 
 ## Smoke test with a real model (2026-09-26)

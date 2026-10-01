@@ -107,13 +107,27 @@ client                                   server
   `location` was added as an explicit null without a new protocol or schema version: a development
   build generated before it sends `project.create` without it and gets 400 until it is rebuilt.
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
-  as `GET /api/runtimes/:runtime_id/models` gave it. A choice for a runtime whose `model_choice` is
+  as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
+  `model_choice` is `listed` is rejected with `model_required`, so a model the person did not
+  choose never runs. A choice for a runtime whose `model_choice` is
   `none` is rejected with `capability_unsupported`, and one the runtime does not list with
   `invalid_runtime_options`; a model that leaves the runtime's list before the start fails it with
   `model_unavailable`, before anything runs. The field was added as an explicit null without a new
   protocol or schema version, because no client in the field sends `execution.start`; commands
   stored before it read as `model_ref: null`
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
+- **Answering an agent's question.** An execution's view lists `pending_questions`, each
+  `{question_id, prompts, answerable, asked_at}`; a prompt is `{key, header, text, options:
+  [{label, description}], multiple, free_text, secret}`, all of it the agent's words.
+  `execution.answer_question` `{execution_id, question_id, answers: [{key, selected, text}]}`
+  answers every prompt once, by its `key`: `selected` holds offered labels (at most one unless
+  `multiple`), `text` typed words (only when `free_text`), and a question that takes one answer gets
+  a label or text, not both. It is rejected with `question_not_found` when the question is not
+  pending, `invalid_answer` when the answers do not fit the prompts, and `capability_unsupported`
+  when the runtime cannot take answers or the question is not `answerable`, which every prompt
+  marked `secret` makes it. There is no command to dismiss a question: `execution.interrupt` stops
+  the turn and withdraws it. A client sends an answer only when the person presses the control that
+  sends it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)).
 - **Errors.** `error {error: {code, message, issues}, fatal}`. Invalid JSON or an invalid message
   after `hello` is not fatal. Fatal errors close with code 1008. A command the control plane fails
   to handle is answered with the non-fatal `command_not_handled` instead of an acknowledgement;

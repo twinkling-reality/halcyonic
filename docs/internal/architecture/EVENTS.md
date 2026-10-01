@@ -76,10 +76,13 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.turn.interrupted` | execution | runtime | The turn was stopped on request |
 | `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision |
 | `runtime.approval.resolved` | execution | runtime | The runtime applied a decision |
+| `runtime.question.asked` | execution | runtime | The agent waits for the person to answer a question; carries the runtime's question id, its prompts (the agent's words) and whether Halcyonic can answer it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)) |
+| `runtime.question.resolved` | execution | runtime | The runtime took an answer (`answered`) or withdrew the question (`dismissed`); a turn's end withdraws it too |
 | `runtime.tool.started` / `.completed` | execution | runtime | Tool activity |
 | `runtime.agent_message` | execution | runtime | Agent text (`reported`) |
 | `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome |
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
+| `runtime.connection.restored` | execution | runtime | The adapter can observe the runtime again after a loss; what changed meanwhile follows as its own events |
 | `runtime.model.used` | execution | runtime | The model the runtime says the execution runs on (`observed`), by the `model_ref` of the runtime's list; reported when it starts and whenever it changes |
 | `device.paired` | none | control plane | A device proved it saw the pairing code; carries its id, its self-declared label, the SHA-256 of its credential and of the certificate it pinned ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)) |
 | `device.revoked` | none | control plane | The device's credential is no longer accepted; carries who revoked it |
@@ -136,6 +139,11 @@ To change a contract:
   changed, because the only client in the field is a development build: one generated before
   this change sends `project.create` without `location` and gets 400 `invalid_command` until it is
   rebuilt, since the command's schema requires the explicit null.
+- The question events, `runtime.connection.restored`, `execution.answer_question` and the
+  `answer_question` capability are additions that no stored event or command lacks, so they need
+  no migration and change no version
+  ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)). A client generated before
+  them must be regenerated to read execution views, which now carry `pending_questions`.
 - Until there are external users, breaking changes are acceptable when coordinated: migrate
   fixtures, the journal schema, generated bindings and documentation together.
 

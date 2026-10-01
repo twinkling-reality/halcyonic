@@ -218,8 +218,19 @@ the same definition names, as the JSON Schema document:
   Mac, remote or unknown) and whether it calls tools as the runtime declares. Listing may start
   the runtime, so a client reads it when a person opens the choice, never on a timer, and shows
   where a model runs from `Served`, never from its name. **`CommandFactory.StartExecution`**
-  sends the chosen `ModelRef` back unchanged (`modelRef`, null to leave the choice to the
-  runtime), and the execution's `ModelRef` then holds the model the runtime reports using.
+  sends the chosen `ModelRef` back unchanged (`modelRef`, null only for a runtime that lists no
+  models: a start without one on a runtime that lists them is rejected with `ModelRequired`), and
+  the execution's `ModelRef` then holds the model the runtime reports using.
+- **`ExecutionView.PendingQuestions`** lists the questions an agent waits on, each with its
+  prompts (header, text, options, whether several or typed text are taken, whether it asks for a
+  secret), all of it the agent's untrusted words, and whether Halcyonic can answer it
+  ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)). **`CommandFactory.AnswerQuestion`**
+  sends one `QuestionAnswer` per prompt, by its `Key`, with the chosen labels in `Selected` and any
+  typed words in `Text`; the control plane rejects answers that do not fit with `InvalidAnswer`, a
+  question no longer pending with `QuestionNotFound`, and an unanswerable one with
+  `CapabilityUnsupported`. A client sends an answer only when the person presses the control that
+  sends it, and offers no answer field for an unanswerable question; stopping the turn withdraws
+  any question.
 - **`ControlPlaneApi.GetLocationsAsync`** reads where projects may live on the Mac: each project
   root and the visible folders directly inside it
   ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)), on request.

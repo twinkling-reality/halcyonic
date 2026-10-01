@@ -53,3 +53,15 @@ Both versions install a command named `opencode` and share configuration locatio
 - Halcyonic must obtain and configure that binary; how it is installed for users is not decided.
 - Rejection reasons do not reach the model on 2.0.18; re-check on every upgrade.
 - Revisit when v2 declares a stable API, or if replay or restart recovery start to work.
+
+## Note, 2026-10-01
+
+In the fifth headset session the adapter reported `runtime.connection.lost` for a server that still
+ran, and the execution stayed `unknown` overnight. The Mac had slept with its lid closed; on waking
+the event stream reconnected, but the first read of the session back timed out, and the adapter
+took that as final ([opencode-capabilities.md](../validation/opencode-capabilities.md)). The adapter
+now reads a session again after a failed read, and when the reads still fail while the server runs,
+reports the loss as before but keeps trying, with growing delays, for as long as the server runs.
+When the session can be read again it records a new event, `runtime.connection.restored`, then
+what changed meanwhile. A server that exits still loses its sessions for good. The decision is
+otherwise unchanged.
