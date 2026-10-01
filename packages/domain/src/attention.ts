@@ -1,5 +1,6 @@
 import type { Attention, AttentionReason } from '@halcyonic/contracts';
 import { deriveExecutionStatus, type ExecutionState } from './execution-state.ts';
+import { shownQuestions } from './questions.ts';
 
 /**
  * Whether a workstream needs its human, and why. Deterministic and derived only from observed
@@ -28,7 +29,8 @@ export function deriveAttention(
         approval_id: approval.approval_id,
       });
     }
-    for (const question of execution.pendingQuestions.values()) {
+    // Only the questions shown, so the reasons stay as few as the view's questions.
+    for (const question of shownQuestions(execution.pendingQuestions)) {
       reasons.push({
         kind: 'question_pending',
         execution_id: execution.executionId,

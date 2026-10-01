@@ -420,6 +420,29 @@ describe('answering a question', () => {
     }
   });
 
+  test('only a question the view shows can be answered; one behind them waits its turn', () => {
+    const { b, projection, scope, command } = asked();
+    for (const id of ['frm_2', 'frm_3', 'frm_4']) {
+      projection.apply(
+        b.runtimeEvent(scope, 'runtime.question.asked', {
+          question_id: id,
+          prompts,
+          answerable: true,
+        }),
+      );
+    }
+    const behind = admitCommand(command(good, 'frm_4'), projection, catalog(ANSWERS));
+    assert.equal(behind.admitted ? null : behind.rejection.code, 'question_not_found');
+    assert.match(behind.admitted ? '' : behind.rejection.message, /waits behind/);
+    projection.apply(
+      b.runtimeEvent(scope, 'runtime.question.resolved', {
+        question_id: 'frm_1',
+        outcome: 'answered',
+      }),
+    );
+    assert.equal(admitCommand(command(good, 'frm_4'), projection, catalog(ANSWERS)).admitted, true);
+  });
+
   test('a question asked outside a turn can still be stopped, which withdraws it', () => {
     const { b, projection, scope, commands } = setup();
     projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));

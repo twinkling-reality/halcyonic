@@ -23,6 +23,7 @@ import type {
   WorkstreamId,
   WorkstreamView,
 } from '@halcyonic/contracts';
+import { fitQuestion } from '@halcyonic/contracts';
 import { deriveAttention } from './attention.ts';
 import { DeviceRegistry } from './devices.ts';
 import {
@@ -32,7 +33,7 @@ import {
   endTurn,
   toExecutionView,
 } from './execution-state.ts';
-import { fitQuestion } from './questions.ts';
+import { shownQuestions } from './questions.ts';
 
 /** Something in the journal that the projection could not apply as written. */
 export interface ProjectionNote {
@@ -618,6 +619,7 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     status: deriveExecutionStatus(state),
     hasNativeSession: state.runtimeStarted,
     pendingApprovalIds: [...state.pendingApprovals.keys()],
-    pendingQuestions: [...state.pendingQuestions.values()],
+    // Only those shown can be answered: one behind them waits its turn.
+    pendingQuestions: shownQuestions(state.pendingQuestions),
   };
 }
