@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using TMPro;
@@ -168,8 +169,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     else if (hostile)
                     {
                         // The whole request spells what the headset font may lack as ASCII code points instead (NewWorkReview).
-                        var request = panel.Root.Find("Whole request").GetComponent<TextMeshPro>();
-                        if (request.text.Any(character => character != '\n' && (character < ' ' || character > '~'))) failures.Add(what + ": the whole request shows a character beyond ASCII.");
+                        foreach (var request in panel.RequestLabels)
+                        {
+                            if (request.text.Any(character => character < ' ' || character > '~')) failures.Add(what + ": the whole request shows a character beyond ASCII.");
+                        }
                         failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.Find("Title").gameObject, "entry render " + what));
                     }
                 }
@@ -182,7 +185,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     failures.Add(name + ": the panel's center is outside the comfortable band.");
                 }
-                if (!hostile) failures.AddRange(ReviewFits(name, panel, state));
+                if (!hostile) failures.AddRange(ReviewShowsEverything(name, folder, camera, texture, panel, state));
                 if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(rail.Root.gameObject, "entry render " + name + " rail"));
             }
             finally
@@ -510,36 +513,118 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The whole request of the longest idea, page by page, fits the panel: every line within its
-        /// width and every page within the space above the page buttons.
+        /// The whole request, page by page, for ideas at their hardest: the longest name and task in
+        /// one unbroken word, a task made only of characters shown as code points, a task with no place
+        /// to break, and a long task in ordinary words. Every character of every item shows exactly
+        /// once across the pages, inside the space above the page buttons; an item that fits a page is
+        /// never split; a line breaks inside a word only where the word is longer than a line; and Yes,
+        /// start building shows on the last page only.
         /// </summary>
-        private static IEnumerable<string> ReviewFits(string name, EntryPanel panel, ClientProjection state)
+        private static IEnumerable<string> ReviewShowsEverything(string name, string folder, Camera camera, RenderTexture texture, EntryPanel panel, ClientProjection state)
         {
             var failures = new List<string>();
-            var idea = new ProjectIdea();
-            idea.UseIdea(new string('W', ProjectIdea.TaskLimit));
-            idea.Rename(new string('P', ProjectIdea.NameLimit));
-            panel.ShowForRender(EntryPanel.Screen.Review, idea, Draft(state, listed: true));
-            var label = panel.Root.Find("Whole request")?.GetComponent<TextMeshPro>();
-            if (label == null || panel.Review == null)
+            var cases = new (string Suffix, string Name, string Task)[]
             {
-                failures.Add(name + ": the review shows no request.");
-                return failures;
-            }
-            var pages = 0;
-            while (true)
+                ("longest", new string('P', ProjectIdea.NameLimit), new string('W', ProjectIdea.TaskLimit)),
+                ("code-points", "Recipe tracker", string.Concat(Enumerable.Repeat("\u202E\u200B\u0003\u2066", 250))),
+                ("unbroken", "Recipe tracker", new string('x', ProjectIdea.TaskLimit)),
+                ("words", "Recipe tracker", string.Join(" ", Enumerable.Repeat("Track recipes, plan the week's dinners and write the shopping list.", 55))),
+            };
+            foreach (var (suffix, projectName, task) in cases)
             {
-                pages++;
-                foreach (var line in panel.Review.Text.Split('\n'))
+                var what = name + " review " + suffix;
+                var idea = new ProjectIdea();
+                idea.UseIdea(task);
+                idea.Rename(projectName);
+                idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], "recipe-tracker"));
+                panel.ShowForRender(EntryPanel.Screen.Review, idea, Draft(state, listed: true));
+                var review = panel.Review;
+                if (review == null || !review.Paginated)
                 {
-                    if (label.GetPreferredValues(line.Replace("\\", "\\\\")).x > label.rectTransform.sizeDelta.x) failures.Add(name + ": a review line draws past the panel: " + line);
+                    failures.Add(what + ": the review shows no request.");
+                    continue;
                 }
-                if (label.GetPreferredValues(panel.Review.Text.Replace("\\", "\\\\")).y > label.rectTransform.sizeDelta.y) failures.Add(name + ": a review page is too tall for the panel.");
-                if (panel.Review.CanConfirm) break;
-                panel.Review.Next();
+                var shown = review.Items.Select(_ => new StringBuilder()).ToList();
+                for (var page = 0; page < review.PageCount; page++)
+                {
+                    WorkspaceRender.ForceMeshes(panel.gameObject);
+                    var labels = panel.RequestLabels;
+                    var parts = review.Parts;
+                    if (labels.Count != parts.Count) failures.Add(what + ": page " + (page + 1) + " shows " + labels.Count + " labels for " + parts.Count + " items.");
+                    for (var index = 0; index < parts.Count && index < labels.Count; index++)
+                    {
+                        var part = parts[index];
+                        var label = labels[index];
+                        label.ForceMeshUpdate(true);
+                        var info = label.textInfo;
+                        var lines = info.lineCount;
+                        var bottom = float.MaxValue;
+                        for (var character = 0; character < info.characterCount; character++)
+                        {
+                            var each = info.characterInfo[character];
+                            shown[part.Item].Append(each.character);
+                            if (each.isVisible) bottom = Mathf.Min(bottom, label.transform.parent.InverseTransformPoint(label.transform.TransformPoint(each.bottomLeft)).y);
+                        }
+                        if (index > 0 && label.rectTransform.localPosition.y > labels[index - 1].rectTransform.localPosition.y - (parts[index - 1].Lines - 0.01f) * LinePitch(labels[index - 1]))
+                        {
+                            failures.Add(what + ": item " + part.Item + " overlaps the item above it on page " + (page + 1) + ".");
+                        }
+                        if (lines != part.Lines) failures.Add(what + ": item " + part.Item + " takes " + lines + " lines on page " + (page + 1) + " where " + part.Lines + " were measured.");
+                        if (bottom < -0.152f) failures.Add(what + ": item " + part.Item + " runs below the page on page " + (page + 1) + ".");
+                        failures.AddRange(BreaksBetweenWords(label, what + " item " + part.Item));
+                    }
+                    var confirming = panel.ShownParts.OfType<PanelButton>().Any(button => button.Label.text == EntryText.ConfirmStart);
+                    if (confirming != review.CanConfirm) failures.Add(what + ": Yes, start building " + (confirming ? "shows before" : "does not show on") + " the last page.");
+                    if (page == 0 && suffix == "words" && name == "far")
+                    {
+                        var closeUp = WorkspaceRender.CloseUp(camera, texture, panel.Root);
+                        File.WriteAllBytes(Path.Combine(folder, name + "-review-words-closeup.png"), closeUp.EncodeToPNG());
+                        UnityEngine.Object.DestroyImmediate(closeUp);
+                    }
+                    review.Next();
+                    panel.RedrawForRender();
+                }
+                for (var item = 0; item < review.Items.Count; item++)
+                {
+                    if (shown[item].ToString() != review.Items[item].Text)
+                    {
+                        failures.Add(what + ": item " + item + " shows " + shown[item].Length + " of its " + review.Items[item].Text.Length + " characters across the pages, or not in order.");
+                    }
+                }
+                Debug.Log("Halcyonic: entry render " + what + ": " + review.Items.Sum(item => item.Text.Length) + " characters in " + review.PageCount + " pages, each shown once.");
             }
-            Debug.Log("Halcyonic: entry render " + name + ": the longest request shows in " + pages + " pages that each fit.");
             return failures;
+        }
+
+        /// <summary>The distance between the baselines of a label's first two lines, or one line's height when it has one.</summary>
+        private static float LinePitch(TMP_Text label)
+        {
+            var info = label.textInfo;
+            return info.lineCount > 1 ? info.lineInfo[0].baseline - info.lineInfo[1].baseline : info.lineInfo[0].lineHeight;
+        }
+
+        /// <summary>
+        /// Where a label wraps, it wraps between words, unless the word it breaks is wider than a whole
+        /// line and so has to be broken somewhere.
+        /// </summary>
+        private static IEnumerable<string> BreaksBetweenWords(TMP_Text label, string what)
+        {
+            var info = label.textInfo;
+            var width = label.rectTransform.sizeDelta.x;
+            for (var line = 0; line + 1 < info.lineCount; line++)
+            {
+                var last = info.lineInfo[line].lastCharacterIndex;
+                var next = info.lineInfo[line + 1].firstCharacterIndex;
+                if (info.characterInfo[last].character == ' ' || info.characterInfo[next].character == ' ') continue;
+                // The word broken here, whole.
+                var text = new StringBuilder();
+                var from = last;
+                while (from > 0 && info.characterInfo[from - 1].character != ' ') from--;
+                for (var character = from; character < info.characterCount && info.characterInfo[character].character != ' '; character++) text.Append(info.characterInfo[character].character);
+                if (label.GetPreferredValues(text.ToString().Replace("\\", "\\\\")).x > width) continue;
+                yield return what + ": a line breaks inside the word " + text + ", which fits a line.";
+                yield break;
+            }
         }
 
         /// <summary>The rail's buttons on the render, as one rectangle.</summary>

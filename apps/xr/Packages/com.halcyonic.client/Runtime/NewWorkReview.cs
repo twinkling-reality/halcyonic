@@ -2,63 +2,160 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace Halcyonic.Client
 {
+    /// <summary>One entry of the review: Halcyonic's own label, and the value it names, spelled in ASCII.</summary>
+    public sealed class ReviewItem
+    {
+        public ReviewItem(string label, string value)
+        {
+            Label = label;
+            Value = value;
+        }
+
+        /// <summary>Halcyonic's words, for example "Project: ".</summary>
+        public string Label { get; }
+
+        /// <summary>The value as sent, with every character the headset font may lack spelled as its code point.</summary>
+        public string Value { get; }
+
+        /// <summary>The label and the value, as the panel lays them out.</summary>
+        public string Text => Label + Value;
+    }
+
+    /// <summary>The lines of one review item that one page shows: all of them, or a stretch of an item taller than a page.</summary>
+    public readonly struct ReviewPart
+    {
+        public ReviewPart(int item, int firstLine, int lines, int part)
+        {
+            Item = item;
+            FirstLine = firstLine;
+            Lines = lines;
+            Part = part;
+        }
+
+        public int Item { get; }
+
+        public int FirstLine { get; }
+
+        public int Lines { get; }
+
+        /// <summary>Which page's worth of the item this is, from 0; always 0 for an item that fits a page.</summary>
+        public int Part { get; }
+    }
+
     /// <summary>
-    /// The complete request shown before the headset creates or starts work. Every page has a fixed
-    /// number of short lines, so the Unity label has no reason to shorten one with an ellipsis.
+    /// The complete request shown before the headset creates or starts work: each value as it will
+    /// be sent, under Halcyonic's own label, in pages the person steps through. The panel lays the
+    /// items out at its own width, wrapping at word boundaries, and tells the review how many lines
+    /// each takes (<see cref="Paginate"/>); the review then fills each page with whole items, and
+    /// splits an item across pages only when it alone is taller than a page. The final action is
+    /// offered only on the last page, after the person has advanced through every preceding page.
     /// </summary>
+    /// <remarks>
+    /// Values are text from outside: the person's own words, names from the Mac and from runtimes.
+    /// The bundled headset font cannot show every character, so every non-ASCII and control character
+    /// is spelled as its code point, <c>\u{HEX}</c>, and a typed backslash is doubled so it can never
+    /// read as one of those. Nothing is shortened: the pages together show every character.
+    /// </remarks>
     public sealed class NewWorkReview
     {
-        public const int LineCharacters = 24;
-        private const int PageLines = 12;
-        private readonly List<string> pages = new List<string>();
-        private readonly int lineCharacters;
+        private readonly List<ReviewItem> items = new List<ReviewItem>();
+        private readonly List<List<ReviewPart>> pages = new List<List<ReviewPart>>();
 
-        /// <param name="lineCharacters">The longest line, in ASCII characters, that the panel draws in full.</param>
-        /// <param name="pageLines">How many lines a page holds.</param>
         /// <param name="folder">Where the project's files will live, in words, or null when it is not part of the request.</param>
         /// <param name="folderBefore">
         /// An existing project's folder now, when the request moves it to <paramref name="folder"/>:
         /// both show, since all later work in the project runs in the new one.
         /// </param>
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
-            int lineCharacters = LineCharacters, int pageLines = PageLines, string? folder = null, string? folderBefore = null)
+            string? folder = null, string? folderBefore = null)
         {
-            if (lineCharacters < 12) throw new ArgumentOutOfRangeException(nameof(lineCharacters), lineCharacters, "A line holds at least 12 characters.");
-            if (pageLines < 1) throw new ArgumentOutOfRangeException(nameof(pageLines), pageLines, "A page holds at least one line.");
-            this.lineCharacters = lineCharacters;
-            var lines = new List<string>();
-            Add(lines, "Project: " + Safe(project));
+            Add("Project: ", project);
             if (folderBefore != null && folder != null)
             {
-                Add(lines, "Folder now: " + Safe(folderBefore));
-                Add(lines, "Folder from now on: " + Safe(folder));
+                Add("Folder now: ", folderBefore);
+                Add("Folder from now on: ", folder);
             }
-            else if (folder != null) Add(lines, "Where its files live: " + Safe(folder));
-            Add(lines, "Workstream title: " + Safe(title));
-            Add(lines, "Runtime: " + Safe(runtime));
-            Add(lines, "Model: " + Safe(model));
-            Add(lines, "Model location: " + Safe(modelFacts));
-            Add(lines, "Model reference: " + Safe(modelRef));
-            Add(lines, "Objective:");
-            Add(lines, Safe(objective));
-            for (var index = 0; index < lines.Count; index += pageLines)
-            {
-                pages.Add(string.Join("\n", lines.Skip(index).Take(pageLines)));
-            }
+            else if (folder != null) Add("Where its files live: ", folder);
+            Add("Workstream title: ", title);
+            Add("Runtime: ", runtime);
+            Add("Model: ", model);
+            Add("Model location: ", modelFacts);
+            Add("Model reference: ", modelRef);
+            Add("Objective: ", objective);
         }
+
+        public IReadOnlyList<ReviewItem> Items => items;
+
+        /// <summary>The items have been laid out in pages; until then nothing can be confirmed.</summary>
+        public bool Paginated => pages.Count > 0;
 
         public int Page { get; private set; }
 
         public int PageCount => pages.Count;
 
-        public string Text => pages[Page];
+        /// <summary>What the page showing holds, top to bottom.</summary>
+        public IReadOnlyList<ReviewPart> Parts => Paginated ? pages[Page] : (IReadOnlyList<ReviewPart>)Array.Empty<ReviewPart>();
 
-        public bool CanConfirm => Page == PageCount - 1;
+        public IReadOnlyList<IReadOnlyList<ReviewPart>> Pages => pages;
+
+        public bool CanConfirm => Paginated && Page == PageCount - 1;
+
+        /// <summary>
+        /// Lays the items out on pages of <paramref name="pageLines"/> lines, from the lines each takes
+        /// at the panel's width, <paramref name="itemLines"/>, in the order of <see cref="Items"/>. An
+        /// item that fits a page is never split: it starts a new page when the one it would end on is
+        /// full. An item taller than a page starts on a page of its own and fills whole pages; what
+        /// follows it continues under its last part. Shows the first page.
+        /// </summary>
+        public void Paginate(IReadOnlyList<int> itemLines, int pageLines)
+        {
+            if (itemLines == null) throw new ArgumentNullException(nameof(itemLines));
+            if (itemLines.Count != items.Count) throw new ArgumentException("Give every item its lines.", nameof(itemLines));
+            if (pageLines < 1) throw new ArgumentOutOfRangeException(nameof(pageLines), pageLines, "A page holds at least one line.");
+            pages.Clear();
+            var page = new List<ReviewPart>();
+            var used = 0;
+            for (var index = 0; index < itemLines.Count; index++)
+            {
+                var lines = Math.Max(1, itemLines[index]);
+                if (lines <= pageLines)
+                {
+                    if (used + lines > pageLines)
+                    {
+                        pages.Add(page);
+                        page = new List<ReviewPart>();
+                        used = 0;
+                    }
+                    page.Add(new ReviewPart(index, 0, lines, 0));
+                    used += lines;
+                    continue;
+                }
+                if (used > 0)
+                {
+                    pages.Add(page);
+                    page = new List<ReviewPart>();
+                    used = 0;
+                }
+                for (var first = 0; first < lines; first += pageLines)
+                {
+                    var shown = Math.Min(pageLines, lines - first);
+                    page.Add(new ReviewPart(index, first, shown, first / pageLines));
+                    used = shown;
+                    if (first + pageLines < lines)
+                    {
+                        pages.Add(page);
+                        page = new List<ReviewPart>();
+                        used = 0;
+                    }
+                }
+            }
+            if (page.Count > 0) pages.Add(page);
+            Page = 0;
+        }
 
         public void Next()
         {
@@ -70,7 +167,7 @@ namespace Halcyonic.Client
             if (Page > 0) Page--;
         }
 
-        public IReadOnlyList<string> Pages => pages;
+        private void Add(string label, string value) => items.Add(new ReviewItem(label, Safe(value)));
 
         // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
         // control character in ASCII, and double a literal backslash so a typed marker differs.
@@ -88,37 +185,6 @@ namespace Halcyonic.Client
                 if (paired) index++;
             }
             return result.ToString();
-        }
-
-        private void Add(List<string> lines, string text)
-        {
-            if (text.Length == 0)
-            {
-                lines.Add("");
-                return;
-            }
-            var line = new StringBuilder(lineCharacters);
-            for (var index = 0; index < text.Length;)
-            {
-                var length = 1;
-                if (text[index] == '\\' && index + 1 < text.Length)
-                {
-                    if (text[index + 1] == '\\') length = 2;
-                    else if (text[index + 1] == 'u' && index + 2 < text.Length && text[index + 2] == '{')
-                    {
-                        var end = text.IndexOf('}', index + 3);
-                        if (end >= 0) length = end + 1 - index;
-                    }
-                }
-                if (line.Length + length > lineCharacters)
-                {
-                    lines.Add(line.ToString());
-                    line.Clear();
-                }
-                line.Append(text, index, length);
-                index += length;
-            }
-            if (line.Length > 0) lines.Add(line.ToString());
         }
     }
 }

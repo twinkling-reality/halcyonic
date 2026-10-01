@@ -233,11 +233,15 @@ the same definition names, as the JSON Schema document:
   current list, builds a workstream with a short title from the objective, and sends the objective
   as the first instruction. The model's opaque reference goes back unchanged. A runtime whose
   `ModelChoice` is `None` leaves the choice to that runtime.
-- **`NewWorkReview`** divides the full project, runtime, model, model reference and typed objective
-  into short lines and pages, 24 characters by 12 unless the panel gives its own width (the entry
-  panel's is 38). Line breaks and tabs in the objective are named, and invisible
-  characters show by `LabelText`'s rule. The final action appears only on the last page, after the
-  person has advanced through every preceding page. **`NewWorkSubmission`** looks up the command id
+- **`NewWorkReview`** holds the full request as items, Halcyonic's own label and the value it names:
+  the project, its folder (now and from now on for a move), the workstream title, runtime, model,
+  where it runs, the model reference and the objective. Each value is spelled in ASCII, every
+  non-ASCII and control character as its code point and a typed backslash doubled, because the
+  headset font cannot draw every glyph; nothing is shortened. The panel wraps each item at its own
+  width, at word boundaries, and gives the review the lines each takes (`Paginate`); the review then
+  fills each page with whole items, and splits an item across pages only when it alone is taller
+  than a page, starting it on a page of its own. The final action appears only on the last page,
+  after the person has advanced through every preceding page. **`NewWorkSubmission`** looks up the command id
   in projected state before interpreting an acknowledgement: a completed event still counts when
   its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
   terminal record arrives or the person deliberately clears it after checking the workstreams.
@@ -450,8 +454,9 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
 - the new work draft refusing a blank or oversized objective, dropping a model after a runtime
   change, refusing a model outside the runtime's list, leaving a choice to a runtime that does not
   list models, and sending the chosen opaque reference unchanged; its create and start commands
-  through a real control plane with the mock runtime's list; the full request paged without cuts,
-  confirmation possible only on its final page, and projected completion winning over a lost
+  through a real control plane with the mock runtime's list; the full request as whole items, every
+  line of every item on exactly one page for random item heights, an item split only when taller than
+  a page, confirmation possible only on its final page, and projected completion winning over a lost
   acknowledgement while an unresolved outcome keeps the command id;
 - the folder: a suggested name that keeps the host's rule and is never hidden for names with
   accents, emoji, spaces, leading dots or nothing usable; the rule itself; a choice sending back
@@ -731,8 +736,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     and what runs it, with More options: the runtimes that can start work, then
     the chosen runtime's own models, read on demand, each with where it runs. Nothing is chosen for
     the person, and a remote model says that the person's code and instructions go there. Start
-    building, offered once nothing is missing, shows the whole request in pages of 38 characters by
-    12 lines (`NewWorkReview`); Yes, start building appears on the last page only, in the bottom
+    building, offered once nothing is missing, shows the whole request (`NewWorkReview`), wrapped at
+    the panel's width between words, a page at a time, each item whole on one page unless it alone is
+    taller than a page; Yes, start building appears on the last page only, in the bottom
     row's middle, where Start building never was. `BuildSequence` then sends the commands and each
     step shows how it went; a refusal offers Try again and Change, an unknown outcome only I checked
     the work. A project made here is shown on the stage whatever was chosen before. While a
@@ -1172,7 +1178,12 @@ them in `apps/xr/Builds/EntryRenders`. It fails if the panel lets anything behin
 (compared inside its own outline), covers a character's body or leaves the comfortable band; if
 the rail reaches farther to the side than the pairing panel's button begins (18.6 degrees), runs
 into the room kept for Usage left, overlaps itself or covers a character's body or label plate;
-if any of Halcyonic's own words is cut short; or if a page of the longest request does not fit. It
+if any of Halcyonic's own words is cut short. It pages through the whole request for the longest
+name and task in one unbroken word, a task made only of characters shown as code points, a task with
+no place to break, and a long task in words, and fails unless every character of every item shows
+exactly once across the pages, inside the space above the page buttons, no item overlaps another, a
+line breaks inside a word only where the word is longer than a line, and Yes, start building shows
+on the last page only. It
 renders Where its files live with a listing cut short and a place no longer on the Mac, and with no
 places; a recap and review that move a project to a new folder; and a start refused because the
 new folder's name is taken, offering Use that folder. With hostile project, folder and place names

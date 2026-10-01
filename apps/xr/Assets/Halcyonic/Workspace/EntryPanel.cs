@@ -120,6 +120,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The panel's root, for the editor's renders.</summary>
         public Transform Root => root;
 
+        /// <summary>The labels showing the whole request's items on the page showing, top to bottom, for the editor's checks.</summary>
+        public IReadOnlyList<TextMeshPro> RequestLabels => reviewLabels.Where(label => label.gameObject.activeSelf).ToList();
+
         /// <summary>Every label and button showing now, for the editor's checks that each shows what it was given, whole.</summary>
         public IEnumerable<Component> ShownParts => used;
 

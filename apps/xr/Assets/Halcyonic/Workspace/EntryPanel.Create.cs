@@ -19,7 +19,7 @@ namespace Halcyonic.XR.Workspace
     /// opens the choice), asked only when the runtime works in a project folder, and an existing
     /// project keeps its own unless the person moves it, which the review shows as now and from now on. More options chooses
     /// the runtime and, from its own list, the model, with where each model runs; nothing is chosen for
-    /// the person. Start building shows the whole request in parts (<see cref="NewWorkReview"/>), and
+    /// the person. Start building shows the whole request in pages (<see cref="NewWorkReview"/>), and
     /// only its last part offers Yes, start building, in a place where no button was. Then
     /// <see cref="BuildSequence"/> sends the ordinary commands one at a time, and every step says how
     /// it went; the character that appears reads Starting until the runtime confirms.
@@ -38,12 +38,16 @@ namespace Halcyonic.XR.Workspace
     public sealed partial class EntryPanel
     {
         private const string UnresolvedCommandPreference = "halcyonic.new-work.unresolved-command-id";
-        private const float ReviewSize = 0.19f;
+        private const float ReviewSize = WorkspaceVisuals.DetailSize;
 
-        /// <summary>The whole request's lines and pages at <see cref="ReviewSize"/>: 38 of the widest letter fit the panel's width.</summary>
-        private const int ReviewLine = 38;
-        private const int ReviewLines = 12;
+        /// <summary>Where the whole request's pages end, above the row that turns them.</summary>
+        private const float ReviewBottom = -0.15f;
+
+        /// <summary>At most one item a line, so a page never needs more labels than it has lines.</summary>
+        private const int ReviewLabels = 14;
         private const float ChangeWidth = 0.14f;
+
+        private readonly List<TextMeshPro> reviewLabels = new List<TextMeshPro>();
 
         private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence, ProjectFolder? Sent)> drafts =
             new Dictionary<string, (ProjectIdea, BuildSequence?, ProjectFolder?)>();
@@ -67,7 +71,13 @@ namespace Halcyonic.XR.Workspace
         private CancellationTokenSource? modelCancellation;
         private Task<RuntimeModelsResponse>? modelRead;
         private string? modelRuntimeId;
-        private TextMeshPro reviewText = null!;
+        private TextMeshPro reviewMeasure = null!;
+        private NewWorkReview? paginated;
+        private List<int> reviewItemLines = new List<int>();
+
+        /// <summary>Each item as laid out at the panel's width: its characters and where each of its lines starts.</summary>
+        private List<(string Characters, int[] LineStarts)> reviewItemLayout = new List<(string, int[])>();
+        private float reviewLine;
         private TextMeshPro recapProject = null!;
         private TextMeshPro recapTask = null!;
         private TextMeshPro recapLocation = null!;
@@ -87,8 +97,17 @@ namespace Halcyonic.XR.Workspace
             draft = new NewWorkDraft(commands);
             unresolved = PlayerPrefs.GetString(UnresolvedCommandPreference, "");
             if (unresolved.Length == 0) unresolved = null;
-            reviewText = Label("Whole request", ReviewSize, WorkspaceVisuals.TextColor, wrap: false);
-            reviewText.overflowMode = TextOverflowModes.Overflow;
+            for (var index = 0; index < ReviewLabels; index++)
+            {
+                var label = Label("Request item " + index, ReviewSize, WorkspaceVisuals.TextColor, wrap: true);
+                label.overflowMode = TextOverflowModes.Overflow;
+                reviewLabels.Add(label);
+            }
+            // Never shown: it lays each item out at the panel's width to count its lines.
+            reviewMeasure = WorkspaceVisuals.Text(root, "Request measure", ReviewSize, WorkspaceVisuals.TextColor,
+                new Vector2(ContentWidth, 1f), TextAlignmentOptions.TopLeft, wrap: true, order: WorkspaceVisuals.PanelTextOrder);
+            reviewMeasure.overflowMode = TextOverflowModes.Overflow;
+            reviewMeasure.gameObject.SetActive(false);
             recapProject = Label("Project", WorkspaceVisuals.BodySize, WorkspaceVisuals.TextColor, wrap: false);
             recapTask = Label("First task", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: true);
             recapLocation = Label("Where its files live", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
@@ -189,8 +208,7 @@ namespace Halcyonic.XR.Workspace
                     LayoutFolder();
                     break;
                 case Screen.Review:
-                    if (!banner) SayLine("Part " + (review!.Page + 1) + " of " + review.PageCount + ". This is exactly what is sent.");
-                    LayoutReview();
+                    LayoutReview(banner);
                     break;
                 case Screen.Sending:
                     if (!banner) SayLine("Work already running keeps going.");
@@ -380,8 +398,6 @@ namespace Halcyonic.XR.Workspace
                 model == null ? "The runtime does not list models" : EntryText.ServedShort(model.Served) + ", " + EntryText.Tools(model.ToolCalling),
                 model?.ModelRef ?? "No model selected",
                 idea.FirstTask,
-                ReviewLine,
-                ReviewLines,
                 folder,
                 before);
             Open(Screen.Review);
@@ -580,16 +596,36 @@ namespace Halcyonic.XR.Workspace
         /// The whole request, a page at a time, as it will be sent. Yes, start building shows on the
         /// last page only, in the bottom row's middle, where Start building never was.
         /// </summary>
-        private void LayoutReview()
+        /// <summary>
+        /// The whole request, a page at a time, as it will be sent: each value under its label, wrapped
+        /// at the panel's width at word boundaries, whole on one page unless it alone is taller than a
+        /// page, when it fills pages of its own. Yes, start building shows on the last page only.
+        /// </summary>
+        private void LayoutReview(bool banner)
         {
             var current = review!;
-            reviewText.textWrappingMode = TextWrappingModes.NoWrap;
-            // Each line is already made plain by NewWorkReview; TextMeshPro only needs its backslashes doubled.
-            reviewText.text = current.Text.Replace("\\", "\\\\");
-            reviewText.rectTransform.localPosition = new Vector3(Left, BodyTop, -0.001f);
-            reviewText.rectTransform.sizeDelta = new Vector2(ContentWidth, 0.29f);
-            reviewText.gameObject.SetActive(true);
-            used.Add(reviewText);
+            Paginate(current);
+            if (!banner) SayLine("Part " + (current.Page + 1) + " of " + current.PageCount + ". This is exactly what is sent.");
+            var y = BodyTop;
+            var parts = current.Parts;
+            for (var index = 0; index < parts.Count && index < reviewLabels.Count; index++)
+            {
+                var part = parts[index];
+                var label = reviewLabels[index];
+                // An item taller than a page shows the lines this part holds, cut where its measured lines start.
+                var (characters, starts) = reviewItemLayout[part.Item];
+                var from = starts[part.FirstLine];
+                var to = part.FirstLine + part.Lines < starts.Length ? starts[part.FirstLine + part.Lines] : characters.Length;
+                // Each value is already spelled in ASCII by NewWorkReview; TextMeshPro only needs its backslashes doubled.
+                label.text = characters.Substring(from, to - from).Replace("\\", "\\\\");
+                label.textWrappingMode = TextWrappingModes.Normal;
+                label.overflowMode = TextOverflowModes.Overflow;
+                label.rectTransform.sizeDelta = new Vector2(ContentWidth, (part.Lines + 0.3f) * reviewLine);
+                label.rectTransform.localPosition = new Vector3(Left, y, -0.001f);
+                label.gameObject.SetActive(true);
+                used.Add(label);
+                y -= part.Lines * reviewLine;
+            }
             if (current.Page > 0) Put(pagePrevious, WorkspaceText.PreviousPart, new Vector2(Left + 0.1f, -0.18f), 0.2f, () => { current.Previous(); Layout(); });
             if (!current.CanConfirm) Put(pageNext, WorkspaceText.NextPart, new Vector2(Right - 0.1f, -0.18f), 0.2f, () => { current.Next(); Layout(); });
             Put(bottomLeft, EntryText.Change, new Vector2(Left + 0.08f, BottomCenter), 0.16f, () =>
@@ -603,6 +639,42 @@ namespace Halcyonic.XR.Workspace
                 Put(bottomMiddle, EntryText.ConfirmStart, new Vector2(-0.02f, BottomCenter), 0.3f, ConfirmReviewed, confirm: true);
             }
         }
+
+        /// <summary>The review's pages, laid out once for each review from what each item takes at the panel's width.</summary>
+        private void Paginate(NewWorkReview current)
+        {
+            if (paginated == current && current.Paginated) return;
+            // One line's height: the distance between the baselines of two lines of this label.
+            reviewMeasure.gameObject.SetActive(true);
+            reviewMeasure.text = "A\nA";
+            reviewMeasure.ForceMeshUpdate(true);
+            reviewLine = reviewMeasure.textInfo.lineInfo[0].baseline - reviewMeasure.textInfo.lineInfo[1].baseline;
+            reviewMeasure.gameObject.SetActive(false);
+            reviewItemLayout = current.Items.Select(WrapAtWidth).ToList();
+            reviewItemLines = reviewItemLayout.Select(layout => layout.LineStarts.Length).ToList();
+            current.Paginate(reviewItemLines, PageLines());
+            paginated = current;
+        }
+
+        private int PageLines() => Mathf.Max(1, Mathf.FloorToInt((BodyTop - ReviewBottom) / Mathf.Max(reviewLine, 0.001f) + 0.01f));
+
+        /// <summary>An item wrapped at the panel's width: the characters it shows and where each line starts among them.</summary>
+        private (string Characters, int[] LineStarts) WrapAtWidth(ReviewItem item)
+        {
+            reviewMeasure.gameObject.SetActive(true);
+            reviewMeasure.rectTransform.sizeDelta = new Vector2(ContentWidth, 1f);
+            reviewMeasure.text = ForReview(item);
+            reviewMeasure.ForceMeshUpdate(true);
+            var info = reviewMeasure.textInfo;
+            var characters = new System.Text.StringBuilder(info.characterCount);
+            for (var index = 0; index < info.characterCount; index++) characters.Append(info.characterInfo[index].character);
+            var starts = new int[Mathf.Max(1, info.lineCount)];
+            for (var line = 1; line < info.lineCount; line++) starts[line] = info.lineInfo[line].firstCharacterIndex;
+            reviewMeasure.gameObject.SetActive(false);
+            return (characters.ToString(), starts);
+        }
+
+        private static string ForReview(ReviewItem item) => item.Text.Replace("\\", "\\\\");
 
         private void ConfirmReviewed()
         {

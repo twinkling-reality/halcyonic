@@ -614,19 +614,6 @@ public class EntryWordsTests
     }
 
     [Test]
-    public void TheWholeRequestUsesTheWidthItIsGiven()
-    {
-        var objective = string.Concat(Enumerable.Repeat("W中", 400));
-        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", objective, lineCharacters: 38, pageLines: 12);
-        var lines = review.Pages.SelectMany(page => page.Split('\n')).ToList();
-        Assert.That(lines.All(line => line.Length <= 38), Is.True);
-        Assert.That(lines.Count(line => line.Length > 24), Is.GreaterThan(10), "the wider panel's lines are used");
-        Assert.That(review.Pages.All(page => page.Split('\n').Length <= 12), Is.True);
-        Assert.That(string.Concat(review.Pages).Replace("\n", ""), Does.Contain(string.Concat(Enumerable.Repeat("W\\u{4E2D}", 400))));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new NewWorkReview("P", "T", "R", "M", "F", "ref", "O", lineCharacters: 8));
-    }
-
-    [Test]
     public void TheWordsAreShortPlainAndNameNoBrand()
     {
         var words = new List<string>
