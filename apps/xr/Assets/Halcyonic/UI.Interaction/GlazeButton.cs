@@ -15,11 +15,17 @@ namespace Halcyonic.XR.UI
         /// <summary>Any other action.</summary>
         Secondary,
 
-        /// <summary>An action that cannot be taken back: outlined in red, never filled.</summary>
+        /// <summary>An action that cannot be taken back: outlined in red; its confirmation, <see cref="GlazeButton.On"/>, solid red.</summary>
         Destructive,
 
         /// <summary>A choice that shows or hides something, as a project on the rail: outlined in the accent while on.</summary>
         Filter,
+
+        /// <summary>A choice or a fact in a panel's list: a raised tile, edged in the accent while chosen.</summary>
+        Choice,
+
+        /// <summary>Goes to work that waits for the person, and only that: filled in the attention colour.</summary>
+        Attention,
     }
 
     /// <summary>
@@ -27,13 +33,16 @@ namespace Halcyonic.XR.UI
     /// always says what it does; a second, smaller line under it can say more, such as a project's
     /// counts. It is 60 dp tall, or 48 dp when compact, never less, and it shows every state: at rest,
     /// pointed at, pressed, unavailable, set aside while the app lacks focus, and done. Built in units
-    /// of its distance from the eyes, under a parent scaled by that distance.
+    /// of its distance from the eyes, under a parent scaled by that distance. As a row of a panel's
+    /// list (<see cref="ShowRow"/>) its words are left-aligned: a small line over the title, the title
+    /// and its detail in lines of their own, and a word at its right saying what pressing it does.
     /// </summary>
     /// <remarks>
     /// Its presses follow the workspace's button (<c>PanelButton</c>), whose API it keeps: a press
-    /// within <see cref="SettleSeconds"/> of the button taking a new role is not a press of it, so a
-    /// confirmation needs a separate, deliberate gesture, and a hold button starts its hold after
-    /// <see cref="HoldSeconds"/> and ends it when let go, dropped or taken away, as hold to talk needs.
+    /// within <see cref="SettleSeconds"/> of the button taking a new role, new words or becoming
+    /// available is not a press of it, so a confirmation needs a separate, deliberate gesture, and a
+    /// hold button starts its hold after <see cref="HoldSeconds"/> and ends it when let go, dropped or
+    /// taken away, as hold to talk needs.
     /// </remarks>
     public sealed class GlazeButton : MonoBehaviour
     {
@@ -49,10 +58,13 @@ namespace Halcyonic.XR.UI
 
         private const float PaddingDegrees = 1.25f;
         private const float CompactPaddingDegrees = 0.9f;
+        private const float RowPaddingDegrees = 1f;
+        private const float RowVerticalPaddingDegrees = 0.5f;
+        private const float RowEndGapDegrees = 0.75f;
         private const float EdgeDegrees = 0.12f;
         private const float HoverEdgeDegrees = 0.15f;
 
-        /// <summary>How much smaller a press makes the button, for the time a press shows.</summary>
+        /// <summary>How much smaller a press draws the button's plate, for the time a press shows; its words keep their size.</summary>
         private const float PressedScale = 0.97f;
 
         /// <summary>Set aside while the app lacks focus: this visible.</summary>
@@ -61,9 +73,12 @@ namespace Halcyonic.XR.UI
         private Surface plate = null!;
         private TextMeshPro label = null!;
         private TextMeshPro detail = null!;
+        private TextMeshPro? overline;
+        private TextMeshPro? end;
         private PointerTarget target = null!;
         private ButtonRole role;
         private bool compact;
+        private bool row;
         private bool on;
         private bool available = true;
         private bool done;
@@ -73,6 +88,8 @@ namespace Halcyonic.XR.UI
         private float flash;
         private float pressedAt = -1f;
         private bool holding;
+        private bool isStatic;
+        private float rowStack;
         private int paintedState = -1;
 
         /// <summary>A press; on a hold button, a press let go before its hold started.</summary>
@@ -90,6 +107,21 @@ namespace Halcyonic.XR.UI
         /// <summary>A hold started and has not ended.</summary>
         public bool Holding => holding;
 
+        /// <summary>
+        /// A row that only says something, as a step and how it went: drawn as words on the panel,
+        /// with no tile, taking no press and never lighting up when pointed at.
+        /// </summary>
+        public bool Static
+        {
+            get => isStatic;
+            set
+            {
+                if (isStatic == value) return;
+                isStatic = value;
+                paintedState = -1;
+            }
+        }
+
         /// <summary>Presses are ignored while false, as while a panel grows or the app lacks focus.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
 
@@ -103,6 +135,12 @@ namespace Halcyonic.XR.UI
         /// <summary>The second line, while one shows.</summary>
         public TextMeshPro? Detail => detail.gameObject.activeSelf ? detail : null;
 
+        /// <summary>A row's line over its title, while one shows.</summary>
+        public TextMeshPro? Overline => overline != null && overline.gameObject.activeSelf ? overline : null;
+
+        /// <summary>A row's word at its right end, while one shows.</summary>
+        public TextMeshPro? End => end != null && end.gameObject.activeSelf ? end : null;
+
         public PointerTarget Target => target;
 
         /// <summary>What the button does, which sets its look; a button can change role, as Forget becomes its confirmation.</summary>
@@ -114,6 +152,7 @@ namespace Halcyonic.XR.UI
                 if (role == value) return;
                 role = value;
                 paintedState = -1;
+                shownAt = Time.unscaledTime;
             }
         }
 
@@ -186,18 +225,102 @@ namespace Halcyonic.XR.UI
                 label.transform.localPosition = new Vector3(0f, top - labelLine / 2f, -0.0005f);
                 detail.transform.localPosition = new Vector3(0f, top - labelLine - detailLine / 2f, -0.0005f);
             }
-            target.Resize(size);
-            // In front of whatever it sits on, so a ray finds the button first.
-            transform.localPosition = new Vector3(center.x, center.y, -GlazeTokens.Units(0.1f));
-            if (changed) shownAt = Time.unscaledTime;
+            Place(center, changed);
+        }
+
+        /// <summary>
+        /// Lays the button out as a row of a panel's list at <paramref name="width"/>, without showing
+        /// it, and says how tall it needs to be: at least <paramref name="minimum"/>, a target's height
+        /// unless given, more for lines that wrap. The detail is <paramref name="words"/>' short one
+        /// where its own doesn't fit whole.
+        /// </summary>
+        public float LayRow(PanelRow words, float width, float? minimum = null)
+        {
+            EnsureRow();
+            var padding = GlazeTokens.Units(RowPaddingDegrees);
+            var gap = GlazeTokens.Units(RowEndGapDegrees);
+            var inner = width - 2f * padding;
+            var stack = 0f;
+            var endWidth = 0f;
+            if (words.End != null)
+            {
+                GlazeText.SetLiteral(end!, words.End);
+                endWidth = end!.GetPreferredValues(end.text).x;
+                GlazeText.Lay(end, endWidth + 0.001f, 1);
+                end.gameObject.SetActive(true);
+            }
+            else end!.gameObject.SetActive(false);
+            if (words.Overline != null)
+            {
+                GlazeText.SetLiteral(overline!, words.Overline);
+                GlazeText.Lay(overline!, inner - (endWidth > 0f ? endWidth + gap : 0f), 1);
+                overline!.gameObject.SetActive(true);
+                stack += GlazeText.LineHeight(overline);
+            }
+            else overline!.gameObject.SetActive(false);
+            // Without a line over the title, the end word stands beside the words, so they wrap short of it.
+            var textWidth = words.Overline == null && endWidth > 0f ? inner - endWidth - gap : inner;
+            label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(GlazeText.DegreesOf(words.Card ? GlazeType.Title : GlazeType.Body)));
+            GlazeText.SetLiteral(label, words.Title);
+            var (titleLines, _) = GlazeText.Lay(label, textWidth, Mathf.Max(1, words.TitleLines));
+            stack += Mathf.Max(1, titleLines) * GlazeText.LineHeight(label);
+            if (words.Detail != null)
+            {
+                GlazeText.SetLiteral(detail, words.Detail);
+                GlazeText.Lay(detail, textWidth, Mathf.Max(1, words.DetailLines));
+                if (detail.isTextTruncated && words.ShortDetail != null)
+                {
+                    GlazeText.SetLiteral(detail, words.ShortDetail);
+                }
+                var (detailLines, _) = GlazeText.Lay(detail, textWidth, Mathf.Max(1, words.DetailLines));
+                detail.gameObject.SetActive(true);
+                stack += Mathf.Max(1, detailLines) * GlazeText.LineHeight(detail);
+            }
+            else detail.gameObject.SetActive(false);
+            detailTone = words.DetailTone;
             paintedState = -1;
-            gameObject.SetActive(true);
-            Paint();
+            rowStack = stack;
+            return Mathf.Max(minimum ?? HeightOf(compact), stack + 2f * GlazeTokens.Units(RowVerticalPaddingDegrees));
+        }
+
+        /// <summary>
+        /// Shows the button as a row of a panel's list, <paramref name="size"/> in its parent's units
+        /// or taller where its words need it, centred at <paramref name="center"/>: its words laid out
+        /// by <see cref="LayRow"/> and stacked in the middle of its height, its end word at its right.
+        /// </summary>
+        public void ShowRow(PanelRow words, Vector2 center, Vector2 size, float? minimum = null)
+        {
+            var before = label.text + "\n" + (detail.gameObject.activeSelf ? detail.text : "");
+            var needed = LayRow(words, size.x, minimum);
+            var changed = !gameObject.activeSelf || before != label.text + "\n" + (detail.gameObject.activeSelf ? detail.text : "");
+            this.size = new Vector2(size.x, Mathf.Max(size.y, needed));
+            var padding = GlazeTokens.Units(RowPaddingDegrees);
+            var left = -this.size.x / 2f + padding;
+            var right = this.size.x / 2f - padding;
+            // The words, stacked, in the middle of the row's height.
+            var y = rowStack / 2f;
+            if (overline!.gameObject.activeSelf)
+            {
+                overline.transform.localPosition = new Vector3(left, y, -0.0005f);
+                if (end!.gameObject.activeSelf) end.transform.localPosition = new Vector3(right - end.rectTransform.sizeDelta.x, y, -0.0005f);
+                y -= GlazeText.LineHeight(overline);
+            }
+            else if (end!.gameObject.activeSelf)
+            {
+                end.transform.localPosition = new Vector3(right - end.rectTransform.sizeDelta.x, GlazeText.LineHeight(end) / 2f, -0.0005f);
+            }
+            label.transform.localPosition = new Vector3(left, y, -0.0005f);
+            y -= Mathf.Clamp(label.textInfo.lineCount, 1, Mathf.Max(1, words.TitleLines)) * GlazeText.LineHeight(label);
+            if (detail.gameObject.activeSelf) detail.transform.localPosition = new Vector3(left, y, -0.0005f);
+            Place(center, changed);
         }
 
         public void Hide() => gameObject.SetActive(false);
 
-        /// <summary>For a filter: whether what it shows or hides is shown now, outlined in the accent.</summary>
+        /// <summary>
+        /// For a filter: whether what it shows or hides is shown now; for a choice, whether it is
+        /// chosen, edged in the accent; for a destructive action, that this is its confirmation, solid red.
+        /// </summary>
         public bool On
         {
             get => on;
@@ -209,7 +332,10 @@ namespace Halcyonic.XR.UI
             }
         }
 
-        /// <summary>Whether it can be pressed at all; an unavailable button is outlined, quiet and takes no press.</summary>
+        /// <summary>
+        /// Whether it can be pressed at all; an unavailable button is outlined, quiet and takes no
+        /// press. Becoming available counts as a new role: a press already under way is not one of it.
+        /// </summary>
         public bool Available
         {
             get => available;
@@ -218,6 +344,7 @@ namespace Halcyonic.XR.UI
                 if (available == value) return;
                 available = value;
                 paintedState = -1;
+                if (value) shownAt = Time.unscaledTime;
             }
         }
 
@@ -233,9 +360,40 @@ namespace Halcyonic.XR.UI
             }
         }
 
+        /// <summary>Turns the labels into a row's, left-aligned and wrapping, with a line over the title and a word at the end.</summary>
+        private void EnsureRow()
+        {
+            if (row) return;
+            row = true;
+            var order = label.sortingOrder;
+            foreach (var text in new[] { label, detail })
+            {
+                text.rectTransform.pivot = new Vector2(0f, 1f);
+                text.alignment = TextAlignmentOptions.TopLeft;
+                text.textWrappingMode = TextWrappingModes.Normal;
+            }
+            overline = GlazeText.Create(transform, "Overline", GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, order);
+            overline.rectTransform.pivot = new Vector2(0f, 1f);
+            overline.textWrappingMode = TextWrappingModes.NoWrap;
+            end = GlazeText.Create(transform, "End", GlazeType.Caption, GlazeTokens.Text, TextAlignmentOptions.TopLeft, order, strong: true);
+            end.rectTransform.pivot = new Vector2(0f, 1f);
+            end.textWrappingMode = TextWrappingModes.NoWrap;
+        }
+
+        private void Place(Vector2 center, bool changed)
+        {
+            target.Resize(size);
+            // In front of whatever it sits on, so a ray finds the button first.
+            transform.localPosition = new Vector3(center.x, center.y, -GlazeTokens.Units(0.1f));
+            if (changed) shownAt = Time.unscaledTime;
+            paintedState = -1;
+            gameObject.SetActive(true);
+            Paint();
+        }
+
         private void OnSelected()
         {
-            if (!available || !Accepting() || Time.unscaledTime - shownAt < SettleSeconds) return;
+            if (isStatic || !available || !Accepting() || Time.unscaledTime - shownAt < SettleSeconds) return;
             if (Holds)
             {
                 pressedAt = Time.unscaledTime;
@@ -303,7 +461,8 @@ namespace Halcyonic.XR.UI
 
         private void Paint(bool pointed, bool pressed)
         {
-            var hovered = pointed && available;
+            var hovered = pointed && available && !isStatic;
+            pressed &= !isStatic;
             var away = FocusGuard.InputSuspended;
             var state = (pressed ? 1 : 0) | (hovered ? 2 : 0) | (away ? 4 : 0);
             if (state == paintedState) return;
@@ -312,7 +471,12 @@ namespace Halcyonic.XR.UI
             Color fill, text, edge = Color.clear;
             var edgeWidth = 0f;
             var accent = Glaze.Tone(GlazeTone.Accent);
-            if (!available)
+            if (isStatic)
+            {
+                fill = Color.clear;
+                text = GlazeTokens.Text;
+            }
+            else if (!available)
             {
                 fill = Color.clear;
                 text = GlazeTokens.ColorOf(Glaze.TextDisabled);
@@ -335,6 +499,16 @@ namespace Halcyonic.XR.UI
                         fill = GlazeTokens.ColorOf(pressed ? GlazeColor.Hex(0x6E93D8) : hovered ? GlazeColor.Hex(0x98BAFA) : accent.Strong);
                         text = GlazeTokens.ColorOf(accent.OnStrong);
                         break;
+                    case ButtonRole.Attention:
+                        var attention = Glaze.Tone(GlazeTone.Attention);
+                        fill = GlazeTokens.ColorOf(pressed ? GlazeColor.Hex(0xD9A93F) : hovered ? attention.Foreground : attention.Strong);
+                        text = GlazeTokens.ColorOf(attention.OnStrong);
+                        break;
+                    case ButtonRole.Destructive when on:
+                        var confirming = Glaze.Tone(GlazeTone.Failure);
+                        fill = GlazeTokens.ColorOf(pressed ? GlazeColor.Hex(0xD1665B) : hovered ? confirming.Foreground : confirming.Strong);
+                        text = GlazeTokens.ColorOf(confirming.OnStrong);
+                        break;
                     case ButtonRole.Destructive:
                         var failure = Glaze.Tone(GlazeTone.Failure);
                         fill = pressed || hovered ? GlazeTokens.ColorOf(failure.Container) : Color.clear;
@@ -346,6 +520,16 @@ namespace Halcyonic.XR.UI
                         // Quiet while off; pointed at or pressed, its fill lightens and so must its word.
                         fill = GlazeTokens.ColorOf(pressed ? Glaze.ControlPressed : hovered ? Glaze.ControlHover : Glaze.Raised);
                         text = pressed || hovered ? GlazeTokens.Text : GlazeTokens.TextSecondary;
+                        break;
+                    case ButtonRole.Choice:
+                        // A tile a step above the panel; chosen, the accent's own soft fill and its edge.
+                        fill = GlazeTokens.ColorOf(on ? accent.Container : pressed ? Glaze.ControlHover : hovered ? Glaze.Control : Glaze.Raised);
+                        text = GlazeTokens.Text;
+                        if (on)
+                        {
+                            edge = GlazeTokens.ColorOf(accent.Strong);
+                            edgeWidth = GlazeTokens.Units(HoverEdgeDegrees);
+                        }
                         break;
                     default:
                         fill = GlazeTokens.ColorOf(pressed ? Glaze.ControlPressed : hovered ? Glaze.ControlHover : Glaze.Control);
@@ -364,13 +548,20 @@ namespace Halcyonic.XR.UI
                     edgeWidth = GlazeTokens.Units(HoverEdgeDegrees);
                 }
             }
-            plate.Draw(size, GlazeTokens.Units(Glaze.ButtonRadiusDegrees), fill, edge, edgeWidth);
+            plate.Draw(pressed ? size * PressedScale : size, GlazeTokens.Units(row ? Glaze.RowRadiusDegrees : Glaze.ButtonRadiusDegrees), fill, edge, edgeWidth);
             var opacity = away ? AwayOpacity : 1f;
             plate.Fade(opacity);
             label.color = new Color(text.r, text.g, text.b, opacity);
-            var line = detailTone.HasValue && available && !done ? GlazeTokens.ColorOf(Glaze.Tone(detailTone.Value).Foreground) : role == ButtonRole.Primary ? text : GlazeTokens.TextSecondary;
+            var quiet = available && !done ? GlazeTokens.TextSecondary : text;
+            var line = detailTone.HasValue && available && !done ? GlazeTokens.ColorOf(Glaze.Tone(detailTone.Value).Foreground)
+                : role == ButtonRole.Primary || role == ButtonRole.Attention || (role == ButtonRole.Destructive && on) ? text : quiet;
             detail.color = new Color(line.r, line.g, line.b, opacity);
-            transform.localScale = Vector3.one * (pressed ? PressedScale : 1f);
+            if (overline != null) overline.color = new Color(quiet.r, quiet.g, quiet.b, opacity);
+            if (end != null)
+            {
+                var act = available && !done ? GlazeTokens.ColorOf(accent.Foreground) : text;
+                end.color = new Color(act.r, act.g, act.b, opacity);
+            }
         }
     }
 }

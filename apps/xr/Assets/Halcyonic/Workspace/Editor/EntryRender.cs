@@ -129,6 +129,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 rail.Root.gameObject.SetActive(false);
 
                 var panel = EntryPanel.ForRender(root.transform, state, overview, targets, surface);
+                var places = new List<(string Screen, Places Places)>();
+                Rect? startBuilding = null;
                 foreach (var (suffix, show) in Screens(state, before, hostile))
                 {
                     show(panel);
@@ -142,9 +144,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     var closeUp = WorkspaceRender.CloseUp(camera, texture, panel.Root);
                     File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + "-closeup.png"), closeUp.EncodeToPNG());
                     UnityEngine.Object.DestroyImmediate(closeUp);
+                    var whole = Whole(camera, texture, panel.Root);
+                    File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + "-panel.png"), whole.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(whole);
 
-                    var rect = WorkspaceRender.ScreenRect(camera, panel.Root);
-                    var (changed, compared) = ChangedInPanel(withStage, alone, camera, panel.Root);
+                    var frame = panel.Frame;
+                    var rect = WorkspaceRender.ScreenRect(camera, frame.transform, frame.Size);
+                    var (changed, compared) = ChangedInPanel(withStage, alone, camera, frame);
                     UnityEngine.Object.DestroyImmediate(withStage);
                     UnityEngine.Object.DestroyImmediate(alone);
                     if (compared == 0) failures.Add(what + ": the panel is not in the render, so the render checks nothing.");
@@ -153,9 +159,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         if (WorkspaceRender.Covered(camera, target, rect)) failures.Add(what + ": " + view.WorkstreamId + "'s body is behind the panel.");
                     }
-                    if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what));
+                    failures.AddRange(PanelFits(what, frame, characters, eyes));
+                    if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what, frame));
                     failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));
-                    if (suffix == "options-models-pages") failures.AddRange(PagesAndDone(panel, what));
+                    if (suffix == "options-models-pages") failures.AddRange(PagesAndDone(frame, what));
+                    places.Add((suffix, Places.Of(frame)));
+                    if (suffix == "recap") startBuilding = frame.ButtonFor(EntryScreens.StartBuilding) is GlazeButton start ? RectOf(start) : (Rect?)null;
+                    if (suffix == "review-last") failures.AddRange(YesNotWhereStartBuildingWas(frame, startBuilding, what));
                     if (hostile && !suffix.StartsWith("review", StringComparison.Ordinal))
                     {
                         failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what));
@@ -171,10 +181,12 @@ namespace Halcyonic.XR.Workspace.Editor
                                 failures.Add(what + ": the whole request shows a character beyond ASCII.");
                             }
                         }
-                        failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.Find("Title").gameObject, "entry render " + what));
+                        failures.AddRange(WorkspaceRender.AllShowLiterally(frame.Title.gameObject, "entry render " + what));
                     }
                 }
-                var (_, direction) = WorkspaceLayout.PlaceForeground(targets, eyes, camera.transform.forward, surface, new List<BodyInView>());
+                failures.AddRange(PlacesHold(name, places));
+                var size = new PanelSize(PanelFrame.Distance, panel.Frame.Size.x / 2f * PanelFrame.Distance, panel.Frame.Size.y / 2f * PanelFrame.Distance);
+                var (_, direction) = WorkspaceLayout.PlaceForeground(targets, eyes, camera.transform.forward, surface, new List<BodyInView>(), size);
                 Debug.Log("Halcyonic: entry render " + name + ": the panel's center is " + WorkspaceRender.Degrees(direction.Elevation)
                     + " degrees from eye level, " + (direction.Above ? "above" : "below") + " the characters it passes, "
                     + (direction.Clear ? "clear of every body." : "over a body."));
@@ -219,6 +231,12 @@ namespace Halcyonic.XR.Workspace.Editor
             });
             yield return ("recap", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true)));
             yield return ("recap-needs-you", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true), before: before));
+            // Start over asks to be confirmed in place, Cancel where Start building stood.
+            yield return ("recap-start-over", panel =>
+            {
+                panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
+                panel.PressForRender(EntryScreens.StartOver);
+            });
             yield return ("recap-long", panel =>
             {
                 var idea = new ProjectIdea();
@@ -255,6 +273,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 panel.ShowForRender(EntryPanel.Screen.Sending, idea, Draft(state, listed: true), FolderTaken(state, idea));
             });
             yield return ("previous", panel => panel.ShowForRender(EntryPanel.Screen.Previous, unresolvedCommand: "0192f3c1-7e2a-7b3c-8d4e-5f6a7b8c9d0e"));
+            // The second of the two presses, which stands where the first did not.
+            yield return ("previous-armed", panel =>
+            {
+                panel.ShowForRender(EntryPanel.Screen.Previous, unresolvedCommand: "0192f3c1-7e2a-7b3c-8d4e-5f6a7b8c9d0e");
+                panel.PressForRender(EntryScreens.Clear);
+            });
         }
 
         private static ProjectIdea Idea()
@@ -344,17 +368,16 @@ namespace Halcyonic.XR.Workspace.Editor
             return draft;
         }
 
-        /// <summary>A list of more than a page shows both Next page and Done, apart, so every page and the way back can be reached.</summary>
-        private static IEnumerable<string> PagesAndDone(EntryPanel panel, string what)
+        /// <summary>A list of more than a page shows both Next and Done, 12 mm apart or more, so every page and the way back can be reached.</summary>
+        private static IEnumerable<string> PagesAndDone(PanelFrame frame, string what)
         {
-            var buttons = panel.ShownParts.OfType<PanelButton>().Where(button => button.gameObject.activeInHierarchy).ToList();
-            var next = buttons.FirstOrDefault(button => button.Label.text == "Next page");
-            var done = buttons.FirstOrDefault(button => button.Label.text == EntryText.Done);
-            if (next == null) yield return what + ": a list longer than a page offers no Next page.";
+            var next = frame.NextPage;
+            var done = frame.ButtonFor(EntryScreens.Done);
+            if (next == null) yield return what + ": a list longer than a page offers no Next.";
             if (done == null) yield return what + ": Done does not show beside a list longer than a page.";
-            if (next != null && done != null && Vector3.Distance(next.transform.localPosition, done.transform.localPosition) < 0.05f)
+            if (next != null && done != null && !Apart(RectOf(next), RectOf(done), TargetGap(frame)))
             {
-                yield return what + ": Next page and Done stand in the same place.";
+                yield return what + ": Next and Done are closer than 12 mm.";
             }
         }
 
@@ -596,25 +619,166 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// Nothing showing is cut short, with the render's short names and titles: only a first task
-        /// longer than its two rows may end in an ellipsis, as the recap of a long idea does.
+        /// Nothing showing is cut short, with the render's short names and titles: only text from
+        /// outside that a row or a title says is data may end in an ellipsis, as a long first task does.
         /// </summary>
-        internal static IEnumerable<string> NothingOfOursCut(IEnumerable<Component> parts, string what)
+        internal static IEnumerable<string> NothingOfOursCut(IEnumerable<Component> parts, string what, PanelFrame? frame = null)
         {
             var failures = new List<string>();
             foreach (var part in parts)
             {
                 var labels = part is PanelButton button ? new TMP_Text?[] { button.Label, button.Detail }
-                    : part is GlazeButton glazed ? new TMP_Text?[] { glazed.Label, glazed.Detail } : new[] { part as TMP_Text };
+                    : part is GlazeButton glazed ? new TMP_Text?[] { glazed.Label, glazed.Detail, glazed.Overline, glazed.End } : new[] { part as TMP_Text };
                 foreach (var label in labels)
                 {
                     if (label == null || !label.gameObject.activeInHierarchy) continue;
+                    if (frame != null && frame.HoldsData(label)) continue;
                     label.ForceMeshUpdate();
                     if (!label.isTextTruncated || label.name == "First task") continue;
                     failures.Add(what + ": " + part.name + " cuts its words short: " + label.text);
                 }
             }
             return failures;
+        }
+
+        /// <summary>
+        /// The panel as the eyes see it: a degree or more from every character's label and body, its
+        /// targets 60 dp (48 for the window controls and the pager) and 12 mm apart, and every word at
+        /// least the caption's size at its own distance.
+        /// </summary>
+        private static IEnumerable<string> PanelFits(string what, PanelFrame frame, List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes)
+        {
+            var failures = new List<string>();
+            var near = new List<GlazeChecks.Extent> { GlazeChecks.Of("the entry panel", eyes, frame.gameObject) };
+            foreach (var (view, _) in characters)
+            {
+                near.Add(GlazeChecks.Of(view.WorkstreamId + "'s label", eyes, view.Label.gameObject));
+                near.Add(WorkspaceRender.BodyExtent(view, eyes));
+            }
+            failures.AddRange(GlazeChecks.Apart(near).Where(failure => failure.Contains("the entry panel")).Select(failure => what + ": " + failure));
+            // A row that only says something takes no press, so it is no target.
+            var buttons = frame.Buttons.Where(button => !button.Static).ToList();
+            failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, what));
+            failures.AddRange(GlazeChecks.TextLargeEnough(frame.gameObject, eyes, what));
+            var gap = TargetGap(frame);
+            for (var a = 0; a < buttons.Count; a++)
+            {
+                for (var b = a + 1; b < buttons.Count; b++)
+                {
+                    if (!Apart(RectOf(buttons[a]), RectOf(buttons[b]), gap)) failures.Add(what + ": " + buttons[a].name + " and " + buttons[b].name + " are closer than 12 mm.");
+                }
+            }
+            var size = frame.Size;
+            foreach (var button in buttons)
+            {
+                var rect = RectOf(button);
+                if (rect.xMin < -size.x / 2f || rect.xMax > size.x / 2f || rect.yMin < -size.y / 2f || rect.yMax > size.y / 2f)
+                {
+                    failures.Add(what + ": " + button.name + " runs past the panel's edge.");
+                }
+            }
+            return failures;
+        }
+
+        /// <summary>Where the parts that never move stand on one screen: Close, the bar's right end, Back, and the pager.</summary>
+        private readonly struct Places
+        {
+            private Places(Vector2? close, Vector2? rightEnd, Vector2? back, Vector2? pager)
+            {
+                Close = close;
+                RightEnd = rightEnd;
+                Back = back;
+                Pager = pager;
+            }
+
+            /// <summary>Close's right edge and its middle's height: Not now, in its place on the welcome, is wider.</summary>
+            public Vector2? Close { get; }
+
+            /// <summary>The bar's right end: its right edge and its middle's height.</summary>
+            public Vector2? RightEnd { get; }
+
+            /// <summary>Back's left edge and its middle's height.</summary>
+            public Vector2? Back { get; }
+
+            /// <summary>Next's right edge and its middle's height.</summary>
+            public Vector2? Pager { get; }
+
+            public static Places Of(PanelFrame frame)
+            {
+                var close = frame.ButtonFor(PanelModel.Close);
+                var back = frame.Back;
+                var end = frame.RightEnd;
+                var rightEnd = end != null ? new Vector2(RectOf(end).xMax, RectOf(end).center.y) : (Vector2?)null;
+                var backRect = back != null ? RectOf(back) : (Rect?)null;
+                var next = frame.NextPage;
+                return new Places(close != null ? new Vector2(RectOf(close).xMax, RectOf(close).center.y) : (Vector2?)null, rightEnd,
+                    backRect.HasValue ? new Vector2(backRect.Value.xMin, backRect.Value.center.y) : (Vector2?)null,
+                    next != null ? new Vector2(RectOf(next).xMax, RectOf(next).center.y) : (Vector2?)null);
+            }
+        }
+
+        /// <summary>Navigation and the primary never move: Close, the bar's right end, Back and the pager stand in the same place on every screen.</summary>
+        private static IEnumerable<string> PlacesHold(string name, List<(string Screen, Places Places)> screens)
+        {
+            const float tolerance = 1e-4f;
+            IEnumerable<string> Same(string part, Func<Places, Vector2?> of)
+            {
+                var first = screens.FirstOrDefault(screen => of(screen.Places).HasValue);
+                if (first.Screen == null) yield break;
+                var at = of(first.Places)!.Value;
+                foreach (var (screen, places) in screens)
+                {
+                    var here = of(places);
+                    if (here.HasValue && (Mathf.Abs(here.Value.x - at.x) > tolerance || Mathf.Abs(here.Value.y - at.y) > tolerance))
+                    {
+                        yield return name + " " + screen + ": " + part + " stands somewhere else than on " + first.Screen + ".";
+                    }
+                }
+            }
+            return Same("Close", places => places.Close)
+                .Concat(Same("the bar's right end", places => places.RightEnd))
+                .Concat(Same("Back", places => places.Back))
+                .Concat(Same("the pager", places => places.Pager));
+        }
+
+        /// <summary>Yes, start building stands where Start building never did, so pressing twice in one place never confirms.</summary>
+        private static IEnumerable<string> YesNotWhereStartBuildingWas(PanelFrame frame, Rect? startBuilding, string what)
+        {
+            var yes = frame.ButtonFor(EntryScreens.ConfirmStart);
+            if (yes == null) yield return what + ": Yes, start building does not show.";
+            else if (startBuilding == null) yield return what + ": the recap showed no Start building to compare with.";
+            else if (RectOf(yes).Overlaps(startBuilding.Value)) yield return what + ": Yes, start building stands where Start building stood.";
+        }
+
+        /// <summary>The whole panel, the eyes turned to its middle, a little wider than the panel: to see every edge, not to judge size.</summary>
+        private static Texture2D Whole(Camera camera, RenderTexture texture, Transform panel)
+        {
+            var rotation = camera.transform.rotation;
+            var fieldOfView = camera.fieldOfView;
+            camera.transform.rotation = Quaternion.LookRotation(panel.position - camera.transform.position, Vector3.up);
+            camera.fieldOfView = PanelFrame.WidthDegrees + 6f;
+            var image = WorkspaceRender.Render(camera, texture);
+            camera.transform.rotation = rotation;
+            camera.fieldOfView = fieldOfView;
+            return image;
+        }
+
+        /// <summary>A button's outline in the frame's units.</summary>
+        private static Rect RectOf(GlazeButton button)
+        {
+            var place = button.transform.localPosition;
+            return new Rect(place.x - button.Size.x / 2f, place.y - button.Size.y / 2f, button.Size.x, button.Size.y);
+        }
+
+        /// <summary>12 mm at the panel's distance, in its units.</summary>
+        private static float TargetGap(PanelFrame frame) => Glaze.TargetGapMeters / PanelFrame.Distance;
+
+        /// <summary>Two outlines at least <paramref name="gap"/> apart one way or the other.</summary>
+        private static bool Apart(Rect a, Rect b, float gap)
+        {
+            var dx = Mathf.Max(a.xMin - b.xMax, b.xMin - a.xMax);
+            var dy = Mathf.Max(a.yMin - b.yMax, b.yMin - a.yMax);
+            return dx >= gap * 0.99f || dy >= gap * 0.99f;
         }
 
         /// <summary>
@@ -675,10 +839,11 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(what + ": item " + part.Item + " overlaps the item above it on page " + (page + 1) + ".");
                         }
                         if (lines != part.Lines) failures.Add(what + ": item " + part.Item + " takes " + lines + " lines on page " + (page + 1) + " where " + part.Lines + " were measured.");
-                        if (bottom < -0.152f) failures.Add(what + ": item " + part.Item + " runs below the page on page " + (page + 1) + ".");
+                        if (bottom < panel.Frame.CustomBody.yMin - 1e-4f) failures.Add(what + ": item " + part.Item + " runs below the page on page " + (page + 1) + ".");
                         failures.AddRange(BreaksBetweenWords(label, what + " item " + part.Item));
                     }
-                    var confirming = panel.ShownParts.OfType<PanelButton>().Any(button => button.Label.text == EntryText.ConfirmStart);
+                    var confirming = panel.Frame.ButtonFor(EntryScreens.ConfirmStart) is GlazeButton yes && yes.Available
+                        && yes.Label.text == LabelText.ForTextMeshPro(EntryText.ConfirmStart);
                     if (confirming != review.CanConfirm) failures.Add(what + ": Yes, start building " + (confirming ? "shows before" : "does not show on") + " the last page.");
                     if (page == 0 && suffix == "words" && name == "far")
                     {
@@ -755,12 +920,12 @@ namespace Halcyonic.XR.Workspace.Editor
         /// little in from its rounded edge, and how many were compared. A panel turned toward the eyes
         /// projects as a quadrilateral, whose bounding box would also hold pixels beside it.
         /// </summary>
-        private static (int Changed, int Compared) ChangedInPanel(Texture2D a, Texture2D b, Camera camera, Transform panel)
+        private static (int Changed, int Compared) ChangedInPanel(Texture2D a, Texture2D b, Camera camera, PanelFrame frame)
         {
             const float inset = 0.03f;
             var quad = new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) }
-                .Select(corner => (Vector2)camera.WorldToScreenPoint(panel.TransformPoint(new Vector3(
-                    corner.x * (EntryPanel.Width / 2f - inset), corner.y * (EntryPanel.Height / 2f - inset), 0f))))
+                .Select(corner => (Vector2)camera.WorldToScreenPoint(frame.transform.TransformPoint(new Vector3(
+                    corner.x * (frame.Size.x / 2f - inset), corner.y * (frame.Size.y / 2f - inset), 0f))))
                 .ToArray();
             var minX = Mathf.Clamp(Mathf.FloorToInt(quad.Min(point => point.x)), 0, Size);
             var maxX = Mathf.Clamp(Mathf.CeilToInt(quad.Max(point => point.x)), 0, Size);

@@ -83,7 +83,7 @@ namespace Halcyonic.Client
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = runtime.ModelChoice == ModelChoice.Listed ? "Reading this runtime's models." : null;
+            ModelProblem = runtime.ModelChoice == ModelChoice.Listed ? "Reading this agent app's models…" : null;
         }
 
         public void SetModels(RuntimeModelsResponse response)
@@ -104,13 +104,13 @@ namespace Halcyonic.Client
                 {
                     if (!RunsHere(model)) models.Add(model);
                 }
-                ModelProblem = models.Count == 0 ? "This runtime lists no models." : null;
+                ModelProblem = models.Count == 0 ? EntryText.NoModels : null;
                 Model = Preferred(models);
                 ModelPreselected = Model != null;
             }
             else if (response.Result is UnavailableModels unavailable)
             {
-                ModelProblem = "Models unavailable: " + unavailable.Reason.Message;
+                ModelProblem = "Couldn't read its models: " + unavailable.Reason.Message + " Choose the agent app again to retry.";
             }
         }
 
@@ -120,7 +120,7 @@ namespace Halcyonic.Client
             Model = null;
             ModelPreselected = false;
             PendingModel = null;
-            ModelProblem = "Could not read models: " + reason;
+            ModelProblem = "Couldn't read its models: " + reason + " Choose the agent app again to retry.";
         }
 
         /// <summary>Focus went to another window: a first press on a model that runs elsewhere no longer counts.</summary>

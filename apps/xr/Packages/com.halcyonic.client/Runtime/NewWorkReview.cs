@@ -89,12 +89,12 @@ namespace Halcyonic.Client
                 Add("Folder from now on: ", folder);
             }
             else if (folder != null) Add("Where its files live: ", folder);
-            items.Add(new ReviewItem("Workstream title: ", Safe(title) + (titleCut ? "…" : "")));
-            Add("Runtime: ", runtime);
+            items.Add(new ReviewItem("Task name: ", Safe(title) + (titleCut ? "…" : "")));
+            Add("Agent app: ", runtime);
             Add("Model: ", model);
-            Add("Model location: ", modelFacts);
-            Add("Model reference: ", modelRef);
-            Add("Objective: ", objective);
+            Add("Where the model runs: ", modelFacts);
+            Add("Model id: ", modelRef);
+            Add("First task: ", objective);
         }
 
         public IReadOnlyList<ReviewItem> Items => items;

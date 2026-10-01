@@ -472,7 +472,7 @@ public class BuildSequenceTests
         Assert.That(project, Is.InstanceOf<ProjectCreateCommand>());
         Assert.That(sequence.Unresolved, Is.EqualTo(project.CommandId));
         Assert.That(sequence.Advance(With()), Is.Null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent, waiting for the result"));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent. Waiting for your Mac…"));
 
         var accepted = new CommandView { CommandId = project.CommandId, Status = CommandStatus.Accepted };
         Assert.That(sequence.Advance(With(accepted)), Is.Null, "accepted is not done");
@@ -509,7 +509,7 @@ public class BuildSequenceTests
         var workstream = sequence.Begin();
         sequence.AcknowledgementLost(new CommandOutcomeUnknownException(workstream.CommandId, "The socket closed."));
         Assert.That(sequence.Advance(With()), Is.Null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Effect unknown. Check the work before trying again."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened));
         Assert.That(sequence.Unresolved, Is.EqualTo(workstream.CommandId), "an unknown outcome is kept");
         Assert.That(sequence.CanRetry, Is.False);
         Assert.That(sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" }))), Is.InstanceOf<ExecutionStartCommand>());
@@ -529,7 +529,7 @@ public class BuildSequenceTests
         };
         Assert.That(sequence.Advance(With(refused)), Is.Null);
         Assert.That(sequence.Stopped, Is.True);
-        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Could not do that: The runtime needs a working directory."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that: The runtime needs a working directory."));
         Assert.That(sequence.CanRetry, Is.True, "a refused command cannot have run");
         var again = sequence.Retry();
         Assert.That(again, Is.InstanceOf<ExecutionStartCommand>());
@@ -550,7 +550,7 @@ public class BuildSequenceTests
         sequence.Advance(With(failed));
         Assert.That(sequence.Unresolved, Is.EqualTo(workstream.CommandId));
         Assert.That(sequence.CanRetry, Is.False);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Does.EndWith("check the work before trying again."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened), "an effect that may have happened is never said not to have");
 
         var other = new BuildSequence(Draft("existing"), Commands, null);
         var command = other.Begin();
@@ -567,7 +567,7 @@ public class BuildSequenceTests
         sequence.Begin();
         sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         sequence.Advance(null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Not sent: your Mac is not connected."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Couldn't send: your Mac isn't connected. Try again when it is."));
         Assert.That(sequence.Unresolved, Is.Null);
         Assert.That(sequence.Retry("Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
     }
@@ -605,13 +605,13 @@ public class EntryWordsTests
     public void TheRecapSaysWhereTheModelRunsAndChoosesNothing()
     {
         var draft = new NewWorkDraft(new CommandFactory(Samples.Client));
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: not chosen yet"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not chosen yet"));
         Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing is chosen for you"));
 
         draft.ChooseRuntime(Samples.MockRuntime());
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Mock runtime (simulated)"), "the recorded demonstration keeps its names");
-        Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo("Runs with: " + EntryText.PracticeRun));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("The runtime chooses its model. Simulated: nothing is built."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Mock runtime (simulated)"), "the recorded demonstration keeps its names");
+        Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo(EntryText.PracticeRun));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Practice: no agent, no files."));
 
         var listed = Samples.MockRuntime();
         listed.RuntimeId = "local";
@@ -619,23 +619,29 @@ public class EntryWordsTests
         listed.Synthetic = false;
         listed.ModelChoice = ModelChoice.Listed;
         draft.ChooseRuntime(listed);
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, no model yet"), "a runtime's name shows by the one rule");
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: Reading this runtime's models."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not finished choosing"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.FinishChoosing));
         var remote = new RuntimeModel { ModelRef = "hosted/x", DisplayName = "Hosted", Served = ModelServed.Remote, ToolCalling = ModelToolCalling.Declared };
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote } } });
         Assert.That(draft.Model, Is.Null, "a remote model is never chosen for the person");
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, no model yet"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Not finished choosing"));
         Assert.That(draft.ChooseModel(remote), Is.False, "the first press only says where it runs");
         Assert.That(EntryText.ConfirmElsewhere(remote), Is.EqualTo("Runs on a remote service: your code and instructions go there. Press again to use it."));
         Assert.That(draft.ChooseModel(remote), Is.True);
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Runs on a remote service: your code and instructions go there; tools declared."));
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, Hosted, remote"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On a remote service"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("It runs on a remote service: your code and instructions go there."));
 
         var local = new RuntimeModel { ModelRef = "ollama/qwen3.6", DisplayName = "qwen3.6 (Ollama)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared };
         draft.ChooseRuntime(listed);
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote, local } } });
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, qwen3.6 (Ollama), on your Mac"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for you: it runs on your Mac; tools declared."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On your Mac"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for you. Change it in More options."), "chosen for the person, and said so");
+
+        // An agent app that picks its own model is named, by the one rule, since where its model runs isn't known here.
+        listed.ModelChoice = ModelChoice.None;
+        draft.ChooseRuntime(listed);
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Local‹U+202E› agent"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Where it runs isn't known: your code and instructions may go elsewhere."));
     }
 
     [Test]
@@ -663,23 +669,35 @@ public class EntryWordsTests
     {
         var words = new List<string>
         {
-            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.MoreWork, EntryText.ContinueCreating, EntryText.WelcomeTitle,
+            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.MoreTasks, EntryText.ContinueCreating, EntryText.WelcomeTitle,
             EntryText.WelcomeLine, EntryText.ConnectInvite, EntryText.CreateInvite, EntryText.NotNow, EntryText.ConnectLine,
-            EntryText.NoProjects, EntryText.LastKnownProjects, EntryText.ExampleProjects, EntryText.ShowAll, EntryText.AddWork,
-            EntryText.MoreWorkLine, EntryText.AllOnStage, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
+            EntryText.NoProjects, EntryText.LastKnownProjects, EntryText.ExampleProjects, EntryText.ShowAll, EntryText.AddTask, EntryText.WaitingForMac,
+            EntryText.MoreTasksLine, EntryText.AllOnStage, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
             EntryText.TypeIdeaInvite, EntryText.HelpMe, EntryText.HelpMeInvite, EntryText.NothingStartsYet, EntryText.GuideNote,
-            EntryText.Back, EntryText.RecapTitle, EntryText.WorkRecapTitle, EntryText.StartBuilding, EntryText.MoreOptions,
-            EntryText.ChooseHowItRuns, EntryText.FolderTitle, EntryText.FolderLine, EntryText.ReadingFolders, EntryText.NoFolders, EntryText.FoldersCut, EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.ChooseFolder, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder, EntryText.RebindWarning, EntryText.OptionsTitle, EntryText.OptionsLine, EntryText.NoRuntimes,
-            EntryText.Done, EntryText.ConfirmStart, EntryText.Change, EntryText.SendingTitle, EntryText.TryAgain, EntryText.Started,
-            EntryText.PreviousRequestTitle, EntryText.ICheckedTheWork, EntryText.ClearAfterChecking, EntryText.OpenNow,
-            EntryText.KeepCreating, EntryText.ResetPosition, EntryText.Close, EntryText.Move(0), EntryText.Move(1), EntryText.Move(-1),
-            EntryText.Question(0, 4), EntryText.ReviewTitle(0, 2), EntryText.CreateTitle(null),
+            EntryText.Back, EntryText.Chosen, EntryText.ChosenForYou, EntryText.NoKeyboard, EntryText.RecapTitle, EntryText.WorkRecapTitle,
+            EntryText.RecapLine, EntryText.StartBuilding, EntryText.StartOver, EntryText.StartOverQuestion, EntryText.ConfirmStartOver,
+            EntryText.MoreOptions, EntryText.ProjectName, EntryText.FirstTask, EntryText.NotNamedYet, EntryText.HowItRuns, EntryText.NameTheProject,
+            EntryText.WhatFirstTask, EntryText.FolderTitle, EntryText.FolderLine, EntryText.ReadingFolders, EntryText.NoFolders, EntryText.FoldersCut,
+            EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.ChooseFolder, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder,
+            EntryText.RebindWarning, EntryText.FoldersUnread("no reason given."), EntryText.OptionsTitle, EntryText.OptionsLine, EntryText.NoRuntimes,
+            EntryText.ChangeAgentApp, EntryText.ListsModels, EntryText.ChoosesModel, EntryText.NoModels, EntryText.Practice, EntryText.PracticeRun,
+            EntryText.PracticeDetail, EntryText.Done, EntryText.ReviewTitle, EntryText.ReviewLine, EntryText.ConfirmStart, EntryText.Change,
+            EntryText.ReadToPart(4), EntryText.Previous, EntryText.Next, EntryText.Page(0, 2), EntryText.Part(0, 2),
+            EntryText.SendingTitle, EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened,
+            EntryText.PreviousRequestTitle, EntryText.PreviousRequestLine, EntryText.CheckFirst, EntryText.Clear, EntryText.ClearOnceChecked,
+            EntryText.ClearOnlyAfterChecking, EntryText.ConfirmClear, EntryText.Cancel, EntryText.Cleared, EntryText.Reference("id"),
+            EntryText.OpenNow, EntryText.KeepCreating, EntryText.Move, EntryText.ResetPosition, EntryText.Close,
+            EntryText.DemoCannotStart, EntryText.ChooseHowItRuns, EntryText.ChooseAgain, EntryText.FinishChoosing, EntryText.ProjectGone,
+            EntryText.ChooseWhereFilesLive, EntryText.ReviewAfresh,
+            EntryText.Question(0, 4), EntryText.CreateTitle(null),
             WorkspaceText.WhatIsItDoing, WorkspaceText.HelpMeUnderstand, WorkspaceText.WhatWasChecked, WorkspaceText.WhatDoYouNeed,
         };
         words.AddRange(ProjectIdea.Questions.SelectMany(question =>
             question.Choices.Concat(new[] { question.Prompt, question.TypeLabel, question.SkipLabel ?? "" })));
         words.AddRange(Enum.GetValues<BuildStepKind>().SelectMany(kind => new[] { EntryText.StepName(kind, true), EntryText.StepName(kind, false) }));
-        words.AddRange(Enum.GetValues<ModelServed>().Select(EntryText.Served));
+        words.AddRange(Enum.GetValues<ModelServed>().SelectMany(served => new[] { EntryText.Served(served), EntryText.ServedShort(served), EntryText.ServedInSentence(served) }));
+        words.AddRange(Enum.GetValues<ModelToolCalling>().Select(EntryText.Tools));
+        words.AddRange(new CommandStatus?[] { null, CommandStatus.Accepted, CommandStatus.Completed, CommandStatus.Rejected, CommandStatus.Failed }.Select(EntryText.Recorded));
         var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode", "Salidium", "Seorak" };
         foreach (var word in words)
         {
@@ -690,7 +708,9 @@ public class EntryWordsTests
             Assert.That(word, Does.Not.Contain("\u2014"), "no em dash");
             Assert.That(word.Length, Is.LessThanOrEqualTo(110), word);
         }
-        Assert.That(EntryText.ConnectLine, Does.Contain("Halcyonic knows"), "Connect claims no discovery");
+        Assert.That(EntryText.ConnectLine, Does.Contain("already set up on your Mac"), "Connect claims no discovery");
+        Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
+            "the glossary's words: an agent app, a task, your Mac");
         Assert.That(EntryText.GuideNote, Does.Contain("not an AI"));
     }
 

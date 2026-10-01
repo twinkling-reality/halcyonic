@@ -290,9 +290,12 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The workspace on the render, inset from its rounded edge: the rectangle inside its outline,
         /// which is a trapezoid, since the workspace leans back to face the eyes.
         /// </summary>
-        internal static RectInt ScreenRect(Camera camera, Transform panel)
+        internal static RectInt ScreenRect(Camera camera, Transform panel) => ScreenRect(camera, panel, new Vector2(WorkspacePanel.Width, WorkspacePanel.Height));
+
+        /// <summary>A panel <paramref name="size"/> big in its own units on the render, inset from its rounded edge, as <see cref="ScreenRect(Camera, Transform)"/>.</summary>
+        internal static RectInt ScreenRect(Camera camera, Transform panel, Vector2 size)
         {
-            Vector3 Corner(float x, float y) => camera.WorldToScreenPoint(panel.TransformPoint(new Vector3(x * WorkspacePanel.Width / 2f, y * WorkspacePanel.Height / 2f, 0f)));
+            Vector3 Corner(float x, float y) => camera.WorldToScreenPoint(panel.TransformPoint(new Vector3(x * size.x / 2f, y * size.y / 2f, 0f)));
             var bottomLeft = Corner(-1f, -1f);
             var bottomRight = Corner(1f, -1f);
             var topRight = Corner(1f, 1f);

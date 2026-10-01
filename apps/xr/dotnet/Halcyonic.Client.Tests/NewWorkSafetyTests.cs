@@ -20,7 +20,7 @@ public class NewWorkSafetyTests
             "on this Mac, tools declared", "ollama/local:latest", objective);
         Assert.That(review.Items.Select(item => item.Label), Is.EqualTo(new[]
         {
-            "Project: ", "Workstream title: ", "Runtime: ", "Model: ", "Model location: ", "Model reference: ", "Objective: ",
+            "Project: ", "Task name: ", "Agent app: ", "Model: ", "Where the model runs: ", "Model id: ", "First task: ",
         }));
         Assert.That(review.Items[0].Value, Is.EqualTo(new string('P', 200)));
         Assert.That(review.Items[^1].Value, Is.EqualTo(objective), "nothing is shortened");
@@ -46,12 +46,12 @@ public class NewWorkSafetyTests
         var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = new string('W', 150) + "\u2026" + new string('X', 300) };
         var (typed, cut) = draft.TitleSource;
         var review = new NewWorkReview("Project", typed, "Runtime", "Model", "unknown", "ref", draft.Objective, titleCut: cut);
-        var title = review.Items.Single(item => item.Label == "Workstream title: ").Value;
+        var title = review.Items.Single(item => item.Label == "Task name: ").Value;
         Assert.That(cut, Is.True);
         Assert.That(title, Does.EndWith("X\u2026"), "Halcyonic's ellipsis, as written");
         Assert.That(title, Does.Contain(new string('W', 150) + "\\u{2026}X"), "the person's ellipsis, by its code point");
         Assert.That(title, Does.Not.Contain("\\u{2026}\u2026"));
-        Assert.That(review.Items.Where(item => item.Label != "Workstream title: ").All(item => item.Text.All(value => value >= 0x20 && value <= 0x7E)), Is.True);
+        Assert.That(review.Items.Where(item => item.Label != "Task name: ").All(item => item.Text.All(value => value >= 0x20 && value <= 0x7E)), Is.True);
         Assert.That(new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short").Items[1].Value, Is.EqualTo("Short"));
     }
 
@@ -69,7 +69,7 @@ public class NewWorkSafetyTests
         var folder = ProjectFolder.Existing(root, root.Folders[0]);
         var review = new NewWorkReview("Project", "Title", "Runtime\u200B", "Model", "unknown", "ref", "Objective", folder.Describe(name => name));
         Assert.That(review.Items.Single(item => item.Label == "Where its files live: ").Value, Is.EqualTo("site\\u{202E} in Projects"));
-        Assert.That(review.Items.Single(item => item.Label == "Runtime: ").Value, Is.EqualTo("Runtime\\u{200B}"));
+        Assert.That(review.Items.Single(item => item.Label == "Agent app: ").Value, Is.EqualTo("Runtime\\u{200B}"));
         Assert.That(string.Concat(review.Items.Select(item => item.Value)), Does.Not.Contain("\\u{2039}"), "no marker of Plain's spelled again");
     }
 

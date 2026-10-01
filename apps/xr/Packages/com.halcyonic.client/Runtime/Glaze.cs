@@ -138,7 +138,7 @@ namespace Halcyonic.Client
 
         public static readonly GlazeColor TextSecondary = GlazeColor.Hex(0xAAB5C2);
 
-        public static readonly GlazeColor TextDisabled = GlazeColor.Hex(0x808C9B);
+        public static readonly GlazeColor TextDisabled = GlazeColor.Hex(0x8A96A5);
 
         /// <summary>Outlines of neutral things: 3:1 or more on a panel and on a raised row.</summary>
         public static readonly GlazeColor Outline = GlazeColor.Hex(0x73839A);
