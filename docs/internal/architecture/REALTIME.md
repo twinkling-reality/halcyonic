@@ -134,7 +134,9 @@ client                                   server
   the turn and withdraws it. A client sends an answer only when the person presses the control that
   sends it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)).
 - **Errors.** `error {error: {code, message, issues}, fatal}`. Invalid JSON or an invalid message
-  after `hello` is not fatal. Fatal errors close with code 1008. A command the control plane fails
+  after `hello` is not fatal, nor is a message nested more than 32 levels deep. A message the
+  control plane fails to handle at all is answered with the non-fatal `message_not_handled`, so no
+  message can stop it. Fatal errors close with code 1008. A command the control plane fails
   to handle is answered with the non-fatal `command_not_handled` instead of an acknowledgement;
   whatever it recorded before failing stays journaled, so a client reads the command's record
   before sending it again. A rejection's or failure's message quotes at most the start of what the

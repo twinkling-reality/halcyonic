@@ -135,7 +135,26 @@ class RealtimeConnection {
     this.#sendError(code, message, [], true);
   }
 
+  /**
+   * Handles one message. Nothing a client sends may take the control plane, and with it every
+   * running agent, down: whatever handling throws is logged and answered with a non-fatal error.
+   */
   #onMessage(data: RawData, isBinary: boolean): void {
+    try {
+      this.#handleMessage(data, isBinary);
+    } catch (error) {
+      this.#log.error({ err: error }, 'a realtime message could not be handled');
+      if (this.#phase === 'closed') return;
+      this.#sendError(
+        'message_not_handled',
+        'The control plane could not handle the message.',
+        [],
+        false,
+      );
+    }
+  }
+
+  #handleMessage(data: RawData, isBinary: boolean): void {
     if (this.#phase === 'closed') return;
     if (isBinary) {
       this.#sendError('binary_not_supported', 'Messages must be JSON text.', [], false);

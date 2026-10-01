@@ -11,6 +11,7 @@ import {
   ESTIMATED_COST_NOTE,
   EVENT_VARIANTS,
   EvaluationResult,
+  MESSAGE_NESTING_LIMIT,
   parseClientMessage,
   parseCommandEnvelope,
   parseEventEnvelope,
@@ -146,6 +147,38 @@ describe('commands and realtime messages', () => {
         { path, message: 'must be well-formed Unicode text, without a lone surrogate' },
       ]);
     }
+  });
+
+  test('a message nesting deeper than the limit is refused without walking it all', () => {
+    const start = (options: unknown) => ({
+      ...COMMAND,
+      command_type: 'execution.start',
+      payload: {
+        workstream_id: COMMAND.payload.execution_id,
+        runtime_id: 'mock',
+        instruction: 'Go.',
+        options,
+        model_ref: null,
+      },
+    });
+    // Twenty thousand levels, which would exhaust the stack of a recursive walk.
+    const deep = JSON.parse(`${'['.repeat(20_000)}${']'.repeat(20_000)}`) as unknown;
+    const parsed = parseCommandEnvelope(start({ deep }));
+    assert.equal(parsed.ok, false);
+    const issue = parsed.ok ? null : parsed.issues[0];
+    assert.equal(issue?.message, `must not nest more than ${MESSAGE_NESTING_LIMIT} levels deep`);
+    assert.ok(issue?.path.startsWith('/payload/options/deep/0/0'));
+    const message = parseClientMessage({ type: 'command', command: start({ deep }) });
+    assert.match(message.ok ? '' : (message.issues[0]?.path ?? ''), /^\/command\/payload\/options/);
+    const hello = parseClientMessage({ type: 'hello', protocol: 1, client: deep, resume: null });
+    assert.equal(
+      hello.ok ? null : hello.issues[0]?.path,
+      '/client/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0',
+    );
+    // Options a runtime takes nest far less, and pass.
+    let nested: unknown = 'leaf';
+    for (let level = 0; level < 20; level += 1) nested = { level: nested };
+    assert.equal(parseCommandEnvelope(start({ nested })).ok, true);
   });
 
   test('an invalid command inside a realtime message reports paths under /command', () => {

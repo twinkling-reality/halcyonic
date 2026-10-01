@@ -58,6 +58,21 @@ async function post(body: unknown, headers: Record<string, string> = json()) {
   return { status: response.status, body: (await response.json()) as Record<string, unknown> };
 }
 
+/** An execution.start whose options nest twenty thousand levels deep, as JSON text. */
+function deepStart(): string {
+  const command = JSON.stringify({
+    ...server.commands.startExecution('01920000-0000-7000-8000-00000000ffff' as never, APPROVAL),
+    payload: {
+      workstream_id: '01920000-0000-7000-8000-00000000ffff',
+      runtime_id: 'mock',
+      instruction: 'Go.',
+      options: 'DEEP',
+      model_ref: null,
+    },
+  });
+  return command.replace('"DEEP"', `${'['.repeat(20_000)}${']'.repeat(20_000)}`);
+}
+
 describe('REST', () => {
   test('health is public; everything else needs the token', async () => {
     assert.equal((await fetch(`${server.baseUrl}/api/health`)).status, 200);
@@ -107,6 +122,18 @@ describe('REST', () => {
     );
   });
 
+  test('a command nested deeper than the contract allows is a 400, not a crash', async () => {
+    const response = await fetch(`${server.baseUrl}/api/commands`, {
+      method: 'POST',
+      headers: json(),
+      body: deepStart(),
+    });
+    assert.equal(response.status, 400);
+    const body = (await response.json()) as { error: { issues: { message: string }[] } };
+    assert.match(body.error.issues[0]?.message ?? '', /must not nest more than/);
+    assert.equal((await fetch(`${server.baseUrl}/api/health`)).status, 200);
+  });
+
   test('journal history pages by position', async () => {
     assert.equal((await post(server.commands.createProject('History'))).status, 202);
     const page = await fetch(`${server.baseUrl}/api/events?after=0&limit=2`, { headers: auth() });
@@ -149,6 +176,20 @@ describe('realtime protocol', () => {
     await client.waitFor((message) => message.type === 'snapshot');
     client.sendRaw('not json');
     await client.waitFor((message) => message.type === 'error');
+    client.sendRaw({ type: 'ping', nonce: 'still-here' });
+    const pong = await client.waitFor((message) => message.type === 'pong');
+    assert.equal(pong.type === 'pong' && pong.nonce, 'still-here');
+    await client.close();
+  });
+
+  test('a command nested deeper than the contract allows is refused, and the connection lives on', async () => {
+    const client = await RealtimeClient.connect(server.wsUrl, server.token);
+    client.hello(TEST_CLIENT);
+    await client.waitFor((message) => message.type === 'snapshot');
+    client.sendRaw(`{"type":"command","command":${deepStart()}}`);
+    const error = await client.waitFor((message) => message.type === 'error');
+    assert.equal(error.type === 'error' && error.error.code, 'invalid_message');
+    assert.equal(error.type === 'error' && error.fatal, false);
     client.sendRaw({ type: 'ping', nonce: 'still-here' });
     const pong = await client.waitFor((message) => message.type === 'pong');
     assert.equal(pong.type === 'pong' && pong.nonce, 'still-here');
