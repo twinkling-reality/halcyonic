@@ -14,6 +14,7 @@ import type { AddressInfo } from 'node:net';
  * - `CMD_ESC:<command>`: an `exec_command` call asking to run outside the sandbox, which needs
  *   approval under the `on-request` policy;
  * - `CMD:<command>`: a plain `exec_command` call;
+ * - `ASK_QUESTION`: a `request_user_input` call asking {@link FAKE_QUESTION};
  * - `SLOW_TEXT`: text streamed one delta per `slowChunkMs` until the client disconnects;
  * - `STEER`: text acknowledging the steer;
  * - otherwise: `Fake reply <n>: acknowledged.`
@@ -74,6 +75,17 @@ const USAGE = {
 };
 
 export const PATCH_CONTENT = 'hello from the fake provider';
+
+/** The question `ASK_QUESTION` asks, in the arguments of Codex's `request_user_input` tool. */
+export const FAKE_QUESTION = {
+  id: 'colour',
+  header: 'Colour',
+  question: 'Which colour should the file mention?',
+  options: [
+    { label: 'red', description: 'The warm one' },
+    { label: 'blue', description: 'The calm one' },
+  ],
+};
 
 export async function startFakeProvider(options: FakeProviderOptions = {}): Promise<FakeProvider> {
   const slowChunkMs = options.slowChunkMs ?? 200;
@@ -288,6 +300,11 @@ function plan(input: readonly InputItem[], tools: readonly Tool[], n: number): P
       args.justification = 'The Halcyonic end to end test needs this command.';
     }
     return { kind: 'function_call', name: 'exec_command', args };
+  }
+  if (user.includes('ASK_QUESTION')) {
+    return tools.some((tool) => tool.name === 'request_user_input')
+      ? { kind: 'function_call', name: 'request_user_input', args: { questions: [FAKE_QUESTION] } }
+      : { kind: 'text', text: 'No request_user_input tool was offered.' };
   }
   if (user.includes('SLOW_TEXT')) return { kind: 'slow' };
   if (user.includes('STEER')) return { kind: 'text', text: `Steer received: ${user.slice(0, 80)}` };
