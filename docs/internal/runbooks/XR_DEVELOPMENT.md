@@ -555,41 +555,6 @@ the end of text character (in the JSON, a backslash, `u0003`) followed by more w
   "…". The character's notes under it, and the peek, show the command with its line break as a
   space.
 
-The entry, seated, in the virtual space and at a desk, with a live control plane that knows at
-least three projects and more than six workstreams (for example `pnpm demo` more than once):
-
-- **Welcome.** On a fresh install, once connected: "Welcome", one line, Connect projects and Create
-  a project, and Not now. It does not come back after any of them.
-- **Rail.** Low in front of you, below the characters and clear of the room and pairing controls
-  to either side, readable without leaning in. Press a project: its characters leave the stage and
-  its chip reads "Hidden"; a character there that needs you still counts in More work. Press it
-  again: they return. Note whether anything of the rail sits over a character, its label or a
-  system window.
-- **More work.** Press it: every workstream without a character, what needs you first. Press one:
-  it stands on the stage and opens. Collapse it: the list comes back where it was.
-- **Create, precise.** Create a project, Type my idea, type a sentence: the recap names the project
-  from its first words and shows where its files live as not chosen here yet. Choose how it runs
-  with the mock runtime, Start building, read the parts, Yes, start building: each step reads sent,
-  then confirmed; a character appears and reads Starting, then its status.
-- **Create, vague.** Help me figure it out: four fixed questions, said to be fixed questions and
-  not an AI; answer with choices, type one, and skip the name. The recap reads the same for the same
-  answers.
-- **Where its files live.** With a control plane started with `HALCYONIC_PROJECT_ROOTS`, choose a
-  runtime that works in a project folder: the recap asks for a folder. Choose: the places and
-  folders your Mac allows. Pick New folder, accept the offered name: the recap and the review show
-  it, and after Yes, start building the folder exists on the Mac. Create another project with the
-  same new folder name: the start is refused, and Use that folder, then the review, starts it
-  there. Add work to a project in another folder: the recap says all later work runs there, and the
-  review shows the folder now and from now on. Without roots, the choice says your Mac doesn't
-  allow any folder yet.
-- **Needs you while creating.** While on the recap, run `pnpm demo | sed '/approval requested/q'`:
-  the line under the title names the work that needs you, with Open now and Keep creating. Open
-  now: the workspace opens on What do you need from me?; collapse it: the recap returns as it was.
-- **Questions.** In an opened workspace the four questions read whole on their tabs; What do you
-  need from me? shows only while an approval waits.
-- **Move and Reset position.** Move steps the panel right, left and back; turn in the chair and
-  press Reset position: the panel and the rail come in front of you.
-
 With Virtual Display showing the Mac, in the virtual space (the characters 2.4 m away), following
 the stage in the log:
 
@@ -614,6 +579,67 @@ adb logcat -s Unity | grep --line-buffered "Halcyonic: .*stage"
   space ...` and then `placed the stage in front of the person because the person recentered ...`.
   If it says `the tracking space moved during a focus change` instead, the recenter came with a
   focus change and the stage stayed where it was: note it.
+
+### The first-time journey on a Quest
+
+The entry as a person new to Halcyonic meets it, in this order, seated, once in the virtual space
+and once at a desk. Give the wearer only the goal ("Look at the work you have, then start a small
+website") and no coaching; the observer notes where they hesitate, what they press that does
+nothing, and any word they read aloud as unclear.
+
+Before the session, on the Mac:
+
+- A control plane with `HALCYONIC_PROJECT_ROOTS` set and OpenCode (`HALCYONIC_OPENCODE_BIN`) or
+  Codex (`HALCYONIC_CODEX_BIN`) on a local model served by Ollama, as in
+  [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md), so no hosted model is called.
+- At least three projects and more than six workstreams in its journal (for example `pnpm demo`
+  more than once), and one approval waiting in one of the projects
+  (`pnpm demo | sed '/approval requested/q'`).
+- Halcyonic installed fresh, or its data cleared, so the welcome shows. Usage left left as it is
+  until Seorak's limits build runs.
+
+In the headset:
+
+1. **Welcome.** Once connected: "Welcome", one line, Connect projects and Create a project, and Not
+   now. Running work stays on the stage behind it. Once any of them is chosen it does not come back.
+2. **Connect projects.** It says it lists the projects on your Mac that Halcyonic knows. Hide the
+   project whose work waits for approval: its characters leave the stage, its rail chip reads
+   "Hidden · 1 needs you", and More work lists that work first and reads "1 needs you". Press it in
+   More work: it stands on the stage and opens; collapse it, show the project again.
+3. **Create from a typed idea.** Create a project, Type my idea, type a sentence on the system
+   keyboard: the recap names the project from its first words. More options: choose the runtime,
+   then the local model; it reads "on your Mac". The recap asks where its files live.
+4. **Choose a new folder.** Choose: the places your Mac allows, each with New folder, the place
+   itself and its folders. New folder, accept the offered name: the recap shows "new folder ... in
+   ...".
+5. **The review.** Start building: the whole request in whole words across the panel, the folder
+   among it; Next part to the end; Yes, start building only on the last part, where Start building
+   was not.
+6. **Start building.** Each step reads "Sent, waiting for the result", then "Confirmed". A
+   character appears reading Starting, and Working only once the runtime confirms; note how long
+   that took. The new folder exists on the Mac, and the work runs there.
+7. **Create from the fixed questions.** Create a project, Help me figure it out: four questions,
+   said to be fixed questions and not an AI. Answer with choices, type one answer, skip the name:
+   the recap reads "Make ... First, ...". Choose a new folder with the name used in step 4 and
+   start building: it is refused because the folder exists, offering Use that folder; it returns
+   through the review and starts there.
+8. **Open now from creating.** With a recap showing, start another approval
+   (`pnpm demo | sed '/approval requested/q'`): the line under the title names the work that needs
+   you, with Open now and Keep creating, and nothing switches by itself. Open now: that work opens
+   on What do you need from me?; collapse it: the recap returns exactly as it was.
+9. **The four questions.** In the opened workspace, What is it doing?, Help me understand and What
+   was checked? read whole on their tabs, and What do you need from me? shows only while the approval
+   waits. Approve, read the whole request, confirm: the answer counts once the runtime confirms it.
+10. **Usage left.** At the right end of the rail's lower row, Usage left: pressed, it says "Usage
+    left isn't set up on your Mac." It steps aside when the entry panel or a workspace opens.
+11. **Reset position.** Move steps the panel right, left and back. Turn in the chair and press
+    Reset position: the panel and the rail come in front of you.
+
+Throughout, note whether the rail sits over a character, its label or a system window, whether
+anything needs leaning in to read, and whether any button pressed did nothing. Afterwards, the cases
+the journey does not reach: Add work to a project in another folder (the recap says all later work
+runs there, and the review shows the folder now and from now on), and a control plane without
+roots (the choice says your Mac doesn't allow any folder yet).
 
 ### The demonstration judges see
 
