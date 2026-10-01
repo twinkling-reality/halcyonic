@@ -300,9 +300,12 @@ the same definition names, as the JSON Schema document:
   whose `ModelChoice` is `None` leaves the choice to that runtime.
 - **`NewWorkReview`** holds the full request as items, Halcyonic's own label and the value it names:
   the project, its folder (now and from now on for a move), the workstream title, runtime, model,
-  where it runs, the model reference and the objective. Each value is spelled in ASCII, every
-  non-ASCII and control character as its code point and a typed backslash doubled, because the
-  headset font cannot draw every glyph; nothing is shortened. The panel wraps each item at its own
+  where it runs, the model reference and the objective. Each value is given as it is, never already
+  through `LabelText.Plain`, and spelled in ASCII once, every non-ASCII and control character as its
+  code point and a typed backslash doubled, because the headset font cannot draw every glyph.
+  Halcyonic's own words are never spelled: the ellipsis after a title it cut (`NewWorkDraft.TitleSource`,
+  cut between two typed characters, never inside a spelled code point) shows as written, so a
+  literal "…" in the request is always Halcyonic's; nothing else is shortened. The panel wraps each item at its own
   width, at word boundaries, and gives the review the lines each takes (`Paginate`); the review then
   fills each page with whole items, and splits an item across pages only when it alone is taller
   than a page, starting it on a page of its own. The final action appears only on the last page,

@@ -55,10 +55,14 @@ namespace Halcyonic.Client
     /// offered only on the last page, after the person has advanced through every preceding page.
     /// </summary>
     /// <remarks>
-    /// Values are text from outside: the person's own words, names from the Mac and from runtimes.
-    /// The bundled headset font cannot show every character, so every non-ASCII and control character
-    /// is spelled as its code point, <c>\u{HEX}</c>, and a typed backslash is doubled so it can never
-    /// read as one of those. Nothing is shortened: the pages together show every character.
+    /// Values are text from outside: the person's own words, names from the Mac and from runtimes,
+    /// given as they are, never already shown through <see cref="LabelText.Plain"/>, so nothing is
+    /// spelled twice. The bundled headset font cannot show every character, so every non-ASCII and
+    /// control character is spelled as its code point, <c>\u{HEX}</c>, and a typed backslash is
+    /// doubled so it can never read as one of those. Halcyonic's own words are never spelled: its
+    /// labels are ASCII, and the ellipsis after a title it cut shows as written, so a literal "…" in
+    /// the request is always Halcyonic's. Nothing else is shortened: the pages together show every
+    /// character.
     /// </remarks>
     public sealed class NewWorkReview
     {
@@ -70,8 +74,13 @@ namespace Halcyonic.Client
         /// An existing project's folder now, when the request moves it to <paramref name="folder"/>:
         /// both show, since all later work in the project runs in the new one.
         /// </param>
+        /// <param name="titleCut">
+        /// Halcyonic cut <paramref name="title"/>, the part of the objective the title holds as typed
+        /// (<see cref="NewWorkDraft.TitleSource"/>): its own ellipsis follows, as written, never spelled
+        /// as a code point the way a typed one is.
+        /// </param>
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
-            string? folder = null, string? folderBefore = null)
+            string? folder = null, string? folderBefore = null, bool titleCut = false)
         {
             Add("Project: ", project);
             if (folderBefore != null && folder != null)
@@ -80,7 +89,7 @@ namespace Halcyonic.Client
                 Add("Folder from now on: ", folder);
             }
             else if (folder != null) Add("Where its files live: ", folder);
-            Add("Workstream title: ", title);
+            items.Add(new ReviewItem("Workstream title: ", Safe(title) + (titleCut ? "…" : "")));
             Add("Runtime: ", runtime);
             Add("Model: ", model);
             Add("Model location: ", modelFacts);

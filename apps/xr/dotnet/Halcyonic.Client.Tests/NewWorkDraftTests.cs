@@ -8,6 +8,36 @@ namespace Halcyonic.Client.Tests;
 
 public class NewWorkDraftTests
 {
+    [Test]
+    public void ALongTitleIsCutBetweenTheTypedCharactersWithHalcyonicsEllipsis()
+    {
+        var draft = Draft();
+        draft.Objective = "Fix it.";
+        Assert.That(draft.TitleSource, Is.EqualTo(("Fix it.", false)));
+        Assert.That(draft.Title, Is.EqualTo("Fix it."));
+
+        foreach (var objective in new[]
+        {
+            new string('W', 4000),
+            string.Concat(Enumerable.Repeat("a\u200B", 300)),
+            string.Concat(Enumerable.Repeat("🙂", 300)),
+            new string('W', 198) + "   \n\n  tail that runs on",
+        })
+        {
+            draft.Objective = objective;
+            var (typed, cut) = draft.TitleSource;
+            Assert.That(cut, Is.True);
+            Assert.That(draft.Title, Is.EqualTo(LabelText.Plain(typed) + "\u2026"));
+            Assert.That(draft.Title.Length, Is.LessThanOrEqualTo(NewWorkDraft.MaxTitleLength));
+            Assert.That(objective.StartsWith(typed, StringComparison.Ordinal), Is.True, "the typed part is a prefix of the objective");
+            var plain = LabelText.Plain(typed);
+            Assert.That(plain.Split("‹U+").Length, Is.EqualTo(plain.Split('›').Length), "never inside a spelled code point");
+            Assert.That(char.IsHighSurrogate(typed[^1]), Is.False, "never inside a character");
+        }
+        draft.Objective = new string('\u200B', 300);
+        Assert.That(draft.Title, Does.EndWith("‹U+200B›\u2026"), "a spelled code point is kept whole before the ellipsis");
+    }
+
     private static NewWorkDraft Draft() => new(new CommandFactory(new ClientInfo
     {
         Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest",

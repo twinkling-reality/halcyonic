@@ -95,11 +95,13 @@ namespace Halcyonic.Client
         /// The choice in words, by the one rule: for example "new folder greeting-card in Projects",
         /// "storefront in Projects", or "Projects itself".
         /// </summary>
-        public string Describe()
+        /// <param name="name">How a name from the file system is shown: <see cref="LabelText.Plain"/> unless given, or as it is for a review that spells it itself.</param>
+        public string Describe(Func<string, string>? name = null)
         {
-            var root = LabelText.Plain(RootName);
+            name ??= LabelText.Plain;
+            var root = name(RootName);
             if (FolderName == null) return root + " itself";
-            var folder = LabelText.Plain(FolderName);
+            var folder = name(FolderName);
             return IsNew ? "new folder " + folder + " in " + root : folder + " in " + root;
         }
 

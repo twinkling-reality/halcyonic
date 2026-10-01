@@ -169,10 +169,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     else if (hostile)
                     {
-                        // The whole request spells what the headset font may lack as ASCII code points instead (NewWorkReview).
+                        // The whole request spells what the headset font may lack as ASCII code points instead
+                        // (NewWorkReview); the only other character is Halcyonic's own ellipsis on a cut title.
                         foreach (var request in panel.RequestLabels)
                         {
-                            if (request.text.Any(character => character < ' ' || character > '~')) failures.Add(what + ": the whole request shows a character beyond ASCII.");
+                            if (request.text.Any(character => (character < ' ' || character > '~') && character != '…'))
+                            {
+                                failures.Add(what + ": the whole request shows a character beyond ASCII.");
+                            }
                         }
                         failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.Find("Title").gameObject, "entry render " + what));
                     }
