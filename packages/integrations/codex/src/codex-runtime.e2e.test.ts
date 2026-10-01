@@ -22,13 +22,17 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
-import { CodexRuntimeAdapter, type CodexRuntimeOptions } from './codex-runtime.ts';
+import {
+  CodexRuntimeAdapter,
+  type CodexRuntimeOptions,
+  QUESTION_FEATURE,
+} from './codex-runtime.ts';
 import { isRecord } from './events.ts';
 import { RpcConnection } from './rpc.ts';
 import { buildEnvironment } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
-import { type FakeProviderOptions, PATCH_CONTENT } from './testing/fake-provider.ts';
+import { FAKE_QUESTION, type FakeProviderOptions, PATCH_CONTENT } from './testing/fake-provider.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { type CodexSandbox, createSandbox, literalPattern } from './testing/sandbox.ts';
 
@@ -215,6 +219,67 @@ async function readThread(
     const result = await rpc.request('thread/read', { threadId, includeTurns: false }, 20_000);
     assert.ok(isRecord(result) && isRecord(result.thread));
     return result.thread;
+  } finally {
+    rpc.end();
+    await exited;
+  }
+}
+
+interface RawQuestionRun {
+  /** The `warning` notifications Codex sent, by message. */
+  readonly warnings: readonly string[];
+  /** The `item/tool/requestUserInput` requests Codex sent. */
+  readonly questions: readonly Record<string, unknown>[];
+}
+
+/**
+ * Starts a thread through a bare app-server client, with `config` as its configuration, and runs
+ * one `ASK_QUESTION` turn, answering any question with its second option. This pins what the
+ * adapter relies on below its own code: what the under-development feature switch does and what
+ * Codex says when it is on.
+ */
+async function rawQuestionTurn(
+  sandbox: CodexSandbox,
+  config: Record<string, unknown> | null,
+): Promise<RawQuestionRun> {
+  const child = spawn(BINARY, ['app-server'], {
+    cwd: sandbox.root,
+    env: buildEnvironment(process.env, sandbox.env),
+    stdio: ['pipe', 'pipe', 'ignore'],
+  });
+  const exited = new Promise((resolve) => child.once('exit', resolve));
+  assert.ok(child.stdout !== null && child.stdin !== null);
+  const warnings: string[] = [];
+  const questions: Record<string, unknown>[] = [];
+  let completed = false;
+  const rpc = new RpcConnection(child.stdout, child.stdin, {
+    onNotification: (method, params) => {
+      if (method === 'warning' && isRecord(params)) warnings.push(String(params.message));
+      if (method === 'turn/completed') completed = true;
+    },
+    onRequest: (id, method, params, connection) => {
+      if (method !== 'item/tool/requestUserInput' || !isRecord(params)) {
+        connection.respondError(id, -32601, 'no');
+        return;
+      }
+      questions.push(params);
+      connection.respond(id, { answers: { [FAKE_QUESTION.id]: { answers: ['blue'] } } });
+    },
+  });
+  try {
+    const clientInfo = { name: 'halcyonic_e2e_flag', title: null, version: '0.0.0' };
+    await rpc.request('initialize', { clientInfo, capabilities: null }, 20_000);
+    rpc.notify('initialized');
+    const started = await rpc.request(
+      'thread/start',
+      { cwd: sandbox.project, ...(config === null ? {} : { config }) },
+      20_000,
+    );
+    assert.ok(isRecord(started) && isRecord(started.thread));
+    const input = [{ type: 'text', text: 'ASK_QUESTION for the feature test.', text_elements: [] }];
+    await rpc.request('turn/start', { threadId: started.thread.id, input }, 20_000);
+    await until(() => completed, 30_000, 'the turn to complete');
+    return { warnings, questions };
   } finally {
     rpc.end();
     await exited;
@@ -547,6 +612,129 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       await delay(500);
       assert.equal(existsSync(`${sandbox.project}/pending.txt`), false);
       assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
+    'a question the agent asks reaches the person, and their answer reaches the agent',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start('ASK_QUESTION for the end to end test.');
+      const asked = await execution.next('runtime.question.asked');
+      assert.ok(asked.type === 'runtime.question.asked');
+      assert.equal(asked.payload.answerable, true);
+      assert.deepEqual(asked.payload.prompts, [
+        {
+          key: 'colour',
+          header: 'Colour',
+          text: 'Which colour should the file mention?',
+          options: [
+            { label: 'red', description: 'The warm one' },
+            { label: 'blue', description: 'The calm one' },
+          ],
+          multiple: false,
+          // Codex 0.157.0 marks every question its tool asks as taking a free answer too.
+          free_text: true,
+          secret: false,
+        },
+      ]);
+      assert.equal(asked.provenance.epistemic, 'observed');
+      await runtime.answerQuestion({
+        execution: execution.context,
+        question_id: asked.payload.question_id,
+        answers: [{ key: 'colour', selected: ['blue'], text: null }],
+      });
+      await execution.next('runtime.turn.completed');
+      assert.deepEqual(execution.types(), [
+        'runtime.execution.started',
+        'runtime.model.used',
+        'runtime.turn.started',
+        'runtime.question.asked',
+        'runtime.question.resolved',
+        'runtime.agent_message',
+        'runtime.turn.completed',
+      ]);
+      assert.deepEqual(execution.observations[4]?.payload, {
+        question_id: asked.payload.question_id,
+        outcome: 'answered',
+      });
+      // What the model was given back is the answer, and nothing else.
+      const input = sandbox.provider.requests.at(-1)?.body?.input;
+      assert.ok(Array.isArray(input));
+      const reply = input.find((item) => isRecord(item) && item.type === 'function_call_output');
+      assert.ok(isRecord(reply));
+      assert.deepEqual(JSON.parse(String(reply.output)), {
+        answers: { colour: { answers: ['blue'] } },
+      });
+      await assert.rejects(
+        runtime.answerQuestion({
+          execution: execution.context,
+          question_id: asked.payload.question_id,
+          answers: [{ key: 'colour', selected: ['red'], text: null }],
+        }),
+        actionError('question_not_pending'),
+      );
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
+    'an interrupt while a question is pending ends the turn and withdraws the question',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t);
+      const execution = await start('ASK_QUESTION for the interrupt test.');
+      const asked = await execution.next('runtime.question.asked');
+      assert.ok(asked.type === 'runtime.question.asked');
+      await runtime.interrupt({ execution: execution.context });
+      await execution.next('runtime.turn.interrupted');
+      await delay(300);
+      // Codex ends the turn before it settles the request, so the turn's end is what withdraws
+      // the question, as it does a pending approval.
+      assert.deepEqual(execution.typesAfter('runtime.question.asked'), [
+        'runtime.turn.interrupted',
+      ]);
+      await assert.rejects(
+        runtime.answerQuestion({
+          execution: execution.context,
+          question_id: asked.payload.question_id,
+          answers: [{ key: 'colour', selected: ['red'], text: null }],
+        }),
+        actionError('question_not_pending'),
+      );
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
+    'questions rely on an under-development Codex feature; this fails when it changes',
+    SLOW_TEST,
+    async (t) => {
+      const sandbox = await createSandbox(BINARY);
+      t.after(async () => {
+        await sandbox.cleanup();
+        assertStayedLocal(sandbox);
+      });
+      // Off, as in Codex's default: the tool is offered but refused, and nobody is asked.
+      const off = await rawQuestionTurn(sandbox, null);
+      assert.deepEqual(off, { warnings: [], questions: [] });
+      assert.match(
+        JSON.stringify(sandbox.provider.requests.at(-1)?.body),
+        /request_user_input is unavailable in Default mode/,
+      );
+      // On, as the adapter starts every thread: the question arrives, with a start warning that
+      // the adapter does not show the person.
+      const on = await rawQuestionTurn(sandbox, { [QUESTION_FEATURE]: true });
+      assert.equal(on.questions.length, 1);
+      assert.deepEqual(on.questions[0]?.questions, [
+        { ...FAKE_QUESTION, isOther: true, isSecret: false },
+      ]);
+      assert.deepEqual(on.warnings.length, 1);
+      assert.match(
+        on.warnings[0] ?? '',
+        /^Under-development features enabled: default_mode_request_user_input\. Under-development features are incomplete and may behave unpredictably\./,
+      );
     },
   );
 
