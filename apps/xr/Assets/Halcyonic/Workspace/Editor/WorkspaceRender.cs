@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -77,11 +78,11 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                // The stage's default: 2.4 m away, 0.45 m below the eyes; the character that needs
-                // the person, in the middle, opened.
-                failures.AddRange(RenderStage("far", folder, radius: 2.4f, bodyDrop: 0.45f, surfaceDrop: null));
+                // The stage's default distance and height; the character that waits for the person,
+                // in the middle, opened.
+                failures.AddRange(RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A desk 0.46 m below the eyes, the lineup 0.55 m ahead, its bodies about 0.1 m above it.
-                failures.AddRange(RenderStage("desk", folder, radius: 0.55f, bodyDrop: 0.36f, surfaceDrop: 0.46f));
+                failures.AddRange(RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f));
             }
             catch (Exception error)
             {
@@ -96,7 +97,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        private static IEnumerable<string> RenderStage(string name, string folder, float radius, float bodyDrop, float? surfaceDrop)
+        private static IEnumerable<string> RenderStage(string name, string folder, float radius, float? surfaceDrop)
         {
             var failures = new List<string>();
             var root = new GameObject("Workspace render " + name);
@@ -106,18 +107,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = MakeCamera(root.transform, eyes, texture);
 
-                var characters = new List<(CharacterView View, CharacterTarget Target)>();
-                var slots = new[] { -30f, -18f, -6f, 6f, 18f, 30f };
-                for (var slot = 0; slot < slots.Length; slot++)
-                {
-                    var id = "render-" + slot.ToString(CultureInfo.InvariantCulture);
-                    var view = CharacterView.Create(root.transform, id);
-                    var level = Quaternion.Euler(0f, slots[slot], 0f) * Vector3.forward;
-                    view.transform.SetPositionAndRotation(eyes + level * radius + Vector3.down * bodyDrop, Quaternion.LookRotation(-level, Vector3.up));
-                    view.transform.localScale = Vector3.one * radius;
-                    view.Show(Presentation(id, slot));
-                    characters.Add((view, CharacterTarget.Attach(view, id)));
-                }
+                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation);
 
                 // Opened the way the director opens it: the person looking at the character that needs them.
                 var opened = characters[3].Target;
@@ -132,6 +122,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // The tabs, with the activity chosen, as a workspace opens.
                 var sections = WorkspaceSections.Attach(panel, () => null, () => null);
                 foreach (var text in root.GetComponentsInChildren<TextMeshPro>(true)) text.ForceMeshUpdate();
+                Backdrop(characters[3].View.transform, eyes, pose);
 
                 var both = Render(camera, texture);
                 foreach (var (view, _) in characters) view.gameObject.SetActive(false);
@@ -159,7 +150,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     + changed + " change when the stage is drawn (largest change " + Degrees(largest * 255f) + " of 255).");
                 if (passedOver == 0) failures.Add(name + ": nothing of the stage is behind the workspace, so the render checks nothing; move the camera or the stage.");
                 if (changed > 0) failures.Add(name + ": " + changed + " pixels of the workspace change when the stage behind it is drawn.");
-                if (!direction.Clear) failures.Add(name + ": the workspace covers a character's body.");
+                if (!direction.Clear) failures.Add(name + ": the workspace covers a character or its label.");
                 if (direction.Elevation < WorkspacePlacement.LowestDegrees - 0.01f || direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
                 {
                     failures.Add(name + ": the workspace's center is outside the comfortable band.");
@@ -167,6 +158,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var (view, target) in characters)
                 {
                     if (Covered(camera, target, rect)) failures.Add(name + ": " + view.WorkstreamId + "'s body is behind the workspace in the render.");
+                    var label = LabelRect(camera, view);
+                    if (label.xMin < rect.xMax && label.xMax > rect.xMin && label.yMin < rect.yMax && label.yMax > rect.yMin)
+                    {
+                        failures.Add(name + ": " + view.WorkstreamId + "'s label is behind the workspace in the render.");
+                    }
                 }
                 UnityEngine.Object.DestroyImmediate(both);
                 UnityEngine.Object.DestroyImmediate(panelAlone);
@@ -214,6 +210,52 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>
+        /// A bright plate behind the workspace, drawn and hidden with the stage: the workspace now opens
+        /// clear of every character and label, so without it nothing would be behind the workspace for
+        /// the checks that nothing shows through it.
+        /// </summary>
+        private static void Backdrop(Transform stage, Vector3 eyes, Pose workspace)
+        {
+            var backdrop = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            backdrop.name = "Backdrop behind the workspace";
+            UnityEngine.Object.DestroyImmediate(backdrop.GetComponent<Collider>());
+            backdrop.transform.SetParent(stage, true);
+            var toward = (workspace.position - eyes).normalized;
+            backdrop.transform.SetPositionAndRotation(eyes + toward * 1.6f, Quaternion.LookRotation(toward, Vector3.up));
+            backdrop.transform.localScale = Vector3.one;
+            backdrop.transform.localScale = new Vector3(1.2f / backdrop.transform.lossyScale.x, 0.9f / backdrop.transform.lossyScale.y, 1f);
+            backdrop.GetComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Sprites/Default")) { color = new Color(0.95f, 0.95f, 0.92f, 1f) };
+        }
+
+        /// <summary>
+        /// Six characters as the stage stands them (<see cref="CharacterStage.Stance"/>), 12 degrees
+        /// apart as the eyes see them (<see cref="CharacterStage.Spread"/>) and <paramref name="radius"/>
+        /// away, turned <paramref name="turn"/> degrees to the right:
+        /// at the stage's default height, or, on a surface <paramref name="surfaceDrop"/> below the eyes,
+        /// with their labels resting on it.
+        /// </summary>
+        internal static List<(CharacterView View, CharacterTarget Target)> Lineup(Transform parent, Vector3 eyes, float radius, float? surfaceDrop,
+            Func<string, int, CharacterPresentation> show, float turn = 0f)
+        {
+            var characters = new List<(CharacterView View, CharacterTarget Target)>();
+            var spread = CharacterStage.Spread(radius, surfaceDrop.HasValue ? -surfaceDrop.Value : CharacterStage.DefaultHeightFromEyes);
+            var slots = new[] { -30f, -18f, -6f, 6f, 18f, 30f };
+            var origin = eyes + Vector3.down * (surfaceDrop ?? 0f);
+            for (var slot = 0; slot < slots.Length; slot++)
+            {
+                var id = "render-" + slot.ToString(CultureInfo.InvariantCulture);
+                var view = CharacterView.Create(parent, id);
+                view.Show(show(id, slot));
+                var (height, scale) = CharacterStage.Stance(view, radius, surfaceDrop ?? 0f, surfaceDrop.HasValue ? (float?)null : CharacterStage.DefaultHeightFromEyes);
+                var level = Quaternion.Euler(0f, slots[slot] * spread + turn, 0f) * Vector3.forward;
+                view.transform.SetPositionAndRotation(origin + level * radius + Vector3.up * height, Quaternion.LookRotation(-level, Vector3.up));
+                view.transform.localScale = Vector3.one * scale;
+                characters.Add((view, CharacterTarget.Attach(view, id)));
+            }
+            return characters;
+        }
+
         /// <summary>The person's eyes, looking 18 degrees down, with about a Quest 3's view.</summary>
         internal static Camera MakeCamera(Transform parent, Vector3 eyes, RenderTexture texture)
         {
@@ -243,23 +285,21 @@ namespace Halcyonic.XR.Workspace.Editor
             return image;
         }
 
-        /// <summary>The workspace's outline on the render, inset from its rounded edge.</summary>
+        /// <summary>
+        /// The workspace on the render, inset from its rounded edge: the rectangle inside its outline,
+        /// which is a trapezoid, since the workspace leans back to face the eyes.
+        /// </summary>
         internal static RectInt ScreenRect(Camera camera, Transform panel)
         {
-            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-            foreach (var corner in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) })
-            {
-                var world = panel.TransformPoint(new Vector3(corner.x * WorkspacePanel.Width / 2f, corner.y * WorkspacePanel.Height / 2f, 0f));
-                var screen = camera.WorldToScreenPoint(world);
-                minX = Mathf.Min(minX, screen.x);
-                maxX = Mathf.Max(maxX, screen.x);
-                minY = Mathf.Min(minY, screen.y);
-                maxY = Mathf.Max(maxY, screen.y);
-            }
-            var left = Mathf.Clamp(Mathf.CeilToInt(minX) + Inset, 0, Size);
-            var bottom = Mathf.Clamp(Mathf.CeilToInt(minY) + Inset, 0, Size);
-            var right = Mathf.Clamp(Mathf.FloorToInt(maxX) - Inset, 0, Size);
-            var top = Mathf.Clamp(Mathf.FloorToInt(maxY) - Inset, 0, Size);
+            Vector3 Corner(float x, float y) => camera.WorldToScreenPoint(panel.TransformPoint(new Vector3(x * WorkspacePanel.Width / 2f, y * WorkspacePanel.Height / 2f, 0f)));
+            var bottomLeft = Corner(-1f, -1f);
+            var bottomRight = Corner(1f, -1f);
+            var topRight = Corner(1f, 1f);
+            var topLeft = Corner(-1f, 1f);
+            var left = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(bottomLeft.x, topLeft.x)) + Inset, 0, Size);
+            var right = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(bottomRight.x, topRight.x)) - Inset, 0, Size);
+            var bottom = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(bottomLeft.y, bottomRight.y)) + Inset, 0, Size);
+            var top = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(topLeft.y, topRight.y)) - Inset, 0, Size);
             return new RectInt(left, bottom, Mathf.Max(0, right - left), Mathf.Max(0, top - bottom));
         }
 
@@ -280,6 +320,31 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return (changed, largest);
+        }
+
+        /// <summary>
+        /// A character's whole label on the render, its badge and mark included, from each part's own
+        /// corners: tighter than their bounds in the world, which grow as the character turns.
+        /// </summary>
+        internal static Rect LabelRect(Camera camera, CharacterView view)
+        {
+            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+            foreach (var part in view.Label.GetComponentsInChildren<MeshFilter>(false))
+            {
+                if (part.sharedMesh == null) continue;
+                var bounds = part.sharedMesh.bounds;
+                if (bounds.size == Vector3.zero) continue;
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var local = bounds.center + Vector3.Scale(bounds.extents, new Vector3((corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
+                    var screen = camera.WorldToScreenPoint(part.transform.TransformPoint(local));
+                    minX = Mathf.Min(minX, screen.x);
+                    maxX = Mathf.Max(maxX, screen.x);
+                    minY = Mathf.Min(minY, screen.y);
+                    maxY = Mathf.Max(maxY, screen.y);
+                }
+            }
+            return Rect.MinMaxRect(minX, minY, maxX, maxY);
         }
 
         /// <summary>Whether any part of a character's body falls inside the workspace's outline on the render.</summary>
@@ -569,7 +634,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static PanelContent QuestionContent(bool answerable = true) => new PanelContent
         {
             Title = "Restyle the dashboard",
-            Status = "Needs you · simulated",
+            Status = "Waiting for you · simulated",
             Execution = "On Mock runtime, simulated work · 1 turn",
             Goal = "Goal: Give the dashboard the colour scheme people choose.",
             Answer = new[] { "Asks you 2 questions: Colour scheme; Pages" },
@@ -793,13 +858,16 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var failures = new List<string>();
             var peek = PeekLabel.Create(root.transform);
-            peek.Show(characters[3].Target, characters.ConvertAll(character => character.Target), Hostile("peek"), 1f);
+            var peeked = new CharacterPresentation(characters[3].View.WorkstreamId, Hostile("title"), CharacterActivity.WaitingForHuman, "Waiting for you",
+                AttentionLevel.ActionRequired, new[] { "It wants to use shell: " + Hostile("peek") }, 1, true, false, false);
+            peek.Show(characters[3].Target, characters.ConvertAll(character => character.Target), PeekCard.Of(new WorkspacePresentation(peeked, null, null, null,
+                Array.Empty<WorkspaceAction>(), Array.Empty<WorkspaceAction>(), Array.Empty<CommandFeedback>(), Array.Empty<ActivityEntry>())), 1f, aboveCharacter: true);
 
             // Confirming: the question, and the whole request in place of the tabs and the details.
             panel.Show(HostileContent(ControlsMode.Confirm));
             sections.ShowRequest(Hostile("request"));
             failures.AddRange(AllShowLiterally(root, name + " confirming"));
-            failures.AddRange(Carry(root, name + " confirming", "Title", "Execution", "Goal", "Answer", "Controls text", "Whole request", "Line"));
+            failures.AddRange(Carry(root, name + " confirming", "Title", "Execution", "Goal", "Answer", "Controls text", "Whole request", "Reason"));
             var closeUp = CloseUp(camera, texture, panel.transform);
             File.WriteAllBytes(Path.Combine(folder, name + "-untrusted-closeup.png"), closeUp.EncodeToPNG());
             UnityEngine.Object.DestroyImmediate(closeUp);
@@ -920,58 +988,26 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// A character's title and notes, in Unity's TextMesh, show the hostile text by the rule and
-        /// draw every character of it, as wide as their advances add up to: rich text would have taken
-        /// its tags as markup and drawn it narrower.
+        /// A character's label shows hostile text as written: its title, on a TextMeshPro label of the
+        /// interface (<see cref="GlazeText"/>), by the one rule, and its badge and mark in Halcyonic's
+        /// own words, by the same rule.
         /// </summary>
         private static IEnumerable<string> CharacterShowsLiterally(GameObject root, string name, Camera camera)
         {
             var failures = new List<string>();
-            // Upright in front of the eyes, at the scale of one meter, so its bounds measure its lines.
             var view = CharacterView.Create(root.transform, "render-hostile");
             view.transform.SetPositionAndRotation(camera.transform.position + Vector3.forward * 1.2f, Quaternion.identity);
-            view.Show(new CharacterPresentation(view.WorkstreamId, Hostile("title"), CharacterActivity.Failed, "Failed", AttentionLevel.ActionRequired,
-                new[] { Hostile("note") }, 0, true, false, false));
-            camera.Render();
-            var labels = view.GetComponentsInChildren<TextMesh>(true);
-            foreach (var label in labels)
+            view.Show(new CharacterPresentation(view.WorkstreamId, Hostile("title"), CharacterActivity.Failed, "Couldn't finish", AttentionLevel.Notice,
+                new[] { "Couldn't finish: " + Hostile("note") }, 0, true, false, false));
+            ForceMeshes(view.gameObject);
+            foreach (var label in view.GetComponentsInChildren<TMP_Text>(false))
             {
                 if (string.IsNullOrEmpty(label.text)) continue;
-                var what = name + " character: " + PathOf(label.transform);
-                if (label.richText) failures.Add(what + " interprets markup.");
-                foreach (var line in label.text.Split('\n'))
-                {
-                    if (LabelText.Plain(line) == line) continue;
-                    failures.Add(what + " shows text that did not go through the rule: " + Codes(line));
-                    break;
-                }
+                failures.AddRange(ShowsLiterally(label, name + " character"));
             }
-            var title = labels.First(label => label.name == "Title");
-            if (title.text.IndexOf(Marker, StringComparison.Ordinal) < 0) failures.Add(name + ": the character's title does not show the hostile text.");
-            var advances = title.text.Split('\n').Max(line => Advance(title, line));
-            var drawn = title.GetComponent<MeshRenderer>().bounds.size.x;
-            if (Mathf.Abs(drawn - advances) > 0.01f * advances + 0.0005f)
-            {
-                failures.Add(name + ": the character's title draws " + drawn.ToString("0.0000", CultureInfo.InvariantCulture) + " m wide for "
-                    + advances.ToString("0.0000", CultureInfo.InvariantCulture) + " m of characters, so it took some of them as markup.");
-            }
-            Debug.Log("Halcyonic: workspace render " + name + ": a character's hostile title draws " + drawn.ToString("0.0000", CultureInfo.InvariantCulture)
-                + " m wide, its characters' advances " + advances.ToString("0.0000", CultureInfo.InvariantCulture) + " m.");
+            failures.AddRange(Carry(view.gameObject, name + " character", "Title"));
             UnityEngine.Object.DestroyImmediate(view.gameObject);
             return failures;
-        }
-
-        /// <summary>How wide a TextMesh draws a line: its characters' advances in the font, in world units.</summary>
-        private static float Advance(TextMesh label, string line)
-        {
-            label.font.RequestCharactersInTexture(line, label.fontSize, label.fontStyle);
-            var pixels = 0;
-            foreach (var character in line)
-            {
-                if (label.font.GetCharacterInfo(character, out var info, label.fontSize, label.fontStyle)) pixels += info.advance;
-            }
-            // TextMesh draws a font pixel as a tenth of a unit at a character size of one.
-            return pixels * label.characterSize * 0.1f * label.transform.lossyScale.x;
         }
 
         /// <summary>Whether a label's letters lean, as a claim's do.</summary>
@@ -1004,10 +1040,10 @@ namespace Halcyonic.XR.Workspace.Editor
         private static PanelContent HostileContent(ControlsMode mode) => new PanelContent
         {
             Title = Hostile("title"),
-            Status = "Needs you · simulated",
+            Status = "Waiting for you · simulated",
             Execution = "On " + Hostile("runtime"),
             Goal = "Goal: " + Hostile("objective"),
-            Answer = new[] { "Approval needed to use shell: " + Hostile("command"), "Failed: " + Hostile("failure") },
+            Answer = new[] { "It wants to use shell: " + Hostile("command"), "Couldn't finish: " + Hostile("failure") },
             AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Mode = mode,
             Prompt = "Send this instruction? “" + Hostile("instruction") + "”",
@@ -1055,10 +1091,10 @@ namespace Halcyonic.XR.Workspace.Editor
         private static PanelContent ApprovalContent(string command, bool canConfirm) => new PanelContent
         {
             Title = "Release the checkout service",
-            Status = "Needs you · simulated",
+            Status = "Waiting for you · simulated",
             Execution = "On Simulated agent (render), simulated work · 1 turn",
             Goal = "Goal: Build every package and upload the release.",
-            Answer = new[] { "Approval needed to use shell: " + command },
+            Answer = new[] { "It wants to use shell: " + command },
             AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Mode = ControlsMode.Confirm,
             Prompt = canConfirm ? WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null) : WorkspaceText.ReadRequestFirst,
@@ -1222,9 +1258,9 @@ namespace Halcyonic.XR.Workspace.Editor
             };
             return slot switch
             {
-                3 => new CharacterPresentation(id, titles[slot], CharacterActivity.WaitingForHuman, "Needs you", AttentionLevel.ActionRequired,
-                    new[] { "Approval needed to use shell: Run make migrate" }, 1, true, false, false),
-                1 or 4 => new CharacterPresentation(id, titles[slot], CharacterActivity.TurnFinished, "Turn finished", AttentionLevel.None,
+                3 => new CharacterPresentation(id, titles[slot], CharacterActivity.WaitingForHuman, "Waiting for you", AttentionLevel.ActionRequired,
+                    new[] { "It wants to use shell: Run make migrate" }, 1, true, false, false),
+                1 or 4 => new CharacterPresentation(id, titles[slot], CharacterActivity.TurnFinished, "Finished this round", AttentionLevel.None,
                     Array.Empty<string>(), 0, true, false, false),
                 _ => new CharacterPresentation(id, titles[slot], CharacterActivity.Working, "Working", AttentionLevel.None,
                     Array.Empty<string>(), 0, true, false, false),
@@ -1234,10 +1270,10 @@ namespace Halcyonic.XR.Workspace.Editor
         private static PanelContent Content() => new PanelContent
         {
             Title = "Add rate limiting to the sign-in endpoint",
-            Status = "Needs you · simulated",
+            Status = "Waiting for you · simulated",
             Execution = "On Simulated agent (demonstration), simulated work · 1 turn",
             Goal = "Goal: Limit sign-in attempts per address and per account.",
-            Answer = new[] { "Approval needed to use shell: Run make migrate" },
+            Answer = new[] { "It wants to use shell: Run make migrate" },
             AnswerColor = new Color(0.96f, 0.77f, 0.32f),
             Actions = new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt },
             ActivityCaption = "Recent activity",

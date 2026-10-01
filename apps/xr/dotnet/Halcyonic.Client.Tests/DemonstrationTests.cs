@@ -470,7 +470,7 @@ public class DemonstrationSessionTests
         Assert.That(workspace.Actions, Is.EquivalentTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(workspace.Character.Recorded && workspace.Character.Synthetic && !workspace.Character.Stale, Is.True);
         Assert.That(WorkspaceText.Execution(workspace), Does.StartWith("On Simulated agent (demonstration), simulated work"));
-        Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("Approval needed to use shell: Run make migrate"));
+        Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("It wants to use shell: Run make migrate"));
         foreach (var watched in session.State.Workstreams.Values.Where(w => w.Title != Demonstration.Directed))
         {
             var beside = WorkspacePresenter.Present(watched, session.State, activity, true, submissions);

@@ -82,8 +82,8 @@ public class QuestionTests
     {
         var work = new AskingWork();
         var workspace = work.Present();
-        Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Needs you"));
-        Assert.That(WorkspaceText.Peek(workspace), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"),
+        Assert.That(workspace.Character.StatusLabel, Is.EqualTo("Waiting for you"));
+        Assert.That(PeekCard.Of(workspace).ReasonLine, Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"),
             "the whole question, never only the prompt the body may not show");
         Assert.That(WorkspaceText.FirstQuestion(workspace), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         Assert.That(workspace.QuestionToAnswer, Is.SameAs(work.Question));

@@ -3,6 +3,7 @@
   "rootNamespace": "Halcyonic.XR.Workspace",
   "references": [
     "Halcyonic.XR",
+    "Halcyonic.XR.UI",
     "Halcyonic.Client",
     "Halcyonic.Contracts",
     "Oculus.Interaction",

@@ -35,6 +35,38 @@ internal static class Lineups
         return new BodyInView(yaw, -MathF.Atan2(drop, distance) * 180f / MathF.PI, MathF.Asin(MathF.Min(1f, reach / range)) * 180f / MathF.PI);
     }
 
+    /// <summary>
+    /// A body with its label plate under it, the plate's bottom <paramref name="labelDrop"/> below the
+    /// body's center and half as wide as <paramref name="labelHalfWidth"/>, in meters.
+    /// </summary>
+    public static BodyInView Labeled(float yaw, float distance, float drop, float reach, float labelDrop, float labelHalfWidth)
+    {
+        var body = Body(yaw, distance, drop, reach);
+        var lowest = -MathF.Atan2(drop + labelDrop, distance) * 180f / MathF.PI;
+        var halfWidth = MathF.Max(body.Radius, MathF.Atan2(labelHalfWidth, distance) * 180f / MathF.PI);
+        return new BodyInView(body.Yaw, body.Elevation, body.Radius, lowest, halfWidth);
+    }
+
+    /// <summary>
+    /// The raised stage (ADR 0023): bodies 0.17 m below the eyes 2.4 m away, their plates at most
+    /// 10.5 degrees tall under them and 10.5 wide, as the stage's scale makes them at that distance.
+    /// </summary>
+    public static List<BodyInView> RaisedArc()
+    {
+        const float distance = 2.4f;
+        const float radians = MathF.PI / 180f;
+        return Slots.Select(yaw => Labeled(yaw, distance, 0.17f, 0.075f * distance, 10.5f * radians * distance, 5.25f * radians * distance)).ToList();
+    }
+
+    /// <summary>Whether the workspace, centered at a direction, covers any part of a character's label.</summary>
+    public static bool CoversLabel(PanelDirection panel, BodyInView body)
+    {
+        var halfWidth = Workspace.HalfWidthDegrees / MathF.Cos(body.Elevation * MathF.PI / 180f);
+        var sideways = MathF.Abs(WorkspacePlacement.DeltaAngle(panel.Yaw, body.Yaw)) < halfWidth + body.HalfWidth;
+        var upright = panel.Elevation + Workspace.HalfHeightDegrees > body.Lowest && panel.Elevation - Workspace.HalfHeightDegrees < body.Elevation;
+        return sideways && upright;
+    }
+
     /// <summary>Whether the workspace, centered at a direction, covers any part of a body.</summary>
     public static bool Covers(PanelDirection panel, BodyInView body)
     {
@@ -63,6 +95,31 @@ public class WorkspacePlacementTests
             Assert.That(bodies.Any(body => Lineups.Covers(panel, body)), Is.False, "every body stays in view");
             Assert.That(panel.Yaw, Is.EqualTo(opened.Yaw));
         }
+    }
+
+    [Test]
+    public void OnTheRaisedStageTheWorkspaceOpensBelowEveryLabelPlate()
+    {
+        var characters = Lineups.RaisedArc();
+        Assert.That(characters[0].Lowest, Is.InRange(-14.6f, -14f), "plates end about 14 degrees below the eyes");
+        foreach (var slot in new[] { 2, 3, 0, 5 })
+        {
+            var opened = characters[slot];
+            var panel = WorkspacePlacement.Place(opened.Yaw, opened, characters, Lineups.Workspace);
+
+            Assert.That(panel.Clear, Is.True, $"slot {slot}");
+            Assert.That(panel.Above, Is.False);
+            Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.LowestDegrees, WorkspacePlacement.HighestDegrees));
+            Assert.That(characters.Any(character => Lineups.CoversLabel(panel, character)), Is.False, "every title and badge stays readable");
+        }
+    }
+
+    [Test]
+    public void WithoutItsLabelABodyReachesOnlyItsOwnExtent()
+    {
+        var body = new BodyInView(10f, -4f, 4.3f);
+        Assert.That(body.Lowest, Is.EqualTo(-8.3f).Within(1e-4f));
+        Assert.That(body.HalfWidth, Is.EqualTo(4.3f));
     }
 
     [Test]

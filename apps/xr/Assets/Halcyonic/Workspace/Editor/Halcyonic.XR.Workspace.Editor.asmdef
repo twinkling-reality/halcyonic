@@ -5,6 +5,8 @@
     "Halcyonic.Client",
     "Halcyonic.Contracts",
     "Halcyonic.XR",
+    "Halcyonic.XR.UI",
+    "Halcyonic.XR.UI.Editor",
     "Halcyonic.XR.Workspace",
     "Oculus.VR",
     "Oculus.Interaction",

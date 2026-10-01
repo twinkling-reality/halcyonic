@@ -102,10 +102,33 @@ the same definition names, as the JSON Schema document:
   immediately when not connected, and reports `CommandOutcomeUnknownException` when the connection
   drops or the acknowledgement does not arrive in time; resubmitting the same command, with the
   same id, then reports its real state. A command's outcome arrives later as events in `State`.
-- **`CharacterPresenter`** maps a workstream to what its character conveys: an activity, a text
-  label for every status (never color alone), the attention level with one explanation per reason,
-  and flags for simulated work, recorded fixture data, and a stale state while the session is not
-  live. A completed turn reads "Turn finished", because completion says nothing about correctness.
+- **`CharacterPresenter`** maps a workstream to what its character conveys: an activity, the
+  state's word (never color alone), the attention level with one explanation per reason, the same
+  reasons without what the state already says (`AttentionDetails`, for the peek: "The model
+  provider rejected the request." under Couldn't finish), and flags for simulated work, recorded
+  fixture data, and a stale state while the session is not live. Reasons read "It wants to use
+  {tool}: {summary}", "Couldn't finish: {reason}", "Can't tell what it's doing: {reason}" and
+  "Checks: {summary}"; a question's is `AsksYou`.
+- **`StateLanguage`** ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md))
+  is the one mapping from a task's state to what every surface says and shows: Not started,
+  Starting, Working, Checking its work, Waiting for you, Finished this round, Checks failed,
+  Couldn't finish, Stopped and Can't tell yet, each with a tone, an icon, a fill and an edge (no
+  two states share all of them, so none is told by color alone) and a motion: Starting and
+  Working turn, Waiting for you breathes and counts what waits when more than one does. Something
+  waiting for the person wins over what the work is doing, and a finished round with a notice is
+  one whose checks failed. A finished round reads "Finished this round", because completion says
+  nothing about correctness. Practice, Demo and Recorded are marks beside the state, never in its
+  word, and a state that is only the last one known keeps its word, is ghosted and stands still.
+- **`Glaze`** holds the interface's tokens, once: colors as roles (amber only for waiting for you,
+  red only for what went wrong, the cobalt accent only for what can be acted on), sizes as angles at
+  the eye (one of Meta's dp is 0.0625 degrees; body text 1.125, nothing under the caption's 0.94),
+  targets, radii, plate opacity and motion. Its tests hold every color to its contrast and the sizes
+  to Meta's minimums.
+- **`CharacterLabel`** is what a character's label shows, three parts kept apart: the title, the
+  state badge and the marks. **`PeekCard`** is what the peek shows: the badge and marks, the first
+  reason with more to say than the state, with how many more wait ("(+1 more)"), else what it did
+  last; "Last known:" before it while the session is not live; what the marks mean ("Practice run:
+  nothing is built."); and what opening it is for ("Open it to answer.", "Open it to see why.").
 - **`CharacterCues`** turns a presentation into what the character shows: its eyes, its motion, its
   halo, its surface (flowing, cracked or fogged), whether it faces the person, and whether it is
   paused or ghosted ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)).
@@ -113,7 +136,7 @@ the same definition names, as the JSON Schema document:
 - **`CharacterIdentity`** derives a character's body shape, hue, tone and motion phase from its
   workstream id alone (FNV-1a over the UTF-8 id, then MurmurHash3's finalizer), so a workstream
   looks the same in every session and version. The eight hues keep at least 25 degrees from the
-  state colors: amber for needs you, red for failed, green for a finished turn.
+  state colors: amber for waiting for you, red for failed, green for a finished round.
 - **`CharacterLineup`** chooses which workstreams have a character and where each stands: needs
   you first, then failed, unknown or failing tests, then active work, then the most recently
   changed. Characters that need attention stand nearest the middle of the person's view; every
@@ -139,20 +162,19 @@ the same definition names, as the JSON Schema document:
   runtime is gone), which of those actions need a deliberate confirmation (from the command
   policies in `welcome`; unknown counts as needed), feedback on recent commands in words, and the
   activity. Approving or denying answers the oldest pending approval.
-- **`WorkspaceText`** writes every word the peek and the workspace show, so the Unity layer only
+- **`WorkspaceText`** writes every word the workspace shows, so the Unity layer only
   lays them out: the person's questions (What is it doing?, Help me understand, What was
   checked?, and What do you need from me? only while an approval waits, each in two lines for its
   tab, never shortened), the goal, one plain answer under it (what needs the person, else "Nothing
-  needs you now." and the latest activity), the answer to What do you need from me? (`NeedAnswer`:
+  is waiting for you." and the latest activity), the answer to What do you need from me? (`NeedAnswer`:
   the oldest request as the runtime reported it and what each answer does), the status with its
   qualifiers ("simulated", "recorded", "last known"), the
   execution and its runtime, what needs the person, activity lines with the local time and agent
   text quoted as "Agent says: “…”", action labels, a confirmation question that names exactly what
   would be sent (for approving or denying, "Approve the request below?" over the whole request,
-  `Request`: the tool and what it would do, never shortened), why no action is offered, and the
-  one-line peek: what the work needs first, else the latest activity that is not a turn boundary,
-  else the status, prefixed "Last known:" when stale. Text from outside in any of them shows by
-  `LabelText`'s rule, and a cut never splits a character in two.
+  `Request`: the tool and what it would do, never shortened), and why no action is offered. Text
+  from outside in any of them shows by `LabelText`'s rule, and a cut never splits a character in
+  two. `Describe` writes one activity entry in one line, for the peek too.
 - **`LabelText`** is the one rule for showing text Halcyonic did not write: workstream titles and
   objectives, anything an agent or a tool wrote (messages, approval requests, activity), refusals
   and failures, setup problems with exception text, what the understanding and evaluation sources
@@ -673,14 +695,23 @@ scripts use only long-stable core Unity APIs:
   connection is refused at once, has no line of its own. For the demonstration it also logs each
   start from the beginning, with its count, and each end it reaches, never what was answered.
 - `CharacterStage` stands the characters on an arc of fixed slots in front of the person and says
-  above them whether the state is live, or, while the demonstration is shown, its
-  `DemonstrationLine`. The arc is 2.4 m away, beyond the system windows, such as Virtual Display's
-  screens, that open within about 2 m
-  ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); 0.45 m below the eyes;
+  on a banner under their labels, in the ambient strip, whether the state is live ("Connected to
+  your Mac", "Last known: can't reach your Mac. Trying again…"), or, while the demonstration is
+  shown, its `DemonstrationLine`, with how many tasks wait for the person while another window has
+  focus ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
+  The banner steps aside while a foreground panel or the peek is where it goes (`AmbientCover`):
+  a panel says itself whether it is live, and the peek says it of its character. The arc is 2.4 m
+  away, beyond the system windows, such as Virtual Display's screens, that open within about 2 m
+  ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)); the characters' centers
+  0.17 m below the eyes, about 4 degrees, so their labels end about 14 degrees down (15 with a mark
+  and two lines of title) and the banner and any panel open under them in the comfortable band;
   and 60 degrees between its outermost characters, so every character and its labels stay within
   about 36 degrees of where the person faced, a comfortable field on narrower headsets too. All
-  three are serialized settings, and characters and labels scale with the distance, so they keep
-  their apparent size. A character the lineup moves glides along the arc, swinging out behind the
+  three are serialized settings (`DefaultDistance`, `DefaultHeightFromEyes`), to be judged on the
+  headset. Characters and labels scale with their distance from the eyes, so they keep their
+  apparent size near or far, above or below (`Stance`); seen from above, as on a desk, the arc
+  spreads so neighbours look as far apart as in front of the person (`Spread`), and each label hangs
+  a little lower so its body never covers its badge. A character the lineup moves glides along the arc, swinging out behind the
   others. Everything is looked at and pointed at from the seat; nothing needs the person to stand
   or reach. The arc is placed at the person's head, facing where they face, when
   `InFrontPlacement` says so, fed by `PersonPlacement` with the head's pose, whether it is tracked,
@@ -694,7 +725,8 @@ scripts use only long-stable core Unity APIs:
   surface the characters stand on is, for the workspace. An `IStagePlacementSource` on the stage object, such as a room placement
   that found the person's desk, can give it a surface instead: the pose's position is where the
   middle of the lineup stands, the arc curves around the person's side of it at their distance
-  when the pose arrived, and every label plate rests on the surface. While that pose is set, only
+  when the pose arrived, and every label rests on the surface, with the banner above the highest a
+  character reaches, risen included. While that pose is set, only
   the source moves the stage, and recenters leave it. The stage keeps animating and updating while
   the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter` and
   `SlotOf`, so other components add to characters without changing them. The lineup it keeps covers
@@ -703,14 +735,25 @@ scripts use only long-stable core Unity APIs:
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
-  shader, a halo and a testing ring behind and around it, and the title, the status and the
-  attention notes on a plate underneath, wrapped to 11 degrees, less than the 12 between slots. `Body` is the moving visual
-  root, and `LookAtPerson` turns the character to the person for the workspace. Per-character
-  values go through `MaterialPropertyBlock`s, so nothing allocates per frame. Labels use Unity's
-  built-in font through `TextMesh`, rasterized at 48 pixels, close to their size on the headset,
-  with rich text off: `TextMesh` takes tags as markup by default, and a transparent color would hide
-  part of a title. Every line of a label, the stage's line above the characters included, shows by
-  `LabelText.Plain`; `TextMesh` parses no backslash escapes, so backslashes stay single.
+  shader, a halo and a testing ring behind and around it, and its label underneath
+  (`CharacterLabelView`, [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)):
+  the state badge on the title plate's top edge, the title on the plate in at most two lines,
+  ending in an ellipsis, and the mark on the plate's bottom edge, whose edge is then dashed. The
+  plate is at most 10.5 degrees wide, 1.5 less than the 12 between slots, and 96 percent opaque;
+  the reason a task needs the person is not on the stage, only in the peek. Beside a badge, a mark
+  would reach a neighbour's. `Body` is the moving visual root, and `LookAtPerson` turns the
+  character to the person for the workspace; the label stays where it is. Per-character values go
+  through `MaterialPropertyBlock`s, so nothing allocates per frame.
+- `Assets/Halcyonic/UI` is the interface's own assembly (`Halcyonic.XR.UI`), which the stage and
+  the workspace use and which knows nothing of input: the tokens in Unity's terms (`GlazeTokens`),
+  one shader for every flat shape (`Halcyonic/Glaze Surface`: a rounded rectangle with a fill, an
+  edge inside its outline, solid or dashed, and a halftone, its properties instanced, shipped
+  through a material in `UI/Resources`), text by type role (`GlazeText`: TextMeshPro in Liberation
+  Sans, rich text off, escape parsing on, every text through `LabelText.ForTextMeshPro`, strong text
+  thickened by its material, never TextMeshPro's bold, which finds no ellipsis in this font), and
+  the components without input: `StateBadgeView`, `MarkTag`, `CharacterLabelView`, `PeekCardView`
+  and `StageBanner`. Components are built in units of their distance from the eyes and scaled by it,
+  so every size is an angle.
 - A player build leaves out shaders that nothing in the build references; the first device build
   rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
   Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
@@ -751,13 +794,16 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
 
 - **Ambient:** the characters as the stage shows them.
 - **Peek:** once the person's gaze has rested on a character, or at once while a hand ray (or a
-  finger about to poke) points at it, `PeekLabel` fades in one line beside it, on the side toward
-  the middle of the view: `WorkspaceText.Peek`. `PeekChoice` decides which and when: turning the
-  head across the stage peeks nothing, one peek shows at a time, a hand pointing wins over the
-  gaze, and while a workspace is open only a hand peeks, so reading the workspace never brings up
-  peeks behind it. A small head gaze reticle shows where the head points while no workspace is
-  open. The peek plate sits in front of its own body and any neighboring body that overlaps its
-  projected words.
+  finger about to poke) points at it, `PeekLabel` fades in a card (`PeekCard`, `PeekCardView`): its
+  state badge and marks, the reason in at most two lines, what its marks mean and what opening it
+  is for. `PeekChoice` decides which and when: turning the head across the stage peeks nothing,
+  one peek shows at a time, a hand pointing wins over the gaze, and while a workspace is open only
+  a hand peeks, so reading the workspace never brings up peeks behind it. A small head gaze
+  reticle shows where the head points while no workspace is open. The card faces the eyes at
+  1.6 m, or nearer than the characters on a desk, and hangs a little more than a degree under the
+  character's label and any neighbour's it reaches across, where the banner steps aside for it;
+  while a panel is open under the labels, or the characters stand on a surface, it stands over the
+  highest the character reaches instead.
 - **Open:** a pinch on the ray, a poke, or, while a gaze peek shows and no hand ray or finger is on
   a target, a pinch of either hand at any height (look and pinch) opens `WorkspacePanel` next to
   that character, within reach and clear of the other characters, facing the eyes. It leads with
@@ -957,9 +1003,10 @@ is a device trial, not yet verified to separate pointing from typing on a desk.
 **Seated, and within reach, clear of the stage.** The workspace opens 0.6 m from the eyes, about
 two feet, so a seated person pokes its buttons without leaning or standing. It is scaled to keep
 its designed angular size, which puts its buttons about 33 mm tall there. `WorkspaceLayout` hands
-every character's body, as seen from the eyes, to `WorkspacePlacement`, which opens it clear of all
-of them: with the characters 2.4 m away, below them, its center 30 degrees down, over the labels of
-the characters it passes but none of their bodies; with the characters on a desk half a meter
+every character as seen from the eyes, its body and how low and wide its label reaches, to
+`WorkspacePlacement`, which opens it clear of all of them: with the characters 2.4 m away, below
+their labels, its center about 29 degrees down, 30 with marked labels of two lines, clear of every
+title and badge (ADR 0023; it used to open over the labels of the characters it passed); with the characters on a desk half a meter
 away, above them, its center 10 to 15 degrees down, its lower edge at least 5 cm above the desk.
 The rest of the stage stays in view. `WorkspaceRender` renders both in the editor and checks it.
 
@@ -968,7 +1015,7 @@ within 15 degrees of where the person looks, and between 30 degrees below and 2 
 level, so all of it, controls included, sits in the middle of a narrower field of view than the
 Quest 3's (as on a Quest 3S), never at an edge; with the characters 2.4 m away, its actions row
 is about 20 degrees below them, and its activity lines, at the bottom, may need the head tilted
-down a little. The peek is one line, and the hint three words.
+down a little. The peek is a card of at most five short lines, and the hint three words.
 
 **Hands first.** Everything works with hands alone: pointing, pinching and poking, looking and
 pinching, and typing on the system keyboard. The rig supports controllers, but nothing needs one.
@@ -1259,8 +1306,10 @@ place in the ray's active state group, with the SDK's pointer pose disabled.
 `WorkspaceRender` (**Halcyonic > Render the Workspace Over the Stage**, also runnable in batch mode)
 renders the workspace open over the stage with the characters 2.4 m away and on a desk, saves the
 renders in `apps/xr/Builds/WorkspaceRenders`, and fails if a pixel of the workspace changes with the
-stage drawn behind it, a character's body is behind it, or its center leaves the band. With the
-plate at its former 95 percent, it failed in both places. It then shows the Understanding and
+stage drawn behind it, a character's body or label is behind it, or its center leaves the band.
+With the plate at its former 95 percent, it failed in both places. The workspace now opens clear of
+every label, so a bright backdrop drawn with the stage stands behind it for the checks that nothing
+shows through, compared inside the panel's outline, a trapezoid since it leans back to face the eyes. It then shows the Understanding and
 Evaluation sections with the bundled demonstration's answers for the directed work, at its approval
 and after approving, and renders each over the stage and as a close-up at a Quest 3's 25 pixels per
 degree; it fails if a pixel of a section changes with the stage behind it, a line of a section does
@@ -1276,8 +1325,22 @@ an end of text character, a carriage return and a line break, a bidirectional ov
 width space, a tag character and half a surrogate pair. It fails if any label interprets markup or
 parses no escapes, uses italics or bold, shows text that did not go through the rule exactly once,
 lays out other characters than that text or cuts it short without an ellipsis; if a claim does not
-lean, or leans and loses its ellipsis; or if a character's `TextMesh` title draws narrower than its
-characters' advances, as markup would.
+lean, or leans and loses its ellipsis; and it checks a character's label and the peek card the
+same way, their TextMeshPro labels by the same rule.
+
+`StageRender` (**Halcyonic > Render Every State on the Stage**, also runnable in batch mode) renders
+every state of a task on a character at the stage's default distance and height, practice, demo and
+last known work among them, with the banner under the labels and the peek under one, then the
+characters on a desk with the peek over one, and saves them, with close-ups of the middle labels and
+the peek at a Quest 3's 25 pixels per degree, in `apps/xr/Builds/StageRenders`. It checks the rules
+of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
+through `GlazeChecks` (`Assets/Halcyonic/UI/Editor`), which every render can use: labels, bodies,
+the banner and the peek at least a degree apart as seen from the eyes, measured from each mesh's own
+corners and each body across the line of sight, and a label at least 0.3 degrees from its own body;
+every word at least the caption's 0.94 degrees at its own distance; every plate at least 96 percent
+opaque; every badge showing its whole word; a plate's pixel in its token's color; and a title's
+strokes at 7:1 or more on its plate as drawn. It fails if the banner still shows while the peek is
+where it goes, or does not come back when the peek leaves.
 
 It also renders What do you need from me? and fails if it lets the stage show through or cuts a
 line, and, with a section chosen while a request waits, unless all four questions show whole in two
@@ -1288,7 +1351,7 @@ renders the project rail and every screen of the entry panel over the same two s
 them in `apps/xr/Builds/EntryRenders`. It fails if the panel lets anything behind it show through
 (compared inside its own outline), covers a character's body or leaves the comfortable band; if
 the rail reaches farther to the side than the pairing panel's button begins (18.6 degrees), runs
-into the room kept for Usage left, overlaps itself or covers a character's body or label plate;
+into the room kept for Usage left, overlaps itself or covers a character's body or label;
 if any of Halcyonic's own words is cut short. It pages through the whole request for the longest
 name and task in one unbroken word, a task made only of characters shown as code points, a task with
 no place to break, and a long task in words, and fails unless every character of every item shows

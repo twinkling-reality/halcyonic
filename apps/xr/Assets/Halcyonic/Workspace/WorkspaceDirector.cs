@@ -12,9 +12,10 @@ namespace Halcyonic.XR.Workspace
     /// <summary>
     /// Three levels of detail for the same work, all in place. Ambient: the characters as the stage
     /// shows them. Peek: once the person's gaze rests on a character, or at once while a hand points
-    /// at it, one line beside it (<see cref="PeekChoice"/>). Open: a pinch on the ray, a poke, or a
-    /// pinch of either hand while the gaze peek shows (look and pinch) opens the workspace next to
-    /// that character, within reach and clear of the others; collapsing returns to ambient.
+    /// at it, a card under its label (<see cref="PeekChoice"/>, <see cref="PeekLabel"/>). Open: a
+    /// pinch on the ray, a poke, or a pinch of either hand while the gaze peek shows (look and pinch)
+    /// opens the workspace next to that character, within reach and clear of the others and their
+    /// labels; collapsing returns to ambient.
     /// Everything shown comes from the client core (WorkspacePresenter, WorkspaceText) and the
     /// session; commands go through WorkspaceSteering and RealtimeSession.SubmitAsync, and a result
     /// is shown as done only when the control plane's record says the runtime confirmed it. No peek,
@@ -48,8 +49,8 @@ namespace Halcyonic.XR.Workspace
         private string? loggedPointed;
         private string? loggedPeek;
         private CharacterTarget? facing;
-        private string? peekLineFor;
-        private string peekLine = "";
+        private string? peekFor;
+        private PeekCard? peekCard;
         private Opened? opened;
         private HoldToTalk voice = null!;
         private HoldToTalk answerVoice = null!;
@@ -264,8 +265,8 @@ namespace Halcyonic.XR.Workspace
         {
             nextRefresh = Time.unscaledTime + RefreshSeconds;
             shownSubmissions = submissions.Version;
-            // The peek's line is written again on its next frame.
-            peekLineFor = null;
+            // The peek's card is written again on its next frame.
+            peekFor = null;
             RefreshHint();
             RefreshPanel();
         }
@@ -280,7 +281,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// Every frame, since peeks fade: tells <see cref="PeekChoice"/> what the hands and the gaze
         /// are on, shows the peek it chooses, and turns that character, and an open one, to the
-        /// person. Allocates nothing unless the peek's line changes.
+        /// person. Allocates nothing unless the peek's card changes.
         /// </summary>
         private void UpdatePeek()
         {
@@ -323,20 +324,21 @@ namespace Halcyonic.XR.Workspace
             };
             peekChoice.Update(input, Time.unscaledTime);
             var shown = peekChoice.Shown != null && targets.TryGetValue(peekChoice.Shown, out var peeked) ? peeked : null;
-            if (shown != null && peekLineFor != shown.WorkstreamId)
+            if (shown != null && peekFor != shown.WorkstreamId)
             {
                 var presentation = Present(shown.WorkstreamId);
-                peekLineFor = shown.WorkstreamId;
-                peekLine = presentation == null ? "" : WorkspaceText.Peek(presentation);
+                peekFor = shown.WorkstreamId;
+                peekCard = presentation == null ? null : PeekCard.Of(presentation);
             }
-            if (shown == null || peekLine.Length == 0 || peekChoice.Opacity <= 0f)
+            if (shown == null || peekCard == null || peekChoice.Opacity <= 0f)
             {
                 peek.Hide();
                 loggedPeek = null;
             }
             else
             {
-                peek.Show(shown, targets.Values, peekLine, peekChoice.Opacity);
+                // Under the label, unless a panel is open under the labels or the labels rest on a surface.
+                peek.Show(shown, targets.Values, peekCard, peekChoice.Opacity, opened != null || AmbientCover.PanelShowing || stage.SurfaceHeight.HasValue);
                 if (shown.WorkstreamId != loggedPeek)
                 {
                     Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
@@ -410,6 +412,7 @@ namespace Halcyonic.XR.Workspace
 
             var root = new GameObject("Workspace " + target.WorkstreamId);
             root.transform.SetParent(transform, false);
+            AmbientCover.Add(root, panel: true);
             var panel = WorkspacePanel.Create(root.transform);
             var (place, scale) = PlaceBeside(target);
             var transition = WorkspaceTransition.Begin(root, target, place, scale);

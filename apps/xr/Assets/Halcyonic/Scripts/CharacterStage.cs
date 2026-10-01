@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR
@@ -10,9 +11,9 @@ namespace Halcyonic.XR
     /// <summary>
     /// The characters, on an arc in front of the person, kept current from the session. The lineup
     /// in the client core decides which workstreams have a character and which slot each stands in;
-    /// this component places the arc relative to the person and says above it whether the state is
-    /// live, so a disconnected stage never looks live. It keeps animating and updating while the
-    /// app lacks input focus: losing focus is not a pause.
+    /// this component places the arc relative to the person and says on a banner under the
+    /// characters' labels whether the state is live, so a disconnected stage never looks live. It
+    /// keeps animating and updating while the app lacks input focus: losing focus is not a pause.
     /// </summary>
     /// <remarks>
     /// The arc keeps every character and its labels within about 36 degrees of where the person
@@ -38,11 +39,25 @@ namespace Halcyonic.XR
     [RequireComponent(typeof(ControlPlaneConnection))]
     public sealed class CharacterStage : MonoBehaviour
     {
-        [Tooltip("How far the characters stand from the person's head, in meters. System windows, such as a virtual display opened over the app, render within about 2 m, so the characters stand beyond them. Characters and their labels scale with this distance, so they keep the same apparent size.")]
-        [SerializeField] private float distance = 2.4f;
+        /// <summary>The characters' distance from the eyes, by default: beyond system windows, which render within about 2 m.</summary>
+        public const float DefaultDistance = 2.4f;
 
-        [Tooltip("The height of the characters' centers relative to the person's eyes when the stage was placed, in meters; negative is below. A character that needs the person rises from here toward their eye level.")]
-        [SerializeField] private float heightFromEyes = -0.45f;
+        /// <summary>
+        /// The characters' height from the eyes, by default (ADR 0023): their centers about 4 degrees
+        /// below eye level at <see cref="DefaultDistance"/>, so their labels end about 14 degrees down
+        /// and the banner and any panel open under them, in the comfortable band. To be judged on the
+        /// headset; renders stand their characters here too.
+        /// </summary>
+        public const float DefaultHeightFromEyes = -0.17f;
+
+        /// <summary>The angle between the lowest a label reaches and the banner under it: more than the degree kept between things.</summary>
+        public const float BannerGapDegrees = 1.25f;
+
+        [Tooltip("How far the characters stand from the person's head, in meters. System windows, such as a virtual display opened over the app, render within about 2 m, so the characters stand beyond them. Characters and their labels scale with this distance, so they keep the same apparent size.")]
+        [SerializeField] private float distance = DefaultDistance;
+
+        [Tooltip("The height of the characters' centers relative to the person's eyes when the stage was placed, in meters; negative is below. At -0.17 and 2.4 m they stand about 4 degrees below eye level, their labels end about 14 degrees down, and the banner and any open panel go under the labels. A character that needs the person rises from here toward their eye level.")]
+        [SerializeField] private float heightFromEyes = DefaultHeightFromEyes;
 
         [Tooltip("The angle between the outermost characters, in degrees, centered on where the person faced when the stage was placed. At 60 the outermost stand 30 degrees to each side and their labels end within about 36, a comfortable field of view on narrower headsets too.")]
         [SerializeField] private float spanDegrees = 60f;
@@ -68,9 +83,6 @@ namespace Halcyonic.XR
         /// <summary>The gap between a label plate and the surface it rests on, in a character's units.</summary>
         private const float SurfaceClearance = 0.005f;
 
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-        private static readonly int RectId = Shader.PropertyToID("_Rect");
-
         private readonly Dictionary<string, CharacterView> views = new Dictionary<string, CharacterView>();
         private readonly List<WorkstreamView> eligible = new List<WorkstreamView>();
         private readonly Dictionary<string, Standing> standings = new Dictionary<string, Standing>();
@@ -79,10 +91,8 @@ namespace Halcyonic.XR
         private ControlPlaneConnection connection = null!;
         private CharacterLineup lineup = null!;
         private Transform arc = null!;
-        private Transform connectionRoot = null!;
-        private TextMesh connectionLabel = null!;
-        private MeshRenderer connectionPlate = null!;
-        private MaterialPropertyBlock connectionPlateBlock = null!;
+        private Transform bannerRoot = null!;
+        private StageBanner banner = null!;
         private Transform? head;
         private IStagePlacementSource? source;
         private float nextSourceSearch;
@@ -92,8 +102,9 @@ namespace Halcyonic.XR
 
         /// <summary>The arc's radius now: the distance setting in front of the person, or the reach to a surface.</summary>
         private float radius;
-        private string? shownConnection;
-        private bool shownLive;
+        private string? shownBanner;
+        private BannerKind shownKind;
+        private string? shownWaiting;
         private StageVisibility visibility = new StageVisibility();
 
         /// <summary>
@@ -183,23 +194,25 @@ namespace Halcyonic.XR
             arc.SetParent(transform, false);
             arc.gameObject.SetActive(false);
 
-            connectionRoot = new GameObject("Connection").transform;
-            connectionRoot.SetParent(arc, false);
-            connectionPlate = Labels.CreatePlate(connectionRoot, "Plate");
-            connectionLabel = Labels.CreateSized(connectionRoot, "Status", Vector3.zero, 0.02f);
-            connectionPlateBlock = new MaterialPropertyBlock();
+            // The banner reads along its parent's forward axis, away from the person, as the arc's does.
+            bannerRoot = new GameObject("Banner").transform;
+            bannerRoot.SetParent(arc, false);
+            banner = StageBanner.Create(bannerRoot);
         }
 
         private void OnEnable()
         {
             connection.Changed += OnChanged;
             FocusGuard.FoldChanged += Refresh;
+            AmbientCover.Changed += ShowBannerUncovered;
+            ShowBannerUncovered();
         }
 
         private void OnDisable()
         {
             connection.Changed -= OnChanged;
             FocusGuard.FoldChanged -= Refresh;
+            AmbientCover.Changed -= ShowBannerUncovered;
             placement.Stop();
             if (source != null) source.Changed -= OnPreferredChanged;
             source = null;
@@ -301,9 +314,9 @@ namespace Halcyonic.XR
             // While another window keeps focus, the line also counts what needs the person, so it stays
             // findable when the window covers the characters.
             var waiting = FocusGuard.Folded && session != null ? AmbientText.NeedsYouLine(AmbientText.NeedsYou(session.State)) : null;
-            ShowConnection(
-                demonstration ?? (session == null ? connection.SetupProblem ?? "Not connected" : Describe(session)),
-                demonstration == null && session != null && session.Status.IsLive,
+            ShowBanner(
+                demonstration ?? (session == null ? connection.SetupProblem ?? NotConnected : Describe(session)),
+                demonstration != null ? BannerKind.Practice : session != null && session.Status.IsLive ? BannerKind.Live : BannerKind.NotLive,
                 waiting);
             if (session == null)
             {
@@ -367,9 +380,7 @@ namespace Halcyonic.XR
                 if (slot >= 0) standing.Angle = standing.From = standing.To = SlotAngle(slot);
                 Stand(pair.Value, standing.Angle, 1f);
             }
-            // Above the characters: at eye level in front of the person, higher over a surface.
-            connectionRoot.localPosition = new Vector3(0f, (onSurface ? 0.4f : 0.05f) * radius, radius);
-            connectionRoot.localScale = Vector3.one * radius;
+            PlaceBanner();
             Debug.Log("Halcyonic: placed the stage " + (onSurface ? "on its surface" : "in front of the person") + " because " + reason + ".");
         }
 
@@ -449,61 +460,127 @@ namespace Halcyonic.XR
             }
         }
 
+        /// <summary>A slot's angle around the arc from where the person faced, spread as <see cref="Spread"/> says.</summary>
         private float SlotAngle(int slot)
         {
             var count = lineup.Capacity;
-            return count > 1 ? -spanDegrees / 2f + spanDegrees * slot / (count - 1) : 0f;
+            var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
+            var span = spanDegrees * Spread(radius, onSurface ? -eyesAbove : heightFromEyes);
+            return count > 1 ? -span / 2f + span * slot / (count - 1) : 0f;
         }
 
         /// <summary>
-        /// Stands a character on the arc at an angle from where the person faced, facing them, scaled
-        /// with the arc's radius so it keeps its apparent size. In front of the person it stands at
-        /// the height setting; on a surface, its label plate rests on the surface.
+        /// How much wider the arc's angles are than the angles the person sees, for characters
+        /// <paramref name="radius"/> away and <paramref name="below"/> from the eyes, negative under
+        /// them: seen from above, as on a desk, a turn around the arc looks smaller, so the arc spreads
+        /// to keep neighbours and their labels as far apart as in front of the person.
+        /// </summary>
+        public static float Spread(float radius, float below) => 1f / Mathf.Max(Mathf.Cos(Mathf.Atan2(below, radius)), 0.5f);
+
+        /// <summary>
+        /// Stands a character on the arc at an angle from where the person faced, facing them, as
+        /// <see cref="Stance"/> places it: at the height setting in front of the person, its label
+        /// resting on the surface otherwise.
         /// </summary>
         private void Stand(CharacterView view, float angle, float reach)
         {
             var radians = angle * Mathf.Deg2Rad;
             var level = new Vector3(Mathf.Sin(radians), 0f, Mathf.Cos(radians));
-            var height = onSurface ? (SurfaceClearance - view.Footing) * radius : heightFromEyes;
+            // The eyes are the arc's origin in front of the person, and above it on a surface.
+            var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
+            var (height, scale) = Stance(view, radius, eyesAbove, onSurface ? (float?)null : heightFromEyes);
             var character = view.transform;
             character.localPosition = level * (radius * reach) + Vector3.up * height;
             character.localRotation = Quaternion.LookRotation(-level, Vector3.up);
-            character.localScale = Vector3.one * radius;
+            character.localScale = Vector3.one * scale;
+        }
+
+        /// <summary>
+        /// How high the stage stands a character <paramref name="radius"/> away, from the arc's origin,
+        /// and how large: at <paramref name="heightFromEyes"/> in front of the person, or, with no
+        /// height, its label resting on the surface at the arc's origin, with the eyes
+        /// <paramref name="eyesAbove"/> over it. It scales with its distance from the eyes, so it keeps
+        /// its apparent size near or far, above or below, and its label hangs as low as being seen
+        /// from above needs (<see cref="CharacterView.ViewedFrom"/>).
+        /// </summary>
+        public static (float Height, float Scale) Stance(CharacterView view, float radius, float eyesAbove, float? heightFromEyes)
+        {
+            var height = heightFromEyes ?? 0f;
+            var scale = radius;
+            // Standing on a surface depends on the label, which depends on the view: a few passes settle it.
+            for (var pass = 0; pass < 3; pass++)
+            {
+                var below = height - eyesAbove;
+                view.ViewedFrom(Mathf.Atan2(below, radius) * Mathf.Rad2Deg);
+                scale = Mathf.Sqrt(radius * radius + below * below);
+                height = heightFromEyes ?? (SurfaceClearance - view.Footing) * scale;
+            }
+            return (height, scale);
         }
 
         /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
-        private void ShowConnection(string text, bool live, string? waiting = null)
+        private void ShowBanner(string text, BannerKind kind, string? waiting)
         {
-            var attention = waiting != null;
-            if (attention) text = LabelText.Plain(text) + "\n" + waiting;
-            if (text == shownConnection && live == shownLive) return;
-            shownConnection = text;
-            shownLive = live;
-            const float width = 0.6f;
-            const float padding = 0.01f;
-            // A connection's detail or a setup problem can carry a server's or an exception's words.
-            connectionLabel.text = Labels.Wrap(connectionLabel, attention ? text : LabelText.Plain(text), width - 2f * padding, attention ? 4 : 3, out var lines);
-            connectionLabel.color = attention ? new Color(0.96f, 0.77f, 0.32f) : live ? new Color(0.72f, 0.76f, 0.84f) : new Color(1f, 0.86f, 0.62f);
-            var plateWidth = Labels.WidestLine(connectionLabel) + 2f * padding;
-            var plateHeight = lines * Labels.LineHeight(connectionLabel) + 2f * padding;
-            var plate = connectionPlate.transform;
-            plate.localPosition = new Vector3(0f, 0f, 0.002f);
-            plate.localScale = new Vector3(plateWidth, plateHeight, 1f);
-            connectionPlateBlock.SetColor(ColorId, new Color(0.06f, 0.07f, 0.09f, 0.62f));
-            connectionPlateBlock.SetVector(RectId, new Vector4(plateWidth, plateHeight, 0.015f, 0f));
-            connectionPlate.SetPropertyBlock(connectionPlateBlock);
+            if (text == shownBanner && kind == shownKind && waiting == shownWaiting) return;
+            shownBanner = text;
+            shownKind = kind;
+            shownWaiting = waiting;
+            // A connection's detail or a setup problem can carry a server's or an exception's words;
+            // the banner shows them by the one rule for text Halcyonic did not write.
+            banner.Show(text, kind, waiting);
+            PlaceBanner();
         }
+
+        /// <summary>
+        /// In front of the person, the banner hangs under the lowest a label reaches, where the ambient
+        /// strip goes; over a surface, it stands above the highest a character reaches, risen included,
+        /// since the lineup puts what waits for the person in its middle.
+        /// </summary>
+        private void PlaceBanner()
+        {
+            var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
+            bannerRoot.localPosition = new Vector3(0f, onSurface ? BannerBottomOnSurface(radius, eyesAbove) : BannerTop(radius, heightFromEyes), radius);
+            bannerRoot.localScale = Vector3.one * radius;
+            // The banner hangs from its top edge; on a surface it stands on its bottom edge instead.
+            banner.transform.localPosition = new Vector3(0f, onSurface ? banner.Height : 0f, 0f);
+        }
+
+        /// <summary>
+        /// The height of the banner's bottom edge over a surface, in meters, with the characters
+        /// <paramref name="radius"/> away and the eyes <paramref name="eyesAbove"/> over the surface:
+        /// a little more than a degree over the highest a character reaches, its label resting on the
+        /// surface and its body risen.
+        /// </summary>
+        public static float BannerBottomOnSurface(float radius, float eyesAbove) =>
+            (SurfaceClearance - CharacterLabelView.DeepestBottom + CharacterView.HighestReach + GlazeTokens.Units(BannerGapDegrees))
+            * Mathf.Sqrt(radius * radius + eyesAbove * eyesAbove);
+
+        /// <summary>The banner shows unless a panel or the peek is where it goes (<see cref="AmbientCover"/>).</summary>
+        private void ShowBannerUncovered() => banner.gameObject.SetActive(!AmbientCover.Any);
+
+        private const string NotConnected = "Not connected to your Mac";
+
+        /// <summary>
+        /// The height of the banner's top edge from the eyes, in meters, with the characters
+        /// <paramref name="radius"/> away and their centers <paramref name="heightFromEyes"/> from the
+        /// eyes: a little more than a degree under the lowest any label reaches, all along it. The
+        /// banner is flat, so its ends are farther than its middle and look higher; it starts lower by
+        /// as much as its widest ends would rise.
+        /// </summary>
+        public static float BannerTop(float radius, float heightFromEyes) =>
+            (heightFromEyes + (CharacterLabelView.DeepestBottom - GlazeTokens.Units(BannerGapDegrees)) * radius)
+            / Mathf.Cos(StageBanner.MaxWidthDegrees / 2f * Mathf.Deg2Rad);
 
         private static string Describe(RealtimeSession session)
         {
             var status = session.Status;
-            var origin = session.State.Journal?.Origin == JournalOrigin.Fixture ? " (recorded data)" : "";
+            var origin = session.State.Journal?.Origin == JournalOrigin.Fixture ? " · Recorded" : "";
             switch (status.Phase)
             {
                 case ConnectionPhase.Live:
-                    return "Live" + origin;
+                    return "Connected to your Mac" + origin;
                 case ConnectionPhase.WaitingToRetry:
-                    return "Disconnected, showing the last known state. " + status.Detail;
+                    return "Last known: can't reach your Mac. Trying again…" + (string.IsNullOrEmpty(status.Detail) ? "" : " " + status.Detail);
                 case ConnectionPhase.Refused:
                     return ConnectionText.WhyNotLive(status);
                 default:

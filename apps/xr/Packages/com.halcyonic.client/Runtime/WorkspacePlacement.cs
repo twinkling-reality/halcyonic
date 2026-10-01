@@ -5,17 +5,20 @@ using System.Collections.Generic;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// A character's body as the person sees it: the direction of its center from the eyes and how
-    /// far around the center it reaches, in degrees. Yaw runs from the person's forward toward their
-    /// right; elevation is up from eye level.
+    /// A character as the person sees it: the direction of its body's center from the eyes and how
+    /// far around the center the body reaches, and how low and how wide it reaches with its label,
+    /// in degrees. Yaw runs from the person's forward toward their right; elevation is up from eye
+    /// level. Without a label, the body alone.
     /// </summary>
     public readonly struct BodyInView
     {
-        public BodyInView(float yaw, float elevation, float radius)
+        public BodyInView(float yaw, float elevation, float radius, float? lowest = null, float? halfWidth = null)
         {
             Yaw = yaw;
             Elevation = elevation;
             Radius = radius;
+            Lowest = lowest ?? elevation - radius;
+            HalfWidth = halfWidth ?? radius;
         }
 
         public float Yaw { get; }
@@ -23,6 +26,12 @@ namespace Halcyonic.Client
         public float Elevation { get; }
 
         public float Radius { get; }
+
+        /// <summary>The lowest elevation the character reaches, its label plate included.</summary>
+        public float Lowest { get; }
+
+        /// <summary>Half the character's width with its label, the wider of the two.</summary>
+        public float HalfWidth { get; }
     }
 
     /// <summary>Where the open workspace's center goes, seen from the eyes, and whether it clears every body on the stage.</summary>
@@ -72,12 +81,13 @@ namespace Halcyonic.Client
 
     /// <summary>
     /// Where the workspace opens: within the person's reach, toward the character it belongs to, and
-    /// clear of every character's body so the rest of the stage stays in view, either below the
-    /// characters it passes or above them, whichever keeps its center in the comfortable band. With
-    /// the characters 2.4 m away and 10 degrees below the eyes, that is below them, over the lower
-    /// part of the view; with the characters on a desk half a meter away and 30 degrees down, it is
-    /// above them. Where it can clear neither way it moves the least into the band and may cover a
-    /// body. It never goes into the surface the characters stand on.
+    /// clear of every character it passes, body and label, so the rest of the stage stays in view and
+    /// readable (ADR 0023), either below those characters' labels or above their bodies, whichever
+    /// keeps its center in the comfortable band. With the characters 2.4 m away, a little below the
+    /// eyes, that is below their labels, over the lower part of the view; with the characters on a
+    /// desk half a meter away and 30 degrees down, it is above them. Where it can clear neither way it
+    /// moves the least into the band and may cover a character. It never goes into the surface the
+    /// characters stand on.
     /// </summary>
     public static class WorkspacePlacement
     {
@@ -112,14 +122,15 @@ namespace Halcyonic.Client
             var yaw = lookYaw + Math.Clamp(DeltaAngle(lookYaw, opened.Yaw), -MaxSideDegrees, MaxSideDegrees);
             var halfHeight = size.HalfHeightDegrees;
 
-            // The bodies the workspace passes in front of, left to right, and the opened one always.
-            var lowest = opened.Elevation - opened.Radius;
+            // The characters the workspace passes in front of, left to right, and the opened one
+            // always: below their labels, or above their bodies.
+            var lowest = opened.Lowest;
             var highest = opened.Elevation + opened.Radius;
             for (var index = 0; index < bodies.Count; index++)
             {
                 var body = bodies[index];
                 if (!Overlaps(yaw, size, body)) continue;
-                lowest = Math.Min(lowest, body.Elevation - body.Radius);
+                lowest = Math.Min(lowest, body.Lowest);
                 highest = Math.Max(highest, body.Elevation + body.Radius);
             }
             var below = lowest - ClearanceDegrees - halfHeight;
@@ -177,13 +188,14 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Whether a body lies within the workspace's width, with the clearance, measured around the
-        /// vertical at the body's elevation: away from eye level the same width spans more yaw.
+        /// Whether a character, its label included, lies within the workspace's width, with the
+        /// clearance, measured around the vertical at the body's elevation: away from eye level the
+        /// same width spans more yaw.
         /// </summary>
         private static bool Overlaps(float yaw, PanelSize size, BodyInView body)
         {
             var widening = 1f / MathF.Max(MathF.Cos(body.Elevation / DegreesPerRadian), 0.3f);
-            return MathF.Abs(DeltaAngle(yaw, body.Yaw)) < (size.HalfWidthDegrees + body.Radius) * widening + ClearanceDegrees;
+            return MathF.Abs(DeltaAngle(yaw, body.Yaw)) < (size.HalfWidthDegrees + body.HalfWidth) * widening + ClearanceDegrees;
         }
 
         /// <summary>The signed difference from one heading to another, between -180 and 180 degrees.</summary>

@@ -165,6 +165,8 @@ namespace Halcyonic.XR.Workspace.Editor
             apply();
             var folded = WorkspaceRender.Render(camera, texture);
             if (panel.activeInHierarchy) failures.Add(name + ": the panel still shows while folded.");
+            // Folded, it no longer covers the stage's banner, which then says what waits for the person.
+            if (AmbientCover.Any) failures.Add(name + ": something still covers the stage's banner while the panel is folded.");
             FocusGuard.FoldForRender(false);
             apply();
             WorkspaceRender.ForceMeshes(root);
@@ -184,23 +186,9 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        /// <summary>Six characters on the stage's arc, 2.4 m away and 0.45 m below the eyes, as CharacterStage stands them.</summary>
-        private static List<CharacterTarget> Characters(Transform parent, Vector3 eyes, float turn)
-        {
-            var targets = new List<CharacterTarget>();
-            var slots = new[] { -30f, -18f, -6f, 6f, 18f, 30f };
-            for (var slot = 0; slot < slots.Length; slot++)
-            {
-                var id = "render-" + slot.ToString(CultureInfo.InvariantCulture);
-                var view = CharacterView.Create(parent, id);
-                var level = Quaternion.Euler(0f, slots[slot] + turn, 0f) * Vector3.forward;
-                view.transform.SetPositionAndRotation(eyes + level * 2.4f + Vector3.down * 0.45f, Quaternion.LookRotation(-level, Vector3.up));
-                view.transform.localScale = Vector3.one * 2.4f;
-                view.Show(WorkspaceRender.Presentation(id, slot));
-                targets.Add(CharacterTarget.Attach(view, id));
-            }
-            return targets;
-        }
+        /// <summary>Six characters on the stage's arc, at the stage's default distance and height, as CharacterStage stands them.</summary>
+        private static List<CharacterTarget> Characters(Transform parent, Vector3 eyes, float turn) =>
+            WorkspaceRender.Lineup(parent, eyes, CharacterStage.DefaultDistance, null, WorkspaceRender.Presentation, turn).ConvertAll(character => character.Target);
 
         /// <summary>The window: an opaque quad of <see cref="WindowSize"/> straight ahead at eye level.</summary>
         private static GameObject Window(Transform parent, Vector3 eyes)

@@ -43,10 +43,10 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The pose of a panel of the workspace's size that belongs to no character, such as the
-        /// entry panel: where the person looks, and clear of every character's body as the workspace
-        /// is. It is placed as if beside the character nearest where the person looks, so it goes
-        /// below the characters 2.4 m away and above a desk lineup; with no characters it opens 15
-        /// degrees below eye level.
+        /// entry panel: where the person looks, and clear of every character and its label as the
+        /// workspace is. It is placed as if beside the character nearest where the person looks, so it
+        /// goes below the labels of the characters 2.4 m away and above a desk lineup; with no
+        /// characters it opens 15 degrees below eye level.
         /// </summary>
         public static (Pose Pose, PanelDirection Direction) PlaceForeground(IEnumerable<CharacterTarget> all, Vector3 eyes, Vector3 looking,
             float? surfaceHeight, List<BodyInView> scratch)
@@ -69,16 +69,26 @@ namespace Halcyonic.XR.Workspace
             return (new Pose(eyes + forward * Reach, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }
 
-        /// <summary>A character's body as seen from the eyes: its direction, and how far around it the body reaches.</summary>
+        /// <summary>
+        /// A character as seen from the eyes: its body's direction and how far around it the body
+        /// reaches, and how low and how wide its label reaches, so a panel clears both (ADR 0023).
+        /// </summary>
         public static BodyInView InView(CharacterTarget target, Vector3 eyes)
         {
             var toBody = target.BodyPosition - eyes;
             var level = new Vector2(toBody.x, toBody.z).magnitude;
             var reach = CharacterView.BodyExtent * target.Scale / Mathf.Max(toBody.magnitude, 0.05f);
-            return new BodyInView(
-                Mathf.Atan2(toBody.x, toBody.z) * Mathf.Rad2Deg,
-                Mathf.Atan2(toBody.y, Mathf.Max(level, 0.01f)) * Mathf.Rad2Deg,
-                Mathf.Asin(Mathf.Clamp01(reach)) * Mathf.Rad2Deg);
+            var elevation = Mathf.Atan2(toBody.y, Mathf.Max(level, 0.01f)) * Mathf.Rad2Deg;
+            var radius = Mathf.Asin(Mathf.Clamp01(reach)) * Mathf.Rad2Deg;
+            // The label hangs under the character's place, not its body, which rises and hops.
+            var view = target.View;
+            var scale = view.transform.lossyScale.y;
+            var toBottom = view.transform.position + Vector3.up * (view.LabelBottom * scale) - eyes;
+            var bottomLevel = Mathf.Max(new Vector2(toBottom.x, toBottom.z).magnitude, 0.01f);
+            var lowest = Mathf.Atan2(toBottom.y, bottomLevel) * Mathf.Rad2Deg;
+            var halfWidth = Mathf.Atan2(view.LabelHalfWidth * scale, bottomLevel) * Mathf.Rad2Deg;
+            return new BodyInView(Mathf.Atan2(toBody.x, toBody.z) * Mathf.Rad2Deg, elevation, radius,
+                Mathf.Min(lowest, elevation - radius), Mathf.Max(halfWidth, radius));
         }
     }
 }

@@ -24,7 +24,6 @@ namespace Halcyonic.XR
         private static Material? body;
         private static Material? halo;
         private static Material? ring;
-        private static Material? plate;
         private static Texture2D? noise;
 
         /// <summary>The glossy body with its eyes and surface effects (Halcyonic/Character Body).</summary>
@@ -35,9 +34,6 @@ namespace Halcyonic.XR
 
         /// <summary>The ring that sweeps around a character running tests (Halcyonic/Soft Shape, band profile).</summary>
         public static Material Ring => Load(ref ring, "Ring");
-
-        /// <summary>The plate behind labels (Halcyonic/Soft Shape, plate profile).</summary>
-        public static Material Plate => Load(ref plate, "Plate");
 
         /// <summary>Bakes the noise texture and publishes the shader globals, once. Takes a few milliseconds.</summary>
         public static void Prepare()
@@ -80,7 +76,6 @@ namespace Halcyonic.XR
             body = null;
             halo = null;
             ring = null;
-            plate = null;
             noise = null;
         }
     }

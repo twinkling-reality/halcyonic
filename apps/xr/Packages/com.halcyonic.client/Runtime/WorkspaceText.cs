@@ -212,9 +212,6 @@ namespace Halcyonic.Client
                 notes);
         }
 
-        /// <summary>The longest peek, in characters: one line at the characters' distance.</summary>
-        public const int PeekLength = 72;
-
         /// <summary>
         /// Offered instead of typing only where the system keyboard is not supported, such as the
         /// editor. Deliberately generic: they ask the runtime to go on or to report, nothing new.
@@ -358,28 +355,6 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// One line on what the work needs from the person, or else what it did last: attention first,
-        /// then the latest activity that is not a turn boundary, then the status.
-        /// </summary>
-        public static string Peek(WorkspacePresentation workspace, int maxLength = PeekLength)
-        {
-            var character = workspace.Character;
-            string line;
-            if (character.AttentionNotes.Count > 0)
-            {
-                line = character.AttentionNotes[0];
-                if (character.AttentionNotes.Count > 1) line += " (+" + (character.AttentionNotes.Count - 1) + " more)";
-            }
-            else
-            {
-                var latest = workspace.Activity.LastOrDefault(entry => entry.Kind != ActivityKind.Turn);
-                line = latest == null ? character.StatusLabel : Describe(latest);
-            }
-            if (character.Stale) line = "Last known: " + line;
-            return Truncate(OneLine(line), maxLength);
-        }
-
-        /// <summary>
         /// Shortens text to at most <paramref name="maxLength"/> characters, ending in an ellipsis when
         /// cut, and never between the two halves of a character outside the Basic Multilingual Plane.
         /// </summary>
@@ -399,7 +374,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static string OneLine(string text) => LabelText.Plain(text);
 
-        private static string Describe(ActivityEntry entry) =>
+        /// <summary>An activity entry in one line, agent text quoted as the agent's.</summary>
+        public static string Describe(ActivityEntry entry) =>
             entry.Reported ? "Agent says: “" + OneLine(entry.Text) + "”" : OneLine(entry.Text);
     }
 }

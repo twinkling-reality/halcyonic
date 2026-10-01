@@ -33,7 +33,7 @@ public class CharacterPresenterTests
     public void ACompletedTurnDoesNotClaimTheWorkIsCorrect()
     {
         Assert.That(CharacterPresenter.ActivityOf(WorkstreamStatus.Completed), Is.EqualTo(CharacterActivity.TurnFinished));
-        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.TurnFinished), Is.EqualTo("Turn finished"));
+        Assert.That(CharacterPresenter.LabelOf(CharacterActivity.TurnFinished), Is.EqualTo("Finished this round"));
     }
 
     [Test]
@@ -56,10 +56,10 @@ public class CharacterPresenterTests
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
 
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.WaitingForHuman));
-        Assert.That(character.StatusLabel, Is.EqualTo("Needs you"));
+        Assert.That(character.StatusLabel, Is.EqualTo("Waiting for you"));
         Assert.That(character.Attention, Is.EqualTo(AttentionLevel.ActionRequired));
         Assert.That(character.PendingApprovals, Is.EqualTo(1));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Approval needed to use bash: Run the migration" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "It wants to use bash: Run the migration" }));
         Assert.That(character.Synthetic, Is.True);
         Assert.That(character.Stale, Is.False);
     }
@@ -72,14 +72,14 @@ public class CharacterPresenterTests
         var failedStream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
         Assert.That(
             CharacterPresenter.Present(failedStream, StateWith(failedStream, failed), live: true).AttentionNotes,
-            Is.EqualTo(new[] { "Failed: The model provider returned an error." }));
+            Is.EqualTo(new[] { "Couldn't finish: The model provider returned an error." }));
 
         var unknown = Samples.Execution("e2", "w2", ExecutionStatus.Unknown);
         unknown.StatusReason = new ErrorInfo { Code = "control_plane_restarted", Message = "The control plane restarted." };
         var unknownStream = Samples.Workstream("w2", WorkstreamStatus.Unknown, "e2", AttentionLevel.Notice, new ExecutionStateUnknownReason { ExecutionId = "e2" });
         var character = CharacterPresenter.Present(unknownStream, StateWith(unknownStream, unknown), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "State unknown: The control plane restarted." }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Can't tell what it's doing: The control plane restarted." }));
     }
 
     /// <summary>A character's words are shown by the one rule for text Halcyonic did not write.</summary>
@@ -92,7 +92,7 @@ public class CharacterPresenterTests
         workstream.Title = "<color=#00000000>Tidy</color>\tthe notes\\n";
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, failed), live: true);
         Assert.That(character.Title, Is.EqualTo("<color=#00000000>Tidy</color> the notes\\n"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Failed: Exit 1‹U+0003› and the rest of the log" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish: Exit 1‹U+0003› and the rest of the log" }));
     }
 
     [Test]
@@ -110,7 +110,7 @@ public class CharacterPresenterTests
         var workstream = Samples.Workstream("w1", WorkstreamStatus.Completed, "e1", AttentionLevel.ActionRequired, new VerificationFailedReason { ExecutionId = "e1", TestRunId = "tests-1" });
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.TurnFinished));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Tests failed: 2 of 40 failed" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Checks: 2 of 40 failed" }));
     }
 
     [Test]
