@@ -83,6 +83,7 @@ namespace Halcyonic.XR.Workspace
         private TextMeshPro recapLocation = null!;
         private TextMeshPro recapRuns = null!;
         private TextMeshPro recapServed = null!;
+        private TextMeshPro elsewhereDivider = null!;
         private Slot changeName = null!;
         private Slot changeTask = null!;
         private Slot moreOptions = null!;
@@ -113,6 +114,7 @@ namespace Halcyonic.XR.Workspace
             recapLocation = Label("Where its files live", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
             recapRuns = Label("Runs with", WorkspaceVisuals.DetailSize, WorkspaceVisuals.TextColor, wrap: true);
             recapServed = Label("Model", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.SecondaryColor, wrap: true);
+            elsewhereDivider = Label("Elsewhere", WorkspaceVisuals.CaptionSize, WorkspaceVisuals.AttentionColor, wrap: true);
             changeName = MakeSlot("Change name", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             changeTask = MakeSlot("Change task", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             moreOptions = MakeSlot("More options", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
@@ -417,10 +419,18 @@ namespace Halcyonic.XR.Workspace
                 {
                     Say(body, draft.ModelProblem ?? "This runtime lists no models.", new Vector2(Left, BodyTop), new Vector2(ContentWidth, 0.1f));
                 }
-                var models = Paged(draft.Models);
+                // The Mac's models, then a line saying what the rest mean, then the rest.
+                var entries = new List<RuntimeModel?>(draft.Models);
+                if (draft.Elsewhere < draft.Models.Count) entries.Insert(draft.Elsewhere, null);
+                var models = Paged(entries);
                 for (var index = 0; index < models.Count; index++)
                 {
-                    var model = models[index];
+                    if (models[index] is not RuntimeModel model)
+                    {
+                        Say(elsewhereDivider, EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere)),
+                            new Vector2(Left, BodyTop - index * RowPitch - 0.012f), new Vector2(ContentWidth, RowHeight - 0.012f));
+                        continue;
+                    }
                     var chosen = draft.Model?.ModelRef == model.ModelRef;
                     var pending = draft.PendingModel == model;
                     // A model that runs elsewhere is chosen only by a second press, after it says where it runs.
@@ -434,7 +444,7 @@ namespace Halcyonic.XR.Workspace
                     }, detail: detail,
                         detailColor: !NewWorkDraft.RunsHere(model) ? WorkspaceVisuals.AttentionColor : (Color?)null);
                 }
-                Pager(draft.Models.Count);
+                Pager(entries.Count);
                 Put(bottomLeft, "Change runtime", new Vector2(Left + 0.12f, BottomCenter), 0.24f, () =>
                 {
                     showModels = false;

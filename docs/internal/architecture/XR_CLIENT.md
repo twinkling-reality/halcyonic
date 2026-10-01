@@ -250,8 +250,12 @@ the same definition names, as the JSON Schema document:
   runtime change drops its previous model. It accepts a model only from the selected runtime's
   current list, builds a workstream with a short title from the objective, and sends the objective
   as the first instruction. The model's opaque reference goes back unchanged. When the list
-  arrives, the first model served on this Mac is chosen for the person (`ModelPreselected`), and the
-  recap says so; a model that runs elsewhere, or where it runs is not known, is never chosen for
+  arrives, it keeps the models served on this Mac first, in the runtime's order, then the rest
+  (`Elsewhere`): OpenCode lists hosted models before local ones, and in the fifth headset session
+  a hosted model at the top of the list was chosen. A model on this Mac is chosen for the person
+  (`Preferred`, `ModelPreselected`): one that declares tool calling first, then the larger context,
+  then the runtime's order; the list says neither which model the runtime uses by default nor how
+  large a model is. The recap says so; a model that runs elsewhere, or where it runs is not known, is never chosen for
   them: the first press only says where it runs and that the person's code and instructions go
   there, and a second press in a row chooses it. It never builds a start without a model for a
   runtime that lists them; the control plane refuses one too (`model_required`, lane A). A runtime
@@ -759,7 +763,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     and what runs it, with More options: the runtimes that can start work, real ones first and a
     simulated one last, named "Practice run: builds nothing" in a live session (the recorded
     demonstration keeps its names), then the chosen runtime's own models, read on demand, each with
-    where it runs. No runtime is chosen for the person. A model on the Mac is ("Runs with: OpenCode
+    where it runs, the Mac's first and the rest under a line saying where they run (`ElsewhereDivider`).
+    No runtime is chosen for the person. A model on the Mac is ("Runs with: OpenCode
     2.0.18, qwen3.6 (Ollama), on your Mac", "Chosen for you: it runs on your Mac"); a model that runs
     elsewhere takes a second press, the first saying that the person's code and instructions go there. Start
     building, offered once nothing is missing, shows the whole request (`NewWorkReview`), wrapped at

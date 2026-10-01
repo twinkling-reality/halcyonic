@@ -6,8 +6,10 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The choices a person makes before starting work from the headset. For a runtime that lists its
-    /// models, the first model served on this Mac is chosen for the person, and said so; a model that
+    /// The choices a person makes before starting work from the headset. A runtime's models are kept
+    /// with those served on this Mac first, in the runtime's order, then the rest (<see cref="Elsewhere"/>).
+    /// For a runtime that lists its models, a model on this Mac is chosen for the person, and said so
+    /// (<see cref="Preferred"/>); a model that
     /// runs elsewhere, or where it runs is not known, is never chosen for them and takes a second,
     /// deliberate press (<see cref="ChooseModel"/>), since the person's code and instructions go
     /// there. No start is built without a model for such a runtime.
@@ -40,6 +42,40 @@ namespace Halcyonic.Client
         /// <summary>Whether a model runs on this Mac, the only kind chosen without a deliberate second press.</summary>
         public static bool RunsHere(RuntimeModel model) => model.Served == ModelServed.ThisMac;
 
+        /// <summary>Where the models that do not run on this Mac begin in <see cref="Models"/>, or its count when there are none.</summary>
+        public int Elsewhere
+        {
+            get
+            {
+                var index = models.FindIndex(model => !RunsHere(model));
+                return index < 0 ? models.Count : index;
+            }
+        }
+
+        /// <summary>
+        /// The model on this Mac to choose for the person, or null when none is listed: one that declares
+        /// tool calling before one that does not, then the one with the larger context, then the
+        /// runtime's own order. The list says neither which model the runtime uses by default nor how
+        /// large a model is, so neither can decide.
+        /// </summary>
+        public static RuntimeModel? Preferred(IReadOnlyList<RuntimeModel> listed)
+        {
+            RuntimeModel? best = null;
+            foreach (var model in listed)
+            {
+                if (!RunsHere(model)) continue;
+                if (best == null || Better(model, best)) best = model;
+            }
+            return best;
+        }
+
+        private static bool Better(RuntimeModel model, RuntimeModel than)
+        {
+            var tools = (model.ToolCalling == ModelToolCalling.Declared).CompareTo(than.ToolCalling == ModelToolCalling.Declared);
+            if (tools != 0) return tools > 0;
+            return (model.ContextTokens ?? 0) > (than.ContextTokens ?? 0);
+        }
+
         public void ChooseRuntime(RuntimeDescriptor runtime)
         {
             Runtime = runtime;
@@ -59,15 +95,18 @@ namespace Halcyonic.Client
             PendingModel = null;
             if (response.Result is AvailableModels available)
             {
-                models.AddRange(available.Models);
-                ModelProblem = models.Count == 0 ? "This runtime lists no models." : null;
-                foreach (var model in models)
+                // The Mac's models first: OpenCode lists hosted models before the local ones.
+                foreach (var model in available.Models)
                 {
-                    if (!RunsHere(model)) continue;
-                    Model = model;
-                    ModelPreselected = true;
-                    break;
+                    if (RunsHere(model)) models.Add(model);
                 }
+                foreach (var model in available.Models)
+                {
+                    if (!RunsHere(model)) models.Add(model);
+                }
+                ModelProblem = models.Count == 0 ? "This runtime lists no models." : null;
+                Model = Preferred(models);
+                ModelPreselected = Model != null;
             }
             else if (response.Result is UnavailableModels unavailable)
             {

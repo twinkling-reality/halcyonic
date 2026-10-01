@@ -230,6 +230,15 @@ namespace Halcyonic.Client
             _ => "Where it runs is not known",
         };
 
+        /// <summary>
+        /// The line between a runtime's models on this Mac and the rest, which take a second press:
+        /// where they run decides where the person's code and instructions go.
+        /// </summary>
+        public static string ElsewhereDivider(IEnumerable<RuntimeModel> elsewhere) =>
+            elsewhere.All(model => model.Served == ModelServed.Remote)
+                ? "Runs on a remote service: your code and instructions go there."
+                : "Not known to run on your Mac: your code and instructions may go elsewhere.";
+
         /// <summary>The first press on a model that runs elsewhere, under its name: what choosing it means, and how.</summary>
         public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + ". Press again to use it.";
 
