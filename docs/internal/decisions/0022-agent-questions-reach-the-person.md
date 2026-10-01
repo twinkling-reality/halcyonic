@@ -1,6 +1,6 @@
 # ADR 0022: An agent's questions reach the person, who answers them through the runtime's own surface
 
-- Status: Proposed
+- Status: Accepted on 2026-10-01 by the owner.
 - Date: 2026-10-01
 
 ## Context
