@@ -135,32 +135,49 @@ export function parseEventEnvelope(value: unknown): Validated<EventEnvelope> {
   return issues.length === 0 ? { ok: true, value: event } : { ok: false, issues };
 }
 
+/** How deep a client message may nest objects and arrays; every contract needs far fewer. */
+export const MESSAGE_NESTING_LIMIT = 32;
+
 /**
- * The first string in a value, key or element, that is not well-formed Unicode, by its JSON
- * Pointer. JSON can carry a lone surrogate (`"\\ud800"`) and JavaScript accepts it, but a runtime
- * may refuse it: Codex 0.157.0 drops a message holding one and never takes the answer in it.
+ * Rules a client message must meet before any schema is checked, which JSON Schema cannot
+ * express and are part of the contract (EVENTS.md): it nests at most {@link MESSAGE_NESTING_LIMIT}
+ * levels, since some fields, start options above all, take any JSON and a deep enough value would
+ * exhaust the stack of anything that walks it; and every string, key or value, is well-formed
+ * Unicode, since JSON can carry a lone surrogate (`"\\ud800"`) that a runtime may refuse: Codex
+ * 0.157.0 drops a message holding one and never takes the answer in it. Walked without recursion.
  */
-function malformedText(value: unknown, path: string): string | null {
-  if (typeof value === 'string') return value.isWellFormed() ? null : path === '' ? '/' : path;
-  if (typeof value !== 'object' || value === null) return null;
-  for (const [key, item] of Object.entries(value)) {
-    const at = `${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
-    if (!key.isWellFormed()) return at;
-    const found = malformedText(item, at);
-    if (found !== null) return found;
+function messageProblem(value: unknown): ValidationIssue | null {
+  const pending: { value: unknown; path: string; depth: number }[] = [
+    { value, path: '', depth: 0 },
+  ];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    const at = next.path === '' ? '/' : next.path;
+    if (typeof next.value === 'string') {
+      if (!next.value.isWellFormed()) return { path: at, message: MALFORMED };
+      continue;
+    }
+    if (typeof next.value !== 'object' || next.value === null) continue;
+    if (next.depth >= MESSAGE_NESTING_LIMIT) {
+      return { path: at, message: `must not nest more than ${MESSAGE_NESTING_LIMIT} levels deep` };
+    }
+    const entries = Object.entries(next.value);
+    // Reversed onto the stack, so values are visited in order, as a recursive walk would.
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const [key, item] = entries[index] as [string, unknown];
+      const path = `${next.path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+      if (!key.isWellFormed()) return { path, message: MALFORMED };
+      pending.push({ value: item, path, depth: next.depth + 1 });
+    }
   }
   return null;
 }
 
+const MALFORMED = 'must be well-formed Unicode text, without a lone surrogate';
+
 export function parseCommandEnvelope(value: unknown): Validated<CommandEnvelope> {
-  const shape = validateCommandShape(value);
-  if (!shape.ok) return shape as Validated<CommandEnvelope>;
-  // A rule JSON Schema cannot express, part of the contract (EVENTS.md).
-  const malformed = malformedText(shape.value, '');
-  if (malformed !== null) {
-    return invalid(malformed, 'must be well-formed Unicode text, without a lone surrogate');
-  }
-  return shape as Validated<CommandEnvelope>;
+  const problem = messageProblem(value);
+  if (problem !== null) return { ok: false, issues: [problem] };
+  return validateCommandShape(value) as Validated<CommandEnvelope>;
 }
 
 /**
@@ -190,5 +207,7 @@ export function parseClientMessage(value: unknown): Validated<ClientMessage> {
     }
     return { ok: true, value: { type: 'command', command: command.value } };
   }
+  const problem = messageProblem(value);
+  if (problem !== null) return { ok: false, issues: [problem] };
   return validateClientShape(value) as Validated<ClientMessage>;
 }

@@ -109,10 +109,13 @@ anything differently from the TypeScript validators. See [ADR 0005](../decisions
 
 A few rules cannot be written in JSON Schema and are checked by the TypeScript parsers alone:
 an event naming an execution names its workstream, one naming a workstream names its project,
-agent text is `reported`, and every string in a command, keys included, is well-formed Unicode,
-so a lone surrogate never reaches a runtime (Codex drops a message holding one,
-[agent-questions.md](../validation/agent-questions.md)). A command breaking one is answered 400
-`invalid_command`, as for any other contract violation.
+agent text is `reported`, and a client message (a command above all) nests at most 32 levels and
+holds only well-formed Unicode strings, keys included. The first bounds whatever walks a value a
+field takes as any JSON, such as start options; the second keeps a lone surrogate from a runtime
+(Codex drops a message holding one, [agent-questions.md](../validation/agent-questions.md)). Both
+are checked first, without recursion, before any schema. A command breaking one is answered 400
+`invalid_command` over REST, and `invalid_message` over the realtime socket, as for any other
+contract violation.
 
 To change a contract:
 
