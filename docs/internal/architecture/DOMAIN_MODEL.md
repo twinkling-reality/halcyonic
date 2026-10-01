@@ -109,7 +109,7 @@ Seorak observe `claude-agent` sessions (as their provider `claude-code`) and `co
 | `execution.start` | low consequence | the workstream exists, the runtime is registered with `start_execution`, a `model_ref` is given exactly when the runtime's `model_choice` is `listed` (`model_required` when it is missing), for a runtime that `uses_project_location` the project has a folder the host's policy still allows at the same real path, and the adapter accepts the options and the model |
 | `execution.send_instruction` | low consequence | the runtime has started a session, and: at rest (`completed`, `failed`, `interrupted`) with `instruct_at_rest`, or running (`running`, `verifying`, `waiting_for_human`) with `instruct_while_running` |
 | `execution.respond_to_approval` | review required | the approval is pending, the execution is `waiting_for_human`, and the runtime has `respond_to_approval` |
-| `execution.answer_question` | low consequence | the question is pending (`question_not_found` otherwise), the execution is `waiting_for_human`, the runtime has `answer_question`, the question is answerable (`capability_unsupported` otherwise), and the answers fit its prompts (`invalid_answer` otherwise) |
+| `execution.answer_question` | low consequence | the question is pending (`question_not_found` otherwise), the execution is `waiting_for_human`, the runtime has `answer_question`, the question is answerable and asks for no secret (`capability_unsupported` otherwise), and the answers fit its prompts (`invalid_answer` otherwise) |
 | `execution.interrupt` | review required | a turn is running and the runtime has `interrupt` |
 
 A location is refused with `location_not_allowed` when it is not one of the host's project roots

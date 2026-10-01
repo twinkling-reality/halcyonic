@@ -205,11 +205,19 @@ export function admitCommand(
           `Question ${command.payload.question_id} is not waiting for an answer on this execution.`,
         );
       }
+      // A secret is never carried, whatever the adapter said (ADR 0022).
+      if (question.prompts.some((prompt) => prompt.secret)) {
+        return reject(
+          scope,
+          'capability_unsupported',
+          'This question asks for something secret, which Halcyonic never sends. Stop the turn to go on.',
+        );
+      }
       if (!question.answerable) {
         return reject(
           scope,
           'capability_unsupported',
-          'This question cannot be answered through Halcyonic. Answer it where the agent runs, or stop the execution.',
+          'This question cannot be answered through Halcyonic. Stop the turn to go on.',
         );
       }
       if (facts.status !== 'waiting_for_human') {
@@ -256,6 +264,26 @@ export function admitCommand(
  * each choosing only offered labels, one unless several are allowed, and typed text only where the
  * question takes it.
  */
+/**
+ * A rejected command as it is journaled. The journal is the audit record and goes to every client,
+ * so a refused answer keeps only the keys it named: what was chosen or typed may be what the
+ * question should never have received, such as a secret.
+ */
+export function journaledRejection(command: CommandEnvelope): CommandEnvelope {
+  if (command.command_type !== 'execution.answer_question') return command;
+  return {
+    ...command,
+    payload: {
+      ...command.payload,
+      answers: command.payload.answers.map((answer) => ({
+        key: answer.key,
+        selected: [],
+        text: null,
+      })),
+    },
+  };
+}
+
 export function answerProblem(
   prompts: readonly QuestionPrompt[],
   answers: readonly QuestionAnswer[],

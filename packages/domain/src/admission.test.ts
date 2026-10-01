@@ -7,7 +7,7 @@ import type {
   RuntimeDescriptor,
   RuntimeId,
 } from '@halcyonic/contracts';
-import { admitCommand, type RuntimeCatalog } from './admission.ts';
+import { admitCommand, journaledRejection, type RuntimeCatalog } from './admission.ts';
 import { Projection } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
 
@@ -309,14 +309,14 @@ describe('answering a question', () => {
       command_type: 'execution.answer_question',
       payload: { execution_id: undefined as never, question_id: questionId, answers },
     }) as CommandEnvelope;
-  function asked(answerable = true) {
+  function asked(answerable = true, asking = prompts) {
     const context = setup();
     const { b, projection, scope } = context;
     projection.apply(b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
     projection.apply(
       b.runtimeEvent(scope, 'runtime.question.asked', {
         question_id: 'frm_1',
-        prompts,
+        prompts: asking,
         answerable,
       }),
     );
@@ -357,7 +357,41 @@ describe('answering a question', () => {
     const notHere = asked(false);
     const refused = admitCommand(notHere.command(good), notHere.projection, catalog(ANSWERS));
     assert.equal(refused.admitted ? null : refused.rejection.code, 'capability_unsupported');
-    assert.match(refused.admitted ? '' : refused.rejection.message, /stop the execution/);
+    assert.match(refused.admitted ? '' : refused.rejection.message, /Stop the turn/);
+  });
+
+  test('a question asking for a secret is refused even if an adapter called it answerable', () => {
+    const secret = asked(true, [
+      prompts[0] as (typeof prompts)[0],
+      { ...(prompts[1] as (typeof prompts)[0]), secret: true },
+    ]);
+    const admission = admitCommand(secret.command(good), secret.projection, catalog(ANSWERS));
+    assert.equal(admission.admitted ? null : admission.rejection.code, 'capability_unsupported');
+    assert.match(admission.admitted ? '' : admission.rejection.message, /secret/);
+  });
+
+  test('a refused answer is journaled with its keys only', () => {
+    const { command } = asked();
+    const typed = command([
+      { key: 'q0', selected: [], text: 'hunter2' },
+      { key: 'q1', selected: ['Orders'], text: null },
+    ]);
+    const journaled = journaledRejection(typed);
+    assert.deepEqual(
+      journaled.command_type === 'execution.answer_question' && journaled.payload.answers,
+      [
+        { key: 'q0', selected: [], text: null },
+        { key: 'q1', selected: [], text: null },
+      ],
+    );
+    assert.equal(JSON.stringify(journaled).includes('hunter2'), false);
+    // Any other command is journaled whole.
+    const interrupt = {
+      ...typed,
+      command_type: 'execution.interrupt',
+      payload: { execution_id: (typed.payload as { execution_id: string }).execution_id },
+    } as CommandEnvelope;
+    assert.equal(journaledRejection(interrupt), interrupt);
   });
 
   test('a question that is not pending is not found', () => {

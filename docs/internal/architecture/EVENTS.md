@@ -66,7 +66,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `execution.start_failed` | execution | control plane | The runtime refused to start |
 | `execution.state_unknown` | execution | control plane | The execution can no longer be observed (`control_plane_restarted`, `start_outcome_unknown`) |
 | `command.accepted` | as resolved | control plane | Admitted; carries the full command, its policy, how it arrived and its principal |
-| `command.rejected` | as resolved | control plane | Refused; carries the full command, the reason and its principal |
+| `command.rejected` | as resolved | control plane | Refused; carries the full command, the reason and its principal, except that a refused `execution.answer_question` keeps only the keys it answered: what was chosen or typed is not recorded |
 | `command.completed` | as resolved | control plane | Done, confirmed by the runtime where one was involved |
 | `command.failed` | as resolved | control plane | Not done; `effect` says whether it may have happened anyway |
 | `runtime.execution.started` | execution | runtime | The native session or thread exists |

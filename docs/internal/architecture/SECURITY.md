@@ -174,9 +174,11 @@ journaled before principals were recorded read with a null principal. Pairing an
 devices are journaled too (`device.paired`, `device.revoked`, [EVENTS.md](EVENTS.md)); pairing
 windows and failed attempts are logged, without the code. Instructions and answers to an agent's
 questions are work content and are journaled locally; they are never logged. No question asking
-for a secret can be answered through Halcyonic, so no secret reaches the journal that way; a
-question that asks for one in plain words, without the runtime marking it secret, cannot be told
-apart and is answerable like any other.
+for a secret can be answered through Halcyonic: admission refuses an answer to any prompt marked
+secret, whatever the adapter said, and a refused answer is journaled with its keys only, so what a
+client sent with it never reaches the journal or the other clients. A question that asks for a
+secret in plain words, without the runtime marking it secret, cannot be told apart and is
+answerable like any other.
 
 ## Devices on the network
 

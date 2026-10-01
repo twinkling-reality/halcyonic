@@ -18,6 +18,7 @@ import {
   type Admission,
   admitCommand,
   type CommandScope,
+  journaledRejection,
   type Projection,
 } from '@halcyonic/domain';
 import {
@@ -94,7 +95,10 @@ export class CommandService {
   ): SubmitOutcome {
     const known = this.#deps.projection.commandEnvelope(command.command_id);
     if (known !== undefined) {
-      return canonicalJson(known) === canonicalJson(command)
+      // A rejected command is journaled as journaledRejection made it, so it is compared so too.
+      const rejected = this.#deps.projection.command(command.command_id)?.status === 'rejected';
+      const sent = rejected ? journaledRejection(command) : command;
+      return canonicalJson(known) === canonicalJson(sent)
         ? { disposition: 'duplicate', command: this.#view(command) }
         : { disposition: 'conflict', command: null };
     }
@@ -107,7 +111,7 @@ export class CommandService {
           'command.rejected',
           admission.scope,
           {
-            command,
+            command: journaledRejection(command),
             // Messages can quote what the client sent; the contract caps them, so they are cut.
             rejection: {
               code: admission.rejection.code,

@@ -247,6 +247,53 @@ describe('command lifecycle', () => {
     await controlPlane.close();
   });
 
+  test('a refused answer is journaled without what was chosen or typed; resubmitting it is a duplicate', async () => {
+    const harness = createTestControlPlane();
+    const { controlPlane, commands, time } = harness;
+    const asking = { ...FEATURE, scenario: 'question_asked' };
+    const workstreamId = await createWorkstream(harness, asking);
+    controlPlane.commands.submit(commands.startExecution(workstreamId, asking), 'internal');
+    await time.runUntilIdle();
+    const executionId = controlPlane.projection.workstream(workstreamId)?.current_execution_id;
+    assert.ok(executionId !== null && executionId !== undefined);
+    const answer = (answers: unknown) =>
+      ({
+        ...commands.interrupt(executionId),
+        command_type: 'execution.answer_question',
+        payload: { execution_id: executionId, question_id: 'question-1', answers },
+      }) as never;
+    // q1 is left unanswered, so the whole answer is refused.
+    const refused = answer([{ key: 'q0', selected: [], text: 'my password is hunter2' }]);
+    const first = controlPlane.commands.submit(refused, 'internal');
+    assert.equal(first.disposition, 'rejected');
+    assert.equal(first.command?.rejection?.code, 'invalid_answer');
+    const journal = JSON.stringify([...controlPlane.journal.readAll()]);
+    assert.equal(journal.includes('hunter2'), false);
+    const rejection = [...controlPlane.journal.readAll()].find(
+      (stored) => stored.event.event_type === 'command.rejected',
+    )?.event;
+    assert.deepEqual(
+      rejection?.event_type === 'command.rejected' &&
+        rejection.payload.command.command_type === 'execution.answer_question' &&
+        rejection.payload.command.payload.answers,
+      [{ key: 'q0', selected: [], text: null }],
+    );
+    const head = controlPlane.journal.head();
+    assert.equal(controlPlane.commands.submit(refused, 'internal').disposition, 'duplicate');
+    assert.equal(controlPlane.journal.head(), head);
+    const answered = controlPlane.commands.submit(
+      answer([
+        { key: 'q0', selected: ['Dark'], text: null },
+        { key: 'q1', selected: ['Orders'], text: null },
+      ]),
+      'internal',
+    );
+    assert.equal(answered.disposition, 'accepted');
+    await time.runUntilIdle();
+    assert.equal(controlPlane.projection.workstream(workstreamId)?.status, 'completed');
+    await controlPlane.close();
+  });
+
   test('instructions follow the declared capabilities', async () => {
     const harness = createTestControlPlane();
     const { controlPlane, commands, time } = harness;
