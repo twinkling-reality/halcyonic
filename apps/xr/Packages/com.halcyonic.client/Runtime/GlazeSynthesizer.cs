@@ -34,6 +34,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static IReadOnlyList<int> Homes { get; } = new[] { 57, 59, 62, 64, 66, 69 };
 
+        /// <summary>D4, the key's own note and the middle of the bots': a control's cues, which belong to no bot, sound on it.</summary>
+        private const int Tonic = 62;
+
         /// <summary>
         /// Where the page placed each bot, from the left: the sine of its angle on the stage's arc,
         /// whose outermost characters stand 30 degrees to either side of the person. In the headset each
@@ -65,8 +68,11 @@ namespace Halcyonic.Client
         /// <summary>The loudness a cue is set to, matching its importance, in LUFS as <see cref="Loudness"/> measures it.</summary>
         public static double TargetOf(SoundCue cue) => SpecOf(cue, 0).Target;
 
-        /// <summary>How many renders a cue has: one per bot, or one for the stage's cue, which plays every bot's note.</summary>
-        public static int VoicesOf(SoundCue cue) => cue == SoundCue.LastKnown ? 1 : Bots;
+        /// <summary>
+        /// How many renders a cue has: one per bot, or one for a cue no bot's note decides: the stage's,
+        /// which plays every bot's note, and a control's, on the key's note.
+        /// </summary>
+        public static int VoicesOf(SoundCue cue) => cue == SoundCue.LastKnown || cue == SoundCue.Touch || cue == SoundCue.NotNow ? 1 : Bots;
 
         /// <summary>
         /// Renders one cue for one bot as the page renders it: each layer in turn, all of them scaled
@@ -248,7 +254,7 @@ namespace Halcyonic.Client
                         Strike(o, sr, 0.13, f, vel: 0.32, decay: 0.45, contact: false);
                     }));
                 }
-                case SoundCue.Verifying:
+                case SoundCue.CheckingItsWork:
                 {
                     var notes = new[] { h, D(h, 1), D(h, 2), D(h, 1) };
                     var velocities = new[] { 0.34, 0.3, 0.3, 0.26 };
@@ -260,7 +266,7 @@ namespace Halcyonic.Client
                         }
                     }));
                 }
-                case SoundCue.NeedsYou:
+                case SoundCue.WaitingForYou:
                 {
                     var f2 = Mtof(D(h, 2));
                     return new Spec(1.6, -20, new Layer(0.22, (o, sr) =>
@@ -270,13 +276,13 @@ namespace Halcyonic.Client
                         Ring(o, sr, 0.19, f2, 1.25, 0.16);
                     }));
                 }
-                case SoundCue.TurnFinished:
+                case SoundCue.FinishedThisRound:
                     return new Spec(1.5, -24, new Layer(0.22, (o, sr) =>
                     {
                         Strike(o, sr, 0.02, Mtof(D(h, 2)), vel: 0.45, decay: 0.7);
                         Strike(o, sr, 0.24, Mtof(h), vel: 0.42, decay: 0.7, bright: 0.8);
                     }));
-                case SoundCue.Failed:
+                case SoundCue.CouldNotFinish:
                 {
                     var fa = Mtof(D(h, -2));
                     return new Spec(1.0, -22, new Layer(0.2, (o, sr) =>
@@ -285,7 +291,7 @@ namespace Halcyonic.Client
                         Strike(o, sr, 0.17, fa * Math.Pow(2, -3.0 / 12), vel: 0.55, decay: 0.45, crack: 1, damp: 0.24, bright: 0.6, contact: false);
                     }));
                 }
-                case SoundCue.Unknown:
+                case SoundCue.CantTellYet:
                 {
                     var f = Mtof(h);
                     return new Spec(1.4, -25, new Layer(0.28, (o, sr) =>
@@ -330,7 +336,7 @@ namespace Halcyonic.Client
                     layers.Add(new Layer(0.1, (o, sr) => Swell(o, sr, 0, 0.6, 380, 1500, q: 1.3, amp: 0.1, peak: 0.7, seed: 19)));
                     return new Spec(1.3, -24, layers.ToArray());
                 }
-                case SoundCue.Collapse:
+                case SoundCue.Close:
                 {
                     var notes = new[] { D(h, 4), D(h, 2), h };
                     var layers = new List<Layer>();
@@ -358,7 +364,7 @@ namespace Halcyonic.Client
                         Strike(o, sr, 0.02, Mtof(h), vel: 0.5, decay: 0.35);
                         Strike(o, sr, 0.13, Mtof(D(h, -2)), vel: 0.46, decay: 0.35, damp: 0.2, contact: false);
                     }));
-                case SoundCue.Instruct:
+                case SoundCue.TellIt:
                 {
                     var notes = new[] { D(h, 1), D(h, 2), h };
                     var velocities = new[] { 0.3, 0.28, 0.3 };
@@ -370,7 +376,7 @@ namespace Halcyonic.Client
                         }
                     }));
                 }
-                case SoundCue.Interrupt:
+                case SoundCue.Stop:
                 {
                     var f = Mtof(D(h, -2));
                     return new Spec(0.5, -25, new Layer(0.06, (o, sr) =>
@@ -379,6 +385,19 @@ namespace Halcyonic.Client
                         Thud(o, sr, 0.03, 0.12, 150, 0.08, 29);
                     }));
                 }
+                case SoundCue.Touch:
+                {
+                    // Working's first strike alone, on the key's note, quieter: the press was taken.
+                    var f = Mtof(Tonic);
+                    return new Spec(0.6, -32, new Layer(0.08, (o, sr) => Strike(o, sr, 0.02, f, vel: 0.5, decay: 0.5)));
+                }
+                case SoundCue.NotNow:
+                    // Deny's damped step, a note lower and quieter: the control can't take a press now.
+                    return new Spec(0.7, -30, new Layer(0.08, (o, sr) =>
+                    {
+                        Strike(o, sr, 0.02, Mtof(D(Tonic, -1)), vel: 0.5, decay: 0.35);
+                        Strike(o, sr, 0.13, Mtof(D(Tonic, -3)), vel: 0.46, decay: 0.35, damp: 0.2, contact: false);
+                    }));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(cue), cue, "Unhandled cue.");
             }

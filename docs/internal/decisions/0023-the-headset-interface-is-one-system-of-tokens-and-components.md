@@ -115,7 +115,8 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
 - Fonts (Liberation Sans Bold and Liberation Mono, SIL OFL) and the icon atlas (Apache-2.0) are
   committed with their licences, and NOTICE names them.
 - Two quiet Glaze cues are proposed for presses that register and presses refused; they need the
-  owner's approval.
+  owner's approval. (Approved on 2026-10-01 and added as Touch and Not now, with every cue renamed
+  to the words the person reads.)
 - To check on the headset: reading at 0.46 m, list density with 60 dp targets, the stage's new
   height, a desk with little room above the lineup, the window lane, and the new cues.
 - Revisit if reading at 0.46 m strains, if 60 dp targets make lists unusable, if Meta licenses its

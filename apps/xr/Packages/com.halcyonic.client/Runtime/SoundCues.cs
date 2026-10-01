@@ -6,28 +6,29 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The stage's sounds, in the soundbook's order. Each has a visual twin on the stage, so sound is
-    /// never the only signal (docs/internal/architecture/XR_CLIENT.md, "Sound").
+    /// The stage's sounds, in the soundbook's order, named by the words the person reads: a state's
+    /// cue by its state's word, an act's by its button's. Each has a visual twin on the stage, so
+    /// sound is never the only signal (docs/internal/architecture/XR_CLIENT.md, "Sound").
     /// </summary>
     public enum SoundCue
     {
-        /// <summary>A turn starts: a soft double tap, like the hop.</summary>
+        /// <summary>A round starts: a soft double tap, like the hop.</summary>
         Working,
 
         /// <summary>A test run starts: four muted taps, up and back.</summary>
-        Verifying,
+        CheckingItsWork,
 
         /// <summary>It rises and looks at the person: two strikes rising; the second rings on.</summary>
-        NeedsYou,
+        WaitingForYou,
 
-        /// <summary>It settles: the pair falling onto its own note. A finished turn proves nothing, so no celebration.</summary>
-        TurnFinished,
+        /// <summary>It settles: the pair falling onto its own note. A finished round proves nothing, so no celebration.</summary>
+        FinishedThisRound,
 
-        /// <summary>The turn failed: a dull, cracked strike, then a lower one.</summary>
-        Failed,
+        /// <summary>The round failed: a dull, cracked strike, then a lower one.</summary>
+        CouldNotFinish,
 
         /// <summary>Halcyonic cannot see the work right now: a strike whose pitch will not settle.</summary>
-        Unknown,
+        CantTellYet,
 
         /// <summary>Interrupted, as the runtime confirmed: a strike caught by a hand.</summary>
         Stopped,
@@ -38,8 +39,8 @@ namespace Halcyonic.Client
         /// <summary>The person expands a bot into its workspace: a chord unfolding toward them.</summary>
         Open,
 
-        /// <summary>The person folds the workspace back into the bot: the chord folding back.</summary>
-        Collapse,
+        /// <summary>The person closes the workspace back into the bot: the chord folding back.</summary>
+        Close,
 
         /// <summary>Sent, not yet confirmed: two notes struck together, open and warm.</summary>
         Approve,
@@ -48,10 +49,16 @@ namespace Halcyonic.Client
         Deny,
 
         /// <summary>The person's words were sent: three light taps.</summary>
-        Instruct,
+        TellIt,
 
         /// <summary>The stop was sent; the bot confirms later: a hand pressed flat on it.</summary>
-        Interrupt,
+        Stop,
+
+        /// <summary>A control took a press that has no cue of its own: one soft felt tap.</summary>
+        Touch,
+
+        /// <summary>A control refused a press, as one unavailable now does: Deny's damped step, a note lower and quieter.</summary>
+        NotNow,
     }
 
     /// <summary>Where a cue sounds from.</summary>
@@ -65,6 +72,9 @@ namespace Halcyonic.Client
 
         /// <summary>The whole stage at once: the room's one cue when the connection drops.</summary>
         Stage,
+
+        /// <summary>The control the person pressed, where it stands: its tap, or its refusal.</summary>
+        Control,
     }
 
     /// <summary>What the person did with a workstream's workspace.</summary>
@@ -118,13 +128,13 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The workstream whose character sounds it, or in whose workspace the person acted; null for
-        /// the stage's cue.
+        /// the stage's cue and a control's.
         /// </summary>
         public string? WorkstreamId { get; }
 
         /// <summary>
-        /// The bot whose note it plays, 0 to 5 into <see cref="GlazeSynthesizer.Homes"/>; -1 for the
-        /// stage's cue, which plays every bot's note.
+        /// The bot whose note it plays, 0 to 5 into <see cref="GlazeSynthesizer.Homes"/>; -1 for a cue
+        /// with one render: the stage's, which plays every bot's note, and a control's, on the key's.
         /// </summary>
         public int Bot { get; }
 
@@ -220,11 +230,11 @@ namespace Halcyonic.Client
         /// <param name="status">The session's connection status after the pump.</param>
         /// <param name="slotOf">The slot a workstream's character stands in, from the person's left, or -1 without one.</param>
         /// <param name="now">The current time in seconds, on a clock that only moves forward.</param>
-        /// <param name="audible">Whether cues can be heard now; while not, nothing is chosen, except as <paramref name="needsYouWhileAway"/> allows.</param>
-        /// <param name="needsYouWhileAway">
-        /// The person chose to hear work that comes to need them while another window has focus: while
-        /// not <paramref name="audible"/>, a character's Needs you still sounds, once, and nothing else
-        /// does. Off by default; whether it helps or interrupts is for the headset to show.
+        /// <param name="audible">Whether cues can be heard now; while not, nothing is chosen, except as <paramref name="waitingForYouWhileAway"/> allows.</param>
+        /// <param name="waitingForYouWhileAway">
+        /// The person chose to hear work that comes to wait for them while another window has focus:
+        /// while not <paramref name="audible"/>, a character's Waiting for you still sounds, once, and
+        /// nothing else does. Off by default; whether it helps or interrupts is for the headset to show.
         /// </param>
         public IReadOnlyList<CueOnset> Observe(
             StateChanges changes,
@@ -233,7 +243,7 @@ namespace Halcyonic.Client
             Func<string, int> slotOf,
             double now,
             bool audible,
-            bool needsYouWhileAway = false)
+            bool waitingForYouWhileAway = false)
         {
             if (changes == null) throw new ArgumentNullException(nameof(changes));
             if (!primed || changes.Resynchronized)
@@ -265,14 +275,14 @@ namespace Halcyonic.Client
             var lost = live && !status.IsLive
                 && (status.Phase == ConnectionPhase.WaitingToRetry || status.Phase == ConnectionPhase.Refused);
             live = status.IsLive;
-            if (!audible && needsYouWhileAway)
+            if (!audible && waitingForYouWhileAway)
             {
-                // One gentle cue for each character that came to need the person; never an alarm.
+                // One gentle cue for each character that came to wait for the person; never an alarm.
                 var away = new List<CueOnset>();
                 changed.Sort(ByImportance);
                 foreach (var cue in changed)
                 {
-                    if (cue.Cue == SoundCue.NeedsYou && !Repeated(cue.Cue, cue.WorkstreamId, now)) away.Add(Schedule(cue.Cue, cue.WorkstreamId, cue.Bot, now));
+                    if (cue.Cue == SoundCue.WaitingForYou && !Repeated(cue.Cue, cue.WorkstreamId, now)) away.Add(Schedule(cue.Cue, cue.WorkstreamId, cue.Bot, now));
                 }
                 return away;
             }
@@ -313,6 +323,21 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// A control took a press that has no cue of its own: one soft tap from it, at once and with no
+        /// gap kept, since it answers the hand. A press that sends an act is answered by the act's own
+        /// cue (<see cref="Act"/>) instead, so it gets no tap. Nothing while cues cannot be heard, and
+        /// nothing later.
+        /// </summary>
+        public CueOnset? Touch(double now, bool audible) => audible ? Answer(SoundCue.Touch, now) : null;
+
+        /// <summary>
+        /// A control refused a press, being unavailable now: Not now from it, at once and with no gap
+        /// kept. Never for a press refused because cues cannot be heard, as while another window has
+        /// focus or in the moment after it returns: that press reached nothing.
+        /// </summary>
+        public CueOnset? NotNow(double now, bool audible) => audible ? Answer(SoundCue.NotNow, now) : null;
+
+        /// <summary>
         /// Cues can be heard again, as when the app has focus again: the person's act that waited for
         /// it sounds now, if it came within <see cref="ActWaitsForFocus"/>; nothing else missed does.
         /// </summary>
@@ -336,17 +361,17 @@ namespace Halcyonic.Client
             switch (after)
             {
                 case CharacterActivity.WaitingForHuman:
-                    return SoundCue.NeedsYou;
+                    return SoundCue.WaitingForYou;
                 case CharacterActivity.TurnFinished:
-                    return SoundCue.TurnFinished;
+                    return SoundCue.FinishedThisRound;
                 case CharacterActivity.Failed:
-                    return SoundCue.Failed;
+                    return SoundCue.CouldNotFinish;
                 case CharacterActivity.Unknown:
-                    return SoundCue.Unknown;
+                    return SoundCue.CantTellYet;
                 case CharacterActivity.Interrupted:
                     return SoundCue.Stopped;
                 case CharacterActivity.Verifying:
-                    return SoundCue.Verifying;
+                    return SoundCue.CheckingItsWork;
                 case CharacterActivity.Starting:
                 case CharacterActivity.Working:
                     // Work starts, or resumes after the person answered: the result of their answer
@@ -364,11 +389,11 @@ namespace Halcyonic.Client
         public static SoundCue CueOf(WorkspaceAct act) => act switch
         {
             WorkspaceAct.Open => SoundCue.Open,
-            WorkspaceAct.Collapse => SoundCue.Collapse,
+            WorkspaceAct.Collapse => SoundCue.Close,
             WorkspaceAct.Approve => SoundCue.Approve,
             WorkspaceAct.Deny => SoundCue.Deny,
-            WorkspaceAct.Instruct => SoundCue.Instruct,
-            WorkspaceAct.Interrupt => SoundCue.Interrupt,
+            WorkspaceAct.Instruct => SoundCue.TellIt,
+            WorkspaceAct.Interrupt => SoundCue.Stop,
             _ => throw new ArgumentOutOfRangeException(nameof(act), act, "Unhandled act."),
         };
 
@@ -379,12 +404,15 @@ namespace Halcyonic.Client
                 case SoundCue.LastKnown:
                     return CuePlace.Stage;
                 case SoundCue.Open:
-                case SoundCue.Collapse:
+                case SoundCue.Close:
                 case SoundCue.Approve:
                 case SoundCue.Deny:
-                case SoundCue.Instruct:
-                case SoundCue.Interrupt:
+                case SoundCue.TellIt:
+                case SoundCue.Stop:
                     return CuePlace.Workspace;
+                case SoundCue.Touch:
+                case SoundCue.NotNow:
+                    return CuePlace.Control;
                 default:
                     return CuePlace.Character;
             }
@@ -393,12 +421,12 @@ namespace Halcyonic.Client
         /// <summary>Of cues that arrive together, which starts first: what needs the person most.</summary>
         private static int Rank(SoundCue cue) => cue switch
         {
-            SoundCue.NeedsYou => 0,
-            SoundCue.Failed => 1,
-            SoundCue.Unknown => 2,
-            SoundCue.TurnFinished => 3,
+            SoundCue.WaitingForYou => 0,
+            SoundCue.CouldNotFinish => 1,
+            SoundCue.CantTellYet => 2,
+            SoundCue.FinishedThisRound => 3,
             SoundCue.Stopped => 4,
-            SoundCue.Verifying => 5,
+            SoundCue.CheckingItsWork => 5,
             _ => 6,
         };
 
@@ -411,6 +439,9 @@ namespace Halcyonic.Client
             if (place != CuePlace.Workspace) heard[(cue, workstreamId)] = at;
             return new CueOnset(cue, workstreamId, bot, place, at);
         }
+
+        /// <summary>A control's answer to the hand: at once, on the key's note, keeping no gap and holding up no other cue.</summary>
+        private static CueOnset Answer(SoundCue cue, double now) => new CueOnset(cue, null, -1, PlaceOf(cue), now);
 
         private bool Repeated(SoundCue cue, string? workstreamId, double now) =>
             heard.TryGetValue((cue, workstreamId), out var last) && now - last < RepeatWindow;
