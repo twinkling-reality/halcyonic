@@ -318,6 +318,10 @@ public class LiveControlPlaneTests
         Assert.That(WorkspacePresenter.Feedback(session!.State.Commands[outcome.Command!.CommandId]).Text, Is.EqualTo("The runtime took the answer"));
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes after the answer");
         Assert.That(Now().QuestionToAnswer, Is.Null);
+        var lines = activity.For(executionId).Select(entry => entry.Text).ToList();
+        Assert.That(lines.IndexOf("Started on Mock runtime (development fixture)"), Is.GreaterThan(lines.IndexOf("Asked Mock runtime (development fixture) to start")),
+            "started only after the runtime says so");
+
         Assert.That(WorkspaceText.Questions(Now()), Does.Not.Contain(WorkspaceQuestion.NeedFromYou), "the question's tab goes once it is answered");
     }
 
