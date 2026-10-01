@@ -230,17 +230,21 @@ interface RawQuestionRun {
   readonly warnings: readonly string[];
   /** The `item/tool/requestUserInput` requests Codex sent. */
   readonly questions: readonly Record<string, unknown>[];
+  /** How many `serverRequest/resolved` notifications Codex sent. */
+  readonly resolved: number;
 }
 
 /**
  * Starts a thread through a bare app-server client, with `config` as its configuration, and runs
- * one `ASK_QUESTION` turn, answering any question with its second option. This pins what the
- * adapter relies on below its own code: what the under-development feature switch does and what
- * Codex says when it is on.
+ * one `ASK_QUESTION` turn, answering any question with its second option, after first sending
+ * `unreadable` as the answer when given. This pins what the adapter relies on below its own code:
+ * what the under-development feature switch does, what Codex says when it is on, and that a
+ * request whose answer Codex could not take can be answered again.
  */
 async function rawQuestionTurn(
   sandbox: CodexSandbox,
   config: Record<string, unknown> | null,
+  unreadable: string | null = null,
 ): Promise<RawQuestionRun> {
   const child = spawn(BINARY, ['app-server'], {
     cwd: sandbox.root,
@@ -252,10 +256,12 @@ async function rawQuestionTurn(
   const warnings: string[] = [];
   const questions: Record<string, unknown>[] = [];
   let completed = false;
+  let resolved = 0;
   const rpc = new RpcConnection(child.stdout, child.stdin, {
     onNotification: (method, params) => {
       if (method === 'warning' && isRecord(params)) warnings.push(String(params.message));
       if (method === 'turn/completed') completed = true;
+      if (method === 'serverRequest/resolved') resolved += 1;
     },
     onRequest: (id, method, params, connection) => {
       if (method !== 'item/tool/requestUserInput' || !isRecord(params)) {
@@ -263,7 +269,14 @@ async function rawQuestionTurn(
         return;
       }
       questions.push(params);
-      connection.respond(id, { answers: { [FAKE_QUESTION.id]: { answers: ['blue'] } } });
+      const answer = (text: string) =>
+        connection.respond(id, { answers: { [FAKE_QUESTION.id]: { answers: [text] } } });
+      if (unreadable === null) {
+        answer('blue');
+        return;
+      }
+      answer(unreadable);
+      setTimeout(() => answer('blue'), 1500);
     },
   });
   try {
@@ -279,7 +292,7 @@ async function rawQuestionTurn(
     const input = [{ type: 'text', text: 'ASK_QUESTION for the feature test.', text_elements: [] }];
     await rpc.request('turn/start', { threadId: started.thread.id, input }, 20_000);
     await until(() => completed, 30_000, 'the turn to complete');
-    return { warnings, questions };
+    return { warnings, questions, resolved };
   } finally {
     rpc.end();
     await exited;
@@ -718,7 +731,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       });
       // Off, as in Codex's default: the tool is offered but refused, and nobody is asked.
       const off = await rawQuestionTurn(sandbox, null);
-      assert.deepEqual(off, { warnings: [], questions: [] });
+      assert.deepEqual(off, { warnings: [], questions: [], resolved: 0 });
       assert.match(
         JSON.stringify(sandbox.provider.requests.at(-1)?.body),
         /request_user_input is unavailable in Default mode/,
@@ -735,6 +748,29 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
         on.warnings[0] ?? '',
         /^Under-development features enabled: default_mode_request_user_input\. Under-development features are incomplete and may behave unpredictably\./,
       );
+    },
+  );
+
+  test(
+    'an answer Codex cannot read is dropped, and the question can still be answered',
+    SLOW_TEST,
+    async (t) => {
+      const sandbox = await createSandbox(BINARY);
+      t.after(async () => {
+        await sandbox.cleanup();
+        assertStayedLocal(sandbox);
+      });
+      // The adapter refuses such text itself; this pins why it may answer again after a timeout.
+      const run = await rawQuestionTurn(sandbox, { [QUESTION_FEATURE]: true }, 'navy \udc00');
+      assert.equal(run.questions.length, 1);
+      assert.equal(run.resolved, 1);
+      const input = sandbox.provider.requests.at(-1)?.body?.input;
+      assert.ok(Array.isArray(input));
+      const reply = input.find((item) => isRecord(item) && item.type === 'function_call_output');
+      assert.ok(isRecord(reply));
+      assert.deepEqual(JSON.parse(String(reply.output)), {
+        answers: { colour: { answers: ['blue'] } },
+      });
     },
   );
 

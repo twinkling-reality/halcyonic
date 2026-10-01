@@ -26,8 +26,10 @@ export interface PendingQuestion {
   readonly questionId: string;
   readonly requestId: RequestId;
   readonly turnId: string;
-  /** Whether the person's answer was sent to Codex. */
+  /** Whether an answer was sent to Codex, so a resolution means it was answered. */
   answered: boolean;
+  /** Whether an answer is on its way and Codex has not confirmed it yet. */
+  awaiting: boolean;
 }
 
 /** What the adapter knows about one hosted Codex thread, updated as its messages arrive. */
@@ -412,6 +414,7 @@ function observeQuestion(
     requestId: id,
     turnId,
     answered: false,
+    awaiting: false,
   };
   state.questions.set(question.questionId, question);
   state.sequence += 1;

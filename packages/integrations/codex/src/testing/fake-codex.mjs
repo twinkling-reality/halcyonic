@@ -17,7 +17,8 @@
  * - `writer-held`: `thread/resume` fails as when another Codex process holds the thread;
  * - `ask`: every turn raises an `item/tool/requestUserInput` request with one question, red or blue,
  *   and `ask-secret` one whose question is secret; an answer to it is confirmed with
- *   `serverRequest/resolved`, as Codex does;
+ *   `serverRequest/resolved`, as Codex does, except the first with `deaf-once`, which is ignored
+ *   as Codex ignores a message it cannot read;
  * - `elicit`: every turn raises an `mcpServer/elicitation/request`.
  *
  * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
@@ -46,6 +47,7 @@ const SANDBOX_TYPES = {
 };
 let counter = 0;
 let serverRequests = 0;
+let answersIgnored = 0;
 /** Threads of server requests still waiting for an answer, by request id. */
 const pendingRequests = new Map();
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -59,6 +61,10 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   if (method === undefined) {
     // An answer to a server request: Codex confirms that it took it.
     const threadId = pendingRequests.get(id);
+    if (flags.has('deaf-once') && answersIgnored === 0) {
+      answersIgnored += 1;
+      return;
+    }
     if (threadId !== undefined) {
       pendingRequests.delete(id);
       notify('serverRequest/resolved', { threadId, requestId: id });

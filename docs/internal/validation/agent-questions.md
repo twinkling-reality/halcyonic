@@ -72,7 +72,9 @@ the character read Working while the agent waited for an answer nobody could giv
   comes just before the request; after the answer, `serverRequest/resolved {threadId, requestId}`
   and the flags clear. An empty answer, or an error in reply, reaches the model as no answers: a
   decline cannot be told apart from silence. Interrupting while it waits ends the turn interrupted
-  and then resolves the request; a later answer is ignored. `thread/read` keeps neither the question
+  and then resolves the request; a later answer is ignored. An answer holding a lone surrogate
+  (`"\udc00"` in JSON) is dropped without a word, the request stays pending, and a later
+  well-formed answer to it is taken (an end to end test pins this). `thread/read` keeps neither the question
   nor the answer.
 - **MCP elicitation.** `mcpServer/elicitation/request` is stable and was answered (`accept` with
   content reached a test MCP server), but only a configured MCP server raises it, which Halcyonic

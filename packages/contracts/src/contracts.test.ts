@@ -122,6 +122,32 @@ describe('commands and realtime messages', () => {
     assert.deepEqual(parsed.ok ? null : parsed.issues[0]?.path, '/payload/text');
   });
 
+  test('text must be well-formed Unicode: a lone surrogate is refused wherever it is', () => {
+    const answer = (text: string, selected: string[] = []) =>
+      parseCommandEnvelope({
+        ...COMMAND,
+        command_type: 'execution.answer_question',
+        payload: {
+          execution_id: COMMAND.payload.execution_id,
+          question_id: 'q-1',
+          answers: [{ key: 'q0', selected, text }],
+        },
+      });
+    assert.equal(answer('Blue, and 😀 too').ok, true);
+    for (const [parsed, path] of [
+      [answer('Blue \udc00'), '/payload/answers/0/text'],
+      [answer('Blue', ['\ud800']), '/payload/answers/0/selected/0'],
+      [
+        parseCommandEnvelope({ ...COMMAND, payload: { ...COMMAND.payload, text: 'Go \ud83d' } }),
+        '/payload/text',
+      ],
+    ] as const) {
+      assert.deepEqual(parsed.ok ? null : parsed.issues, [
+        { path, message: 'must be well-formed Unicode text, without a lone surrogate' },
+      ]);
+    }
+  });
+
   test('an invalid command inside a realtime message reports paths under /command', () => {
     const parsed = parseClientMessage({
       type: 'command',

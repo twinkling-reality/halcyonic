@@ -135,8 +135,32 @@ export function parseEventEnvelope(value: unknown): Validated<EventEnvelope> {
   return issues.length === 0 ? { ok: true, value: event } : { ok: false, issues };
 }
 
+/**
+ * The first string in a value, key or element, that is not well-formed Unicode, by its JSON
+ * Pointer. JSON can carry a lone surrogate (`"\\ud800"`) and JavaScript accepts it, but a runtime
+ * may refuse it: Codex 0.157.0 drops a message holding one and never takes the answer in it.
+ */
+function malformedText(value: unknown, path: string): string | null {
+  if (typeof value === 'string') return value.isWellFormed() ? null : path === '' ? '/' : path;
+  if (typeof value !== 'object' || value === null) return null;
+  for (const [key, item] of Object.entries(value)) {
+    const at = `${path}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+    if (!key.isWellFormed()) return at;
+    const found = malformedText(item, at);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 export function parseCommandEnvelope(value: unknown): Validated<CommandEnvelope> {
-  return validateCommandShape(value) as Validated<CommandEnvelope>;
+  const shape = validateCommandShape(value);
+  if (!shape.ok) return shape as Validated<CommandEnvelope>;
+  // A rule JSON Schema cannot express, part of the contract (EVENTS.md).
+  const malformed = malformedText(shape.value, '');
+  if (malformed !== null) {
+    return invalid(malformed, 'must be well-formed Unicode text, without a lone surrogate');
+  }
+  return shape as Validated<CommandEnvelope>;
 }
 
 /**
