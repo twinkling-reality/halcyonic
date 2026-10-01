@@ -388,8 +388,9 @@ namespace Halcyonic.Client
         /// <summary>
         /// The bar: Stop at the left; Deny, hold to talk and Tell it, then at the right end the action
         /// the work leads to: Approve, Send answer, Tell it while nothing waits, or, while an answer
-        /// sent may still take effect, Sent…, which takes no press. Or the confirm step; or Cancel,
-        /// while the keyboard or the instructions offered in its place show; or why nothing can be sent.
+        /// sent may still take effect, Sent…, which takes no press. No Tell it or hold to talk while
+        /// the agent asks for a secret. Or the confirm step; or Cancel, while the keyboard or the
+        /// instructions offered in its place show; or why nothing can be sent.
         /// </summary>
         private static void Bar(PanelModel model, WorkspacePresentation workspace, WorkspaceSteering steering, WorkspaceScreen screen)
         {
@@ -414,7 +415,10 @@ namespace Halcyonic.Client
                 actions.Contains(action) ? new PanelAction(id, WorkspaceText.Label(action), role) : null;
             var stop = Offered(WorkspaceAction.Interrupt, Stop, PanelActionRole.Destructive);
             var deny = Offered(WorkspaceAction.Deny, Deny, PanelActionRole.Secondary);
-            var tell = Offered(WorkspaceAction.Instruct, TellIt, waits ? PanelActionRole.Secondary : PanelActionRole.Primary);
+            // While the agent asks for something secret, nothing here invites typing or saying it
+            // (ADR 0022): it would be journaled. Stop is the way on.
+            var secret = workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) == true;
+            var tell = secret ? null : Offered(WorkspaceAction.Instruct, TellIt, waits ? PanelActionRole.Secondary : PanelActionRole.Primary);
             var primary = Offered(WorkspaceAction.Approve, Approve, PanelActionRole.Primary)
                 ?? Offered(WorkspaceAction.Answer, SendAnswer, PanelActionRole.Primary)
                 ?? (workspace.AnswerInFlight ? new PanelAction(Sent, WorkspaceText.Sent, PanelActionRole.Primary, available: false) : null);

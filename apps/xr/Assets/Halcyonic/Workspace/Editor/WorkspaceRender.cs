@@ -757,8 +757,14 @@ namespace Halcyonic.XR.Workspace.Editor
             secret.Prompts[0].Secret = true;
             secret.Prompts[0].Header = "Token";
             secret.Prompts[0].Text = "Paste the deploy token.";
-            failures.AddRange(QuestionShot(view, Work.Asking(secret).Present(), Screen(), "question-secret"));
+            failures.AddRange(QuestionShot(view, Work.Asking(secret).Present(), Screen(speak: true), "question-secret"));
             if (view.Frame.ShownRows.Count > 0) failures.Add(view.Name + " question-secret: a question Halcyonic can't answer offers answers.");
+            // Nothing invites typing or saying the secret, though this agent app takes instructions while it waits (ADR 0022).
+            foreach (var entry in new[] { WorkspaceScreens.TellIt, WorkspaceScreens.HoldToTalk, WorkspaceScreens.TypeAnswer, WorkspaceScreens.SpeakAnswer })
+            {
+                if (view.Frame.ButtonFor(entry) != null) failures.Add(view.Name + " question-secret: " + entry + " is offered while the agent asks for a secret.");
+            }
+            if (view.Frame.ButtonFor(WorkspaceScreens.Stop) == null) failures.Add(view.Name + " question-secret: Stop, the way on, does not show.");
 
             // An answer sent that may still take effect: only the inert Sent… stands at the right end.
             var flight = Work.Asking(Scripted());
