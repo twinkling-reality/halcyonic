@@ -91,6 +91,7 @@ import {
   RuntimeModel,
   RuntimeRef,
 } from './runtime.ts';
+import { TranscriptionEngine, TranscriptionResponse } from './transcription.ts';
 import {
   Understanding,
   UnderstandingEpistemic,
@@ -220,6 +221,8 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   UsageLimitAccount,
   UsageLimit,
   UsageLimitsResponse,
+  TranscriptionEngine,
+  TranscriptionResponse,
   ExecutionStatus,
   WorkstreamStatus,
   AttentionLevel,

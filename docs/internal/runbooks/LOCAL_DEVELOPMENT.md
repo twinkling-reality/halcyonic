@@ -316,6 +316,61 @@ every request, so the control plane needs no restart. Check with the control pla
 curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0.0.1:47800/api/usage-limits
 ```
 
+## Turn on voice
+
+A development build of the headset can turn a held clip of speech into a draft, transcribed on this
+Mac by whisper.cpp ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md),
+[record](../validation/voice-transcription.md)). Voice is off until you set it up; nothing is
+downloaded because someone spoke. Build the pinned whisper.cpp from its release archive (needs
+Xcode's command-line tools and CMake), with Metal:
+
+```bash
+mkdir -p ~/.halcyonic/speech/src ~/.halcyonic/speech/models
+cd ~/.halcyonic/speech/src
+curl -sSLo whisper.cpp-1.9.4.tar.gz https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.4.tar.gz
+echo "57e280cee375ab02425b806ad5146b99f6eb9357e3c2b31357c8a6af2e2e44ae  whisper.cpp-1.9.4.tar.gz" | shasum -a 256 -c -
+tar xzf whisper.cpp-1.9.4.tar.gz && cd whisper.cpp-1.9.4
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_SDL2=OFF
+cmake --build build --config Release -j --target whisper-cli
+mkdir -p ~/.halcyonic/speech/whisper.cpp-1.9.4/bin && cp build/bin/whisper-cli ~/.halcyonic/speech/whisper.cpp-1.9.4/bin/
+```
+
+Then the speech model (547 MiB) and the voice activity model (864 KiB), each pinned to a commit and
+checked against its SHA-256:
+
+```bash
+cd ~/.halcyonic/speech/models
+curl -sSLo ggml-large-v3-turbo-q5_0.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin
+curl -sSLo ggml-silero-v6.2.0.bin https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v6.2.0.bin
+shasum -a 256 -c - <<'SUMS'
+394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2  ggml-large-v3-turbo-q5_0.bin
+2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987  ggml-silero-v6.2.0.bin
+SUMS
+```
+
+Point the control plane at all three before starting it:
+
+```bash
+export HALCYONIC_WHISPER_BIN="$HOME/.halcyonic/speech/whisper.cpp-1.9.4/bin/whisper-cli"
+export HALCYONIC_WHISPER_MODEL="$HOME/.halcyonic/speech/models/ggml-large-v3-turbo-q5_0.bin"
+export HALCYONIC_WHISPER_VAD_MODEL="$HOME/.halcyonic/speech/models/ggml-silero-v6.2.0.bin"
+```
+
+At startup the log names the engine (`speech: {name: 'whisper.cpp', version: '1.9.4-dev'}`; the
+archive build says `-dev`), then `speech engine warmed up`. The first warm-up after building
+compiles the GPU's shaders and took 23.5 s here; later ones take under a second. Try a clip made
+with `say`:
+
+```bash
+say -o /tmp/hello.wav --file-format=WAVE --data-format=LEI16@16000 "Add a contact form to the home page."
+curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" -H "content-type: audio/wav" \
+  --data-binary @/tmp/hello.wav http://127.0.0.1:47800/api/transcriptions
+```
+
+It answers `"outcome":"heard"` with the text in about half a second; a silent clip answers
+`nothing_heard`. Each clip holds about 920 MiB of memory for the half
+second whisper.cpp runs.
+
 ## Pair a headset over Wi-Fi
 
 Devices on the local network reach the control plane through a second listener, TLS only, which
