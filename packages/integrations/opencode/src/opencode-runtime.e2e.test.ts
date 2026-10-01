@@ -926,6 +926,56 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
   );
 
   test(
+    'a question whose form cannot be read back does not cost the session',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t, {
+        runtime: {
+          streamSilenceTimeoutMs: 1000,
+          reconnectDelaysMs: Array.from({ length: 10 }, () => 200),
+          snapshotRetryDelaysMs: [100, 100],
+          recoveryDelaysMs: [500],
+        },
+      });
+      const execution = await start('Please ASK_QUESTION for the end to end test.');
+      const asked = await execution.next('runtime.question.asked');
+      assert.ok(asked.type === 'runtime.question.asked');
+      // After each reconnect the form is no longer listed as pending, and reading it answers 404,
+      // as for a form OpenCode no longer keeps.
+      let unreadable = 0;
+      const original = globalThis.fetch;
+      globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/form')) {
+          return Promise.resolve(Response.json({ data: [] }));
+        }
+        if (url.endsWith(`/form/${asked.payload.question_id}`)) {
+          unreadable += 1;
+          return Promise.resolve(Response.json({ error: 'not found' }, { status: 404 }));
+        }
+        return original(input, init);
+      }) as typeof fetch;
+      t.after(() => {
+        globalThis.fetch = original;
+      });
+      // More reads than one snapshot's retries make, so a failing read would have cost the session.
+      await until(() => unreadable >= 4, 15_000, 'the form to be read back after reconnects');
+      globalThis.fetch = original;
+      assert.deepEqual(
+        execution.types().filter((type) => type.startsWith('runtime.connection.')),
+        [],
+      );
+      await runtime.answerQuestion({
+        execution: execution.context,
+        question_id: asked.payload.question_id,
+        answers: [{ key: 'q0', selected: ['blue'], text: null }],
+      });
+      await execution.next('runtime.turn.completed', 1, 20_000);
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
     'a question the agent asks is answered, and the agent goes on with the answer',
     SLOW_TEST,
     async (t) => {

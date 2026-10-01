@@ -1051,7 +1051,10 @@ async function readSnapshot(
   const settledForms = new Map<string, string>();
   for (const id of session.state.questions.keys()) {
     if (listed.has(id) || session.state.answered.has(id)) continue;
-    const detail = await readData(client, `${base}/form/${encodeURIComponent(id)}`);
+    // A form that cannot be read stays pending until its turn ends; it must not cost the session.
+    const detail = await readData(client, `${base}/form/${encodeURIComponent(id)}`).catch(
+      () => null,
+    );
     const state = isRecord(detail) && isRecord(detail.state) ? detail.state.status : null;
     if (typeof state === 'string') settledForms.set(id, state);
   }
