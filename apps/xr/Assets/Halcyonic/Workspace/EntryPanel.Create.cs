@@ -446,19 +446,22 @@ namespace Halcyonic.XR.Workspace
             draft.Objective = idea.FirstTask;
             var model = draft.Model;
             var place = CurrentFolder();
-            var folder = idea.Folder?.Describe() ?? (place != null ? LabelText.Plain(place.Name) : "none");
+            // The review spells what Halcyonic did not write by its code points, so it is given those names as they are.
+            var folder = idea.Folder?.Describe(name => name) ?? place?.Name ?? "none";
             // A project that exists and is to move shows where its work runs now and from now on.
-            var before = idea.Folder != null && idea.ExistingProjectId != null ? (place != null ? LabelText.Plain(place.Name) : "none") : null;
+            var before = idea.Folder != null && idea.ExistingProjectId != null ? place?.Name ?? "none" : null;
+            var (title, titleCut) = draft.TitleSource;
             review = new NewWorkReview(
                 idea.Name,
-                draft.Title,
-                EntryText.RuntimeName(draft.Runtime!, demonstration() == null),
+                title,
+                EntryText.RuntimeName(draft.Runtime!, demonstration() == null, plain: false),
                 model?.DisplayName ?? "Chosen by the runtime",
                 model == null ? "The runtime does not list models" : EntryText.ServedShort(model.Served) + ", " + EntryText.Tools(model.ToolCalling),
                 model?.ModelRef ?? "No model selected",
                 idea.FirstTask,
                 folder,
-                before);
+                before,
+                titleCut);
             Open(Screen.Review);
         }
 

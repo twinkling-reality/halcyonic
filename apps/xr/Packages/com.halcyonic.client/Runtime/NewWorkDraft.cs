@@ -158,17 +158,53 @@ namespace Halcyonic.Client
             }
         }
 
+        /// <summary>The longest workstream title, Halcyonic's ellipsis included.</summary>
+        public const int MaxTitleLength = 200;
+
+        /// <summary>
+        /// The workstream's title: the objective as one plain line (<see cref="LabelText.Plain"/>), and
+        /// where that would pass <see cref="MaxTitleLength"/>, cut between two of the person's
+        /// characters, never inside one or inside a code point Plain spelled, with Halcyonic's own
+        /// ellipsis.
+        /// </summary>
         public string Title
         {
             get
             {
-                var title = LabelText.Plain(Objective.Trim());
-                if (title.Length > 200)
+                var (typed, cut) = TitleSource;
+                return LabelText.Plain(typed) + (cut ? "…" : "");
+            }
+        }
+
+        /// <summary>
+        /// What of the objective the title holds, as the person typed it, and whether Halcyonic cut it
+        /// there, so a review can spell the typed text and show the ellipsis as Halcyonic's own.
+        /// </summary>
+        public (string Typed, bool Cut) TitleSource
+        {
+            get
+            {
+                var objective = Objective.Trim();
+                if (LabelText.Plain(objective).Length <= MaxTitleLength) return (objective, false);
+                // Where each character ends; Plain of a longer prefix never gets shorter.
+                var ends = new List<int>();
+                for (var index = 0; index < objective.Length; index++)
                 {
-                    var end = char.IsHighSurrogate(title[198]) ? 198 : 199;
-                    title = title.Substring(0, end).TrimEnd() + "…";
+                    if (char.IsHighSurrogate(objective[index]) && index + 1 < objective.Length && char.IsLowSurrogate(objective[index + 1])) index++;
+                    ends.Add(index + 1);
                 }
-                return title;
+                int low = 0, high = ends.Count - 1, fits = 0;
+                while (low <= high)
+                {
+                    var middle = (low + high) / 2;
+                    if (LabelText.Plain(objective.Substring(0, ends[middle])).Length <= MaxTitleLength - 1)
+                    {
+                        fits = ends[middle];
+                        low = middle + 1;
+                    }
+                    else high = middle - 1;
+                }
+                return (objective.Substring(0, fits).TrimEnd(), true);
             }
         }
 
