@@ -95,14 +95,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     UnityEngine.Object.DestroyImmediate(render);
                     var rect = Rect(camera, window.transform, Vector2.one);
                     var count = 0;
+                    var labels = 0;
                     foreach (var target in characters)
                     {
                         var body = camera.WorldToScreenPoint(target.BodyPosition);
                         if (rect.Contains(new Vector2(body.x, body.y))) count++;
+                        if (Behind(camera, window.transform, WorkspaceRender.LabelRect(camera, target.View))) labels++;
                     }
                     covered[aside] = count;
                     Debug.Log("Halcyonic: ambient render: with the lineup " + (aside ? "turned aside" : "in front") + ", a window covers "
-                        + count + " of " + characters.Count + " characters' bodies.");
+                        + count + " of " + characters.Count + " characters' bodies and " + labels + " of their labels.");
                 }
                 finally
                 {
@@ -207,6 +209,33 @@ namespace Halcyonic.XR.Workspace.Editor
             renderer.sharedMaterial = material;
             renderer.sortingOrder = 100;
             return window;
+        }
+
+        /// <summary>
+        /// Whether any part of <paramref name="label"/>, a rectangle on the render, falls inside the
+        /// window's outline there, a trapezoid, sampled at its corners, edges and middle.
+        /// </summary>
+        private static bool Behind(Camera camera, Transform window, Rect label)
+        {
+            var corners = new Vector2[4];
+            var unit = new[] { new Vector2(-0.5f, -0.5f), new Vector2(0.5f, -0.5f), new Vector2(0.5f, 0.5f), new Vector2(-0.5f, 0.5f) };
+            for (var index = 0; index < 4; index++) corners[index] = camera.WorldToScreenPoint(window.TransformPoint(unit[index]));
+            for (var x = 0; x <= 2; x++)
+            {
+                for (var y = 0; y <= 2; y++)
+                {
+                    var point = new Vector2(Mathf.Lerp(label.xMin, label.xMax, x / 2f), Mathf.Lerp(label.yMin, label.yMax, y / 2f));
+                    var inside = true;
+                    for (var edge = 0; edge < 4 && inside; edge++)
+                    {
+                        var from = corners[edge];
+                        var to = corners[(edge + 1) % 4];
+                        inside = (to.x - from.x) * (point.y - from.y) - (to.y - from.y) * (point.x - from.x) >= 0f;
+                    }
+                    if (inside) return true;
+                }
+            }
+            return false;
         }
 
         private static Rect Rect(Camera camera, Transform surface, Vector2 size)
