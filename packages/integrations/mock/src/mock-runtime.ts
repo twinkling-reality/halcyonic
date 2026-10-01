@@ -305,13 +305,16 @@ class MockSession {
 
   resolveApproval(approvalId: string, decision: ApprovalDecision): void {
     this.#assertReachable();
-    const approval = this.#turn?.approval ?? null;
-    if (approval === null || approval.id !== approvalId) {
+    const turn = this.#turn;
+    const approval = turn?.approval ?? null;
+    if (turn === null || approval === null || approval.id !== approvalId) {
       throw new RuntimeActionError(
         'approval_not_pending',
         `Approval ${approvalId} is not pending.`,
       );
     }
+    // Taken at once, so a second decision in the same tick finds nothing pending.
+    turn.approval = null;
     // The resolution is reported before the call returns, so it is journaled before the
     // command that caused it completes.
     this.#emit('runtime.approval.resolved', {
@@ -323,13 +326,16 @@ class MockSession {
 
   answerQuestion(questionId: string, answers: readonly QuestionAnswer[]): void {
     this.#assertReachable();
-    const question = this.#turn?.question ?? null;
-    if (question === null || question.id !== questionId) {
+    const turn = this.#turn;
+    const question = turn?.question ?? null;
+    if (turn === null || question === null || question.id !== questionId) {
       throw new RuntimeActionError(
         'question_not_pending',
         `Question ${questionId} is not waiting for an answer.`,
       );
     }
+    // Taken at once, so a second answer in the same tick finds nothing pending.
+    turn.question = null;
     // Reported before the call returns, as approvals are, so it is journaled before the command
     // that caused it completes.
     this.#emit('runtime.question.resolved', { question_id: questionId, outcome: 'answered' });
@@ -401,7 +407,6 @@ class MockSession {
         turn.abort.signal.addEventListener('abort', () => reject(abortError()), { once: true });
         this.#emit('runtime.question.asked', { question_id, prompts, answerable });
       });
-      turn.question = null;
       this.#emit('runtime.agent_message', { text: describeAnswers(prompts, answers) });
       for (const branchStep of if_answered) {
         await this.#scheduler.sleep(branchStep.after_ms, turn.abort.signal);
@@ -416,7 +421,6 @@ class MockSession {
       turn.abort.signal.addEventListener('abort', () => reject(abortError()), { once: true });
       this.#emit('runtime.approval.requested', { approval_id, subject });
     });
-    turn.approval = null;
     for (const branchStep of decision === 'approve' ? if_approved : if_denied) {
       await this.#scheduler.sleep(branchStep.after_ms, turn.abort.signal);
       if (await this.#runBranchStep(turn, branchStep)) return true;

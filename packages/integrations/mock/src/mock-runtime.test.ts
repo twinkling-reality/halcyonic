@@ -250,6 +250,41 @@ describe('mock runtime actions', () => {
     );
   });
 
+  test('two answers or two decisions in the same tick: only the first is taken', async () => {
+    const asking = setup();
+    await asking.start('question_asked');
+    await asking.time.runUntilIdle();
+    const answers = [
+      { key: 'q0', selected: ['Dark'], text: null },
+      { key: 'q1', selected: ['Orders'], text: null },
+    ];
+    const first = asking.runtime.answerQuestion({ execution, question_id: 'question-1', answers });
+    const second = asking.runtime.answerQuestion({ execution, question_id: 'question-1', answers });
+    await first;
+    await assert.rejects(second, actionError('question_not_pending'));
+    assert.equal(asking.types().filter((type) => type === 'runtime.question.resolved').length, 1);
+
+    const approving = setup();
+    await approving.start('approval_required');
+    await approving.time.runUntilIdle();
+    const approve = approving.runtime.respondToApproval({
+      execution,
+      approval_id: 'approval-1',
+      decision: 'approve',
+    });
+    const deny = approving.runtime.respondToApproval({
+      execution,
+      approval_id: 'approval-1',
+      decision: 'deny',
+    });
+    await approve;
+    await assert.rejects(deny, actionError('approval_not_pending'));
+    assert.equal(
+      approving.types().filter((type) => type === 'runtime.approval.resolved').length,
+      1,
+    );
+  });
+
   test('interrupting a turn that asks a question ends it and withdraws the question', async () => {
     const { time, runtime, start, types } = setup();
     await start('question_asked');
