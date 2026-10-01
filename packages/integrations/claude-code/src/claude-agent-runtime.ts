@@ -523,12 +523,15 @@ class ClaudeSession {
       );
     }
     this.#questions.delete(questionId);
-    const byText: Record<string, string> = {};
-    for (const given of answers) {
-      const text = question.texts.get(given.key);
-      if (text === undefined) continue;
-      byText[text] = [...given.selected, ...(given.text === null ? [] : [given.text])].join(', ');
-    }
+    // Built from entries, so a question whose text is `__proto__` keeps its answer as its own key.
+    const byText: Record<string, string> = Object.fromEntries(
+      answers.flatMap((given) => {
+        const text = question.texts.get(given.key);
+        if (text === undefined) return [];
+        const parts = [...given.selected, ...(given.text === null ? [] : [given.text])];
+        return [[text, parts.join(', ')]];
+      }),
+    );
     this.#emit(
       'runtime.question.resolved',
       { question_id: questionId, outcome: 'answered' },

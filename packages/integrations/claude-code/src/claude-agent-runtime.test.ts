@@ -1059,6 +1059,23 @@ describe('questions', () => {
     assertContractValid(observed);
   });
 
+  test('a question whose text is __proto__ keeps its answer as its own key', async () => {
+    const { adapter, startConfirmed } = setup();
+    const scripted = await startConfirmed();
+    const odd = { questions: [{ ...ASKED.questions[0], question: '__proto__' }] };
+    const decision = scripted.requestPermission('AskUserQuestion', odd, 'req-p');
+    await settle();
+    await adapter.answerQuestion({
+      execution,
+      question_id: 'req-p',
+      answers: [{ key: 'q0', selected: ['Local'], text: null }],
+    });
+    const result = await decision;
+    const answers = (result?.behavior === 'allow' && result.updatedInput?.answers) as object;
+    assert.ok(Object.hasOwn(answers, '__proto__'));
+    assert.equal(JSON.stringify(answers), '{"__proto__":"Local"}');
+  });
+
   test('a question Claude Code withdraws can no longer be answered', async () => {
     const { adapter, startConfirmed } = setup();
     const scripted = await startConfirmed();

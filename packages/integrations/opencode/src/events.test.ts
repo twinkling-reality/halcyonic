@@ -509,6 +509,18 @@ describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
       q1: 'Fruit',
     });
   });
+
+  test('a field keyed __proto__ keeps its answer as its own key', () => {
+    const asked = formQuestion({
+      id: 'frm_1',
+      metadata: { kind: 'question' },
+      fields: [{ key: '__proto__', type: 'string', description: 'Which?', custom: true }],
+    });
+    assert.ok(asked !== null);
+    const answer = formAnswer(asked.fields, [{ key: '__proto__', selected: [], text: 'this' }]);
+    assert.ok(Object.hasOwn(answer, '__proto__'));
+    assert.equal(JSON.stringify(answer), '{"__proto__":"this"}');
+  });
 });
 
 describe('OpenCode event decoding', () => {

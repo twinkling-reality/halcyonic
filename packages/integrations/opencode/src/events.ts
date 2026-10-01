@@ -361,15 +361,16 @@ export function formAnswer(
     readonly text: string | null;
   }[],
 ): Record<string, string | string[]> {
-  const answer: Record<string, string | string[]> = {};
-  for (const field of fields) {
-    const given = answers.find((each) => each.key === field.key);
-    if (given === undefined) continue;
-    const chosen = given.selected.map((label) => field.values.get(label) ?? label);
-    if (given.text !== null) chosen.push(given.text);
-    answer[field.key] = field.multiple ? chosen : (chosen[0] ?? '');
-  }
-  return answer;
+  // Built from entries, so a field keyed `__proto__` keeps its answer as its own key.
+  return Object.fromEntries(
+    fields.flatMap((field) => {
+      const given = answers.find((each) => each.key === field.key);
+      if (given === undefined) return [];
+      const chosen = given.selected.map((label) => field.values.get(label) ?? label);
+      if (given.text !== null) chosen.push(given.text);
+      return [[field.key, field.multiple ? chosen : (chosen[0] ?? '')]];
+    }),
+  );
 }
 
 /** `once` and `always` let the tool run; `reject` refuses it. Anything else is not mapped. */
