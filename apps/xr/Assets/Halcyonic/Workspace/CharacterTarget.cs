@@ -1,4 +1,5 @@
 #nullable enable
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
@@ -65,6 +66,7 @@ namespace Halcyonic.XR.Workspace
             target.WorkstreamId = workstreamId;
             target.View = view;
             target.Ray = PointerTarget.Sphere(host, RayRadius, gaze: true);
+            target.Ray.LogAs("character", workstreamId);
             var poke = new GameObject("Poke surface");
             poke.transform.SetParent(host.transform, false);
             target.pokeSurface = poke.transform;

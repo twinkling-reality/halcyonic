@@ -18,6 +18,9 @@ namespace Halcyonic.XR.UI
         /// <summary>How long an angle at the eye is, in units of the distance from the eyes.</summary>
         public static float Units(float degrees) => Glaze.MetersAt(degrees, 1f);
 
+        /// <summary>The angle at the eye of a length in units of the distance from the eyes.</summary>
+        public static float DegreesOf(float units) => Glaze.DegreesOf(units, 1f);
+
         /// <summary>A TextMeshPro font size for an em of <paramref name="em"/> units: TextMeshPro draws a size of one as a tenth of a unit.</summary>
         public static float FontSize(float em) => em * 10f;
 

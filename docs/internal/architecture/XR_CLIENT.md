@@ -754,6 +754,19 @@ scripts use only long-stable core Unity APIs:
   the components without input: `StateBadgeView`, `MarkTag`, `CharacterLabelView`, `PeekCardView`
   and `StageBanner`. Components are built in units of their distance from the eyes and scaled by it,
   so every size is an angle.
+- `Assets/Halcyonic/UI.Interaction` (`Halcyonic.XR.UI.Interaction`) holds what takes input, on the
+  Interaction SDK, for the workspace, the entry panel, the rail and the room and pairing controls;
+  the stage never references it. `PointerTarget` lives here: a ray, poke and gaze target whose
+  `Selected` and `Released` say a press began and ended, let go or cancelled, as hold to talk needs,
+  and which the interaction log names as its creator says (`LogAs`: a character by its work's id).
+  `GlazeButton` is the interface's button: its role sets its look (Primary in the accent, Secondary,
+  Destructive outlined in red, Filter outlined in the accent while on), it is 60 dp tall or 48 dp
+  compact, a label in strong body text and an optional second line, and it shows each state: at
+  rest, pointed at (lighter, with an accent ring), pressed (darker and a little smaller), unavailable
+  (outlined and quiet, taking no press), done (in the success colours) and set aside while the app
+  lacks focus (faded). Its presses keep `PanelButton`'s rules: none within 0.35 s of taking a new
+  role, and a hold button's hold starts after 0.3 s and ends let go, dropped or taken away.
+  `PanelButton` stays until every surface has moved.
 - A player build leaves out shaders that nothing in the build references; the first device build
   rendered characters magenta for that reason. The two character shaders, `Halcyonic/Character
   Body` and `Halcyonic/Soft Shape`, ship through materials in `Assets/Halcyonic/Characters/Resources`,
@@ -932,7 +945,7 @@ character the stage creates, so it moves with the body: a sphere of `CharacterVi
 the ray and the gaze, which neighbours on the arc never share, and a surface just in front of it,
 facing the person, for a poke; on a desk its poke hovers only for a finger within 0.06 of its
 scale, since typing hands are near. While a character's peek is wanted or it is open it looks at
-the person (`CharacterView.LookAtPerson`). Panel buttons are the same `PointerTarget`s, ray and poke, 4 mm in front of the
+the person (`CharacterView.LookAtPerson`). Panel buttons are the same `PointerTarget`s (`Assets/Halcyonic/UI.Interaction`), ray and poke, 4 mm in front of the
 panel, whose background takes the ray so nothing behind it is pointed at. The director keeps an
 `ActivityLog` from live events, reads the open workstream's history through `ControlPlaneApi` when
 it opens and after a resynchronization (saying so in the activity caption while it reads, or why
@@ -1328,6 +1341,15 @@ parses no escapes, uses italics or bold, shows text that did not go through the 
 lays out other characters than that text or cuts it short without an ellipsis; if a claim does not
 lean, or leans and loses its ellipsis; and it checks a character's label and the peek card the
 same way, their TextMeshPro labels by the same rule.
+
+`GlazeRender` (**Halcyonic > Render Every Component**, also runnable in batch mode) renders every
+component in every state on a panel at touch distance, 0.46 m, each facing the eyes: every state's
+badge, a count and a last known one, the marks, every role of button at rest, pointed at and pressed,
+an unavailable, a done and a compact button and one with a second line, and the banner's kinds,
+saved at a Quest 3's 25 pixels per degree in `apps/xr/Builds/GlazeRenders`. It fails if a word is
+under the caption's size, a button under 60 dp (48 compact), anything of ours cut short, a badge
+missing its word, or a button's label under 4.5:1 on its own fill as drawn, as an off filter's grey
+word was on its lighter fill when pointed at, before it brightened.
 
 `StageRender` (**Halcyonic > Render Every State on the Stage**, also runnable in batch mode) renders
 every state of a task on a character at the stage's default distance and height, practice, demo and

@@ -159,6 +159,40 @@ namespace Halcyonic.XR.UI.Editor
             }
         }
 
+        /// <summary>
+        /// Every button is at least as tall and as wide as its size asks, 60 dp, or 48 dp compact, as
+        /// seen from <paramref name="eyes"/>, and so is the target a hand points at.
+        /// </summary>
+        public static IEnumerable<string> TargetsLargeEnough(IEnumerable<GlazeButton> buttons, Vector3 eyes, string what)
+        {
+            foreach (var button in buttons)
+            {
+                if (!button.gameObject.activeInHierarchy) continue;
+                var distance = Vector3.Distance(eyes, button.transform.position);
+                var scale = button.transform.lossyScale;
+                var tall = Glaze.DegreesOf(button.Size.y * scale.y, distance);
+                var wide = Glaze.DegreesOf(button.Size.x * scale.x, distance);
+                var least = Mathf.Min(tall, wide);
+                var asked = button.Size.y < GlazeButton.HeightOf(false) - 1e-5f ? Glaze.MinimumTargetDegrees : Glaze.TargetDegrees;
+                // The press shrinks a button for a moment, and a target a little more than its plate counts as its plate.
+                if (least < asked * 0.96f - 0.01f)
+                {
+                    yield return what + ": " + PathOf(button.transform) + " is " + Degrees(wide) + " by " + Degrees(tall) + " degrees, under " + Degrees(asked) + ".";
+                }
+            }
+        }
+
+        /// <summary>No label shows its text cut short: Halcyonic's own words, on buttons, badges and tags, show whole.</summary>
+        public static IEnumerable<string> NothingCut(IEnumerable<TMP_Text> labels, string what)
+        {
+            foreach (var label in labels)
+            {
+                if (!label.gameObject.activeInHierarchy || string.IsNullOrEmpty(label.text)) continue;
+                label.ForceMeshUpdate();
+                if (label.isTextTruncated) yield return what + ": " + PathOf(label.transform) + " cuts \"" + label.text + "\" short.";
+            }
+        }
+
         /// <summary>Every plate is at least as opaque as the plate token, so a bright room cannot wash its text out.</summary>
         public static IEnumerable<string> PlatesOpaque(IEnumerable<Surface> plates, string what)
         {
@@ -198,21 +232,23 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
-        /// The brightest pixel inside <paramref name="rect"/> against <paramref name="surface"/>: the
-        /// contrast a label's strokes reach on its plate, as the render drew them.
+        /// The strongest contrast a pixel inside <paramref name="rect"/> reaches against
+        /// <paramref name="surface"/>: what a label's strokes reach on what they sit on, as the render
+        /// drew them, light on dark or dark on light.
         /// </summary>
         public static float Contrast(Texture2D render, RectInt rect, Color surface)
         {
-            var brightest = 0.0;
+            var background = Luminance(surface);
+            var strongest = 1.0;
             for (var y = Mathf.Max(0, rect.yMin); y < Mathf.Min(render.height, rect.yMax); y++)
             {
                 for (var x = Mathf.Max(0, rect.xMin); x < Mathf.Min(render.width, rect.xMax); x++)
                 {
-                    brightest = System.Math.Max(brightest, Luminance(render.GetPixel(x, y)));
+                    var pixel = Luminance(render.GetPixel(x, y));
+                    strongest = System.Math.Max(strongest, (System.Math.Max(pixel, background) + 0.05) / (System.Math.Min(pixel, background) + 0.05));
                 }
             }
-            var background = Luminance(surface);
-            return (float)((System.Math.Max(brightest, background) + 0.05) / (System.Math.Min(brightest, background) + 0.05));
+            return (float)strongest;
         }
 
         /// <summary>A colour drawn at an opacity over another, blended linearly as the project blends.</summary>

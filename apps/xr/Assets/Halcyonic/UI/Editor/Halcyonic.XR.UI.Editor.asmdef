@@ -1,7 +1,7 @@
 {
   "name": "Halcyonic.XR.UI.Editor",
   "rootNamespace": "Halcyonic.XR.UI.Editor",
-  "references": ["Halcyonic.Client", "Halcyonic.XR.UI", "Unity.TextMeshPro"],
+  "references": ["Halcyonic.Client", "Halcyonic.Contracts", "Halcyonic.XR", "Halcyonic.XR.UI", "Halcyonic.XR.UI.Interaction", "Unity.TextMeshPro"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
