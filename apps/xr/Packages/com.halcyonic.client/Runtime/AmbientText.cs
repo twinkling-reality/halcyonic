@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using System.Linq;
 
 namespace Halcyonic.Client
@@ -16,7 +15,6 @@ namespace Halcyonic.Client
             state.Workstreams.Values.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.NeedsYou);
 
         /// <summary>"1 needs you", "3 need you", or null when nothing does.</summary>
-        public static string? NeedsYouLine(int count) =>
-            count <= 0 ? null : count == 1 ? "1 needs you" : count.ToString(CultureInfo.InvariantCulture) + " need you";
+        public static string? NeedsYouLine(int count) => count <= 0 ? null : EntryText.WaitingForYou(count);
     }
 }

@@ -204,13 +204,13 @@ public class WorkOverviewTests
         Assert.That(overview.Projects.Select(project => project.Name), Is.EqualTo(new[] { "Alpha", "beta", "Empty" }), "by name, ignoring case");
         var alpha = overview.Projects[0];
         Assert.That((alpha.Work, alpha.NeedsYou, alpha.Notice, alpha.Active, alpha.OffStage, alpha.Shown), Is.EqualTo((4, 1, 1, 2, 1, true)));
-        Assert.That(EntryText.ProjectDetail(alpha), Is.EqualTo("Shown · 1 needs you · 1 to check · 2 active"));
-        Assert.That(EntryText.ProjectDetail(overview.Projects[1]), Is.EqualTo("Hidden · 1 at rest"));
+        Assert.That(EntryText.ProjectDetail(alpha), Is.EqualTo("Shown · 1 task waiting for you, 1 finished, 2 running"));
+        Assert.That(EntryText.ProjectDetail(overview.Projects[1]), Is.EqualTo("Hidden · 1 task paused"));
         Assert.That(EntryText.ProjectDetail(overview.Projects[2]), Is.EqualTo("Shown · no work yet"));
         Assert.That(EntryText.ConnectDetail(overview), Is.EqualTo("2 of 3 shown"));
-        Assert.That(EntryText.MoreWorkDetail(overview), Is.EqualTo("1 off the stage"));
-        Assert.That(EntryText.OffStageDetail(overview.OffStage[0], live: true), Is.EqualTo("Working · Alpha · stage full"));
-        Assert.That(EntryText.OffStageDetail(overview.OffStage[0], live: false), Is.EqualTo("Last known: Working · Alpha · stage full"));
+        Assert.That(EntryText.MoreWorkDetail(overview), Is.EqualTo("1 task"));
+        Assert.That(EntryText.OffStageDetail(overview.OffStage[0], live: true), Is.EqualTo("Working · Alpha · no room on the stage"));
+        Assert.That(EntryText.OffStageDetail(overview.OffStage[0], live: false), Is.EqualTo("Last known: Working · Alpha · no room on the stage"));
     }
 
     [Test]
@@ -580,24 +580,25 @@ public class EntryWordsTests
     {
         ProjectSummary Project(bool shown, int work, int active = 0, int needsYou = 0, int notice = 0) =>
             new("p", "Project", shown, work, active, needsYou, notice, 0);
-        Assert.That(EntryText.ChipDetail(Project(true, 4, active: 2, needsYou: 1, notice: 1)), Is.EqualTo("1 needs you"));
-        Assert.That(EntryText.ChipDetail(Project(false, 4, active: 2, notice: 1)), Is.EqualTo("Hidden · 1 to check"));
-        Assert.That(EntryText.ChipDetail(Project(true, 2, active: 2)), Is.EqualTo("2 active"));
-        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("at rest"));
+        Assert.That(EntryText.ChipDetail(Project(true, 4, active: 2, needsYou: 1, notice: 1)), Is.EqualTo("1 task waiting"));
+        Assert.That(EntryText.ChipDetail(Project(false, 4, active: 2, notice: 1)), Is.EqualTo("Hidden · 1 finished"));
+        Assert.That(EntryText.ChipDetail(Project(true, 2, active: 2)), Is.EqualTo("2 tasks running"));
+        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("2 tasks paused"));
         Assert.That(EntryText.ChipDetail(Project(false, 0)), Is.EqualTo("Hidden · no work yet"));
     }
 
     [Test]
-    public void HowMuchNeedsYouAgreesWithItsCount()
+    public void TasksWaitingForYouAreSaidAsAPersonWouldSayThem()
     {
         ProjectSummary Project(bool shown, int needsYou) => new("p", "Project", shown, 5, 0, needsYou, 0, 0);
-        Assert.That(EntryText.NeedYou(1), Is.EqualTo("1 needs you"));
-        Assert.That(EntryText.NeedYou(2), Is.EqualTo("2 need you"));
-        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("2 need you"));
-        Assert.That(EntryText.ChipDetail(Project(false, 3)), Is.EqualTo("Hidden · 3 need you"));
-        Assert.That(EntryText.ProjectDetail(Project(true, 2)), Is.EqualTo("Shown · 2 need you"));
-        Assert.That(EntryText.ProjectDetail(Project(true, 1)), Is.EqualTo("Shown · 1 needs you"));
-        Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.NeedYou(2)), "the ambient line and the entry agree");
+        Assert.That(EntryText.WaitingForYou(1), Is.EqualTo("1 task is waiting for you"));
+        Assert.That(EntryText.WaitingForYou(2), Is.EqualTo("2 tasks are waiting for you"));
+        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("2 tasks waiting"));
+        Assert.That(EntryText.ChipDetail(Project(false, 3)), Is.EqualTo("Hidden · 3 waiting"));
+        Assert.That(EntryText.ProjectDetail(Project(true, 2)), Is.EqualTo("Shown · 2 tasks are waiting for you"));
+        Assert.That(EntryText.ProjectDetail(Project(true, 1)), Is.EqualTo("Shown · 1 task is waiting for you"));
+        Assert.That(EntryText.WaitingNow("Import recipes"), Is.EqualTo("\u201CImport recipes\u201D is waiting for you."));
+        Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.WaitingForYou(2)), "the ambient line and the entry agree");
     }
 
     [Test]
@@ -753,7 +754,7 @@ public class QuestionLedWorkspaceTests
             execution.PendingApprovals.Clear();
             execution.Status = ExecutionStatus.Running;
         }, WorkstreamStatus.Running);
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing needs you now.", "Latest: Working" }));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Nothing is waiting for you.", "Latest: Working" }));
         Assert.That(WorkspaceText.Answer(work.Present(live: false))[1], Is.EqualTo("Last known. Latest: Working"));
     }
 }

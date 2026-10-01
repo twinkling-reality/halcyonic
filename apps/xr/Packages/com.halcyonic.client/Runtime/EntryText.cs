@@ -36,7 +36,7 @@ namespace Halcyonic.Client
         public const string ShowAll = "Show all";
         public const string AddWork = "Add work";
 
-        public const string MoreWorkLine = "Work without a character on the stage, what needs you first. Choose one to bring it forward and open it.";
+        public const string MoreWorkLine = "Tasks that aren't on the stage right now. Anything waiting for you is at the top. Choose one to open it.";
         public const string AllOnStage = "All work is on the stage.";
 
         public const string IdeaPrompt = "What would you like to make?";
@@ -140,35 +140,56 @@ namespace Halcyonic.Client
 
         public static string TaskLine(string task) => "First task: " + task;
 
-        public static string NeedsYouNow(string title) => title + " needs you.";
+        /// <summary>The banner while creating, naming the work that came to wait for the person.</summary>
+        public static string WaitingNow(string title) => "\u201C" + title + "\u201D is waiting for you.";
 
-        /// <summary>How much work needs the person, agreeing with its count: "1 needs you", "2 need you".</summary>
-        public static string NeedYou(int count) => count == 1 ? "1 needs you" : Count(count) + " need you";
+        /// <summary>How many tasks wait for the person, said as a person would: "1 task is waiting for you", "2 tasks are waiting for you".</summary>
+        public static string WaitingForYou(int count) => Tasks(count) + (count == 1 ? " is" : " are") + " waiting for you";
 
-        /// <summary>A project's work in words, what needs the person first, for example "1 needs you · 2 active".</summary>
+        /// <summary>
+        /// A project's work in words, what waits for the person first: one kind as a sentence, "1 task
+        /// is waiting for you"; several as a list that names tasks once, "1 task waiting for you, 1
+        /// finished, 2 running", short enough for a row.
+        /// </summary>
         public static string Counts(ProjectSummary project)
         {
+            var kinds = (project.NeedsYou > 0 ? 1 : 0) + (project.Notice > 0 ? 1 : 0) + (project.Active > 0 ? 1 : 0);
+            if (kinds == 0) return project.Work == 0 ? "no work yet" : Paused(project.Work);
+            if (kinds == 1)
+            {
+                return project.NeedsYou > 0 ? WaitingForYou(project.NeedsYou) : project.Notice > 0 ? Finished(project.Notice) : Running(project.Active);
+            }
             var parts = new List<string>();
-            if (project.NeedsYou > 0) parts.Add(NeedYou(project.NeedsYou));
-            if (project.Notice > 0) parts.Add(Count(project.Notice) + " to check");
-            if (project.Active > 0) parts.Add(Count(project.Active) + " active");
-            if (parts.Count > 0) return string.Join(" · ", parts);
-            return project.Work == 0 ? "no work yet" : Count(project.Work) + " at rest";
+            if (project.NeedsYou > 0) parts.Add(Tasks(project.NeedsYou) + " waiting for you");
+            if (project.Notice > 0) parts.Add((parts.Count == 0 ? Tasks(project.Notice) : Count(project.Notice)) + " finished");
+            if (project.Active > 0) parts.Add((parts.Count == 0 ? Tasks(project.Active) : Count(project.Active)) + " running");
+            return string.Join(", ", parts);
         }
+
+        private static string Tasks(int count) => Count(count) + (count == 1 ? " task" : " tasks");
+
+        private static string Finished(int count) => Tasks(count) + " finished, ready to look at";
+
+        private static string Running(int count) => Tasks(count) + " running";
+
+        private static string Paused(int count) => Tasks(count) + " paused";
 
         /// <summary>A project's line in Connect projects: whether it shows, then its work.</summary>
         public static string ProjectDetail(ProjectSummary project) => (project.Shown ? "Shown" : "Hidden") + " · " + Counts(project);
 
         /// <summary>
-        /// A project's rail chip, short enough for its small button: hidden or not, then only what
-        /// matters most, what needs the person first. Connect projects shows every count.
+        /// A project's rail chip, short enough for its small button, about 20 characters: only what
+        /// matters most, what waits for the person first, "1 task waiting". A hidden project's chip
+        /// says so first, which leaves no room for "task": "Hidden · 1 waiting". Connect projects says
+        /// it in full.
         /// </summary>
         public static string ChipDetail(ProjectSummary project)
         {
-            var most = project.NeedsYou > 0 ? NeedYou(project.NeedsYou)
-                : project.Notice > 0 ? Count(project.Notice) + " to check"
-                : project.Active > 0 ? Count(project.Active) + " active"
-                : project.Work == 0 ? "no work yet" : "at rest";
+            string Many(int count) => project.Shown ? Tasks(count) : Count(count);
+            var most = project.NeedsYou > 0 ? Many(project.NeedsYou) + " waiting"
+                : project.Notice > 0 ? Many(project.Notice) + " finished"
+                : project.Active > 0 ? Many(project.Active) + " running"
+                : project.Work == 0 ? "no work yet" : Many(project.Work) + " paused";
             return project.Shown ? most : "Hidden · " + most;
         }
 
@@ -181,11 +202,14 @@ namespace Halcyonic.Client
             return shown == known ? (known == 1 ? "1 shown" : "all " + Count(known) + " shown") : Count(shown) + " of " + Count(known) + " shown";
         }
 
-        /// <summary>The rail's More work detail: how much of the work without a character needs the person, else how much there is.</summary>
+        /// <summary>
+        /// The rail's More work detail, under its label and as short as a chip's: how many of the tasks
+        /// not on the stage wait for the person, "1 task waiting", else how many there are, "3 tasks".
+        /// </summary>
         public static string MoreWorkDetail(WorkOverview overview)
         {
             var needing = overview.NeedsYouOffStage;
-            return needing > 0 ? NeedYou(needing) : Count(overview.OffStage.Count) + " off the stage";
+            return needing > 0 ? Tasks(needing) + " waiting" : Tasks(overview.OffStage.Count);
         }
 
         /// <summary>A More work row's second line: its status, its project, and why it has no character.</summary>
@@ -194,7 +218,7 @@ namespace Halcyonic.Client
             var status = CharacterPresenter.LabelOf(CharacterPresenter.ActivityOf(work.Workstream.Status));
             if (!live) status = "Last known: " + status;
             var project = work.ProjectName.Length == 0 ? "" : " · " + work.ProjectName;
-            return status + project + (work.Reason == OffStageReason.ProjectHidden ? " · project hidden" : " · stage full");
+            return status + project + (work.Reason == OffStageReason.ProjectHidden ? " · its project is hidden" : " · no room on the stage");
         }
 
         public static string StepName(BuildStepKind kind, bool newProject) => kind switch

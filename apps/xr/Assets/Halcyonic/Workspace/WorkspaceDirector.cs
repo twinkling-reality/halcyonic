@@ -117,7 +117,7 @@ namespace Halcyonic.XR.Workspace
             {
                 var workspace = opened;
                 if (workspace?.Draft == null) return;
-                Notify(workspace, workspace.Draft.Type(workspace.AnswerPrompt, text) ?? VoiceText.HeardOnYourMac + " Check it, then press Send answer.");
+                Notify(workspace, workspace.Draft.Type(workspace.AnswerPrompt, text) ?? VoiceText.HeardAnswer);
                 RefreshPanel();
             };
         }

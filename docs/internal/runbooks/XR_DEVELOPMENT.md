@@ -635,7 +635,7 @@ In the headset:
    now. Running work stays on the stage behind it. Once any of them is chosen it does not come back.
 2. **Connect projects.** It says it lists the projects on your Mac that Halcyonic knows. Hide the
    project whose work waits for approval: its characters leave the stage, its rail chip reads
-   "Hidden · 1 needs you", and More work lists that work first and reads "1 needs you". Press it in
+   "Hidden · 1 waiting", and More work lists that work first and reads "1 task waiting". Press it in
    More work: it stands on the stage and opens; collapse it, show the project again.
 3. **Create from a typed idea.** Create a project, Type my idea, type a sentence on the system
    keyboard: the recap names the project from its first words. More options: choose the runtime,
@@ -683,16 +683,16 @@ the virtual space:
    asks for the microphone and records nothing, and beside the button it says to allow it and hold
    again. Allow it.
 2. **An idea.** Hold, say "A website for my bakery that shows the menu and the opening hours", let
-   go: beside the button, "Listening", then "Your Mac is turning that into text.", then the recap,
-   which says "Heard on your Mac. Check it before you go on." with the sentence as the first task
+   go: beside the button, "Listening", then "Writing down what you said.", then the recap,
+   which says "This is what your Mac heard. Check it before you go on." with the sentence as the first task
    and a name from its first words. Nothing has been sent; note how long from letting go to the
    recap.
-3. **A tap and silence.** A tap says it was too short to hear. Hold a few seconds without speaking:
-   "Nothing was heard". Press the Meta button while holding: it says it stopped listening, and
+3. **A tap and silence.** A tap says it was too quick. Hold a few seconds without speaking:
+   "I didn't catch anything". Press the Meta button while holding: it says it stopped listening, and
    nothing was sent. Hold, then move the ray off the button while still pinching, and poke and
    pull the finger away: note whether each stops listening, which the editor cannot check.
 4. **An instruction.** Open running work: Hold to talk is at the end of the action row. Say an
-   instruction: the workspace asks "Heard on your Mac. Send this instruction?" with the words, and
+   instruction: the workspace asks "Your Mac heard: ... Send it?" with the words, and
    only Send sends it. Let the 15 seconds lapse once: nothing is sent.
 5. **Without voice.** Stop the control plane, start it without the three `HALCYONIC_WHISPER_`
    variables, and hold again: "Voice isn't set up on your Mac. Type instead."
@@ -897,7 +897,7 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
    large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
    on the stage moves. Characters keep animating.
 3. **Needs you while watching.** Make a workstream need you. The character rises and turns, and the
-   line above the stage says "1 needs you" in amber. Can you see either past the window?
+   line above the stage says "1 task is waiting for you" in amber. Can you see either past the window?
 4. **Return by hand.** Pinch on a character, the rail or empty space. The first pinch only returns
    focus: nothing opens or presses, and panels come back as they were. Then open the character and
    read the request.
