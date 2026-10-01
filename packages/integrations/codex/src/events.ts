@@ -350,7 +350,8 @@ function observeRequest(
  * A `request_user_input` request as the agent's question. Codex 0.157.0 sends `{questions: [{id,
  * header, question, isOther, isSecret, options: [{label, description}] | null}]}` and takes
  * `{answers: {[id]: {answers: string[]}}}`. A question marked secret, an id that cannot come back
- * unchanged, or more questions or options than the contract carries make the request unanswerable:
+ * unchanged, any text cut to fit the contract, or more questions or options than the contract
+ * carries make the request unanswerable:
  * it is shown, and the person can stop the execution. No question at all, or one from a turn that
  * ended, is refused as before.
  */
@@ -366,6 +367,12 @@ function observeQuestion(
     return { observations: [], settled: [] };
   }
   let answerable = state.answerable && raw.length <= 10;
+  // The person must see whole what they answer, so anything cut to fit leaves it unanswerable.
+  const fit = (value: string, max: number): string => {
+    const fitted = clip(value, max);
+    if (fitted !== value) answerable = false;
+    return fitted;
+  };
   const prompts: QuestionPrompt[] = [];
   for (const [index, item] of raw.slice(0, 10).entries()) {
     const key = nonBlank(item.id);
@@ -377,23 +384,23 @@ function observeQuestion(
     const options: QuestionPrompt['options'] = [];
     for (const option of offered.slice(0, 20)) {
       const label = nonBlank(option.label);
-      if (label === null || label.length > 200) {
+      if (label === null) {
         answerable = false;
-        if (label === null) continue;
+        continue;
       }
       const description = nonBlank(option.description);
       options.push({
-        label: clip(label, 200),
-        description: description === null ? null : clip(description, 1000),
+        label: fit(label, 200),
+        description: description === null ? null : fit(description, 1000),
       });
     }
     const secret = item.isSecret === true;
     if (secret) answerable = false;
     const header = nonBlank(item.header);
     prompts.push({
-      key: clip(key ?? `question-${index}`, 256),
-      header: header === null ? null : clip(header, 200),
-      text: clip(nonBlank(item.question) ?? header ?? 'Question', 4000),
+      key: fit(key ?? `question-${index}`, 256),
+      header: header === null ? null : fit(header, 200),
+      text: fit(nonBlank(item.question) ?? header ?? 'Question', 4000),
       options,
       multiple: false,
       free_text: item.isOther === true || options.length === 0,

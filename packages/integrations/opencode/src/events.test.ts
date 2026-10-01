@@ -456,6 +456,30 @@ describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
     assert.equal(formQuestion({ ...base, fields: [] }), null);
   });
 
+  test('anything cut to fit leaves the question shown, marked as cut, but not answerable', () => {
+    const field = { key: 'q0', type: 'string', title: 'Pick', description: 'Which one?' };
+    const form = (overrides: Record<string, unknown>) =>
+      formQuestion({
+        id: 'frm_1',
+        metadata: { kind: 'question' },
+        fields: [{ ...field, ...overrides }],
+      });
+    const whole = form({ options: [{ value: 'a', label: 'a', description: 'd' }] });
+    assert.equal(whole?.answerable, true);
+    // A label cut short would stand for a value the person never read whole.
+    const label = `keep the table${' x'.repeat(100)} and drop every table`;
+    const cutLabel = form({ options: [{ value: label, label }] });
+    assert.equal(cutLabel?.answerable, false);
+    assert.ok(cutLabel?.prompts[0]?.options[0]?.label.endsWith(' [truncated]'));
+    for (const overrides of [
+      { description: 'q'.repeat(4001) },
+      { title: 'h'.repeat(201) },
+      { options: [{ value: 'a', label: 'a', description: 'd'.repeat(1001) }] },
+    ]) {
+      assert.equal(form(overrides)?.answerable, false, JSON.stringify(overrides).slice(0, 60));
+    }
+  });
+
   test("answers become the form's values: one for a single choice, a list for several, typed text among them", () => {
     const asked = formQuestion({
       id: 'frm_1',

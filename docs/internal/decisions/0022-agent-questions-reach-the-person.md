@@ -50,9 +50,10 @@ Every runtime withdraws a pending question when its turn is interrupted.
 - **The capability is declared.** `answer_question` in `RuntimeCapabilities`, through each runtime's
   own surface: OpenCode's form reply, the Claude Agent SDK's `AskUserQuestion` input, Codex's
   `requestUserInput` response, and the mock's scripted questions. An adapter marks a question
-  unanswerable when it cannot carry an answer back faithfully: a text or label cut to fit the
-  contract or repeated, more than 10 prompts or 20 options, or a field type other than a choice or
-  text.
+  unanswerable when the person could not see whole what they would answer, or the adapter cannot
+  carry an answer back faithfully: anything in it cut to fit the contract (a header, a text, a
+  label or a description, each shown with a cut mark), a text or label repeated, more than 10
+  prompts or 20 options, or a field type other than a choice or text.
 - **Secrets are never asked for in the headset.** A secret prompt is shown with `secret: true` and
   the question is unanswerable: the client says the agent asks for something secret and offers no
   answer field.
