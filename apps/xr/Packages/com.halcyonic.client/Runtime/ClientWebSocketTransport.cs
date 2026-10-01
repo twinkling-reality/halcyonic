@@ -1,10 +1,14 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -30,10 +34,53 @@ namespace Halcyonic.Client
 
         public string? CloseDescription { get; private set; }
 
-        public Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
+        public async Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
         {
             socket.Options.SetRequestHeader("Authorization", "Bearer " + accessToken);
-            return socket.ConnectAsync(endpoint, cancellationToken);
+            try
+            {
+                await socket.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            }
+            catch (WebSocketException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // ClientWebSocket says only that it could not connect, whether nothing answered or the
+                // control plane refused the token (HTTP 401). One authenticated REST read tells them apart.
+                if (await RefusesToken(endpoint, accessToken, cancellationToken).ConfigureAwait(false) is UpgradeRefusedException refused)
+                {
+                    throw refused;
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Whether the control plane at <paramref name="endpoint"/> answers the access token with 401,
+        /// as the refusal it would have given the upgrade; null when it does not, or does not answer.
+        /// </summary>
+        internal static async Task<UpgradeRefusedException?> RefusesToken(Uri endpoint, string accessToken, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(ControlPlaneApi.BaseUriFor(endpoint), "api/runtimes"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if (response.StatusCode != HttpStatusCode.Unauthorized) return null;
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                try
+                {
+                    var error = HalcyonicJson.Deserialize<ErrorResponse>(body).Error;
+                    return new UpgradeRefusedException(401, error.Code, error.Message);
+                }
+                catch (Exception)
+                {
+                    return new UpgradeRefusedException(401, null, "no explanation was given.");
+                }
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
         }
 
         public async Task SendAsync(string message, CancellationToken cancellationToken)

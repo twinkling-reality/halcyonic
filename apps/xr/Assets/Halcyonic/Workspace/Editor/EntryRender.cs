@@ -223,6 +223,14 @@ namespace Halcyonic.XR.Workspace.Editor
             });
             yield return ("options-runtimes", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: false)));
             yield return ("options-models", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: true)));
+            // A model on the Mac chosen for the person, and the first press on one that runs elsewhere, which chooses nothing yet.
+            yield return ("recap-chosen-for-you", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true, chosen: false)));
+            yield return ("options-models-elsewhere", panel =>
+            {
+                var draft = Draft(state, listed: true, chosen: false);
+                draft.ChooseModel(draft.Models[1]);
+                panel.ShowForRender(EntryPanel.Screen.Options, Idea(), draft);
+            });
             yield return ("review", panel => panel.ShowForRender(EntryPanel.Screen.Review, Idea(), Draft(state, listed: true)));
             yield return ("review-last", panel =>
             {
@@ -300,7 +308,8 @@ namespace Halcyonic.XR.Workspace.Editor
             return sequence;
         }
 
-        private static NewWorkDraft Draft(ClientProjection state, bool listed)
+        /// <param name="chosen">Whether the person chose the model on the Mac themselves; otherwise it stands as chosen for them.</param>
+        private static NewWorkDraft Draft(ClientProjection state, bool listed, bool chosen = true)
         {
             var draft = new NewWorkDraft(Commands());
             var runtime = state.Runtimes.First(each => (each.ModelChoice == ModelChoice.Listed) == listed);
@@ -318,7 +327,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                 },
             });
-            draft.ChooseModel(draft.Models[0]);
+            if (chosen) draft.ChooseModel(draft.Models[0]);
             return draft;
         }
 

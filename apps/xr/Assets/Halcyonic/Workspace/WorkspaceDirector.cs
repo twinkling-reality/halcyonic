@@ -367,6 +367,8 @@ namespace Halcyonic.XR.Workspace
             var transition = WorkspaceTransition.Begin(root, target, place, scale);
             var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
             opened = workspace;
+            // Work the person just opened keeps its character a while after closing (CharacterLineup.KeepFor).
+            stage.Keep(target.WorkstreamId);
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
             workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader, WorkspaceText.FirstQuestion(presentation));
             workspace.Sections.RequestTurned += () =>

@@ -284,4 +284,98 @@ public class CharacterLineupTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new CharacterLineup(0));
     }
+
+    private static readonly DateTimeOffset Nine = DateTimeOffset.Parse("2026-10-01T09:00:00Z");
+
+    /// <summary>The fifth headset session's stage: six old workstreams flagged for attention, which outrank new work.</summary>
+    private static List<WorkstreamView> StaleNotices() => Enumerable.Range(0, 6)
+        .Select(i => Workstream("stale-" + i, WorkstreamStatus.WaitingForHuman, i, AttentionLevel.ActionRequired))
+        .ToList();
+
+    [Test]
+    public void WorkJustStartedStaysOnTheStageAheadOfOlderNotices()
+    {
+        var lineup = new CharacterLineup(6);
+        var work = StaleNotices();
+        lineup.Update(work, Nine);
+        Assert.That(Slots(lineup), Is.All.StartsWith("stale-"), "what stands at first is not new");
+
+        work.Add(Workstream("just-started", WorkstreamStatus.Starting, 59));
+        Assert.That(lineup.Update(work, Nine.AddSeconds(5)), Is.True);
+        Assert.That(lineup.SlotOf("just-started"), Is.GreaterThanOrEqualTo(0), "new work is not hidden behind old notices");
+        Assert.That(lineup.IsKept("just-started"), Is.True);
+        Assert.That(Slots(lineup).Count(id => id!.StartsWith("stale-")), Is.EqualTo(5));
+
+        lineup.Update(work, Nine.AddMinutes(4));
+        Assert.That(lineup.SlotOf("just-started"), Is.GreaterThanOrEqualTo(0), "still kept a while later");
+        lineup.Update(work, Nine.AddMinutes(6));
+        Assert.That(lineup.IsKept("just-started"), Is.False);
+        Assert.That(lineup.SlotOf("just-started"), Is.EqualTo(-1), "once the hold ends, rank decides again");
+    }
+
+    [Test]
+    public void WorkJustOpenedIsKeptLikeNewWork()
+    {
+        var lineup = new CharacterLineup(2);
+        var notice = Workstream("notice", WorkstreamStatus.Completed, 0);
+        var work = new List<WorkstreamView>
+        {
+            Workstream("opened", WorkstreamStatus.Completed, 1),
+            Workstream("other", WorkstreamStatus.Completed, 2),
+            notice,
+        };
+        lineup.Update(work, Nine);
+        Assert.That(Slots(lineup), Is.EquivalentTo(new[] { "opened", "other" }));
+        lineup.Keep("opened", Nine);
+        Change(notice, WorkstreamStatus.Failed, 3, AttentionLevel.Notice);
+        lineup.Update(work, Nine.AddMinutes(1));
+        Assert.That(Slots(lineup), Is.EquivalentTo(new[] { "opened", "notice" }), "the notice takes the slot that is not kept, though opened ranks last");
+    }
+
+    [Test]
+    public void KeptWorkNeverTakesEverySlot()
+    {
+        var lineup = new CharacterLineup(3);
+        var work = StaleNotices().Take(3).ToList();
+        lineup.Update(work, Nine);
+        for (var i = 0; i < 4; i++) work.Add(Workstream("new-" + i, WorkstreamStatus.Running, 10 + i));
+        lineup.Update(work, Nine.AddSeconds(1));
+        Assert.That(Slots(lineup).Count(id => id!.StartsWith("new-")), Is.EqualTo(2), "all slots but one");
+        Assert.That(Slots(lineup).Count(id => id!.StartsWith("stale-")), Is.EqualTo(1), "the work that ranks first keeps a slot");
+    }
+
+    [Test]
+    public void AnotherJournalsWorkIsNotNewAndNoClockKeepsNothing()
+    {
+        var lineup = new CharacterLineup(6);
+        lineup.UseJournal("demonstration");
+        lineup.Update(StaleNotices(), Nine);
+        lineup.UseJournal("live");
+        var live = StaleNotices().Select(w => { w.WorkstreamId = "live-" + w.WorkstreamId; return w; }).ToList();
+        live.Add(Workstream("live-resting", WorkstreamStatus.Completed, 0));
+        lineup.Update(live, Nine.AddSeconds(1));
+        Assert.That(lineup.SlotOf("live-resting"), Is.EqualTo(-1), "a journal's first update counts nothing as new");
+
+        var ranking = new CharacterLineup(6);
+        var work = StaleNotices();
+        ranking.Update(work);
+        work.Add(Workstream("just-started", WorkstreamStatus.Starting, 59));
+        ranking.Update(work);
+        Assert.That(ranking.SlotOf("just-started"), Is.EqualTo(-1), "without the device's clock the lineup only ranks, as before");
+    }
+
+    [Test]
+    public void TheWorkAskedForStillWinsAndMoreWorkCountsTheRest()
+    {
+        var lineup = new CharacterLineup(2);
+        var work = StaleNotices().Take(2).ToList();
+        lineup.Update(work, Nine);
+        work.Add(Workstream("just-started", WorkstreamStatus.Starting, 59));
+        work.Add(Workstream("asked-for", WorkstreamStatus.Completed, 1));
+        lineup.Request("asked-for");
+        lineup.Update(work, Nine.AddSeconds(1));
+        Assert.That(Slots(lineup), Is.EquivalentTo(new[] { "asked-for", "just-started" }));
+        var offStage = work.Where(w => lineup.SlotOf(w.WorkstreamId) < 0).Select(w => w.WorkstreamId);
+        Assert.That(offStage, Is.EquivalentTo(new[] { "stale-0", "stale-1" }), "More work lists exactly what has no character");
+    }
 }

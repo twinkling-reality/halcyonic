@@ -27,17 +27,25 @@ namespace Halcyonic.Client
     {
         public static readonly ConnectionStatus Stopped = new ConnectionStatus(ConnectionPhase.Stopped);
 
-        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null)
+        public ConnectionStatus(ConnectionPhase phase, string? detail = null, TimeSpan? retryIn = null, bool accessRefused = false)
         {
             Phase = phase;
             Detail = detail;
             RetryIn = retryIn;
+            AccessRefused = accessRefused;
         }
 
         public ConnectionPhase Phase { get; }
 
         /// <summary>Why the last connection ended or was refused, for display.</summary>
         public string? Detail { get; }
+
+        /// <summary>
+        /// The control plane answered and refused this device's credential (HTTP 401): it is reachable,
+        /// and trying again with the same credential cannot help. <see cref="Detail"/> then says, in
+        /// plain words, what to do next.
+        /// </summary>
+        public bool AccessRefused { get; }
 
         /// <summary>How long until the next attempt, while waiting to retry.</summary>
         public TimeSpan? RetryIn { get; }
