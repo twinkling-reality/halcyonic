@@ -97,4 +97,4 @@ snapshot, workstream, access token (an access code, only where the person must a
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
 the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the
-entry panel and the workspace have moved; Usage left and the ambient lines have not yet.
+entry panel, the workspace and Usage left have moved; the ambient lines have not yet.

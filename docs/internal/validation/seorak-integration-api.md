@@ -206,7 +206,7 @@ Halcyonic's rules on top:
 - Every reading's account is `unidentified` in Halcyonic's contract, whatever Seorak says, until an
   account identity boundary is agreed ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - The read costs one request of the credential's budget of 60 a minute, shared with evaluations.
-  It is made only when a person opens Usage left or presses Read again, and never journaled.
+  It is made only when a person opens Usage left or presses Refresh, and never journaled.
 
 To verify it live, the owner merges Seorak's usage limits build, restarts the Seorak daemon, and
 replaces `~/.halcyonic/seorak-credential` with one credential carrying `sessions:read`,

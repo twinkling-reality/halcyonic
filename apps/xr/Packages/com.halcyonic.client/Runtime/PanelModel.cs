@@ -267,6 +267,16 @@ namespace Halcyonic.Client
         public bool Continues { get; set; }
 
         /// <summary>
+        /// A line's meter, a share from 0 to 1 drawn as a bar at the line's right end, the words kept
+        /// left of it: a picture of what the line or the one under it says, never in its place. The
+        /// share is an upper bound, as usage left's "at most" is, so the bar's end is drawn open.
+        /// </summary>
+        public float? Meter { get; set; }
+
+        /// <summary>What the meter measures is being read again: it shows only its track, as a skeleton.</summary>
+        public bool MeterWaiting { get; set; }
+
+        /// <summary>
         /// An entry of a log the list may leave out where it has no room, the first of them first, so
         /// the newest stay in view and a log never pages. A line that starts a group, as a log's
         /// caption, goes only after every line that continues it.
@@ -316,7 +326,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The panel offers Move and Reset position beside Close. A panel that stays beside its
-        /// character, as the workspace, offers only Close, at the end of its tabs.
+        /// character, as the workspace, offers only Close, at the end of its tabs; one that stays put
+        /// and has no tabs, as Usage left, only Close, in its header.
         /// </summary>
         public bool Movable { get; set; } = true;
 

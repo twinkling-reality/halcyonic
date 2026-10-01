@@ -1,67 +1,32 @@
 #nullable enable
-using System.Collections.Generic;
-using System.Linq;
-using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
-    /// Text, plates and lines for the peek and the workspace, built at runtime.
+    /// Text, plates and lines not yet drawn by the interface's components (ADR 0023): the onboarding
+    /// hint, the head gaze reticle, and the link and ring of a workspace opening, built at runtime;
+    /// and where the person's eyes are.
     ///
-    /// Sizes are chosen for the Quest 3, about 25 pixels per degree at the lens center, at a design
-    /// distance: <see cref="PanelDistance"/> for the workspace, <see cref="PeekDistance"/> for the
-    /// peek. Both are scaled by their actual distance over the design distance, so they keep the
-    /// same angular size wherever the stage puts its characters. A TextMeshPro font size is the em
-    /// height in decimeters, so 0.24 draws a 24 mm em. Liberation Sans has an x-height of about half
-    /// an em, so body text has an x-height of about 0.55 degrees, roughly 14 pixels; the smallest
-    /// text, section captions, keeps about 10 pixels. Buttons are 72 mm tall at the design
-    /// distance, about 3 degrees, well above the jitter of a hand ray.
+    /// The hint's size is chosen for the Quest 3, about 25 pixels per degree at the lens center, at
+    /// <see cref="PeekDistance"/>, and scaled by its actual distance over that, so it keeps the same
+    /// angular size wherever the stage puts its characters. A TextMeshPro font size is the em height
+    /// in decimeters, so 0.30 draws a 30 mm em.
     /// </summary>
     internal static class WorkspaceVisuals
     {
-        /// <summary>The distance the workspace's sizes are designed for: comfortable to read without turning.</summary>
-        public const float PanelDistance = 1.3f;
-
         /// <summary>The distance the peek's size is designed for.</summary>
         public const float PeekDistance = 1.6f;
-
-        public const float TitleSize = 0.34f;
-        public const float BodySize = 0.24f;
-        public const float DetailSize = 0.20f;
-        public const float CaptionSize = 0.18f;
 
         /// <summary>At <see cref="PeekDistance"/>, a 30 mm em keeps a 14 pixel x-height.</summary>
         public const float PeekSize = 0.30f;
 
-        // Transparent renderers draw in sorting order before distance. The workspace, the nearest
-        // thing to the person, draws after everything at the characters' distance, and its plate is
-        // opaque, so neither a peek nor a character's body or label behind it shows through.
-        public const int PlateOrder = 0;
+        // Transparent renderers draw in sorting order before distance; these draw before every panel.
         public const int ControlOrder = 1;
         public const int TextOrder = 2;
-        public const int PanelPlateOrder = 10;
-        public const int PanelControlOrder = 11;
-        public const int PanelTextOrder = 12;
 
-        /// <summary>
-        /// Opaque. At 95 percent, and blended in the project's linear color space, a white label
-        /// behind the workspace lifted its dark plate by up to 54 of 255 levels: readable through it.
-        /// </summary>
-        public static readonly Color PanelColor = new Color(0.06f, 0.08f, 0.11f, 1f);
         public static readonly Color TextColor = new Color(0.93f, 0.95f, 0.96f);
-        public static readonly Color SecondaryColor = new Color(0.64f, 0.69f, 0.74f);
-        public static readonly Color ClaimColor = new Color(0.80f, 0.85f, 0.90f);
-        public static readonly Color AttentionColor = new Color(0.96f, 0.77f, 0.32f);
-        public static readonly Color ProblemColor = new Color(0.94f, 0.52f, 0.49f);
-        public static readonly Color DividerColor = new Color(1f, 1f, 1f, 0.12f);
-        public static readonly Color ButtonColor = new Color(0.16f, 0.21f, 0.27f, 1f);
-        public static readonly Color ButtonHoverColor = new Color(0.25f, 0.32f, 0.40f, 1f);
-        public static readonly Color ButtonPressColor = new Color(0.36f, 0.46f, 0.58f, 1f);
-        public static readonly Color ConfirmColor = new Color(0.96f, 0.77f, 0.32f, 1f);
-        public static readonly Color ConfirmHoverColor = new Color(1f, 0.86f, 0.50f, 1f);
-        public static readonly Color ConfirmTextColor = new Color(0.10f, 0.09f, 0.07f);
         public static readonly Color LinkColor = new Color(0.55f, 0.72f, 0.95f, 0.85f);
 
         /// <summary>
@@ -87,11 +52,7 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        /// <summary>
-        /// World-space text that never interprets markup, since it shows text from agents and tools.
-        /// Escape parsing stays on, so a doubled backslash shows as one: text goes in through
-        /// <see cref="SetLiteral"/>, which doubles every backslash.
-        /// </summary>
+        /// <summary>World-space text that never interprets markup.</summary>
         public static TextMeshPro Text(Transform parent, string name, float size, Color color, Vector2 box, TextAlignmentOptions alignment,
             bool wrap = false, int order = TextOrder)
         {
@@ -109,26 +70,6 @@ namespace Halcyonic.XR.Workspace
             text.overflowMode = TextOverflowModes.Ellipsis;
             text.sortingOrder = order;
             return text;
-        }
-
-        /// <summary>
-        /// Shows text on a label literally and completely, by the one rule for text Halcyonic did not
-        /// write (<see cref="LabelText"/>): no markup, backslashes as they are, and what would not
-        /// show as itself as its code point. Every label that can show such text gets it this way.
-        /// </summary>
-        public static void SetLiteral(TMP_Text label, string text)
-        {
-            label.richText = false;
-            label.parseCtrlCharacters = true;
-            label.text = LabelText.ForTextMeshPro(text);
-        }
-
-        /// <summary><see cref="SetLiteral"/> for a label of several lines: each line by the rule, one under the other.</summary>
-        public static void SetLiteralLines(TMP_Text label, IEnumerable<string> lines)
-        {
-            label.richText = false;
-            label.parseCtrlCharacters = true;
-            label.text = string.Join("\n", lines.Select(LabelText.ForTextMeshPro));
         }
 
         /// <summary>A rounded rectangle centered on its transform, facing the person like the text.</summary>

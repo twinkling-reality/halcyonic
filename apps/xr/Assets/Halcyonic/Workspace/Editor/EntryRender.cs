@@ -636,8 +636,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             foreach (var part in parts)
             {
-                var labels = part is PanelButton button ? new TMP_Text?[] { button.Label, button.Detail }
-                    : part is GlazeButton glazed ? new TMP_Text?[] { glazed.Label, glazed.Detail, glazed.Overline, glazed.End } : new[] { part as TMP_Text };
+                var labels = part is GlazeButton button ? new TMP_Text?[] { button.Label, button.Detail, button.Overline, button.End } : new[] { part as TMP_Text };
                 foreach (var label in labels)
                 {
                     if (label == null || !label.gameObject.activeInHierarchy) continue;

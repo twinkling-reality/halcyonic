@@ -307,7 +307,8 @@ node --test packages/integrations/seorak/src/live-seorak.test.ts
 
 The headset's Usage left glance reads `GET /api/usage-limits`, which reads Seorak's account-wide
 provider usage limits with `limits:read`. That read is in a Seorak build that is not released
-yet, so until it runs the headset says "Usage left isn't set up on your Mac." and nothing more.
+yet, so until it runs the headset says "Usage left isn't set up on your Mac yet. Set it up there to
+see it here." and nothing more.
 The control plane's reason code says why:
 
 | Reason | Meaning | Fix |
