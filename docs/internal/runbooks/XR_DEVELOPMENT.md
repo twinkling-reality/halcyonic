@@ -346,6 +346,12 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 The token survives reinstalls. The control plane logs `realtime client connected` for
 `halcyonic-xr`.
 
+If the line above the stage says "Your Mac refused this headset's access token", the token on the
+headset is from an earlier data directory or was replaced on the Mac: the control plane answered
+401, and the app stopped trying. Push the current token and start the app again, as above. "Can't
+reach your Mac" instead means nothing answered: check the control plane is running and
+`adb reverse tcp:47800 tcp:47800` is in place.
+
 - **Run the control plane without `--watch` for a headset session:**
   `node apps/control-plane/src/main.ts`, not `pnpm dev`. `pnpm dev` restarts it whenever code in the
   checkout changes, as a merge does, and that leaves every running execution in an unknown state.

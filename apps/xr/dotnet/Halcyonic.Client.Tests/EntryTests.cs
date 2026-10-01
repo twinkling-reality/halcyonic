@@ -595,8 +595,9 @@ public class EntryWordsTests
         Assert.That(EntryText.ModelLine(draft), Does.Contain("Nothing is chosen for you"));
 
         draft.ChooseRuntime(Samples.MockRuntime());
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Mock runtime (simulated)"));
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: the runtime's own choice. Simulated: no software work is done."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Mock runtime (simulated)"), "the recorded demonstration keeps its names");
+        Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo("Runs with: " + EntryText.PracticeRun));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("The runtime chooses its model. Simulated: nothing is built."));
 
         var listed = Samples.MockRuntime();
         listed.RuntimeId = "local";
@@ -604,13 +605,43 @@ public class EntryWordsTests
         listed.Synthetic = false;
         listed.ModelChoice = ModelChoice.Listed;
         draft.ChooseRuntime(listed);
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent"), "a runtime's name shows by the one rule");
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, no model yet"), "a runtime's name shows by the one rule");
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: Reading this runtime's models."));
         var remote = new RuntimeModel { ModelRef = "hosted/x", DisplayName = "Hosted", Served = ModelServed.Remote, ToolCalling = ModelToolCalling.Declared };
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote } } });
         Assert.That(draft.Model, Is.Null, "a remote model is never chosen for the person");
-        draft.ChooseModel(remote);
-        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Model: Hosted. Runs on a remote service: your code and instructions go there; tools declared."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, no model yet"));
+        Assert.That(draft.ChooseModel(remote), Is.False, "the first press only says where it runs");
+        Assert.That(EntryText.ConfirmElsewhere(remote), Is.EqualTo("Runs on a remote service: your code and instructions go there. Press again to use it."));
+        Assert.That(draft.ChooseModel(remote), Is.True);
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Runs on a remote service: your code and instructions go there; tools declared."));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, Hosted, remote"));
+
+        var local = new RuntimeModel { ModelRef = "ollama/qwen3.6", DisplayName = "qwen3.6 (Ollama)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared };
+        draft.ChooseRuntime(listed);
+        draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote, local } } });
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Runs with: Local‹U+202E› agent, qwen3.6 (Ollama), on your Mac"));
+        Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for you: it runs on your Mac; tools declared."));
+    }
+
+    [Test]
+    public void APracticeRunIsNamedForWhatItDoesAndOfferedLast()
+    {
+        var mock = Samples.MockRuntime();
+        var real = Samples.MockRuntime();
+        real.RuntimeId = "opencode";
+        real.DisplayName = "OpenCode 2.0.18";
+        real.Synthetic = false;
+        var cannotStart = Samples.MockRuntime();
+        cannotStart.RuntimeId = "watch-only";
+        cannotStart.Synthetic = false;
+        cannotStart.Capabilities.StartExecution = false;
+        // The fifth headset session: "Mock runtime (development fixture)" beside OpenCode was taken for a real one.
+        Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice run: builds nothing"));
+        Assert.That(EntryText.RuntimeName(mock), Does.EndWith("(simulated)"), "the demonstration is unaffected");
+        Assert.That(EntryText.RuntimeName(real, live: true), Is.EqualTo("OpenCode 2.0.18"));
+        Assert.That(EntryText.RuntimeChoices(new[] { mock, cannotStart, real }).Select(runtime => runtime.RuntimeId),
+            Is.EqualTo(new[] { "opencode", mock.RuntimeId }), "real runtimes first, a simulated one last, and none that cannot start work");
     }
 
     [Test]
