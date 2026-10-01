@@ -818,6 +818,7 @@ describe('what revocation stops, and how long the listener waits', () => {
           instruct_at_rest: false,
           instruct_while_running: false,
           respond_to_approval: false,
+          answer_question: false,
           interrupt: false,
         },
         model_choice: 'listed' as const,

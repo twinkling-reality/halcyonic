@@ -60,6 +60,7 @@ describe('runtime adapter capabilities', () => {
       instruct_at_rest: false,
       instruct_while_running: false,
       respond_to_approval: false,
+      answer_question: false,
       interrupt,
     },
     model_choice: modelChoice,

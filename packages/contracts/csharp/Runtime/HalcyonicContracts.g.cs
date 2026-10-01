@@ -77,6 +77,7 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "execution.start")] ExecutionStart,
         [EnumMember(Value = "execution.send_instruction")] ExecutionSendInstruction,
         [EnumMember(Value = "execution.respond_to_approval")] ExecutionRespondToApproval,
+        [EnumMember(Value = "execution.answer_question")] ExecutionAnswerQuestion,
         [EnumMember(Value = "execution.interrupt")] ExecutionInterrupt,
     }
 
@@ -176,6 +177,7 @@ namespace Halcyonic.Contracts
             AttentionReason value = tag switch
             {
                 "approval_pending" => new ApprovalPendingReason(),
+                "question_pending" => new QuestionPendingReason(),
                 "execution_failed" => new ExecutionFailedReason(),
                 "execution_state_unknown" => new ExecutionStateUnknownReason(),
                 "verification_failed" => new VerificationFailedReason(),
@@ -205,6 +207,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("approval_id", Required = Required.Always)]
         public string ApprovalId { get; set; } = default!;
+    }
+
+    public sealed class QuestionPendingReason : AttentionReason
+    {
+        protected override string Discriminator => "question_pending";
+
+        [JsonProperty("question_id", Required = Required.Always)]
+        public string QuestionId { get; set; } = default!;
     }
 
     public sealed class ExecutionFailedReason : AttentionReason
@@ -371,6 +381,54 @@ namespace Halcyonic.Contracts
         public string RequestedAt { get; set; } = default!;
     }
 
+    public sealed class QuestionOption
+    {
+        [JsonProperty("label", Required = Required.Always)]
+        public string Label { get; set; } = default!;
+
+        [JsonProperty("description", Required = Required.AllowNull)]
+        public string? Description { get; set; }
+    }
+
+    public sealed class QuestionPrompt
+    {
+        [JsonProperty("key", Required = Required.Always)]
+        public string Key { get; set; } = default!;
+
+        [JsonProperty("header", Required = Required.AllowNull)]
+        public string? Header { get; set; }
+
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("options", Required = Required.Always)]
+        public List<QuestionOption> Options { get; set; } = new List<QuestionOption>();
+
+        [JsonProperty("multiple", Required = Required.Always)]
+        public bool Multiple { get; set; }
+
+        [JsonProperty("free_text", Required = Required.Always)]
+        public bool FreeText { get; set; }
+
+        [JsonProperty("secret", Required = Required.Always)]
+        public bool Secret { get; set; }
+    }
+
+    public sealed class QuestionView
+    {
+        [JsonProperty("question_id", Required = Required.Always)]
+        public string QuestionId { get; set; } = default!;
+
+        [JsonProperty("prompts", Required = Required.Always)]
+        public List<QuestionPrompt> Prompts { get; set; } = new List<QuestionPrompt>();
+
+        [JsonProperty("answerable", Required = Required.Always)]
+        public bool Answerable { get; set; }
+
+        [JsonProperty("asked_at", Required = Required.Always)]
+        public string AskedAt { get; set; } = default!;
+    }
+
     public sealed class ToolActivityView
     {
         [JsonProperty("tool_call_id", Required = Required.Always)]
@@ -459,6 +517,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("pending_approvals", Required = Required.Always)]
         public List<ApprovalView> PendingApprovals { get; set; } = new List<ApprovalView>();
 
+        [JsonProperty("pending_questions", Required = Required.Always)]
+        public List<QuestionView> PendingQuestions { get; set; } = new List<QuestionView>();
+
         [JsonProperty("active_tools", Required = Required.Always)]
         public List<ToolActivityView> ActiveTools { get; set; } = new List<ToolActivityView>();
 
@@ -498,6 +559,9 @@ namespace Halcyonic.Contracts
         [EnumMember(Value = "execution_not_found")] ExecutionNotFound,
         [EnumMember(Value = "runtime_not_found")] RuntimeNotFound,
         [EnumMember(Value = "approval_not_found")] ApprovalNotFound,
+        [EnumMember(Value = "question_not_found")] QuestionNotFound,
+        [EnumMember(Value = "invalid_answer")] InvalidAnswer,
+        [EnumMember(Value = "model_required")] ModelRequired,
         [EnumMember(Value = "capability_unsupported")] CapabilityUnsupported,
         [EnumMember(Value = "invalid_state")] InvalidState,
         [EnumMember(Value = "invalid_runtime_options")] InvalidRuntimeOptions,
@@ -659,6 +723,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("interrupt", Required = Required.Always)]
         public bool Interrupt { get; set; }
+
+        [JsonProperty("answer_question", Required = Required.Always)]
+        public bool AnswerQuestion { get; set; }
     }
 
     [JsonConverter(typeof(StringEnumConverter))]
@@ -1051,6 +1118,30 @@ namespace Halcyonic.Contracts
         public string? Message { get; set; }
     }
 
+    public sealed class QuestionAnswer
+    {
+        [JsonProperty("key", Required = Required.Always)]
+        public string Key { get; set; } = default!;
+
+        [JsonProperty("selected", Required = Required.Always)]
+        public List<string> Selected { get; set; } = new List<string>();
+
+        [JsonProperty("text", Required = Required.AllowNull)]
+        public string? Text { get; set; }
+    }
+
+    public sealed class ExecutionAnswerQuestionPayload
+    {
+        [JsonProperty("execution_id", Required = Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [JsonProperty("question_id", Required = Required.Always)]
+        public string QuestionId { get; set; } = default!;
+
+        [JsonProperty("answers", Required = Required.Always)]
+        public List<QuestionAnswer> Answers { get; set; } = new List<QuestionAnswer>();
+    }
+
     public sealed class ExecutionInterruptPayload
     {
         [JsonProperty("execution_id", Required = Required.Always)]
@@ -1098,6 +1189,7 @@ namespace Halcyonic.Contracts
                 "execution.start" => new ExecutionStartCommand(),
                 "execution.send_instruction" => new ExecutionSendInstructionCommand(),
                 "execution.respond_to_approval" => new ExecutionRespondToApprovalCommand(),
+                "execution.answer_question" => new ExecutionAnswerQuestionCommand(),
                 "execution.interrupt" => new ExecutionInterruptCommand(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "CommandEnvelope has no string command_type."
@@ -1165,6 +1257,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public ExecutionRespondToApprovalPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionAnswerQuestionCommand : CommandEnvelope
+    {
+        protected override string Discriminator => "execution.answer_question";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public ExecutionAnswerQuestionPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionInterruptCommand : CommandEnvelope
@@ -1377,6 +1477,34 @@ namespace Halcyonic.Contracts
         public ApprovalResolution Decision { get; set; }
     }
 
+    public sealed class RuntimeQuestionAskedPayload
+    {
+        [JsonProperty("question_id", Required = Required.Always)]
+        public string QuestionId { get; set; } = default!;
+
+        [JsonProperty("prompts", Required = Required.Always)]
+        public List<QuestionPrompt> Prompts { get; set; } = new List<QuestionPrompt>();
+
+        [JsonProperty("answerable", Required = Required.Always)]
+        public bool Answerable { get; set; }
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum QuestionOutcome
+    {
+        [EnumMember(Value = "answered")] Answered,
+        [EnumMember(Value = "dismissed")] Dismissed,
+    }
+
+    public sealed class RuntimeQuestionResolvedPayload
+    {
+        [JsonProperty("question_id", Required = Required.Always)]
+        public string QuestionId { get; set; } = default!;
+
+        [JsonProperty("outcome", Required = Required.Always)]
+        public QuestionOutcome Outcome { get; set; }
+    }
+
     public sealed class RuntimeToolStartedPayload
     {
         [JsonProperty("tool_call_id", Required = Required.Always)]
@@ -1433,6 +1561,12 @@ namespace Halcyonic.Contracts
     }
 
     public sealed class RuntimeConnectionLostPayload
+    {
+        [JsonProperty("reason", Required = Required.Always)]
+        public string Reason { get; set; } = default!;
+    }
+
+    public sealed class RuntimeConnectionRestoredPayload
     {
         [JsonProperty("reason", Required = Required.Always)]
         public string Reason { get; set; } = default!;
@@ -1525,12 +1659,15 @@ namespace Halcyonic.Contracts
                 "runtime.turn.interrupted" => new RuntimeTurnInterruptedEvent(),
                 "runtime.approval.requested" => new RuntimeApprovalRequestedEvent(),
                 "runtime.approval.resolved" => new RuntimeApprovalResolvedEvent(),
+                "runtime.question.asked" => new RuntimeQuestionAskedEvent(),
+                "runtime.question.resolved" => new RuntimeQuestionResolvedEvent(),
                 "runtime.tool.started" => new RuntimeToolStartedEvent(),
                 "runtime.tool.completed" => new RuntimeToolCompletedEvent(),
                 "runtime.agent_message" => new RuntimeAgentMessageEvent(),
                 "runtime.test_run.started" => new RuntimeTestRunStartedEvent(),
                 "runtime.test_run.completed" => new RuntimeTestRunCompletedEvent(),
                 "runtime.connection.lost" => new RuntimeConnectionLostEvent(),
+                "runtime.connection.restored" => new RuntimeConnectionRestoredEvent(),
                 "runtime.model.used" => new RuntimeModelUsedEvent(),
                 _ => throw new JsonSerializationException(tag == null
                     ? "EventEnvelope has no string event_type."
@@ -1704,6 +1841,22 @@ namespace Halcyonic.Contracts
         public RuntimeApprovalResolvedPayload Payload { get; set; } = default!;
     }
 
+    public sealed class RuntimeQuestionAskedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.question.asked";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public RuntimeQuestionAskedPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class RuntimeQuestionResolvedEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.question.resolved";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public RuntimeQuestionResolvedPayload Payload { get; set; } = default!;
+    }
+
     public sealed class RuntimeToolStartedEvent : EventEnvelope
     {
         protected override string Discriminator => "runtime.tool.started";
@@ -1750,6 +1903,14 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("payload", Required = Required.Always)]
         public RuntimeConnectionLostPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class RuntimeConnectionRestoredEvent : EventEnvelope
+    {
+        protected override string Discriminator => "runtime.connection.restored";
+
+        [JsonProperty("payload", Required = Required.Always)]
+        public RuntimeConnectionRestoredPayload Payload { get; set; } = default!;
     }
 
     public sealed class RuntimeModelUsedEvent : EventEnvelope

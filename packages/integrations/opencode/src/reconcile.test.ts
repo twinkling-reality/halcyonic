@@ -22,6 +22,8 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
     outcome: null,
     idleAt: null,
     toolStatus: new Map(),
+    forms: [],
+    settledForms: new Map(),
     ...overrides,
   };
 }

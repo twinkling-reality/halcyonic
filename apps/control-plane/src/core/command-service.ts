@@ -397,6 +397,7 @@ export class CommandService {
       }
       case 'execution.send_instruction':
       case 'execution.respond_to_approval':
+      case 'execution.answer_question':
       case 'execution.interrupt': {
         const { adapter } = this.#runtimeFor(admission);
         const execution = toExecutionContext(admission.scope);
@@ -578,6 +579,18 @@ function actionFor(
             approval_id: command.payload.approval_id,
             decision: command.payload.decision,
             message: command.payload.message,
+          }))
+      );
+    }
+    case 'execution.answer_question': {
+      const answer = adapter.answerQuestion;
+      return (
+        answer &&
+        (() =>
+          answer.call(adapter, {
+            execution,
+            question_id: command.payload.question_id,
+            answers: command.payload.answers,
           }))
       );
     }

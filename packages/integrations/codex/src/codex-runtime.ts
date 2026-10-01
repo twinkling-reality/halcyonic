@@ -2,6 +2,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute } from 'node:path';
 import type {
   ApprovalDecision,
+  QuestionAnswer,
   RuntimeCapabilities,
   RuntimeDescriptor,
   RuntimeId,
@@ -66,14 +67,25 @@ import {
   stopRecordedProcess,
 } from './server-record.ts';
 
-/** Verified against Codex 0.157.0's app-server, stable surface (ADR 0011). */
+/**
+ * Verified against Codex 0.157.0's app-server, stable surface (ADR 0011). Answering questions also
+ * relies on an under-development feature switched on per thread (ADR 0022); `answerQuestions`
+ * turns it off, with the capability.
+ */
 export const CODEX_CAPABILITIES: RuntimeCapabilities = {
   start_execution: true,
   instruct_at_rest: true,
   instruct_while_running: true,
   respond_to_approval: true,
+  answer_question: true,
   interrupt: true,
 };
+
+/**
+ * The per-thread feature that lets the model ask the person in Codex's default mode. Codex 0.157.0
+ * marks it under development and warns about it when a thread starts (agent-questions.md).
+ */
+export const QUESTION_FEATURE = 'features.default_mode_request_user_input';
 
 /** Halcyonic's tag on every thread it starts, persisted by Codex as the thread's source. */
 export const THREAD_SOURCE = 'halcyonic';
@@ -104,6 +116,12 @@ export interface CodexRuntimeOptions {
   readonly interruptTimeoutMs?: number;
   /** How long Codex has to take an approval decision once it was sent. */
   readonly approvalTimeoutMs?: number;
+  /**
+   * Whether threads may ask the person questions, through Codex's under-development
+   * `default_mode_request_user_input` feature (ADR 0022). Off, the feature stays off, the runtime
+   * declares no `answer_question`, and the model asks in plain text instead. On by default.
+   */
+  readonly answerQuestions?: boolean;
   readonly clock?: Clock;
 }
 
@@ -185,6 +203,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly #requestTimeoutMs: number;
   readonly #interruptTimeoutMs: number;
   readonly #approvalTimeoutMs: number;
+  readonly #answerQuestions: boolean;
   readonly #clock: Clock;
   readonly #threads = new Map<string, HostedThread>();
   readonly #byThreadId = new Map<string, HostedThread>();
@@ -206,13 +225,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     this.#requestTimeoutMs = options.requestTimeoutMs ?? 20_000;
     this.#interruptTimeoutMs = options.interruptTimeoutMs ?? 10_000;
     this.#approvalTimeoutMs = options.approvalTimeoutMs ?? 10_000;
+    this.#answerQuestions = options.answerQuestions ?? true;
     this.#clock = options.clock ?? systemClock;
     this.descriptor = {
       runtime_id: options.runtimeId ?? ('codex' as RuntimeId),
       kind: 'codex',
       display_name: `Codex ${CODEX_VERSION}`,
       synthetic: false,
-      capabilities: CODEX_CAPABILITIES,
+      capabilities: { ...CODEX_CAPABILITIES, answer_question: this.#answerQuestions },
       model_choice: 'listed',
       uses_project_location: true,
     };
@@ -300,7 +320,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     // Asked again right before the folder is handed over: listing and launching wait.
     confirmProjectLocation(this.#directoryPolicy, cwd);
     const params: ThreadStartParams = {
-      ...threadSettings(options),
+      ...threadSettings(options, this.#answerQuestions),
       threadSource: THREAD_SOURCE,
     };
     const reported = checkSettings(
@@ -313,7 +333,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       execution: request.execution,
       emit: request.emit,
       options,
-      state: createThreadState(),
+      state: createThreadState(this.#answerQuestions),
       connection,
       confirmations: new Map(),
       queue: Promise.resolve(),
@@ -385,6 +405,57 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const timer = setTimeout(
       () =>
         this.#confirm(thread, approval, false, 'Codex did not confirm that it took the decision.'),
+      this.#approvalTimeoutMs,
+    );
+    try {
+      await confirmed;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Answers a question Codex asked (ADR 0022): `{answers: {[id]: {answers: [...]}}}`, the chosen
+   * labels then any typed text. Resolves once Codex has taken it, which it confirms with
+   * `serverRequest/resolved`; the model receives the answers verbatim.
+   */
+  async answerQuestion(request: {
+    execution: ExecutionContext;
+    question_id: string;
+    answers: readonly QuestionAnswer[];
+  }): Promise<void> {
+    const thread = this.#hosted(request.execution);
+    while (thread.recovering !== null) await thread.recovering;
+    const question = thread.state.questions.get(request.question_id);
+    if (thread.lost) throw unreachableError();
+    if (question === undefined || question.answered) {
+      throw new RuntimeActionError(
+        'question_not_pending',
+        `Question ${request.question_id} is not waiting for an answer.`,
+      );
+    }
+    const rpc = thread.connection.server.rpc;
+    if (!rpc.open) throw unreachableError();
+    const confirmed = new Promise<void>((resolve, reject) => {
+      thread.confirmations.set(question.questionId, { resolve, reject });
+    });
+    question.answered = true;
+    const answers = Object.fromEntries(
+      request.answers.map((answer) => [
+        answer.key,
+        { answers: [...answer.selected, ...(answer.text === null ? [] : [answer.text])] },
+      ]),
+    );
+    rpc.respond(question.requestId, { answers });
+    const timer = setTimeout(
+      () =>
+        this.#settleWaiter(
+          thread,
+          question.questionId,
+          false,
+          'question_unconfirmed',
+          'Codex did not confirm that it took the answer.',
+        ),
       this.#approvalTimeoutMs,
     );
     try {
@@ -554,7 +625,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         // Refused: a request Halcyonic does not show the person. Codex 0.157.0 takes an error
         // answer as a denial, an empty grant, a declined elicitation or an empty answer
         // (codex-rs/app-server/src/bespoke_event_handling.rs at rust-v0.157.0).
-        if (observed?.requested === undefined) {
+        if (observed?.requested === undefined && observed?.question === undefined) {
           rpc.respondError(
             id,
             UNSUPPORTED_REQUEST,
@@ -630,7 +701,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       confirmProjectLocation(this.#directoryPolicy, thread.options.cwd);
       const params: ThreadResumeParams = {
         threadId: thread.threadId,
-        ...threadSettings(thread.options),
+        ...threadSettings(thread.options, this.#answerQuestions),
         excludeTurns: true,
       };
       const reported = checkSettings(
@@ -707,14 +778,33 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         'The turn ended before Codex confirmed that it took the decision.',
       );
     }
+    for (const { question, confirmed } of observed.questionsSettled ?? []) {
+      this.#settleWaiter(
+        thread,
+        question.questionId,
+        confirmed,
+        'question_unconfirmed',
+        'The turn ended before Codex confirmed that it took the answer.',
+      );
+    }
   }
 
   #confirm(thread: HostedThread, approval: PendingApproval, confirmed: boolean, why: string): void {
-    const waiter = thread.confirmations.get(approval.approvalId);
+    this.#settleWaiter(thread, approval.approvalId, confirmed, 'approval_unconfirmed', why);
+  }
+
+  #settleWaiter(
+    thread: HostedThread,
+    id: string,
+    confirmed: boolean,
+    code: string,
+    why: string,
+  ): void {
+    const waiter = thread.confirmations.get(id);
     if (waiter === undefined) return;
-    thread.confirmations.delete(approval.approvalId);
+    thread.confirmations.delete(id);
     if (confirmed) waiter.resolve();
-    else waiter.reject(new RuntimeActionError('approval_unconfirmed', why, 'unknown'));
+    else waiter.reject(new RuntimeActionError(code, why, 'unknown'));
   }
 
   #dropConfirmations(thread: HostedThread, error: RuntimeActionError): void {
@@ -785,12 +875,16 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 // Helpers ----------------------------------------------------------------------------------------
 
 /** The settings every thread is started and resumed with. */
-function threadSettings(options: StartOptions): Omit<ThreadStartParams, 'threadSource'> {
+function threadSettings(
+  options: StartOptions,
+  askQuestions: boolean,
+): Omit<ThreadStartParams, 'threadSource'> {
   const config: ThreadConfigOverrides = {
     ...(options.contextWindow !== undefined && { model_context_window: options.contextWindow }),
     ...(options.autoCompactTokenLimit !== undefined && {
       model_auto_compact_token_limit: options.autoCompactTokenLimit,
     }),
+    ...(askQuestions && { [QUESTION_FEATURE]: true }),
   };
   return {
     cwd: options.cwd,

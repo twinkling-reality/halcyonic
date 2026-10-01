@@ -3,6 +3,7 @@ import type {
   ErrorInfo,
   EventOf,
   Provenance,
+  QuestionPrompt,
   RuntimeEventType,
   Timestamp,
 } from '@halcyonic/contracts';
@@ -36,7 +37,9 @@ export function decodeEvent(raw: string): OpenCodeEvent | null {
     return null;
   }
   const data = isRecord(value.data) ? value.data : {};
-  const sessionId = typeof data.sessionID === 'string' ? data.sessionID : null;
+  // `form.created` carries the whole form, which names its session.
+  const owner = isRecord(data.form) ? data.form : data;
+  const sessionId = typeof owner.sessionID === 'string' ? owner.sessionID : null;
   const durable = isRecord(value.durable) ? value.durable : null;
   // A durable sequence orders one aggregate; it is only the session's order when the session is it.
   const seq =
@@ -87,7 +90,19 @@ export interface SessionState {
   readonly replies: Map<string, ApprovalOutcome>;
   /** Tool calls that started and have not finished. */
   readonly tools: Set<string>;
+  /** Pending forms, the agent's questions (ADR 0022), with what answering them needs. */
+  readonly questions: Map<string, FormFields>;
+  /** Forms OpenCode confirmed answering with a 204, kept until `form.replied` arrives. */
+  readonly answered: Set<string>;
 }
+
+/** How to put an answer to each question of a form into the form's own fields. */
+export type FormFields = readonly {
+  readonly key: string;
+  readonly multiple: boolean;
+  /** Each offered option's value, by the label the person chose it by. */
+  readonly values: ReadonlyMap<string, string>;
+}[];
 
 export function createSessionState(): SessionState {
   return {
@@ -101,6 +116,8 @@ export function createSessionState(): SessionState {
     approvals: new Set(),
     replies: new Map(),
     tools: new Set(),
+    questions: new Map(),
+    answered: new Set(),
   };
 }
 
@@ -113,6 +130,8 @@ export function endTurn(state: SessionState): void {
   state.approvals.clear();
   state.replies.clear();
   state.tools.clear();
+  state.questions.clear();
+  state.answered.clear();
 }
 
 /**
@@ -204,6 +223,28 @@ export function observeEvent(
       state.replies.delete(id);
       return make('runtime.approval.resolved', { approval_id: id, decision });
     }
+    case 'form.created': {
+      const form = isRecord(data.form) ? data.form : null;
+      const asked = form === null ? null : formQuestion(form);
+      if (asked === null || state.questions.has(asked.id)) return [];
+      state.questions.set(asked.id, asked.fields);
+      return make('runtime.question.asked', {
+        question_id: asked.id,
+        prompts: asked.prompts,
+        answerable: asked.answerable,
+      });
+    }
+    case 'form.replied':
+    case 'form.cancelled': {
+      const id = nonBlank(data.id);
+      if (id === null || !state.questions.has(id)) return [];
+      state.questions.delete(id);
+      state.answered.delete(id);
+      return make('runtime.question.resolved', {
+        question_id: id,
+        outcome: event.type === 'form.replied' ? 'answered' : 'dismissed',
+      });
+    }
     case 'session.tool.input.started': {
       const id = nonBlank(data.id);
       const name = nonBlank(data.name);
@@ -237,6 +278,93 @@ export function observeEvent(
     default:
       return [];
   }
+}
+
+/**
+ * A form as the agent's question (ADR 0022): OpenCode 2.0.18's `question` tool opens a form with
+ * one field per question, `string`, or `multiselect` when several answers are allowed, each with
+ * its options and `custom` for a typed answer. Only such forms can be answered here; any other
+ * form, or one with fields of another type, is shown as waiting and is not answerable. Null for a
+ * form without an id or a single field to show.
+ */
+export function formQuestion(form: Readonly<Record<string, unknown>>): {
+  readonly id: string;
+  readonly prompts: QuestionPrompt[];
+  readonly answerable: boolean;
+  readonly fields: FormFields;
+} | null {
+  const id = nonBlank(form.id);
+  const raw = Array.isArray(form.fields) ? form.fields.filter(isRecord) : [];
+  if (id === null || raw.length === 0) return null;
+  const metadata = isRecord(form.metadata) ? form.metadata : {};
+  let answerable = metadata.kind === 'question' && raw.length <= 10;
+  const prompts: QuestionPrompt[] = [];
+  const fields: FormFields[number][] = [];
+  for (const [index, field] of raw.slice(0, 10).entries()) {
+    const key = nonBlank(field.key) ?? `field-${index}`;
+    // An answer names its question by this key, so it has to come back unchanged and unique.
+    if (key.length > 256 || fields.some((known) => known.key === key)) answerable = false;
+    const type = field.type;
+    const supported = type === 'string' || type === 'multiselect';
+    if (!supported) answerable = false;
+    const offered = Array.isArray(field.options) ? field.options.filter(isRecord) : [];
+    if (offered.length > 20) answerable = false;
+    const values = new Map<string, string>();
+    const options: QuestionPrompt['options'] = [];
+    for (const option of offered.slice(0, 20)) {
+      const label = nonBlank(option.label);
+      const value = typeof option.value === 'string' ? option.value : null;
+      if (label === null || value === null || values.has(clip(label, 200))) {
+        answerable = false;
+        continue;
+      }
+      values.set(clip(label, 200), value);
+      const description = nonBlank(option.description);
+      options.push({
+        label: clip(label, 200),
+        description: description === null ? null : clip(description, 1000),
+      });
+    }
+    const multiple = type === 'multiselect';
+    // A string field without options takes only a typed answer.
+    const freeText = supported && (field.custom === true || (!multiple && offered.length === 0));
+    const header = nonBlank(field.title);
+    const text = nonBlank(field.description) ?? header ?? nonBlank(form.title) ?? 'Question';
+    prompts.push({
+      key: clip(key, 256),
+      header: header === null ? null : clip(header, 200),
+      text: clip(text, 4000),
+      options,
+      multiple,
+      free_text: freeText,
+      secret: false,
+    });
+    fields.push({ key, multiple, values });
+  }
+  return { id, prompts, answerable, fields };
+}
+
+/**
+ * A form's answer from the person's answers: each question's chosen options as the form's values,
+ * one for a single choice, several for a multiselect field, a typed answer among them.
+ */
+export function formAnswer(
+  fields: FormFields,
+  answers: readonly {
+    readonly key: string;
+    readonly selected: readonly string[];
+    readonly text: string | null;
+  }[],
+): Record<string, string | string[]> {
+  const answer: Record<string, string | string[]> = {};
+  for (const field of fields) {
+    const given = answers.find((each) => each.key === field.key);
+    if (given === undefined) continue;
+    const chosen = given.selected.map((label) => field.values.get(label) ?? label);
+    if (given.text !== null) chosen.push(given.text);
+    answer[field.key] = field.multiple ? chosen : (chosen[0] ?? '');
+  }
+  return answer;
 }
 
 /** `once` and `always` let the tool run; `reject` refuses it. Anything else is not mapped. */

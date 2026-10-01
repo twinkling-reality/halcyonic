@@ -1169,6 +1169,7 @@ describe('descriptor', () => {
       instruct_at_rest: true,
       instruct_while_running: false,
       respond_to_approval: true,
+      answer_question: true,
       interrupt: true,
     });
     assert.equal(adapter.descriptor.display_name, 'Claude Agent');

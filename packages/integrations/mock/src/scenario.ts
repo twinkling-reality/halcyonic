@@ -5,6 +5,7 @@ import {
   compileValidator,
   ErrorInfo,
   NativeId,
+  QuestionPrompts,
   RUNTIME_EVENT_PAYLOADS,
   Text,
 } from '@halcyonic/contracts';
@@ -19,7 +20,8 @@ function emission<const T extends keyof typeof RUNTIME_EVENT_PAYLOADS>(type: T) 
 
 /**
  * What a scenario may describe happening inside a turn. The mock itself emits the execution
- * start, each turn start, approval requests and resolutions, and connection loss, so scenarios
+ * start, each turn start, approval requests and resolutions, questions and their resolution, and
+ * connection loss, so scenarios
  * cannot contradict the mock's own lifecycle. Turn endings omit `turn_id`; the mock fills it in.
  */
 const Emission = Type.Union([
@@ -63,7 +65,27 @@ const ApprovalStep = Type.Object(
   strict,
 );
 
-export const ScenarioStep = Type.Union([EmitStep, DisconnectStep, ApprovalStep]);
+/**
+ * The agent asks the person something and waits (ADR 0022). Once answered, the mock reports the
+ * answer back as the agent's message and plays `if_answered`.
+ */
+const QuestionStep = Type.Object(
+  {
+    after_ms: Delay,
+    await_answer: Type.Object(
+      {
+        question_id: NativeId,
+        prompts: QuestionPrompts,
+        answerable: Type.Boolean(),
+        if_answered: Type.Array(BranchStep),
+      },
+      strict,
+    ),
+  },
+  strict,
+);
+
+export const ScenarioStep = Type.Union([EmitStep, DisconnectStep, ApprovalStep, QuestionStep]);
 export type ScenarioStep = Static<typeof ScenarioStep>;
 export type BranchStep = Static<typeof BranchStep>;
 

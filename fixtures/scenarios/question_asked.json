@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "id": "question_asked",
+  "description": "Asks the person two questions before changing anything (ADR 0022): which colour scheme, and which pages to restyle, several allowed. Once answered, it repeats the answers and finishes without doing any work.",
+  "steps": [
+    {
+      "after_ms": 600,
+      "emit": {
+        "type": "runtime.agent_message",
+        "payload": { "text": "Before I restyle anything, I need two decisions from you." }
+      }
+    },
+    {
+      "after_ms": 500,
+      "await_answer": {
+        "question_id": "question-1",
+        "answerable": true,
+        "prompts": [
+          {
+            "key": "q0",
+            "header": "Colour scheme",
+            "text": "Which colour scheme should the dashboard use?",
+            "options": [
+              { "label": "Light", "description": "Dark text on a light background" },
+              { "label": "Dark", "description": "Light text on a dark background" }
+            ],
+            "multiple": false,
+            "free_text": true,
+            "secret": false
+          },
+          {
+            "key": "q1",
+            "header": "Pages",
+            "text": "Which pages should I restyle first?",
+            "options": [
+              { "label": "Sign in", "description": null },
+              { "label": "Orders", "description": null },
+              { "label": "Settings", "description": null }
+            ],
+            "multiple": true,
+            "free_text": false,
+            "secret": false
+          }
+        ],
+        "if_answered": [
+          {
+            "after_ms": 800,
+            "emit": {
+              "type": "runtime.agent_message",
+              "payload": {
+                "text": "Thanks. This is a simulated run, so nothing was restyled."
+              }
+            }
+          },
+          {
+            "after_ms": 300,
+            "emit": { "type": "runtime.turn.completed", "payload": {} }
+          }
+        ]
+      }
+    }
+  ]
+}

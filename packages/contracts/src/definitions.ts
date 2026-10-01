@@ -75,6 +75,7 @@ import {
   ProjectLocationChoice,
 } from './locations.ts';
 import { ClientInfo, ErrorInfo } from './primitives.ts';
+import { QuestionAnswer, QuestionOption, QuestionPrompt } from './questions.ts';
 import {
   ClientMessage,
   CommandAckMessage,
@@ -113,6 +114,7 @@ import {
   ExecutionView,
   JournalInfo,
   ProjectView,
+  QuestionView,
   Snapshot,
   TestRunResultView,
   TestRunView,
@@ -151,6 +153,11 @@ export const NAMED_DEFINITIONS: Readonly<Record<string, TSchema>> = {
   Attention,
   AttentionReason,
   ApprovalView,
+  QuestionView,
+  QuestionPrompt,
+  QuestionOption,
+  QuestionAnswer,
+  QuestionOutcome: RUNTIME_EVENT_PAYLOADS['runtime.question.resolved'].properties.outcome,
   ToolActivityView,
   TestRunView,
   TestRunResultView,

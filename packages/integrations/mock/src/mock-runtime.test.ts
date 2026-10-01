@@ -349,6 +349,7 @@ describe('scenario files', () => {
       'failing_tests',
       'order_confirmation_email',
       'order_history_pagination',
+      'question_asked',
       'runtime_error',
       'sign_in_rate_limit',
       'simulated_start',

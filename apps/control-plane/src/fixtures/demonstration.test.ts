@@ -259,6 +259,7 @@ describe('the XR client demonstration', () => {
       instruct_at_rest: false,
       instruct_while_running: false,
       respond_to_approval: false,
+      answer_question: false,
       interrupt: false,
     });
     const executions = DEMONSTRATION.nodes.flatMap((node) =>

@@ -16,6 +16,7 @@ import type {
   ProjectId,
   ProjectLocation,
   ProjectView,
+  QuestionView,
   RuntimeEvent,
   StoredEvent,
   Timestamp,
@@ -54,6 +55,7 @@ export interface ExecutionFacts {
   status: ExecutionStatus;
   hasNativeSession: boolean;
   pendingApprovalIds: readonly string[];
+  pendingQuestions: readonly QuestionView[];
 }
 
 const ACTIVE_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
@@ -374,12 +376,15 @@ export class Projection {
       case 'runtime.turn.interrupted':
       case 'runtime.approval.requested':
       case 'runtime.approval.resolved':
+      case 'runtime.question.asked':
+      case 'runtime.question.resolved':
       case 'runtime.tool.started':
       case 'runtime.tool.completed':
       case 'runtime.agent_message':
       case 'runtime.test_run.started':
       case 'runtime.test_run.completed':
       case 'runtime.connection.lost':
+      case 'runtime.connection.restored':
       case 'runtime.model.used':
         this.#applyRuntime(event, changes, notes);
         return;
@@ -459,6 +464,17 @@ export class Projection {
       case 'runtime.approval.resolved':
         execution.pendingApprovals.delete(event.payload.approval_id);
         break;
+      case 'runtime.question.asked':
+        execution.pendingQuestions.set(event.payload.question_id, {
+          question_id: event.payload.question_id,
+          prompts: event.payload.prompts,
+          answerable: event.payload.answerable,
+          asked_at: event.occurred_at,
+        });
+        break;
+      case 'runtime.question.resolved':
+        execution.pendingQuestions.delete(event.payload.question_id);
+        break;
       case 'runtime.tool.started':
         execution.activeTools.set(event.payload.tool_call_id, {
           tool_call_id: event.payload.tool_call_id,
@@ -500,6 +516,10 @@ export class Projection {
           code: 'runtime_connection_lost',
           message: event.payload.reason,
         };
+        break;
+      case 'runtime.connection.restored':
+        // Observable again, which every runtime event other than a loss already records above;
+        // what changed meanwhile arrives in the events that follow.
         break;
       case 'runtime.model.used':
         execution.modelRef = event.payload.model_ref;
@@ -595,5 +615,6 @@ function toFacts(state: ExecutionState): ExecutionFacts {
     status: deriveExecutionStatus(state),
     hasNativeSession: state.runtimeStarted,
     pendingApprovalIds: [...state.pendingApprovals.keys()],
+    pendingQuestions: [...state.pendingQuestions.values()],
   };
 }

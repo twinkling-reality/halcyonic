@@ -129,6 +129,7 @@ describe('Codex runtime descriptor', () => {
       instruct_at_rest: true,
       instruct_while_running: true,
       respond_to_approval: true,
+      answer_question: true,
       interrupt: true,
     });
   });
@@ -438,6 +439,8 @@ describe('Codex runtime against a stand-in binary', () => {
       approvalPolicy: 'on-request',
       approvalsReviewer: 'user',
       sandbox: 'workspace-write',
+      // The model may ask the person questions (ADR 0022).
+      config: { 'features.default_mode_request_user_input': true },
       threadSource: 'halcyonic',
     });
     assert.deepEqual(
@@ -483,7 +486,11 @@ describe('Codex runtime against a stand-in binary', () => {
       sandbox: 'workspace-write',
       model: 'qwen3.6:35b-a3b-nvfp4',
       modelProvider: 'ollama',
-      config: { model_context_window: 65536, model_auto_compact_token_limit: 52000 },
+      config: {
+        model_context_window: 65536,
+        model_auto_compact_token_limit: 52000,
+        'features.default_mode_request_user_input': true,
+      },
       threadSource: 'halcyonic',
     });
     await until(() => observations.length === 4, 'the turn');
@@ -808,6 +815,7 @@ describe('Codex runtime against a stand-in binary', () => {
     assert.deepEqual(Object.keys(resume?.params as object).sort(), [
       'approvalPolicy',
       'approvalsReviewer',
+      'config',
       'cwd',
       'excludeTurns',
       'sandbox',

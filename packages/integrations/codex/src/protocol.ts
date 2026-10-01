@@ -59,6 +59,11 @@ export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 export interface ThreadConfigOverrides {
   readonly model_context_window?: number;
   readonly model_auto_compact_token_limit?: number;
+  /**
+   * Lets the model ask the person questions through `request_user_input` in the default mode, which
+   * Codex 0.157.0 refuses otherwise. An under-development feature (ADR 0022).
+   */
+  readonly 'features.default_mode_request_user_input'?: boolean;
 }
 
 /** `v2/ThreadStartParams.ts`. */
@@ -238,6 +243,9 @@ export interface FileChangeApprovalParams {
 export type ApprovalDecision = 'accept' | 'decline';
 
 /** The server requests the adapter shows as approvals. Every other request is refused. */
+/** The server request through which the model asks the person questions (ADR 0022). */
+export const QUESTION_METHOD = 'item/tool/requestUserInput';
+
 export const APPROVAL_METHODS = [
   'item/commandExecution/requestApproval',
   'item/fileChange/requestApproval',

@@ -12,6 +12,7 @@ import {
   Timestamp,
   WorkstreamId,
 } from './primitives.ts';
+import { QuestionAnswer } from './questions.ts';
 import { ModelRef, RuntimeOptions } from './runtime.ts';
 import { COMMAND_SCHEMA_VERSION } from './versions.ts';
 
@@ -101,6 +102,23 @@ export const ExecutionRespondToApprovalCommand = defineCommand(
   ),
 );
 
+/**
+ * Answers a question the agent asked (ADR 0022): every question of the request at once. Low
+ * consequence, like an instruction: the answer informs the agent, and what it then does still needs
+ * its approvals. A client sends it only on a deliberate press.
+ */
+export const ExecutionAnswerQuestionCommand = defineCommand(
+  'execution.answer_question',
+  Type.Object(
+    {
+      execution_id: ExecutionId,
+      question_id: NativeId,
+      answers: Type.Array(QuestionAnswer, { minItems: 1, maxItems: 10 }),
+    },
+    strict,
+  ),
+);
+
 export const ExecutionInterruptCommand = defineCommand(
   'execution.interrupt',
   Type.Object({ execution_id: ExecutionId }, strict),
@@ -113,6 +131,7 @@ export const COMMAND_VARIANTS = [
   ExecutionStartCommand,
   ExecutionSendInstructionCommand,
   ExecutionRespondToApprovalCommand,
+  ExecutionAnswerQuestionCommand,
   ExecutionInterruptCommand,
 ] as const;
 
@@ -128,6 +147,7 @@ export const CommandType = Type.Union([
   Type.Literal('execution.start'),
   Type.Literal('execution.send_instruction'),
   Type.Literal('execution.respond_to_approval'),
+  Type.Literal('execution.answer_question'),
   Type.Literal('execution.interrupt'),
 ]);
 
@@ -148,6 +168,12 @@ export const RejectionCode = Type.Union([
   Type.Literal('execution_not_found'),
   Type.Literal('runtime_not_found'),
   Type.Literal('approval_not_found'),
+  /** The question is not, or no longer, waiting for an answer on this execution. */
+  Type.Literal('question_not_found'),
+  /** The answers do not fit the questions: one missing or repeated, or an unknown option. */
+  Type.Literal('invalid_answer'),
+  /** The runtime lists the models it can use, and the start chose none (`model_ref` is null). */
+  Type.Literal('model_required'),
   Type.Literal('capability_unsupported'),
   Type.Literal('invalid_state'),
   Type.Literal('invalid_runtime_options'),

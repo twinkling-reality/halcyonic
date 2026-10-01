@@ -20,6 +20,8 @@ export const RuntimeCapabilities = Type.Object(
     respond_to_approval: Type.Boolean(),
     /** Stop the running turn. The execution remains and may be instructed again. */
     interrupt: Type.Boolean(),
+    /** Carry the person's answer to a question the agent asked back to it (ADR 0022). */
+    answer_question: Type.Boolean(),
   },
   { additionalProperties: false },
 );

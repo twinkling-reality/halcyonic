@@ -5,6 +5,7 @@ import type {
   ExecutionStatus,
   ExecutionView,
   ProjectId,
+  QuestionView,
   RuntimeRef,
   TestRunResultView,
   TestRunView,
@@ -39,6 +40,8 @@ export interface ExecutionState {
   lastTurn: { outcome: TurnOutcome; error: ErrorInfo | null } | null;
   turnCount: number;
   pendingApprovals: Map<string, ApprovalView>;
+  /** Questions the agent asked that wait for the person (ADR 0022). */
+  pendingQuestions: Map<string, QuestionView>;
   activeTools: Map<string, ToolActivityView>;
   activeTestRun: TestRunView | null;
   lastTestRun: TestRunResultView | null;
@@ -69,6 +72,7 @@ export function createExecutionState(init: {
     lastTurn: null,
     turnCount: 0,
     pendingApprovals: new Map(),
+    pendingQuestions: new Map(),
     activeTools: new Map(),
     activeTestRun: null,
     lastTestRun: null,
@@ -85,7 +89,9 @@ export function createExecutionState(init: {
 export function deriveExecutionStatus(state: ExecutionState): ExecutionStatus {
   if (state.unknownReason !== null) return 'unknown';
   if (state.startFailure !== null) return 'failed';
-  if (state.pendingApprovals.size > 0) return 'waiting_for_human';
+  if (state.pendingApprovals.size > 0 || state.pendingQuestions.size > 0) {
+    return 'waiting_for_human';
+  }
   if (state.activeTurn !== null) return state.activeTestRun !== null ? 'verifying' : 'running';
   if (state.lastTurn !== null) return state.lastTurn.outcome;
   return 'starting';
@@ -107,6 +113,7 @@ export function endTurn(
   state.activeTurn = null;
   state.lastTurn = { outcome, error };
   state.pendingApprovals.clear();
+  state.pendingQuestions.clear();
   state.activeTools.clear();
   state.activeTestRun = null;
 }
@@ -124,6 +131,7 @@ export function toExecutionView(state: ExecutionState): ExecutionView {
     status: deriveExecutionStatus(state),
     status_reason: deriveStatusReason(state),
     pending_approvals: [...state.pendingApprovals.values()],
+    pending_questions: [...state.pendingQuestions.values()],
     active_tools: [...state.activeTools.values()],
     active_test_run: state.activeTestRun,
     last_test_run: state.lastTestRun,
