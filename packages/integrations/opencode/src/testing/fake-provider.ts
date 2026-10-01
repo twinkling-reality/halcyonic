@@ -9,6 +9,8 @@ import type { AddressInfo } from 'node:net';
  *
  * - last message from a tool: a short text answer quoting the tool result;
  * - last user message contains `RUN_SHELL`: one call to the offered shell tool;
+ * - last user message contains `ASK_QUESTION`: one call to the offered `question` tool, asking
+ *   which colour to use, red or blue;
  * - last user message contains `SLOW`: text streamed one chunk per `slowChunkMs` until the client
  *   disconnects or `slowChunks` chunks were sent;
  * - last user message contains `FAIL`: HTTP 400, which a client must not retry;
@@ -187,6 +189,20 @@ export async function startFakeProvider(options: FakeProviderOptions = {}): Prom
   };
 }
 
+/** The question the `ASK_QUESTION` turn asks through OpenCode's question tool. */
+export const FAKE_QUESTION = {
+  questions: [
+    {
+      question: 'Which colour should the file mention?',
+      header: 'Colour',
+      options: [
+        { label: 'red', description: 'The warm one' },
+        { label: 'blue', description: 'The calm one' },
+      ],
+    },
+  ],
+};
+
 const USAGE = { prompt_tokens: 12, completion_tokens: 6, total_tokens: 18 };
 
 function plan(request: FakeProviderRequest, functions: ToolFunction[], counter: number): Plan {
@@ -198,6 +214,10 @@ function plan(request: FakeProviderRequest, functions: ToolFunction[], counter: 
   const shell = functions.find((fn) => fn.name === 'shell' || fn.name === 'bash');
   if (text.includes('RUN_SHELL') && shell !== undefined) {
     return { kind: 'tool', name: String(shell.name), args: shellArguments(shell) };
+  }
+  const question = functions.find((fn) => fn.name === 'question');
+  if (text.includes('ASK_QUESTION') && question !== undefined) {
+    return { kind: 'tool', name: 'question', args: FAKE_QUESTION };
   }
   if (text.includes('SLOW')) return { kind: 'slow' };
   if (text.includes('FAIL')) return { kind: 'fail' };

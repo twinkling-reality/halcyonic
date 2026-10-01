@@ -229,4 +229,80 @@ describe('reconciling a session after the event stream reconnected', () => {
     );
     assert.deepEqual([...state.tools], ['call_busy']);
   });
+
+  test('a question asked while disconnected is learned from the pending forms', () => {
+    const state = running();
+    const form = {
+      id: 'frm_1',
+      sessionID: 'ses_1',
+      title: 'Questions',
+      metadata: { kind: 'question' },
+      fields: [
+        {
+          key: 'q0',
+          title: 'Colour',
+          description: 'Which colour?',
+          type: 'string',
+          options: [{ value: 'red', label: 'red' }],
+          custom: true,
+        },
+      ],
+    };
+    const observations = settled(state, snapshot({ forms: [form] }));
+    assert.deepEqual(
+      observations.map((item) => [item.type, item.provenance]),
+      [
+        [
+          'runtime.question.asked',
+          { epistemic: 'observed', native_type: 'opencode/session.form.list' },
+        ],
+      ],
+    );
+    assert.deepEqual([...state.questions.keys()], ['frm_1']);
+    // Read again unchanged, it is not reported twice.
+    assert.deepEqual(settled(state, snapshot({ forms: [form] })), []);
+  });
+
+  test('a question settled while disconnected is resolved as its form records it', () => {
+    const fields = [{ key: 'q0', multiple: false, values: new Map() }];
+    const state = running();
+    state.questions.set('frm_answered', fields);
+    state.questions.set('frm_cancelled', fields);
+    state.questions.set('frm_unread', fields);
+    state.questions.set('frm_ours', fields);
+    state.answered.add('frm_ours');
+    const observations = settled(
+      state,
+      snapshot({
+        settledForms: new Map([
+          ['frm_answered', 'answered'],
+          ['frm_cancelled', 'cancelled'],
+        ]),
+      }),
+    );
+    assert.deepEqual(
+      observations.map((item) => item.payload),
+      [
+        { question_id: 'frm_answered', outcome: 'answered' },
+        { question_id: 'frm_cancelled', outcome: 'dismissed' },
+        { question_id: 'frm_ours', outcome: 'answered' },
+      ],
+    );
+    // A question whose state could not be read stays pending until it is, or the turn ends.
+    assert.deepEqual([...state.questions.keys()], ['frm_unread']);
+  });
+
+  test('questions end with a turn that ended while disconnected, without a resolution', () => {
+    const state = running();
+    state.questions.set('frm_1', [{ key: 'q0', multiple: false, values: new Map() }]);
+    const observations = settled(
+      state,
+      snapshot({ running: false, outcome: 'interrupted', idleAt: IDLE }),
+    );
+    assert.deepEqual(
+      observations.map((item) => item.type),
+      ['runtime.turn.interrupted'],
+    );
+    assert.equal(state.questions.size, 0);
+  });
 });
