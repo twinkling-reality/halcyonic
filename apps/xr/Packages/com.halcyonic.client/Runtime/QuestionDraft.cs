@@ -84,7 +84,7 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Type(int prompt, string? text)
         {
-            if (!Prompts[prompt].FreeText) return "This question takes only the answers offered.";
+            if (!Prompts[prompt].FreeText) return "This question takes only the answers shown. Choose one of them.";
             var trimmed = text?.Trim();
             if (string.IsNullOrEmpty(trimmed))
             {
@@ -118,7 +118,7 @@ namespace Halcyonic.Client
                 }
                 if (Enumerable.Range(0, Prompts.Count).Any(prompt => !shownWhole[prompt]))
                 {
-                    return "Read each question to its end first.";
+                    return "Read each question to the end first. Press Next to see the rest.";
                 }
                 return null;
             }

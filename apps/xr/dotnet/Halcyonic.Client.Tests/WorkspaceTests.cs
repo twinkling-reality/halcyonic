@@ -207,11 +207,11 @@ public class WorkspacePresenterTests
             Failure = status == CommandStatus.Failed ? new CommandFailure { Code = "timeout", Message = "The runtime did not confirm.", Effect = FailureEffect.Unknown } : null,
             Result = null,
         };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Stopping the turn…"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Turn stopped"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Refused: Nothing is running."));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent. Waiting for it to stop…"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed: stopped."));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Couldn't do that: Nothing is running."));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
-            Is.EqualTo("Failed: The runtime did not confirm. It may have taken effect anyway."));
+            Is.EqualTo("Not sure it happened. Check its activity before you try again."));
 
         // The recorded demonstration's answer is its own words: the recording continues with the
         // answer it recorded, so "Refused" would contradict what plays next.

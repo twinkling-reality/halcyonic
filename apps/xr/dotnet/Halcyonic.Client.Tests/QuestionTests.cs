@@ -127,7 +127,7 @@ public class QuestionTests
         draft.Choose(1, "Sign in");
         draft.Choose(1, "Orders");
         draft.Choose(1, "Orders");
-        Assert.That(draft.Type(1, "Billing"), Is.EqualTo("This question takes only the answers offered."));
+        Assert.That(draft.Type(1, "Billing"), Is.EqualTo("This question takes only the answers shown. Choose one of them."));
         Assert.Throws<ArgumentException>(() => draft.Choose(1, "Billing"), "only labels offered");
         draft.Choose(0, "Dark");
         draft.ShownWhole(0);
@@ -146,7 +146,7 @@ public class QuestionTests
         draft.Choose(0, "Dark");
         Assert.That(draft.Problem, Is.EqualTo("Answer every question first: 1 of 2 answered."));
         draft.Choose(1, "Orders");
-        Assert.That(draft.Problem, Is.EqualTo("Read each question to its end first."));
+        Assert.That(draft.Problem, Is.EqualTo("Read each question to the end first. Press Next to see the rest."));
         draft.ShownWhole(0);
         draft.ShownWhole(1);
         Assert.That(draft.Problem, Is.Null);
@@ -196,7 +196,7 @@ public class QuestionTests
         draft.ShownWhole(0);
         draft.ShownWhole(1);
         Assert.That(steering.SendAnswer(draft, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send these answers to the agent?"));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Send these answers?"));
         Assert.That(steering.FocusLeft().Message, Is.EqualTo(WorkspaceText.ConfirmAfresh));
         Assert.That(steering.Confirm(work.Present()).Step, Is.EqualTo(SteeringStep.None), "the press that returns focus sends nothing");
         Assert.That(draft.IsChosen(0, "Light"), Is.True, "the answers chosen are kept");
@@ -219,9 +219,9 @@ public class QuestionTests
         Assert.That(outcome.Command, Is.Null);
     }
 
-    [TestCase(true, false, "The agent asks for something secret. Halcyonic can't send it; stop the turn to go on.")]
-    [TestCase(false, true, "This question was too long to show whole, so Halcyonic can't answer it. Stop the turn to go on.")]
-    [TestCase(false, false, "Halcyonic can't send an answer to this question. Stop the turn to go on.")]
+    [TestCase(true, false, "It asks for something secret, which can't be sent from here. Press Stop to go on.")]
+    [TestCase(false, true, "This question is too long to show in full, so it can't be answered here. Press Stop to go on.")]
+    [TestCase(false, false, "This question can't be answered from here. Press Stop to go on.")]
     public void AQuestionHalcyonicCannotAnswerShowsTheWayOn(bool secret, bool cut, string words)
     {
         var question = AskingWork.Scripted();
@@ -249,7 +249,7 @@ public class QuestionTests
                 execution.PendingQuestions.Add(more);
             }
         });
-        Assert.That(WorkspaceText.QuestionLead(work.Present()), Is.EqualTo("First of 3 questions shown; more may follow."));
+        Assert.That(WorkspaceText.QuestionLead(work.Present()), Is.EqualTo("At least 2 more questions wait after this one."));
     }
 
     [Test]
@@ -260,12 +260,12 @@ public class QuestionTests
             CommandId = "c1", CommandType = CommandType.ExecutionAnswerQuestion, Status = status, ExecutionId = "e1",
             IssuedAt = Samples.Time, Failure = failure, Rejection = rejection,
         };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent, waiting for the result…"));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("The runtime took the answer"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent. Waiting for the agent…"));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed: it has your answer."));
         var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed, unconfirmed)).Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));
         var gone = new CommandRejection { Code = RejectionCode.QuestionNotFound, Message = "Question question-1 is not pending." };
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected, rejection: gone)).Text, Is.EqualTo("Refused: the agent no longer waits for this answer."));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected, rejection: gone)).Text, Is.EqualTo("Couldn't send: it's no longer waiting for this answer. See what it's doing now."));
     }
 
     [Test]
@@ -289,7 +289,9 @@ public class QuestionTests
         question.Prompts.RemoveAt(1);
         Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you: Colour scheme: Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
-        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Asks you 2 questions: Colour scheme; Pages" }));
+        Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "It asks you a question. See it under Waiting for you." }),
+            "the answer line points to the tab; the tab's heading names the whole question");
+        Assert.That(CharacterPresenter.AsksYou(work.Present().QuestionToAnswer!), Is.EqualTo("Asks you 2 questions: Colour scheme; Pages"));
     }
 
     private ExecutionAnswerQuestionCommand Answer(AskingWork work)
@@ -320,21 +322,48 @@ public class QuestionTests
         var reply = new TaskCompletionSource<CommandAckMessage>();
         var sending = submissions.SubmitAsync(_ => reply.Task, command, "e1");
         Assert.That(Present(work, submissions).Actions, Does.Not.Contain(WorkspaceAction.Answer), "while it is sent");
+        Assert.That(Present(work, submissions).AnswerInFlight, Is.True, "held back for the answer on its way, not left out");
         Assert.That(Present(work, submissions).Actions, Does.Contain(WorkspaceAction.Interrupt), "stopping stays available");
 
         reply.SetResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted, Command = Record(command, CommandStatus.Accepted) });
         await sending;
         Assert.That(Present(work, submissions).Actions, Does.Not.Contain(WorkspaceAction.Answer), "accepted is not done");
+        Assert.That(Present(work, submissions).AnswerInFlight, Is.True);
 
         // The runtime never confirmed it: the agent may or may not have it, so nothing invites a blind resend.
         var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
         work.Record(Record(command, CommandStatus.Failed, unconfirmed));
         Assert.That(Present(work, submissions).Actions, Does.Not.Contain(WorkspaceAction.Answer));
+        Assert.That(Present(work, submissions).AnswerInFlight, Is.True);
         Assert.That(Present(work, submissions).Commands[0].Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));
 
         var refused = new CommandFailure { Code = "invalid_answer", Message = "No.", Effect = FailureEffect.None };
         work.Record(Record(command, CommandStatus.Failed, refused));
         Assert.That(Present(work, submissions).Actions, Does.Contain(WorkspaceAction.Answer), "a failure with no effect can be answered again");
+        Assert.That(Present(work, submissions).AnswerInFlight, Is.False);
+    }
+
+    [Test]
+    public void AnAnswerInFlightIsToldApartFromAnAnswerNotOffered()
+    {
+        var work = new AskingWork();
+        var submissions = new CommandSubmissions();
+        _ = submissions.SubmitAsync(_ => new TaskCompletionSource<CommandAckMessage>().Task, Answer(work), "e1");
+        Assert.That(Present(work, submissions).AnswerInFlight, Is.True);
+
+        var away = WorkspacePresenter.Present(work.Workstream, work.State, new ActivityLog(), false, submissions);
+        Assert.That(away.Actions, Is.Empty);
+        Assert.That(away.AnswerInFlight, Is.False, "not live: nothing is offered, and it says so in its own words");
+
+        var question = AskingWork.Scripted();
+        question.Answerable = false;
+        var unanswerable = new AskingWork(question);
+        var sent = new CommandSubmissions();
+        _ = sent.SubmitAsync(_ => new TaskCompletionSource<CommandAckMessage>().Task, Answer(work), "e1");
+        var workspace = Present(unanswerable, sent);
+        Assert.That(workspace.Actions, Does.Not.Contain(WorkspaceAction.Answer));
+        Assert.That(workspace.AnswerInFlight, Is.False, "a question that can't be answered here says why instead");
+        Assert.That(new AskingWork().Present().AnswerInFlight, Is.False, "nothing sent from here");
     }
 
     [Test]
@@ -349,14 +378,17 @@ public class QuestionTests
             Command = Record(command, CommandStatus.Rejected, rejection: new CommandRejection { Code = RejectionCode.InvalidAnswer, Message = "No." }),
         }), command, "e1");
         Assert.That(Present(work, refused).Actions, Does.Contain(WorkspaceAction.Answer));
+        Assert.That(Present(work, refused).AnswerInFlight, Is.False);
 
         var unsent = new CommandSubmissions();
         await unsent.SubmitAsync(_ => throw new SessionUnavailableException("Not connected."), Answer(work), "e1");
         Assert.That(Present(work, unsent).Actions, Does.Contain(WorkspaceAction.Answer), "it never left this headset");
+        Assert.That(Present(work, unsent).AnswerInFlight, Is.False);
 
         var unknown = new CommandSubmissions();
         await unknown.SubmitAsync(_ => throw new CommandOutcomeUnknownException("c", "The connection closed."), Answer(work), "e1");
         Assert.That(Present(work, unknown).Actions, Does.Not.Contain(WorkspaceAction.Answer), "it may have arrived");
+        Assert.That(Present(work, unknown).AnswerInFlight, Is.True);
 
         var otherQuestion = new CommandSubmissions();
         var elsewhere = Answer(work);
@@ -364,5 +396,6 @@ public class QuestionTests
         // Still on its way, so not awaited.
         _ = otherQuestion.SubmitAsync(_ => new TaskCompletionSource<CommandAckMessage>().Task, elsewhere, "e1");
         Assert.That(Present(work, otherQuestion).Actions, Does.Contain(WorkspaceAction.Answer), "only an answer to this question counts");
+        Assert.That(Present(work, otherQuestion).AnswerInFlight, Is.False);
     }
 }

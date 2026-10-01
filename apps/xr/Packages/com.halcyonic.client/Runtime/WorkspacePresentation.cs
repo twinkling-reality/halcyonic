@@ -84,6 +84,12 @@ namespace Halcyonic.Client
         /// <summary>Recent commands against the execution, newest first.</summary>
         public IReadOnlyList<CommandFeedback> Commands { get; }
 
+        /// <summary>
+        /// An answer this client sent to the question shown may still take effect, so Send answer is
+        /// not offered meanwhile: the workspace says it was sent, rather than offering anything else in its place.
+        /// </summary>
+        public bool AnswerInFlight { get; internal set; }
+
         public IReadOnlyList<ActivityEntry> Activity { get; }
 
         /// <summary>The approval that approving or denying answers: the oldest one pending.</summary>
@@ -123,10 +129,12 @@ namespace Halcyonic.Client
                 : new WorkspaceAction[0];
             // An answer this client sent that may still take effect is not raced by another.
             var asked = execution?.PendingQuestions.FirstOrDefault();
+            var answerInFlight = false;
             if (asked != null && submissions != null && actions.Contains(WorkspaceAction.Answer)
                 && submissions.AnswerPending(execution!.ExecutionId, asked.QuestionId, state))
             {
                 actions = actions.Where(action => action != WorkspaceAction.Answer).ToList();
+                answerInFlight = true;
             }
             IReadOnlyList<CommandFeedback> commands;
             if (execution == null)
@@ -155,7 +163,10 @@ namespace Halcyonic.Client
                 actions,
                 confirm,
                 commands,
-                execution == null ? new ActivityEntry[0] : activity.For(execution.ExecutionId));
+                execution == null ? new ActivityEntry[0] : activity.For(execution.ExecutionId))
+            {
+                AnswerInFlight = answerInFlight,
+            };
         }
 
         /// <summary>
@@ -220,39 +231,40 @@ namespace Halcyonic.Client
                     text = command.Rejection?.Code == RejectionCode.Demonstration
                         ? command.Rejection.Message
                         : command.Rejection?.Code == RejectionCode.QuestionNotFound
-                        ? "Refused: the agent no longer waits for this answer."
-                        : "Refused: " + (command.Rejection?.Message ?? "no reason given");
+                        ? "Couldn't send: it's no longer waiting for this answer. See what it's doing now."
+                        : "Couldn't do that: " + (command.Rejection?.Message ?? "no reason given");
                     break;
                 default:
                     var failure = command.Failure;
                     // An answer the runtime never confirmed may or may not have reached the agent.
+                    // An effect that cannot be ruled out is never put in words that say nothing happened.
                     text = command.CommandType == CommandType.ExecutionAnswerQuestion && failure?.Effect == FailureEffect.Unknown
                         ? WorkspaceText.AnswerNotConfirmed
-                        : "Failed: " + (failure?.Message ?? "no reason given")
-                            + (failure?.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : "");
+                        : failure?.Effect == FailureEffect.Unknown
+                        ? "Not sure it happened. Check its activity before you try again."
+                        : "Couldn't do that: " + (failure?.Message ?? "no reason given");
                     break;
             }
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);
         }
 
+        /// <summary>Accepted is not done: sent, and what it waits for.</summary>
         internal static string Pending(CommandType type) => type switch
         {
-            CommandType.ExecutionRespondToApproval => "Answering the approval…",
-            CommandType.ExecutionAnswerQuestion => "Sent, waiting for the result…",
-            CommandType.ExecutionInterrupt => "Stopping the turn…",
-            CommandType.ExecutionSendInstruction => "Sending the instruction…",
-            CommandType.ExecutionStart => "Starting…",
-            _ => "Working on it…",
+            CommandType.ExecutionInterrupt => "Sent. Waiting for it to stop…",
+            CommandType.ExecutionStart => "Sent. Waiting for it to start…",
+            _ => "Sent. Waiting for the agent…",
         };
 
+        /// <summary>Only the control plane's completed record says so.</summary>
         private static string Done(CommandType type) => type switch
         {
-            CommandType.ExecutionRespondToApproval => "Approval answered",
-            CommandType.ExecutionAnswerQuestion => "The runtime took the answer",
-            CommandType.ExecutionInterrupt => "Turn stopped",
-            CommandType.ExecutionSendInstruction => "Instruction delivered",
-            CommandType.ExecutionStart => "Started",
-            _ => "Done",
+            CommandType.ExecutionRespondToApproval => "Confirmed: it has your decision.",
+            CommandType.ExecutionAnswerQuestion => "Confirmed: it has your answer.",
+            CommandType.ExecutionInterrupt => "Confirmed: stopped.",
+            CommandType.ExecutionSendInstruction => "Confirmed: it has your instruction.",
+            CommandType.ExecutionStart => "Confirmed: started.",
+            _ => "Confirmed.",
         };
     }
 }

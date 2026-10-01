@@ -469,14 +469,15 @@ public class DemonstrationSessionTests
         var workspace = WorkspacePresenter.Present(directed, session!.State, activity, session.Status.IsLive, submissions);
         Assert.That(workspace.Actions, Is.EquivalentTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(workspace.Character.Recorded && workspace.Character.Synthetic && !workspace.Character.Stale, Is.True);
-        Assert.That(WorkspaceText.Execution(workspace), Does.StartWith("On Simulated agent (demonstration), simulated work"));
-        Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("It wants to use shell: Run make migrate"));
+        Assert.That(WorkspaceText.Execution(workspace), Does.StartWith("Practice run: builds nothing"));
+        Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("It wants to run: Run make migrate"));
         foreach (var watched in session.State.Workstreams.Values.Where(w => w.Title != Demonstration.Directed))
         {
             var beside = WorkspacePresenter.Present(watched, session.State, activity, true, submissions);
             Assert.That(beside.Actions, Is.Empty, watched.Title);
             Assert.That(beside.Character.Activity, Is.EqualTo(CharacterActivity.TurnFinished), watched.Title);
-            Assert.That(WorkspaceText.Execution(beside), Does.StartWith("On Simulated agent (demonstration, watch only)"));
+            Assert.That(WorkspaceText.Execution(beside), Does.StartWith("Practice run: builds nothing"));
+            Assert.That(beside.Character.Recorded, Is.True, "watched work reads as recorded");
         }
 
         // Approving needs the deliberate second press, as it does live, once the whole request has shown.
@@ -529,7 +530,7 @@ public class DemonstrationSessionTests
         Assert.That(player.Ended, Is.True);
         workspace = WorkspacePresenter.Present(Demonstration.DirectedWorkstream(session), session.State, activity, session.Status.IsLive, submissions);
         Assert.That(workspace.Actions, Is.Empty);
-        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Nothing can be sent: the runtime is not available here."));
+        Assert.That(WorkspaceText.WhyNoActions(workspace), Is.EqualTo("Nothing can be sent: it isn't available on your Mac now."));
         Assert.That(session.State.Commands.Values.Where(command => command.ExecutionId == execution.ExecutionId).Select(command => command.Status),
             Is.All.EqualTo(CommandStatus.Completed), "only the recording's own commands, confirmed by its runtime");
         Assert.That(phases, Is.All.EqualTo(ConnectionPhase.Live), "never disconnected");

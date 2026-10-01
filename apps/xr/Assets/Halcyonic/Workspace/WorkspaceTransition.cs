@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Halcyonic.XR.UI;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
@@ -122,10 +123,8 @@ namespace Halcyonic.XR.Workspace
             // The link joins the body to the nearest point of the panel's outline: its top or bottom
             // when the character is above or below it, a side when it is beside it.
             var local = transform.InverseTransformPoint(body);
-            var edge = new Vector3(
-                Mathf.Clamp(local.x, -WorkspacePanel.Width / 2f, WorkspacePanel.Width / 2f),
-                Mathf.Clamp(local.y, -WorkspacePanel.Height / 2f, WorkspacePanel.Height / 2f),
-                0f);
+            var half = PanelFrame.UnitSize / 2f;
+            var edge = new Vector3(Mathf.Clamp(local.x, -half.x, half.x), Mathf.Clamp(local.y, -half.y, half.y), 0f);
             link.SetPosition(0, body);
             link.SetPosition(1, transform.TransformPoint(edge));
 

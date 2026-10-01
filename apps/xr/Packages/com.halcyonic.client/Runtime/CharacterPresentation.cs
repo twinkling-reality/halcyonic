@@ -168,7 +168,8 @@ namespace Halcyonic.Client
                     {
                         if (pending.ApprovalId == approval.ApprovalId && pending.Subject is ToolUseSubject tool)
                         {
-                            var note = "It wants to use " + tool.ToolName + ": " + tool.Summary;
+                            // A command reads as one; any other tool, or one this app doesn't know, by its own name.
+                            var note = WorkspaceText.RunsCommand(tool.ToolName) ? "It wants to run: " + tool.Summary : "It wants to use " + tool.ToolName + ": " + tool.Summary;
                             return (note, note);
                         }
                     }

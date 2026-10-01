@@ -35,9 +35,6 @@ namespace Halcyonic.XR.Workspace
         /// <summary>At <see cref="PeekDistance"/>, a 30 mm em keeps a 14 pixel x-height.</summary>
         public const float PeekSize = 0.30f;
 
-        /// <summary>The slant of text read as a claim: this font's italic style, 35, as TextMeshPro shears it, 0.35.</summary>
-        private const float Shear = 0.35f;
-
         // Transparent renderers draw in sorting order before distance. The workspace, the nearest
         // thing to the person, draws after everything at the characters' distance, and its plate is
         // opaque, so neither a peek nor a character's body or label behind it shows through.
@@ -132,29 +129,6 @@ namespace Halcyonic.XR.Workspace
             label.richText = false;
             label.parseCtrlCharacters = true;
             label.text = string.Join("\n", lines.Select(LabelText.ForTextMeshPro));
-        }
-
-        /// <summary>
-        /// Leans every letter a label laid out, as italics would, for its <c>OnPreRenderText</c>.
-        /// TextMeshPro's italic style cannot be used: Liberation Sans SDF has no italic typeface, so a
-        /// label set to italics finds no ellipsis, turns its overflow to Truncate for good and cuts
-        /// text short without saying so. An upright label leaned here keeps its ellipsis, which leans
-        /// with it.
-        /// </summary>
-        public static void Lean(TMP_TextInfo info)
-        {
-            for (var index = 0; index < info.characterCount; index++)
-            {
-                var character = info.characterInfo[index];
-                if (!character.isVisible) continue;
-                // About the middle of a capital, as TextMeshPro shears, so the letter keeps its place.
-                var middle = character.baseLine + 0.5f * character.fontAsset.faceInfo.capLine * character.scale;
-                var vertices = info.meshInfo[character.materialReferenceIndex].vertices;
-                for (var corner = character.vertexIndex; corner < character.vertexIndex + 4; corner++)
-                {
-                    vertices[corner].x += Shear * (vertices[corner].y - middle);
-                }
-            }
         }
 
         /// <summary>A rounded rectangle centered on its transform, facing the person like the text.</summary>

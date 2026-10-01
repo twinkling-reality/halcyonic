@@ -715,13 +715,15 @@ public class EntryWordsTests
     }
 
     [Test]
-    public void EachQuestionFitsTwoTabLinesWithoutShortening()
+    public void EachQuestionHasAShortTabAndKeepsItsWholeQuestion()
     {
+        var labels = Enum.GetValues<WorkspaceQuestion>().Select(WorkspaceText.TabLabel).ToList();
+        Assert.That(labels, Is.EqualTo(new[] { "Doing", "Understand", "Checked", "Waiting for you" }));
+        Assert.That(labels.Distinct().Count(), Is.EqualTo(labels.Count));
+        Assert.That(WorkspaceText.TabLabel(WorkspaceQuestion.NeedFromYou), Is.EqualTo(StateLanguage.WordOf(WorkState.WaitingForYou)), "the state's own word");
         foreach (var question in Enum.GetValues<WorkspaceQuestion>())
         {
-            var lines = WorkspaceText.TabLines(question);
-            Assert.That(lines, Has.Count.EqualTo(2));
-            Assert.That(string.Join(" ", lines), Is.EqualTo(WorkspaceText.Question(question)));
+            Assert.That(WorkspaceText.Question(question), Does.Not.Contain("…"), "the whole question heads the tab's answer");
         }
     }
 }
@@ -736,13 +738,13 @@ public class QuestionLedWorkspaceTests
         Assert.That(WorkspaceText.Questions(waiting), Does.Contain(WorkspaceQuestion.NeedFromYou));
         Assert.That(WorkspaceText.FirstQuestion(waiting), Is.EqualTo(WorkspaceQuestion.NeedFromYou));
         var need = WorkspaceText.NeedFromYou(waiting)!;
-        Assert.That(need.Asks, Is.EqualTo("It asks for approval to use bash:"));
+        Assert.That(need.Asks, Is.EqualTo("It wants to run a command:"));
         Assert.That(need.Request, Is.EqualTo("Run the migration"));
-        Assert.That(need.Notes, Has.Some.Contains("runtime confirms"), "an answer counts once confirmed, not when sent");
+        Assert.That(need.Notes, Has.Some.Contains("once the agent confirms"), "an answer counts once confirmed, not when sent");
 
         work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", "2026-09-26T09:05:00.000Z")));
         Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Request, Is.EqualTo("Run the migration"), "the oldest, which an answer goes to");
-        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 requests wait; this is the oldest."));
+        Assert.That(WorkspaceText.NeedFromYou(work.Present())!.Notes, Has.Some.EqualTo("2 requests are waiting. This is the oldest."));
 
         work.Change(execution => execution.PendingApprovals[0].Subject = new ToolUseSubject { ToolName = "sh\u202Eell", Summary = "Line one\nline two <b>x</b>" });
         var plain = WorkspaceText.NeedFromYou(work.Present())!;
@@ -767,7 +769,8 @@ public class QuestionLedWorkspaceTests
         work.Workstream.Objective = "Migrate\nthe database";
         var waiting = work.Present();
         Assert.That(WorkspaceText.Goal(waiting), Is.EqualTo("Goal: Migrate the database"));
-        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(WorkspaceText.Attention(waiting)));
+        Assert.That(WorkspaceText.Answer(waiting), Is.EqualTo(new[] { "It wants your approval. See it under Waiting for you." }),
+            "the request itself shows whole under its tab");
 
         work.Change(execution =>
         {

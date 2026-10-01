@@ -318,8 +318,9 @@ namespace Halcyonic.XR.UI
         public void Hide() => gameObject.SetActive(false);
 
         /// <summary>
-        /// For a filter: whether what it shows or hides is shown now; for a choice, whether it is
-        /// chosen, edged in the accent; for a destructive action, that this is its confirmation, solid red.
+        /// For a filter: whether what it shows or hides is shown now, as a tab whether it is the one
+        /// showing; for a choice, or a tab in the attention colour, whether it is chosen, edged in the
+        /// accent; for a destructive action, that this is its confirmation, solid red.
         /// </summary>
         public bool On
         {
@@ -503,6 +504,12 @@ namespace Halcyonic.XR.UI
                         var attention = Glaze.Tone(GlazeTone.Attention);
                         fill = GlazeTokens.ColorOf(pressed ? GlazeColor.Hex(0xD9A93F) : hovered ? attention.Foreground : attention.Strong);
                         text = GlazeTokens.ColorOf(attention.OnStrong);
+                        if (on)
+                        {
+                            // The tab showing: edged in the accent, as a chosen choice is.
+                            edge = GlazeTokens.ColorOf(accent.Strong);
+                            edgeWidth = GlazeTokens.Units(HoverEdgeDegrees);
+                        }
                         break;
                     case ButtonRole.Destructive when on:
                         var confirming = Glaze.Tone(GlazeTone.Failure);

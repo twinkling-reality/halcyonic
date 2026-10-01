@@ -233,7 +233,8 @@ namespace Halcyonic.XR.UI.Editor
         /// <summary>
         /// A panel's list rows: a choice at rest, pointed at, pressed and chosen, a filter on and off, a
         /// fact with its line over the title and its end word, an unavailable one and one that only says
-        /// something; then a card, the attention button and a destructive action's confirmation.
+        /// something; then a card, the attention button, a tab in the attention colour showing, and a
+        /// destructive action's confirmation.
         /// </summary>
         private static List<(GlazeButton Button, string What)> Rows()
         {
@@ -277,6 +278,11 @@ namespace Halcyonic.XR.UI.Editor
             var after = Place(attention, EntryText.OpenNow, null, null, x, y);
             attention.PaintForRender(false, false);
             rows.Add((attention, "the attention button"));
+            var tab = GlazeButton.Create(Holder("Attention tab", 0f, 0f), "Button", ButtonRole.Attention, compact: true);
+            tab.On = true;
+            after = Place(tab, StateLanguage.WordOf(WorkState.WaitingForYou), null, null, after, y);
+            tab.PaintForRender(false, false);
+            rows.Add((tab, "the attention tab showing"));
             var confirm = GlazeButton.Create(Holder("Confirm destructive", 0f, 0f), "Button", ButtonRole.Destructive);
             confirm.On = true;
             Place(confirm, EntryText.ConfirmStartOver, null, null, after, y);

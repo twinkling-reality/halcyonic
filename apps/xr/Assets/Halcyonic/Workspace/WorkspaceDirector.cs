@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Halcyonic.Client;
@@ -422,59 +423,15 @@ namespace Halcyonic.XR.Workspace
             // Work the person just opened keeps its character a while after closing (CharacterLineup.KeepFor).
             stage.Keep(target.WorkstreamId);
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
-            workspace.Sections = WorkspaceSections.Attach(panel, () => workspace.Now, IntelligenceReader, WorkspaceText.FirstQuestion(presentation),
-                () => workspace.Draft, () => HoldToTalk.Offered && connection.DemonstrationReads == null);
-            workspace.Sections.TypeAnswer += prompt => OpenAnswerKeyboard(workspace, prompt);
-            workspace.Sections.Asking.SpeakStarted += prompt =>
-            {
-                if (opened != workspace) return;
-                workspace.AnswerPrompt = prompt;
-                answerVoice.Begin();
-            };
-            workspace.Sections.Asking.SpeakEnded += answerVoice.End;
-            workspace.Sections.Asking.SpeakTapped += () =>
-            {
-                Notify(workspace, VoiceText.TooShort);
-                RefreshPanel();
-            };
-            workspace.Sections.RequestTurned += () =>
-            {
-                if (opened == workspace) RefreshPanel();
-            };
-            panel.Accepting = () => opened == workspace && transition.Open;
-            // Only Send answer sends an answer, with the answers chosen; no other gesture does.
-            panel.ActionPressed += action => Steer(workspace, s => action == WorkspaceAction.Answer && workspace.Draft != null
-                ? s.SendAnswer(workspace.Draft, workspace.Now!)
-                : s.Press(action, workspace.Now!));
-            panel.ConfirmPressed += () => Steer(workspace, s => s.Confirm(workspace.Now!));
-            panel.PresetPressed += preset =>
-            {
-                workspace.Presets = false;
-                Steer(workspace, s => s.Typed(preset.Text, workspace.Now!));
-            };
-            panel.SpeakStarted += () =>
-            {
-                if (opened == workspace) voice.Begin();
-            };
-            panel.SpeakEnded += voice.End;
-            panel.SpeakTapped += () =>
-            {
-                Notify(workspace, VoiceText.TooShort);
-                RefreshPanel();
-            };
-            panel.CancelPressed += () =>
-            {
-                CloseKeyboard(workspace);
-                workspace.Steering.StopTyping();
-                workspace.Steering.Cancel();
-                workspace.Presets = false;
-                RefreshPanel();
-            };
-            panel.CollapsePressed += () =>
-            {
-                Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Collapse);
-                Close(immediately: false);
-            };
+            var screen = workspace.Screen;
+            screen.Speak = HoldToTalk.Offered && connection.DemonstrationReads == null;
+            screen.Zone = Clock.Zone;
+            workspace.Sections = WorkspaceSections.Attach(root, () => workspace.Now, IntelligenceReader);
+            Choose(workspace, WorkspaceText.FirstQuestion(presentation));
+            panel.Accepting = () => opened == workspace && transition.Open && !FocusGuard.InputSuspended;
+            panel.Frame.Acted += (id, key) => OnActed(workspace, id, key);
+            panel.Frame.HoldStarted += id => OnHoldStarted(workspace, id);
+            panel.Frame.HoldEnded += (id, released) => OnHoldEnded(id, released);
             FacePerson(target, true);
             ReadHistory(workspace);
             RefreshPanel();
@@ -483,8 +440,121 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Within reach, toward the character, facing the eyes, scaled to its designed angular size,
-        /// and clear of every character's body, below the ones it passes or above them, in the
+        /// What a press in the workspace does, by the action's id: Close, a tab, Refresh, the pager,
+        /// the agent's question, the instructions offered, the confirm step, then the work's actions.
+        /// Only Send answer sends an answer, with the answers chosen; no other gesture does.
+        /// </summary>
+        private void OnActed(Opened workspace, string id, string? key)
+        {
+            if (opened != workspace) return;
+            var screen = workspace.Screen;
+            switch (id)
+            {
+                case PanelModel.Close:
+                    Acted?.Invoke(workspace.WorkstreamId, WorkspaceAct.Collapse);
+                    Close(immediately: false);
+                    return;
+                case PanelModel.Tab when WorkspaceScreens.QuestionOf(key) is WorkspaceQuestion question:
+                    Choose(workspace, question);
+                    RefreshPanel();
+                    return;
+                case WorkspaceScreens.Refresh:
+                    workspace.Sections.Refresh();
+                    return;
+                case PanelModel.PreviousPart:
+                case PanelModel.NextPart:
+                    Turn(workspace, id == PanelModel.NextPart ? 1 : -1);
+                    RefreshPanel();
+                    return;
+                case WorkspaceScreens.Choose when workspace.Draft != null && Index(key) is int index:
+                    var prompt = screen.Place.Prompt;
+                    var options = workspace.Draft.Prompts[prompt].Options;
+                    if (index < options.Count) workspace.Draft.Choose(prompt, options[index].Label);
+                    RefreshPanel();
+                    return;
+                case WorkspaceScreens.TypeAnswer:
+                    OpenAnswerKeyboard(workspace, screen.Place.Prompt);
+                    return;
+                case WorkspaceScreens.HoldToTalk:
+                case WorkspaceScreens.SpeakAnswer:
+                    // Pressed and let go before its hold started.
+                    Notify(workspace, VoiceText.TooShort);
+                    RefreshPanel();
+                    return;
+                case WorkspaceScreens.Preset when Index(key) is int chosen && Presets(workspace) is IReadOnlyList<PresetInstruction> presets && chosen < presets.Count:
+                    var preset = presets[chosen];
+                    workspace.Presets = false;
+                    Choose(workspace, WorkspaceQuestion.Doing);
+                    Steer(workspace, s => s.Typed(preset.Text, workspace.Now!));
+                    return;
+                case WorkspaceScreens.Yes:
+                    Choose(workspace, WorkspaceQuestion.Doing);
+                    Steer(workspace, s => s.Confirm(workspace.Now!));
+                    return;
+                case WorkspaceScreens.Cancel:
+                    CloseKeyboard(workspace);
+                    workspace.Steering.StopTyping();
+                    workspace.Steering.Cancel();
+                    workspace.Presets = false;
+                    RefreshPanel();
+                    return;
+            }
+            if (WorkspaceScreens.ActionOf(id) is not WorkspaceAction action) return;
+            // Acting returns the details to what it is doing, where the request's result shows; Send
+            // answer keeps the question in view, where why nothing was sent shows.
+            if (action != WorkspaceAction.Answer) Choose(workspace, WorkspaceQuestion.Doing);
+            Steer(workspace, s => action == WorkspaceAction.Answer && workspace.Draft != null
+                ? s.SendAnswer(workspace.Draft, workspace.Now!)
+                : s.Press(action, workspace.Now!));
+        }
+
+        private static int? Index(string? key) =>
+            int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) ? index : (int?)null;
+
+        /// <summary>Hold to talk was held long enough: listening starts, for an instruction or for the prompt showing's typed answer.</summary>
+        private void OnHoldStarted(Opened workspace, string id)
+        {
+            if (opened != workspace) return;
+            if (id == WorkspaceScreens.HoldToTalk) voice.Begin();
+            else if (id == WorkspaceScreens.SpeakAnswer)
+            {
+                workspace.AnswerPrompt = workspace.Screen.Place.Prompt;
+                answerVoice.Begin();
+            }
+        }
+
+        private void OnHoldEnded(string id, bool released)
+        {
+            if (id == WorkspaceScreens.HoldToTalk) voice.End(released);
+            else if (id == WorkspaceScreens.SpeakAnswer) answerVoice.End(released);
+        }
+
+        /// <summary>Shows the answer to a question under its tab, and reads its section when it has one.</summary>
+        private static void Choose(Opened workspace, WorkspaceQuestion question)
+        {
+            workspace.Screen.Question = question;
+            workspace.Sections.Show(question);
+        }
+
+        /// <summary>Steps through the whole request while a confirmation asks about it, else through the agent's question.</summary>
+        private static void Turn(Opened workspace, int by)
+        {
+            var screen = workspace.Screen;
+            if (workspace.Now != null && workspace.Steering.Request(workspace.Now) != null)
+            {
+                screen.RequestPart = Mathf.Clamp(screen.RequestPart + by, 0, Mathf.Max(0, screen.RequestParts.Count - 1));
+                return;
+            }
+            screen.Place.Turn(by);
+        }
+
+        /// <summary>The instructions offered where there is no keyboard, the recorded demonstration's own while it plays; null while they don't show.</summary>
+        private static IReadOnlyList<PresetInstruction>? Presets(Opened workspace) =>
+            !workspace.Presets ? null : workspace.Recorded?.Count > 0 ? workspace.Recorded : WorkspaceText.PresetInstructions;
+
+        /// <summary>
+        /// Within touch distance, beside the character, facing the eyes, at the frame's size, and clear
+        /// of every character's body and label, below the ones it passes or above them, in the
         /// comfortable band and never into the surface they stand on (<see cref="WorkspaceLayout"/>).
         /// </summary>
         private (Pose Place, float Scale) PlaceBeside(CharacterTarget target)
@@ -492,7 +562,8 @@ namespace Halcyonic.XR.Workspace
             var eyes = WorkspaceVisuals.HeadPosition;
             var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : target.BodyPosition - eyes;
             var (pose, _) = WorkspaceLayout.Place(target, targets.Values, eyes, looking, stage.SurfaceHeight, bodies);
-            return (pose, WorkspaceLayout.Scale);
+            // The frame is built in units of its distance.
+            return (pose, PanelFrame.Distance);
         }
 
         private void Close(bool immediately)
@@ -528,77 +599,61 @@ namespace Halcyonic.XR.Workspace
             else if (workspace.Draft == null || !workspace.Draft.Answers(execution, asked)) workspace.Draft = new QuestionDraft(execution, asked);
             var lapse = workspace.Steering.Refresh(presentation);
             if (lapse != null) Notify(workspace, lapse);
-            ShowRequest(workspace, presentation);
             if (workspace.Notice != null && Time.unscaledTime > workspace.NoticeUntil) workspace.Notice = null;
-            workspace.Panel.Show(Content(workspace, presentation));
+            // What waited was answered: its tab goes, and the answer showing returns to what it is doing.
+            if (workspace.Screen.Question == WorkspaceQuestion.NeedFromYou && !WorkspaceText.SomethingWaits(presentation)) Choose(workspace, WorkspaceQuestion.Doing);
+            var screen = workspace.Screen;
+            screen.Notice = workspace.Notice;
+            screen.Presets = Presets(workspace);
+            screen.ActivityNote = Clock.Note + workspace.HistoryNote;
+            if (workspace.Draft != null) screen.ReadQuestion(workspace.Draft, QuestionParts(workspace, workspace.Draft));
+            var request = workspace.Steering.Request(presentation);
+            if (request != null) SplitRequest(workspace, presentation, request);
+            else
+            {
+                screen.RequestParts = Array.Empty<string>();
+                screen.RequestPart = 0;
+                workspace.RequestText = null;
+            }
+            workspace.Panel.Show(WorkspaceScreens.Screen(presentation, workspace.Steering, screen), workspace.Sections.Section);
+        }
+
+        /// <summary>Each prompt's text in parts of whole lines at the list's width, split once for each question.</summary>
+        private static IReadOnlyList<IReadOnlyList<string>> QuestionParts(Opened workspace, QuestionDraft draft)
+        {
+            if (workspace.PartsOf == draft && workspace.QuestionParts != null) return workspace.QuestionParts;
+            var frame = workspace.Panel.Frame;
+            var parts = new List<IReadOnlyList<string>>();
+            foreach (var prompt in draft.Prompts) parts.Add(frame.SplitLines(prompt.Text, WorkspaceScreens.QuestionLines, frame.InnerWidth));
+            workspace.PartsOf = draft;
+            workspace.QuestionParts = parts;
+            return parts;
         }
 
         /// <summary>
-        /// While an approval or denial waits for its confirmation, the whole request it answers shows
-        /// under the actions, in parts when it is long, and the steering learns which part shows: an
-        /// approval is confirmed only once the last part has shown.
+        /// The whole request an armed approval or denial answers, in parts of as many whole lines as
+        /// the body holds while the confirmation shows, never cut. The steering learns which part
+        /// shows: an approval is confirmed only once the last part has shown.
         /// </summary>
-        private static void ShowRequest(Opened workspace, WorkspacePresentation presentation)
+        private static void SplitRequest(Opened workspace, WorkspacePresentation presentation, string request)
         {
-            var request = workspace.Steering.Request(presentation);
-            if (request == null)
+            var screen = workspace.Screen;
+            if (workspace.RequestText != request)
             {
-                workspace.Sections.EndRequest();
-                return;
+                // The body's room while the confirmation shows, measured with the request in one part.
+                var frame = workspace.Panel.Frame;
+                screen.RequestParts = Array.Empty<string>();
+                screen.RequestLines = 1;
+                screen.RequestPart = 0;
+                frame.Show(WorkspaceScreens.Screen(presentation, workspace.Steering, screen));
+                var room = frame.ListArea;
+                screen.RequestLines = Mathf.Max(1, Mathf.FloorToInt(room.height / frame.LineHeightOf(PanelTextSize.Body) + 0.01f));
+                screen.RequestParts = frame.SplitLines(request, screen.RequestLines, room.width);
+                workspace.RequestText = request;
             }
-            workspace.Sections.ShowRequest(request);
-            workspace.Steering.RequestShown(workspace.Sections.Request.Part, workspace.Sections.Request.Parts);
+            screen.RequestPart = Mathf.Clamp(screen.RequestPart, 0, screen.RequestParts.Count - 1);
+            workspace.Steering.RequestShown(screen.RequestPart + 1, screen.RequestParts.Count);
         }
-
-        private PanelContent Content(Opened workspace, WorkspacePresentation presentation)
-        {
-            var character = presentation.Character;
-            var steering = workspace.Steering;
-            var content = new PanelContent
-            {
-                Title = character.Title,
-                Status = WorkspaceText.StatusLine(character),
-                StatusColor = ToneOf(character.Activity),
-                Execution = WorkspaceText.Execution(presentation),
-                Goal = WorkspaceText.Goal(presentation),
-                Answer = WorkspaceText.Answer(presentation),
-                AnswerColor = character.AttentionNotes.Count == 0 ? WorkspaceVisuals.SecondaryColor
-                    : character.Attention == AttentionLevel.ActionRequired ? WorkspaceVisuals.AttentionColor : ToneOf(character.Activity),
-                Actions = presentation.Actions.ToList(),
-                Speak = HoldToTalk.Offered && connection.DemonstrationReads == null && presentation.Actions.Contains(WorkspaceAction.Instruct),
-                WhyNoActions = WorkspaceText.WhyNoActions(presentation),
-                Notice = workspace.Notice,
-                Feedback = presentation.Commands.Select(command => command.Text).ToList(),
-                Activity = presentation.Activity.Select(entry => (WorkspaceText.Activity(entry, Clock.Zone), entry.Reported)).ToList(),
-                ActivityCaption = "Recent activity" + Clock.Note + workspace.HistoryNote,
-            };
-            if (steering.Armed != null)
-            {
-                content.Mode = ControlsMode.Confirm;
-                content.Prompt = steering.Prompt(presentation);
-                content.ConfirmLabel = WorkspaceText.ConfirmLabel(steering.Armed.Value);
-                content.CanConfirm = steering.CanConfirm;
-            }
-            else if (workspace.Presets)
-            {
-                content.Mode = ControlsMode.Presets;
-                content.Presets = workspace.Recorded?.Count > 0 ? workspace.Recorded : WorkspaceText.PresetInstructions;
-            }
-            else if (steering.Typing)
-            {
-                content.Mode = ControlsMode.Typing;
-                content.Prompt = WorkspaceText.TypingPrompt;
-            }
-            return content;
-        }
-
-        private static Color ToneOf(CharacterActivity activity) => activity switch
-        {
-            CharacterActivity.WaitingForHuman => WorkspaceVisuals.AttentionColor,
-            CharacterActivity.Failed => WorkspaceVisuals.ProblemColor,
-            CharacterActivity.Unknown => WorkspaceVisuals.ProblemColor,
-            _ => WorkspaceVisuals.TextColor,
-        };
 
         /// <param name="byHand">
         /// The step comes from the person's hands, which count only while the app has focus. The
@@ -629,13 +684,13 @@ namespace Halcyonic.XR.Workspace
             var execution = workspace.Now?.Execution;
             if (session == null || execution == null)
             {
-                Notify(workspace, "Not sent: " + (connection.SetupProblem ?? "there is no session with the control plane."));
+                Notify(workspace, "Couldn't send: your Mac isn't connected. Try again when it is.");
                 return;
             }
             workspace.Notice = null;
             Report(submissions.SubmitAsync(sent => session.SubmitAsync(sent), command, execution.ExecutionId));
             // An answer sent shows how it goes with the activity: sent, then taken, refused or not confirmed.
-            if (command is ExecutionAnswerQuestionCommand) workspace.Sections.Show(WorkspaceQuestion.Doing);
+            if (command is ExecutionAnswerQuestionCommand) Choose(workspace, WorkspaceQuestion.Doing);
             if (WorkspaceActs.Of(command) is WorkspaceAct act) Acted?.Invoke(workspace.Character.WorkstreamId, act);
         }
 
@@ -664,7 +719,7 @@ namespace Halcyonic.XR.Workspace
             if (TouchScreenKeyboard.isSupported)
             {
                 workspace.Keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.Default, true, false, false, false,
-                    "Instruction for " + workspace.Now?.Character.Title));
+                    "What to tell it: " + workspace.Now?.Character.Title));
             }
             if (workspace.Keyboard == null)
             {
@@ -679,7 +734,7 @@ namespace Halcyonic.XR.Workspace
             if (opened != workspace || FocusGuard.InputSuspended || workspace.Draft == null) return;
             if (!TouchScreenKeyboard.isSupported)
             {
-                Notify(workspace, "Typing an answer needs the headset's system keyboard.");
+                Notify(workspace, "There's no keyboard here. Choose one of the answers offered.");
                 RefreshPanel();
                 return;
             }
@@ -713,7 +768,7 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             workspace.Steering.StopTyping();
-            Notify(workspace, "The keyboard closed, so nothing was sent.");
+            Notify(workspace, "Nothing was sent: the keyboard closed.");
             RefreshPanel();
         }
 
@@ -756,7 +811,7 @@ namespace Halcyonic.XR.Workspace
             {
                 // The control plane configured now, over the pinned transport when paired (ADR 0017).
                 var api = ControlPlaneSettings.Api() ?? throw new ControlPlaneRequestException("no control plane is configured.");
-                workspace.HistoryNote = " · reading history…";
+                workspace.HistoryNote = " · reading earlier activity…";
                 RefreshPanel();
                 var events = await api.ReadAllAsync(workstreamId, journal);
                 if (request != workspace.HistoryRequests || journal != journalId) return;
@@ -766,8 +821,9 @@ namespace Halcyonic.XR.Workspace
             catch (Exception error)
             {
                 if (request != workspace.HistoryRequests) return;
-                // Live activity still arrives; say that the older part is missing, and why.
-                workspace.HistoryNote = " · history unavailable: " + error.Message;
+                // Live activity still arrives; say that the older part is missing, and how to read it again.
+                workspace.HistoryNote = " · earlier activity unavailable, reopen to try again";
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this, "Halcyonic: {0}", "earlier activity could not be read: " + error.GetType().Name);
             }
             RefreshPanel();
         }
@@ -825,8 +881,19 @@ namespace Halcyonic.XR.Workspace
 
             public WorkspaceSteering Steering { get; }
 
-            /// <summary>The tabs and details under the actions, and the whole request while a confirmation asks about one.</summary>
+            /// <summary>What the sections read for the tab chosen.</summary>
             public WorkspaceSections Sections { get; set; } = null!;
+
+            /// <summary>The tab chosen, the notice, and where the person is in the question or the request.</summary>
+            public WorkspaceScreen Screen { get; } = new WorkspaceScreen();
+
+            /// <summary>The question whose prompts' text <see cref="QuestionParts"/> holds in parts.</summary>
+            public QuestionDraft? PartsOf { get; set; }
+
+            public IReadOnlyList<IReadOnlyList<string>>? QuestionParts { get; set; }
+
+            /// <summary>The request <see cref="WorkspaceScreen.RequestParts"/> holds in parts, while a confirmation asks about it.</summary>
+            public string? RequestText { get; set; }
 
             /// <summary>The presentation last shown; presses are judged against it.</summary>
             public WorkspacePresentation? Now { get; set; }
