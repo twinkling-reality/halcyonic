@@ -170,6 +170,80 @@ describe('execution status is derived from observed facts', () => {
     assert.equal(status(), 'running');
   });
 
+  test('a restored connection ends unknown, and the facts that follow it set the status', () => {
+    const { b, apply, execution, scope, status, workstreamView } = setup();
+    apply(execution.event, b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    apply(b.runtimeEvent(scope, 'runtime.connection.lost', { reason: 'The read timed out.' }));
+    assert.equal(status(), 'unknown');
+    apply(
+      b.runtimeEvent(scope, 'runtime.connection.restored', { reason: 'Read again after waking.' }),
+    );
+    assert.equal(status(), 'running');
+    assert.deepEqual(workstreamView()?.attention.reasons, []);
+    apply(b.runtimeEvent(scope, 'runtime.turn.interrupted', { turn_id: 't1' }));
+    assert.equal(status(), 'interrupted');
+  });
+
+  test('a question the agent asks waits for the person until answered or its turn ends', () => {
+    const { b, apply, execution, scope, status, workstreamView, projection } = setup();
+    const prompts = [
+      {
+        key: 'q0',
+        header: 'Colour',
+        text: 'Which colour?',
+        options: [
+          { label: 'red', description: null },
+          { label: 'blue', description: 'The calm one' },
+        ],
+        multiple: false,
+        free_text: true,
+        secret: false,
+      },
+    ];
+    apply(execution.event, b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    apply(
+      b.runtimeEvent(scope, 'runtime.question.asked', {
+        question_id: 'frm_1',
+        prompts,
+        answerable: true,
+      }),
+    );
+    assert.equal(status(), 'waiting_for_human');
+    const view = () => projection.execution(execution.executionId);
+    assert.deepEqual(
+      view()?.pending_questions.map(({ question_id, answerable }) => ({ question_id, answerable })),
+      [{ question_id: 'frm_1', answerable: true }],
+    );
+    assert.deepEqual(workstreamView()?.attention, {
+      level: 'action_required',
+      reasons: [
+        { kind: 'question_pending', execution_id: execution.executionId, question_id: 'frm_1' },
+      ],
+    });
+    apply(
+      b.runtimeEvent(scope, 'runtime.question.resolved', {
+        question_id: 'frm_1',
+        outcome: 'answered',
+      }),
+    );
+    assert.equal(status(), 'running');
+    assert.deepEqual(view()?.pending_questions, []);
+    assert.equal(workstreamView()?.attention.level, 'none');
+
+    // A question nobody answers is cleared by the end of its turn, as an approval is.
+    apply(
+      b.runtimeEvent(scope, 'runtime.question.asked', {
+        question_id: 'frm_2',
+        prompts,
+        answerable: false,
+      }),
+    );
+    assert.equal(status(), 'waiting_for_human', 'even one that cannot be answered here');
+    apply(b.runtimeEvent(scope, 'runtime.turn.interrupted', { turn_id: 't1' }));
+    assert.equal(status(), 'interrupted');
+    assert.deepEqual(view()?.pending_questions, []);
+  });
+
   test('a start failure is failed and an unknown start outcome is unknown', () => {
     const { b, apply, execution, scope: ids, status } = setup();
     const scope = {

@@ -124,7 +124,7 @@ public class PairingLiveTests
         var project = (ProjectCreatedResult)await RunAsync(commands.CreateProject("From the headset"));
         var workstream = (WorkstreamCreatedResult)await RunAsync(commands.CreateWorkstream(project.ProjectId, "Paginate the order history", null));
         var execution = (ExecutionCreatedResult)await RunAsync(commands.StartExecution(
-            workstream.WorkstreamId, "mock", "Add paging.", new Dictionary<string, JToken> { ["scenario"] = "approval_required" }));
+            workstream.WorkstreamId, "mock", "Add paging.", new Dictionary<string, JToken> { ["scenario"] = "approval_required" }, modelRef: "mock/fast"));
         await Until(s => s.State.Executions[execution.ExecutionId].Status == ExecutionStatus.WaitingForHuman, "the execution waits for approval");
         var approval = session!.State.Executions[execution.ExecutionId].PendingApprovals.Single();
         await RunAsync(commands.RespondToApproval(execution.ExecutionId, approval.ApprovalId, ApprovalDecision.Approve));

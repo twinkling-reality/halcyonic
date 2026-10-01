@@ -56,7 +56,9 @@ export function deriveAttention(
     }
   }
 
-  const level = reasons.some((reason) => reason.kind === 'approval_pending')
+  const level = reasons.some(
+    (reason) => reason.kind === 'approval_pending' || reason.kind === 'question_pending',
+  )
     ? 'action_required'
     : reasons.length > 0
       ? 'notice'
