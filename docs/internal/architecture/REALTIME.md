@@ -119,7 +119,11 @@ client                                   server
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 - **Answering an agent's question.** An execution's view lists `pending_questions`, each
   `{question_id, prompts, answerable, asked_at}`; a prompt is `{key, header, text, options:
-  [{label, description}], multiple, free_text, secret}`, all of it the agent's words.
+  [{label, description}], multiple, free_text, secret}`, all of it the agent's words. A view lists
+  at most the three oldest pending questions; each other one shows once one before it is resolved,
+  and meanwhile keeps the execution waiting and names itself in its attention reasons. A question
+  whose text, keys and options together pass 16,000 characters is shown shortened, each cut
+  marked, and cannot be answered.
   `execution.answer_question` `{execution_id, question_id, answers: [{key, selected, text}]}`
   answers every prompt once, by its `key`: `selected` holds offered labels (at most one unless
   `multiple`), `text` typed words (only when `free_text`), and a question that takes one answer gets

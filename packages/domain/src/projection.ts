@@ -32,6 +32,7 @@ import {
   endTurn,
   toExecutionView,
 } from './execution-state.ts';
+import { fitQuestion } from './questions.ts';
 
 /** Something in the journal that the projection could not apply as written. */
 export interface ProjectionNote {
@@ -464,14 +465,16 @@ export class Projection {
       case 'runtime.approval.resolved':
         execution.pendingApprovals.delete(event.payload.approval_id);
         break;
-      case 'runtime.question.asked':
+      case 'runtime.question.asked': {
+        const fitted = fitQuestion(event.payload.prompts, event.payload.answerable);
         execution.pendingQuestions.set(event.payload.question_id, {
           question_id: event.payload.question_id,
-          prompts: event.payload.prompts,
-          answerable: event.payload.answerable,
+          prompts: [...fitted.prompts],
+          answerable: fitted.answerable,
           asked_at: event.occurred_at,
         });
         break;
+      }
       case 'runtime.question.resolved':
         execution.pendingQuestions.delete(event.payload.question_id);
         break;

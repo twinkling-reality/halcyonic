@@ -36,6 +36,10 @@ Every runtime withdraws a pending question when its turn is interrupted.
 - **A question needs the person.** While a question is pending the execution is
   `waiting_for_human`, and its attention is `question_pending` at `action_required`, as for an
   approval. A turn's end clears pending questions, as it clears approvals.
+- **What clients receive stays small.** Every snapshot and change carries an execution's view
+  whole, so the view lists at most the three oldest pending questions, the others showing as those
+  are resolved, and a question longer than 16,000 characters in all is shown shortened, each cut
+  marked, and unanswerable.
 - **One new command.** `execution.answer_question {execution_id, question_id, answers: [{key,
   selected, text}]}`, policy `low_consequence`. Admission refuses it for a runtime without the
   capability, an unknown question (`question_not_found`), an execution not waiting for the person,
