@@ -28,6 +28,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The detail line's size relative to the label's.</summary>
         private const float DetailScale = 0.78f;
 
+        /// <summary>How long a hold button must be held before its hold starts (ADR 0021).</summary>
+        public const float HoldSeconds = 0.3f;
+
         private float height = Height;
         private float textSize = WorkspaceVisuals.BodySize;
         private SpriteRenderer plate = null!;
@@ -38,8 +41,26 @@ namespace Halcyonic.XR.Workspace
         private Color hover;
         private float shownAt;
         private float flash;
+        private float pressedAt = -1f;
+        private bool holding;
 
+        /// <summary>A press; on a hold button, a press let go before its hold started.</summary>
         public event Action? Pressed;
+
+        /// <summary>A hold button was held for <see cref="HoldSeconds"/>.</summary>
+        public event Action? HoldStarted;
+
+        /// <summary>
+        /// A hold that started has ended: let go on the button (true), or dropped (false) because the
+        /// hand left it, input was suspended, or the button went away.
+        /// </summary>
+        public event Action<bool>? HoldEnded;
+
+        /// <summary>A hold button: it starts something while held, as hold to talk does, instead of acting on a press.</summary>
+        public bool Holds { get; set; }
+
+        /// <summary>A hold started and has not ended.</summary>
+        public bool Holding => holding;
 
         /// <summary>Presses are ignored while false, for example while the workspace grows or shrinks.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
@@ -66,6 +87,7 @@ namespace Halcyonic.XR.Workspace
                 new Vector2(0.1f, height), TextAlignmentOptions.Center, order: WorkspaceVisuals.PanelTextOrder);
             button.target = PointerTarget.Rectangle(go, new Vector2(0.1f, height), ray: true, poke: true);
             button.target.Selected += button.OnSelected;
+            button.target.Released += button.OnReleased;
             go.SetActive(false);
             return button;
         }
@@ -159,16 +181,59 @@ namespace Halcyonic.XR.Workspace
         private void OnSelected()
         {
             if (!Accepting() || Time.unscaledTime - shownAt < SettleSeconds) return;
+            if (Holds)
+            {
+                pressedAt = Time.unscaledTime;
+                return;
+            }
             flash = FlashSeconds;
             Pressed?.Invoke();
+        }
+
+        private void OnReleased(bool cancelled)
+        {
+            if (pressedAt < 0f) return;
+            var started = holding;
+            EndPress();
+            if (started) HoldEnded?.Invoke(!cancelled);
+            else if (!cancelled) Pressed?.Invoke();
+        }
+
+        private void EndPress()
+        {
+            pressedAt = -1f;
+            holding = false;
+        }
+
+        private void OnDisable()
+        {
+            if (pressedAt < 0f) return;
+            var started = holding;
+            EndPress();
+            if (started) HoldEnded?.Invoke(false);
         }
 
         private void Update()
         {
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime);
+            if (pressedAt >= 0f)
+            {
+                if (!Accepting() || !target.HandHovered)
+                {
+                    var started = holding;
+                    EndPress();
+                    if (started) HoldEnded?.Invoke(false);
+                }
+                else if (!holding && Time.unscaledTime - pressedAt >= HoldSeconds)
+                {
+                    holding = true;
+                    HoldStarted?.Invoke();
+                }
+            }
             Paint();
         }
 
-        private void Paint() => plate.color = flash > 0f ? WorkspaceVisuals.ButtonPressColor : target.Hovered ? hover : normal;
+        private void Paint() =>
+            plate.color = flash > 0f || holding ? WorkspaceVisuals.ButtonPressColor : target.Hovered ? hover : normal;
     }
 }

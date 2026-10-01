@@ -121,6 +121,38 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<LocationsResponse>(body);
         }
 
+        /// <summary>
+        /// Turns one clip of speech into a draft on the Mac (ADR 0021): a WAV made by
+        /// <see cref="SpeechClip.Encode"/>. <see cref="HeardTranscription"/> carries untrusted text to show
+        /// through <see cref="LabelText"/> as a draft, never sent without the person's confirmation;
+        /// <see cref="NothingHeardTranscription"/> means no speech was found. A refusal throws
+        /// <see cref="ControlPlaneRequestException"/> with its <c>Code</c>, which <see cref="VoiceText.Refusal"/>
+        /// puts in words. Send one clip at a time, only when the person released a hold.
+        /// </summary>
+        public async Task<TranscriptionResponse> TranscribeAsync(byte[] wav, CancellationToken cancellationToken = default)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                var content = new ByteArrayContent(wav);
+                content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+                response = await http.PostAsync(new Uri(baseUri, "api/transcriptions"), content, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException error)
+            {
+                throw new ControlPlaneRequestException("The control plane could not be reached: " + error.Message, error);
+            }
+            using (response)
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
+                }
+                return HalcyonicJson.Deserialize<TranscriptionResponse>(body);
+            }
+        }
+
         public void Dispose() => http.Dispose();
 
         private async Task<string> GetAsync(string path, CancellationToken cancellationToken)
@@ -142,6 +174,18 @@ namespace Halcyonic.Client
                     throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body));
                 }
                 return body;
+            }
+        }
+
+        private static string? CodeOf(string body)
+        {
+            try
+            {
+                return HalcyonicJson.Deserialize<ErrorResponse>(body).Error.Code;
+            }
+            catch (JsonException)
+            {
+                return null;
             }
         }
 

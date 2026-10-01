@@ -88,6 +88,8 @@ namespace Halcyonic.XR.Workspace
         private Slot changeTask = null!;
         private Slot moreOptions = null!;
         private Slot changeFolder = null!;
+        private Slot holdToTalk = null!;
+        private HoldToTalk voice = null!;
 
         /// <summary>A creation draft waits: the rail offers Continue creating.</summary>
         public bool HasDraft => (idea != null && (idea.HasRecap || idea.Guided) && sequence?.Started != true)
@@ -119,6 +121,14 @@ namespace Halcyonic.XR.Workspace
             changeTask = MakeSlot("Change task", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             moreOptions = MakeSlot("More options", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
             changeFolder = MakeSlot("Change folder", RowHeight * 0.8f, WorkspaceVisuals.DetailSize);
+            // Hold to talk, in development builds: the idea or task spoken, heard on the Mac as a draft.
+            holdToTalk = MakeSlot("Hold to talk", BottomHeight, WorkspaceVisuals.DetailSize);
+            holdToTalk.Button.Holds = true;
+            voice = gameObject.AddComponent<HoldToTalk>();
+            holdToTalk.Button.HoldStarted += voice.Begin;
+            holdToTalk.Button.HoldEnded += voice.End;
+            voice.Said += OnVoiceSaid;
+            voice.Heard += OnHeard;
         }
 
         private void DestroyCreate()
@@ -233,7 +243,42 @@ namespace Halcyonic.XR.Workspace
                 idea.BeginGuide();
                 Open(Screen.Guide);
             }, detail: EntryText.HelpMeInvite);
-            if (notice != null) Say(note, notice, new Vector2(Left, -0.16f), new Vector2(ContentWidth, 0.05f));
+            if (HoldToTalk.Offered && Live)
+            {
+                // Under Type my idea, as the other way to give it, with what it is doing beside it.
+                var y = -0.04f - BigHeight / 2f - Gap - BottomHeight / 2f;
+                Put(holdToTalk, VoiceText.HoldToTalk, new Vector2(Left + width / 2f, y), width, () => OnVoiceSaid(VoiceText.TooShort));
+                if (notice != null) Say(note, notice, new Vector2(Right - width, y + BottomHeight / 2f), new Vector2(width, BottomHeight));
+            }
+            else if (notice != null)
+            {
+                Say(note, notice, new Vector2(Left, -0.16f), new Vector2(ContentWidth, 0.05f));
+            }
+        }
+
+        /// <summary>Shows hold to talk's words as if it had said them, for the editor's renders.</summary>
+        public void SayForRender(string words) => OnVoiceSaid(words);
+
+        /// <summary>Hold to talk's words, where the start screen shows its notice.</summary>
+        private void OnVoiceSaid(string words)
+        {
+            if (!visible || screen != Screen.CreateStart) return;
+            notice = words;
+            Layout();
+        }
+
+        /// <summary>
+        /// The idea or task the Mac heard: a draft taken as typed text is, onto the recap, which says
+        /// it was heard so the person checks it; nothing is sent until they start building.
+        /// </summary>
+        private void OnHeard(string text)
+        {
+            var current = idea;
+            if (!visible || screen != Screen.CreateStart || current == null) return;
+            current.UseIdea(text);
+            notice = VoiceText.HeardNote;
+            screen = Screen.Recap;
+            Layout();
         }
 
         private void TypeIdea()

@@ -59,11 +59,13 @@ internal sealed class ControlPlaneProcess : IDisposable
 
     /// <param name="networkPort">With a port, the network listener for paired devices serves on 127.0.0.1 there.</param>
     /// <param name="projectRoot">With a directory, projects may live there (HALCYONIC_PROJECT_ROOTS).</param>
+    /// <param name="environment">More variables for the control plane, such as those that turn voice on.</param>
     public static async Task<ControlPlaneProcess> StartAsync(
         string dataDir,
         int port,
         int? networkPort = null,
-        string? projectRoot = null)
+        string? projectRoot = null,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var start = new ProcessStartInfo("node")
         {
@@ -80,6 +82,7 @@ internal sealed class ControlPlaneProcess : IDisposable
         start.Environment["HALCYONIC_LOG_LEVEL"] = "warn";
         start.Environment["HALCYONIC_EXIT_ON_STDIN_END"] = "1";
         if (projectRoot != null) start.Environment["HALCYONIC_PROJECT_ROOTS"] = projectRoot;
+        foreach (var variable in environment ?? new Dictionary<string, string>()) start.Environment[variable.Key] = variable.Value;
         if (networkPort != null)
         {
             start.Environment["HALCYONIC_NETWORK_HOST"] = "127.0.0.1";
