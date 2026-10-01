@@ -47,7 +47,9 @@ Every runtime withdraws a pending question when its turn is interrupted.
   fit the prompts (`invalid_answer`): every prompt answered exactly once, chosen labels among those
   offered, at most one unless `multiple`, typed text only when `free_text`, and not both a choice
   and text for a question that takes one answer. Accepting the command is not success: the answer
-  counts once the runtime confirms it, by `runtime.question.resolved`.
+  counts once the runtime confirms it, by `runtime.question.resolved`. A turn that ends first
+  withdraws the question with no resolution reported, as Codex does when interrupted, and an answer
+  not yet confirmed then fails with an unknown effect.
 - **There is no dismiss command.** The person stops the turn, which every runtime confirms
   withdraws the question. A question the person cannot answer through Halcyonic shows that the
   agent is waiting, and stopping stays available.

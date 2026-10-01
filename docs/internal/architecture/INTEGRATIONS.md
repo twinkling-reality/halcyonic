@@ -32,7 +32,7 @@ A runtime integration implements `RuntimeAdapter` (`packages/runtime-core/src/ad
   never from the choice. A question the agent asks through the runtime's structured surface is
   reported as `runtime.question.asked`, marked unanswerable when the adapter cannot carry an answer
   back faithfully or a prompt asks for a secret, and `runtime.question.resolved` once the runtime
-  took the answer or withdrew the question
+  took the answer or withdrew the question, unless the turn's end came first and withdrew it
   ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)). After
   `runtime.connection.lost`, an adapter that can observe the runtime again reports
   `runtime.connection.restored` before what changed meanwhile.
