@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Halcyonic.Contracts;
 using NUnit.Framework;
 
@@ -31,6 +32,14 @@ internal sealed class AskingWork
     public ExecutionView Execution { get; }
 
     public WorkspacePresentation Present(bool live = true) => WorkspacePresenter.Present(Workstream, State, new ActivityLog(), live);
+
+    /// <summary>The control plane's record of a command, as a snapshot carries it.</summary>
+    public void Record(CommandView command)
+    {
+        var snapshot = Samples.Snapshot(State.Position + 1, new[] { Workstream }, new[] { Execution });
+        snapshot.Commands.Add(command);
+        State.ApplySnapshot(snapshot, new StateChanges());
+    }
 
     /// <summary>Replaces the execution the way an event's changes would.</summary>
     public void Change(Action<ExecutionView> execution)
@@ -281,5 +290,79 @@ public class QuestionTests
         Assert.That(CharacterPresenter.AsksYou(question), Is.EqualTo("Asks you: Colour scheme: Which colour scheme should the dashboard use?"));
         var work = new AskingWork();
         Assert.That(WorkspaceText.Answer(work.Present()), Is.EqualTo(new[] { "Asks you 2 questions: Colour scheme; Pages" }));
+    }
+
+    private ExecutionAnswerQuestionCommand Answer(AskingWork work)
+    {
+        var draft = Draft(work);
+        draft.Choose(0, "Dark");
+        draft.Choose(1, "Orders");
+        draft.ShownWhole(0);
+        draft.ShownWhole(1);
+        return (ExecutionAnswerQuestionCommand)new WorkspaceSteering(factory).SendAnswer(draft, work.Present()).Command!;
+    }
+
+    private static WorkspacePresentation Present(AskingWork work, CommandSubmissions submissions) =>
+        WorkspacePresenter.Present(work.Workstream, work.State, new ActivityLog(), true, submissions);
+
+    private static CommandView Record(CommandEnvelope command, CommandStatus status, CommandFailure? failure = null, CommandRejection? rejection = null) => new()
+    {
+        CommandId = command.CommandId, CommandType = CommandType.ExecutionAnswerQuestion, Status = status, ExecutionId = "e1",
+        IssuedAt = command.IssuedAt, UpdatedAt = command.IssuedAt, Failure = failure, Rejection = rejection,
+    };
+
+    [Test]
+    public async Task SendAnswerGoesWhileTheAnswerSentMayStillTakeEffect()
+    {
+        var work = new AskingWork();
+        var submissions = new CommandSubmissions();
+        var command = Answer(work);
+        var reply = new TaskCompletionSource<CommandAckMessage>();
+        var sending = submissions.SubmitAsync(_ => reply.Task, command, "e1");
+        Assert.That(Present(work, submissions).Actions, Does.Not.Contain(WorkspaceAction.Answer), "while it is sent");
+        Assert.That(Present(work, submissions).Actions, Does.Contain(WorkspaceAction.Interrupt), "stopping stays available");
+
+        reply.SetResult(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Accepted, Command = Record(command, CommandStatus.Accepted) });
+        await sending;
+        Assert.That(Present(work, submissions).Actions, Does.Not.Contain(WorkspaceAction.Answer), "accepted is not done");
+
+        // The runtime never confirmed it: the agent may or may not have it, so nothing invites a blind resend.
+        var unconfirmed = new CommandFailure { Code = "question_unconfirmed", Message = "Codex did not confirm.", Effect = FailureEffect.Unknown };
+        work.Record(Record(command, CommandStatus.Failed, unconfirmed));
+        Assert.That(Present(work, submissions).Actions, Does.Not.Contain(WorkspaceAction.Answer));
+        Assert.That(Present(work, submissions).Commands[0].Text, Is.EqualTo(WorkspaceText.AnswerNotConfirmed));
+
+        var refused = new CommandFailure { Code = "invalid_answer", Message = "No.", Effect = FailureEffect.None };
+        work.Record(Record(command, CommandStatus.Failed, refused));
+        Assert.That(Present(work, submissions).Actions, Does.Contain(WorkspaceAction.Answer), "a failure with no effect can be answered again");
+    }
+
+    [Test]
+    public async Task ARefusedOrUnsentAnswerCanBeSentAgainButAnUnknownOneCannot()
+    {
+        var work = new AskingWork();
+        var refused = new CommandSubmissions();
+        var command = Answer(work);
+        await refused.SubmitAsync(_ => Task.FromResult(new CommandAckMessage
+        {
+            CommandId = command.CommandId, Disposition = CommandAckDisposition.Rejected,
+            Command = Record(command, CommandStatus.Rejected, rejection: new CommandRejection { Code = RejectionCode.InvalidAnswer, Message = "No." }),
+        }), command, "e1");
+        Assert.That(Present(work, refused).Actions, Does.Contain(WorkspaceAction.Answer));
+
+        var unsent = new CommandSubmissions();
+        await unsent.SubmitAsync(_ => throw new SessionUnavailableException("Not connected."), Answer(work), "e1");
+        Assert.That(Present(work, unsent).Actions, Does.Contain(WorkspaceAction.Answer), "it never left this headset");
+
+        var unknown = new CommandSubmissions();
+        await unknown.SubmitAsync(_ => throw new CommandOutcomeUnknownException("c", "The connection closed."), Answer(work), "e1");
+        Assert.That(Present(work, unknown).Actions, Does.Not.Contain(WorkspaceAction.Answer), "it may have arrived");
+
+        var otherQuestion = new CommandSubmissions();
+        var elsewhere = Answer(work);
+        elsewhere.Payload.QuestionId = "question-0";
+        // Still on its way, so not awaited.
+        _ = otherQuestion.SubmitAsync(_ => new TaskCompletionSource<CommandAckMessage>().Task, elsewhere, "e1");
+        Assert.That(Present(work, otherQuestion).Actions, Does.Contain(WorkspaceAction.Answer), "only an answer to this question counts");
     }
 }

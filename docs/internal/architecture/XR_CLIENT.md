@@ -208,8 +208,12 @@ the same definition names, as the JSON Schema document:
   the answer"); a question that went away first reads "Refused: the agent no longer waits for this
   answer.", and an answer the runtime never confirmed (Codex's `question_unconfirmed` and
   `answer_ambiguous`) reads "Not confirmed: the agent may or may not have your answer. Check What
-  is it doing?", never as sent. The panel follows `ExecutionView.pending_questions`, not resolution
-  events: a question that leaves the list is gone, whether or not one was reported.
+  is it doing?", never as sent. While this client's answer to the question shown may still take
+  effect (being sent, accepted, or with an unknown outcome), Send answer is not offered, so a second
+  press cannot race the first (`CommandSubmissions.AnswerPending`); it comes back after a refusal, a
+  failure with no effect, or an answer that never left the headset. The panel follows
+  `ExecutionView.pending_questions`, not resolution events: a question that leaves the list is gone,
+  whether or not one was reported.
 - **`WorkspaceSteering`** turns presses in an open workspace into commands. It takes only offered
   actions. One the control plane's policy marks for review waits for a second, deliberate press on
   a separate button whose question names what will be sent; the confirmation lapses after 15

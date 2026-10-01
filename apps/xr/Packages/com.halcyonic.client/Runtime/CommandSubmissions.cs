@@ -59,7 +59,10 @@ namespace Halcyonic.Client
             lock (gate)
             {
                 if (Find(command.CommandId) != null) return;
-                submissions.Add(new Submission(command.CommandId, TypeOf(command), executionId, command.IssuedAt));
+                submissions.Add(new Submission(command.CommandId, TypeOf(command), executionId, command.IssuedAt)
+                {
+                    QuestionId = (command as ExecutionAnswerQuestionCommand)?.Payload?.QuestionId,
+                });
                 if (submissions.Count > capacity) submissions.RemoveAt(0);
             }
             Interlocked.Increment(ref version);
@@ -119,6 +122,45 @@ namespace Halcyonic.Client
             {
                 // CommandOutcomeUnknownException, or anything unexpected once sending may have begun.
                 OutcomeUnknown(command.CommandId, error.Message);
+            }
+        }
+
+        /// <summary>
+        /// Whether this client's answer to a question may still be taking effect: being sent, accepted
+        /// and not yet settled, or with an outcome nobody knows, the runtime's or the connection's. While
+        /// it may, another answer would only race it (Codex refuses one in flight), so none is offered.
+        /// A refusal, a failure with no effect, or an answer that never left this client settles it.
+        /// </summary>
+        public bool AnswerPending(string executionId, string questionId, ClientProjection state)
+        {
+            lock (gate)
+            {
+                foreach (var submission in submissions)
+                {
+                    if (submission.QuestionId != questionId || submission.ExecutionId != executionId) continue;
+                    if (state.Commands.TryGetValue(submission.CommandId, out var record))
+                    {
+                        if (record.Status == CommandStatus.Accepted) return true;
+                        if (record.Status == CommandStatus.Failed && record.Failure?.Effect == FailureEffect.Unknown) return true;
+                        continue;
+                    }
+                    switch (submission.State)
+                    {
+                        case SubmissionState.Sending:
+                        case SubmissionState.OutcomeUnknown:
+                            return true;
+                        case SubmissionState.Acknowledged:
+                            var disposition = submission.Ack?.Disposition;
+                            if (disposition == CommandAckDisposition.Accepted || disposition == CommandAckDisposition.Duplicate)
+                            {
+                                var status = submission.Ack?.Command?.Status;
+                                if (status == null || status == CommandStatus.Accepted) return true;
+                                if (status == CommandStatus.Failed && submission.Ack!.Command!.Failure?.Effect == FailureEffect.Unknown) return true;
+                            }
+                            break;
+                    }
+                }
+                return false;
             }
         }
 
@@ -201,6 +243,9 @@ namespace Halcyonic.Client
             public string ExecutionId { get; }
 
             public string IssuedAt { get; }
+
+            /// <summary>The question an answer command answers, or null for any other command.</summary>
+            public string? QuestionId { get; set; }
 
             public SubmissionState State { get; set; } = SubmissionState.Sending;
 

@@ -118,9 +118,16 @@ namespace Halcyonic.Client
         {
             var execution = state.CurrentExecution(workstream);
             var runtime = execution == null ? null : state.RuntimeOf(execution);
-            var actions = live && execution != null && runtime != null
+            IReadOnlyCollection<WorkspaceAction> actions = live && execution != null && runtime != null
                 ? ActionsFor(execution, runtime)
                 : new WorkspaceAction[0];
+            // An answer this client sent that may still take effect is not raced by another.
+            var asked = execution?.PendingQuestions.FirstOrDefault();
+            if (asked != null && submissions != null && actions.Contains(WorkspaceAction.Answer)
+                && submissions.AnswerPending(execution!.ExecutionId, asked.QuestionId, state))
+            {
+                actions = actions.Where(action => action != WorkspaceAction.Answer).ToList();
+            }
             IReadOnlyList<CommandFeedback> commands;
             if (execution == null)
             {
