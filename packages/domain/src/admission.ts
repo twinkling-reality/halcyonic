@@ -202,7 +202,7 @@ export function admitCommand(
         return reject(
           scope,
           'question_not_found',
-          `Question ${command.payload.question_id} is not waiting for an answer on this execution.`,
+          `Question ${command.payload.question_id} is not shown for an answer on this execution: it was resolved, or waits behind the questions shown.`,
         );
       }
       // A secret is never carried, whatever the adapter said (ADR 0022).

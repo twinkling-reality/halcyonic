@@ -7,13 +7,9 @@ import type {
   ProjectId,
   StoredEvent,
 } from '@halcyonic/contracts';
+import { fitQuestion, QUESTION_TEXT_LIMIT, questionTextLength } from '@halcyonic/contracts';
 import { Projection } from './projection.ts';
-import {
-  fitQuestion,
-  QUESTION_TEXT_LIMIT,
-  questionTextLength,
-  SHOWN_QUESTIONS,
-} from './questions.ts';
+import { SHOWN_QUESTIONS } from './questions.ts';
 import { EventBuilder } from './testing/events.ts';
 
 function setup() {
@@ -287,7 +283,7 @@ describe('execution status is derived from observed facts', () => {
     assert.equal(small.prompts[0], within);
   });
 
-  test('a view shows the oldest pending questions; the others wait their turn but still count', () => {
+  test('a view shows the oldest pending questions, answerable ones first; the others wait their turn', () => {
     const { b, apply, execution, scope, status, workstreamView, projection } = setup();
     const prompts = [
       {
@@ -316,7 +312,13 @@ describe('execution status is derived from observed facts', () => {
         ?.pending_questions.map((question) => question.question_id);
     assert.deepEqual(shown(), ['frm_1', 'frm_2', 'frm_3']);
     assert.equal(SHOWN_QUESTIONS, 3);
-    assert.equal(workstreamView()?.attention.reasons.length, 5);
+    // The reasons name only the questions shown, so they stay as few as the view's.
+    assert.deepEqual(
+      workstreamView()?.attention.reasons.map((reason) =>
+        reason.kind === 'question_pending' ? reason.question_id : null,
+      ),
+      ['frm_1', 'frm_2', 'frm_3'],
+    );
     apply(
       b.runtimeEvent(scope, 'runtime.question.resolved', {
         question_id: 'frm_1',
@@ -334,6 +336,38 @@ describe('execution status is derived from observed facts', () => {
     }
     assert.deepEqual(shown(), ['frm_5']);
     assert.equal(status(), 'waiting_for_human');
+  });
+
+  test('questions that cannot be answered never crowd out one that can', () => {
+    const { b, apply, execution, scope, projection } = setup();
+    const prompts = [
+      {
+        key: 'q0',
+        header: null,
+        text: 'Which?',
+        options: [],
+        multiple: false,
+        free_text: true,
+        secret: false,
+      },
+    ];
+    apply(execution.event, b.runtimeEvent(scope, 'runtime.turn.started', { turn_id: 't1' }));
+    for (const [id, answerable] of [
+      ['frm_1', false],
+      ['frm_2', false],
+      ['frm_3', false],
+      ['frm_4', true],
+    ] as const) {
+      apply(
+        b.runtimeEvent(scope, 'runtime.question.asked', { question_id: id, prompts, answerable }),
+      );
+    }
+    assert.deepEqual(
+      projection
+        .execution(execution.executionId)
+        ?.pending_questions.map((question) => question.question_id),
+      ['frm_4', 'frm_1', 'frm_2'],
+    );
   });
 
   test('a start failure is failed and an unknown start outcome is unknown', () => {

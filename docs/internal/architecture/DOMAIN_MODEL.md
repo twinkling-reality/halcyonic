@@ -32,8 +32,10 @@ in `packages/domain`.
 - **Question**: something an agent asks the person through its runtime's structured surface, one
   or more prompts with options and perhaps typed text, answered with `execution.answer_question`
   when the runtime has `answer_question` and the adapter can carry the answer back faithfully.
-  A prompt asking for a secret is never answerable through Halcyonic. An execution's view shows its
-  three oldest pending questions, and a question too long for clients shortened and unanswerable
+  A prompt asking for a secret is never answerable through Halcyonic. An execution shows at most
+  three pending questions, those Halcyonic can answer first, then the others, each oldest first;
+  only those shown can be answered or are named in its attention. An adapter reports a question
+  longer than 16,000 characters in all shortened and unanswerable
   ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)).
 - **Principal**: who sent a command, as the control plane authenticated it: `local`, whoever holds
   the access token on the control plane's machine, or a paired **device**, such as a headset on

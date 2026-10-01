@@ -13,7 +13,7 @@ import type {
   ToolActivityView,
   WorkstreamId,
 } from '@halcyonic/contracts';
-import { SHOWN_QUESTIONS } from './questions.ts';
+import { shownQuestions } from './questions.ts';
 
 export type TurnOutcome = 'completed' | 'failed' | 'interrupted';
 
@@ -132,7 +132,7 @@ export function toExecutionView(state: ExecutionState): ExecutionView {
     status: deriveExecutionStatus(state),
     status_reason: deriveStatusReason(state),
     pending_approvals: [...state.pendingApprovals.values()],
-    pending_questions: [...state.pendingQuestions.values()].slice(0, SHOWN_QUESTIONS),
+    pending_questions: shownQuestions(state.pendingQuestions),
     active_tools: [...state.activeTools.values()],
     active_test_run: state.activeTestRun,
     last_test_run: state.lastTestRun,
