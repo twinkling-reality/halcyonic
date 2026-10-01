@@ -861,6 +861,144 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
     },
   );
 
+  test(
+    'a session lost to reads that keep failing is restored once its server answers again',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t, {
+        runtime: {
+          streamSilenceTimeoutMs: 1000,
+          reconnectDelaysMs: Array.from({ length: 10 }, () => 200),
+          snapshotRetryDelaysMs: [100, 100],
+          recoveryDelaysMs: [500],
+        },
+      });
+      const execution = await start('Please RUN_SHELL for the end to end test.');
+      const requested = await execution.next('runtime.approval.requested');
+      assert.ok(requested.type === 'runtime.approval.requested');
+      // Every read of the session's permissions times out until the server "wakes".
+      let asleep = true;
+      const original = globalThis.fetch;
+      globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+        if (asleep && String(input).endsWith('/permission')) {
+          return Promise.reject(
+            new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
+          );
+        }
+        return original(input, init);
+      }) as typeof fetch;
+      t.after(() => {
+        globalThis.fetch = original;
+      });
+      const lost = await execution.next('runtime.connection.lost', 1, 20_000);
+      assert.match(
+        lost.type === 'runtime.connection.lost' ? lost.payload.reason : '',
+        /could not be read/,
+      );
+      await assert.rejects(
+        runtime.respondToApproval({
+          execution: execution.context,
+          approval_id: requested.payload.approval_id,
+          decision: 'approve',
+          message: null,
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError && error.code === 'runtime_unreachable',
+      );
+      asleep = false;
+      await execution.next('runtime.connection.restored', 1, 20_000);
+      // Nothing changed while it could not be read: the approval still waits, and is answered.
+      assert.deepEqual(
+        execution
+          .typesAfter('runtime.connection.restored')
+          .filter((type) => type === 'runtime.approval.requested'),
+        [],
+      );
+      await runtime.respondToApproval({
+        execution: execution.context,
+        approval_id: requested.payload.approval_id,
+        decision: 'approve',
+        message: null,
+      });
+      await execution.next('runtime.turn.completed', 1, 20_000);
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
+    'a question the agent asks is answered, and the agent goes on with the answer',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, sandbox, start } = await harness(t);
+      const execution = await start('Please ASK_QUESTION for the end to end test.');
+      const asked = await execution.next('runtime.question.asked');
+      assert.ok(asked.type === 'runtime.question.asked');
+      assert.equal(asked.payload.answerable, true);
+      assert.deepEqual(
+        asked.payload.prompts.map(({ header, text, options, free_text }) => ({
+          header,
+          text,
+          labels: options.map((option) => option.label),
+          free_text,
+        })),
+        [
+          {
+            header: 'Colour',
+            text: 'Which colour should the file mention?',
+            labels: ['red', 'blue'],
+            free_text: true,
+          },
+        ],
+      );
+      await assert.rejects(
+        runtime.answerQuestion({
+          execution: execution.context,
+          question_id: 'frm_not_asked',
+          answers: [{ key: 'q0', selected: ['blue'], text: null }],
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError && error.code === 'question_not_pending',
+      );
+      await runtime.answerQuestion({
+        execution: execution.context,
+        question_id: asked.payload.question_id,
+        answers: [{ key: 'q0', selected: ['blue'], text: null }],
+      });
+      const resolved = await execution.next('runtime.question.resolved');
+      assert.deepEqual(resolved.payload, {
+        question_id: asked.payload.question_id,
+        outcome: 'answered',
+      });
+      await execution.next('runtime.turn.completed', 1, 20_000);
+      // The model was given the answer as the question tool's result.
+      assert.match(sandbox.provider.requests.at(-1)?.body ?? '', /blue/);
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
+  test(
+    'interrupting while a question waits dismisses it and ends the turn',
+    SLOW_TEST,
+    async (t) => {
+      const { runtime, start } = await harness(t);
+      const execution = await start('Please ASK_QUESTION for the end to end test.');
+      const asked = await execution.next('runtime.question.asked');
+      assert.ok(asked.type === 'runtime.question.asked');
+      await runtime.interrupt({ execution: execution.context });
+      await execution.next('runtime.turn.interrupted', 1, 20_000);
+      await assert.rejects(
+        runtime.answerQuestion({
+          execution: execution.context,
+          question_id: asked.payload.question_id,
+          answers: [{ key: 'q0', selected: ['red'], text: null }],
+        }),
+        (error: unknown) =>
+          error instanceof RuntimeActionError && error.code === 'question_not_pending',
+      );
+      assertValidObservations(execution.observations, execution.context);
+    },
+  );
+
   test('reconnecting while nothing changed reports nothing twice', SLOW_TEST, async (t) => {
     // A second of silence drops the stream again and again: during the first prompt, which
     // blocks a fresh OpenCode project for more than a second, while the approval waits, and

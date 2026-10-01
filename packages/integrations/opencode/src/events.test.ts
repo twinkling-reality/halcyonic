@@ -13,6 +13,8 @@ import {
   clip,
   createSessionState,
   decodeEvent,
+  formAnswer,
+  formQuestion,
   observeEvent,
   replyOutcome,
   type SessionState,
@@ -336,6 +338,152 @@ describe('OpenCode 2.0.18 event mapping', () => {
     assert.ok(event !== null);
     assert.equal(observeEvent(state, event, NOW).length, 1);
     assert.equal(observeEvent(state, event, NOW).length, 0);
+  });
+});
+
+describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
+  // Captured from the pinned binary on a local model on 2026-10-01 (agent-questions.md).
+  const types = (observations: readonly RuntimeObservation[]) =>
+    observations
+      .map((item) => item.type)
+      .filter((type) => type.startsWith('runtime.question') || type.startsWith('runtime.turn'));
+
+  test('a question is asked through a form, answered, and the turn goes on to complete', () => {
+    const { observations, state } = only(replay(['question-answered.sse']));
+    assert.deepEqual(types(observations), [
+      'runtime.turn.started',
+      'runtime.question.asked',
+      'runtime.question.resolved',
+      'runtime.turn.completed',
+    ]);
+    const asked = observations.find((item) => item.type === 'runtime.question.asked');
+    assert.deepEqual(asked?.payload, {
+      question_id: 'frm_0f73004380017s9rTrXaGWdsHI',
+      prompts: [
+        {
+          key: 'q0',
+          header: 'Colour choice',
+          text: 'Which colour should the file mention?',
+          options: [
+            { label: 'red', description: 'Use the colour red' },
+            { label: 'blue', description: 'Use the colour blue' },
+          ],
+          multiple: false,
+          free_text: true,
+          secret: false,
+        },
+      ],
+      answerable: true,
+    });
+    assert.deepEqual(asked?.provenance, {
+      epistemic: 'observed',
+      native_type: 'opencode/form.created',
+    });
+    const resolved = observations.find((item) => item.type === 'runtime.question.resolved');
+    assert.deepEqual(resolved?.payload, {
+      question_id: 'frm_0f73004380017s9rTrXaGWdsHI',
+      outcome: 'answered',
+    });
+    assert.equal(state.questions.size, 0);
+  });
+
+  test('several questions, one taking several answers, become prompts in order', () => {
+    const { observations } = only(replay(['question-multiple.sse']));
+    const asked = observations.find((item) => item.type === 'runtime.question.asked');
+    assert.ok(asked?.type === 'runtime.question.asked');
+    assert.deepEqual(
+      asked.payload.prompts.map(({ key, multiple, free_text, options }) => ({
+        key,
+        multiple,
+        free_text,
+        labels: options.map((option) => option.label),
+      })),
+      [
+        { key: 'q0', multiple: true, free_text: true, labels: ['apple', 'pear', 'plum'] },
+        { key: 'q1', multiple: false, free_text: true, labels: ['Fruit', 'Basket'] },
+      ],
+    );
+  });
+
+  test('a question dismissed, or a turn interrupted while it waits, is dismissed and the turn ends', () => {
+    for (const fixture of ['question-cancelled.sse', 'question-interrupted.sse']) {
+      const { observations, state } = only(replay([fixture]));
+      assert.deepEqual(
+        types(observations),
+        [
+          'runtime.turn.started',
+          'runtime.question.asked',
+          'runtime.question.resolved',
+          'runtime.turn.interrupted',
+        ],
+        fixture,
+      );
+      const resolved = observations.find((item) => item.type === 'runtime.question.resolved');
+      assert.deepEqual(
+        resolved?.payload && 'outcome' in resolved.payload ? resolved.payload.outcome : null,
+        'dismissed',
+      );
+      assert.equal(state.questions.size, 0);
+    }
+  });
+
+  test('a form that is not the question tool, or has fields it cannot express, is shown but not answerable', () => {
+    const base = {
+      id: 'frm_1',
+      sessionID: 'ses_1',
+      title: 'Connect',
+      fields: [{ key: 'q0', type: 'string', description: 'Your name?', custom: true }],
+    };
+    assert.equal(formQuestion({ ...base, metadata: { kind: 'question' } })?.answerable, true);
+    assert.equal(formQuestion({ ...base, metadata: { kind: 'mcp' } })?.answerable, false);
+    const numbers = formQuestion({
+      ...base,
+      metadata: { kind: 'question' },
+      fields: [{ key: 'q0', type: 'number', title: 'How many?' }],
+    });
+    assert.equal(numbers?.answerable, false);
+    assert.equal(numbers?.prompts[0]?.text, 'How many?');
+    assert.equal(numbers?.prompts[0]?.free_text, false);
+    const repeated = formQuestion({
+      ...base,
+      metadata: { kind: 'question' },
+      fields: [
+        { key: 'q0', type: 'string', description: 'One?' },
+        { key: 'q0', type: 'string', description: 'Two?' },
+      ],
+    });
+    assert.equal(repeated?.answerable, false);
+    assert.equal(formQuestion({ ...base, fields: [] }), null);
+  });
+
+  test("answers become the form's values: one for a single choice, a list for several, typed text among them", () => {
+    const asked = formQuestion({
+      id: 'frm_1',
+      metadata: { kind: 'question' },
+      fields: [
+        {
+          key: 'q0',
+          type: 'multiselect',
+          options: [
+            { value: 'apple', label: 'apple' },
+            { value: 'pear-value', label: 'pear' },
+          ],
+          custom: true,
+        },
+        { key: 'q1', type: 'string', options: [{ value: 'Fruit', label: 'Fruit' }], custom: true },
+      ],
+    });
+    assert.ok(asked !== null);
+    assert.deepEqual(
+      formAnswer(asked.fields, [
+        { key: 'q0', selected: ['apple', 'pear'], text: 'quince' },
+        { key: 'q1', selected: [], text: 'My basket' },
+      ]),
+      { q0: ['apple', 'pear-value', 'quince'], q1: 'My basket' },
+    );
+    assert.deepEqual(formAnswer(asked.fields, [{ key: 'q1', selected: ['Fruit'], text: null }]), {
+      q1: 'Fruit',
+    });
   });
 });
 
