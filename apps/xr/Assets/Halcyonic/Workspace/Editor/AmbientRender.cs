@@ -93,14 +93,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     var render = WorkspaceRender.Render(camera, texture);
                     File.WriteAllBytes(Path.Combine(folder, "window-" + name + ".png"), render.EncodeToPNG());
                     UnityEngine.Object.DestroyImmediate(render);
-                    var rect = Rect(camera, window.transform, Vector2.one);
+                    var outline = Outline(camera, window.transform);
                     var count = 0;
                     var labels = 0;
                     foreach (var target in characters)
                     {
                         var body = camera.WorldToScreenPoint(target.BodyPosition);
-                        if (rect.Contains(new Vector2(body.x, body.y))) count++;
-                        if (Behind(camera, window.transform, WorkspaceRender.LabelRect(camera, target.View))) labels++;
+                        if (Inside(outline, new Vector2(body.x, body.y))) count++;
+                        if (Behind(outline, WorkspaceRender.LabelRect(camera, target.View))) labels++;
                     }
                     covered[aside] = count;
                     Debug.Log("Halcyonic: ambient render: with the lineup " + (aside ? "turned aside" : "in front") + ", a window covers "
@@ -211,45 +211,38 @@ namespace Halcyonic.XR.Workspace.Editor
             return window;
         }
 
-        /// <summary>
-        /// Whether any part of <paramref name="label"/>, a rectangle on the render, falls inside the
-        /// window's outline there, a trapezoid, sampled at its corners, edges and middle.
-        /// </summary>
-        private static bool Behind(Camera camera, Transform window, Rect label)
+        /// <summary>The window's outline on the render, a trapezoid, its corners counterclockwise.</summary>
+        private static Vector2[] Outline(Camera camera, Transform window)
         {
-            var corners = new Vector2[4];
             var unit = new[] { new Vector2(-0.5f, -0.5f), new Vector2(0.5f, -0.5f), new Vector2(0.5f, 0.5f), new Vector2(-0.5f, 0.5f) };
+            var corners = new Vector2[4];
             for (var index = 0; index < 4; index++) corners[index] = camera.WorldToScreenPoint(window.TransformPoint(unit[index]));
+            return corners;
+        }
+
+        /// <summary>Whether a point of the render falls inside the window's outline.</summary>
+        private static bool Inside(Vector2[] outline, Vector2 point)
+        {
+            for (var edge = 0; edge < outline.Length; edge++)
+            {
+                var from = outline[edge];
+                var to = outline[(edge + 1) % outline.Length];
+                if ((to.x - from.x) * (point.y - from.y) - (to.y - from.y) * (point.x - from.x) < 0f) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Whether any part of <paramref name="label"/>, a rectangle on the render, falls inside the window's outline, sampled at its corners, edges and middle.</summary>
+        private static bool Behind(Vector2[] outline, Rect label)
+        {
             for (var x = 0; x <= 2; x++)
             {
                 for (var y = 0; y <= 2; y++)
                 {
-                    var point = new Vector2(Mathf.Lerp(label.xMin, label.xMax, x / 2f), Mathf.Lerp(label.yMin, label.yMax, y / 2f));
-                    var inside = true;
-                    for (var edge = 0; edge < 4 && inside; edge++)
-                    {
-                        var from = corners[edge];
-                        var to = corners[(edge + 1) % 4];
-                        inside = (to.x - from.x) * (point.y - from.y) - (to.y - from.y) * (point.x - from.x) >= 0f;
-                    }
-                    if (inside) return true;
+                    if (Inside(outline, new Vector2(Mathf.Lerp(label.xMin, label.xMax, x / 2f), Mathf.Lerp(label.yMin, label.yMax, y / 2f)))) return true;
                 }
             }
             return false;
-        }
-
-        private static Rect Rect(Camera camera, Transform surface, Vector2 size)
-        {
-            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-            foreach (var corner in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) })
-            {
-                var screen = camera.WorldToScreenPoint(surface.TransformPoint(new Vector3(corner.x * size.x / 2f, corner.y * size.y / 2f, 0f)));
-                minX = Mathf.Min(minX, screen.x);
-                maxX = Mathf.Max(maxX, screen.x);
-                minY = Mathf.Min(minY, screen.y);
-                maxY = Mathf.Max(maxY, screen.y);
-            }
-            return UnityEngine.Rect.MinMaxRect(minX, minY, maxX, maxY);
         }
     }
 }
