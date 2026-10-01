@@ -19,7 +19,9 @@ namespace Halcyonic.XR.Workspace
     /// <remarks>
     /// The panel opens where the entry panel would (<see cref="WorkspaceLayout.PlaceForeground"/>),
     /// clear of every character, and the rail steps aside while it shows: one foreground surface at a
-    /// time. It closes by its own Close or the chip, when the entry panel or a workspace opens, and while the app lacks focus, as when a 2D window has it, so returning is deliberate.
+    /// time. It closes by its own Close or the chip, and when the entry panel or a workspace opens.
+    /// While another window has focus its controls take no input; once focus stays away it folds,
+    /// with what it read, and comes back as it was (<see cref="FocusGuard.Folded"/>).
     /// Without a rail it shows nothing.
     /// </remarks>
     public sealed class UsageLeftGlance : MonoBehaviour
@@ -110,6 +112,12 @@ namespace Halcyonic.XR.Workspace
             Layout();
         }
 
+        /// <summary>Folded while another window keeps focus, with what it read; back as it was on return. Public for the editor's renders.</summary>
+        public void ApplyFold()
+        {
+            if (panel.gameObject.activeSelf != (open && !FocusGuard.Folded)) panel.gameObject.SetActive(open && !FocusGuard.Folded);
+        }
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
@@ -134,7 +142,8 @@ namespace Halcyonic.XR.Workspace
                 Build();
             }
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
-            if (open && (FocusGuard.InputSuspended || foreground)) Close();
+            if (open && foreground) Close();
+            ApplyFold();
             if (FocusGuard.InputSuspended)
             {
                 if (chip.gameObject.activeSelf) chip.Hide();
@@ -254,7 +263,7 @@ namespace Halcyonic.XR.Workspace
             var room = ProjectRail.UsageLeftRoom - ProjectRail.Gap;
             var lower = -(ProjectRail.ChipHeight / 2f + ProjectRail.Gap / 2f);
             chip.Show(Label, new Vector2(ProjectRail.RailWidth / 2f - room / 2f, lower), room);
-            panel.gameObject.SetActive(open);
+            panel.gameObject.SetActive(open && !FocusGuard.Folded);
             if (!open) return;
 
             if (answer != null) shown = UsageLeftPresenter.Present(answer, DateTimeOffset.UtcNow, TimeZoneInfo.Local);

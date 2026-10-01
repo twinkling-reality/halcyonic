@@ -220,14 +220,20 @@ namespace Halcyonic.Client
         /// <param name="status">The session's connection status after the pump.</param>
         /// <param name="slotOf">The slot a workstream's character stands in, from the person's left, or -1 without one.</param>
         /// <param name="now">The current time in seconds, on a clock that only moves forward.</param>
-        /// <param name="audible">Whether cues can be heard now; while not, nothing is chosen.</param>
+        /// <param name="audible">Whether cues can be heard now; while not, nothing is chosen, except as <paramref name="needsYouWhileAway"/> allows.</param>
+        /// <param name="needsYouWhileAway">
+        /// The person chose to hear work that comes to need them while another window has focus: while
+        /// not <paramref name="audible"/>, a character's Needs you still sounds, once, and nothing else
+        /// does. Off by default; whether it helps or interrupts is for the headset to show.
+        /// </param>
         public IReadOnlyList<CueOnset> Observe(
             StateChanges changes,
             ClientProjection state,
             ConnectionStatus status,
             Func<string, int> slotOf,
             double now,
-            bool audible)
+            bool audible,
+            bool needsYouWhileAway = false)
         {
             if (changes == null) throw new ArgumentNullException(nameof(changes));
             if (!primed || changes.Resynchronized)
@@ -259,6 +265,17 @@ namespace Halcyonic.Client
             var lost = live && !status.IsLive
                 && (status.Phase == ConnectionPhase.WaitingToRetry || status.Phase == ConnectionPhase.Refused);
             live = status.IsLive;
+            if (!audible && needsYouWhileAway)
+            {
+                // One gentle cue for each character that came to need the person; never an alarm.
+                var away = new List<CueOnset>();
+                changed.Sort(ByImportance);
+                foreach (var cue in changed)
+                {
+                    if (cue.Cue == SoundCue.NeedsYou && !Repeated(cue.Cue, cue.WorkstreamId, now)) away.Add(Schedule(cue.Cue, cue.WorkstreamId, cue.Bot, now));
+                }
+                return away;
+            }
             if (!audible) return Nothing;
 
             var onsets = new List<CueOnset>();
