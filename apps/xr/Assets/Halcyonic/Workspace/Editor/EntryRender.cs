@@ -162,6 +162,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (WorkspaceRender.Covered(camera, target, rect)) failures.Add(what + ": " + view.WorkstreamId + "'s body is behind the panel.");
                     }
                     if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what));
+                    failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));
                     if (hostile && !suffix.StartsWith("review", StringComparison.Ordinal))
                     {
                         failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what));
@@ -504,6 +505,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 + " degrees below eye level.");
             if (widest > SideControlsDegrees) failures.Add(name + ": the rail reaches " + WorkspaceRender.Degrees(widest) + " degrees to the side, into the room and pairing controls.");
             return failures;
+        }
+
+        /// <summary>
+        /// A line said on one screen never shows on another: hold to talk's words only on the Create
+        /// start screen that said them. The screens render one after another on the same panel, so a
+        /// line left over from an earlier screen shows here.
+        /// </summary>
+        private static IEnumerable<string> NoticesStayOnTheirScreen(IEnumerable<Component> parts, string suffix, string what)
+        {
+            if (suffix == "create-voice") yield break;
+            var voice = new HashSet<string>(VoiceText.Shown.Select(LabelText.ForTextMeshPro));
+            foreach (var part in parts)
+            {
+                if (part is TMP_Text label && voice.Contains(label.text)) yield return what + ": " + label.name + " still shows hold to talk's words: " + label.text;
+            }
         }
 
         /// <summary>

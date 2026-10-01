@@ -60,7 +60,8 @@ namespace Halcyonic.XR.Workspace
         private string? unresolved;
         private bool recoveryArmed;
         private bool showModels;
-        private string? notice;
+        /// <summary>A line for one screen, such as why a folder name was refused: shown only there, dropped once another screen shows.</summary>
+        private (Screen On, string Text)? notice;
         private string? shownProject;
         private ProjectFolder? sentFolder;
         private bool rendering;
@@ -189,6 +190,15 @@ namespace Halcyonic.XR.Workspace
             _ => EntryText.PreviousRequestTitle,
         };
 
+        /// <summary>The notice for <paramref name="shown"/>, or null when there is none for it.</summary>
+        private string? NoticeOn(Screen shown) => notice is { } line && line.On == shown ? line.Text : null;
+
+        /// <summary>Drops a notice meant for another screen, so a line never outlives the screen it was for.</summary>
+        private void DropStaleNotice()
+        {
+            if (notice is { } line && line.On != screen) notice = null;
+        }
+
         private void LayoutCreate()
         {
             if (idea == null && screen != Screen.Previous)
@@ -208,7 +218,7 @@ namespace Halcyonic.XR.Workspace
                     LayoutGuide();
                     break;
                 case Screen.Recap:
-                    if (!banner) SayLine(notice ?? "Change anything before you start building.");
+                    if (!banner) SayLine(NoticeOn(Screen.Recap) ?? "Change anything before you start building.");
                     LayoutRecap();
                     break;
                 case Screen.Options:
@@ -248,11 +258,12 @@ namespace Halcyonic.XR.Workspace
                 // Under Type my idea, as the other way to give it, with what it is doing beside it.
                 var y = -0.04f - BigHeight / 2f - Gap - BottomHeight / 2f;
                 Put(holdToTalk, VoiceText.HoldToTalk, new Vector2(Left + width / 2f, y), width, () => OnVoiceSaid(VoiceText.TooShort));
-                if (notice != null) Say(note, notice, new Vector2(Right - width, y + BottomHeight / 2f), new Vector2(width, BottomHeight));
+                var said = NoticeOn(Screen.CreateStart);
+                if (said != null) Say(note, said, new Vector2(Right - width, y + BottomHeight / 2f), new Vector2(width, BottomHeight));
             }
-            else if (notice != null)
+            else if (NoticeOn(Screen.CreateStart) is string said)
             {
-                Say(note, notice, new Vector2(Left, -0.16f), new Vector2(ContentWidth, 0.05f));
+                Say(note, said, new Vector2(Left, -0.16f), new Vector2(ContentWidth, 0.05f));
             }
         }
 
@@ -263,7 +274,7 @@ namespace Halcyonic.XR.Workspace
         private void OnVoiceSaid(string words)
         {
             if (!visible || screen != Screen.CreateStart) return;
-            notice = words;
+            notice = (Screen.CreateStart, words);
             Layout();
         }
 
@@ -276,7 +287,7 @@ namespace Halcyonic.XR.Workspace
             var current = idea;
             if (!visible || screen != Screen.CreateStart || current == null) return;
             current.UseIdea(text);
-            notice = VoiceText.HeardNote;
+            notice = (Screen.Recap, VoiceText.HeardNote);
             screen = Screen.Recap;
             Layout();
         }
@@ -533,7 +544,7 @@ namespace Halcyonic.XR.Workspace
                 // Open waits for input, which is suspended now; the screen changes while the panel is shown.
                 review = null;
                 screen = Screen.Recap;
-                notice = EntryText.ReviewAfresh;
+                notice = (Screen.Recap, EntryText.ReviewAfresh);
                 Layout();
                 return;
             }
@@ -645,7 +656,7 @@ namespace Halcyonic.XR.Workspace
                     detailColor: option.Choosable ? (Color?)null : WorkspaceVisuals.AttentionColor);
             }
             Pager(options.Count);
-            if (notice != null && screen == Screen.Folder) Say(note, notice, new Vector2(Left, -0.17f), new Vector2(ContentWidth, 0.05f));
+            if (NoticeOn(Screen.Folder) is string refused) Say(note, refused, new Vector2(Left, -0.17f), new Vector2(ContentWidth, 0.05f));
         }
 
         private void ChooseOption(FolderOption option)
@@ -660,7 +671,7 @@ namespace Halcyonic.XR.Workspace
                         var made = ProjectFolder.New(option.Root, text);
                         if (made == null)
                         {
-                            notice = EntryText.NewFolderRule;
+                            notice = (Screen.Folder, EntryText.NewFolderRule);
                             return;
                         }
                         notice = null;
@@ -948,7 +959,7 @@ namespace Halcyonic.XR.Workspace
                     sequence = null;
                     Remember(null);
                     idea = new ProjectIdea();
-                    notice = "Cleared after your check. Start again from your idea.";
+                    notice = (Screen.CreateStart, "Cleared after your check. Start again from your idea.");
                     Open(Screen.CreateStart);
                 }, confirm: true);
             }
