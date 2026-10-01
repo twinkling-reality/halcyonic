@@ -498,7 +498,7 @@ public class DemonstrationSessionTests
         activity.Record(seen.Events);
         var execution = Demonstration.DirectedExecution(session)!;
         var lines = activity.For(execution.ExecutionId).Select(entry => entry.Text).ToList();
-        Assert.That(lines, Has.Some.EqualTo("demonstration recorder asked to approve"));
+        Assert.That(lines, Has.Some.EqualTo("Asked to approve"));
         Assert.That(lines, Has.Some.EqualTo("Approved"));
         Assert.That(lines, Has.Some.EqualTo("shell: make migrate"));
         Assert.That(lines, Has.Some.EqualTo("Tests failed: 1 failed, 23 passed"));

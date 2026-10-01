@@ -246,7 +246,7 @@ public class LiveControlPlaneTests
             "the runtime takes the instruction");
         Assert.That(Workspace().Commands.First().Text, Is.EqualTo("Instruction delivered"));
         Assert.That(activity.For(executionId).Last(entry => entry.Kind == ActivityKind.Command).Text,
-            Is.EqualTo(Samples.Client.Name + " asked to send an instruction"));
+            Is.EqualTo("Asked to send an instruction"));
     }
 
     [Test]
@@ -319,9 +319,11 @@ public class LiveControlPlaneTests
         await Until(s => s.State.Executions[executionId].Status == ExecutionStatus.Completed, "the turn finishes after the answer");
         Assert.That(Now().QuestionToAnswer, Is.Null);
         var lines = activity.For(executionId).Select(entry => entry.Text).ToList();
+        Assert.That(lines, Does.Contain("Asked to answer the agent's question"));
         Assert.That(lines.IndexOf("Started on Mock runtime (development fixture)"), Is.GreaterThan(lines.IndexOf("Asked Mock runtime (development fixture) to start")),
             "started only after the runtime says so");
-
+        Assert.That(lines, Has.None.Contains("halcyonic").And.None.Contains("execution.").And.None.Contains("Execution"),
+            "no client names or command types reach the headset");
         Assert.That(WorkspaceText.Questions(Now()), Does.Not.Contain(WorkspaceQuestion.NeedFromYou), "the question's tab goes once it is answered");
     }
 

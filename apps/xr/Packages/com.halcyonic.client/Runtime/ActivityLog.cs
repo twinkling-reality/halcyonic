@@ -146,9 +146,11 @@ namespace Halcyonic.Client
                 case RuntimeConnectionLostEvent lost:
                     return Entry(ActivityKind.Connection, "Lost contact with the runtime: " + lost.Payload.Reason);
                 case CommandAcceptedEvent accepted:
-                    return Entry(ActivityKind.Command, accepted.Payload.Command.Client.Name + " asked to " + Verb(accepted.Payload.Command));
+                    // A client's name is not a person's, so it is not shown as one; a command without plain words is left out.
+                    return Verb(accepted.Payload.Command) is string asked ? Entry(ActivityKind.Command, "Asked to " + asked) : null;
                 case CommandRejectedEvent rejected:
-                    return Entry(ActivityKind.Command, "Refused to " + Verb(rejected.Payload.Command) + ": " + rejected.Payload.Rejection.Message);
+                    return Entry(ActivityKind.Command, (Verb(rejected.Payload.Command) is string refused ? "Refused to " + refused : "A request was refused")
+                        + ": " + rejected.Payload.Rejection.Message);
                 case CommandFailedEvent commandFailed:
                     return Entry(ActivityKind.Command, "A request failed: " + commandFailed.Payload.Failure.Message
                         + (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : ""));
@@ -162,13 +164,15 @@ namespace Halcyonic.Client
         /// <summary>Tool call ids are native and only unique within one execution.</summary>
         private static string ToolKey(EventEnvelope e, string toolCallId) => e.ExecutionId + "\n" + toolCallId;
 
-        private static string Verb(CommandEnvelope command) => command switch
+        /// <summary>What a command asks for, in plain words, or null for one that has none yet.</summary>
+        private static string? Verb(CommandEnvelope command) => command switch
         {
             ExecutionRespondToApprovalCommand respond => respond.Payload.Decision == ApprovalDecision.Approve ? "approve" : "deny",
             ExecutionInterruptCommand _ => "stop the turn",
             ExecutionSendInstructionCommand _ => "send an instruction",
             ExecutionStartCommand _ => "start work",
-            _ => command.CommandType,
+            ExecutionAnswerQuestionCommand _ => "answer the agent's question",
+            _ => null,
         };
 
         private static string TestWord(TestOutcome outcome) => outcome switch

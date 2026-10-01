@@ -20,6 +20,17 @@ namespace Halcyonic.Client
         /// <summary>A paired headset whose pairing the Mac no longer accepts, as after it was revoked.</summary>
         public const string PairingRefused = "Your Mac no longer accepts this headset's pairing. Forget the Mac on the headset and pair again.";
 
+        /// <summary>The connection's phase in plain words, never the phase's own name.</summary>
+        public static string Phase(ConnectionStatus status) => status.Phase switch
+        {
+            ConnectionPhase.Live => "Live",
+            ConnectionPhase.Connecting => "Connecting to your Mac…",
+            ConnectionPhase.Synchronizing => "Catching up with your Mac…",
+            ConnectionPhase.WaitingToRetry => Unreachable,
+            ConnectionPhase.Refused => WhyNotLive(status),
+            _ => "Not connected",
+        };
+
         public const string Unreachable = "Can't reach your Mac; trying again. Check that the control plane is running and this headset can reach it.";
 
         /// <summary>
