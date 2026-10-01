@@ -258,6 +258,27 @@ public class WorkspaceTextTests
 
 public class CommandSubmissionsTests
 {
+    [Test]
+    public async Task EveryCommandAClientCanSendIsRecorded()
+    {
+        // Send answer once threw here, before anything was sent: the answer command had no type.
+        var types = typeof(CommandEnvelope).Assembly.GetTypes()
+            .Where(type => type.IsSubclassOf(typeof(CommandEnvelope)) && !type.IsAbstract)
+            .ToList();
+        Assert.That(types, Has.Count.GreaterThanOrEqualTo(8));
+        foreach (var type in types)
+        {
+            var submissions = new CommandSubmissions();
+            var command = (CommandEnvelope)Activator.CreateInstance(type)!;
+            command.CommandId = Guid.NewGuid().ToString("D");
+            command.IssuedAt = Samples.Time;
+            await submissions.SubmitAsync(
+                sent => Task.FromResult(new CommandAckMessage { CommandId = sent.CommandId, Disposition = CommandAckDisposition.Accepted, Command = null }),
+                command, "e1");
+            Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.Acknowledged), type.Name);
+        }
+    }
+
     private static CommandView Record(CommandEnvelope command, CommandStatus status, string executionId = "e1") => new()
     {
         CommandId = command.CommandId,

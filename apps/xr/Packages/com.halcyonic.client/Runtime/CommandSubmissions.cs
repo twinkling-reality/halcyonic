@@ -150,10 +150,13 @@ namespace Halcyonic.Client
                 .ToList();
         }
 
-        private static CommandType TypeOf(CommandEnvelope command) => command switch
+        /// <summary>The command's type. Every command a client can send is named, so recording one never throws.</summary>
+        internal static CommandType TypeOf(CommandEnvelope command) => command switch
         {
             ProjectCreateCommand _ => CommandType.ProjectCreate,
+            ProjectSetLocationCommand _ => CommandType.ProjectSetLocation,
             WorkstreamCreateCommand _ => CommandType.WorkstreamCreate,
+            ExecutionAnswerQuestionCommand _ => CommandType.ExecutionAnswerQuestion,
             ExecutionStartCommand _ => CommandType.ExecutionStart,
             ExecutionSendInstructionCommand _ => CommandType.ExecutionSendInstruction,
             ExecutionRespondToApprovalCommand _ => CommandType.ExecutionRespondToApproval,
