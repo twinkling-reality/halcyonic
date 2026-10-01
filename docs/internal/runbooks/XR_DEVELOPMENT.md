@@ -124,6 +124,20 @@ review's first and last pages, a refused start and a request that may have run) 
 (`Halcyonic: entry render ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
 "Scene".
 
+The stage beside a window, and large panels folded and restored, render the same way, **Halcyonic >
+Render the Stage Beside a Window**, or in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.AmbientRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-ambient-render.log
+```
+
+It saves the lineup in front of and turned aside from a window-sized plate (1.4 by 0.79 m at 1.6 m,
+straight ahead at eye level) and the entry and Usage left panels open, folded and restored, in
+`apps/xr/Builds/AmbientRenders`, and logs how many characters' bodies the plate covers. It fails if
+turning the lineup aside uncovers no one, if a folded panel still shows, or if a restored panel
+differs by a pixel from before it folded. The plate is not a real window: only the headset shows
+what a real one covers.
+
 The Usage left glance renders the same way, **Halcyonic > Render Usage Left Over the Stage**, or in
 batch mode:
 
@@ -824,5 +838,53 @@ adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
   while you work beside them ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **Over time.** After an hour beside the characters: were the cues noticed, never annoying, and
   distinct enough to tell which character spoke by its place and note?
+
+### Beside a window on a Quest
+
+A session of 20 minutes or less, seated at the desk, hands only, in passthrough, with a live
+control plane that has three to six workstreams and a way to make one need you (the mock runtime's
+`approval_flow`, or a real runtime that asks). Follow focus and folding in the log:
+
+```bash
+adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|sound|placed the stage|kept the stage)"
+```
+
+1. **Place.** Characters on the desk, or in front; then open a browser video window (Meta's
+   browser, any video) and place it in front of you. Note how many characters it covers. Press Make
+   room for a window in the room controls (low right) and note the count again; Characters in front
+   turns them back. Record both counts and which side the window was on.
+2. **Watch.** Select the video. The log says focus went to another window; three seconds later,
+   large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
+   on the stage moves. Characters keep animating.
+3. **Needs you while watching.** Make a workstream need you. The character rises and turns, and the
+   line above the stage says "1 needs you" in amber. Can you see either past the window?
+4. **Return by hand.** Pinch on a character, the rail or empty space. The first pinch only returns
+   focus: nothing opens or presses, and panels come back as they were. Then open the character and
+   read the request.
+5. **Half done.** Arm Yes, approve, then select the video before confirming, and come back. The
+   workspace says "You went to another window, so nothing was sent. Press it again to confirm.";
+   the request still waits. Confirm it afresh; the character shows the runtime's result.
+6. **Return by the Meta menu.** Press the Meta button, then Resume. Same as step 4.
+7. **Back to the video.** Select it again; the character you approved stays nearby, panels fold.
+8. **Flapping.** Move a hand quickly between the video and the stage several times. Nothing on the
+   stage rearranges; the log shows losses but no folding unless focus stays away three seconds.
+9. **Keyboard.** Start a new project and type its idea. The keyboard takes focus; the entry panel
+   stays put and the draft is kept. Close the keyboard with Done and the text arrives.
+10. **Hold to talk**, if the build has it: hold, then select the video mid-sentence. Recording
+    stops; nothing is transcribed and the field keeps its text.
+11. **Sleep and resume.** Take the headset off until it sleeps, put it back on. Does the stage say
+    Last known, then Live, and is no action offered while it says Last known?
+12. **Sound options.** First silent (the default): does a Needs you while watching go unnoticed?
+    Then turn on the option and repeat step 3:
+
+    ```bash
+    adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/needs-you-sound-while-away
+    ```
+
+    One quieter Needs you, never repeated. Was it helpful or an interruption? Remove the file to
+    turn it off again (`adb shell rm` the same path).
+
+Record what each step showed in [quest-3-device.md](../validation/quest-3-device.md), including what
+did not happen as written. A step not tried stays unverified.
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).
