@@ -108,8 +108,7 @@
 
 - The headset's interface takes Meta's numbers (targets, gaps, type sizes, contrast, feedback,
   filled icons) and none of the UI Set's assets
-  ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md),
-  Proposed).
+  ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
 - A touch panel at 0.46 m is inside Meta's touch range and under its 0.5 m comfort line; whether
   reading there is comfortable is a headset check.
 - Today's panels (#0F141C) are darker than Meta's floor for dark backgrounds.

@@ -1,6 +1,6 @@
 # ADR 0023: The headset's interface is one system of tokens, components and render-checked rules
 
-- Status: Proposed
+- Status: Accepted on 2026-10-01 by the owner.
 - Date: 2026-10-01
 
 ## Context
