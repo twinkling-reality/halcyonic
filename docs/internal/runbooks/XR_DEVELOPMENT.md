@@ -952,7 +952,9 @@ note what you saw and how it felt.
 1. **Stage height.** The characters stand 2.4 m away with their centers about 4 degrees below your
    eyes (`heightFromEyes` -0.17 on the stage in `Stage.unity`, was -0.45). Sitting comfortably,
    are the bodies easy to see without lifting your chin, and do they ever sit where a system window
-   would open? If a value feels better, try -0.12 or -0.22 and note which.
+   would open? If a value feels better, try -0.12 or -0.22 and note which. Then open a window
+   straight ahead: at this height it hides the middle characters' labels as well as their bodies.
+   How much does that matter, and does Make room for a window fix it?
 2. **Labels.** Each label has a state badge on top, the task's title on a dark plate, and Practice,
    Demo or Recorded on the plate's bottom edge. From your seat, can you read every title and badge
    without leaning? Do neighbours' labels ever touch? Does any title cut off where you need its end?

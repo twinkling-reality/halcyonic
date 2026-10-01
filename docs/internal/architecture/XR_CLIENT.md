@@ -857,8 +857,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   (`CharacterStage.SetAside`, kept on the device), and Characters in front, which turns it back. On
   a desk the room placement decides where it stands. Halcyonic cannot see the window, so this
   reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m straight ahead,
-  the render (`AmbientRender`) shows it covering 4 of 6 characters' bodies in front and 3 aside, the
-  labels clear of it in both.
+  the render (`AmbientRender`) shows it covering 4 of 6 characters' bodies in front and 2 aside,
+  with their labels: since ADR 0023 raised the stage, the labels stand at the window's height too.
 - **Entry panel:** `EntryPanel`, the one foreground panel for entering work, the workspace's size,
   opened where the workspace would open, clear of every character
   (`WorkspaceLayout.PlaceForeground`). Its top row holds the title, Move (to the right, the left and

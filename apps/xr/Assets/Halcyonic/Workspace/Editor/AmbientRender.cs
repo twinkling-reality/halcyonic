@@ -190,7 +190,10 @@ namespace Halcyonic.XR.Workspace.Editor
         private static List<CharacterTarget> Characters(Transform parent, Vector3 eyes, float turn) =>
             WorkspaceRender.Lineup(parent, eyes, CharacterStage.DefaultDistance, null, WorkspaceRender.Presentation, turn).ConvertAll(character => character.Target);
 
-        /// <summary>The window: an opaque quad of <see cref="WindowSize"/> straight ahead at eye level.</summary>
+        /// <summary>
+        /// The window: an opaque quad of <see cref="WindowSize"/> straight ahead at eye level, drawn
+        /// over everything Halcyonic draws, as the system draws a window over the app.
+        /// </summary>
         private static GameObject Window(Transform parent, Vector3 eyes)
         {
             var window = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -200,7 +203,9 @@ namespace Halcyonic.XR.Workspace.Editor
             window.transform.SetPositionAndRotation(eyes + Vector3.forward * WindowDistance, Quaternion.identity);
             window.transform.localScale = new Vector3(WindowSize.x, WindowSize.y, 1f);
             var material = new Material(Shader.Find("Sprites/Default")) { color = new Color(0.18f, 0.2f, 0.24f, 1f) };
-            window.GetComponent<MeshRenderer>().sharedMaterial = material;
+            var renderer = window.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.sortingOrder = 100;
             return window;
         }
 
