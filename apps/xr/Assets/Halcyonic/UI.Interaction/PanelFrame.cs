@@ -99,6 +99,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro partsHeading = null!;
         private TextMeshPro partsNote = null!;
         private TextMeshPro splitter = null!;
+        private TextMeshPro lineMeasure = null!;
         private StateBadgeView badge = null!;
         private Surface banner = null!;
         private TextMeshPro bannerText = null!;
@@ -339,6 +340,8 @@ namespace Halcyonic.XR.UI
             partsNote = Text("Pager note", GlazeType.Caption, GlazeTokens.TextSecondary);
             // Never shown: it lays text out at the list's width to split it into parts of whole lines.
             splitter = Text("Line splitter", GlazeType.Body, GlazeTokens.Text);
+            // Never shown: it lays a line of the list out to measure how tall it is, so no line shown is laid out twice.
+            lineMeasure = Text("Line measure", GlazeType.Body, GlazeTokens.Text);
             banner = Surface.Create(content, "Banner", 10);
             bannerText = Text("Banner words", GlazeType.Body, GlazeTokens.Text);
             badge = StateBadgeView.Create(content, "Badge", 11);
@@ -1189,13 +1192,18 @@ namespace Halcyonic.XR.UI
             return cellWidth - side.Measure(row.Side.Label) - TargetGap;
         }
 
+        /// <summary>How tall a line is at <paramref name="width"/>, measured once for the same words.</summary>
         private float MeasureLine(PanelRow row, float width)
         {
-            var label = LineLabel(0);
-            Style(label, row);
-            GlazeText.SetLiteral(label, row.Title);
-            var (count, _) = GlazeText.Lay(label, WordsWidth(row, width), Mathf.Max(1, row.TitleLines));
-            return Mathf.Max(1, count) * GlazeText.LineHeight(label);
+            var key = string.Join("\u0001", "line", row.Title, row.TitleLines, row.Size, row.Meter.HasValue, Mathf.RoundToInt(width * 100000f));
+            if (heights.TryGetValue(key, out var height)) return height;
+            if (heights.Count > 2000) heights.Clear();
+            Style(lineMeasure, row);
+            GlazeText.SetLiteral(lineMeasure, row.Title);
+            var (count, _) = GlazeText.Lay(lineMeasure, WordsWidth(row, width), Mathf.Max(1, row.TitleLines));
+            height = Mathf.Max(1, count) * GlazeText.LineHeight(lineMeasure);
+            heights[key] = height;
+            return height;
         }
 
         /// <summary>The width a line's words get: less its meter and the gap before it.</summary>

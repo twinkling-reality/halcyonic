@@ -38,6 +38,9 @@ namespace Halcyonic.XR.Workspace
         private readonly ActivityLog activity = new ActivityLog();
         private readonly CommandSubmissions submissions = new CommandSubmissions();
         private readonly Dictionary<string, CharacterTarget> targets = new Dictionary<string, CharacterTarget>();
+
+        /// <summary>The characters standing now, gathered every frame for the peek into one list, so no frame allocates.</summary>
+        private readonly List<CharacterTarget> standing = new List<CharacterTarget>();
         private ControlPlaneConnection connection = null!;
         private CharacterStage stage = null!;
         private CommandFactory commands = null!;
@@ -292,9 +295,11 @@ namespace Halcyonic.XR.Workspace
             // A hand keeps the character it points at until it leaves, then takes any other.
             if (pointed == null || !pointed.HandHovered) pointed = null;
             CharacterTarget? gazed = null;
+            standing.Clear();
             foreach (var target in targets.Values)
             {
                 if (target == null) continue;
+                standing.Add(target);
                 if (pointed == null && target.HandHovered) pointed = target;
                 if (gazed == null && target.GazeHovered) gazed = target;
             }
@@ -340,7 +345,7 @@ namespace Halcyonic.XR.Workspace
             else
             {
                 // Under the label, unless a panel is open under the labels or the labels rest on a surface.
-                peek.Show(shown, targets.Values, peekCard, peekChoice.Opacity, opened != null || AmbientCover.PanelShowing || stage.SurfaceHeight.HasValue,
+                peek.Show(shown, standing, peekCard, peekChoice.Opacity, opened != null || AmbientCover.PanelShowing || stage.SurfaceHeight.HasValue,
                     stage.BesideAWindow);
                 if (shown.WorkstreamId != loggedPeek)
                 {

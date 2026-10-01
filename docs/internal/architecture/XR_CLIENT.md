@@ -793,7 +793,9 @@ scripts use only long-stable core Unity APIs:
   edge inside its outline, solid or dashed, and a halftone, its properties instanced, shipped
   through a material in `UI/Resources`), text by type role (`GlazeText`: TextMeshPro in Liberation
   Sans, rich text off, escape parsing on, every text through `LabelText.ForTextMeshPro`, strong text
-  thickened by its material, never TextMeshPro's bold, which finds no ellipsis in this font), and
+  thickened by its material, never TextMeshPro's bold, which finds no ellipsis in this font; a
+  label's mesh is built again only when its words, look or box change, since panels lay every label
+  out again every half second), and
   the components without input: `StateBadgeView`, `MarkTag`, `CharacterLabelView`, `PeekCardView`
   and `StageBanner`. Components are built in units of their distance from the eyes and scaled by it,
   so every size is an angle.
@@ -1544,6 +1546,19 @@ are; every plate at least 96 percent
 opaque; every badge showing its whole word; a plate's pixel in its token's color; and a title's
 strokes at 7:1 or more on its plate as drawn. It fails if the banner still shows while the peek is
 where it goes, or does not come back when the peek leaves.
+
+`MeasureRender` (**Halcyonic > Measure the Interface**, also runnable in batch mode) measures what
+the interface costs a Quest 3, off the device, for the stage with the rail, the stage beside a
+window while another window has focus, the entry panel, a workspace, Usage left and Settings: the
+draw calls at most, before batching, the text labels, vertices and triangles; for each panel, the
+text meshes built again, the editor's time and the bytes allocated when the same screen is shown
+again; and the bytes every per-frame method allocates, by Unity's own count of the managed heap
+("GC Allocated In Frame"). It fails if a panel could draw more than 60 times or everything showing
+more than 220, as ADR 0023 budgets, if showing an unchanged screen builds a text mesh again, or if a
+frame allocates. Its results and what only the headset tells are in
+[quest-3-performance.md](../validation/quest-3-performance.md). The client core's per-frame code
+(`FocusPresence`, `PeekChoice`, `InFrontPlacement`, a section's `IntelligenceFeed`) is held to
+allocate nothing by `PerFrameTests`.
 
 `EntryRender` (**Halcyonic > Render the Entry Panel Over the Stage**, also runnable in batch mode)
 renders the project rail and every screen of the entry panel over the same two stages, and saves

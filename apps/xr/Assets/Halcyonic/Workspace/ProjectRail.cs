@@ -187,7 +187,8 @@ namespace Halcyonic.XR.Workspace
         {
             if (!placed || surface().HasValue != placedOnSurface) ResetPosition();
             // One foreground surface at a time: the entry panel, a workspace, Usage left and Settings open where the rail would show.
-            if (glance == null) glance = GetComponent<UsageLeftGlance>();
+            // TryGetComponent, unlike GetComponent, allocates nothing for a component that is not there, each frame.
+            if (glance == null) TryGetComponent(out glance);
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null) || (glance != null && glance.Open)
                 || (settings != null && settings.Open);
             if (root.gameObject.activeSelf == foreground) root.gameObject.SetActive(!foreground);

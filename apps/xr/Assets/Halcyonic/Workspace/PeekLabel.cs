@@ -27,7 +27,7 @@ namespace Halcyonic.XR.Workspace
 
         private PeekCardView card = null!;
         private CharacterTarget? character;
-        private IEnumerable<CharacterTarget>? neighbors;
+        private IReadOnlyList<CharacterTarget>? neighbors;
         private bool above;
         private bool besideWindow;
 
@@ -51,7 +51,7 @@ namespace Halcyonic.XR.Workspace
         /// and under its label and those of <paramref name="others"/> it would pass in front of otherwise;
         /// out from the window's lane when the characters stand <paramref name="beside"/> one.
         /// </summary>
-        public void Show(CharacterTarget target, IEnumerable<CharacterTarget> others, PeekCard peek, float opacity, bool aboveCharacter, bool beside = false)
+        public void Show(CharacterTarget target, IReadOnlyList<CharacterTarget> others, PeekCard peek, float opacity, bool aboveCharacter, bool beside = false)
         {
             besideWindow = beside;
             if (opacity <= 0f)
@@ -118,8 +118,10 @@ namespace Halcyonic.XR.Workspace
                 edge = Elevation(eyes, place + Vector3.up * (view.LabelBottom * view.transform.lossyScale.y));
                 if (neighbors != null)
                 {
-                    foreach (var other in neighbors)
+                    // By index: the card is placed every frame, and walking a collection through its interface allocates.
+                    for (var index = 0; index < neighbors.Count; index++)
                     {
+                        var other = neighbors[index];
                         if (other == null || other == character) continue;
                         var otherView = other.View;
                         var otherPlace = otherView.transform.position;

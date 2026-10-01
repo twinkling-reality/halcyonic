@@ -189,7 +189,8 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
-            if (entry == null) entry = GetComponent<EntryPanel>();
+            // TryGetComponent, unlike GetComponent, allocates nothing for a component that is not there, each frame.
+            if (entry == null) TryGetComponent(out entry);
             // One foreground surface at a time: the entry panel and a workspace open where the sheet is.
             if (open && ((entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null))) Close();
             var shows = open && !FocusGuard.Folded;

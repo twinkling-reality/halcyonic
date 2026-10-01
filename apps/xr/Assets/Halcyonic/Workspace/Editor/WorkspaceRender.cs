@@ -191,7 +191,7 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        private static WorkspaceSteering Steering() => new(new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }));
+        internal static WorkspaceSteering Steering() => new(new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }));
 
         /// <summary>
         /// The workspace on the render with everything it needs to show a screen and check it, as the
@@ -348,7 +348,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// runtime that takes instructions while it runs, approvals and stopping reviewed before they
         /// are sent, as the control plane's policy says.
         /// </summary>
-        private sealed class Work
+        internal sealed class Work
         {
             private Work(string title, string objective, WorkstreamStatus status, ExecutionStatus executionStatus, Action<ExecutionView> setUp,
                 AttentionReason? reason, bool reviewAnswers)

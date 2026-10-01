@@ -91,6 +91,10 @@ namespace Halcyonic.XR.UI
         private float rowStack;
         private int paintedState = -1;
 
+        /// <summary>The row's words and width its detail was last fitted to, and whether the short one was needed.</summary>
+        private (string Detail, string? Short, float Width, int Lines)? fittedDetail;
+        private bool fittedShort;
+
         /// <summary>A press; on a hold button, a press let go before its hold started.</summary>
         public event Action? Pressed;
 
@@ -278,12 +282,17 @@ namespace Halcyonic.XR.UI
             stack += Mathf.Max(1, titleLines) * GlazeText.LineHeight(label);
             if (words.Detail != null)
             {
-                GlazeText.SetLiteral(detail, words.Detail);
-                GlazeText.Lay(detail, textWidth, Mathf.Max(1, words.DetailLines));
-                if (detail.isTextTruncated && words.ShortDetail != null)
+                // Whether the full detail fits is decided once for the same words and width, so a row
+                // laid out again shows the detail it chose without building the other's mesh first.
+                var fitting = (words.Detail, words.ShortDetail, textWidth, Mathf.Max(1, words.DetailLines));
+                if (fittedDetail != fitting)
                 {
-                    GlazeText.SetLiteral(detail, words.ShortDetail);
+                    GlazeText.SetLiteral(detail, words.Detail);
+                    GlazeText.Lay(detail, textWidth, Mathf.Max(1, words.DetailLines));
+                    fittedDetail = fitting;
+                    fittedShort = detail.isTextTruncated && words.ShortDetail != null;
                 }
+                GlazeText.SetLiteral(detail, fittedShort ? words.ShortDetail! : words.Detail);
                 var (detailLines, _) = GlazeText.Lay(detail, textWidth, Mathf.Max(1, words.DetailLines));
                 detail.gameObject.SetActive(true);
                 stack += Mathf.Max(1, detailLines) * GlazeText.LineHeight(detail);
