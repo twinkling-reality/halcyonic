@@ -86,6 +86,20 @@ namespace Halcyonic.Client
         public int Capacity => slots.Length;
 
         /// <summary>
+        /// The same lineup with another number of slots, as when the person stands the characters
+        /// beside a window: the journal it follows, the work it has seen, what it keeps in view and what
+        /// was asked for carry over, so work just started or opened keeps its hold and nothing seen
+        /// before counts as new. Its slots fill again at the next <see cref="Update(IEnumerable{WorkstreamView}, DateTimeOffset)"/>.
+        /// </summary>
+        public CharacterLineup WithCapacity(int capacity)
+        {
+            var resized = new CharacterLineup(capacity) { journal = journal, primed = primed, requested = requested };
+            resized.known.UnionWith(known);
+            foreach (var pair in kept) resized.kept[pair.Key] = pair.Value;
+            return resized;
+        }
+
+        /// <summary>
         /// The workstream id standing in each slot, from the person's left to their right, or null
         /// for an empty slot.
         /// </summary>

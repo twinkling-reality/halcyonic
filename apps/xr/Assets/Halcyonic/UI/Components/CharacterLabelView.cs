@@ -15,7 +15,9 @@ namespace Halcyonic.XR.UI
     /// </summary>
     /// <remarks>
     /// The mark sits under the title rather than beside the badge: six characters stand 12 degrees
-    /// apart, and a badge with a mark beside it would reach a neighbour's.
+    /// apart, and a badge with a mark beside it would reach a neighbour's. Beside a window the label
+    /// shows only its badge and, under it, its mark (<see cref="BadgeOnly"/>): work that is not real
+    /// always says so, and the title waits for the peek.
     /// </remarks>
     public sealed class CharacterLabelView : MonoBehaviour
     {
@@ -46,6 +48,7 @@ namespace Halcyonic.XR.UI
         private CharacterLabel? shown;
         private float plateWidth;
         private float bottom;
+        private bool badgeOnly;
 
         /// <summary>How far below its origin the label reaches, its mark included: a negative height, in its parent's units.</summary>
         public float Bottom => bottom;
@@ -60,6 +63,18 @@ namespace Halcyonic.XR.UI
         public IReadOnlyList<MarkTag> Tags => tags;
 
         public Surface Plate => plate;
+
+        /// <summary>Shows only the badge and the marks under it, no plate or title, as the characters beside a window do.</summary>
+        public bool BadgeOnly
+        {
+            get => badgeOnly;
+            set
+            {
+                if (badgeOnly == value) return;
+                badgeOnly = value;
+                if (shown != null) Layout(shown);
+            }
+        }
 
         /// <summary>
         /// The lowest any label reaches below its origin, with two lines of title and a mark: where
@@ -137,6 +152,24 @@ namespace Halcyonic.XR.UI
                 widest = Mathf.Max(widest, tags[index].Width);
             }
 
+            plate.gameObject.SetActive(!badgeOnly);
+            title.gameObject.SetActive(!badgeOnly);
+            if (badgeOnly)
+            {
+                // The marks in a row under the badge, a little apart from it.
+                var markRow = 0f;
+                for (var index = 0; index < label.Marks.Count; index++) markRow += tags[index].Width + (index > 0 ? GlazeTokens.Units(0.35f) : 0f);
+                var markMiddle = top - badgeHeight - GlazeTokens.Units(MarkRoomDegrees) - MarkTag.Height / 2f;
+                var left = -markRow / 2f;
+                for (var index = 0; index < label.Marks.Count; index++)
+                {
+                    tags[index].transform.localPosition = new Vector3(left + tags[index].Width / 2f, markMiddle, -0.001f);
+                    left += tags[index].Width + GlazeTokens.Units(0.35f);
+                }
+                bottom = label.Marks.Count > 0 ? markMiddle - MarkTag.Height / 2f : top - badgeHeight;
+                HalfWidth = Mathf.Max(widest, markRow) / 2f;
+                return;
+            }
             var plateTop = top - badgeHeight / 2f;
             var marked = label.Marks.Count > 0;
             var plateBottom = titleTop - lines * GlazeText.LineHeight(title)

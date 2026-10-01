@@ -158,8 +158,8 @@ namespace Halcyonic.XR.Workspace
             rail.OfferUsageLeft(UsageLeftPresenter.Title);
             root = new GameObject("Usage left panel").transform;
             root.SetParent(transform, false);
-            // The stage's banner steps aside while the panel shows where it goes.
-            AmbientCover.Add(root.gameObject, panel: true);
+            // The stage's banner steps aside while the panel shows where it goes, and names it while it is folded.
+            AmbientCover.Add(root.gameObject, panel: true, () => open ? UsageLeftPresenter.Title : null);
             frame = PanelFrame.Create(root, "Frame");
             frame.Accepting = () => !FocusGuard.InputSuspended;
             frame.Acted += OnActed;

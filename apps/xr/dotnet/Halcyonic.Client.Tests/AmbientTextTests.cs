@@ -21,4 +21,36 @@ public class AmbientTextTests
         Assert.That(AmbientText.NeedsYouLine(1), Is.EqualTo("1 task is waiting for you"));
         Assert.That(AmbientText.NeedsYouLine(0), Is.Null, "nothing to say when nothing waits");
     }
+
+    [Test]
+    public void SaysHowMuchMoreWorkHasNoCharacter()
+    {
+        Assert.That(AmbientText.NotShown(1), Is.EqualTo("1 more task not shown here"));
+        Assert.That(AmbientText.NotShown(3), Is.EqualTo("3 more tasks not shown here"));
+        Assert.That(AmbientText.NotShown(0), Is.Null, "nothing to say when every task stands on the stage");
+    }
+
+    [Test]
+    public void SaysWhichPanelIsStillOpenItsNameCutShort()
+    {
+        Assert.That(AmbientText.StillOpen("Create a project"), Is.EqualTo("Still open: Create a project"));
+        var title = new string('T', 80);
+        Assert.That(AmbientText.StillOpen(title), Is.EqualTo("Still open: " + IntelligenceText.Truncate(title, AmbientText.StillOpenLimit)));
+        Assert.That(AmbientText.StillOpen(title).Length, Is.LessThan(50));
+    }
+
+    [Test]
+    public void EveryArrangementSaysWhereTheCharactersStandAndThatTheWindowIsAssumed()
+    {
+        Assert.That(SettingsText.Arrangement(StageArrangement.InFront), Is.EqualTo("The characters stand in front of you, where a window often opens."));
+        Assert.That(SettingsText.Arrangement(StageArrangement.TurnedAside), Is.EqualTo("The characters are turned right of a window assumed straight ahead."));
+        Assert.That(SettingsText.Arrangement(StageArrangement.BesideAWindow), Is.EqualTo("The characters stand either side of a window assumed straight ahead."));
+        foreach (var arrangement in (StageArrangement[])System.Enum.GetValues(typeof(StageArrangement)))
+        {
+            Assert.That(SettingsText.Arrangement(arrangement).Length, Is.LessThanOrEqualTo(70), "one row of the Settings sheet");
+        }
+        Assert.That(SettingsText.ChangeTo(StageArrangement.InFront), Is.EqualTo("Characters in front"));
+        Assert.That(SettingsText.ChangeTo(StageArrangement.TurnedAside), Is.EqualTo("Make room for a window"), "the turn aside keeps its words");
+        Assert.That(SettingsText.ChangeTo(StageArrangement.BesideAWindow), Is.EqualTo("Either side of a window"));
+    }
 }

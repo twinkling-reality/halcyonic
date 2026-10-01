@@ -141,12 +141,18 @@ Render the Stage Beside a Window**, or in batch mode:
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.AmbientRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-ambient-render.log
 ```
 
-It saves the lineup in front of and turned aside from a window-sized plate (1.4 by 0.79 m at 1.6 m,
-straight ahead at eye level) and the entry and Usage left panels open, folded and restored, in
-`apps/xr/Builds/AmbientRenders`, and logs how many characters' bodies the plate covers. It fails if
-turning the lineup aside uncovers no one, if a folded panel still shows, or if a restored panel
-differs by a pixel from before it folded. The plate is not a real window: only the headset shows
-what a real one covers.
+It saves the characters in each arrangement, in front, turned aside and beside a window, behind a
+window-sized plate (1.4 by 0.79 m at 1.6 m, straight ahead at eye level) (`window-front.png`,
+`window-aside.png`, `window-beside.png`), and the entry and Usage left panels open, folded and
+restored, in `apps/xr/Builds/AmbientRenders`. It logs, for each arrangement, how many characters'
+bodies and labels the plate covers and how far out the outermost label reaches, and how far below
+eye level the banner hangs beside a window. It fails if turning the lineup aside uncovers no one;
+if beside a window the plate covers any body or label, a body or label comes within a degree of
+the window's lane or of another character's, a title shows, or the banner reaches into the lane,
+sits under the window or a label, cuts its words short or takes a press; if a folded panel still
+shows, or the banner would not name it as still open; or if a restored panel differs by a pixel
+from before it folded. The plate is not a real window: only the headset shows what a real one
+covers.
 
 The Usage left glance renders the same way, **Halcyonic > Render Usage Left Over the Stage**, or in
 batch mode:
@@ -937,13 +943,19 @@ asks). Follow focus and folding in the log:
 adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|sound|placed the stage|kept the stage)"
 ```
 
-1. **Place.** Characters on the desk, or in front; then open a browser video window (Meta's
-   browser, any video) and place it in front of you. Note how many characters it covers. Press Make
-   room for a window in Settings (the rail's Settings, Your room) and note the count again; Characters in front
-   turns them back. Record both counts and which side the window was on.
+1. **Place.** Characters in front of you, not on the desk; then open a browser video window (Meta's
+   browser, any video) and place it straight ahead. Note how many characters it covers. In
+   Settings (the rail's Settings, Your room), press Make room for a window and note the count
+   again; then Either side of a window, and note it once more; Characters in front turns them back.
+   Record the three counts, where the window stood, and whether you had to turn your head to see
+   the outermost characters beside it (their labels reach about 37 degrees out). Beside a window,
+   with only badges showing, can you tell the tasks apart without peeking?
 2. **Watch.** Select the video. The log says focus went to another window; three seconds later,
    large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
-   on the stage moves. Characters keep animating.
+   on the stage moves. Characters keep animating. The banner under the characters says the panel is
+   still open ("Still open: Create a project"), and beside a window, how many more tasks are not
+   shown. On a device that has never shown it, coming back the first time with the characters in
+   front, the banner says once "Window in the way? Settings can move the characters."
 3. **Waiting for you while watching.** Make a workstream need you. The character rises and turns,
    and the banner under the stage says "1 task is waiting for you" in amber. Can you see either past
    the window?
@@ -990,7 +1002,7 @@ note what you saw and how it felt.
    are the bodies easy to see without lifting your chin, and do they ever sit where a system window
    would open? If a value feels better, try -0.12 or -0.22 and note which. Then open a window
    straight ahead: at this height it hides the middle characters' labels as well as their bodies.
-   How much does that matter, and does Make room for a window fix it?
+   How much does that matter, and does Make room for a window or Either side of a window fix it?
 2. **Labels.** Each label has a state badge on top, the task's title on a dark plate, and Practice,
    Demo or Recorded on the plate's bottom edge. From your seat, can you read every title and badge
    without leaning? Do neighbours' labels ever touch? Does any title cut off where you need its end?

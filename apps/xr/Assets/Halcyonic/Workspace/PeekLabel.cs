@@ -12,8 +12,10 @@ namespace Halcyonic.XR.Workspace
     /// <see cref="Halcyonic.Client.PeekChoice"/> decides. It hangs just under the character's label,
     /// where the banner steps aside for it (<see cref="AmbientCover"/>); while a panel is open under
     /// the labels, or the characters stand on a surface, it stands just above the highest the
-    /// character reaches instead (ADR 0023). It faces the eyes, nearer than the characters, at
-    /// <see cref="WorkspaceVisuals.PeekDistance"/> or less, so no character hides it.
+    /// character reaches instead (ADR 0023). Beside a window it stands out from its character, away
+    /// from the window's lane, reaching no nearer the lane than the character does. It faces the
+    /// eyes, nearer than the characters, at <see cref="WorkspaceVisuals.PeekDistance"/> or less, so no
+    /// character hides it.
     /// </summary>
     public sealed class PeekLabel : MonoBehaviour
     {
@@ -27,6 +29,7 @@ namespace Halcyonic.XR.Workspace
         private CharacterTarget? character;
         private IEnumerable<CharacterTarget>? neighbors;
         private bool above;
+        private bool besideWindow;
 
         /// <summary>The card, for renders and their checks.</summary>
         public PeekCardView Card => card;
@@ -45,10 +48,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// Shows <paramref name="peek"/> for <paramref name="target"/>, as visible as
         /// <paramref name="opacity"/>, from 0 to 1, above the character when <paramref name="aboveCharacter"/>,
-        /// and under its label and those of <paramref name="others"/> it would pass in front of otherwise.
+        /// and under its label and those of <paramref name="others"/> it would pass in front of otherwise;
+        /// out from the window's lane when the characters stand <paramref name="beside"/> one.
         /// </summary>
-        public void Show(CharacterTarget target, IEnumerable<CharacterTarget> others, PeekCard peek, float opacity, bool aboveCharacter)
+        public void Show(CharacterTarget target, IEnumerable<CharacterTarget> others, PeekCard peek, float opacity, bool aboveCharacter, bool beside = false)
         {
+            besideWindow = beside;
             if (opacity <= 0f)
             {
                 Hide();
@@ -95,6 +100,13 @@ namespace Halcyonic.XR.Workspace
             // The card's size as angles: it is built in units of its distance.
             var half = Mathf.Atan(card.Height / 2f) * Mathf.Rad2Deg;
             var halfWidth = Mathf.Atan(PeekCardView.Width / 2f) * Mathf.Rad2Deg;
+            if (besideWindow)
+            {
+                // Out from the lane: the card's inner edge where the character's label's is, never nearer the lane.
+                var outward = Mathf.Sign(view.transform.localPosition.x);
+                var labelHalf = Mathf.Atan2(view.LabelHalfWidth * view.transform.lossyScale.x, Vector3.Distance(eyes, place)) * Mathf.Rad2Deg;
+                yaw += outward * Mathf.Max(0f, halfWidth - labelHalf);
+            }
             float edge;
             if (above)
             {

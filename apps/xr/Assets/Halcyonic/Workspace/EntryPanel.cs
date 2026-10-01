@@ -184,8 +184,8 @@ namespace Halcyonic.XR.Workspace
             welcomed = PlayerPrefs.GetInt(WelcomedPreference, 0) == 1;
             root = new GameObject("Entry panel").transform;
             root.SetParent(transform, false);
-            // The stage's banner steps aside while the panel shows where it goes.
-            AmbientCover.Add(root.gameObject, panel: true);
+            // The stage's banner steps aside while the panel shows where it goes, and names it while it is folded.
+            AmbientCover.Add(root.gameObject, panel: true, () => visible ? frame.Shown?.Title : null);
             frame = PanelFrame.Create(root, "Frame");
             frame.Accepting = () => visible && !FocusGuard.InputSuspended;
             frame.Acted += OnActed;

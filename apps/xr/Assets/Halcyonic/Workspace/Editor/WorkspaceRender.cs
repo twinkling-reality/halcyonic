@@ -1161,21 +1161,25 @@ namespace Halcyonic.XR.Workspace.Editor
         /// apart as the eyes see them (<see cref="CharacterStage.Spread"/>) and <paramref name="radius"/>
         /// away, turned <paramref name="turn"/> degrees to the right:
         /// at the stage's default height, or, on a surface <paramref name="surfaceDrop"/> below the eyes,
-        /// with their labels resting on it.
+        /// with their labels resting on it. Beside a window, the stage's four at
+        /// <see cref="CharacterStage.WindowSlotDegrees"/> and <see cref="CharacterStage.WindowSlotLiftDegrees"/>,
+        /// showing only their badges.
         /// </summary>
         internal static List<(CharacterView View, CharacterTarget Target)> Lineup(Transform parent, Vector3 eyes, float radius, float? surfaceDrop,
-            Func<string, int, CharacterPresentation> show, float turn = 0f)
+            Func<string, int, CharacterPresentation> show, float turn = 0f, bool besideWindow = false)
         {
             var characters = new List<(CharacterView View, CharacterTarget Target)>();
-            var spread = CharacterStage.Spread(radius, surfaceDrop.HasValue ? -surfaceDrop.Value : CharacterStage.DefaultHeightFromEyes);
-            var slots = new[] { -30f, -18f, -6f, 6f, 18f, 30f };
+            var spread = besideWindow ? 1f : CharacterStage.Spread(radius, surfaceDrop.HasValue ? -surfaceDrop.Value : CharacterStage.DefaultHeightFromEyes);
+            var slots = besideWindow ? CharacterStage.WindowSlotDegrees : new[] { -30f, -18f, -6f, 6f, 18f, 30f };
             var origin = eyes + Vector3.down * (surfaceDrop ?? 0f);
             for (var slot = 0; slot < slots.Length; slot++)
             {
                 var id = "render-" + slot.ToString(CultureInfo.InvariantCulture);
                 var view = CharacterView.Create(parent, id);
                 view.Show(show(id, slot));
-                var (height, scale) = CharacterStage.Stance(view, radius, surfaceDrop ?? 0f, surfaceDrop.HasValue ? (float?)null : CharacterStage.DefaultHeightFromEyes);
+                view.BadgeOnly = besideWindow;
+                var standing = besideWindow ? radius * Mathf.Tan(CharacterStage.WindowSlotLiftDegrees[slot] * Mathf.Deg2Rad) : CharacterStage.DefaultHeightFromEyes;
+                var (height, scale) = CharacterStage.Stance(view, radius, surfaceDrop ?? 0f, surfaceDrop.HasValue ? (float?)null : standing);
                 var level = Quaternion.Euler(0f, slots[slot] * spread + turn, 0f) * Vector3.forward;
                 view.transform.SetPositionAndRotation(origin + level * radius + Vector3.up * height, Quaternion.LookRotation(-level, Vector3.up));
                 view.transform.localScale = Vector3.one * scale;

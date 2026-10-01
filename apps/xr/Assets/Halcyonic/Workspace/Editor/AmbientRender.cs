@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -14,12 +16,17 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// Renders the stage beside a window-sized plate, as a browser video or a Mac's Virtual Display
-    /// would stand in front of the person, and the large panels folded and restored as focus goes and
-    /// comes back. It checks that with the lineup turned aside (<see cref="CharacterStage.AsideDegrees"/>)
-    /// the window covers fewer characters' bodies than in front, and that a folded panel leaves nothing
-    /// of itself and comes back pixel for pixel as it was. The window is a plate of a typical size,
-    /// 1.4 by 0.79 m at 1.6 m, centered at eye level: Halcyonic cannot see a real window, so this shows
-    /// what the placement can do, not what a headset will show. It saves each render in
+    /// would stand in front of the person, in each of the three arrangements (<see cref="StageArrangement"/>),
+    /// and the large panels folded and restored as focus goes and comes back. It counts how many
+    /// characters' bodies and labels the window covers in each, and checks that turned aside
+    /// (<see cref="CharacterStage.AsideDegrees"/>) it covers fewer bodies than in front, and that beside
+    /// a window it covers none: every body and badge a degree or more outside the window's lane, and
+    /// the banner, with what waits, what is not shown and what is still open, under the lane and
+    /// clear of the window. It logs how far out the outermost label reaches. It checks that a folded
+    /// panel leaves nothing of itself, that the banner can name it as still open, and that it comes
+    /// back pixel for pixel as it was. The window is a plate of a typical size, 1.4 by 0.79 m at
+    /// 1.6 m, centered at eye level: Halcyonic cannot see a real window, so this shows what each
+    /// arrangement can do, not what a headset will show. It saves each render in
     /// apps/xr/Builds/AmbientRenders, which git ignores. In the editor: Halcyonic > Render the Stage
     /// Beside a Window. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1
     /// when a check fails.
@@ -73,21 +80,30 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        /// <summary>Six characters 2.4 m away, the stage's own geometry, in front or turned aside, behind a window.</summary>
+        /// <summary>The characters 2.4 m away, the stage's own geometry, in each arrangement, behind a window.</summary>
         private static IEnumerable<string> BesideAWindow(string folder)
         {
             var failures = new List<string>();
-            var covered = new Dictionary<bool, int>();
-            foreach (var aside in new[] { false, true })
+            var covered = new Dictionary<StageArrangement, int>();
+            foreach (StageArrangement arrangement in Enum.GetValues(typeof(StageArrangement)))
             {
-                var name = aside ? "aside" : "front";
+                var name = arrangement switch
+                {
+                    StageArrangement.TurnedAside => "aside",
+                    StageArrangement.BesideAWindow => "beside",
+                    _ => "front",
+                };
                 var root = new GameObject("Ambient render " + name);
                 var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
                 try
                 {
                     var eyes = new Vector3(0f, EyeHeight, 0f);
                     var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
-                    var characters = Characters(root.transform, eyes, aside ? CharacterStage.AsideDegrees : 0f);
+                    var beside = arrangement == StageArrangement.BesideAWindow;
+                    var characters = beside
+                        ? WorkspaceRender.Lineup(root.transform, eyes, CharacterStage.DefaultDistance, null, WindowPresentation, besideWindow: true).ConvertAll(character => character.Target)
+                        : Characters(root.transform, eyes, arrangement == StageArrangement.TurnedAside ? CharacterStage.AsideDegrees : 0f);
+                    var banner = beside ? Strip(root.transform, eyes) : null;
                     var window = Window(root.transform, eyes);
                     WorkspaceRender.ForceMeshes(root);
                     var render = WorkspaceRender.Render(camera, texture);
@@ -96,15 +112,25 @@ namespace Halcyonic.XR.Workspace.Editor
                     var outline = Outline(camera, window.transform);
                     var count = 0;
                     var labels = 0;
+                    var outermost = 0f;
                     foreach (var target in characters)
                     {
                         var body = camera.WorldToScreenPoint(target.BodyPosition);
                         if (Inside(outline, new Vector2(body.x, body.y))) count++;
                         if (Behind(outline, WorkspaceRender.LabelRect(camera, target.View))) labels++;
+                        outermost = Mathf.Max(outermost, OutermostYaw(eyes, target.View));
                     }
-                    covered[aside] = count;
-                    Debug.Log("Halcyonic: ambient render: with the lineup " + (aside ? "turned aside" : "in front") + ", a window covers "
-                        + count + " of " + characters.Count + " characters' bodies and " + labels + " of their labels.");
+                    covered[arrangement] = count;
+                    Debug.Log("Halcyonic: ambient render: " + (beside ? "beside a window" : arrangement == StageArrangement.TurnedAside ? "with the lineup turned aside" : "with the lineup in front")
+                        + ", a window covers " + count + " of " + characters.Count + " characters' bodies and " + labels + " of their labels; the outermost label reaches "
+                        + WorkspaceRender.Degrees(outermost) + " degrees from straight ahead.");
+                    if (beside)
+                    {
+                        if (count > 0 || labels > 0) failures.Add("beside a window, the window covers " + count + " bodies and " + labels + " labels.");
+                        failures.AddRange(LaneClear(eyes, characters));
+                        failures.AddRange(StripUnderTheLane(eyes, banner!, outline, camera, characters));
+                        failures.AddRange(NothingTouches(eyes, characters));
+                    }
                 }
                 finally
                 {
@@ -113,8 +139,121 @@ namespace Halcyonic.XR.Workspace.Editor
                     UnityEngine.Object.DestroyImmediate(texture);
                 }
             }
-            if (covered[true] >= covered[false]) failures.Add("turning the lineup aside does not uncover any character.");
+            if (covered[StageArrangement.TurnedAside] >= covered[StageArrangement.InFront]) failures.Add("turning the lineup aside does not uncover any character.");
             return failures;
+        }
+
+        /// <summary>
+        /// Beside a window, what waits for the person in an upper place, as the lineup's middle-first
+        /// slots stand it, and, under it, more that waits, risen as high as it rises: the case where
+        /// a body comes nearest the badge above it.
+        /// </summary>
+        private static CharacterPresentation WindowPresentation(string id, int slot) =>
+            WorkspaceRender.Presentation(id, slot switch { 0 => 3, 1 => 3, 2 => 1, _ => 5 });
+
+        /// <summary>
+        /// The stage's banner where the stage hangs it beside a window (<see cref="CharacterStage.BannerTopBesideWindow"/>),
+        /// saying what it says while another window keeps focus: live, what waits, what is not shown, and the panel still open.
+        /// </summary>
+        private static StageBanner Strip(Transform parent, Vector3 eyes)
+        {
+            var radius = CharacterStage.DefaultDistance;
+            var holder = new GameObject("Banner").transform;
+            holder.SetParent(parent, false);
+            holder.SetPositionAndRotation(eyes + new Vector3(0f, CharacterStage.BannerTopBesideWindow(radius), radius), Quaternion.identity);
+            holder.localScale = Vector3.one * radius;
+            var banner = StageBanner.Create(holder);
+            banner.Show("Connected to your Mac", BannerKind.Live, AmbientText.NeedsYouLine(1), null, AmbientText.NotShown(2),
+                AmbientText.StillOpen("Add rate limiting to the sign-in endpoint"));
+            return banner;
+        }
+
+        /// <summary>
+        /// Beside a window, every character's body and label stands a degree or more outside the
+        /// window's lane, as the eyes see it: its sides at <see cref="CharacterStage.WindowLaneHalfWidthDegrees"/>.
+        /// </summary>
+        private static IEnumerable<string> LaneClear(Vector3 eyes, List<CharacterTarget> characters)
+        {
+            var lane = CharacterStage.WindowLaneHalfWidthDegrees + GlazeChecks.GapDegrees;
+            foreach (var target in characters)
+            {
+                var view = target.View;
+                var toward = target.BodyPosition - eyes;
+                var yaw = Mathf.Abs(Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg);
+                var bodyHalf = Mathf.Atan2(CharacterView.BodyExtent * target.Scale, toward.magnitude) * Mathf.Rad2Deg;
+                if (yaw - bodyHalf < lane) yield return "beside a window, " + view.WorkstreamId + "'s body reaches " + WorkspaceRender.Degrees(yaw - bodyHalf) + " degrees from straight ahead, inside the lane and its degree.";
+                var inner = InnermostYaw(eyes, view);
+                if (inner < lane) yield return "beside a window, " + view.WorkstreamId + "'s label reaches " + WorkspaceRender.Degrees(inner) + " degrees from straight ahead, inside the lane and its degree.";
+                if (view.Label.Title.gameObject.activeSelf) yield return "beside a window, " + view.WorkstreamId + " shows its title; only its badge and marks belong there.";
+            }
+        }
+
+        /// <summary>
+        /// The banner hangs a degree or more under the lane and the window, clear of every label, says
+        /// all it was given whole but the panel's name, and only says: nothing on it takes a press.
+        /// </summary>
+        private static IEnumerable<string> StripUnderTheLane(Vector3 eyes, StageBanner banner, Vector2[] window, Camera camera, List<CharacterTarget> characters)
+        {
+            var failures = new List<string>();
+            var top = banner.transform.position;
+            var toward = top - eyes;
+            var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+            Debug.Log("Halcyonic: ambient render: beside a window, the banner's top is " + WorkspaceRender.Degrees(-elevation) + " degrees below eye level.");
+            if (elevation > -(CharacterStage.WindowLaneHalfHeightDegrees + GlazeChecks.GapDegrees) + 0.01f) failures.Add("beside a window, the banner reaches into the lane.");
+            var plate = EntryRender.ScreenBounds(camera, banner.Plate.GetComponent<Renderer>().bounds);
+            for (var x = 0; x <= 2; x++)
+            {
+                if (Inside(window, new Vector2(Mathf.Lerp(plate.xMin, plate.xMax, x / 2f), plate.yMax))) failures.Add("beside a window, the window covers the banner.");
+            }
+            foreach (var target in characters)
+            {
+                if (EntryRender.Overlap(plate, WorkspaceRender.LabelRect(camera, target.View))) failures.Add("beside a window, the banner covers " + target.View.WorkstreamId + "'s label.");
+            }
+            if (banner.Waiting == null || !banner.Waiting.gameObject.activeSelf || banner.NotShown == null || banner.StillOpen == null)
+            {
+                failures.Add("beside a window, the banner does not say what waits, what is not shown and what is still open.");
+            }
+            failures.AddRange(GlazeChecks.NothingCut(new TMPro.TMP_Text[] { banner.Line, banner.Waiting!, banner.NotShown! }, "ambient render beside a window"));
+            if (banner.GetComponentsInChildren<PointerTarget>(true).Length > 0) failures.Add("beside a window, something on the banner takes a press.");
+            return failures;
+        }
+
+        /// <summary>
+        /// Beside a window, no character's body or label comes within a degree of another character's,
+        /// a risen body included, as the eyes see them. A body and its own label stand as the stage
+        /// stands every character.
+        /// </summary>
+        private static IEnumerable<string> NothingTouches(Vector3 eyes, List<CharacterTarget> characters)
+        {
+            var parts = characters.ConvertAll(target => new[]
+            {
+                GlazeChecks.Of(target.View.WorkstreamId + "'s label", eyes, target.View.Label.gameObject),
+                WorkspaceRender.BodyExtent(target.View, eyes),
+            });
+            var failures = new List<string>();
+            for (var a = 0; a < parts.Count; a++)
+            {
+                for (var b = a + 1; b < parts.Count; b++)
+                {
+                    foreach (var mine in parts[a])
+                    {
+                        foreach (var theirs in parts[b]) failures.AddRange(GlazeChecks.Apart(new[] { mine, theirs }).Select(failure => "beside a window: " + failure));
+                    }
+                }
+            }
+            return failures;
+        }
+
+        /// <summary>How far from straight ahead a character's label reaches, at its outer edge, in degrees.</summary>
+        private static float OutermostYaw(Vector3 eyes, CharacterView view) => Mathf.Max(Mathf.Abs(EdgeYaw(eyes, view, -1f)), Mathf.Abs(EdgeYaw(eyes, view, 1f)));
+
+        /// <summary>How near straight ahead a character's label reaches, at its inner edge, in degrees.</summary>
+        private static float InnermostYaw(Vector3 eyes, CharacterView view) => Mathf.Min(Mathf.Abs(EdgeYaw(eyes, view, -1f)), Mathf.Abs(EdgeYaw(eyes, view, 1f)));
+
+        private static float EdgeYaw(Vector3 eyes, CharacterView view, float side)
+        {
+            var edge = view.transform.TransformPoint(new Vector3(side * view.LabelHalfWidth, view.LabelBottom / 2f, 0f)) - eyes;
+            return Mathf.Atan2(edge.x, edge.z) * Mathf.Rad2Deg;
         }
 
         /// <summary>The entry panel and the Usage left panel, open, then folded, then restored.</summary>
@@ -136,15 +275,16 @@ namespace Halcyonic.XR.Workspace.Editor
 
                 var entry = EntryPanel.ForRender(root.transform, state, overview, characters, null);
                 entry.ShowForRender(EntryPanel.Screen.Connect);
-                failures.AddRange(Fold("entry", folder, root, camera, texture, entry.Root.gameObject, entry.ApplyFold));
-                entry.Root.gameObject.SetActive(false);
+                failures.AddRange(Fold("entry", folder, root, camera, texture, entry.Root.gameObject, entry.ApplyFold, entry.Frame.Shown?.Title));
+                // Closed, as the person would, before Usage left opens: one foreground panel at a time.
+                entry.PressForRender(PanelModel.Close);
 
                 var rail = ProjectRail.ForRender(root.transform, overview, null);
                 rail.ResetPosition();
                 var glance = UsageLeftGlance.ForRender(rail);
                 glance.ShowForRender(UsageLeftPresenter.Message(UsageLeftPresenter.NotSetUp), characters, null);
                 rail.Root.gameObject.SetActive(false);
-                failures.AddRange(Fold("usage-left", folder, root, camera, texture, glance.Panel.gameObject, glance.ApplyFold));
+                failures.AddRange(Fold("usage-left", folder, root, camera, texture, glance.Panel.gameObject, glance.ApplyFold, UsageLeftPresenter.Title));
             }
             finally
             {
@@ -156,7 +296,8 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        private static IEnumerable<string> Fold(string name, string folder, GameObject root, Camera camera, RenderTexture texture, GameObject panel, Action apply)
+        /// <param name="openAs">The name the banner says the folded panel is still open as.</param>
+        private static IEnumerable<string> Fold(string name, string folder, GameObject root, Camera camera, RenderTexture texture, GameObject panel, Action apply, string? openAs)
         {
             var failures = new List<string>();
             FocusGuard.FoldForRender(false);
@@ -167,8 +308,9 @@ namespace Halcyonic.XR.Workspace.Editor
             apply();
             var folded = WorkspaceRender.Render(camera, texture);
             if (panel.activeInHierarchy) failures.Add(name + ": the panel still shows while folded.");
-            // Folded, it no longer covers the stage's banner, which then says what waits for the person.
+            // Folded, it no longer covers the stage's banner, which then says what waits for the person and that it is still open.
             if (AmbientCover.Any) failures.Add(name + ": something still covers the stage's banner while the panel is folded.");
+            if (AmbientCover.OpenPanel != openAs) failures.Add(name + ": the banner would say \"" + AmbientCover.OpenPanel + "\" is still open, not \"" + openAs + "\".");
             FocusGuard.FoldForRender(false);
             apply();
             WorkspaceRender.ForceMeshes(root);

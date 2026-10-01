@@ -365,6 +365,53 @@ public class CharacterLineupTests
     }
 
     [Test]
+    public void BesideAWindowWhatWaitsTakesTheMiddleSlotsTheStageStandsHighest()
+    {
+        var lineup = new CharacterLineup(4);
+        lineup.Update(new[]
+        {
+            Workstream("working-1", WorkstreamStatus.Running, 1),
+            Workstream("working-2", WorkstreamStatus.Running, 2),
+            Workstream("finished", WorkstreamStatus.Completed, 3),
+            Workstream("waiting", WorkstreamStatus.WaitingForHuman, 4, AttentionLevel.ActionRequired),
+            Workstream("failed", WorkstreamStatus.Failed, 5, AttentionLevel.Notice),
+        });
+        Assert.That(new[] { lineup.SlotOf("waiting"), lineup.SlotOf("failed") }, Is.EquivalentTo(new[] { 1, 2 }),
+            "the middle slots, which the stage stands just above eye level either side of the window");
+        Assert.That(Slots(lineup).Count(id => id != null), Is.EqualTo(4));
+    }
+
+    [Test]
+    public void FewerSlotsKeepWhatTheLineupKnowsKeepsAndWasAskedFor()
+    {
+        var lineup = new CharacterLineup(6);
+        var work = StaleNotices().Take(5).ToList();
+        lineup.UseJournal("live");
+        lineup.Update(work, Nine);
+        work.Add(Workstream("just-started", WorkstreamStatus.Starting, 59));
+        lineup.Update(work, Nine.AddSeconds(5));
+        lineup.Request("stale-0");
+
+        // Beside a window, four slots: the new work keeps its hold, and nothing seen before is new.
+        var beside = lineup.WithCapacity(4);
+        Assert.That(beside.Capacity, Is.EqualTo(4));
+        Assert.That(beside.Requested, Is.EqualTo("stale-0"));
+        beside.UseJournal("live");
+        beside.Update(work, Nine.AddMinutes(1));
+        Assert.That(beside.SlotOf("just-started"), Is.GreaterThanOrEqualTo(0), "work just started keeps its slot");
+        Assert.That(beside.IsKept("just-started"), Is.True);
+        Assert.That(beside.SlotOf("stale-0"), Is.GreaterThanOrEqualTo(0), "the work asked for still wins");
+        Assert.That(work.Where(w => w.WorkstreamId.StartsWith("stale-")).Count(w => beside.IsKept(w.WorkstreamId)), Is.Zero, "work seen before is not new");
+        Assert.That(Slots(beside).Count(id => id != null), Is.EqualTo(4));
+
+        // Back to six: the same again.
+        var front = beside.WithCapacity(6);
+        front.Update(work, Nine.AddMinutes(2));
+        Assert.That(front.IsKept("just-started"), Is.True);
+        Assert.That(Slots(front).Count(id => id != null), Is.EqualTo(6));
+    }
+
+    [Test]
     public void TheWorkAskedForStillWinsAndMoreWorkCountsTheRest()
     {
         var lineup = new CharacterLineup(2);

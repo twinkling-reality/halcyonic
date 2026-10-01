@@ -340,7 +340,8 @@ namespace Halcyonic.XR.Workspace
             else
             {
                 // Under the label, unless a panel is open under the labels or the labels rest on a surface.
-                peek.Show(shown, targets.Values, peekCard, peekChoice.Opacity, opened != null || AmbientCover.PanelShowing || stage.SurfaceHeight.HasValue);
+                peek.Show(shown, targets.Values, peekCard, peekChoice.Opacity, opened != null || AmbientCover.PanelShowing || stage.SurfaceHeight.HasValue,
+                    stage.BesideAWindow);
                 if (shown.WorkstreamId != loggedPeek)
                 {
                     Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
@@ -414,7 +415,8 @@ namespace Halcyonic.XR.Workspace
 
             var root = new GameObject("Workspace " + target.WorkstreamId);
             root.transform.SetParent(transform, false);
-            AmbientCover.Add(root, panel: true);
+            // The banner names the workspace while it is folded: its task's title, as the stage shows it.
+            AmbientCover.Add(root, panel: true, () => opened != null && opened.WorkstreamId == target.WorkstreamId ? opened.Now?.Character.Title : null);
             var panel = WorkspacePanel.Create(root.transform);
             var (place, scale) = PlaceBeside(target);
             var transition = WorkspaceTransition.Begin(root, target, place, scale);
