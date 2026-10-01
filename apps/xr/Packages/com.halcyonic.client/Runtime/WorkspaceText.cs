@@ -172,6 +172,9 @@ namespace Halcyonic.Client
         public const string ReadRequestFirst = "Read the whole request below before approving it.";
 
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
+        /// <summary>A confirmation dropped because focus went to another window.</summary>
+        public const string ConfirmAfresh = "You went to another window, so nothing was sent. Press it again to confirm.";
+
         public const string RequestNotRead = "Nothing was sent: read the whole request before approving it.";
 
         /// <summary>The buttons that step through a request shown in parts.</summary>

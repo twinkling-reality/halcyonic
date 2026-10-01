@@ -123,6 +123,9 @@ namespace Halcyonic.Client
             ModelProblem = "Could not read models: " + reason;
         }
 
+        /// <summary>Focus went to another window: a first press on a model that runs elsewhere no longer counts.</summary>
+        public void FocusLeft() => PendingModel = null;
+
         /// <summary>
         /// Chooses a model from the runtime's current list. A model on this Mac is chosen at once; one
         /// that runs elsewhere, or where it runs is not known, is chosen only when pressed a second time

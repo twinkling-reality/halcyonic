@@ -491,6 +491,28 @@ public class WorkspaceSteeringTests
     }
 
     [Test]
+    public void AConfirmationHalfDoneWhenFocusLeftIsConfirmedAfreshAndTheRequestStaysPending()
+    {
+        var work = new WaitingWork();
+        var steering = Steering();
+        steering.Press(WorkspaceAction.Approve, work.Present());
+        steering.RequestShown(1, 1);
+        Assert.That(steering.CanConfirm, Is.True);
+
+        var left = steering.FocusLeft();
+        Assert.That(left.Step, Is.EqualTo(SteeringStep.Explain));
+        Assert.That(left.Message, Is.EqualTo(WorkspaceText.ConfirmAfresh));
+        Assert.That(steering.Armed, Is.Null);
+        Assert.That(steering.Confirm(work.Present()).Step, Is.EqualTo(SteeringStep.None), "the press that returns focus confirms nothing");
+        Assert.That(work.Present().ApprovalToAnswer?.ApprovalId, Is.EqualTo(WaitingWork.ApprovalId), "the runtime's request still waits");
+
+        Assert.That(steering.Press(WorkspaceAction.Approve, work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
+        Assert.That(steering.CanConfirm, Is.False, "read anew from its start");
+        Assert.That(steering.FocusLeft().Step, Is.EqualTo(SteeringStep.Explain));
+        Assert.That(steering.FocusLeft().Step, Is.EqualTo(SteeringStep.None), "nothing armed, nothing to say");
+    }
+
+    [Test]
     public void DenyingAndStoppingAreConfirmedToo()
     {
         var work = new WaitingWork();
