@@ -43,6 +43,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
 | [project-location.md](validation/project-location.md) | Binding projects to host-approved folders: real OpenCode and Codex starts on a local model in a new folder, refusals, a moved folder and an unknown effect, through the control plane |
 | [local-models.md](validation/local-models.md) | Open models served by Ollama on the Mac, through the real runtimes and the control plane: flows, network, speed and memory, and choosing a model from a runtime's list |
+| [voice-transcription.md](validation/voice-transcription.md) | Apple's SpeechTranscriber against whisper.cpp large-v3-turbo on the Mac, on synthetic clips: accuracy, latency, memory, network, and what each returns when nothing is said |
 | [salidium-integration-audit.md](validation/salidium-integration-audit.md) | Salidium repository audit |
 | [salidium-consumer-contract.md](validation/salidium-consumer-contract.md) | Salidium consumer contract v1, exercised end to end |
 | [seorak-integration-api.md](validation/seorak-integration-api.md) | Seorak integration API v1, checked against the running plane |
