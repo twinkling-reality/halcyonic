@@ -95,6 +95,20 @@ public class CharacterPresenterTests
         Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish: Exit 1‹U+0003› and the rest of the log" }));
     }
 
+    /// <summary>
+    /// A title carrying the code points of Halcyonic's own icons, Waiting for you's and Finished this
+    /// round's, spells them, so it can never draw a state's icon among its words (ADR 0023).
+    /// </summary>
+    [Test]
+    public void ATitleCarryingAGlazeIconsCodePointSpellsIt()
+    {
+        var workstream = Samples.Workstream("w1", WorkstreamStatus.Running, null, AttentionLevel.None);
+        workstream.Title = "\uE769 Fix login \uE153";
+        var character = CharacterPresenter.Present(workstream, StateWith(workstream), live: true);
+        Assert.That(character.Title, Is.EqualTo("‹U+E769› Fix login ‹U+E153›"));
+        Assert.That(CharacterLabel.Of(character).Title, Is.EqualTo("‹U+E769› Fix login ‹U+E153›"));
+    }
+
     [Test]
     public void FailedVerificationQuotesTheTestSummary()
     {

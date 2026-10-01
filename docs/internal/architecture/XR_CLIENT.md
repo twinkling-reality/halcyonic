@@ -182,10 +182,12 @@ the same definition names, as the JSON Schema document:
   tab or any other white space than the space collapses with the whitespace around it into one
   space, and spaces stay as written; every control and format character, every default ignorable
   code point (a zero width space, a bidirectional override, a variation selector, a tag character)
-  and every half of a surrogate pair shows as its code point, as ‹U+202E›; everything else,
-  markup and backslashes included, shows as it is. Which characters show by code is a fixed table,
-  Unicode 17.0's, so the headset and the tests decide alike whatever Unicode version their runtime
-  knows. `ForTextMeshPro` also doubles every backslash, for a TextMeshPro label with rich text off
+  and every half of a surrogate pair shows as its code point, as ‹U+202E›; so does every character
+  of the Private Use Areas (U+E000 to U+F8FF, planes 15 and 16), as ‹U+E769›, since Halcyonic's
+  own icons are drawn from them and text from outside must never draw one among its words;
+  everything else, markup and backslashes included, shows as it is. Which characters show by code
+  is a fixed table, Unicode 17.0's, so the headset and the tests decide alike whatever Unicode
+  version their runtime knows. `ForTextMeshPro` also doubles every backslash, for a TextMeshPro label with rich text off
   and escape parsing on, the only way such a label shows a backslash sequence as written
   ([workspace-interaction.md](../validation/workspace-interaction.md)). Characters that merely look
   alike, a Cyrillic letter for a Latin one or a no-break space for a space, show as they look.

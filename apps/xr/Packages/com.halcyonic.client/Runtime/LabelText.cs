@@ -35,6 +35,11 @@ namespace Halcyonic.Client
     /// differ always shows.
     /// </item>
     /// <item>
+    /// Every character of the Private Use Areas shows as its code point too, as ‹U+E769›: they mean
+    /// only what a font makes of them, and Halcyonic's own icons are drawn from them (ADR 0023), so
+    /// text from outside can never draw one of Halcyonic's icons among its words.
+    /// </item>
+    /// <item>
     /// Everything else shows as it is, markup and backslashes included: labels never interpret
     /// markup, and <see cref="ForTextMeshPro"/> doubles every backslash for a label with escape
     /// parsing on, which shows a doubled backslash as one.
@@ -100,10 +105,21 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
+        /// The Private Use Areas, as ranges of first and last code point: the one in the Basic
+        /// Multilingual Plane, and planes 15 and 16 whole, the noncharacters at their ends included.
+        /// </summary>
+        private static readonly int[] PrivateUse =
+        {
+            0xE000, 0xF8FF,
+            0xF0000, 0x10FFFF,
+        };
+
+        /// <summary>
         /// Text as one line of exactly what it says: line breaks, tabs and other white space as one
         /// space with the whitespace around them, spaces as written, none at either end, and every
-        /// character that would not show as itself as its code point, such as ‹U+200B›. Applying it
-        /// again changes nothing. A label of several lines shows each line through it.
+        /// character that would not show as itself, or could show as one of Halcyonic's icons, as its
+        /// code point, such as ‹U+200B›. Applying it again changes nothing. A label of several lines
+        /// shows each line through it.
         /// </summary>
         public static string Plain(string? text)
         {
@@ -127,7 +143,7 @@ namespace Halcyonic.Client
                 if (spaces > 0) result.Append(' ', collapse ? 1 : spaces);
                 spaces = 0;
                 collapse = false;
-                if (In(ShownByCode, codePoint) || (!paired && char.IsSurrogate(unit)))
+                if (In(ShownByCode, codePoint) || In(PrivateUse, codePoint) || (!paired && char.IsSurrogate(unit)))
                 {
                     result.Append("‹U+").Append(codePoint.ToString("X4", CultureInfo.InvariantCulture)).Append('›');
                 }
