@@ -29,6 +29,14 @@ namespace Halcyonic.XR
     /// is. Without a source, or when it clears its pose, the stage stands in front of the person.
     /// </para>
     /// <para>
+    /// In front of the person, the characters stand as the person chose (<see cref="StageArrangement"/>):
+    /// on the arc, the arc turned to their right, or at most four either side of a window lane
+    /// straight ahead, two on each side, one just above eye level and one below it, each with only
+    /// its badge and marks, what waits in the upper places, nearest the window's middle. Halcyonic
+    /// cannot see a window, so the lane is where one most often opens; the banner stands under it in
+    /// every arrangement.
+    /// </para>
+    /// <para>
     /// In front of the person, it is placed again only when <see cref="InFrontPlacement"/> says so:
     /// at the start, after a pause, when the person recenters, or after a jump no head can make. The
     /// reference space changes that come in bursts while system windows take and give back focus
@@ -70,14 +78,40 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// How far to the person's right the lineup's middle turns when they make room for a window
-        /// (<see cref="SetAside"/>): the arc then runs from about straight ahead to 62 degrees right,
-        /// so a window in front of them covers fewer characters. Halcyonic cannot see the window, so
-        /// this reduces overlap; it guarantees nothing.
+        /// (<see cref="StageArrangement.TurnedAside"/>): the arc then runs from about straight ahead to
+        /// 62 degrees right, so a window in front of them covers fewer characters. Halcyonic cannot see
+        /// the window, so this reduces overlap; it guarantees nothing.
         /// </summary>
         public const float AsideDegrees = 32f;
 
+        /// <summary>
+        /// Where a window most often opens, which the characters beside it keep clear: this many
+        /// degrees to either side of where the person faced, and above and below eye level.
+        /// </summary>
+        public const float WindowLaneHalfWidthDegrees = 24f;
+
+        public const float WindowLaneHalfHeightDegrees = 14f;
+
+        /// <summary>
+        /// How many characters stand beside a window, and where, by slot from the person's left: the
+        /// lineup's middle slots, which it fills first, above eye level either side, and the outer two
+        /// under them. Their badges carry words, about 11 degrees wide, so two side by side would
+        /// reach past 45 degrees; one above the other keeps the outermost within about 38, a degree
+        /// clear of the lane, and leaves a lower character room to rise without reaching the badge
+        /// above it.
+        /// </summary>
+        public const int WindowCapacity = 4;
+
+        public static readonly float[] WindowSlotDegrees = { -32f, -32f, 32f, 32f };
+
+        /// <summary>Each slot's height beside a window, in degrees from eye level: up for the inner slots.</summary>
+        public static readonly float[] WindowSlotLiftDegrees = { -15f, 4f, 4f, -15f };
+
+        private const string ArrangementPreference = "halcyonic.stage.arrangement";
+
+        /// <summary>Where the choice to turn the lineup aside was kept before there were three arrangements.</summary>
         private const string AsidePreference = "halcyonic.stage.aside";
-        private bool aside;
+        private StageArrangement arrangement;
 
         /// <summary>The nearest and the default reach to a surface, in meters.</summary>
         private const float NearestSurface = 0.4f;
@@ -109,6 +143,8 @@ namespace Halcyonic.XR
         private BannerKind shownKind;
         private string? shownWaiting;
         private string? shownNotice;
+        private string? shownNotShown;
+        private string? shownStillOpen;
         private string? notice;
         private float noticeUntil;
         private StageVisibility visibility = new StageVisibility();
@@ -167,21 +203,31 @@ namespace Halcyonic.XR
             Refresh();
         }
 
-        /// <summary>The lineup stands to the person's right, making room for a window in front of them.</summary>
-        public bool Aside => aside;
+        /// <summary>Where the characters stand in front of the person, as they chose.</summary>
+        public StageArrangement Arrangement => arrangement;
+
+        /// <summary>The characters stand beside a window now: chosen, and the stage stands in front of the person.</summary>
+        public bool BesideAWindow => arrangement == StageArrangement.BesideAWindow && !onSurface;
 
         /// <summary>
-        /// Stands the lineup to the person's right, or back in front of them, and keeps the choice on
-        /// the device. On a surface the room placement decides where it stands, so this waits until the
-        /// stage stands in front of the person again.
+        /// Stands the characters as <paramref name="value"/> says and keeps the choice on the device.
+        /// On a surface the room placement decides where they stand, so this waits until the stage
+        /// stands in front of the person again.
         /// </summary>
-        public void SetAside(bool value)
+        public void SetArrangement(StageArrangement value)
         {
-            if (value == aside) return;
-            aside = value;
-            PlayerPrefs.SetInt(AsidePreference, value ? 1 : 0);
+            if (value == arrangement) return;
+            arrangement = value;
+            PlayerPrefs.SetInt(ArrangementPreference, (int)value);
             PlayerPrefs.Save();
-            if (placedOnce && !onSurface) Place(null, value ? "the person made room for a window" : "the person brought the characters back in front");
+            if (!placedOnce || onSurface) return;
+            Fit();
+            Place(null, value switch
+            {
+                StageArrangement.TurnedAside => "the person made room for a window",
+                StageArrangement.BesideAWindow => "the person stood the characters beside a window",
+                _ => "the person brought the characters back in front",
+            });
         }
 
         /// <summary>Raised after the characters were brought up to date, so the rail can count what has none.</summary>
@@ -190,8 +236,11 @@ namespace Halcyonic.XR
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
-            lineup = new CharacterLineup(Mathf.Max(1, maxCharacters));
-            aside = PlayerPrefs.GetInt(AsidePreference, 0) == 1;
+            arrangement = PlayerPrefs.HasKey(ArrangementPreference)
+                ? (StageArrangement)Mathf.Clamp(PlayerPrefs.GetInt(ArrangementPreference), 0, (int)StageArrangement.BesideAWindow)
+                : PlayerPrefs.GetInt(AsidePreference, 0) == 1 ? StageArrangement.TurnedAside : StageArrangement.InFront;
+            // The stage stands in front of the person until a room placement gives it a surface.
+            lineup = new CharacterLineup(BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters));
             radius = distance;
             CharacterMaterials.Prepare();
 
@@ -247,7 +296,7 @@ namespace Halcyonic.XR
             if (notice != null && Time.unscaledTime >= noticeUntil)
             {
                 notice = null;
-                ShowBanner(shownBanner ?? "", shownKind, shownWaiting);
+                ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen);
             }
             var preferred = source?.Preferred;
             var decision = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
@@ -320,17 +369,9 @@ namespace Halcyonic.XR
         public void Refresh()
         {
             var session = connection.Session;
-            // A demonstration says so in its own words, so a recording is never read as live work.
-            var demonstration = connection.DemonstrationLine;
-            // While another window keeps focus, the line also counts what needs the person, so it stays
-            // findable when the window covers the characters.
-            var waiting = FocusGuard.Folded && session != null ? AmbientText.NeedsYouLine(AmbientText.NeedsYou(session.State)) : null;
-            ShowBanner(
-                demonstration ?? (session == null ? connection.SetupProblem ?? NotConnected : Describe(session)),
-                demonstration != null ? BannerKind.Practice : session != null && session.Status.IsLive ? BannerKind.Live : BannerKind.NotLive,
-                waiting);
             if (session == null)
             {
+                ShowLine(null);
                 Refreshed?.Invoke();
                 return;
             }
@@ -369,9 +410,42 @@ namespace Halcyonic.XR
                     CharacterCreated?.Invoke(id, view);
                 }
                 view.Show(CharacterPresenter.Present(session.State.Workstreams[id], session.State, live));
+                view.BadgeOnly = BesideAWindow;
                 MoveToSlot(id, view, slot);
             }
+            ShowLine(session);
             Refreshed?.Invoke();
+        }
+
+        /// <summary>
+        /// The banner's line: whether what the stage shows is live, or a demonstration in its own words,
+        /// so a recording is never read as live work. While another window keeps focus it also counts
+        /// what waits for the person, so it stays findable when the window covers the characters; beside
+        /// a window, how many more tasks have no character; and the panel still open, kept as it was.
+        /// </summary>
+        private void ShowLine(RealtimeSession? session)
+        {
+            var demonstration = connection.DemonstrationLine;
+            var folded = FocusGuard.Folded && session != null;
+            var waiting = folded ? AmbientText.NeedsYouLine(AmbientText.NeedsYou(session!.State)) : null;
+            var notShown = folded && BesideAWindow ? AmbientText.NotShown(session!.State.Workstreams.Count - views.Count) : null;
+            var stillOpen = folded && AmbientCover.OpenPanel is string panel ? AmbientText.StillOpen(panel) : null;
+            ShowBanner(
+                demonstration ?? (session == null ? connection.SetupProblem ?? NotConnected : Describe(session)),
+                demonstration != null ? BannerKind.Practice : session != null && session.Status.IsLive ? BannerKind.Live : BannerKind.NotLive,
+                waiting, notShown, stillOpen);
+        }
+
+        /// <summary>
+        /// The lineup's slots for how the characters stand now: four beside a window, else six. What it
+        /// knows and keeps carries over (<see cref="CharacterLineup.WithCapacity"/>); the characters
+        /// take their new slots at the next refresh.
+        /// </summary>
+        private void Fit()
+        {
+            var capacity = BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters);
+            if (capacity != lineup.Capacity) lineup = lineup.WithCapacity(capacity);
+            Refresh();
         }
 
         /// <summary>Places the stage on the preferred surface, or in front of the person without one.</summary>
@@ -379,8 +453,12 @@ namespace Halcyonic.XR
         {
             preferredChanged = false;
             placedOnce = true;
+            var wasBeside = BesideAWindow;
             if (preferred.HasValue) StandOnSurface(preferred.Value);
             else StandBeforePerson();
+            // Onto a surface or off it, the characters beside a window may become six again, or four.
+            if (BesideAWindow != wasBeside || (BesideAWindow ? WindowCapacity : Mathf.Max(1, maxCharacters)) != lineup.Capacity) Fit();
+            foreach (var view in views.Values) view.BadgeOnly = BesideAWindow;
             CharacterMaterials.SetKeyLight(arc.rotation);
             arc.gameObject.SetActive(true);
             // Every character to its slot, with the current settings; a glide in progress ends.
@@ -388,8 +466,12 @@ namespace Halcyonic.XR
             {
                 var standing = standings[pair.Key];
                 var slot = lineup.SlotOf(pair.Key);
-                if (slot >= 0) standing.Angle = standing.From = standing.To = SlotAngle(slot);
-                Stand(pair.Value, standing.Angle, 1f);
+                if (slot >= 0)
+                {
+                    standing.Angle = standing.From = standing.To = SlotAngle(slot);
+                    standing.Lift = standing.LiftFrom = standing.LiftTo = SlotLift(slot);
+                }
+                Stand(pair.Value, standing.Angle, standing.Lift, 1f);
             }
             PlaceBanner();
             Debug.Log("Halcyonic: placed the stage " + (onSurface ? "on its surface" : "in front of the person") + " because " + reason + ".");
@@ -409,7 +491,7 @@ namespace Halcyonic.XR
             var facing = forward.sqrMagnitude > 1e-4f
                 ? Quaternion.LookRotation(forward, Vector3.up)
                 : Quaternion.Euler(0f, head.eulerAngles.y, 0f);
-            if (aside) facing *= Quaternion.Euler(0f, AsideDegrees, 0f);
+            if (arrangement == StageArrangement.TurnedAside) facing *= Quaternion.Euler(0f, AsideDegrees, 0f);
             arc.SetPositionAndRotation(head.position, facing);
         }
 
@@ -442,21 +524,24 @@ namespace Halcyonic.XR
         private void MoveToSlot(string id, CharacterView view, int slot)
         {
             var angle = SlotAngle(slot);
+            var lift = SlotLift(slot);
             if (!standings.TryGetValue(id, out var standing))
             {
-                standing = new Standing { Angle = angle, From = angle, To = angle };
+                standing = new Standing { Angle = angle, From = angle, To = angle, Lift = lift, LiftFrom = lift, LiftTo = lift };
                 standings[id] = standing;
             }
-            else if (!Mathf.Approximately(standing.To, angle))
+            else if (!Mathf.Approximately(standing.To, angle) || !Mathf.Approximately(standing.LiftTo, lift))
             {
                 standing.From = standing.Angle;
                 standing.To = angle;
+                standing.LiftFrom = standing.Lift;
+                standing.LiftTo = lift;
                 standing.Started = Time.time;
-                standing.Duration = 0.5f + Mathf.Abs(angle - standing.Angle) / 60f;
+                standing.Duration = 0.5f + (Mathf.Abs(angle - standing.Angle) + Mathf.Abs(lift - standing.Lift)) / 60f;
                 return;
             }
             // Standing again also follows a label plate that grew or shrank, on a surface.
-            if (standing.Angle == standing.To) Stand(view, standing.Angle, 1f);
+            if (standing.Settled) Stand(view, standing.Angle, standing.Lift, 1f);
         }
 
         private void Glide()
@@ -464,16 +549,30 @@ namespace Halcyonic.XR
             foreach (var pair in views)
             {
                 var standing = standings[pair.Key];
-                if (standing.Angle == standing.To) continue;
+                if (standing.Settled) continue;
                 var progress = Mathf.Clamp01((Time.time - standing.Started) / standing.Duration);
-                standing.Angle = progress >= 1f ? standing.To : Mathf.Lerp(standing.From, standing.To, Mathf.SmoothStep(0f, 1f, progress));
-                Stand(pair.Value, standing.Angle, 1f + 0.15f * Mathf.Sin(Mathf.PI * progress));
+                var eased = Mathf.SmoothStep(0f, 1f, progress);
+                standing.Angle = progress >= 1f ? standing.To : Mathf.Lerp(standing.From, standing.To, eased);
+                standing.Lift = progress >= 1f ? standing.LiftTo : Mathf.Lerp(standing.LiftFrom, standing.LiftTo, eased);
+                Stand(pair.Value, standing.Angle, standing.Lift, 1f + 0.15f * Mathf.Sin(Mathf.PI * progress));
             }
         }
 
-        /// <summary>A slot's angle around the arc from where the person faced, spread as <see cref="Spread"/> says.</summary>
+        /// <summary>
+        /// How high a slot stands in front of the person, in degrees from eye level: the stage's height
+        /// on the arc, or beside a window, the slot's own.
+        /// </summary>
+        private float SlotLift(int slot) => BesideAWindow
+            ? WindowSlotLiftDegrees[Mathf.Clamp(slot, 0, WindowSlotLiftDegrees.Length - 1)]
+            : Mathf.Atan2(heightFromEyes, radius) * Mathf.Rad2Deg;
+
+        /// <summary>
+        /// A slot's angle around the arc from where the person faced, spread as <see cref="Spread"/>
+        /// says; beside a window, either side of its lane.
+        /// </summary>
         private float SlotAngle(int slot)
         {
+            if (BesideAWindow) return WindowSlotDegrees[Mathf.Clamp(slot, 0, WindowSlotDegrees.Length - 1)];
             var count = lineup.Capacity;
             var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
             var span = spanDegrees * Spread(radius, onSurface ? -eyesAbove : heightFromEyes);
@@ -490,16 +589,16 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// Stands a character on the arc at an angle from where the person faced, facing them, as
-        /// <see cref="Stance"/> places it: at the height setting in front of the person, its label
-        /// resting on the surface otherwise.
+        /// <see cref="Stance"/> places it: <paramref name="lift"/> degrees from eye level in front of the
+        /// person, its label resting on the surface otherwise.
         /// </summary>
-        private void Stand(CharacterView view, float angle, float reach)
+        private void Stand(CharacterView view, float angle, float lift, float reach)
         {
             var radians = angle * Mathf.Deg2Rad;
             var level = new Vector3(Mathf.Sin(radians), 0f, Mathf.Cos(radians));
             // The eyes are the arc's origin in front of the person, and above it on a surface.
             var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
-            var (height, scale) = Stance(view, radius, eyesAbove, onSurface ? (float?)null : heightFromEyes);
+            var (height, scale) = Stance(view, radius, eyesAbove, onSurface ? (float?)null : radius * Mathf.Tan(lift * Mathf.Deg2Rad));
             var character = view.transform;
             character.localPosition = level * (radius * reach) + Vector3.up * height;
             character.localRotation = Quaternion.LookRotation(-level, Vector3.up);
@@ -538,32 +637,40 @@ namespace Halcyonic.XR
         {
             notice = text;
             noticeUntil = Time.unscaledTime + NoticeSeconds;
-            ShowBanner(shownBanner ?? "", shownKind, shownWaiting);
+            ShowBanner(shownBanner ?? "", shownKind, shownWaiting, shownNotShown, shownStillOpen);
         }
 
         /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
-        private void ShowBanner(string text, BannerKind kind, string? waiting)
+        /// <param name="notShown">Beside a window, how many more tasks have no character, or null.</param>
+        /// <param name="stillOpen">The panel kept while another window has focus, or null.</param>
+        private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen)
         {
-            if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice) return;
+            if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice
+                && notShown == shownNotShown && stillOpen == shownStillOpen) return;
             shownBanner = text;
             shownKind = kind;
             shownWaiting = waiting;
             shownNotice = notice;
+            shownNotShown = notShown;
+            shownStillOpen = stillOpen;
             // A connection's detail, a setup problem or a notice can carry a server's or an exception's
-            // words; the banner shows them by the one rule for text Halcyonic did not write.
-            banner.Show(text, kind, waiting, notice);
+            // words, and the panel kept a task's title; the banner shows them by the one rule for text
+            // Halcyonic did not write.
+            banner.Show(text, kind, waiting, notice, notShown, stillOpen);
             PlaceBanner();
         }
 
         /// <summary>
         /// In front of the person, the banner hangs under the lowest a label reaches, where the ambient
-        /// strip goes; over a surface, it stands above the highest a character reaches, risen included,
-        /// since the lineup puts what waits for the person in its middle.
+        /// strip goes, or beside a window, under the window's lane; over a surface, it stands above the
+        /// highest a character reaches, risen included, since the lineup puts what waits for the person
+        /// in its middle.
         /// </summary>
         private void PlaceBanner()
         {
             var eyesAbove = onSurface && head != null ? head.position.y - arc.position.y : 0f;
-            bannerRoot.localPosition = new Vector3(0f, onSurface ? BannerBottomOnSurface(radius, eyesAbove) : BannerTop(radius, heightFromEyes), radius);
+            var top = onSurface ? BannerBottomOnSurface(radius, eyesAbove) : BesideAWindow ? BannerTopBesideWindow(radius) : BannerTop(radius, heightFromEyes);
+            bannerRoot.localPosition = new Vector3(0f, top, radius);
             bannerRoot.localScale = Vector3.one * radius;
             // The banner hangs from its top edge; on a surface it stands on its bottom edge instead.
             banner.transform.localPosition = new Vector3(0f, onSurface ? banner.Height : 0f, 0f);
@@ -595,6 +702,14 @@ namespace Halcyonic.XR
             (heightFromEyes + (CharacterLabelView.DeepestBottom - GlazeTokens.Units(BannerGapDegrees)) * radius)
             / Mathf.Cos(StageBanner.MaxWidthDegrees / 2f * Mathf.Deg2Rad);
 
+        /// <summary>
+        /// The height of the banner's top edge from the eyes beside a window, in meters, with it
+        /// <paramref name="radius"/> away: a little more than a degree under the window's lane, all
+        /// along it, its ends being farther than its middle.
+        /// </summary>
+        public static float BannerTopBesideWindow(float radius) =>
+            -Mathf.Tan((WindowLaneHalfHeightDegrees + BannerGapDegrees) * Mathf.Deg2Rad) * radius / Mathf.Cos(StageBanner.MaxWidthDegrees / 2f * Mathf.Deg2Rad);
+
         private static string Describe(RealtimeSession session)
         {
             var status = session.Status;
@@ -612,14 +727,21 @@ namespace Halcyonic.XR
             }
         }
 
-        /// <summary>Where a character stands on the arc, and where it is gliding to.</summary>
+        /// <summary>Where a character stands on the arc, and how high in front of the person, and where it is gliding to.</summary>
         private sealed class Standing
         {
             public float Angle;
             public float From;
             public float To;
+
+            /// <summary>Degrees from eye level, in front of the person.</summary>
+            public float Lift;
+            public float LiftFrom;
+            public float LiftTo;
             public float Started;
             public float Duration;
+
+            public bool Settled => Angle == To && Lift == LiftTo;
         }
     }
 }

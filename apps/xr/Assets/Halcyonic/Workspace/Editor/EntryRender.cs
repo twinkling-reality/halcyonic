@@ -559,8 +559,8 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The Settings sheet, opened as the rail's Settings opens it, with the sections the room and
-        /// pairing fill: it opens clear of every character and label, a degree or more, in the
+        /// The Settings sheet, opened as the rail's Settings opens it, with the sections the room, where
+        /// the characters stand under it, and pairing fill: it opens clear of every character and label, a degree or more, in the
         /// comfortable band, its targets 60 dp, its words whole and large enough, and a refusal from
         /// whatever answered at the typed address shows as written.
         /// </summary>
@@ -572,7 +572,14 @@ namespace Halcyonic.XR.Workspace.Editor
             var room = sheet.Section(SettingsText.YourRoom, 0);
             room.Say(surface.HasValue ? "Your agents are on your desk." : "No free desk or table in reach, so your agents stand in front of you.");
             room.Offer(room.Button("Space switch", ButtonRole.Secondary), "Show a virtual space");
-            if (!surface.HasValue) room.Offer(room.Button("Aside", ButtonRole.Secondary), SettingsText.MakeRoomForWindow);
+            // Where the characters stand, under the room's buttons, with its longest line: beside a window, the other two offered.
+            var window = sheet.Continuation(room);
+            window.Say(surface.HasValue ? SettingsText.ArrangedByRoom : SettingsText.Arrangement(StageArrangement.BesideAWindow));
+            if (!surface.HasValue)
+            {
+                window.Offer(window.Button("Arrangement 0", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.InFront));
+                window.Offer(window.Button("Arrangement 1", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.TurnedAside));
+            }
             var mac = sheet.Section(SettingsText.YourMac, 1);
             mac.Say(hostile ? "Pairing failed: " + WorkspaceRender.Hostile("refusal") : "Paired with the Mac at 192.168.1.23:47801. Connecting over Wi-Fi.");
             mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this Mac");

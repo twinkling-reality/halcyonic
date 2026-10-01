@@ -118,6 +118,10 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   owner's approval. (Approved on 2026-10-01 and added as Touch and Not now, with every cue renamed
   to the words the person reads.)
 - To check on the headset: reading at 0.46 m, list density with 60 dp targets, the stage's new
-  height, a desk with little room above the lineup, the window lane, and the new cues.
+  height, a desk with little room above the lineup, the window lane, and the new cues. (On
+  2026-10-01 window mode was built as Either side of a window, beside the two arrangements before it.
+  The spec's four characters at 28 and 37 degrees at eye level assumed badges of icons alone; with
+  words a badge is about 11 degrees wide, so the render placed two on each side at 32 degrees, one
+  above eye level and one below, the outermost label reaching about 37 degrees.)
 - Revisit if reading at 0.46 m strains, if 60 dp targets make lists unusable, if Meta licenses its
   set compatibly, or if the draw call budget (60 a panel, 220 a scene) is exceeded.

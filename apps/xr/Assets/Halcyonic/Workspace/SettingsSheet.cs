@@ -27,16 +27,17 @@ namespace Halcyonic.XR.Workspace
         public const float Distance = 0.46f;
 
         /// <summary>
-        /// The sheet's width: a medium panel's 30 degrees (ADR 0023) and room for the room's two usual
-        /// buttons in one row, which keeps it short enough to open under every label; and the least
-        /// height it keeps.
+        /// The sheet's width, every foreground panel's 44 degrees (ADR 0023): room for each section's
+        /// buttons in one row and its line in few rows, which keeps it short enough to open under every
+        /// label; and the least height it keeps.
         /// </summary>
-        public const float WidthDegrees = 36f;
+        public const float WidthDegrees = 44f;
 
         public const float MinHeightDegrees = 18f;
 
         private const float PaddingDegrees = 1.25f;
-        private const float SectionGapDegrees = 1f;
+        /// <summary>Between sections, as between a panel's parts (<see cref="PanelFrame"/>): words above, a heading below.</summary>
+        private const float SectionGapDegrees = 0.75f;
         private const float LineGapDegrees = 0.25f;
         private const int LineMaxLines = 2;
 
@@ -90,12 +91,34 @@ namespace Halcyonic.XR.Workspace
             {
                 if (section.Heading == heading) return section;
             }
-            var made = new SettingsSection(this, heading, order);
+            var made = new SettingsSection(this, heading, order, continues: false);
             sections.Add(made);
-            sections.Sort((a, b) => a.Order.CompareTo(b.Order));
+            Sort();
             changed = true;
             return made;
         }
+
+        /// <summary>
+        /// A part of <paramref name="of"/> under its buttons, with a line and buttons of its own but no
+        /// heading, as where the characters stand is part of Your room: closer to it than a section is
+        /// to the one before. Made once; asked for again, the same part.
+        /// </summary>
+        public SettingsSection Continuation(SettingsSection of)
+        {
+            Build();
+            foreach (var section in sections)
+            {
+                if (section.Continues && section.Order == of.Order) return section;
+            }
+            var made = new SettingsSection(this, "", of.Order, continues: true);
+            sections.Add(made);
+            Sort();
+            changed = true;
+            return made;
+        }
+
+        /// <summary>By order from the top, each continuation right after the section it continues.</summary>
+        private void Sort() => sections.Sort((a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : a.Continues.CompareTo(b.Continues));
 
         /// <summary>Opens the sheet where the entry panel would open, or closes it when open.</summary>
         public void Toggle()
@@ -148,8 +171,8 @@ namespace Halcyonic.XR.Workspace
             built = true;
             root = new GameObject("Settings sheet").transform;
             root.SetParent(transform, false);
-            // The stage's banner steps aside while the sheet shows where it goes.
-            AmbientCover.Add(root.gameObject, panel: true);
+            // The stage's banner steps aside while the sheet shows where it goes, and names it while it is folded.
+            AmbientCover.Add(root.gameObject, panel: true, () => open ? SettingsText.Settings : null);
             plate = Surface.Create(root, "Background", 10);
             // The background takes the ray, so nothing behind the sheet is pointed at through it.
             background = PointerTarget.Rectangle(root.gameObject, Vector2.one * 0.1f, ray: true, poke: false);
@@ -211,7 +234,7 @@ namespace Halcyonic.XR.Workspace
             title.transform.localPosition = new Vector3(left, y - (rowHeight - titleLine) / 2f, -0.0005f);
             y -= rowHeight;
 
-            foreach (var section in sections) y = section.Layout(left, inner, y - GlazeTokens.Units(SectionGapDegrees), gap);
+            foreach (var section in sections) y = section.Layout(left, inner, y - (section.Continues ? LineGap : GlazeTokens.Units(SectionGapDegrees)), gap);
 
             var height = Mathf.Max(-y + padding, 2f * GlazeTokens.Units(MinHeightDegrees / 2f));
             size = new Vector2(width, height);
@@ -252,11 +275,12 @@ namespace Halcyonic.XR.Workspace
         private readonly TextMeshPro heading;
         private readonly TextMeshPro line;
 
-        internal SettingsSection(SettingsSheet sheet, string headingText, int order)
+        internal SettingsSection(SettingsSheet sheet, string headingText, int order, bool continues)
         {
             this.sheet = sheet;
             Heading = headingText;
             Order = order;
+            Continues = continues;
             heading = GlazeText.Create(sheet.Body, "Heading " + headingText, GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 12, strong: true);
             heading.rectTransform.pivot = new Vector2(0f, 1f);
             GlazeText.SetLiteral(heading, headingText);
@@ -267,6 +291,9 @@ namespace Halcyonic.XR.Workspace
         public string Heading { get; }
 
         public int Order { get; }
+
+        /// <summary>A part of the section before it, under its buttons, with no heading of its own.</summary>
+        public bool Continues { get; }
 
         /// <summary>What the section says now, as written; empty for nothing.</summary>
         public string Line { get; private set; } = "";

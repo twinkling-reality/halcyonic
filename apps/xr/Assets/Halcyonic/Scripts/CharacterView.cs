@@ -138,6 +138,13 @@ namespace Halcyonic.XR
         /// <summary>The label under the character, for renders and their checks.</summary>
         public CharacterLabelView Label => label;
 
+        /// <summary>Shows only the label's badge and marks, as the characters beside a window do (<see cref="CharacterLabelView.BadgeOnly"/>).</summary>
+        public bool BadgeOnly
+        {
+            get => label.BadgeOnly;
+            set => label.BadgeOnly = value;
+        }
+
         /// <summary>How far below or above eye level the person sees the character, in degrees, which sets how low its label hangs.</summary>
         public void ViewedFrom(float elevationDegrees) => label.ViewFrom(elevationDegrees);
 

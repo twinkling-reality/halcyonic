@@ -859,7 +859,11 @@ scripts use only long-stable core Unity APIs:
   never presses a control. After focus has stayed away for three seconds, large panels (the entry
   panel, an open workspace with its ring and link, the Usage left panel) fold out of the way with
   their content kept (`Folded`), and they come back exactly as they were once input is ready again.
-  Focus that flaps, as the Quest's system windows make it, folds nothing. The app's own system
+  Focus that flaps, as the Quest's system windows make it, folds nothing. While panels are folded the
+  stage's banner, under the characters or beside a window under its lane, also says which panel is
+  still open ("Still open: Create a project", `AmbientCover.OpenPanel`) and, beside a window, how
+  many more tasks have no character ("2 more tasks not shown here"); it only says, taking no press.
+  The app's own system
   keyboard is tracked (`Track` wraps every `TouchScreenKeyboard.Open`), so typing folds nothing and
   drops no confirmation. Every other loss raises `Left`: a confirmation half done is dropped and
   must be given afresh once back (an armed approval, denial, stop or instruction says "You went to
@@ -943,14 +947,17 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   out of the way while the entry panel, a workspace, the Usage left panel or Settings is open. Which
   projects show is kept on the device for each journal (`StageVisibility`); hiding a project hides
   its characters only.
-- **Settings:** `SettingsSheet`, which the rail's Settings opens, is one foreground panel, 36 by
-  about 20 degrees at 0.46 m, placed where the entry panel would be, clear of every character and
-  label, with Close at its top right. It holds the controls that change how Halcyonic is arranged
-  rather than act on work, each feature in a section of its own (`SettingsSection`): Your room, with
-  the room's line and its switch, offer and Make room for a window, and, in development builds, Your
-  Mac, with pairing. Their news no longer comes up in front of the person: a section's line also
-  shows on the stage's banner as a short notice for eight seconds (`CharacterStage.ShowNotice`). It
-  closes when the entry panel or a workspace opens and folds while another window keeps focus.
+- **Settings:** `SettingsSheet`, which the rail's Settings opens, is one foreground panel, 44
+  degrees wide like every foreground panel and as tall as its sections, at most about 26 degrees, at
+  0.46 m, placed where the entry panel would be, clear of every character and label, with Close at
+  its top right. It holds the controls that change how Halcyonic is arranged rather than act on
+  work, each feature in a section of its own (`SettingsSection`): Your room, with the room's line,
+  its switch and offer, and under them, as a part with no heading (`SettingsSheet.Continuation`),
+  where the characters stand and a button for each other arrangement; and, in development builds,
+  Your Mac, with pairing. Sections stand 0.75 degrees apart, as a panel's parts do. Their news no
+  longer comes up in front of the person: a section's line also shows on the stage's banner as a
+  short notice for eight seconds (`CharacterStage.ShowNotice`). It closes when the entry panel or a
+  workspace opens and folds while another window keeps focus.
 - **Usage left:** `UsageLeftGlance` offers its "Usage left" chip to the project rail, which places it
   at its lower row's right end (`ProjectRail.OfferUsageLeft`), and nothing anywhere else: no
   floating control. Pressing it opens a panel on the frame, 44 by 26 degrees at 0.46 m, where the
@@ -969,14 +976,30 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   another window has focus its controls take no input and the chip hides, and once focus stays away
   the panel folds with what it read and comes back as it was. It is not Workstream status and not
   part of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
-- **Make room for a window:** while the stage stands in front of the person, Settings' Your room
-  offers Make room for a window, which turns the lineup 32 degrees to their right
-  (`CharacterStage.SetAside`, kept on the device), and Characters in front, which turns it back. On
-  a desk the room placement decides where it stands. Halcyonic cannot see the window, so this
-  reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m straight ahead,
-  the render (`AmbientRender`) counts it covering 4 of 6 characters' bodies and 4 of their labels in
-  front, and 2 bodies and 3 labels aside: since ADR 0023 raised the stage, the labels stand at the
-  window's height too.
+- **Beside a window:** while the stage stands in front of the person, Settings' Your room says where
+  the characters stand, under the room's own line and switch, and offers the other two arrangements
+  (`StageArrangement`, `CharacterStage.SetArrangement`, kept on the device), so a session on the
+  headset can compare all three: Characters in front (the arc, the default), Make room for a window
+  (the arc turned 32 degrees to the person's right) and Either side of a window. Beside a window, at
+  most four characters stand either side of a window lane straight ahead (24 degrees to each side
+  and 14 above and below eye level), two on each side at 32 degrees: one 4 degrees above eye level,
+  one 15 below, which leaves a lower character room to rise without reaching the badge above it.
+  Their labels show only the badge and the Practice, Demo or Recorded mark, no title. The lineup has
+  four slots then (`CharacterLineup.WithCapacity`, which keeps what it knew, kept and was asked
+  for), and fills its middle two first, so what waits for the person stands in the upper places;
+  work with no character waits in the rail's See other tasks. The spec's 28 and 37 degrees at eye
+  level assumed badges of icons alone; with words a badge is about 11 degrees wide, and two side by
+  side would reach past 45 degrees, so the render's own measure decided two rows, the outermost
+  label at about 37 degrees, a little past the 36 of the arc. The peek card stands out from its
+  character, never nearer the lane. The line says where they stand and that the window is assumed,
+  in one row: "The characters stand either side of a window assumed straight ahead." On a desk the
+  room placement decides where the stage stands, and the line says so. The first time focus comes
+  back after it stayed away three seconds, with the characters in front, the banner says once
+  "Window in the way? Settings can move the characters." Halcyonic cannot see the window, so every
+  arrangement reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m
+  straight ahead, the render (`AmbientRender`) counts it covering 4 of 6 characters' bodies and 4 of
+  their labels in front, 2 bodies and 3 labels aside, and none beside a window, whose outermost
+  label reaches 37 degrees.
 - **Entry panel:** `EntryPanel`, the one foreground panel for entering work. Each screen is a
   `PanelModel` from `EntryScreens`, drawn by a `PanelFrame` 0.46 m from the eyes, 44 by 26 degrees
   (ADR 0023), opened where a foreground panel goes, clear of every character and its label
@@ -1243,9 +1266,9 @@ neither the scene nor the stage refers to it; the stage finds it as its `IStageP
   (`OVRScene.RequestSpaceSetup`, which pauses the app until the person finishes or cancels), and
   the room is read again afterwards. A placement without a saved anchor holds for the session.
   Nothing waits on the room before the characters appear.
-- **Controls.** `RoomControls` puts the switch ("Show a virtual space" or "Show my room"), the
-  offer ("Allow room access" or "Set up this room") and Make room for a window in the Your room
-  section of Settings, under its line from `RoomStatus.Line`; they ignore input while
+- **Controls.** `RoomControls` puts the switch ("Show a virtual space" or "Show my room") and the
+  offer ("Allow room access" or "Set up this room") in the Your room section of Settings, under its
+  line from `RoomStatus.Line`, and under them where the characters stand; they ignore input while
   `FocusGuard.InputSuspended` or the sheet is closed. When the line changes, and when the room is
   about to ask for access, the stage's banner shows it as a notice for eight seconds, instead of the
   controls coming up in front of the person as they used to.
