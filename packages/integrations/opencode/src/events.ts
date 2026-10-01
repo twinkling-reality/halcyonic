@@ -298,6 +298,13 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
   if (id === null || raw.length === 0) return null;
   const metadata = isRecord(form.metadata) ? form.metadata : {};
   let answerable = metadata.kind === 'question' && raw.length <= 10;
+  // Anything cut to fit makes the question unanswerable: the person would answer text they did
+  // not see whole, and a cut label would stand for a value they never read.
+  const fit = (value: string, max: number): string => {
+    const fitted = clip(value, max);
+    if (fitted !== value) answerable = false;
+    return fitted;
+  };
   const prompts: QuestionPrompt[] = [];
   const fields: FormFields[number][] = [];
   for (const [index, field] of raw.slice(0, 10).entries()) {
@@ -312,18 +319,16 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
     const values = new Map<string, string>();
     const options: QuestionPrompt['options'] = [];
     for (const option of offered.slice(0, 20)) {
-      const label = nonBlank(option.label);
+      const raw = nonBlank(option.label);
       const value = typeof option.value === 'string' ? option.value : null;
-      if (label === null || value === null || values.has(clip(label, 200))) {
+      const label = raw === null ? null : fit(raw, 200);
+      if (label === null || value === null || values.has(label)) {
         answerable = false;
         continue;
       }
-      values.set(clip(label, 200), value);
+      values.set(label, value);
       const description = nonBlank(option.description);
-      options.push({
-        label: clip(label, 200),
-        description: description === null ? null : clip(description, 1000),
-      });
+      options.push({ label, description: description === null ? null : fit(description, 1000) });
     }
     const multiple = type === 'multiselect';
     // A string field without options takes only a typed answer.
@@ -331,9 +336,9 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
     const header = nonBlank(field.title);
     const text = nonBlank(field.description) ?? header ?? nonBlank(form.title) ?? 'Question';
     prompts.push({
-      key: clip(key, 256),
-      header: header === null ? null : clip(header, 200),
-      text: clip(text, 4000),
+      key: fit(key, 256),
+      header: header === null ? null : fit(header, 200),
+      text: fit(text, 4000),
       options,
       multiple,
       free_text: freeText,

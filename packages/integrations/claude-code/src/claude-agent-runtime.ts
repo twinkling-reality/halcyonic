@@ -945,8 +945,9 @@ function describeInput(input: unknown, max: number, markTruncation = false): str
 /**
  * AskUserQuestion's input as questions: `questions: [{question, header, options: [{label,
  * description}], multiSelect}]`, a typed answer always possible. Null when the input does not have
- * that shape, so it is shown as an ordinary approval instead. Not answerable here when a question
- * text or label is cut to fit the contract, or repeated, since Claude Code matches answers by text.
+ * that shape, so it is shown as an ordinary approval instead. Not answerable here when anything is
+ * cut to fit the contract, or a question text or label is repeated, since Claude Code matches
+ * answers by text.
  */
 function askedQuestions(input: Record<string, unknown>): {
   readonly prompts: QuestionPrompt[];
@@ -956,39 +957,43 @@ function askedQuestions(input: Record<string, unknown>): {
   const raw = Array.isArray(input.questions) ? input.questions : null;
   if (raw === null || raw.length === 0) return null;
   let answerable = raw.length <= 10;
+  // The person must see whole what they answer, so anything cut to fit leaves it unanswerable.
+  const fit = (value: string, max: number): string | null => {
+    const fitted = clipMarked(value, max);
+    if (fitted !== value) answerable = false;
+    return fitted;
+  };
+  const visible = (value: unknown): value is string =>
+    typeof value === 'string' && /\S/.test(value);
   const prompts: QuestionPrompt[] = [];
   const texts = new Map<string, string>();
   for (const [index, item] of raw.slice(0, 10).entries()) {
     if (typeof item !== 'object' || item === null) return null;
     const entry = item as Record<string, unknown>;
-    const question = typeof entry.question === 'string' ? entry.question : '';
-    const text = clip(question, 4000);
+    if (!visible(entry.question)) return null;
+    const question = entry.question;
+    const text = fit(question, 4000);
     if (text === null) return null;
-    if (text !== question || [...texts.values()].includes(question)) answerable = false;
+    if ([...texts.values()].includes(question)) answerable = false;
     const offered = Array.isArray(entry.options) ? entry.options : [];
     if (offered.length > 20) answerable = false;
     const options: QuestionPrompt['options'] = [];
     for (const option of offered.slice(0, 20)) {
       const record =
         typeof option === 'object' && option !== null ? (option as Record<string, unknown>) : {};
-      const label = typeof record.label === 'string' ? clip(record.label, 200) : null;
-      if (
-        label === null ||
-        label !== record.label ||
-        options.some((known) => known.label === label)
-      ) {
+      const label = visible(record.label) ? fit(record.label, 200) : null;
+      if (label === null || options.some((known) => known.label === label)) {
         answerable = false;
         if (label === null) continue;
       }
-      const description =
-        typeof record.description === 'string' ? clip(record.description, 1000) : null;
+      const description = visible(record.description) ? fit(record.description, 1000) : null;
       options.push({ label, description });
     }
     const key = `q${index}`;
     texts.set(key, question);
     prompts.push({
       key,
-      header: typeof entry.header === 'string' ? clip(entry.header, 200) : null,
+      header: visible(entry.header) ? fit(entry.header, 200) : null,
       text,
       options,
       multiple: entry.multiSelect === true,

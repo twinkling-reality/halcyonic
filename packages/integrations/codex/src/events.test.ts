@@ -437,6 +437,27 @@ describe('Codex approval summaries', () => {
     }
   });
 
+  test('a question with anything cut to fit is shown, marked as cut, but not answerable', () => {
+    const asked = (question: Record<string, unknown>) => {
+      const item = request('item/tool/requestUserInput', {
+        questions: [{ id: 'q', header: 'H', question: 'Which?', isOther: true, ...question }],
+      }).observed.observations[0];
+      assert.ok(item?.type === 'runtime.question.asked');
+      return item.payload;
+    };
+    assert.equal(asked({ options: [{ label: 'a', description: 'd' }] }).answerable, true);
+    for (const question of [
+      { question: 'q'.repeat(4001) },
+      { header: 'h'.repeat(201) },
+      { options: [{ label: 'l'.repeat(201), description: 'd' }] },
+      { options: [{ label: 'a', description: 'd'.repeat(1001) }] },
+    ]) {
+      const payload = asked(question);
+      assert.equal(payload.answerable, false, JSON.stringify(question).slice(0, 60));
+      assert.match(JSON.stringify(payload.prompts), / \[truncated\]/);
+    }
+  });
+
   test('an approval for a turn that already ended is not raised', () => {
     const state = createThreadState();
     state.endedTurns.push('turn-0');

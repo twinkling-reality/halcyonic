@@ -1103,15 +1103,33 @@ describe('questions', () => {
         },
       ],
     };
+    const longHeader = { questions: [{ ...ASKED.questions[0], header: 'h'.repeat(201) }] };
+    const longDescription = {
+      questions: [
+        {
+          ...ASKED.questions[0],
+          options: [
+            { label: 'Staging', description: 'd'.repeat(1001) },
+            { label: 'Local', description: null },
+          ],
+        },
+      ],
+    };
     void scripted.requestPermission('AskUserQuestion', repeated, 'req-r');
     void scripted.requestPermission('AskUserQuestion', long, 'req-l');
     void scripted.requestPermission('AskUserQuestion', sameLabel, 'req-s');
+    void scripted.requestPermission('AskUserQuestion', longHeader, 'req-h');
+    void scripted.requestPermission('AskUserQuestion', longDescription, 'req-d');
     await settle();
     const asked = observed.filter((item) => item.type === 'runtime.question.asked');
     assert.deepEqual(
       asked.map((item) => item.payload.answerable),
-      [false, false, false],
+      [false, false, false, false, false],
     );
+    // What was cut says so.
+    for (const item of asked.slice(1, 2).concat(asked.slice(3))) {
+      assert.match(JSON.stringify(item.payload), / \[truncated\]/);
+    }
     assertContractValid(observed);
   });
 });
