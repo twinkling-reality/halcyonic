@@ -125,8 +125,8 @@ client                                   server
   `multiple`), `text` typed words (only when `free_text`), and a question that takes one answer gets
   a label or text, not both. It is rejected with `question_not_found` when the question is not
   pending, `invalid_answer` when the answers do not fit the prompts, and `capability_unsupported`
-  when the runtime cannot take answers or the question is not `answerable`, which every prompt
-  marked `secret` makes it. There is no command to dismiss a question: `execution.interrupt` stops
+  when the runtime cannot take answers, the question is not `answerable`, or any prompt is marked
+  `secret`. A refused answer is journaled, and sent to clients, with its keys only. There is no command to dismiss a question: `execution.interrupt` stops
   the turn and withdraws it. A client sends an answer only when the person presses the control that
   sends it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)).
 - **Errors.** `error {error: {code, message, issues}, fatal}`. Invalid JSON or an invalid message
