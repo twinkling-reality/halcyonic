@@ -198,6 +198,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Debug.Log("Halcyonic: workspace render " + name + ": drawn in the renders from the static atlas instead, since a headset draws them from the dynamic fallback: "
                         + string.Join(", ", swapped.Select(character => "U+" + ((int)character).ToString("X4", CultureInfo.InvariantCulture))) + ".");
                 }
+                failures.AddRange(AsksAQuestion(name, folder, camera, texture, root, panel, sections, characters, rect));
                 failures.AddRange(AnswersTheQuestions(name, folder, camera, texture, root, panel, sections, characters, rect));
                 failures.AddRange(ShowsTextAsWritten(sections.View, name));
                 failures.AddRange(ShowsTheWholeRequest(name, folder, camera, texture, root, panel, sections));
@@ -429,6 +430,153 @@ namespace Halcyonic.XR.Workspace.Editor
             UnityEngine.Object.DestroyImmediate(tabsCloseUp);
             return failures;
         }
+
+        /// <summary>
+        /// An agent's question in What do you need from me? (ADR 0022): the mock's scripted question with
+        /// an answer chosen, its second prompt with several, a question too long for two lines, twenty
+        /// answers offered, and a secret question Halcyonic cannot answer. Each is checked like the
+        /// request: opaque over the stage, no word of it cut, nothing below the workspace's bottom.
+        /// </summary>
+        private static IEnumerable<string> AsksAQuestion(string name, string folder, Camera camera, RenderTexture texture, GameObject root,
+            WorkspacePanel panel, WorkspaceSections sections, List<(CharacterView View, CharacterTarget Target)> characters, RectInt rect)
+        {
+            var failures = new List<string>();
+            panel.Show(QuestionContent());
+
+            var scripted = new QuestionDraft("render-execution", Scripted());
+            scripted.Choose(0, "Light");
+            sections.ShowFixedQuestion(scripted, "");
+            failures.AddRange(QuestionShot(name, "question", folder, camera, texture, root, panel, sections, characters, rect));
+
+            // Its typed answer, with hold to talk beside it as in a development build: a draft until Send answer.
+            var typing = new QuestionDraft("render-execution", Scripted());
+            typing.Type(0, "Solarized, with high contrast");
+            sections.ShowFixedQuestion(typing, "", speak: true);
+            sections.Asking.TurnForRender(1);
+            failures.AddRange(QuestionShot(name, "question-typed", folder, camera, texture, root, panel, sections, characters, rect));
+
+            // Three questions shown, the most at once: the lead says more may follow.
+            sections.ShowFixedQuestion(new QuestionDraft("render-execution", Scripted()), "First of 3 questions shown; more may follow.");
+            failures.AddRange(QuestionShot(name, "question-three", folder, camera, texture, root, panel, sections, characters, rect));
+
+            scripted.Choose(1, "Sign in");
+            scripted.Choose(1, "Settings");
+            // Through the first prompt's pages of answers to the second prompt.
+            for (var turns = 0; turns < 4 && sections.Asking.Prompt == 0; turns++) sections.Asking.TurnForRender(1);
+            failures.AddRange(QuestionShot(name, "question-several", folder, camera, texture, root, panel, sections, characters, rect));
+            if (sections.Asking.Prompt != 1) failures.Add(name + ": Next does not reach the second prompt.");
+
+            var longer = Scripted();
+            longer.Prompts.RemoveAt(1);
+            longer.Prompts[0].Text = string.Join(" ", Enumerable.Repeat("Which colour scheme should the dashboard use, given that people read it at night and in bright offices?", 6));
+            var lengthy = new QuestionDraft("render-execution", longer);
+            sections.ShowFixedQuestion(lengthy, "");
+            failures.AddRange(QuestionShot(name, "question-long", folder, camera, texture, root, panel, sections, characters, rect));
+            if (sections.Asking.StepCount < 2) failures.Add(name + ": a question longer than two lines does not show in parts.");
+            if (lengthy.WasShownWhole(0)) failures.Add(name + ": a question counts as read before its last part shows.");
+            for (var turn = 1; turn < sections.Asking.StepCount; turn++) sections.Asking.TurnForRender(1);
+            if (!lengthy.WasShownWhole(0)) failures.Add(name + ": a question does not count as read after its last part shows.");
+
+            var many = Scripted();
+            many.Prompts.RemoveAt(1);
+            many.Prompts[0].Multiple = true;
+            many.Prompts[0].Options = Enumerable.Range(1, 20)
+                .Select(index => new QuestionOption { Label = "Page " + index.ToString(CultureInfo.InvariantCulture), Description = "Restyle page " + index.ToString(CultureInfo.InvariantCulture) })
+                .ToList();
+            sections.ShowFixedQuestion(new QuestionDraft("render-execution", many), "");
+            failures.AddRange(QuestionShot(name, "question-options", folder, camera, texture, root, panel, sections, characters, rect));
+            if (sections.Asking.StepCount != 11) failures.Add(name + ": twenty answers and typing take " + sections.Asking.StepCount + " pages, not 11.");
+
+            var secret = Scripted();
+            secret.Prompts.RemoveAt(1);
+            secret.Answerable = false;
+            secret.Prompts[0].Secret = true;
+            secret.Prompts[0].Header = "Token";
+            secret.Prompts[0].Text = "Paste the deploy token.";
+            panel.Show(QuestionContent(answerable: false));
+            sections.ShowFixedQuestion(new QuestionDraft("render-execution", secret), "");
+            failures.AddRange(QuestionShot(name, "question-secret", folder, camera, texture, root, panel, sections, characters, rect));
+            panel.Show(Content());
+            return failures;
+        }
+
+        private static IEnumerable<string> QuestionShot(string name, string suffix, string folder, Camera camera, RenderTexture texture, GameObject root,
+            WorkspacePanel panel, WorkspaceSections sections, List<(CharacterView View, CharacterTarget Target)> characters, RectInt rect)
+        {
+            var failures = new List<string>();
+            ForceMeshes(root);
+            var withStage = Render(camera, texture);
+            foreach (var (view, _) in characters) view.gameObject.SetActive(false);
+            var alone = Render(camera, texture);
+            foreach (var (view, _) in characters) view.gameObject.SetActive(true);
+            File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + ".png"), withStage.EncodeToPNG());
+            var closeUp = CloseUp(camera, texture, panel.transform);
+            File.WriteAllBytes(Path.Combine(folder, name + "-" + suffix + "-closeup.png"), closeUp.EncodeToPNG());
+            var (changed, _) = Compare(withStage, alone, rect);
+            if (changed > 0) failures.Add(name + " " + suffix + ": " + changed + " pixels of the question change when the stage behind it is drawn.");
+            UnityEngine.Object.DestroyImmediate(closeUp);
+            UnityEngine.Object.DestroyImmediate(withStage);
+            UnityEngine.Object.DestroyImmediate(alone);
+            if (!sections.Asking.gameObject.activeInHierarchy) failures.Add(name + " " + suffix + ": the question does not show.");
+            foreach (var part in sections.Asking.Shown)
+            {
+                var labels = part is PanelButton button ? new TMP_Text?[] { button.Label } : new[] { part as TMP_Text };
+                foreach (var label in labels)
+                {
+                    if (label == null || !label.gameObject.activeInHierarchy) continue;
+                    label.ForceMeshUpdate();
+                    // The agent's question shows in parts, never cut; a part holds what fits.
+                    if (label.name != "Question text" && label.isTextTruncated) failures.Add(name + " " + suffix + ": " + part.name + " is cut short: " + label.text);
+                }
+                var bottom = part is PanelButton row ? row.transform.localPosition.y - row.Label.rectTransform.sizeDelta.y / 2f : float.MaxValue;
+                if (bottom < WorkspacePanel.DetailsBottom - 0.002f) failures.Add(name + " " + suffix + ": " + part.name + " runs past the bottom of the workspace.");
+            }
+            return failures;
+        }
+
+        /// <summary>The mock runtime's scripted question (fixtures/scenarios/question_asked.json).</summary>
+        private static QuestionView Scripted() => new QuestionView
+        {
+            QuestionId = "question-1",
+            Answerable = true,
+            AskedAt = "2026-10-01T09:00:00.000Z",
+            Prompts = new List<QuestionPrompt>
+            {
+                new QuestionPrompt
+                {
+                    Key = "q0", Header = "Colour scheme", Text = "Which colour scheme should the dashboard use?",
+                    Options = new List<QuestionOption>
+                    {
+                        new QuestionOption { Label = "Light", Description = "Dark text on a light background" },
+                        new QuestionOption { Label = "Dark", Description = "Light text on a dark background" },
+                    },
+                    Multiple = false, FreeText = true, Secret = false,
+                },
+                new QuestionPrompt
+                {
+                    Key = "q1", Header = "Pages", Text = "Which pages should change?",
+                    Options = new List<QuestionOption>
+                    {
+                        new QuestionOption { Label = "Sign in" },
+                        new QuestionOption { Label = "Orders" },
+                        new QuestionOption { Label = "Settings" },
+                    },
+                    Multiple = true, FreeText = false, Secret = false,
+                },
+            },
+        };
+
+        private static PanelContent QuestionContent(bool answerable = true) => new PanelContent
+        {
+            Title = "Restyle the dashboard",
+            Status = "Needs you · simulated",
+            Execution = "On Mock runtime, simulated work · 1 turn",
+            Goal = "Goal: Give the dashboard the colour scheme people choose.",
+            Answer = new[] { "Asks you: Colour scheme: Which colour scheme should the dashboard use?" },
+            AnswerColor = new Color(0.96f, 0.77f, 0.32f),
+            Actions = answerable ? new[] { WorkspaceAction.Answer, WorkspaceAction.Interrupt } : new[] { WorkspaceAction.Interrupt },
+            ActivityCaption = "Recent activity",
+        };
 
         /// <summary>
         /// Every line of a section is shown inside the details area, a claim on one row and a part's
@@ -684,6 +832,14 @@ namespace Halcyonic.XR.Workspace.Editor
             sections.ShowFixedNeed(new NeedAnswer("It asks for approval to use " + Hostile("tool") + ":", Hostile("need"), new[] { Hostile("note") }));
             failures.AddRange(AllShowLiterally(root, name + " need"));
             failures.AddRange(Carry(root, name + " need", "Asks", "Request", "What answers do"));
+
+            var hostile = Scripted();
+            hostile.Prompts[0].Header = Hostile("header");
+            hostile.Prompts[0].Text = Hostile("question");
+            hostile.Prompts[0].Options[0].Label = Hostile("label");
+            hostile.Prompts[0].Options[0].Description = Hostile("description");
+            sections.ShowFixedQuestion(new QuestionDraft("render-execution", hostile), "");
+            failures.AddRange(AllShowLiterally(root, name + " question"));
 
             failures.AddRange(CharacterShowsLiterally(root, name, camera));
             UnityEngine.Object.DestroyImmediate(peek.gameObject);

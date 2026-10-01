@@ -101,7 +101,13 @@ shows exactly as written and that a quote cut short ends in an ellipsis. Then it
 approval of a very long shell command and saves `far-approval.png`, `far-approval-closeup.png` (its
 first part) and `far-approval-last-closeup.png`, and the demonstration's short one as
 `far-approval-short-closeup.png`, and the same for the desk; it fails unless the parts together are
-the whole request and "Yes, approve" shows on the last part only. Last, it puts hostile text on
+the whole request and "Yes, approve" shows on the last part only. It shows an agent's question
+(the mock's scripted one, as `far-question.png` and its close-up): with an answer chosen, its
+second prompt with several, its typed answer beside Hold to talk, three questions shown, a question
+longer than two lines in parts, twenty answers offered and a secret question Halcyonic cannot
+answer; it fails if any of it lets the stage show through, cuts a word short, or runs below the
+workspace, if Next does not reach the second prompt, or if a long question counts as read before
+its last part shows. Last, it puts hostile text on
 every label that shows text from outside (saved as `far-untrusted-closeup.png` and
 `far-untrusted-activity-closeup.png`) and fails if a label interprets markup or an escape sequence,
 shows text that did not go through the one rule, or cuts a line short without an ellipsis; the log

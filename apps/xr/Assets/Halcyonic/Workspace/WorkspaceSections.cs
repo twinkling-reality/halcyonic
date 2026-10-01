@@ -48,6 +48,9 @@ namespace Halcyonic.XR.Workspace
         private SpriteRenderer chosenMark = null!;
         private SectionView view = null!;
         private NeedView need = null!;
+        private AskedView asking = null!;
+        private Func<QuestionDraft?> draft = () => null;
+        private Func<bool> voice = () => false;
         private RequestView request = null!;
         private IntelligenceFeed<UnderstandingResponse> understanding = null!;
         private IntelligenceFeed<EvaluationResponse> evaluation = null!;
@@ -66,13 +69,16 @@ namespace Halcyonic.XR.Workspace
         /// nowhere to, as without a control plane or demonstration; <paramref name="first"/> is the
         /// question it opens on.
         /// </summary>
+        /// <param name="questionDraft">The person's answers to the agent's question shown, or null while none is asked.</param>
         public static WorkspaceSections Attach(WorkspacePanel panel, Func<WorkspacePresentation?> presentation, Func<IIntelligenceReader?> reader,
-            WorkspaceQuestion first = WorkspaceQuestion.Doing)
+            WorkspaceQuestion first = WorkspaceQuestion.Doing, Func<QuestionDraft?>? questionDraft = null, Func<bool>? speakAnswers = null)
         {
             var sections = panel.gameObject.AddComponent<WorkspaceSections>();
             sections.panel = panel;
             sections.presentation = presentation;
             sections.reader = reader;
+            if (questionDraft != null) sections.draft = questionDraft;
+            if (speakAnswers != null) sections.voice = speakAnswers;
             sections.offersNeed = first == WorkspaceQuestion.NeedFromYou;
             sections.Build(first);
             return sections;
@@ -93,10 +99,27 @@ namespace Halcyonic.XR.Workspace
         public void ShowFixedNeed(NeedAnswer answer)
         {
             fixedContent = true;
+            draft = () => null;
             offersNeed = true;
             Choose(WorkspaceQuestion.NeedFromYou);
             need.Show(answer);
         }
+
+        /// <summary>Shows an agent's question with the answers in <paramref name="answering"/>, reading nothing: for the editor's renders.</summary>
+        public void ShowFixedQuestion(QuestionDraft answering, string lead, bool speak = false)
+        {
+            fixedContent = true;
+            offersNeed = true;
+            draft = () => answering;
+            Choose(WorkspaceQuestion.NeedFromYou);
+            asking.Show(answering, lead, speak);
+        }
+
+        /// <summary>The agent's question, for the editor's checks.</summary>
+        public AskedView Asking => asking;
+
+        /// <summary>The person asked to type an answer to a prompt of the question shown.</summary>
+        public event Action<int>? TypeAnswer;
 
         /// <summary>Every label the sections draw, for the editor's check that none interprets what it shows.</summary>
         public SectionView View => view;
@@ -154,9 +177,15 @@ namespace Halcyonic.XR.Workspace
             chosenMark = WorkspaceVisuals.Plate(transform, "Chosen tab", new Vector2(0.1f, 0.004f), WorkspaceVisuals.TextColor, WorkspaceVisuals.PanelControlOrder);
             view = SectionView.Create(transform);
             need = NeedView.Create(transform);
+            asking = AskedView.Create(transform, () => panel.Accepting());
+            asking.TypeRequested += index => TypeAnswer?.Invoke(index);
             request = RequestView.Create(transform, () => panel.Accepting());
             request.Turned += () => RequestTurned?.Invoke();
-            panel.ActionPressed += _ => Choose(WorkspaceQuestion.Doing);
+            // Send answer keeps the question in view: its result shows there, or why nothing was sent.
+            panel.ActionPressed += action =>
+            {
+                if (action != WorkspaceAction.Answer) Choose(WorkspaceQuestion.Doing);
+            };
             panel.ConfirmPressed += () => Choose(WorkspaceQuestion.Doing);
             panel.PresetPressed += _ => Choose(WorkspaceQuestion.Doing);
             Choose(first);
@@ -196,7 +225,11 @@ namespace Halcyonic.XR.Workspace
             var kind = KindOf(question);
             panel.ShowActivity(!reading && question == WorkspaceQuestion.Doing);
             view.gameObject.SetActive(!reading && kind != null);
-            need.gameObject.SetActive(!reading && question == WorkspaceQuestion.NeedFromYou);
+            // An approval first, as the runtime blocks on it; else the agent's question.
+            var current = presentation();
+            var askingNow = draft() != null && current?.ApprovalToAnswer == null;
+            need.gameObject.SetActive(!reading && question == WorkspaceQuestion.NeedFromYou && !askingNow);
+            asking.gameObject.SetActive(!reading && question == WorkspaceQuestion.NeedFromYou && askingNow);
             chosenMark.gameObject.SetActive(!reading);
             var x = WorkspacePanel.DetailsLeft;
             var center = WorkspacePanel.TabsTop - WorkspacePanel.TabsHeight / 2f;
@@ -257,6 +290,8 @@ namespace Halcyonic.XR.Workspace
                 drawn = 0;
                 redrawAt = Time.unscaledTime + RedrawSeconds;
                 if (WorkspaceText.NeedFromYou(current) is NeedAnswer answer) need.Show(answer);
+                else if (draft() is QuestionDraft answering) asking.Show(answering, WorkspaceText.QuestionLead(current), voice());
+                Arrange();
             }
             if (KindOf(question) is not SectionKind kind || request.gameObject.activeSelf) return;
             var version = kind == SectionKind.Understanding ? understanding.Version : evaluation.Version;
@@ -274,7 +309,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void FollowRequest(WorkspacePresentation current)
         {
-            var waiting = current.ApprovalToAnswer != null;
+            var waiting = WorkspaceText.SomethingWaits(current);
             if (waiting == offersNeed) return;
             offersNeed = waiting;
             if (!waiting && question == WorkspaceQuestion.NeedFromYou) Choose(WorkspaceQuestion.Doing);
