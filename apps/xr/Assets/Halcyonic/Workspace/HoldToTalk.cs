@@ -125,7 +125,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (permissionAnswer != 0)
             {
-                Said?.Invoke(permissionAnswer > 0 ? VoiceText.MicrophoneAllowed : VoiceText.NoMicrophone);
+                Said?.Invoke(permissionAnswer > 0 ? VoiceText.MicrophoneAllowed : VoiceText.MicrophoneRefused);
                 permissionAnswer = 0;
             }
             if (capturing == this)
