@@ -5,6 +5,8 @@ using System.Globalization;
 using System.IO;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -208,21 +210,29 @@ namespace Halcyonic.XR.Workspace.Editor
         private static float Elevation(Vector3 toward) =>
             Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
 
-        /// <summary>The chip stays in the room the rail leaves it, apart from every rail button.</summary>
+        /// <summary>
+        /// The chip stays inside the rail's lower row, 12 mm or more from every other rail button in
+        /// it, and its label is whole.
+        /// </summary>
         private static IEnumerable<string> ChipFits(string what, ProjectRail rail, UsageLeftGlance glance)
         {
             var chip = glance.Chip;
             var x = chip.transform.localPosition.x;
             var left = x - chip.Width / 2f;
             var right = x + chip.Width / 2f;
-            if (right > ProjectRail.RailWidth / 2f + 1e-4f) yield return what + ": the chip runs past the rail's right end.";
-            if (left < ProjectRail.RailWidth / 2f - ProjectRail.UsageLeftRoom - 1e-4f) yield return what + ": the chip leaves the room kept for Usage left.";
+            var gap = Glaze.TargetGapMeters / rail.Root.lossyScale.x;
+            if (right > ProjectRail.Width / 2f + 1e-4f) yield return what + ": the chip runs past the rail's right end.";
+            if (left < -ProjectRail.Width / 2f - 1e-4f) yield return what + ": the chip runs past the rail's left end.";
+            if (chip.transform.localPosition.y > 0f) yield return what + ": the chip is not in the rail's lower row.";
             foreach (var button in rail.Shown)
             {
-                if (Mathf.Abs(button.transform.localPosition.y - chip.transform.localPosition.y) > 1e-3f) continue;
+                if (button == chip || Mathf.Abs(button.transform.localPosition.y - chip.transform.localPosition.y) > 1e-3f) continue;
+                var otherLeft = button.transform.localPosition.x - button.Width / 2f;
                 var otherRight = button.transform.localPosition.x + button.Width / 2f;
-                if (otherRight > left - ProjectRail.Gap / 2f) yield return what + ": the chip is too close to the rail's " + button.name + ".";
+                if (otherRight > left - gap + 1e-4f && otherLeft < right + gap - 1e-4f) yield return what + ": the chip is closer than 12 mm to the rail's " + button.name + ".";
             }
+            chip.Label.ForceMeshUpdate();
+            if (chip.Label.isTextTruncated) yield return what + ": the chip cuts its label short: " + chip.Label.text;
         }
     }
 }

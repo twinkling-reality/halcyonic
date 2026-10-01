@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
+using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -36,7 +38,6 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Where the room and pairing controls' buttons begin, to either side: 26 degrees less half of
         /// the widest resting button, the pairing panel's 0.24 of the design width at its scale, 0.4 m out.
         /// </summary>
-        private const float SideControlsDegrees = 18.6f;
 
         [MenuItem("Halcyonic/Render the Entry Panel Over the Stage")]
         public static void Menu()
@@ -112,16 +113,18 @@ namespace Halcyonic.XR.Workspace.Editor
                 var railCloseUp = WorkspaceRender.CloseUp(camera, texture, rail.Root);
                 File.WriteAllBytes(Path.Combine(folder, name + "-rail-closeup.png"), railCloseUp.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(railCloseUp);
-                var railRect = RailRect(camera, rail);
-                foreach (var (view, target) in characters)
+                // Every rail button a degree or more from every label and body, as the eyes see them.
+                foreach (var button in rail.Shown)
                 {
-                    if (Overlap(railRect, WorkspaceRender.LabelRect(camera, view)))
+                    var near = new List<GlazeChecks.Extent> { GlazeChecks.Of("the rail's " + button.name, eyes, button.gameObject) };
+                    foreach (var (view, _) in characters)
                     {
-                        failures.Add(name + ": the rail covers " + view.WorkstreamId + "'s label.");
+                        near.Add(GlazeChecks.Of(view.WorkstreamId + "'s label", eyes, view.Label.gameObject));
+                        near.Add(WorkspaceRender.BodyExtent(view, eyes));
                     }
-                    var body = camera.WorldToScreenPoint(target.BodyPosition);
-                    if (railRect.Contains(new Vector2(body.x, body.y))) failures.Add(name + ": the rail covers " + view.WorkstreamId + "'s body.");
+                    failures.AddRange(GlazeChecks.Apart(near).Where(failure => failure.Contains("the rail's")).Select(failure => name + ": " + failure));
                 }
+                failures.AddRange(SettingsFits(name, folder, root, rail, camera, texture, characters, surface, hostile));
                 // The rail steps out of the way while the entry panel is open, as on the headset.
                 rail.Root.gameObject.SetActive(false);
 
@@ -475,52 +478,105 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
         /// <summary>
-        /// The rail keeps its right end free for Usage left, its buttons apart and inside it, and its
-        /// own words whole; it stays clear of the room and pairing controls, which rest 26 degrees to
-        /// either side 0.4 m out, the pairing panel's button reaching in to about 18.6 degrees
-        /// (<see cref="SideControlsDegrees"/>). Their status line, shown for a few seconds after it
-        /// changes, is wider and is not checked here.
+        /// The rail keeps its buttons inside its width, 24 degrees to either side, 12 mm apart in each
+        /// row, each at least 60 dp tall (48 compact), and its own words whole (ADR 0023). Nothing rests
+        /// beside it any more: the room and pairing controls are in Settings.
         /// </summary>
         private static IEnumerable<string> RailFits(string name, ProjectRail rail, Camera camera, bool hostile)
         {
             var failures = new List<string>();
             WorkspaceRender.ForceMeshes(rail.gameObject);
             var buttons = rail.Shown.ToList();
+            var gap = Glaze.TargetGapMeters / rail.Root.lossyScale.x;
             foreach (var row in buttons.GroupBy(button => Mathf.Round(button.transform.localPosition.y * 1000f)))
             {
-                var lower = row.Key < 0f;
                 var ordered = row.OrderBy(button => button.transform.localPosition.x).ToList();
-                // The lower row keeps its right end free for Usage left.
-                var limit = ProjectRail.RailWidth / 2f - (lower ? ProjectRail.UsageLeftRoom : 0f);
                 for (var index = 0; index < ordered.Count; index++)
                 {
                     var button = ordered[index];
                     var left = button.transform.localPosition.x - button.Width / 2f;
                     var right = button.transform.localPosition.x + button.Width / 2f;
-                    if (right > limit + 1e-4f) failures.Add(name + ": the rail's " + button.name + (lower ? " reaches into the room kept for Usage left." : " runs past its right end."));
-                    if (left < -ProjectRail.RailWidth / 2f - 1e-4f) failures.Add(name + ": the rail's " + button.name + " runs past its left end.");
-                    if (index > 0 && ordered[index - 1].transform.localPosition.x + ordered[index - 1].Width / 2f > left + 1e-4f)
+                    if (right > ProjectRail.Width / 2f + 1e-4f) failures.Add(name + ": the rail's " + button.name + " runs past its right end.");
+                    if (left < -ProjectRail.Width / 2f - 1e-4f) failures.Add(name + ": the rail's " + button.name + " runs past its left end.");
+                    if (index > 0 && ordered[index - 1].transform.localPosition.x + ordered[index - 1].Width / 2f > left - gap + 1e-4f)
                     {
-                        failures.Add(name + ": the rail's " + ordered[index - 1].name + " and " + button.name + " overlap.");
+                        failures.Add(name + ": the rail's " + ordered[index - 1].name + " and " + button.name + " are closer than 12 mm.");
                     }
                 }
             }
             if (!hostile) failures.AddRange(NothingOfOursCut(rail.Shown.Cast<Component>(), name + " rail"));
             var eyes = camera.transform.position;
+            failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, name + " rail"));
+            failures.AddRange(GlazeChecks.TextLargeEnough(rail.Root.gameObject, eyes, name + " rail"));
+            // How far to the side, as the angle from the rail's middle as seen from the eyes, whatever its height.
             var widest = 0f;
+            var center = rail.Root.position - eyes;
             foreach (var button in buttons)
             {
                 foreach (var side in new[] { -1f, 1f })
                 {
                     var edge = button.transform.TransformPoint(new Vector3(side * button.Width / 2f, 0f, 0f)) - eyes;
-                    widest = Mathf.Max(widest, Mathf.Abs(Mathf.Atan2(edge.x, edge.z) * Mathf.Rad2Deg));
+                    widest = Mathf.Max(widest, Vector3.Angle(center, edge));
                 }
             }
-            var center = rail.Root.position - eyes;
             Debug.Log("Halcyonic: entry render " + name + ": the rail shows " + buttons.Count + " buttons, reaches " + WorkspaceRender.Degrees(widest)
                 + " degrees to the side and stands " + WorkspaceRender.Degrees(Mathf.Atan2(-center.y, new Vector2(center.x, center.z).magnitude) * Mathf.Rad2Deg)
                 + " degrees below eye level.");
-            if (widest > SideControlsDegrees) failures.Add(name + ": the rail reaches " + WorkspaceRender.Degrees(widest) + " degrees to the side, into the room and pairing controls.");
+            if (widest > ProjectRail.HalfWidthDegrees + 0.5f) failures.Add(name + ": the rail reaches " + WorkspaceRender.Degrees(widest) + " degrees to the side.");
+            return failures;
+        }
+
+        /// <summary>
+        /// The Settings sheet, opened as the rail's Settings opens it, with the sections the room and
+        /// pairing fill: it opens clear of every character and label, a degree or more, in the
+        /// comfortable band, its targets 60 dp, its words whole and large enough, and a refusal from
+        /// whatever answered at the typed address shows as written.
+        /// </summary>
+        private static IEnumerable<string> SettingsFits(string name, string folder, GameObject root, ProjectRail rail, Camera camera, RenderTexture texture,
+            List<(CharacterView View, CharacterTarget Target)> characters, float? surface, bool hostile)
+        {
+            var failures = new List<string>();
+            var sheet = SettingsSheet.On(rail.gameObject);
+            var room = sheet.Section(SettingsText.YourRoom, 0);
+            room.Say(surface.HasValue ? "Your agents are on your desk." : "No free desk or table in reach, so your agents stand in front of you.");
+            room.Offer(room.Button("Space switch", ButtonRole.Secondary), "Show a virtual space");
+            if (!surface.HasValue) room.Offer(room.Button("Aside", ButtonRole.Secondary), SettingsText.MakeRoomForWindow);
+            var mac = sheet.Section(SettingsText.YourMac, 1);
+            mac.Say(hostile ? "Pairing failed: " + WorkspaceRender.Hostile("refusal") : "Paired with the Mac at 192.168.1.23:47801. Connecting over Wi-Fi.");
+            mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this Mac");
+            sheet.OpenForRender(characters.ConvertAll(character => character.Target), surface);
+            rail.Root.gameObject.SetActive(false);
+            WorkspaceRender.ForceMeshes(root);
+            var image = WorkspaceRender.Render(camera, texture);
+            File.WriteAllBytes(Path.Combine(folder, name + "-settings.png"), image.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(image);
+            var closeUp = WorkspaceRender.CloseUp(camera, texture, sheet.Root);
+            File.WriteAllBytes(Path.Combine(folder, name + "-settings-closeup.png"), closeUp.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(closeUp);
+
+            var eyes = camera.transform.position;
+            var others = new List<GlazeChecks.Extent> { GlazeChecks.Of("the Settings sheet", eyes, sheet.Root.gameObject) };
+            foreach (var (view, _) in characters)
+            {
+                others.Add(GlazeChecks.Of(view.WorkstreamId + "'s label", eyes, view.Label.gameObject));
+                others.Add(WorkspaceRender.BodyExtent(view, eyes));
+            }
+            failures.AddRange(GlazeChecks.Apart(others).Where(failure => failure.Contains("the Settings sheet")).Select(failure => name + ": " + failure));
+            failures.AddRange(GlazeChecks.TargetsLargeEnough(sheet.Root.GetComponentsInChildren<GlazeButton>(false), eyes, name + " settings"));
+            failures.AddRange(GlazeChecks.TextLargeEnough(sheet.Root.gameObject, eyes, name + " settings"));
+            if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(sheet.Root.gameObject, name + " settings"));
+            else failures.AddRange(NothingOfOursCut(sheet.Root.GetComponentsInChildren<TMP_Text>(false).Cast<Component>()
+                .Concat(sheet.Root.GetComponentsInChildren<GlazeButton>(false)), name + " settings"));
+            var toward = sheet.Root.position - eyes;
+            var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+            Debug.Log("Halcyonic: entry render " + name + ": Settings opens " + WorkspaceRender.Degrees(-elevation) + " degrees below eye level, "
+                + WorkspaceRender.Degrees(GlazeTokens.DegreesOf(sheet.Size.x)) + " by " + WorkspaceRender.Degrees(GlazeTokens.DegreesOf(sheet.Size.y)) + " degrees.");
+            if (elevation < WorkspacePlacement.LowestDegrees - 0.01f || elevation > WorkspacePlacement.HighestDegrees + 0.01f)
+            {
+                failures.Add(name + ": Settings opens outside the comfortable band.");
+            }
+            sheet.Close();
+            rail.Root.gameObject.SetActive(true);
             return failures;
         }
 
@@ -548,7 +604,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             foreach (var part in parts)
             {
-                var labels = part is PanelButton button ? new TMP_Text?[] { button.Label, button.Detail } : new[] { part as TMP_Text };
+                var labels = part is PanelButton button ? new TMP_Text?[] { button.Label, button.Detail }
+                    : part is GlazeButton glazed ? new TMP_Text?[] { glazed.Label, glazed.Detail } : new[] { part as TMP_Text };
                 foreach (var label in labels)
                 {
                     if (label == null || !label.gameObject.activeInHierarchy) continue;
@@ -673,25 +730,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 yield return what + ": a line breaks inside the word " + text + ", which fits a line.";
                 yield break;
             }
-        }
-
-        /// <summary>The rail's buttons on the render, as one rectangle.</summary>
-        private static Rect RailRect(Camera camera, ProjectRail rail)
-        {
-            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-            foreach (var button in rail.Shown)
-            {
-                foreach (var corner in new[] { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) })
-                {
-                    var screen = camera.WorldToScreenPoint(button.transform.TransformPoint(
-                        new Vector3(corner.x * button.Width / 2f, corner.y * ProjectRail.ChipHeight / 2f, 0f)));
-                    minX = Mathf.Min(minX, screen.x);
-                    maxX = Mathf.Max(maxX, screen.x);
-                    minY = Mathf.Min(minY, screen.y);
-                    maxY = Mathf.Max(maxY, screen.y);
-                }
-            }
-            return Rect.MinMaxRect(minX, minY, maxX, maxY);
         }
 
         internal static bool Overlap(Rect a, Rect b) => a.xMin < b.xMax && a.xMax > b.xMin && a.yMin < b.yMax && a.yMax > b.yMin;

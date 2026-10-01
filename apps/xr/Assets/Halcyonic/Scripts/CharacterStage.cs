@@ -50,6 +50,9 @@ namespace Halcyonic.XR
         /// </summary>
         public const float DefaultHeightFromEyes = -0.17f;
 
+        /// <summary>How long a notice from the room or the Mac shows on the banner.</summary>
+        public const float NoticeSeconds = 8f;
+
         /// <summary>The angle between the lowest a label reaches and the banner under it: more than the degree kept between things.</summary>
         public const float BannerGapDegrees = 1.25f;
 
@@ -105,6 +108,9 @@ namespace Halcyonic.XR
         private string? shownBanner;
         private BannerKind shownKind;
         private string? shownWaiting;
+        private string? shownNotice;
+        private string? notice;
+        private float noticeUntil;
         private StageVisibility visibility = new StageVisibility();
 
         /// <summary>
@@ -238,6 +244,11 @@ namespace Halcyonic.XR
                 foreach (var view in views.Values) view.Person = head;
             }
             FindPlacementSource();
+            if (notice != null && Time.unscaledTime >= noticeUntil)
+            {
+                notice = null;
+                ShowBanner(shownBanner ?? "", shownKind, shownWaiting);
+            }
             var preferred = source?.Preferred;
             var decision = placement.Poll(head, Time.unscaledTime, Time.unscaledDeltaTime);
             var placed = false;
@@ -518,16 +529,29 @@ namespace Halcyonic.XR
             return (height, scale);
         }
 
+        /// <summary>
+        /// Shows a short notice on the banner for <see cref="NoticeSeconds"/>: news from the room or the
+        /// Mac, which no longer comes up in front of the person (ADR 0023); the controls that act on
+        /// it are in Settings. The latest notice replaces the one before.
+        /// </summary>
+        public void ShowNotice(string text)
+        {
+            notice = text;
+            noticeUntil = Time.unscaledTime + NoticeSeconds;
+            ShowBanner(shownBanner ?? "", shownKind, shownWaiting);
+        }
+
         /// <param name="waiting">What needs the person, said on a line of its own and in the attention color, or null.</param>
         private void ShowBanner(string text, BannerKind kind, string? waiting)
         {
-            if (text == shownBanner && kind == shownKind && waiting == shownWaiting) return;
+            if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice) return;
             shownBanner = text;
             shownKind = kind;
             shownWaiting = waiting;
-            // A connection's detail or a setup problem can carry a server's or an exception's words;
-            // the banner shows them by the one rule for text Halcyonic did not write.
-            banner.Show(text, kind, waiting);
+            shownNotice = notice;
+            // A connection's detail, a setup problem or a notice can carry a server's or an exception's
+            // words; the banner shows them by the one rule for text Halcyonic did not write.
+            banner.Show(text, kind, waiting, notice);
             PlaceBanner();
         }
 

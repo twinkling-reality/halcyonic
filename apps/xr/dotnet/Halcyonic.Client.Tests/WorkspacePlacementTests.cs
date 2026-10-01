@@ -115,6 +115,27 @@ public class WorkspacePlacementTests
     }
 
     [Test]
+    public void AFlatPanelsCornersClearTheLabelsToo()
+    {
+        var characters = Lineups.RaisedArc();
+        var opened = characters[3];
+        var panel = WorkspacePlacement.Place(opened.Yaw, opened, characters, Lineups.Workspace);
+        var top = panel.Elevation + Lineups.Workspace.HalfHeightDegrees;
+        var corners = WorkspacePlacement.CornerElevation(top, Lineups.Workspace.HalfWidthDegrees);
+        Assert.That(corners, Is.GreaterThan(top), "below eye level, a flat panel's corners look higher than its edge's middle");
+        Assert.That(corners, Is.LessThanOrEqualTo(characters.Min(character => character.Lowest) - 1f), "a degree or more under every label");
+    }
+
+    [Test]
+    public void CornersAndEdgesConvertBothWays()
+    {
+        Assert.That(WorkspacePlacement.CornerElevation(0f, 20f), Is.EqualTo(0f).Within(1e-4f), "at eye level the edge is level");
+        Assert.That(WorkspacePlacement.CornerElevation(-16f, 0f), Is.EqualTo(-16f).Within(1e-4f), "a panel no wider than a point has no corners");
+        Assert.That(WorkspacePlacement.EdgeForCorners(WorkspacePlacement.CornerElevation(-16f, 17f), 17f), Is.EqualTo(-16f).Within(1e-3f));
+        Assert.That(WorkspacePlacement.CornerElevation(10f, 17f), Is.LessThan(10f), "above eye level the corners look lower");
+    }
+
+    [Test]
     public void WithoutItsLabelABodyReachesOnlyItsOwnExtent()
     {
         var body = new BodyInView(10f, -4f, 4.3f);

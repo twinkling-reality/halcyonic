@@ -434,7 +434,7 @@ pnpm pair        # in another terminal: prints the Mac's address and an eight-di
 
 In the headset, with hands only:
 
-1. Low to your left, under the stage, pinch or poke **Pair with a Mac**.
+1. On the rail under the stage, press **Settings**; in its Your Mac section, pinch or poke **Pair with a Mac**.
 2. The system keyboard opens: type the address `pnpm pair` printed, such as `192.168.1.23:47801`,
    and press Enter. The next time, the last address is already there.
 3. The number pad opens: type the eight digits and press Enter.
@@ -461,9 +461,9 @@ takes the place of a pushed access token: with both, the app uses the pairing.
 What the Mac cannot check ([network-pairing.md](../validation/network-pairing.md)):
 
 - **Pairing:** the steps above, seated, hands only. Both keyboards appear and can be used with
-  hands; the line is readable; the panel and the room controls do not cover the stage or each
-  other. The Mac lists the headset with a readable label (`pnpm devices`).
-- **Live over Wi-Fi:** with the USB cable unplugged, the line above the stage reads live, and
+  hands; the line in Settings and its notice on the banner are readable; Settings does not cover
+  the stage. The Mac lists the headset with a readable label (`pnpm devices`).
+- **Live over Wi-Fi:** with the USB cable unplugged, the banner under the stage reads "Connected to your Mac", and
   `pnpm demo` on the Mac moves the characters. Open a workspace: its activity includes what
   happened before it opened, so REST works over the pinned connection. Approve something: the
   control plane's log shows `realtime client connected` with the device id, and `pnpm devices`
@@ -830,8 +830,8 @@ In a room set up with its desk (the headset's Space Setup, with the desk capture
   the switch reads "Show my room". Restart the app: still virtual. Switch back: the room and the
   characters on the desk return, with no prompt.
 - **Demonstration.** The demonstration judges see (above) plays and follows your answers the same
-  way on the desk and in the virtual space, with its line above the stage.
-- **Focus.** With the system menu open, the room controls do not respond to a poke or a pinch.
+  way on the desk and in the virtual space, with its line on the banner.
+- **Focus.** With the system menu open, Settings' room controls do not respond to a poke or a pinch.
 - **Frame rate.** `adb logcat -s VrApi` reports 72 fps with passthrough on, the characters on the
   desk and hands tracked.
 
@@ -915,7 +915,7 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
 
 1. **Place.** Characters on the desk, or in front; then open a browser video window (Meta's
    browser, any video) and place it in front of you. Note how many characters it covers. Press Make
-   room for a window in the room controls (low right) and note the count again; Characters in front
+   room for a window in Settings (the rail's Settings, Your room) and note the count again; Characters in front
    turns them back. Record both counts and which side the window was on.
 2. **Watch.** Select the video. The log says focus went to another window; three seconds later,
    large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
@@ -984,5 +984,13 @@ note what you saw and how it felt.
 8. **A desk** (room placement on). The characters stand on the desk with their labels resting on
    it, spread a little wider, the banner above them. Can you read the labels looking down, and does
    any body hide its own badge?
+9. **The rail.** Under the stage, about 44 degrees down and 0.43 m away: project pills above (outlined
+   in blue while shown), actions below, Settings at the right end. Can you reach and press every
+   button without leaning, and read the counts? On a desk it sits nearer, about 53 degrees down:
+   is that too low?
+10. **Settings.** Press Settings. The sheet opens under the labels with Your room and, in a
+    development build, Your Mac. Switch to a virtual space and back; does the notice on the banner
+    say what changed once the sheet is closed? Nothing should float low to your left or right any
+    more.
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).

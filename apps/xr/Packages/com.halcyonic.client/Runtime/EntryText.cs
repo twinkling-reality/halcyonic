@@ -23,6 +23,9 @@ namespace Halcyonic.Client
         public const string MoreWork = "More work";
         public const string ContinueCreating = "Continue creating";
 
+        /// <summary>The rail's button for the tasks without a character, a verb first (ADR 0023).</summary>
+        public const string SeeOtherTasks = "See other tasks";
+
         public const string WelcomeTitle = "Welcome";
         public const string WelcomeLine = "Bring in projects Halcyonic knows, or make a new one. Work already running keeps going.";
         public const string ConnectInvite = "Choose which projects show";
@@ -191,6 +194,24 @@ namespace Halcyonic.Client
                 : project.Active > 0 ? Many(project.Active) + " running"
                 : project.Work == 0 ? "no work yet" : Many(project.Work) + " paused";
             return project.Shown ? most : "Hidden · " + most;
+        }
+
+        /// <summary>
+        /// A project's rail chip in full, where the chip has room for it: its work as Connect projects
+        /// says it, "1 task is waiting for you", after "Hidden · " when its work is not on the stage.
+        /// Where it does not fit, the rail says <see cref="ChipDetail"/>.
+        /// </summary>
+        public static string ChipDetailInFull(ProjectSummary project) => (project.Shown ? "" : "Hidden · ") + Counts(project);
+
+        /// <summary>
+        /// The rail's See other tasks detail in full, where it has room: how many of the tasks not on
+        /// the stage wait for the person, "1 task is waiting for you", else how many there are, "3
+        /// tasks not on the stage". Where it does not fit, the rail says <see cref="MoreWorkDetail"/>.
+        /// </summary>
+        public static string MoreWorkDetailInFull(WorkOverview overview)
+        {
+            var needing = overview.NeedsYouOffStage;
+            return needing > 0 ? WaitingForYou(needing) : Tasks(overview.OffStage.Count) + " not on the stage";
         }
 
         /// <summary>The rail's Connect projects detail: how many projects show.</summary>

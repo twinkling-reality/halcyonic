@@ -91,16 +91,27 @@ namespace Halcyonic.Client
     /// </summary>
     public static class WorkspacePlacement
     {
-        /// <summary>The workspace's center stays between these elevations, in degrees from eye level: the comfortable middle of the view for a seated person.</summary>
-        public const float LowestDegrees = -30f;
+        /// <summary>
+        /// The workspace's center stays between these elevations, in degrees from eye level: the
+        /// comfortable middle of the view for a seated person. 31 below leaves a tall panel room under
+        /// the deepest labels, a practice task's of two lines with its mark (ADR 0023); to be judged on
+        /// the headset.
+        /// </summary>
+        public const float LowestDegrees = -31f;
 
         public const float HighestDegrees = 2f;
 
         /// <summary>The workspace opens no farther than this to the side of where the person looks.</summary>
         public const float MaxSideDegrees = 15f;
 
-        /// <summary>The angle between a body and the workspace's nearest edge.</summary>
+        /// <summary>The angle between a body and the workspace's nearest edge: room for the body's hops and turns.</summary>
         public const float ClearanceDegrees = 1.5f;
+
+        /// <summary>
+        /// The angle between a label and the workspace's nearest corner: a little more than the degree
+        /// kept between things, since labels stand still (ADR 0023).
+        /// </summary>
+        public const float LabelClearanceDegrees = 1.2f;
 
         /// <summary>Where a seated person looks at rest: of two places that fit, the workspace takes the one nearer this.</summary>
         public const float NaturalDegrees = -15f;
@@ -133,8 +144,13 @@ namespace Halcyonic.Client
                 lowest = Math.Min(lowest, body.Lowest);
                 highest = Math.Max(highest, body.Elevation + body.Radius);
             }
-            var below = lowest - ClearanceDegrees - halfHeight;
-            var above = highest + ClearanceDegrees + halfHeight;
+            // A flat panel's corners stand farther than its edges' middles: below eye level they look
+            // higher, above it lower. Its edges go where its corners clear what they pass.
+            var halfWidth = size.HalfWidthDegrees;
+            var top = Math.Min(lowest - LabelClearanceDegrees, EdgeForCorners(lowest - LabelClearanceDegrees, halfWidth));
+            var bottom = Math.Max(highest + ClearanceDegrees, EdgeForCorners(highest + ClearanceDegrees, halfWidth));
+            var below = top - halfHeight;
+            var above = bottom + halfHeight;
 
             // Never into the surface: the lowest the center may go.
             var floor = LowestDegrees;
@@ -157,6 +173,18 @@ namespace Halcyonic.Client
             var chosen = Math.Clamp(up ? above : below, Math.Min(floor, HighestDegrees), HighestDegrees);
             return new PanelDirection(yaw, chosen, false, up);
         }
+
+        /// <summary>
+        /// Where a flat panel's corners look, in degrees from eye level, when the middle of its edge is at
+        /// <paramref name="edge"/> and it reaches <paramref name="halfWidthDegrees"/> to either side: its
+        /// corners are farther away, so they look nearer eye level.
+        /// </summary>
+        public static float CornerElevation(float edge, float halfWidthDegrees) =>
+            MathF.Atan(MathF.Tan(edge / DegreesPerRadian) * MathF.Cos(halfWidthDegrees / DegreesPerRadian)) * DegreesPerRadian;
+
+        /// <summary>The edge's middle that puts a flat panel's corners at <paramref name="corner"/>: <see cref="CornerElevation"/> undone.</summary>
+        public static float EdgeForCorners(float corner, float halfWidthDegrees) =>
+            MathF.Atan(MathF.Tan(corner / DegreesPerRadian) / MathF.Cos(halfWidthDegrees / DegreesPerRadian)) * DegreesPerRadian;
 
         /// <summary>
         /// The lowest elevation of the workspace's center that keeps its lower edge
