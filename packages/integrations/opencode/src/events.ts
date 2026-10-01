@@ -7,6 +7,7 @@ import type {
   RuntimeEventType,
   Timestamp,
 } from '@halcyonic/contracts';
+import { fitQuestion } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 
 /**
@@ -346,7 +347,9 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
     });
     fields.push({ key, multiple, values });
   }
-  return { id, prompts, answerable, fields };
+  // Bounded before it is reported, so the journal and every client hold it at a bounded size.
+  const fitted = fitQuestion(prompts, answerable);
+  return { id, prompts: [...fitted.prompts], answerable: fitted.answerable, fields };
 }
 
 /**

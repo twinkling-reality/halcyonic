@@ -28,6 +28,7 @@ import type {
   RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
+import { fitQuestion } from '@halcyonic/contracts';
 import {
   type Clock,
   confirmProjectLocation,
@@ -1033,7 +1034,9 @@ function askedQuestions(input: Record<string, unknown>): {
       secret: false,
     });
   }
-  return { prompts, texts, answerable };
+  // Bounded before it is reported, so the journal and every client hold it at a bounded size.
+  const fitted = fitQuestion(prompts, answerable);
+  return { prompts: [...fitted.prompts], texts, answerable: fitted.answerable };
 }
 
 function approvalSummary(input: Record<string, unknown>): string {

@@ -7,6 +7,7 @@ import type {
   RuntimeEventType,
   Timestamp,
 } from '@halcyonic/contracts';
+import { fitQuestion } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import { APPROVAL_METHODS, QUESTION_METHOD, type RequestId } from './protocol.ts';
 
@@ -409,6 +410,8 @@ function observeQuestion(
       secret,
     });
   }
+  // Bounded before it is reported, so the journal and every client hold it at a bounded size.
+  const fitted = fitQuestion(prompts, answerable);
   const question: PendingQuestion = {
     questionId: `${turnId}:${String(id)}`,
     requestId: id,
@@ -422,7 +425,11 @@ function observeQuestion(
     observations: [
       observation(
         'runtime.question.asked',
-        { question_id: question.questionId, prompts, answerable },
+        {
+          question_id: question.questionId,
+          prompts: [...fitted.prompts],
+          answerable: fitted.answerable,
+        },
         {
           native_event_id: `${question.questionId}:${QUESTION_METHOD}`,
           sequence: state.sequence,

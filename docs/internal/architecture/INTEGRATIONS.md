@@ -30,8 +30,9 @@ A runtime integration implements `RuntimeAdapter` (`packages/runtime-core/src/ad
   the journal would drop the new record as a duplicate ([EVENTS.md](EVENTS.md)). The model the
   runtime says it runs on is reported as `runtime.model.used`, from the runtime's own report and
   never from the choice. A question the agent asks through the runtime's structured surface is
-  reported as `runtime.question.asked`, marked unanswerable when the adapter cannot carry an answer
-  back faithfully or a prompt asks for a secret, and `runtime.question.resolved` once the runtime
+  reported as `runtime.question.asked`, fitted first to the contract's size limit with `fitQuestion`,
+  marked unanswerable when the adapter cannot carry an answer back faithfully, anything had to be
+  cut, or a prompt asks for a secret, and `runtime.question.resolved` once the runtime
   took the answer or withdrew the question, unless the turn's end came first and withdrew it
   ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)). After
   `runtime.connection.lost`, an adapter that can observe the runtime again reports

@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { QUESTION_TEXT_LIMIT, questionTextLength } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import {
   approvalSubject,
@@ -478,6 +479,23 @@ describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
     ]) {
       assert.equal(form(overrides)?.answerable, false, JSON.stringify(overrides).slice(0, 60));
     }
+  });
+
+  test('a question past the size limit is reported shortened and unanswerable', () => {
+    const fields = Array.from({ length: 10 }, (_, index) => ({
+      key: `q${index}`,
+      type: 'string',
+      title: 'h'.repeat(200),
+      description: 't'.repeat(4000),
+      custom: true,
+      options: Array.from({ length: 20 }, (_, option) => {
+        const label = `${option}${'l'.repeat(150)}`;
+        return { value: label, label, description: 'd'.repeat(1000) };
+      }),
+    }));
+    const asked = formQuestion({ id: 'frm_1', metadata: { kind: 'question' }, fields });
+    assert.equal(asked?.answerable, false);
+    assert.ok(questionTextLength(asked?.prompts ?? []) <= QUESTION_TEXT_LIMIT);
   });
 
   test("answers become the form's values: one for a single choice, a list for several, typed text among them", () => {
