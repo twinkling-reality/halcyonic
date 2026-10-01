@@ -22,6 +22,8 @@ import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
+import { Transcriptions } from './speech/transcriptions.ts';
+import { WhisperEngine } from './speech/whisper.ts';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -39,6 +41,8 @@ async function main(): Promise<void> {
     environment: process.env,
     dataDir: config.dataDir,
   });
+  // Opened before anything listens, so a speech engine that cannot report its version stops startup.
+  const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
   for (const stale of await stopStaleRuntimeServers(adapters)) {
@@ -68,9 +72,11 @@ async function main(): Promise<void> {
     locations,
   });
   controlPlane.reconcile();
+  const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
   const sources = {
     understanding: salidiumUnderstandingFor(config.dataDir),
     evaluation: seorakEvaluationFor(config.dataDir),
+    transcriptions,
   };
   const devices = new DeviceAccess({ controlPlane, ids, logger: app.log });
 
@@ -135,8 +141,17 @@ async function main(): Promise<void> {
       journal: controlPlane.journal.info,
       runtimes: controlPlane.registry.descriptors().map((runtime) => runtime.runtime_id),
       project_roots: config.projectRoots,
+      speech: speech?.engine ?? null,
     },
     'control plane ready',
+  );
+  // The first transcription after whisper.cpp is built or updated compiles its GPU shaders, which
+  // can take longer than a clip may; done here, it never keeps a person waiting.
+  void transcriptions.warmUp().then(
+    (ms) => {
+      if (ms !== null) app.log.info({ ms }, 'speech engine warmed up');
+    },
+    (error: unknown) => app.log.warn({ err: error }, 'speech engine warm-up failed'),
   );
 
   let stopping = false;

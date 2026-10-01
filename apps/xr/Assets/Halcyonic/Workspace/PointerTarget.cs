@@ -23,6 +23,7 @@ namespace Halcyonic.XR.Workspace
         private readonly HashSet<int> hands = new HashSet<int>();
         private readonly HashSet<int> rays = new HashSet<int>();
         private readonly HashSet<int> gazes = new HashSet<int>();
+        private readonly HashSet<int> pressing = new HashSet<int>();
         private BoundsClipper? clipper;
         private PokeInteractable? poke;
 
@@ -31,6 +32,12 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>A pinch on the ray, or a poke that pressed through the surface.</summary>
         public event Action? Selected;
+
+        /// <summary>
+        /// A press that <see cref="Selected"/> reported ended: let go (false), or cancelled (true), as when
+        /// the interactable is disabled.
+        /// </summary>
+        public event Action<bool>? Released;
 
         /// <summary>A look and pinch: the gaze interactor selected this, on a pinch <see cref="GazeHover"/> allowed.</summary>
         public event Action? GazeSelected;
@@ -118,6 +125,11 @@ namespace Halcyonic.XR.Workspace
         {
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
             rays.Clear();
+            if (pressing.Count > 0)
+            {
+                pressing.Clear();
+                Released?.Invoke(true);
+            }
             if (hands.Count == 0 && gazes.Count == 0) return;
             handsOnTargets -= hands.Count;
             hands.Clear();
@@ -133,7 +145,13 @@ namespace Halcyonic.XR.Workspace
                 handsOnTargets += hands.Count - before;
                 HoverChanged?.Invoke();
             }
-            if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended) Selected?.Invoke();
+            if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended)
+            {
+                pressing.Add(pointer.Identifier);
+                Selected?.Invoke();
+            }
+            else if (pointer.Type == PointerEventType.Unselect && pressing.Remove(pointer.Identifier)) Released?.Invoke(false);
+            else if (pointer.Type == PointerEventType.Cancel && pressing.Remove(pointer.Identifier)) Released?.Invoke(true);
         }
 
         private void OnRay(PointerEvent pointer)

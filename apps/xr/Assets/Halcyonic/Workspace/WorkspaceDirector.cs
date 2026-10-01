@@ -51,6 +51,7 @@ namespace Halcyonic.XR.Workspace
         private string? peekLineFor;
         private string peekLine = "";
         private Opened? opened;
+        private HoldToTalk voice = null!;
         private string? journalId;
         private int shownSubmissions = -1;
         private float nextRefresh;
@@ -91,6 +92,18 @@ namespace Halcyonic.XR.Workspace
                 new Color(0.93f, 0.95f, 0.96f, 0.8f), WorkspaceVisuals.ControlOrder);
             reticle.gameObject.SetActive(false);
             hint = OnboardingHint.Create(transform);
+            // Hold to talk for an instruction, in development builds: always confirmed as heard before it is sent.
+            voice = gameObject.AddComponent<HoldToTalk>();
+            voice.Said += words =>
+            {
+                if (opened == null) return;
+                Notify(opened, words);
+                RefreshPanel();
+            };
+            voice.Heard += text =>
+            {
+                if (opened != null) Steer(opened, s => s.Spoken(text, opened.Now!), byHand: false);
+            };
         }
 
         private void OnEnable()
@@ -402,6 +415,16 @@ namespace Halcyonic.XR.Workspace
                 workspace.Presets = false;
                 Steer(workspace, s => s.Typed(preset.Text, workspace.Now!));
             };
+            panel.SpeakStarted += () =>
+            {
+                if (opened == workspace) voice.Begin();
+            };
+            panel.SpeakEnded += voice.End;
+            panel.SpeakTapped += () =>
+            {
+                Notify(workspace, VoiceText.TooShort);
+                RefreshPanel();
+            };
             panel.CancelPressed += () =>
             {
                 CloseKeyboard(workspace);
@@ -441,6 +464,7 @@ namespace Halcyonic.XR.Workspace
             if (closing == null) return;
             opened = null;
             CloseKeyboard(closing);
+            voice.Drop();
             if (closing.Character != null) FacePerson(closing.Character, closing.Character == facing);
             // Gone already when its character left the stage.
             if (closing.Transition != null) closing.Transition.Collapse(immediately || closing.Character == null);
@@ -498,6 +522,7 @@ namespace Halcyonic.XR.Workspace
                 AnswerColor = character.AttentionNotes.Count == 0 ? WorkspaceVisuals.SecondaryColor
                     : character.Attention == AttentionLevel.ActionRequired ? WorkspaceVisuals.AttentionColor : ToneOf(character.Activity),
                 Actions = presentation.Actions.ToList(),
+                Speak = HoldToTalk.Offered && connection.DemonstrationReads == null && presentation.Actions.Contains(WorkspaceAction.Instruct),
                 WhyNoActions = WorkspaceText.WhyNoActions(presentation),
                 Notice = workspace.Notice,
                 Feedback = presentation.Commands.Select(command => command.Text).ToList(),

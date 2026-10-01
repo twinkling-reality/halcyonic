@@ -30,8 +30,15 @@ namespace Halcyonic.XR.Editor
         }
 
         /// <summary>
+        /// The microphone permission. Only development builds may ask for it, for hold to talk (ADR
+        /// 0021); a release or demonstration APK carries no voice.
+        /// </summary>
+        public const string MicrophonePermission = "android.permission.RECORD_AUDIO";
+
+        /// <summary>
         /// Builds without the development option, with DevAgentSettings.asset moved out of Resources,
-        /// then checks the APK for Meta's development tools and deletes it if any remain.
+        /// then checks the APK for Meta's development tools and the microphone permission, and deletes
+        /// it if either remains.
         /// </summary>
         [MenuItem("Halcyonic/Build Quest Release APK")]
         public static void BuildReleaseApk()
@@ -56,6 +63,12 @@ namespace Halcyonic.XR.Editor
                 {
                     File.Delete(ReleaseApkPath);
                     Fail($"Halcyonic: deleted {ReleaseApkPath}, which carries Meta's development tools: {string.Join("; ", found)}.");
+                    return;
+                }
+                if (MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, MicrophonePermission))
+                {
+                    File.Delete(ReleaseApkPath);
+                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which asks for {MicrophonePermission}: only development builds may use the microphone (ADR 0021).");
                     return;
                 }
             }
@@ -148,6 +161,15 @@ namespace Halcyonic.XR.Editor
             if (Contains(Read(apk, "assets/bin/Data/globalgamemanagers", found), "devagentsettings"))
                 found.Add("DevAgentSettings in Resources");
             return found;
+        }
+
+        /// <summary>Whether the APK's manifest names <paramref name="text"/>, such as a permission; true when there is no manifest to read.</summary>
+        internal static bool ManifestAsks(string apkPath, string text)
+        {
+            using var apk = ZipFile.OpenRead(apkPath);
+            var missing = new List<string>();
+            var manifest = Read(apk, "AndroidManifest.xml", missing);
+            return missing.Count > 0 || Contains(manifest, text);
         }
 
         private static byte[] Read(ZipArchive apk, string entryName, List<string> found)

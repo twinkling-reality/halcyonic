@@ -725,6 +725,35 @@ public class WorkspaceSteeringTests
     }
 
     [Test]
+    public void ASpokenInstructionIsAlwaysConfirmedAsHeardWhereATypedOneIsSentAtOnce()
+    {
+        var work = new WaitingWork();
+        work.Change(execution =>
+        {
+            execution.Status = ExecutionStatus.Completed;
+            execution.PendingApprovals.Clear();
+        }, WorkstreamStatus.Completed);
+        var steering = Steering();
+        steering.Press(WorkspaceAction.Instruct, work.Present());
+        Assert.That(steering.Typed("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.Send), "typed: sent as the keyboard closes");
+
+        Assert.That(steering.Spoken("  Add a test for the expiry.  ", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
+        Assert.That(steering.Heard, Is.True);
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Heard on your Mac. Send this instruction? “Add a test for the expiry.”"));
+        var command = (ExecutionSendInstructionCommand)steering.Confirm(work.Present()).Command!;
+        Assert.That(command.Payload.Text, Is.EqualTo("Add a test for the expiry."));
+        Assert.That(steering.Heard, Is.False);
+
+        Assert.That(steering.Spoken("", work.Present()).Message, Is.EqualTo("Nothing was heard, so nothing was sent."));
+        steering.Spoken("Add a test.", work.Present());
+        Assert.That(steering.FocusLeft().Step, Is.EqualTo(SteeringStep.Explain), "focus away drops it unsent");
+        Assert.That(steering.Armed, Is.Null);
+        Assert.That(steering.Spoken("Add a test.", work.Present(live: false)).Step, Is.EqualTo(SteeringStep.Explain));
+        steering.Press(WorkspaceAction.Instruct, work.Present());
+        Assert.That(steering.Spoken("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.None), "not while the keyboard is open");
+    }
+
+    [Test]
     public void CancellingDropsWhatWasArmed()
     {
         var work = new WaitingWork();

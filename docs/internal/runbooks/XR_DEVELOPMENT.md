@@ -297,7 +297,9 @@ A release APK shows `targetSdkVersion:'34'`, no `application-debuggable`, the pe
 `com.oculus.permission.USE_SCENE` and AndroidX's own receiver permission, the features
 `com.oculus.feature.PASSTHROUGH` and `oculus.software.overlay_keyboard` as not required, the
 `com.oculus.intent.category.VR` launcher category and `com.oculus.vr.focusaware`, and nothing from
-`com.meta.agenticxr`.
+`com.meta.agenticxr`. It never asks for `android.permission.RECORD_AUDIO`: hold to talk is in
+development builds only, and `BuildReleaseApk` deletes and fails an APK that asks for it. A
+development APK asks for it, because hold to talk uses the microphone.
 
 ### Before an upload
 
@@ -660,6 +662,34 @@ anything needs leaning in to read, and whether any button pressed did nothing. A
 the journey does not reach: Add work to a project in another folder (the recap says all later work
 runs there, and the review shows the folder now and from now on), and a control plane without
 roots (the choice says your Mac doesn't allow any folder yet).
+
+### Hold to talk on a Quest
+
+In a development build, with voice set up on the Mac
+([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md#turn-on-voice)) and the headset connected to that
+control plane. The control plane's log names the engine and its warm-up at startup. Seated, in
+the virtual space:
+
+1. **The permission.** Create a project, then hold Hold to talk, under Type my idea: the first hold
+   asks for the microphone and records nothing, and beside the button it says to allow it and hold
+   again. Allow it.
+2. **An idea.** Hold, say "A website for my bakery that shows the menu and the opening hours", let
+   go: beside the button, "Listening", then "Your Mac is turning that into text.", then the recap,
+   which says "Heard on your Mac. Check it before you go on." with the sentence as the first task
+   and a name from its first words. Nothing has been sent; note how long from letting go to the
+   recap.
+3. **A tap and silence.** A tap says it was too short to hear. Hold a few seconds without speaking:
+   "Nothing was heard". Press the Meta button while holding: it says it stopped listening, and
+   nothing was sent. Hold, then move the ray off the button while still pinching, and poke and
+   pull the finger away: note whether each stops listening, which the editor cannot check.
+4. **An instruction.** Open running work: Hold to talk is at the end of the action row. Say an
+   instruction: the workspace asks "Heard on your Mac. Send this instruction?" with the words, and
+   only Send sends it. Let the 15 seconds lapse once: nothing is sent.
+5. **Without voice.** Stop the control plane, start it without the three `HALCYONIC_WHISPER_`
+   variables, and hold again: "Voice isn't set up on your Mac. Type instead."
+
+Note anything misheard as the person said it, word for word, for the next measurement with real
+voices; never record the clip itself.
 
 ### The demonstration judges see
 

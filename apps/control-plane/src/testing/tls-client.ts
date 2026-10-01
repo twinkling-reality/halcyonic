@@ -56,12 +56,17 @@ export async function tlsRequest(
     readonly method: string;
     readonly path: string;
     readonly headers?: Record<string, string>;
-    readonly body?: string;
+    readonly body?: string | Buffer;
     readonly pin?: string | null;
   },
 ): Promise<HttpAnswer> {
   const { socket, certificateSha256 } = await openTls(target, request.pin ?? null);
-  const body = request.body === undefined ? null : Buffer.from(request.body, 'utf8');
+  const body =
+    request.body === undefined
+      ? null
+      : typeof request.body === 'string'
+        ? Buffer.from(request.body, 'utf8')
+        : request.body;
   const headers = {
     host: `${target.host}:${target.port}`,
     connection: 'close',
