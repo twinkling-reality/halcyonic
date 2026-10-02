@@ -130,9 +130,13 @@ namespace Halcyonic.Client
         /// <param name="opens">Pressing it opens a side panel beside the page: it shows a chevron.</param>
         /// <param name="choice">An answer to choose: a shape round its words, lit when chosen.</param>
         /// <param name="rows">The most rows its words may wrap to.</param>
+        /// <param name="fromRow">
+        /// The first of its wrapped rows shown, from 0, as a part of a long request starts where the
+        /// one before ended; <paramref name="rows"/> rows show from there.
+        /// </param>
         public PageLine(string words, bool wordsAreData = false, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
-            bool chosen = false, bool available = true, int rows = 1)
+            bool chosen = false, bool available = true, int rows = 1, int fromRow = 0)
         {
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
             if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
@@ -143,6 +147,7 @@ namespace Halcyonic.Client
             if (!available && action == null) throw new ArgumentException("Only a line that takes a press can be unavailable.", nameof(available));
             if (opens && choice) throw new ArgumentException("An answer is chosen, not opened.", nameof(opens));
             if (rows < 1) throw new ArgumentOutOfRangeException(nameof(rows), rows, "A line takes at least one row.");
+            if (fromRow < 0) throw new ArgumentOutOfRangeException(nameof(fromRow), fromRow, "A line shows from its first row or a later one.");
             if (icon == GlazeIcon.HoldToTalk) throw new ArgumentException("A line never shows the microphone: Hold to talk is the footer's Secondary.", nameof(icon));
             Words = words;
             WordsAreData = wordsAreData;
@@ -158,6 +163,7 @@ namespace Halcyonic.Client
             Chosen = chosen;
             Available = available;
             Rows = rows;
+            FromRow = fromRow;
         }
 
         public string Words { get; }
@@ -188,6 +194,8 @@ namespace Halcyonic.Client
         public bool Available { get; }
 
         public int Rows { get; }
+
+        public int FromRow { get; }
 
         public bool Pressable => Action != null && Available;
     }
@@ -385,8 +393,8 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>A confirmation is armed: Yes stands in the free middle.</summary>
-        public bool Confirming => this[PromptSlot.Free] != null;
+        /// <summary>A confirmation is armed: Cancel stands in the place of the press it would undo, and Yes, once it shows, in the free middle.</summary>
+        public bool Confirming => All.Any(each => each.Prompt.Kind == PromptKind.Cancel);
 
         /// <summary>Why a prompt can't be taken now, said on the page's last content line: the leftmost one's.</summary>
         public string? Reason => All.Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
@@ -422,13 +430,13 @@ namespace Halcyonic.Client
         /// <paramref name="before"/>: Close as it was, Cancel in the place of the press it would undo,
         /// and Yes in the free middle, which held nothing on that page or since. The other actions step
         /// aside until it is answered. A request in parts pages by a row at the end of the page, and Yes
-        /// appears once the last part has shown.
+        /// appears only once the last part has shown: until then <paramref name="yes"/> is null.
         /// </summary>
-        public static Footer Confirm(Footer before, PromptSlot pressed, Prompt yes, Prompt cancel)
+        public static Footer Confirm(Footer before, PromptSlot pressed, Prompt? yes, Prompt cancel)
         {
             if (before.Confirming) throw new InvalidOperationException("A confirmation is already armed.");
             if (!(before[pressed] is Prompt first) || first.Kind != PromptKind.Action) throw new ArgumentException("Cancel takes the place of the press it would undo.", nameof(pressed));
-            if (yes.Kind != PromptKind.Yes) throw new ArgumentException("A confirmation's Yes is a Yes.", nameof(yes));
+            if (yes != null && yes.Kind != PromptKind.Yes) throw new ArgumentException("A confirmation's Yes is a Yes.", nameof(yes));
             if (cancel.Kind != PromptKind.Cancel) throw new ArgumentException("A confirmation's Cancel is a Cancel.", nameof(cancel));
             var footer = new Footer(before[PromptSlot.Close]);
             footer.slots[(int)pressed] = cancel;
