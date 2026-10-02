@@ -71,7 +71,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(Render("states-b", folder, StatesB(), desk: false, BannerKind.NotLive,
                     "Last known: can't reach your Mac. Trying again… (connection refused)", null, peekSlot: 1));
                 failures.AddRange(Render("demo", folder, Demo(), desk: false, BannerKind.Practice,
-                    "Recorded practice: nothing here is live.\nIt follows your answers. Nothing reaches an agent.", AmbientText.NeedsYouLine(1), peekSlot: 2));
+                    DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 failures.AddRange(Render("desk", folder, StatesA(), desk: true, BannerKind.Live, "Connected to your Mac", null, peekSlot: 4));
             }
             catch (Exception error)
