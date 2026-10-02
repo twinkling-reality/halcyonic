@@ -1,4 +1,5 @@
 #nullable enable
+using Halcyonic.Client;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -39,6 +40,7 @@ namespace Halcyonic.XR.UI
         private static readonly int EdgeId = Shader.PropertyToID("_Edge");
         private static readonly int ShapeId = Shader.PropertyToID("_Shape");
         private static readonly int PatternId = Shader.PropertyToID("_Pattern");
+        private static readonly int GlassId = Shader.PropertyToID("_Glass");
 
         private static Material? material;
         private static Mesh? quad;
@@ -52,6 +54,7 @@ namespace Halcyonic.XR.UI
         private float edgeWidth;
         private float dash;
         private float halftone;
+        private Vector4 glass;
         private float opacity = 1f;
 
         /// <summary>The shape's size, in its parent's units.</summary>
@@ -99,8 +102,12 @@ namespace Halcyonic.XR.UI
         /// outline, <paramref name="edgeWidth"/> wide, in dashes about <paramref name="dash"/> apart
         /// when that is not zero. A <paramref name="halftone"/> pitch above zero draws the fill as dots.
         /// </summary>
-        public void Draw(Vector2 size, float radius, Color fill, Color edge = default, float edgeWidth = 0f, float dash = 0f, float halftone = 0f)
+        public void Draw(Vector2 size, float radius, Color fill, Color edge = default, float edgeWidth = 0f, float dash = 0f, float halftone = 0f) =>
+            Shape(size, radius, fill, edge, edgeWidth, dash, halftone, Vector4.zero);
+
+        private void Shape(Vector2 size, float radius, Color fill, Color edge, float edgeWidth, float dash, float halftone, Vector4 glass)
         {
+            this.glass = glass;
             this.size = size;
             this.radius = radius;
             this.fill = fill;
@@ -110,6 +117,21 @@ namespace Halcyonic.XR.UI
             this.halftone = halftone;
             Apply();
         }
+
+        /// <summary>
+        /// Draws the shape as the menu's glass (ADR 0026): the panel colour at
+        /// <see cref="Glaze.Menu.GlassOpacity"/> with no blur, a white hairline edge, a light from its
+        /// top edge fading out by <paramref name="glowReach"/>, in the parent's units, a third of its
+        /// height unless given (a content surface's ends within its top padding, so no row under it
+        /// looks lit), and a sheen just inside its top edge, all in one draw.
+        /// </summary>
+        public void DrawGlass(Vector2 size, float? glowReach = null) =>
+            Shape(size, GlazeTokens.Units(Glaze.Menu.RadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.Menu.GlassOpacity),
+                new Color(1f, 1f, 1f, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees), 0f, 0f,
+                new Vector4(Glaze.Menu.GlowOpacity, glowReach ?? size.y * Glaze.Menu.GlowReach, Glaze.Menu.SheenOpacity, GlazeTokens.Units(Glaze.Menu.SheenDegrees)));
+
+        /// <summary>How far down from its top edge the glass's light reaches, in the parent's units; 0 for a shape that isn't glass.</summary>
+        public float GlowReach => glass.x > 0f ? glass.y : 0f;
 
         /// <summary>Draws the shape as it is, as visible as <paramref name="opacity"/>, from 0 to 1, as when it fades in or out.</summary>
         public void Fade(float opacity)
@@ -127,6 +149,8 @@ namespace Halcyonic.XR.UI
             block.SetVector(ShapeId, new Vector4(size.x, size.y, radius, edgeWidth));
             // Dashes half on, half off; dots of a radius 0.3 of their pitch, fine enough to read a word over.
             block.SetVector(PatternId, new Vector4(dash, dash > 0f ? 0.5f : 0f, halftone, halftone * 0.3f));
+            // The glass's light and sheen fade with the shape.
+            block.SetVector(GlassId, new Vector4(glass.x * opacity, glass.y, glass.z * opacity, glass.w));
             shapeRenderer.SetPropertyBlock(block);
         }
 

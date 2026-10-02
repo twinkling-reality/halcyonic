@@ -1,6 +1,7 @@
 // Every flat shape of the interface (ADR 0023): a rounded rectangle, from a sharp corner to a
 // pill, with a fill, an edge inside its outline that can be solid or dashed, and a halftone of dots
-// for a state that is only the last one known. Edges are anti-aliased in the shader, so shapes stay
+// for a state that is only the last one known, and, for the menu's glass (ADR 0026), a light from the
+// top edge fading out and a sheen just inside it. Edges are anti-aliased in the shader, so shapes stay
 // smooth at any size without MSAA. Surface.cs sets the properties per renderer; they are instanced,
 // so shapes of one material draw together. Colours arrive linear, as Surface.cs converts them.
 Shader "Halcyonic/Glaze Surface"
@@ -11,6 +12,7 @@ Shader "Halcyonic/Glaze Surface"
         _Edge ("Edge, straight alpha", Color) = (0, 0, 0, 0)
         _Shape ("Width, height, corner radius and edge width", Vector) = (1, 1, 0.1, 0)
         _Pattern ("Dash period and duty, halftone pitch and dot radius", Vector) = (0, 0, 0, 0)
+        _Glass ("Glow opacity and reach, sheen opacity and width", Vector) = (0, 0, 0, 0)
     }
 
     SubShader
@@ -37,6 +39,7 @@ Shader "Halcyonic/Glaze Surface"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Edge)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Shape)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Pattern)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Glass)
             UNITY_INSTANCING_BUFFER_END(Props)
 
             struct appdata
@@ -73,6 +76,7 @@ Shader "Halcyonic/Glaze Surface"
                 float4 edge = UNITY_ACCESS_INSTANCED_PROP(Props, _Edge);
                 float4 shape = UNITY_ACCESS_INSTANCED_PROP(Props, _Shape);
                 float4 pattern = UNITY_ACCESS_INSTANCED_PROP(Props, _Pattern);
+                float4 glass = UNITY_ACCESS_INSTANCED_PROP(Props, _Glass);
 
                 // The signed distance to the outline in the shape's own units, negative inside.
                 float2 size = max(shape.xy, 1e-5);
@@ -95,8 +99,14 @@ Shader "Halcyonic/Glaze Surface"
                 float2 cell = (frac(p / pitch + 0.5) - 0.5) * pitch;
                 float dotDistance = length(cell) - pattern.w;
 
+                // The glass: down from the top edge, a light fading out by its reach, and a sheen in a
+                // band its width deep, just inside the hairline, along the top's straight run.
+                float fromTop = 0.5 * size.y - p.y;
+
                 // Derivatives here, outside any branch, where they are defined.
                 float pixel = max(fwidth(d), 1e-6);
+                float topPixel = max(fwidth(fromTop), 1e-6);
+                float xPixel = max(fwidth(p.x), 1e-6);
                 float alongPixel = max(fwidth(along), 1e-6);
                 float dotPixel = max(fwidth(dotDistance), 1e-6);
 
@@ -111,9 +121,23 @@ Shader "Halcyonic/Glaze Surface"
                 float dash = saturate(0.5 - (abs(t - 0.5 * pattern.y * period) - 0.5 * pattern.y * period) / alongPixel);
                 float edgeMask = band * lerp(1.0, dash, step(1e-5, pattern.x));
 
+                float reach = saturate(fromTop / max(glass.y, 1e-5));
+                float glow = glass.x * step(1e-6, glass.y) * (1.0 - reach * reach * (3.0 - 2.0 * reach));
+                float sheenTop = 1.15 * glass.w;
+                float sheenBand = saturate(0.5 + (fromTop - sheenTop) / topPixel) * saturate(0.5 - (fromTop - sheenTop - glass.w) / topPixel);
+                float sheenRun = saturate(0.5 - (a.x - inner.x) / xPixel);
+                float sheen = glass.z * step(1e-6, glass.w) * sheenBand * sheenRun;
+
+                // The fill, the glow over it, the edge, then the sheen, each in premultiplied alpha.
+                float3 color = fill.rgb * fillAlpha;
+                float alpha = fillAlpha;
+                color = color * (1.0 - glow) + glow;
+                alpha = alpha * (1.0 - glow) + glow;
                 float edgeAlpha = edge.a * edgeMask;
-                float3 color = fill.rgb * fillAlpha * (1.0 - edgeAlpha) + edge.rgb * edgeAlpha;
-                float alpha = fillAlpha * (1.0 - edgeAlpha) + edgeAlpha;
+                color = color * (1.0 - edgeAlpha) + edge.rgb * edgeAlpha;
+                alpha = alpha * (1.0 - edgeAlpha) + edgeAlpha;
+                color = color * (1.0 - sheen) + sheen;
+                alpha = alpha * (1.0 - sheen) + sheen;
                 return float4(color, alpha) * cover;
             }
             ENDCG
