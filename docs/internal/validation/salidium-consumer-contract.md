@@ -179,3 +179,26 @@ README), including a file in a linked worktree (its path in the worktree) and on
 repository (null); `@salidium/consumer-contract@1.1.0` was staged, not yet published, when they were
 copied. What changed? now says "From commit 3f9a2c1 to 8b1e4d7 on main" under its count, shows each
 file by its repository path where there is one, and "(+5 −1 or more)" for a lower bound.
+
+## A real OpenCode lookup (2026-10-02)
+
+- **Verified on the owner's daemon:** Salidium 0.8.1 serves `salidium.consumer` 1.1 and lists
+  `claude-code`, `codex` and `salidium/opencode`. With Halcyonic's consumer credential (token only,
+  in the control plane's data directory, mode 600), the control plane's own Salidium source
+  (`salidiumUnderstandingFor`) asked about the two OpenCode sessions in OpenCode's store by their
+  `ses_` ids. Both answered `available` within 400 ms, read by Halcyonic's validating reader without
+  error, `synthetic` false. Neither had changed files or commits, as OpenCode's own session summary
+  agrees; one carried the agent's latest statement, `reported`. An id OpenCode does not have
+  answered `not_found` (`not_observed`). The gate this lookup passes was checked first on 0.7.0,
+  where OpenCode was off: `runtime_not_observed`, and the credential was not read.
+- **Why anchors and explanation were empty, from Salidium's coordinator reading its code (not a
+  live run):** both sessions were imported after the fact, since OpenCode was turned on later that
+  day. Salidium records a commit only for a session start or a round's end it ingests within 120 s of
+  the event, reading git in the session's folder, and never for imported history; it schedules an
+  explanation only on live events too, and a missing attempt reads `none`. So null anchors and
+  `none` are right here, and Halcyonic says nothing about commits. A live OpenCode session in a git
+  working tree should carry both anchors; one that ends while watched, with the explainer set to a
+  hosted CLI writer, should read `unavailable`, since no writer may explain `salidium/opencode`.
+- **Not yet verified:** a live OpenCode session read through Salidium, with anchors, changed files,
+  a check run, a waiting request or the `unavailable` explanation. That needs a new model run; null
+  anchors on a live session in a repository would be a Salidium bug to report to its coordinator.
