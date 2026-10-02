@@ -831,7 +831,9 @@ scripts use only long-stable core Unity APIs:
   (faded). As a row of a panel's list (`ShowRow`) its words are left-aligned: a line over the title,
   the title and its detail wrapping to their lines, a shorter detail where the full one doesn't fit,
   and an end word in the accent; a static row only says something, with no tile and no press. No
-  press counts within 0.35 s of it taking a new role or new words, or of becoming available, and a
+  press counts within 0.35 s of it taking a new role or new words, or of becoming available (a new
+  icon alone is no new action, so Stop losing its icon as a question arrives still takes the
+  press), and a
   hold button's hold starts after 0.3 s and ends let go, dropped or taken away. It is every button
   of the interface; the workspace's first button, `PanelButton`, is gone. A meter (`MeterView`)
   draws a share as a slim bar on its track, 14 degrees wide wherever it stands so meters compare at
@@ -1561,7 +1563,8 @@ button beside its words. It fails if the icon atlas lacks a glyph for an icon th
 names, is not static, keeps its font file, falls back to another font or is a fallback of one; if
 two states or marks, or two actions, share a glyph (an action may share a state's, as Stop shares
 Stopped's); if an icon shows on no badge, mark or button; if an icon stands alone or under a
-degree; or if a label of words draws from the icon atlas.
+degree; if a label of words draws from the icon atlas; or if a button whose icon alone changes
+waits to settle again, dropping a press, as Stop did when a question arrived.
 
 `StageRender` (**Halcyonic > Render Every State on the Stage**, also runnable in batch mode) renders
 every state of a task on a character at the stage's default distance and height, practice, demo and
