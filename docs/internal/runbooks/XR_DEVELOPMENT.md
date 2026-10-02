@@ -221,12 +221,14 @@ Directions**, or in batch mode:
 It saves every round's frames in `apps/xr/Builds/DirectionRenders`: the first three directions (`a`),
 the game menu and the case file (`d`, `e`), D styled (`s`), D refined on one plane (`r`) and the
 heads-up concept (`h`); `HALCYONIC_DIRECTIONS_ONLY=r` renders only the shots whose names start so.
-The refined shots are held to ADR 0026's rules: one plane facing the eyes at its centre, never
-rolled, its parts a degree apart and its columns aligned; one selection treatment; type that only
-steps down, a state pill reading with its subject; no text under 14 dp as the eyes see it; and a
-Quest 3S's field as `FieldChecks` sees it. Shots kept to show what a rule catches name what they
-must fail, the upright plane (`r1`, `r2`) and a plane that stays put while a file slides out (`r6`),
-and the run fails if they stop failing. `HALCYONIC_PROTO_ICONS`, the path of a font of the file-type
+The refined shots, up to Usage and Settings (`r15` to `r18`), are held to ADR 0026's rules: one
+plane facing the eyes at its centre, never rolled, its parts a degree apart and its columns aligned;
+one selection treatment; type that only steps down, a state pill reading with its subject; no text
+under 14 dp as the eyes see it; a Quest 3S's field as `FieldChecks` sees it; a light line that
+crosses no label or character; and no row in a page's glow. Shots kept to show what a rule catches
+name what they must fail, the upright plane (`r1`, `r2`), a plane that stays put while a file slides
+out (`r6`) and a companion's reply too long for the field (`r14`), and the run fails if they stop
+failing. `HALCYONIC_PROTO_ICONS`, the path of a font of the file-type
 glyphs cut from Material Symbols, which is not committed, draws those icons in the styled and refined
 shots; without it they are left out.
 

@@ -26,7 +26,8 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 - **Inside the field.** A composition stays inside a Quest 3S's field, 96 by 90 degrees less 1.5 at
   each edge, with the head turned to its centre and tipped by `WorkspacePlacement.ReadingPitch`, at
   most 8 degrees. The menu and a file side by side take 64 by 32 degrees, from 18 to 50 degrees
-  below eye level. A page holds 4 rows at the standard text size and 3 at larger text.
+  below eye level. A page holds 4 rows at the standard text size and 3 at larger text
+  (`MenuFrame.RowsAPage`), its source line counting as one.
 - **With nothing on the stage**, the menu stands where the person looks at rest, about 15 degrees
   down.
 - **Text shrinks away from the centre**, as the eyes see it: a word x across and y up, in units of
@@ -51,8 +52,8 @@ the page's shape at its bottom.
   building). Each is its own rounded shape, the chosen one lit, an amber dot on the one that waits.
   New project's steps are its way back; there is no Back prompt.
 - **The page**: a few short lines, rows and answers, then the footer.
-- **A side panel**: its subject, then facts, each a name over its value, or lines, then its source.
-  It holds nothing to press but its own Close details.
+- **A side panel**: its subject, then facts, each a name in the secondary colour over its value, both
+  at 18 dp, or lines, then its source. It holds nothing to press but its own Close details.
 - **The closed menu**: one rounded shape on the plane's top line, its subject at 18 dp saying what
   waits or that nothing does, and Open at its right.
 
@@ -63,8 +64,8 @@ Three sizes on the plane (`Glaze.Menu`):
 | Size | dp | Degrees | For |
 | --- | --- | --- | --- |
 | Title | 24 | 1.5 | The subject, one a column, drawn light |
-| Body | 18 | 1.125 | Places, sections, content, prompts, headings inside a page, the source line, the pill's word |
-| Label | 15 | 0.9375 | Small facts inside a row and the names of a side panel's facts; never a line of its own |
+| Body | 18 | 1.125 | Places, sections, content, prompts, headings inside a page, a side panel's fact names, the source line, the pill's word |
+| Label | 15 | 0.9375 | Small facts inside a row; never a line of its own |
 
 - **Type only steps down** from the top of a column to its bottom. The one exception is the split
   header's pill, which reads with the subject it stands on.
@@ -128,7 +129,9 @@ One treatment for places, sections, rows, answers and prompts:
 ## Rows and answers
 
 - **A row**: its icon in the icon column, its words, a small fact at the right and, when it opens
-  more, a chevron. Rows are 48 dp tall and 12 mm apart.
+  more, a chevron. Rows are 48 dp tall and 12 mm apart. On a page none of whose rows has an icon,
+  as Usage's and Settings', words start on the content line. Nothing is drawn under a row: a meter
+  there reads as an underline, so the small fact carries a share in words.
 - **Rows only take you somewhere**: to a side panel, a page or a place. A row never acts and carries
   no side action. Choosing one may set the footer's main action or the prompt beside it, as a
   project's Add a task and Hide from stage. A line that reports a problem is a row that opens its

@@ -108,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("a4-creating", false, shot => ShelfCreating(shot)),
             ("a5-video-watching", true, shot => Folded(shot)),
             ("a5-video-opened", true, shot => ShelfBesideWindow(shot)),
-        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots()).Concat(RolloutShots()).Concat(HeadsUpShots());
+        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots()).Concat(RolloutShots()).Concat(PlacesShots()).Concat(HeadsUpShots());
 
         // ---------------------------------------------------------------------------------------------
         // The work on the stage.
