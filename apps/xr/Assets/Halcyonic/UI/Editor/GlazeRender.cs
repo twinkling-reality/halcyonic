@@ -122,6 +122,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(OnePlaneCatchesEachBreak());
                 failures.AddRange(TypeStepsDownCatchesARise());
                 failures.AddRange(OneSelectionTreatmentCatchesEachBreak());
+                MeasureFooters();
             }
             catch (Exception error)
             {
@@ -400,6 +401,54 @@ namespace Halcyonic.XR.UI.Editor
                 meters.Add((meter, share, waiting));
             }
             return meters;
+        }
+
+        /// <summary>
+        /// How much room the footers the menu's pages plan need (ADR 0026), against the column each
+        /// stands in: every prompt its 1.45 degree cap, a grid step and its words at the content's 18
+        /// dp, the main action's a twentieth wider for its weight, and 12 mm between prompts, the row
+        /// reaching 0.6 degrees past each content line, as lane V's renders lay them. Logs each
+        /// prompt's width and each footer's, and fails nothing. A frame grows whole with larger text,
+        /// so a footer that fits at the standard size fits at the larger one.
+        /// </summary>
+        private static void MeasureFooters()
+        {
+            var holder = Holder("Footer measure", 0f, 0f);
+            var label = GlazeText.Create(holder, "Words", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 12);
+            float Units(float degrees) => GlazeTokens.Units(degrees);
+            float Degrees(float units) => 2f * Mathf.Atan(units / 2f) * Mathf.Rad2Deg;
+            float Width((string Words, bool Main) prompt) =>
+                Units(Glaze.Menu.PromptCapDegrees) + Units(Glaze.Menu.GridDegrees) + label.GetPreferredValues(prompt.Words).x * (prompt.Main ? 1.05f : 1f) + Units(1.2f);
+            var gap = Glaze.TargetGapMeters / Glaze.Menu.PlaneMeters;
+            float Room(float column) => PlaneComposition.Units(column) - 2f * Units(Glaze.Menu.PaddingDegrees) + 2f * Units(0.6f);
+            var cases = new (string Name, float Column, (string Words, bool Main)[] Prompts)[]
+            {
+                ("a file waiting for an approval", 38f, new[] { ("Close", false), ("Stop", false), ("Deny", false), ("Approve", true) }),
+                ("a file waiting for an approval, without Stop", 38f, new[] { ("Close", false), ("Deny", false), ("Approve", true) }),
+                ("a file waiting for an answer", 38f, new[] { ("Close", false), ("Hold to talk", false), ("Send answer", true) }),
+                ("a file's Activity", 38f, new[] { ("Close", false), ("Stop", false), ("Hold to talk", false), ("Tell it", true) }),
+                ("a file's Activity, without Stop", 38f, new[] { ("Close", false), ("Hold to talk", false), ("Tell it", true) }),
+                ("a file's approval, confirming", 38f, new[] { ("Close", false), ("Yes, approve", false), ("Cancel", false) }),
+                ("New project's Questions with Start over", 38f, new[] { ("Close", false), ("Start over", false), ("Hold to talk", false), ("Make the recap", true) }),
+                ("New project's Questions", 38f, new[] { ("Close", false), ("Hold to talk", false), ("Make the recap", true) }),
+                ("New project's Start over, confirming", 38f, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),
+                ("New project's review, confirming", 38f, new[] { ("Close", false), ("Yes, start building", false), ("Cancel", false) }),
+                ("Tasks, paging", 32f, new[] { ("Close", false), ("Next page", false) }),
+                ("Projects, a row chosen", 32f, new[] { ("Close", false), ("Hide from the stage", false), ("Add a task", true) }),
+                ("Projects, paging", 32f, new[] { ("Close", false), ("Next page", false), ("New project", true) }),
+            };
+            var words = cases.SelectMany(each => each.Prompts).Distinct().OrderBy(prompt => prompt.Words);
+            Debug.Log("Halcyonic: component render: footer prompts at 18 dp, in degrees: "
+                + string.Join(", ", words.Select(prompt => prompt.Words + (prompt.Main ? " (main)" : "") + " " + Degrees(Width(prompt)).ToString("0.0", CultureInfo.InvariantCulture))) + ".");
+            foreach (var (name, column, prompts) in cases)
+            {
+                var needed = prompts.Sum(Width) + gap * (prompts.Length - 1);
+                var room = Room(column);
+                Debug.Log("Halcyonic: component render: footer measure: " + name + " needs " + Degrees(needed).ToString("0.0", CultureInfo.InvariantCulture)
+                    + " degrees of a " + column.ToString("0", CultureInfo.InvariantCulture) + " degree column's " + Degrees(room).ToString("0.0", CultureInfo.InvariantCulture)
+                    + (needed <= room ? ": it fits, " + Degrees(room - needed).ToString("0.0", CultureInfo.InvariantCulture) + " to spare." : ": it does not fit, " + Degrees(needed - room).ToString("0.0", CultureInfo.InvariantCulture) + " short."));
+            }
+            UnityEngine.Object.DestroyImmediate(holder.gameObject);
         }
 
         /// <summary>
