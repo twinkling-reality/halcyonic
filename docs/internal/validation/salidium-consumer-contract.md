@@ -214,6 +214,9 @@ file by its repository path where there is one, and "(+5 −1 or more)" for a lo
   the explanation stayed `none` rather than `unavailable`, perhaps because nothing ended the
   session; and while the session was live a read took up to 10 s, so the read during the approval
   wait ran out of Halcyonic's budget (`timed_out`) and the waiting state was not seen. A read 15 s
-  after the round took 34 ms. Halcyonic shows null anchors and `none` as given.
+  after the round took 34 ms. Salidium's coordinator then found its service had been reinstalled
+  during the run, starting 34 s after the session did, so both slow reads fell in a cold daemon's
+  first minute; that does not explain the null anchor at the round's end, 43 s after the restart.
+  Halcyonic shows null anchors and `none` as given.
 - **Not yet verified:** a waiting request or the `unavailable` explanation read from a live OpenCode
   session, and commit anchors from one.
