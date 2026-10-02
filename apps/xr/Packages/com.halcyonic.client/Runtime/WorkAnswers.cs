@@ -216,7 +216,7 @@ namespace Halcyonic.Client
         private static string NoFlow(UnderstandingExplanationStatus status) => status switch
         {
             UnderstandingExplanationStatus.Generating => "An explanation is being written. Until it is, here is the evidence.",
-            UnderstandingExplanationStatus.Disabled => "Explanations are turned off on your computer, so there's none for this work.",
+            UnderstandingExplanationStatus.Disabled => "Explanations are turned off on " + HostText.Your + ", so there's none for this work.",
             UnderstandingExplanationStatus.Failed => "The explanation could not be written.",
             UnderstandingExplanationStatus.None => "No explanation was written for this work.",
             _ => "No explanation can be written now.",
