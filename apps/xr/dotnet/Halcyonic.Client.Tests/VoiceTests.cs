@@ -181,14 +181,14 @@ public class LiveTranscriptionTests
     public async Task AClipBecomesADraftThroughARealControlPlane()
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("The stand-in for whisper-cli is a script run through its #! line.");
-        var node = Environment.GetEnvironmentVariable("PATH")!.Split(Path.PathSeparator)
-            .Select(directory => Path.Combine(directory, "node"))
-            .First(File.Exists);
+        // A shell script, which starts in milliseconds however loaded the machine is: the control
+        // plane gives the engine five seconds to report its version, and a Node.js stand-in can
+        // take longer than that just to start.
         var whisper = Path.Combine(dataDir, "whisper-cli");
-        File.WriteAllText(whisper, $$"""
-            #!{{node}}
-            if (process.argv[2] === '--version') { process.stdout.write('whisper.cpp version: 1.9.4-dev\n'); process.exit(0); }
-            process.stdout.write(' Add a contact form to the home page.\n');
+        File.WriteAllText(whisper, """
+            #!/bin/sh
+            if [ "$1" = --version ]; then echo 'whisper.cpp version: 1.9.4-dev'; exit 0; fi
+            echo ' Add a contact form to the home page.'
             """);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(whisper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var model = Path.Combine(dataDir, "model.bin");
@@ -202,14 +202,16 @@ public class LiveTranscriptionTests
         using var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, ControlPlaneProcess.FreePort(), environment: environment);
         using var api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
         TranscriptionResponse? answer = null;
-        // The control plane warms the engine once at startup and holds the Mac while it does.
-        for (var attempt = 0; attempt < 50 && answer == null; attempt++)
+        // The control plane warms the engine once at startup and holds the Mac while it does, which
+        // takes longer on a loaded machine; the deadline is how long a failure takes to show.
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (answer == null)
         {
             try
             {
                 answer = await api.TranscribeAsync(Second);
             }
-            catch (ControlPlaneRequestException busy) when (busy.Code == "transcription_busy_on_mac")
+            catch (ControlPlaneRequestException busy) when (busy.Code == "transcription_busy_on_mac" && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(100);
             }
