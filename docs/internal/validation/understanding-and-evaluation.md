@@ -113,3 +113,45 @@ Neither answer was synthetic.
   hand in both placements, a glyph from the dynamic fallback, and the demonstration's sections.
 - Run the real check above when a real execution can run without model spend, and re-run Seorak's
   captured-session check on a session that ran tests.
+
+## The answers from evidence, and a second real run (2026-10-02)
+
+The workspace now answers Help me understand as three questions (What changed?, Why?, How was it
+built?) and What was checked? from both sources ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). The
+demonstration's stand-ins gained what those answers show: Why lanes on every explanation, a removed
+file and a moved one in the two background stories, and an agent question read as waiting. The
+headset's layout of these answers is interim: the owner judged the one-panel workspace too crowded,
+and a redesign lane sets the surface; the presenters stay as they are.
+
+A scratch control plane (its own data directory and project root inside the ignored `.private/`
+folder, port 47893) ran Codex 0.157.0 on Ollama, twice, on a tracked file in a scratch git
+repository: `tally.js` and its test. Codex used a scratch `CODEX_HOME` whose `config.toml` names the
+`ollama` provider and model, since a listed runtime needs its model from Codex's own list, with only
+today's folder of `sessions` linked into `~/.codex/sessions`, so the rollout landed where Salidium
+reads it (linking the whole folder made Codex index 4.5 GB of history before it would start).
+Salidium 0.6.1, the owner's service, read it through a read-only consumer credential created for the
+check and revoked afterward; Seorak through the owner's existing credential. No hosted model.
+
+- **qwen3.6:35b-a3b-nvfp4** read the two files again and again for 17 minutes, then called
+  `exec_command` with empty arguments in a loop (Codex answered each "missing field `cmd`"). The
+  round was interrupted through the control plane, and the runtime confirmed it. Salidium answered
+  "No files changed · 266 commands", no checks, no explanation; while it reingested its history
+  earlier, its port did not answer even the discovery request within 3 seconds, and the read was
+  `unavailable` (`unreachable`).
+- **qwen3.8:27b-nvfp4** finished in 14 minutes. It was told to edit with `apply_patch` but rewrote
+  both files with `printf … >` shell commands, then ran `node --test` once. Salidium answered
+  `available`, not synthetic: "2/2 tests passed (node-test)", the run observed with exit code 0
+  ("explicit"), not stale, one agent statement about it, and "No files changed · 4 commands". That
+  is true to its evidence: Codex records a shell redirect as a command, never as a file change, so
+  What changed? would say no files changed although two did. Whether Codex offers an `apply_patch`
+  tool to an Ollama model is not visible in the rollout, which records calls, not the tools offered:
+  open.
+- Seorak answered `available`, not synthetic, for both: one matched and included session, complete
+  and fresh; cost `null` (an Ollama model has no list price; shown as unknown, never zero); outcome
+  `error_count` 0 with every other measure pending; the verification lens empty, "No verification
+  result was captured.", as Seorak measures verification for Claude Code only.
+
+So a real "What changed?" with files from a local model has still not been seen: it needs a model
+that edits through Codex's patch tool, or Salidium reading file changes another way. The check line
+("Tests passed at 16:16: 2/2 tests passed (node-test)", ran after no recorded change) and the
+measurement are real.
