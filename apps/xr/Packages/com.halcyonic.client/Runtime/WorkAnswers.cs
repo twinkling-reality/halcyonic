@@ -7,6 +7,19 @@ using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
+    /// <summary>
+    /// How much of an answer to give: its first line or two, for the section a person reads first,
+    /// or all of it, for the panel that opens beside it on request.
+    /// </summary>
+    public enum AnswerDepth
+    {
+        /// <summary>A line or two: the plainest true answer, each line keeping its own class.</summary>
+        Brief,
+
+        /// <summary>Everything the source said, fitted to the room given.</summary>
+        Full,
+    }
+
     /// <summary>What Help me understand answers, one at a time.</summary>
     public enum UnderstandPrompt
     {
@@ -30,8 +43,8 @@ namespace Halcyonic.Client
     public static class UnderstandingPresenter
     {
         public static SectionPresentation Present(UnderstandPrompt prompt, IntelligenceFeed<UnderstandingResponse> feed, DateTimeOffset now, TimeZoneInfo zone,
-            AnswerRoom? room = null) =>
-            Present(prompt, feed.ExecutionId, feed.Last, feed.Loading, feed.Error, now, zone, room);
+            AnswerRoom? room = null, AnswerDepth depth = AnswerDepth.Full) =>
+            Present(prompt, feed.ExecutionId, feed.Last, feed.Loading, feed.Error, now, zone, room, depth);
 
         /// <param name="now">This device's time; a recorded answer is described as of when it was recorded.</param>
         /// <param name="room">The rows a page holds: a list keeps its most telling lines and counts the rest; a flow pages. Unlimited when null.</param>
@@ -43,7 +56,8 @@ namespace Halcyonic.Client
             string? error,
             DateTimeOffset now,
             TimeZoneInfo zone,
-            AnswerRoom? room = null)
+            AnswerRoom? room = null,
+            AnswerDepth depth = AnswerDepth.Full)
         {
             room ??= AnswerRoom.Unlimited;
             if (executionId == null) return IntelligenceText.Empty(SectionKind.Understanding, "Nothing to understand until work starts.");
@@ -54,6 +68,16 @@ namespace Halcyonic.Client
             var source = understanding.Source;
             var provenance = IntelligenceText.UnderstandingProvenance(read, source, now, zone) + status;
             var tone = source.Synthetic ? SectionTone.Attention : SectionTone.Secondary;
+            if (depth == AnswerDepth.Brief)
+            {
+                var brief = prompt switch
+                {
+                    UnderstandPrompt.WhatChanged => WhatChangedBrief(understanding),
+                    UnderstandPrompt.WhyChanged => WhyChangedBrief(understanding),
+                    _ => HowBuiltBrief(understanding),
+                };
+                return new SectionPresentation(SectionKind.Understanding, provenance, tone, brief, source.Synthetic);
+            }
             var lines = prompt switch
             {
                 UnderstandPrompt.WhatChanged => WhatChanged(understanding, room),
@@ -73,6 +97,74 @@ namespace Halcyonic.Client
             UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding not allowed: ", unauthorized.Reason, SectionTone.Attention, status),
             _ => IntelligenceText.Empty(kind, "The understanding came back in a form this app does not know."),
         };
+
+        /// <summary>
+        /// What changed?, briefly: how many files changed and how, then whether a check ran after the
+        /// changes, said apart since the source infers it. Which files and their lines are detail.
+        /// </summary>
+        private static IReadOnlyList<SectionLine> WhatChangedBrief(Understanding understanding)
+        {
+            var changes = understanding.Changes;
+            var lines = new List<SectionLine> { new SectionLine("observed", Count(changes), SectionTone.Normal) };
+            if (changes.Files.Count == 0) return lines;
+            var unverified = understanding.Verification.UnverifiedFiles.Count;
+            lines.Add(unverified == 0
+                ? new SectionLine("inferred", "All checked after the last change", SectionTone.Normal)
+                : new SectionLine("inferred", IntelligenceText.Plural(unverified, "file") + " not checked after the last change", SectionTone.Attention));
+            return lines;
+        }
+
+        /// <summary>
+        /// Why?, briefly: the latest reason the agent gave, quoted, and how many more there are, or
+        /// that it gave none.
+        /// </summary>
+        private static IReadOnlyList<SectionLine> WhyChangedBrief(Understanding understanding)
+        {
+            var files = understanding.Changes.Files;
+            if (files.Count == 0)
+            {
+                return new[] { new SectionLine("observed", "No files changed, so there are no reasons to show.", SectionTone.Secondary) };
+            }
+            var reasons = files
+                .Where(file => file.Reason != null)
+                .Select(file => file.Reason!)
+                .GroupBy(reason => (reason.Text, reason.At, reason.Author, reason.Epistemic))
+                .Select(group => group.First())
+                .OrderBy(reason => reason.At == null ? DateTimeOffset.MinValue : At(reason.At))
+                .ToList();
+            if (reasons.Count == 0)
+            {
+                return new[]
+                {
+                    new SectionLine("", "No reason given before it changed " + Names(files.Select(file => file.Path)), SectionTone.Secondary, rows: 2),
+                };
+            }
+            var latest = reasons[reasons.Count - 1];
+            var lines = new List<SectionLine> { new SectionLine(Word(latest.Epistemic), Quote(latest), SectionTone.Claim, rows: 2) };
+            if (reasons.Count > 1)
+            {
+                lines.Add(new SectionLine("", "And " + IntelligenceText.Plural(reasons.Count - 1, "more reason") + " it gave", SectionTone.Secondary));
+            }
+            return lines;
+        }
+
+        /// <summary>
+        /// How was it built?, briefly: the explanation's own answer, how, said to be a model's and
+        /// whether it covers the latest evidence; else why there is none. Its steps are detail.
+        /// </summary>
+        private static IReadOnlyList<SectionLine> HowBuiltBrief(Understanding understanding)
+        {
+            var explanation = understanding.Explanation;
+            var content = Flow(explanation);
+            if (content == null) return new[] { new SectionLine("explained", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2) };
+            return new[]
+            {
+                new SectionLine("explained", IntelligenceText.Plain(content.How.Summary), SectionTone.Claim, rows: 2),
+                explanation.Current
+                    ? new SectionLine("", "Explained by a model, up to date", SectionTone.Secondary)
+                    : new SectionLine("", "Explained by a model before the latest evidence", SectionTone.Attention),
+            };
+        }
 
         /// <summary>
         /// What changed?: how many files changed and how, then each file with how it changed and its
@@ -497,9 +589,10 @@ namespace Halcyonic.Client
             IntelligenceFeed<EvaluationResponse> evaluation,
             DateTimeOffset now,
             TimeZoneInfo zone,
-            AnswerRoom? room = null) =>
+            AnswerRoom? room = null,
+            AnswerDepth depth = AnswerDepth.Full) =>
             Present(understanding.ExecutionId, understanding.Last, understanding.Loading, understanding.Error,
-                evaluation.Last, evaluation.Loading, evaluation.Error, now, zone, room);
+                evaluation.Last, evaluation.Loading, evaluation.Error, now, zone, room, depth);
 
         /// <param name="now">This device's time; a recorded answer is described as of when it was recorded.</param>
         /// <param name="room">
@@ -517,10 +610,19 @@ namespace Halcyonic.Client
             string? evaluationError,
             DateTimeOffset now,
             TimeZoneInfo zone,
-            AnswerRoom? room = null)
+            AnswerRoom? room = null,
+            AnswerDepth depth = AnswerDepth.Full)
         {
             room ??= AnswerRoom.Unlimited;
             if (executionId == null) return IntelligenceText.Empty(SectionKind.Checked, "Nothing is checked until work starts.");
+            if (depth == AnswerDepth.Brief)
+            {
+                if (understanding == null) return IntelligenceText.Waiting(SectionKind.Checked, understandingLoading, understandingError);
+                var briefStatus = IntelligenceText.ReadingStatus(understandingLoading, understandingError);
+                return understanding.Response.Result is AvailableUnderstanding seen
+                    ? Brief(seen.Understanding, understanding, briefStatus, now, zone)
+                    : UnderstandingPresenter.Failure(SectionKind.Checked, understanding.Response.Result, briefStatus);
+            }
             var measurement = EvaluationPresenter.Measurement(evaluation, evaluationLoading, evaluationError, now, zone);
             var simulated = evaluation?.Response.Result is AvailableEvaluation measured && measured.Evaluation.Source.Synthetic;
             SectionPresentation runs;
@@ -538,6 +640,29 @@ namespace Halcyonic.Client
                 : line);
             return new SectionPresentation(SectionKind.Checked, runs.Provenance, runs.ProvenanceTone, runs.Lines.Concat(paged).ToList(),
                 runs.Simulated || simulated);
+        }
+
+        /// <summary>
+        /// What was checked?, briefly: the latest check that ran and how it went, and, when files
+        /// changed after it, that they did. The other checks and the evaluation source's measurement
+        /// are detail.
+        /// </summary>
+        private static SectionPresentation Brief(Understanding understanding, IntelligenceRead<UnderstandingResponse> read, string status, DateTimeOffset now,
+            TimeZoneInfo zone)
+        {
+            var source = understanding.Source;
+            var runs = UnderstandingPresenter.Runs(understanding);
+            var lines = new List<SectionLine>();
+            if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary));
+            else
+            {
+                var latest = UnderstandingPresenter.Run(runs[runs.Count - 1], understanding.Changes.Files, zone).ToList();
+                lines.Add(latest[0]);
+                // Only what makes the check no longer cover the work: files changed since.
+                if (latest[1].Tone == SectionTone.Attention) lines.Add(latest[1]);
+            }
+            return new SectionPresentation(SectionKind.Checked, IntelligenceText.UnderstandingProvenance(read, source, now, zone, checks: true) + status,
+                source.Synthetic ? SectionTone.Attention : SectionTone.Secondary, lines, source.Synthetic);
         }
 
         /// <summary>
