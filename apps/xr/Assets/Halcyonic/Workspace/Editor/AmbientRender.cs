@@ -132,6 +132,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         LogAlike(characters);
                         failures.AddRange(StripUnderTheLane(eyes, banner!, outline, camera, characters));
                         failures.AddRange(StripCounts(banner!, work!));
+                        failures.AddRange(RailUnderTheBanner(root.transform, eyes, banner!, work!));
                         failures.AddRange(NothingTouches(eyes, characters));
                     }
                 }
@@ -289,6 +290,38 @@ namespace Halcyonic.XR.Workspace.Editor
                     yield return "beside a window, " + view.WorkstreamId + "'s short title is " + WorkspaceRender.Degrees(wide) + " degrees wide, over "
                         + WorkspaceRender.Degrees(CharacterLabelView.MaxWidthDegrees) + ".";
                 }
+            }
+        }
+
+        /// <summary>
+        /// With a field of view so short that it lifts the rail to its ceiling
+        /// (<see cref="ProjectRail.HighestBelowDegrees"/>), the rail stays a degree or more below the
+        /// banner, at its tallest beside a window: four lines.
+        /// </summary>
+        private static IEnumerable<string> RailUnderTheBanner(Transform parent, Vector3 eyes, StageBanner banner, Beside work)
+        {
+            var kept = ViewField.Current;
+            try
+            {
+                ViewField.Current = new ViewField(40, 40, 30, 20);
+                var overview = WorkOverview.Of(work.State, new StageVisibility(), id => work.Lineup.SlotOf(id) >= 0);
+                var rail = ProjectRail.ForRender(parent, overview, null);
+                rail.ResetPosition();
+                WorkspaceRender.ForceMeshes(rail.gameObject);
+                var bannerExtent = GlazeChecks.Of("the banner", eyes, banner.gameObject);
+                var near = rail.Shown.Select(button => GlazeChecks.Of("the rail's " + button.name, eyes, button.gameObject)).ToList();
+                var railTop = near.Max(extent => extent.Top);
+                Debug.Log("Halcyonic: ambient render: beside a window, the banner reaches " + WorkspaceRender.Degrees(-bannerExtent.Bottom)
+                    + " degrees below eye level, and the rail at its highest (" + WorkspaceRender.Degrees(ProjectRail.Below(ViewField.Current))
+                    + " down) has its top at " + WorkspaceRender.Degrees(-railTop) + ".");
+                near.Add(bannerExtent);
+                var failures = GlazeChecks.Apart(near).Where(failure => failure.Contains("the banner")).Select(failure => "beside a window, with the rail at its highest: " + failure).ToList();
+                UnityEngine.Object.DestroyImmediate(rail.gameObject);
+                return failures;
+            }
+            finally
+            {
+                ViewField.Current = kept;
             }
         }
 

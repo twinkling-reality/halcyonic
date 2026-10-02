@@ -82,7 +82,12 @@ namespace Halcyonic.Client
                 -Math.Atan(bottom) * DegreesPerRadian);
         }
 
-        /// <summary>What both eyes show together: the left eye's left edge to the right eye's right.</summary>
+        /// <summary>
+        /// What either eye shows: the union, from the left eye's left edge to the right eye's right,
+        /// and only as far up and down as both reach. The binocular overlap, between each eye's inner
+        /// edge, is narrower and the more comfortable horizontal limit; the layout's limits today are
+        /// vertical, and the rail and panels fit either across a Quest 3S.
+        /// </summary>
         public static ViewField Both(ViewField leftEye, ViewField rightEye) =>
             new ViewField(leftEye.Left, rightEye.Right, Math.Min(leftEye.Up, rightEye.Up), Math.Min(leftEye.Down, rightEye.Down));
 

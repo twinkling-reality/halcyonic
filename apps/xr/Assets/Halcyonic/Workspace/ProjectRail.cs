@@ -39,10 +39,13 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The highest the rail's middle rises, in degrees below eye level, when a narrow field lifts
-        /// it: its top then stays at least a degree below the lowest the line above the stage reaches
-        /// (15.6 degrees down beside a window), as GlazeChecks.Apart asks.
+        /// it: its top then stays at least a degree below the lowest the line above the stage reaches,
+        /// as GlazeChecks.Apart asks. That line is lowest beside a window, with four lines: 20.9 degrees
+        /// down (AmbientRender). The rail's outer pills, seen from the eyes, reach 6.5 degrees above its
+        /// middle, so 20.9 + 1 + 6.5 is 28.4; this keeps a little more. AmbientRender checks it with a
+        /// field short enough to reach it.
         /// </summary>
-        public const float HighestBelowDegrees = 25f;
+        public const float HighestBelowDegrees = 29f;
 
         /// <summary>How far to either side the rail reaches, its buttons included.</summary>
         public const float HalfWidthDegrees = 24f;

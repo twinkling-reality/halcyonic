@@ -156,7 +156,8 @@ eye level the banner hangs beside a window. It fails if turning the lineup aside
 if beside a window the plate covers any body or label, a body or label comes within a degree of
 the window's lane or of another character's, a whole title shows or a short one is missing, takes
 more than one line or is wider than 10.5 degrees, or the banner reaches into the lane,
-sits under the window or a label, cuts its words short or takes a press; if a folded panel still
+sits under the window or a label, cuts its words short or takes a press; if, with a field of view
+short enough to lift the rail to its ceiling, the rail comes within a degree of that banner; if a folded panel still
 shows, or the banner would not name it as still open; or if a restored panel differs by a pixel
 from before it folded. Beside a window it names in the log any two short titles cut to the same
 words, as the render's own two do. The plate is not a real window: only the headset shows what a
