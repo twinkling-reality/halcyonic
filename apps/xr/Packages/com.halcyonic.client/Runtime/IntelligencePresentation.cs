@@ -26,6 +26,35 @@ namespace Halcyonic.Client
         Checked,
     }
 
+    /// <summary>
+    /// How a line of an answer is known, which decides its chip. The source's five classes keep the
+    /// source's own word; a measurement is the evaluation source's; Halcyonic's own words (a count, a
+    /// heading, a provenance line) are no one's claim.
+    /// </summary>
+    public enum Evidence
+    {
+        /// <summary>Recorded by a runtime or the source: no chip, with the source named on its page.</summary>
+        Observed,
+
+        /// <summary>Said by the agent or a subagent, relayed and attributed: chipped with who said it.</summary>
+        Reported,
+
+        /// <summary>The source's deterministic heuristic: always chipped, never read as fact.</summary>
+        Inferred,
+
+        /// <summary>A step of a plan, not yet done: chipped.</summary>
+        Planned,
+
+        /// <summary>Written by a model: chipped, never evidence.</summary>
+        Explained,
+
+        /// <summary>The evaluation source's measurement and its statement about itself: no chip, the source named on its page.</summary>
+        Measured,
+
+        /// <summary>Halcyonic's own words about the answer, as a count or a heading: no chip, no source's claim.</summary>
+        Halcyonic,
+    }
+
     /// <summary>One line of a section: a claim with its epistemic class, or a measurement with its part.</summary>
     public sealed class SectionLine
     {
@@ -33,8 +62,11 @@ namespace Halcyonic.Client
         /// <param name="source">Where the lines under it come from, as a second source's provenance line.</param>
         /// <param name="startsPage">It begins a step of a flow, so a page starts with it.</param>
         /// <param name="repeats">It heads its step, so a step that takes more than a page shows it again on the next.</param>
+        /// <param name="evidence">How it is known; from <paramref name="tag"/> when not given.</param>
+        /// <param name="words">What it says beside its chip, without saying the chip again; <paramref name="text"/> when not given.</param>
+        /// <param name="chip">Its chip's words; from its evidence when not given.</param>
         public SectionLine(string tag, string text, SectionTone tone, bool detail = false, int rows = 0, bool source = false, bool startsPage = false,
-            bool repeats = false)
+            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null)
         {
             Tag = tag;
             Text = text;
@@ -44,7 +76,45 @@ namespace Halcyonic.Client
             Source = source;
             StartsPage = startsPage;
             Repeats = repeats;
+            Evidence = evidence ?? (source ? Client.Evidence.Halcyonic : EvidenceOf(tag));
+            Words = words ?? text;
+            Chip = chip ?? ChipOf(Evidence);
         }
+
+        /// <summary>How it is known, which decides whether it has a chip.</summary>
+        public Evidence Evidence { get; }
+
+        /// <summary>
+        /// The chip a surface shows before or beside it: "Inferred", "Agent says", "Planned",
+        /// "Explanation"; null for an observed fact, a measurement or Halcyonic's own words, which
+        /// stand on a page that names their source.
+        /// </summary>
+        public string? Chip { get; }
+
+        /// <summary>What it says beside its chip: the quote alone beside "Agent says", for one.</summary>
+        public string Words { get; }
+
+        /// <summary>The evidence a tag names: a source's class word, else a measurement's part, else Halcyonic's own.</summary>
+        public static Evidence EvidenceOf(string tag) => tag switch
+        {
+            "observed" => Client.Evidence.Observed,
+            "reported" => Client.Evidence.Reported,
+            "inferred" => Client.Evidence.Inferred,
+            "planned" => Client.Evidence.Planned,
+            "explained" => Client.Evidence.Explained,
+            "" => Client.Evidence.Halcyonic,
+            _ => Client.Evidence.Measured,
+        };
+
+        /// <summary>The chip for a class, null where the line goes without one.</summary>
+        public static string? ChipOf(Evidence evidence) => evidence switch
+        {
+            Client.Evidence.Reported => "Agent says",
+            Client.Evidence.Inferred => "Inferred",
+            Client.Evidence.Planned => "Planned",
+            Client.Evidence.Explained => "Explanation",
+            _ => null,
+        };
 
         /// <summary>
         /// The claim's epistemic class in the source's own word ("observed", "reported", "inferred",
@@ -208,7 +278,8 @@ namespace Halcyonic.Client
             {
                 lines.Add(new SectionLine("Outcome", Commits(measure.CommitsLanded) + " · " + Errors(measure, zone) + " · " + End(measure.EndReason),
                     SectionTone.Normal));
-                lines.Add(new SectionLine("", Uncommitted(measure.Uncommitted) + " · " + Survival(measure.LineSurvival), SectionTone.Normal));
+                lines.Add(new SectionLine("", Uncommitted(measure.Uncommitted) + " · " + Survival(measure.LineSurvival), SectionTone.Normal,
+                    evidence: Evidence.Measured));
             }
             lines.Add(Status(outcome.Availability, outcome.Coverage, outcome.Freshness, now, zone));
             return lines;
@@ -260,7 +331,7 @@ namespace Halcyonic.Client
                     ? ", data to " + IntelligenceText.Clock(through, zone, seconds: true)
                     : ", no data yet";
             }
-            return new SectionLine("", state + " · " + covers + " · " + current, tone, detail: true);
+            return new SectionLine("", state + " · " + covers + " · " + current, tone, detail: true, evidence: Evidence.Measured);
         }
 
         private static string Kind(EvaluationVerificationKind kind)

@@ -28,6 +28,56 @@ internal static class Answers
 
     public static (string Tag, string Text)[] Pairs(IEnumerable<SectionLine> lines) => lines.Select(line => (line.Tag, line.Text)).ToArray();
 
+    /// <summary>
+    /// Every answer the presenters give, at both depths: each recorded demonstration answer, the
+    /// real fixtures fresh, stale and partial, and every availability a source can answer.
+    /// </summary>
+    public static List<SectionPresentation> Everything()
+    {
+        var sections = new List<SectionPresentation>();
+        void All(string? executionId, IntelligenceRead<UnderstandingResponse>? understood, IntelligenceRead<EvaluationResponse>? measured, DateTimeOffset now)
+        {
+            foreach (var depth in new[] { AnswerDepth.Brief, AnswerDepth.Full })
+            {
+                foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
+                {
+                    sections.Add(UnderstandingPresenter.Present(prompt, executionId, understood, false, null, now, Intelligence.Utc, depth: depth));
+                }
+                sections.Add(CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, now, Intelligence.Utc, depth: depth));
+            }
+        }
+        var recording = Demonstration.Recording();
+        foreach (var (executionId, answers) in recording.Understanding)
+        {
+            var measuredAnswers = recording.Evaluation.TryGetValue(executionId, out var found) ? found : Array.Empty<RecordedAnswer<EvaluationResponse>>();
+            foreach (var answer in answers)
+            {
+                var measured = measuredAnswers.LastOrDefault(each => each.ReadAt <= answer.ReadAt) ?? measuredAnswers.FirstOrDefault();
+                All(executionId, new IntelligenceRead<UnderstandingResponse>(answer.Response, answer.ReadAt, recorded: true),
+                    measured == null ? null : new IntelligenceRead<EvaluationResponse>(measured.Response, measured.ReadAt, recorded: true), answer.ReadAt);
+            }
+        }
+        var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
+        var partial = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
+            Intelligence.EvaluationOf(response)["cost"]!["availability"] = JObject.Parse("{\"state\":\"partial\",\"reason\":\"result_limit\"}"));
+        foreach (var understanding in new[] { Intelligence.Verified, older })
+        {
+            foreach (var evaluation in new[] { ControlPlaneApiTests.Available, partial })
+            {
+                All(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(understanding), "2026-09-20T16:21:30.000Z"),
+                    Intelligence.Live(Intelligence.Evaluation(evaluation), "2026-09-26T18:01:00.000Z"), Intelligence.At("2026-09-26T18:09:00.000Z"));
+            }
+        }
+        foreach (var availability in new[] { "not_found", "unavailable", "incompatible", "unauthorized" })
+        {
+            var failed = Intelligence.Failure(availability, "some_code", "Some reason.");
+            All(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(failed), "2026-09-20T16:21:30.000Z"),
+                Intelligence.Live(Intelligence.Evaluation(failed), "2026-09-26T18:01:00.000Z"), Intelligence.At("2026-09-26T18:02:00.000Z"));
+        }
+        return sections;
+    }
+
+
     public static string Files(string json, string files) =>
         Intelligence.Edit(json, response => Intelligence.UnderstandingOf(response)["changes"]!["files"] = JArray.Parse(files));
 
@@ -346,13 +396,15 @@ public class HowBuiltTests
             Assert.That(section.Steps, Is.False, status);
             Assert.That(Answers.Pairs(section.Lines), Is.EqualTo(new[]
             {
-                ("explained", why),
+                ("", why),
                 ("", "The evidence"),
                 ("observed", "4 files changed: 4 edited"),
                 ("inferred", "1 file not checked after the last change: refunds.ts"),
                 ("observed", "Tests passed at 15:40: 118/118 tests passed (vitest)"),
             }), status);
         }
+        var reason = Answers.Understand(UnderstandPrompt.HowBuilt, Answers.Explanation(Intelligence.Verified, "none")).Lines[0];
+        Assert.That((reason.Evidence, reason.Chip), Is.EqualTo((Evidence.Observed, (string?)null)), "why there is no explanation is a fact about it, not one");
         var generatedWithout = Answers.Understand(UnderstandPrompt.HowBuilt, Answers.Explanation(Intelligence.Verified, "generated"));
         Assert.That(generatedWithout.Steps, Is.False);
         Assert.That(generatedWithout.Lines[0].Text, Is.EqualTo("No explanation can be written now."));
@@ -842,6 +894,100 @@ public class BriefAnswersTests
     }
 }
 
+public class EvidenceTests
+{
+    private static (Evidence, string?, string)[] Classes(SectionPresentation section) =>
+        section.Lines.Select(line => (line.Evidence, line.Chip, line.Words)).ToArray();
+
+    private static SectionPresentation Brief(UnderstandPrompt prompt, string json) =>
+        UnderstandingPresenter.Present(prompt, Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"),
+            false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: AnswerDepth.Brief);
+
+    [Test]
+    public void EachBriefAnswerLeadsWithLinesOfOneClassEachChippedUnlessObserved()
+    {
+        Assert.That(Classes(Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified)), Is.EqualTo(new[]
+        {
+            (Evidence.Observed, (string?)null, "4 files changed: 4 edited"),
+            (Evidence.Inferred, "Inferred", "1 file not checked after the last change"),
+        }));
+        Assert.That(Classes(Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified)), Is.EqualTo(new[]
+        {
+            (Evidence.Reported, (string?)"Agent says", "“I will add an idempotency key in ChargeService so a retried charge returns the first one.”"),
+        }), "the quote alone beside its chip");
+        Assert.That(Classes(Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified)), Is.EqualTo(new[]
+        {
+            (Evidence.Explained, (string?)"Explanation", "One idempotency key per order, sent with every charge."),
+            (Evidence.Halcyonic, null, "Explained by a model, up to date"),
+        }));
+        var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
+            false, null, null, false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: AnswerDepth.Brief);
+        Assert.That(Classes(checks), Is.EqualTo(new[]
+        {
+            (Evidence.Observed, (string?)null, "Tests passed at 15:40: 118/118 tests passed (vitest)"),
+            (Evidence.Observed, null, "Then refunds.ts changed, so it no longer covers it"),
+        }));
+    }
+
+    [Test]
+    public void OnlyObservedFactsMeasurementsAndHalcyonicsOwnWordsGoWithoutAChipAndNoClassIsUpgraded()
+    {
+        var classWords = new[] { "observed", "reported", "inferred", "planned", "explained" };
+        var lines = Answers.Everything().SelectMany(section => section.Lines).ToList();
+        Assert.That(lines.Count, Is.GreaterThan(2_000));
+        foreach (var line in lines)
+        {
+            var bare = line.Evidence == Evidence.Observed || line.Evidence == Evidence.Measured || line.Evidence == Evidence.Halcyonic;
+            Assert.That(line.Chip == null, Is.EqualTo(bare), line.Evidence + ": " + line.Text);
+            if (line.Evidence == Evidence.Inferred) Assert.That(line.Chip, Is.EqualTo("Inferred"), line.Text);
+            if (line.Evidence == Evidence.Explained) Assert.That(line.Chip, Is.EqualTo("Explanation"), line.Text);
+            if (classWords.Contains(line.Tag)) Assert.That(line.Evidence, Is.EqualTo(SectionLine.EvidenceOf(line.Tag)), "the source's class, never upgraded: " + line.Text);
+            if (line.Chip != null) Assert.That(line.Words, Does.Not.StartWith(line.Chip), "the words do not say the chip again: " + line.Words);
+            if (line.Source) Assert.That(line.Evidence, Is.EqualTo(Evidence.Halcyonic), "a provenance line is Halcyonic's own");
+        }
+        Assert.That(lines.Select(line => line.Evidence).Distinct(), Is.SupersetOf(new[]
+        {
+            Evidence.Observed, Evidence.Reported, Evidence.Inferred, Evidence.Planned, Evidence.Explained, Evidence.Measured, Evidence.Halcyonic,
+        }), "every class shows somewhere");
+    }
+
+    [Test]
+    public void AQuoteIsChippedWithWhoSaidItAndAQuoteTheSourceObservedGoesWithoutOne()
+    {
+        string With(string author, string epistemic) => Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            foreach (var file in (JArray)Intelligence.UnderstandingOf(response)["changes"]!["files"]!)
+            {
+                if (file["reason"] is JObject reason)
+                {
+                    reason["author"] = author == "null" ? null : author;
+                    reason["epistemic"] = epistemic;
+                }
+            }
+        });
+        var subagent = Brief(UnderstandPrompt.WhyChanged, With("subagent", "reported")).Lines[0];
+        Assert.That((subagent.Chip, subagent.Tone), Is.EqualTo(("Subagent says", SectionTone.Claim)));
+        Assert.That(Brief(UnderstandPrompt.WhyChanged, With("null", "reported")).Lines[0].Chip, Is.EqualTo("Quoted"));
+        var observed = Brief(UnderstandPrompt.WhyChanged, With("subagent", "observed")).Lines[0];
+        Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Observed, (string?)null, SectionTone.Claim)),
+            "a subagent's description the source observed keeps its class, and still leans as someone's words");
+    }
+
+    [Test]
+    public void EveryPageNamesOneSourceAndItIsHalcyonicsOwnLine()
+    {
+        foreach (var section in Answers.Everything())
+        {
+            foreach (var page in AnswerPages.Split(section, new AnswerRoom(5)))
+            {
+                var sources = page.Lines.Where(line => line.Source).ToList();
+                Assert.That(sources.Count, Is.LessThanOrEqualTo(1), page.Provenance);
+                if (sources.Count == 1) Assert.That(page.Lines[0], Is.SameAs(sources[0]), "a second source's line starts its page: " + sources[0].Text);
+            }
+        }
+    }
+}
+
 public class AnswerPagesTests
 {
     private static SectionLine Line(string text, int rows = 0, bool detail = false, bool source = false, bool startsPage = false, bool repeats = false) =>
@@ -951,46 +1097,7 @@ public class AnswerWordsTests
     [Test]
     public void OnlyAWaitingLineTakesTheAttentionTone()
     {
-        var sections = new List<SectionPresentation>();
-        void All(string? executionId, IntelligenceRead<UnderstandingResponse>? understood, IntelligenceRead<EvaluationResponse>? measured, DateTimeOffset now)
-        {
-            foreach (var depth in new[] { AnswerDepth.Brief, AnswerDepth.Full })
-            {
-                foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
-                {
-                    sections.Add(UnderstandingPresenter.Present(prompt, executionId, understood, false, null, now, Intelligence.Utc, depth: depth));
-                }
-                sections.Add(CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, now, Intelligence.Utc, depth: depth));
-            }
-        }
-        var recording = Demonstration.Recording();
-        foreach (var (executionId, answers) in recording.Understanding)
-        {
-            var measuredAnswers = recording.Evaluation.TryGetValue(executionId, out var found) ? found : Array.Empty<RecordedAnswer<EvaluationResponse>>();
-            foreach (var answer in answers)
-            {
-                var measured = measuredAnswers.LastOrDefault(each => each.ReadAt <= answer.ReadAt) ?? measuredAnswers.FirstOrDefault();
-                All(executionId, new IntelligenceRead<UnderstandingResponse>(answer.Response, answer.ReadAt, recorded: true),
-                    measured == null ? null : new IntelligenceRead<EvaluationResponse>(measured.Response, measured.ReadAt, recorded: true), answer.ReadAt);
-            }
-        }
-        var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
-        var partial = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
-            Intelligence.EvaluationOf(response)["cost"]!["availability"] = JObject.Parse("{\"state\":\"partial\",\"reason\":\"result_limit\"}"));
-        foreach (var understanding in new[] { Intelligence.Verified, older })
-        {
-            foreach (var evaluation in new[] { ControlPlaneApiTests.Available, partial })
-            {
-                All(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(understanding), "2026-09-20T16:21:30.000Z"),
-                    Intelligence.Live(Intelligence.Evaluation(evaluation), "2026-09-26T18:01:00.000Z"), Intelligence.At("2026-09-26T18:09:00.000Z"));
-            }
-        }
-        foreach (var availability in new[] { "not_found", "unavailable", "incompatible", "unauthorized" })
-        {
-            var failed = Intelligence.Failure(availability, "some_code", "Some reason.");
-            All(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(failed), "2026-09-20T16:21:30.000Z"),
-                Intelligence.Live(Intelligence.Evaluation(failed), "2026-09-26T18:01:00.000Z"), Intelligence.At("2026-09-26T18:02:00.000Z"));
-        }
+        var sections = Answers.Everything();
         Assert.That(sections.Count, Is.GreaterThan(400), "every recorded answer and every state is looked at");
         foreach (var section in sections)
         {
