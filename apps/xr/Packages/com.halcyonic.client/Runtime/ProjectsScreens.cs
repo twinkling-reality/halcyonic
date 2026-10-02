@@ -51,10 +51,7 @@ namespace Halcyonic.Client
             /// <summary>The recorded demonstration, which connects nothing and starts nothing.</summary>
             public bool Demonstration { get; set; }
 
-            /// <summary>The first visit: the subject asks what the person would like to work on.</summary>
-            public bool FirstVisit { get; set; }
-
-            /// <summary>The longer first-visit question wraps at this text size, so the shorter one is asked.</summary>
+            /// <summary>The longer question wraps at this text size, so the shorter one is asked.</summary>
             public bool ShortQuestion { get; set; }
 
             /// <summary>The chosen project's id, or null.</summary>
@@ -66,7 +63,10 @@ namespace Halcyonic.Client
             /// <summary>The connection sent last, for whichever folder.</summary>
             public FolderConnection? Connection { get; set; }
 
-            /// <summary>The page asked for, from 0; a chosen row's own page wins.</summary>
+            /// <summary>
+            /// The page asked for, from 0, counted on by each press of Next page: past the last page it
+            /// starts again at the first. A chosen row's own page wins.
+            /// </summary>
             public int Page { get; set; }
 
             public DateTimeOffset Now { get; set; }
@@ -76,7 +76,8 @@ namespace Halcyonic.Client
 
         public static MenuFrame Projects(State state)
         {
-            var subject = state.FirstVisit ? (state.ShortQuestion ? ProjectsText.FirstVisitShort : ProjectsText.FirstVisit) : ProjectsText.Subject;
+            // The place's purpose as its subject, every visit; the lit place under it already says "Projects".
+            var subject = state.ShortQuestion ? ProjectsText.SubjectShort : ProjectsText.Subject;
             var projects = state.Overview?.Projects ?? (IReadOnlyList<ProjectSummary>)Array.Empty<ProjectSummary>();
             var offers = state.Listing == null ? (IReadOnlyList<ConnectableFolder>)Array.Empty<ConnectableFolder>() : FolderConnect.Offers(state.Listing);
             var project = state.ChosenProject == null ? null : projects.FirstOrDefault(each => each.ProjectId == state.ChosenProject);
@@ -85,7 +86,7 @@ namespace Halcyonic.Client
             var lines = Lines(state, projects, offers, project, folder);
 
             var pages = Paginate(lines);
-            var page = Math.Max(0, Math.Min(state.Page, pages.Count - 1));
+            var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));
             if (chosenAt >= 0) page = chosenAt;
@@ -118,12 +119,14 @@ namespace Halcyonic.Client
             {
                 footer = new Footer(close, farRight: new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
             }
-            // Paging waits while a row is chosen: its actions hold the footer, and its row is on this page.
+            // One prompt pages: Next page, which on the last page reads First page and starts again, at the
+            // far right where nothing is the main action, else beside it. It waits while a row is chosen:
+            // the row's actions hold both right-hand places, and its row is on this page.
             if (side == null && pages.Count > 1)
             {
-                footer = footer.WithPages(
-                    new Prompt(Footer.PreviousPage, ProjectsText.PreviousPage, GlazeIcon.Back, PromptKind.PreviousPage, available: page > 0),
-                    new Prompt(Footer.NextPage, ProjectsText.NextPage, GlazeIcon.Next, PromptKind.NextPage, available: page < pages.Count - 1));
+                var last = page == pages.Count - 1;
+                var next = new Prompt(Footer.NextPage, last ? ProjectsText.FirstPage : ProjectsText.NextPage, GlazeIcon.Next, PromptKind.NextPage);
+                footer = footer.With(footer[PromptSlot.FarRight] == null ? PromptSlot.FarRight : PromptSlot.Secondary, next);
             }
             return new MenuFrame(subject, footer, lines: pages[page], side: side);
         }
