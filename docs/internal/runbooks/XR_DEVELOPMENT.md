@@ -1147,7 +1147,8 @@ For each step write down what you saw and how it felt, in
 10. **Comfort (2 minutes).** In Settings' Comfort section press Make text larger: the sheet grows
     where it stands, and the characters' titles, the peek and the banner grow a step. Open the
     character that waits for you: the workspace is a step larger and opens lower, to stay under the
-    titles. Can you read its bottom row, and press its bar, without bending your neck? Press Keep
+    titles. Can you read its bottom row, and press its bar, without bending your neck? Is tipping
+    your head to read the larger panels comfortable, on a Quest 3S above all? Press Keep
     badges still: Starting's and Working's icons stop turning and Waiting for you stops breathing.
     Press Make sounds quieter, then Turn sounds off, and make a task wait: half as loud, then
     nothing. Quit Halcyonic and start it again: the settings stay. Put them back as they were.

@@ -232,6 +232,44 @@ public class WorkspacePlacementTests
     }
 
     [Test]
+    public void OnlyAPanelTallerThanDesignedIsReadWithTheHeadTippedDownAndNeverFar()
+    {
+        var quest3S = new ViewField(48, 48, 45, 45);
+        Assert.That(WorkspacePlacement.ReadingPitch(Lineups.Frame), Is.Zero, "a panel as tall as designed is read with the head level");
+        Assert.That(WorkspacePlacement.Lowest(Lineups.Frame, quest3S),
+            Is.EqualTo(Math.Max(WorkspacePlacement.LowestDegrees, quest3S.LowestCenter(Lineups.Frame.HalfWidthDegrees, Lineups.Frame.HalfHeightDegrees))));
+
+        var larger = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth * 1.15f, Lineups.Frame.HalfHeight * 1.15f);
+        var pitch = WorkspacePlacement.ReadingPitch(larger);
+        Assert.That(pitch, Is.EqualTo(1.5f * WorkspacePlacement.TallerBy(larger)).Within(1e-4f));
+        Assert.That(pitch, Is.InRange(5f, 6f), "text a step larger: half again as much as the panel is taller");
+        Assert.That(WorkspacePlacement.Lowest(larger, quest3S),
+            Is.EqualTo(quest3S.LowestCenter(larger.HalfWidthDegrees, larger.HalfHeightDegrees) - pitch).Within(1e-4f));
+
+        var settings = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth, Lineups.Frame.Distance * MathF.Tan(17f * MathF.PI / 180f));
+        Assert.That(WorkspacePlacement.ReadingPitch(settings), Is.EqualTo(WorkspacePlacement.MostReadingPitchDegrees), "never more than 8 degrees");
+    }
+
+    [Test]
+    public void WithTextAStepLargerOnAQuest3SThePanelOpensUnderTheLabelsAndInsideTheFieldWithTheHeadTippedDown()
+    {
+        var quest3S = new ViewField(48, 48, 45, 45);
+        var larger = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth * 1.15f, Lineups.Frame.HalfHeight * 1.15f);
+        var characters = Lineups.RaisedArc(plateDegrees: 11f);
+        foreach (var slot in new[] { 2, 3, 0, 5 })
+        {
+            var opened = characters[slot];
+            var panel = WorkspacePlacement.Place(opened.Yaw, opened, characters, larger, field: quest3S);
+
+            Assert.That(panel.Clear, Is.True, $"slot {slot}");
+            Assert.That(panel.Above, Is.False);
+            Assert.That(panel.Elevation, Is.GreaterThanOrEqualTo(WorkspacePlacement.Lowest(larger, quest3S) - 1e-3f), "inside the field, the head tipped down");
+            Assert.That(panel.Elevation, Is.LessThan(quest3S.LowestCenter(larger.HalfWidthDegrees, larger.HalfHeightDegrees)),
+                "with the head level its lower corners would be outside: under the labels there is no higher place");
+        }
+    }
+
+    [Test]
     public void WithTextAStepLargerAPanelStillOpensUnderEveryLabel()
     {
         // The panel grows whole by the text's step, and the titles above it reach a little deeper.
@@ -315,6 +353,27 @@ public class PanelDragTests
         var desk = new PanelDrag(0f, -15f, 0f, -15f, Size, surfaceDrop: 0.2f, field: narrow);
         var floor = Math.Max(lowest, WorkspacePlacement.LowestAboveSurface(Size, 0.2f));
         Assert.That(desk.Follow(0f, -80f).Elevation, Is.EqualTo(floor).Within(1e-4f));
+    }
+
+    [Test]
+    public void HoldingMoveNeverLiftsAPanelThatOpenedUnderTheLabelsIntoThem()
+    {
+        // Text a step larger on a Quest 3S: the panel opens under the far lineup's labels.
+        var quest3S = new ViewField(48, 48, 45, 45);
+        var larger = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth * 1.15f, Lineups.Frame.HalfHeight * 1.15f);
+        var characters = Lineups.RaisedArc(plateDegrees: 11f);
+        var opened = WorkspacePlacement.Place(characters[3].Yaw, characters[3], characters, larger, field: quest3S);
+        var drag = new PanelDrag(opened.Yaw, opened.Elevation, opened.Yaw, opened.Elevation + 5f, larger, field: quest3S);
+        Assert.That(drag.Follow(opened.Yaw, opened.Elevation + 5f).Elevation, Is.EqualTo(opened.Elevation).Within(1e-4f), "held still, it stays");
+        Assert.That(drag.Follow(opened.Yaw, -80f).Elevation, Is.EqualTo(WorkspacePlacement.Lowest(larger, quest3S)).Within(1e-4f));
+
+        // Even where the field would hold it higher than it opened, as a narrower one does, it stays where it is and goes no lower.
+        var narrower = new ViewField(48, 48, 45, 38);
+        Assert.That(WorkspacePlacement.Lowest(larger, narrower), Is.GreaterThan(opened.Elevation));
+        var held = new PanelDrag(opened.Yaw, opened.Elevation, opened.Yaw, opened.Elevation, larger, field: narrower);
+        Assert.That(held.Follow(opened.Yaw, opened.Elevation).Elevation, Is.EqualTo(opened.Elevation).Within(1e-4f), "not lifted into the labels");
+        Assert.That(held.Follow(opened.Yaw, -80f).Elevation, Is.EqualTo(opened.Elevation).Within(1e-4f));
+        Assert.That(held.Follow(opened.Yaw, opened.Elevation + 6f).Elevation, Is.EqualTo(opened.Elevation + 6f).Within(1e-4f), "it still rises with the hand");
     }
 
     [Test]

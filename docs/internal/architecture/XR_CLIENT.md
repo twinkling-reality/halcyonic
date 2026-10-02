@@ -258,11 +258,19 @@ the same definition names, as the JSON Schema document:
   does, would not fit under the deepest labels above it, so its center may go lower by as much as it
   is taller (`WorkspacePlacement.Lowest`), half of that for its own upper half and the rest for
   titles grown with the text; a panel moved by hand stops at the same floor. To be judged on the
-  headset. Once the headset's field of view is
-  measured (`ViewField.Current`), the side that keeps every corner 1.5 degrees inside it with the
-  head level wins when both sides clear, and where neither clears it moves into the band no lower
-  than that (`Lowest`, which a dragged panel's limit can use too); the field never pushes a panel
-  into a label, since below the labels is already as high as it can go.
+  headset. Once the headset's field of view is measured (`ViewField.Current`), the side that keeps
+  every corner 1.5 degrees inside it with the head level wins when both sides clear, and where
+  neither clears it moves into the band no lower than that (`Lowest`, which a dragged panel's limit
+  uses too); the field never pushes a panel into a label, since below the labels is already as
+  high as it can go. A panel taller than designed is read with the head tipped down a little
+  (`WorkspacePlacement.ReadingPitch`, a design decision of 2026-10-02): under the far lineup's labels
+  its lower corners reach past a Quest 3S's field with the head level, about 4.4 degrees past with
+  text a step larger, so it is taken to be read with the head tipped down by half again as much as
+  it is taller, about 5.6 degrees then and never more than 8, and the field holds it seen so; a
+  panel as tall as designed keeps the head-level rule. Settings with all its sections, about 33
+  degrees tall, would need more, and is not held to the field. Holding Move never lifts a panel for
+  want of room: one that opened under the labels lower than the field allows stays where it was
+  and goes no lower (`PanelDrag`).
 - **`ViewField`** is a headset's field of view about where the person looks, read from each eye's
   projection by `DeviceMeasures` and kept as `ViewField.Current` (null in the editor and the tests,
   so the layout keeps its own angles there). Meta gives a Quest 3 as 110 by 96 degrees and a Quest

@@ -92,7 +92,12 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   stand still; and sounds quieter or off, with one button stepping through them. A panel taller
   than 26 degrees, grown for larger text or holding more, as Settings with all its sections, would
   not fit under the labels above the band's floor, so its center may go lower by as much as it is
-  taller; to be judged on the headset.)
+  taller; to be judged on the headset. Under the far lineup's labels such a panel's lower corners
+  reach past a Quest 3S's field with the head level, about 4.4 degrees past with larger text, so a
+  panel taller than designed is taken to be read with the head tipped down by half again as much
+  as it is taller, at most 8 degrees, and the field holds it seen so; a panel as tall as designed
+  keeps the head-level rule. Settings with all its sections would need more, and waits for the
+  redesign.)
 - **One icon set.** Material Symbols Rounded (Apache-2.0), filled, weight 500, as a static
   TextMeshPro SDF atlas of only the glyphs used, made with fontTools, named by meaning in the
   client core. (On 2026-10-02 the badges and marks took their icons: 13 glyphs of version 2.972,
