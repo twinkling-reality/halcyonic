@@ -181,6 +181,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
 
             failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, name));
+            GlazeChecks.ListTextAsSeen(root, eyes, name);
             var plates = characters.Select(character => character.View.Label.Plate).ToList();
             plates.Add(banner.Plate);
             if (peek != null) plates.Add(peek.Card);
