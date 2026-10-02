@@ -121,6 +121,7 @@ These words were settled by the coordinator on 2026-10-02.
 | Unknown effect | Not sure it happened. {What to check first}. | Not sure it happened. Check the tasks on the stage before you try again. |
 | Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your computer. Trying again… |
 | Provenance | From {source} · {when} | From Seorak · 2 min ago |
+| The work's own state | As the agent reported it, the source line of a file's Waiting and Activity, no app's name in it (settled by the coordinator on 2026-10-02) | As the agent reported it |
 | Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
 | Locked final press | Read to part {n} first | Read to part 3 first |

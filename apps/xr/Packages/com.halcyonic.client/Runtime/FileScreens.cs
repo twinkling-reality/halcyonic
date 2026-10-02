@@ -147,11 +147,11 @@ namespace Halcyonic.Client
 
         private static Prompt Next(int page, int pages) => new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages), GlazeIcon.Next, PromptKind.NextPage);
 
-        /// <summary>The source line of the work's own state: the agent app that reported it, by its name where known.</summary>
-        private static string RuntimeSource(WorkspacePresentation workspace) =>
-            workspace.Runtime is { } runtime && !string.IsNullOrWhiteSpace(runtime.DisplayName)
-                ? "As " + WorkspaceText.OneLine(runtime.DisplayName) + " reported it"
-                : "As the agent app reported it";
+        /// <summary>
+        /// The source line of the work's own state. An app's name arrives only as data, never in
+        /// Halcyonic's sentence (WORDS.md), so it names the agent.
+        /// </summary>
+        public const string AgentSource = "As the agent reported it";
 
         /// <summary>
         /// Activity: what it is doing, what this headset sent last, and what the work did, the newest
@@ -161,7 +161,7 @@ namespace Halcyonic.Client
         /// </summary>
         private static Page Activity(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
-            var source = RuntimeSource(workspace);
+            var source = AgentSource;
             var normal = ActivityFooter(workspace, screen);
             if (steering.Armed is WorkspaceAction armed && (armed == WorkspaceAction.Interrupt || armed == WorkspaceAction.Instruct))
             {

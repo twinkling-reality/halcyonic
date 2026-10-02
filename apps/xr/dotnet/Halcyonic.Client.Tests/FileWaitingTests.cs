@@ -41,7 +41,7 @@ public class FileWaitingTests
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         Assert.That(frame.Footer[PromptSlot.Secondary]!.DrawnAsMain, Is.False);
         Assert.That(frame.Lines.Any(line => line.Pressable), Is.False, "nothing on the page sends anything");
-        Assert.That(frame.Source, Does.StartWith("As ").And.EndWith(" reported it"), "the work's own state names the agent app");
+        Assert.That(frame.Source, Is.EqualTo("As the agent reported it"), "the work's own state names the agent, never an app's name");
     }
 
     [Test]

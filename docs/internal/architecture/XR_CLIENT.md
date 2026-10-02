@@ -366,8 +366,8 @@ the same definition names, as the JSON Schema document:
   rows, on the page and in its side panel alike (ADR 0026), so a page of four rows holds three lines
   beside it, and an approval's request shows as much as fits there before Approve shows it whole. Until an answer is read, the page says
   so in words ("Still reading what changed…"), never an empty page, since a read of Salidium while
-  a session is live has taken up to 10 seconds. The source line of Waiting and Activity names the
-  agent app that reported the work. Nothing in the Unity layer draws it yet.
+  a session is live has taken up to 10 seconds. The source line of Waiting and Activity is "As the
+  agent reported it", with no app's name in it. Nothing in the Unity layer draws it yet.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (the component render's frames use it; the stage does not yet): at most
   two columns of parts, every part of a column as
