@@ -127,6 +127,14 @@ panels where they were, and every corner of the rail and the panels is inside. O
 rail stays about 53 degrees down, inside the field when the head looks down at the lineup. The real
 split comes from the device's `Halcyonic: device view field` line.
 
+Larger text (Settings, lane U, 2026-10-02) makes a panel taller than designed, which on an evenly
+split Quest 3S does not fit under the far lineup's labels with the head level. For such a panel the
+rule takes the head to be tipped down by 1.5 times the extra height, at most 8 degrees
+(`WorkspacePlacement.ReadingPitch`; about 5.6 for the next text size), so its fit depends on the
+person looking down a little. Judges at the standard size are unaffected: a designed panel keeps
+the head-level rule. The 4.4 and 5.6 degree figures assume the even split and are to be worked out
+again from the headset's logged field (OPEN_QUESTIONS.md).
+
 ## Frame rate
 
 `MeasureRender` at this commit: at most 75 draw calls a scene and 35 a panel (budget 220 and 60),
