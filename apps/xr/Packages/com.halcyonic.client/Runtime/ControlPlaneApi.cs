@@ -190,17 +190,38 @@ namespace Halcyonic.Client
             HttpResponseMessage response;
             try
             {
-                var content = new StringContent(HalcyonicJson.Serialize(request), System.Text.Encoding.UTF8, "application/json");
-                response = await companion.PostAsync(new Uri(baseUri, "api/companion/replies"), content, cancellationToken).ConfigureAwait(false);
+                var message = new HttpRequestMessage(HttpMethod.Post, new Uri(baseUri, "api/companion/replies"))
+                {
+                    Content = new StringContent(HalcyonicJson.Serialize(request), System.Text.Encoding.UTF8, "application/json"),
+                };
+                // Headers first, so the body is read only as far as a reply can be.
+                response = await companion.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException error)
             {
                 throw new ControlPlaneRequestException("The control plane could not be reached: " + error.Message, error);
             }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // This side's time for a turn ran out, not the caller's: the companion took too long.
+                throw new ControlPlaneRequestException("The companion took too long.", "companion_too_slow");
+            }
             using (response)
             {
-                var body = await ReadBoundedAsync(response, CompanionReplyLimit).ConfigureAwait(false)
-                    ?? throw new ControlPlaneRequestException("The companion's answer is longer than one can be.", "companion_unreadable");
+                string? body;
+                try
+                {
+                    body = await ReadBoundedAsync(response, CompanionReplyLimit, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    throw new ControlPlaneRequestException("The companion took too long.", "companion_too_slow");
+                }
+                catch (System.IO.IOException error)
+                {
+                    throw new ControlPlaneRequestException("The control plane could not be reached: " + error.Message, error);
+                }
+                if (body == null) throw new ControlPlaneRequestException("The companion's answer is longer than one can be.", "companion_unreadable");
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
@@ -213,13 +234,13 @@ namespace Halcyonic.Client
         public const int CompanionReplyLimit = 64 * 1024;
 
         /// <summary>The body as text, or null once it passes <paramref name="limit"/> bytes, when the rest is not read.</summary>
-        private static async Task<string?> ReadBoundedAsync(HttpResponseMessage response, int limit)
+        private static async Task<string?> ReadBoundedAsync(HttpResponseMessage response, int limit, CancellationToken cancellationToken)
         {
             using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
             var buffer = new byte[8192];
             using var collected = new System.IO.MemoryStream();
             int read;
-            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
             {
                 if (collected.Length + read > limit) return null;
                 collected.Write(buffer, 0, read);
