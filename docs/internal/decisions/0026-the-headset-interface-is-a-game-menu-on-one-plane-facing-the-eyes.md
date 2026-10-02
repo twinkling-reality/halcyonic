@@ -84,8 +84,8 @@ today and, once built, in lane U's renders of every surface:
    from its centre, to 84 percent at the far corners of a menu and file side by side, so the smallest
    size, 15 dp, is only for small facts inside a row, and prompts are 18 dp. An upright plane stays in
    the renders as the case this check must catch. The stage's labels are held to it too: on a desk,
-   where the eyes look down on them, they lean back to face the eyes; standing upright there, their
-   badge words read at 64 percent (lane U's inventory of today's renders, 2026-10-02).
+   where the eyes look down on them, they lean back to face the eyes, as ADR 0023 now records;
+   standing upright there, their badge words read at 64 percent (lane U's inventory, 2026-10-02).
 3. **One selection treatment (checked).** Chosen, a shape lights up, white at 10 percent, and gains a
    crisp white frame; pointed at, it gains the frame alone, fainter. Places, sections, rows, answers
    and prompts all use it. Nothing is marked by an underline or a bar, and the accent marks only the
@@ -131,8 +131,7 @@ today and, once built, in lane U's renders of every surface:
   foreground panels of 44 by 26 degrees with Move, Reset position and Close in a header and every
   action in a bottom bar; the workspace's tabs and sub-tabs, its Close at the end of the tabs, and
   Refresh and pagers beside headings; the rail's 2 rows of buttons; `PanelFrame` as every surface's
-  frame; the entry panel's screens, which move into Projects and New project; and the stage's labels
-  standing upright on a desk, which lean back to face the eyes.
+  frame; and the entry panel's screens, which move into Projects and New project.
 
 ## Alternatives considered
 
@@ -184,7 +183,8 @@ today and, once built, in lane U's renders of every surface:
   it, one plane facing the eyes, aligned columns and one selection treatment. Today's renders list
   what reads under 14 dp as seen without failing on it: the labels on a desk, and captions near the
   corners of Settings and the entry panel's Guide, both being replaced.
-- The stage's labels, upright since ADR 0023, lean back on a desk to face the eyes.
+- The stage's labels on a desk lean back to face the eyes already, approved on 2026-10-02 and recorded
+  in ADR 0023, and the stage render holds them to text as the eyes see it.
 - Without Move in the footer, moving the plane rests on holding a file's subject, and Reset position
   on Settings; both are on the headset checklist.
 - Not yet checked on a headset: reading at 0.46 m, the low edge at 50 degrees, the glass in
