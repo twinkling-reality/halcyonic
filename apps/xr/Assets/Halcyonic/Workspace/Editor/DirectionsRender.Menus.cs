@@ -479,6 +479,61 @@ namespace Halcyonic.XR.Workspace.Editor
             PlaceBeside(shot, index, sheet, -15.6f, 1);
         }
 
+        /// <summary>The light lines of the shot being built, from a character to its file, for their check.</summary>
+        private static readonly List<(Vector3 From, Vector3 To, int Slot)> lightLines = new List<(Vector3, Vector3, int)>();
+
+        /// <summary>
+        /// The light line (ADR 0026): one leg from under the character's label to its file's subject
+        /// plate. Where the label stands over the plate, as the eyes see them, it drops straight down
+        /// from the middle of their overlap; else it joins the label's nearer bottom corner to the
+        /// plate's nearer top corner. It leaves from under the label, so it crosses no words, its own
+        /// task's included.
+        /// </summary>
+        /// <param name="drop">How far below its board's top the plate's top edge stands, as under a split header's state pill.</param>
+        private static void LightLine(Shot shot, int slot, Board subject, float drop = 0f)
+        {
+            var label = shot.Characters[slot].View.Label;
+            var plate = label.Plate.transform;
+            // The label's lowest part, its plate or a mark hanging from the plate's edge, in the plate's units.
+            var lowest = label.GetComponentsInChildren<MeshFilter>(false)
+                .Where(filter => filter.sharedMesh != null && filter.TryGetComponent<Renderer>(out var drawn) && drawn.enabled)
+                .SelectMany(filter => Corners(filter.sharedMesh.bounds).Select(corner => plate.InverseTransformPoint(filter.transform.TransformPoint(corner)).y))
+                .Append(-0.5f)
+                .Min();
+            var labelLeft = plate.TransformPoint(new Vector3(-0.5f, lowest, 0f));
+            var labelRight = plate.TransformPoint(new Vector3(0.5f, lowest, 0f));
+            var plateLeft = subject.Root.TransformPoint(new Vector3(-0.5f * subject.Width, subject.Height / 2f - drop, 0f));
+            var plateRight = subject.Root.TransformPoint(new Vector3(0.5f * subject.Width, subject.Height / 2f - drop, 0f));
+            float Across(Vector3 point) => Mathf.Atan2(point.x - shot.Eyes.x, point.z - shot.Eyes.z) * Mathf.Rad2Deg;
+            Vector3 At(Vector3 left, Vector3 right, float across) => Vector3.Lerp(left, right, Mathf.InverseLerp(Across(left), Across(right), across));
+            var overlapLeft = Mathf.Max(Across(labelLeft), Across(plateLeft));
+            var overlapRight = Mathf.Min(Across(labelRight), Across(plateRight));
+            Vector3 from, to;
+            if (overlapLeft <= overlapRight)
+            {
+                var middle = (overlapLeft + overlapRight) / 2f;
+                (from, to) = (At(labelLeft, labelRight, middle), At(plateLeft, plateRight, middle));
+            }
+            else if (Across(labelRight) < Across(plateLeft)) (from, to) = (labelRight, plateLeft);
+            else (from, to) = (labelLeft, plateRight);
+            var go = new GameObject("Light line");
+            go.transform.SetParent(shot.Root, false);
+            var beam = go.AddComponent<LineRenderer>();
+            beam.useWorldSpace = true;
+            beam.material = new Material(Shader.Find("Sprites/Default"));
+            beam.positionCount = 2;
+            beam.SetPosition(0, from);
+            beam.SetPosition(1, to);
+            beam.startWidth = 0.003f;
+            beam.endWidth = 0.0012f;
+            beam.startColor = new Color(Holo.r, Holo.g, Holo.b, 0.55f);
+            beam.endColor = new Color(Holo.r, Holo.g, Holo.b, 0.12f);
+            lightLines.Add((from, to, slot));
+        }
+
+        private static IEnumerable<Vector3> Corners(Bounds bounds) => Enumerable.Range(0, 8)
+            .Select(corner => bounds.center + Vector3.Scale(bounds.extents, new Vector3((corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f)));
+
         /// <summary>
         /// Light from the task's character to the file's outer top corners, as Dead Space's suit casts
         /// its menus into the room: the file is the character's, opened toward you.
