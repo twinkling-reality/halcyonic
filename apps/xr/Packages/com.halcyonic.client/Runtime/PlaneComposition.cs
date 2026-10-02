@@ -73,7 +73,9 @@ namespace Halcyonic.Client
     /// <see cref="Distance"/> away; the centre is placed as one panel of the composition's
     /// <see cref="Size"/> by <see cref="WorkspacePlacement.Place"/>, so the comfortable band, the
     /// floor for a panel taller than designed, the reading pitch, the clearance from labels and the
-    /// measured field all hold; each part lies on the plane at its offset from the centre.
+    /// measured field all hold; each part lies on the plane at its offset from the centre. A side
+    /// panel that slides out is a column more: the composition is made and placed again, so the whole
+    /// plane re-centres as one piece and what was there shifts left by half the new column's width.
     /// </summary>
     public sealed class PlaneComposition
     {
