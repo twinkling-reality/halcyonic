@@ -641,3 +641,168 @@ public class NewProjectStartTests
         Assert.That(Ids(waiting), Does.Not.Contain(NewProjectScreens.ConfirmStart), "nothing to confirm before the request is measured");
     }
 }
+
+public class NewProjectFixedQuestionsTests
+{
+    private static ProjectIdea Guided()
+    {
+        var idea = new ProjectIdea();
+        idea.BeginGuide();
+        return idea;
+    }
+
+    private static MenuFrame Page(ProjectIdea idea, bool voice = true, string? said = null) =>
+        NewProjectScreens.FixedQuestion(idea, startReached: false, voice: voice, said: said);
+
+    private static IEnumerable<PageLine> Answers(MenuFrame frame) => frame.Lines.Where(line => line.Choice);
+
+    [Test]
+    public void ChoosingAFixedAnswerOnlyLightsItAndNextQuestionGivesIt()
+    {
+        var idea = Guided();
+        var frame = Page(idea);
+        Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Questions"));
+        Assert.That((frame.Lines[0].Words, frame.Lines[0].Fact), Is.EqualTo(("What kind of thing is it?", "Question 1 of 4")));
+        Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { "A website", "An app", "A tool or script", "Something else" }));
+        Assert.That(frame.Source, Is.EqualTo(EntryText.GuideNote), "fixed questions, not an AI");
+        var next = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((next.Words, next.Available, frame.Reason), Is.EqualTo((EntryText.NextQuestion, false, EntryText.ChooseOrTypeFirst)));
+        Assert.That(frame.Footer[PromptSlot.Secondary]!.Holds, Is.True);
+        Assert.That(frame.Footer.All.Count(), Is.EqualTo(3), "forward only: no way back but the steps");
+
+        Assert.That(idea.ChooseGuideAnswer("An app"), Is.True);
+        Assert.That(idea.Question, Is.EqualTo(0), "choosing gives nothing");
+        Assert.That(idea.ChooseGuideAnswer("A spaceship"), Is.False, "only an answer offered");
+        frame = Page(idea);
+        Assert.That(Answers(frame).Single(line => line.Chosen).Words, Is.EqualTo("An app"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.True);
+        Assert.That(idea.NextQuestion(), Is.True);
+        Assert.That((idea.Question, idea.AnswerTo(0), idea.GuideChosen), Is.EqualTo((1, "An app", (string?)null)));
+    }
+
+    [Test]
+    public void OwnAnswersAndTheSkipAreAnswersTooAndTheLastQuestionMakesTheRecap()
+    {
+        var idea = Guided();
+        idea.ChooseGuideAnswer("An app");
+        idea.NextQuestion();
+        Assert.That(idea.WriteGuideAnswer("My running club", heard: true), Is.True);
+        var frame = Page(idea);
+        var own = Answers(frame).Single(line => line.Chosen);
+        Assert.That((own.Words, own.WordsAreData, own.Action), Is.EqualTo(("My running club", true, NewProjectScreens.TypeFixedAnswer)));
+        Assert.That(frame.Lines.Any(line => line.Words == VoiceText.HeardNote), Is.True, "what the computer heard is the person's to check");
+        idea.ChooseGuideAnswer("My team");
+        Assert.That(Answers(Page(idea)).Single(line => line.Chosen).Words, Is.EqualTo("My team"));
+        Assert.That(idea.GuideWritten, Is.EqualTo("My running club"), "the written answer stays while another is chosen");
+        idea.NextQuestion();
+        idea.ChooseGuideAnswer(idea.Choices[0]);
+        idea.NextQuestion();
+
+        frame = Page(idea);
+        Assert.That(idea.LastQuestion, Is.True);
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo(CompanionText.MakeTheRecap));
+        Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { EntryText.TypeName, "Name it later" }));
+        Assert.That(idea.ChooseGuideSkip(), Is.True);
+        Assert.That(Answers(Page(idea)).Single(line => line.Chosen).Action, Is.EqualTo(NewProjectScreens.SkipFixedQuestion));
+        Assert.That(idea.NextQuestion(), Is.True);
+        Assert.That(idea.HasRecap && idea.TaskFromAnswers, Is.True);
+        Assert.That(idea.FirstTask, Is.EqualTo("Make an app for my team. First, do its main job on one screen."));
+        Assert.That(idea.Name, Is.EqualTo("New app"));
+    }
+
+    [Test]
+    public void ChangingAComposedTaskWalksTheQuestionsAgainWithEveryAnswerChosen()
+    {
+        var idea = Guided();
+        foreach (var answer in new[] { "A website", "Just me" })
+        {
+            idea.ChooseGuideAnswer(answer);
+            idea.NextQuestion();
+        }
+        idea.ChooseGuideAnswer(idea.Choices[1]);
+        idea.NextQuestion();
+        idea.WriteGuideAnswer("Race Times");
+        idea.NextQuestion();
+        Assert.That(NewProjectScreens.ChangeFor(idea), Is.EqualTo(TaskChange.Questions));
+
+        idea.BeginGuide();
+        Assert.That(Answers(Page(idea)).Single(line => line.Chosen).Words, Is.EqualTo("A website"), "coming back finds its answer chosen");
+        Assert.That(idea.NextQuestion(), Is.True, "Next question keeps it");
+        idea.NextQuestion();
+        Assert.That(Answers(Page(idea)).Single(line => line.Chosen).Words, Is.EqualTo("Let visitors leave their email"));
+        idea.NextQuestion();
+        Assert.That(Answers(Page(idea)).Single(line => line.Chosen).Words, Is.EqualTo("Race Times"), "a typed answer comes back in its own row");
+        idea.NextQuestion();
+        Assert.That(idea.FirstTask, Is.EqualTo("Make a website for me. First, let visitors leave their email."));
+
+        idea.BeginGuide();
+        idea.ChooseGuideAnswer("A tool or script");
+        idea.NextQuestion();
+        idea.NextQuestion();
+        var firstStep = Page(idea);
+        Assert.That(Answers(firstStep).Any(line => line.Chosen), Is.False, "a new kind's first steps, none chosen");
+        Assert.That(firstStep.Footer[PromptSlot.FarRight]!.Available, Is.False);
+
+        idea.Rewrite("Make one page of race times.");
+        Assert.That(NewProjectScreens.ChangeFor(idea), Is.EqualTo(TaskChange.Words), "words the person wrote are never composed over");
+        var typed = new ProjectIdea();
+        typed.UseIdea("something for my running club");
+        Assert.That(NewProjectScreens.ChangeFor(typed), Is.EqualTo(TaskChange.Words));
+        var task = new ProjectIdea("proj_1", "Race Times");
+        task.BeginGuide();
+        Assert.That(Page(task).Lines[0].Fact, Is.EqualTo("Question 1 of 3"), "the name is not asked for a project that exists");
+    }
+
+    [Test]
+    public void TheWordsPageKeepsWordsOnlyWithinTheirRule()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        var name = NewProjectScreens.Words(idea, startReached: false, WordsFor.Name, written: null, heard: false, voice: true, said: null);
+        Assert.That(name.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Recap"));
+        Assert.That(name.Lines[0].Words, Is.EqualTo(EntryText.ProjectName));
+        Assert.That((name.Lines[1].Words, name.Lines[1].Action, name.Lines[1].Chosen), Is.EqualTo((idea.Name, NewProjectScreens.TypeWords, false)),
+            "the words as they stand, one press from the keyboard");
+        Assert.That(name.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { Footer.Close, NewProjectScreens.HoldToTalk, NewProjectScreens.Done }));
+        Assert.That(name.Footer[PromptSlot.FarRight]!.Available, Is.True);
+
+        var heard = NewProjectScreens.Words(idea, startReached: false, WordsFor.Name, written: "Race Times", heard: true, voice: true, said: null);
+        Assert.That((heard.Lines[1].Words, heard.Lines[1].Chosen), Is.EqualTo(("Race Times", true)));
+        Assert.That(heard.Lines.Any(line => line.Words == VoiceText.HeardNote), Is.True);
+        var tooLong = NewProjectScreens.Words(idea, startReached: false, WordsFor.Name, written: new string('n', 201), heard: false, voice: false, said: null);
+        Assert.That((tooLong.Footer[PromptSlot.FarRight]!.Available, tooLong.Reason), Is.EqualTo((false, EntryText.NameRule)));
+        Assert.That(tooLong.Footer[PromptSlot.Secondary], Is.Null);
+        var blank = NewProjectScreens.Words(idea, startReached: false, WordsFor.FirstTask, written: "  ", heard: false, voice: true, said: null);
+        Assert.That(blank.Reason, Is.EqualTo(EntryText.DescribeTask));
+
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = new List<LocationFolder>(),
+        };
+        var folder = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: null, heard: false, voice: true, said: null, root: root);
+        Assert.That(folder.Lines[0].Words, Is.EqualTo("New folder in Projects"));
+        Assert.That((folder.Lines[1].Words, folder.Reason), Is.EqualTo((EntryText.TypeName, EntryText.NewFolderRule)));
+        var bad = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: "race times!", heard: false, voice: true, said: null, root: root);
+        Assert.That(bad.Footer[PromptSlot.FarRight]!.Available, Is.False);
+        var good = NewProjectScreens.Words(idea, startReached: false, WordsFor.FolderName, written: "race-times", heard: false, voice: true, said: null, root: root);
+        Assert.That(good.Footer[PromptSlot.FarRight]!.Available, Is.True);
+    }
+
+    [Test]
+    public void TheFirstTasksAnswersTakeHoldToTalkBesideDone()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        var exchange = idea.BeginCompanion(CompanionStart.Idea);
+        exchange.Ask(CompanionWant.Proposal);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose()));
+        idea.UseProposal(exchange.Proposal!.Proposal);
+        Assert.That(NewProjectScreens.ChangeFor(idea), Is.EqualTo(TaskChange.Answers));
+        var frame = NewProjectScreens.RecapTask(idea, startReached: false, voice: true, said: VoiceText.HeardNote);
+        Assert.That(frame.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { Footer.Close, NewProjectScreens.HoldToTalk, NewProjectScreens.Done }));
+        Assert.That(frame.Lines.Any(line => line.Words == VoiceText.HeardNote), Is.True);
+        idea.Rewrite("Make one page of race times.");
+        Assert.That(NewProjectScreens.ChangeFor(idea), Is.EqualTo(TaskChange.Answers), "the companion's suggestion stays one choice away");
+    }
+}

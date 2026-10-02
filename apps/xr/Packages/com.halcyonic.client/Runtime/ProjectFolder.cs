@@ -122,6 +122,9 @@ namespace Halcyonic.Client
         /// What the listing offers, root by root: making a new folder there, the root itself, and each
         /// folder in it. A root the host lists as missing is shown, and offers nothing.
         /// </summary>
+        /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
+        public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Plain(root.Name);
+
         public static IReadOnlyList<FolderOption> Options(LocationsResponse listing)
         {
             var options = new List<FolderOption>();
@@ -133,7 +136,7 @@ namespace Halcyonic.Client
                     options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on " + HostText.Your + " right now"));
                     continue;
                 }
-                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, "New folder in " + name, HostText.YourStart + " makes a new, empty folder"));
+                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, NewFolderLabel(root), HostText.YourStart + " makes a new, empty folder"));
                 options.Add(new FolderOption(root, null, FolderOptionKind.Root, "Directly in " + name, "Files go straight into " + name));
                 foreach (var folder in root.Folders)
                 {
