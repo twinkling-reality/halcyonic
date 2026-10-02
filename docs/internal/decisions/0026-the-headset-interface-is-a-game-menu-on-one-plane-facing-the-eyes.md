@@ -120,9 +120,10 @@ today and, once built, in lane U's renders of every surface:
   line without a chip only for observed facts with the source named on every page, Inferred always
   chipped, the agent's words quoted, and each Seorak part's own availability, coverage and freshness;
   `EntryScreens`' flows, `NewWorkDraft`, `NewWorkReview`, `NewWorkSubmission`, `ProjectIdea`,
-  `FolderConnect` and `ConnectScreens`; and lane C's companion models once they reach main. New models
-  for the menu, its sections, page lines, side panels and footer slots replace `PanelModel`'s tabs
-  and bar.
+  `FolderConnect` and `ConnectScreens`; and the companion's `CompanionExchange`, `CompanionText` and
+  `CreationDraft` ([ADR 0025](0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)).
+  New models for the menu, its sections, page lines, side panels and footer slots replace
+  `PanelModel`'s tabs and bar.
 - **Kept from ADR 0023:** tokens in the client core; `GlazeText` and `GlazeButton`, extended with the
   light title, a Prompt role and a Row role without a plate; the state language, badges, icons and
   atlas; character labels and the peek; touch distance, 0.46 m; 60 dp targets 12 mm apart; the Glaze
