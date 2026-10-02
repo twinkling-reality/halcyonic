@@ -199,6 +199,32 @@ as the reference for clean, intentional type and layout.
   strokes, which the product's Surface shader would draw in one. Frame time on a Quest is not
   measured.
 
+### A plane below the eyes, measured
+
+Added the same day, after the owner asked for every surface on one plane facing the person, upright.
+`DirectionsRender.Refined.cs` (editor, Android target) lays the menu and a task's file on one plane
+two ways: upright, and tipped back as a whole to face the eyes at its centre. It renders each also
+from the eyes looking at it, square to that line, as the headset draws what a person looks at.
+
+- **The geometry.** Text on a surface spans less as the eyes see it the more slanted the surface is
+  to the line of sight. On an upright plane, a line at an angle e below eye level spans its size at
+  the plane's distance times the square of cos e. On a flat plane facing the eyes, text a degrees to
+  the side of the centre loses the factor cos a, and b degrees above or below it the square of
+  cos b.
+- **Upright.** The menu and a file side by side, 64.5 by 32.9 degrees from 18 to 42 degrees below
+  eye level, show 19 labels under Meta's 14 dp as the eyes see them, the prompts at 56 percent of
+  their size. A file alone, 38 by 24 degrees from 17 to 36 below, shows 5, at 68 percent. Seen from
+  the eyes, the plane narrows toward its bottom and its rows lean.
+- **Facing the eyes.** The same menu and file, 64 by 32 degrees from 18 to 50 degrees below eye
+  level along the plane's middle, keep at least 84 percent of their size, at the far corners, and no
+  text reads under 14 dp; the file alone, 38 by 24 degrees from 17 to 40 below, keeps 94 percent.
+  The bottom edge stands 0.48 and 0.47 m from the eyes. Prompts of 15 dp would read 0.78 degrees at
+  the far corners, under 14 dp; at 18 dp they read 0.95.
+- **Why the checks had passed.** `GlazeChecks.TextLargeEnough` measures text at a surface's
+  perpendicular distance, which is exact only where the surface faces the eyes. The level renders
+  keep their image plane upright, as architecture is photographed, so an upright plane stays a
+  rectangle in them and its low parts look larger than the eyes see them.
+
 ## Patterns these share
 
 1. A content surface holds content; persistent controls sit in one attached bar.
@@ -229,3 +255,7 @@ as the reference for clean, intentional type and layout.
 - Reading at 0.46 m sits under Apple's 1 m for sustained reading and Meta's 0.5 m for content
   looked at for long, while inside Meta's touch range. Whether long answers read comfortably there,
   or need a surface further away that the hand ray reaches, is a headset check.
+- The owner chose D, then asked for its surfaces on one upright plane, single-word places, sections
+  as separate shapes and type that only steps down. Measured, the upright plane shrank its low text
+  under 14 dp, and the coordinator chose one plane facing the eyes at its centre instead. ADR 0026
+  (Proposed) records D's structure and these rules.
