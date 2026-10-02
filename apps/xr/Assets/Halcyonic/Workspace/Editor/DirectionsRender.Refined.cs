@@ -612,9 +612,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// What the eyes see looking at the composition: aimed at its centre, square to that line. Wide,
         /// the stage too; close, the composition with a margin, at a Quest 3's pixels per degree there.
         /// </summary>
-        private static Texture2D EyeView(Shot shot, bool wide)
+        private static Texture2D EyeView(Shot shot, bool wide) => AimedView(shot, columns.SelectMany(column => column).ToList(), wide);
+
+        /// <summary>The eyes' view aimed at the middle of <paramref name="parts"/>, square to that line; wide, the stage too.</summary>
+        private static Texture2D AimedView(Shot shot, IReadOnlyList<Board> parts, bool wide)
         {
-            var parts = columns.SelectMany(column => column).ToList();
             var look = Quaternion.LookRotation(CompositionCenter(parts) - shot.Eyes, Vector3.up);
             var inverse = Quaternion.Inverse(look);
             var points = parts.SelectMany(part => new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }
@@ -648,6 +650,37 @@ namespace Halcyonic.XR.Workspace.Editor
             var width = wide ? WideWidth : Mathf.Min(2400, Mathf.RoundToInt((maxX - minX) * PixelsPerDegree * Mathf.Rad2Deg));
             var height = Mathf.RoundToInt(width * (maxY - minY) / (maxX - minX));
             return CaptureFrustum(shot.Eyes, shot.Root, look, minX, maxX, minY, maxY, width, height);
+        }
+
+        /// <summary>
+        /// Text as the eyes see it, for <paramref name="parts"/>: the angle each label's em spans from the
+        /// eyes, which shrinks where a surface is seen at a slant, never under Meta's 14 dp.
+        /// </summary>
+        private static IEnumerable<string> SeenTextFailures(Shot shot, IEnumerable<Board> parts)
+        {
+            var seen = parts.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false))
+                .Where(label => !string.IsNullOrEmpty(label.text) && !GlazeIcons.IsIcon(label) && (protoIcons == null || label.font != protoIcons) && label.textInfo.characterCount > 0)
+                .Select(label =>
+                {
+                    var em = label.fontSize * 0.1f * label.transform.lossyScale.y;
+                    var middle = label.transform.TransformPoint(label.textBounds.center);
+                    var half = label.transform.up * (em / 2f);
+                    var angle = Vector3.Angle(middle + half - shot.Eyes, middle - half - shot.Eyes);
+                    return (Name: label.name, Seen: angle, Share: angle / Glaze.DegreesOf(em, GlazeChecks.PlaneDistance(shot.Eyes, label.transform)));
+                })
+                .OrderBy(label => label.Seen)
+                .ToList();
+            foreach (var label in seen.Where(label => label.Seen < Glaze.MinimumTextDegrees - 0.0005f))
+            {
+                yield return shot.Name + ": " + label.Name + " is " + GlazeChecks.Degrees(label.Seen) + " degrees as the eyes see it (" + Mathf.RoundToInt(label.Share * 100f)
+                    + " percent of its size); no text under 14 dp, " + Glaze.MinimumTextDegrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees.";
+            }
+            if (seen.Count > 0)
+            {
+                var least = seen.OrderBy(label => label.Share).First();
+                Debug.Log("Halcyonic: directions render " + shot.Name + ": as the eyes see it, the smallest text is " + seen[0].Name + " at " + seen[0].Seen.ToString("0.00", CultureInfo.InvariantCulture)
+                    + " degrees; the most shrunk is " + least.Name + " at " + Mathf.RoundToInt(least.Share * 100f) + " percent of its size.");
+            }
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -724,31 +757,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 yield return failure;
             }
-            // Text as the eyes see it: the angle its em spans from the eyes, which shrinks where a surface
-            // is seen at a slant, never under Meta's 14 dp.
-            var seen = parts.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false))
-                .Where(label => !string.IsNullOrEmpty(label.text) && !GlazeIcons.IsIcon(label) && (protoIcons == null || label.font != protoIcons) && label.textInfo.characterCount > 0)
-                .Select(label =>
-                {
-                    var em = label.fontSize * 0.1f * label.transform.lossyScale.y;
-                    var middle = label.transform.TransformPoint(label.textBounds.center);
-                    var half = label.transform.up * (em / 2f);
-                    var angle = Vector3.Angle(middle + half - shot.Eyes, middle - half - shot.Eyes);
-                    return (Name: label.name, Seen: angle, Share: angle / Glaze.DegreesOf(em, GlazeChecks.PlaneDistance(shot.Eyes, label.transform)));
-                })
-                .OrderBy(label => label.Seen)
-                .ToList();
-            foreach (var label in seen.Where(label => label.Seen < Glaze.MinimumTextDegrees - 0.0005f))
-            {
-                yield return shot.Name + ": " + label.Name + " is " + GlazeChecks.Degrees(label.Seen) + " degrees as the eyes see it (" + Mathf.RoundToInt(label.Share * 100f)
-                    + " percent of its size); no text under 14 dp, " + Glaze.MinimumTextDegrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees.";
-            }
-            if (seen.Count > 0)
-            {
-                var least = seen.OrderBy(label => label.Share).First();
-                Debug.Log("Halcyonic: directions render " + shot.Name + ": as the eyes see it, the smallest text is " + seen[0].Name + " at " + seen[0].Seen.ToString("0.00", CultureInfo.InvariantCulture)
-                    + " degrees; the most shrunk is " + least.Name + " at " + Mathf.RoundToInt(least.Share * 100f) + " percent of its size.");
-            }
+            foreach (var failure in SeenTextFailures(shot, parts)) yield return failure;
             foreach (var column in columns)
             {
                 // Rows of text from the top: a row is the labels whose heights overlap; its size, its largest.

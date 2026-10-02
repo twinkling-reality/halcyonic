@@ -108,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("a4-creating", false, shot => ShelfCreating(shot)),
             ("a5-video-watching", true, shot => Folded(shot)),
             ("a5-video-opened", true, shot => ShelfBesideWindow(shot)),
-        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots());
+        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots()).Concat(HeadsUpShots());
 
         // ---------------------------------------------------------------------------------------------
         // The work on the stage.
@@ -223,6 +223,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 WorkspaceRender.ForceMeshes(root);
                 failures.AddRange(Checks(shot));
                 failures = KeptToFail(name, failures);
+                if (name.StartsWith("h", StringComparison.Ordinal))
+                {
+                    // Heads-up: the view with the head level and looking ahead, then each glance item close.
+                    Save(folder, name, FieldView(eyes, root.transform));
+                    Save(folder, name + "-closeup-work", GlanceCloseUp(shot, glances[0]));
+                    Save(folder, name + "-closeup-waits", GlanceCloseUp(shot, glances[1]));
+                    return failures;
+                }
                 if (name.StartsWith("r", StringComparison.Ordinal))
                 {
                     // A plane: level and upright, as architecture is photographed, then as the eyes see it.
@@ -268,7 +276,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var extents = new List<GlazeChecks.Extent>();
             foreach (var character in shot.Characters)
             {
-                extents.Add(GlazeChecks.Of(character.View.WorkstreamId + "'s label", eyes, character.View.Label.gameObject));
+                // A character the shot hides, as heads-up does while walking, stands nowhere.
+                if (!character.View.gameObject.activeInHierarchy) continue;
+                if (character.View.Label.gameObject.activeInHierarchy) extents.Add(GlazeChecks.Of(character.View.WorkstreamId + "'s label", eyes, character.View.Label.gameObject));
                 extents.Add(WorkspaceRender.BodyExtent(character.View, eyes));
             }
             var surfaces = shot.Boards.Select(board => GlazeChecks.Of(board.Name, eyes, board.Plates.Select(plate => (Renderer)plate.Renderer))).ToList();
@@ -306,12 +316,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A Quest 3S's narrower field, turned to the surface with the head tipped 18 degrees down, as the
                 // earlier rounds assumed; the refined shots use the product's FieldChecks (PlaneChecks).
                 var middleYaw = (extent.Left + extent.Right) / 2f;
-                if (!shot.Name.StartsWith("r", StringComparison.Ordinal) && (extent.Right - middleYaw > 48f - 1.5f || extent.Bottom < -(45f - 1.5f) - 18f))
+                if (!shot.Name.StartsWith("r", StringComparison.Ordinal) && !shot.Name.StartsWith("h", StringComparison.Ordinal)
+                    && (extent.Right - middleYaw > 48f - 1.5f || extent.Bottom < -(45f - 1.5f) - 18f))
                 {
                     failures.Add(shot.Name + ": " + extent + " reaches past a Quest 3S's field.");
                 }
             }
             failures.AddRange(PlaneChecks(shot));
+            failures.AddRange(HeadsUpChecks(shot));
             Debug.Log("Halcyonic: directions render " + shot.Name + ": the whole scene, characters included, at most " + DrawCalls(shot.Root.gameObject)
                 + " draw calls before batching (budget 220).");
             return failures;
