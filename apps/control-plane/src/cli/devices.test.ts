@@ -109,9 +109,13 @@ describe('pnpm pair while the control plane is replaced', () => {
     // The control plane stops while pairing is open, and something else takes its port.
     await server.stop();
     await new Promise<void>((resolve) => impostor.listen(server.port, '127.0.0.1', resolve));
-    // Its next request finds the old connection gone, or the impostor unable to prove the token;
-    // either way it stops there, and the impostor gets no token.
-    await assert.rejects(status, /can't prove it holds this Mac's access token|stopped answering/);
+    // It stops at its next request, however that fails: the old connection gone, nothing
+    // listening yet, or the impostor unable to prove the token. What matters is that it stops and
+    // that the impostor gets no token.
+    await assert.rejects(
+      status,
+      /can't prove it holds this Mac's access token|stopped answering|is not answering/,
+    );
     assert.ok(
       authorizations.every((value) => value === undefined),
       'no request carried the token',
