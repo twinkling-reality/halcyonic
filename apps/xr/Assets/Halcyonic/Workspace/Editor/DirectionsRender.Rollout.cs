@@ -145,7 +145,9 @@ namespace Halcyonic.XR.Workspace.Editor
             var menuWidth = 2f * U(16f);
             var stepsWidth = 2f * U(19f);
             var head = SubjectShape(shot, "Menu subject", "What would you like to work on?", GlazeTokens.Text, menuWidth);
-            var newHead = SubjectShape(shot, "Idea subject", "A page for my running club's race times", GlazeTokens.Text, stepsWidth, head.Height);
+            // With the view, an idea that is not software yet, and a question that looks for the software in it.
+            var idea = view ? "Get more of my running club to races" : "A page for my running club's race times";
+            var newHead = SubjectShape(shot, "Idea subject", idea, GlazeTokens.Text, stepsWidth, head.Height);
             var places = SectionShapes(shot, "Places", Places, menuWidth, chosen: 1, waiting: -1);
             var steps = SectionShapes(shot, "Steps", Steps, stepsWidth, chosen: 1, waiting: -1);
 
@@ -169,13 +171,16 @@ namespace Halcyonic.XR.Workspace.Editor
             var py = -U(PanelPadding);
             if (view) py -= Body(page, "View", CompanionText.ThinksNotBuildable, pl, py, pr - pl, Secondary).Height + U(Grid);
             var says = tooLong
-                ? CompanionText.Says("A shared file works well for a small club, and a page can read it as it changes. Should the page show each runner's best time, or every race?")
-                : CompanionText.Says("Should the page show each runner's best time, or every race?");
+                ? CompanionText.Says("Getting people to races is more habit than software, but a page could help. Would a page of the club's next races help, or a reminder before each one?")
+                : view
+                    ? CompanionText.Says("Would a page of the club's next races help, or a reminder before each one?")
+                    : CompanionText.Says("Should the page show each runner's best time, or every race?");
             py -= Body(page, "Asks", says, pl, py, pr - pl, GlazeTokens.Text, lines: tooLong ? 3 : 2, lean: true).Height + U(GroupGap);
             var inset = U(RowInset);
             var tall = U(RowHeight);
             var half = (pr - pl + 2f * inset - page.TargetGap) / 2f;
-            foreach (var (answer, index) in new[] { ("Each runner's best", 0), ("Every race, newest first", 1) })
+            var answers = view ? new[] { ("A page of next races", 0), ("A reminder before each", 1) } : new[] { ("Each runner's best", 0), ("Every race, newest first", 1) };
+            foreach (var (answer, index) in answers)
             {
                 var shapeLeft = pl - inset + index * (half + page.TargetGap);
                 InnerShape(page, shapeLeft + half / 2f, py - tall / 2f, half, tall);

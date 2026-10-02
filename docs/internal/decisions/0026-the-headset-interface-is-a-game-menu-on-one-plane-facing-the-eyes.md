@@ -183,8 +183,10 @@ coordinator's first-visit words:
   question with "Question 2 of 4" as its small fact, its answers as rows, the row for their own
   answer, and Go on without it last where a question can be skipped. Next question, the main
   action, records the chosen answer; on the last question it is Make the recap. There is no
-  Previous question: the recap lists every answer, and its Change opens that question again with
-  its answer chosen and Done as the main action.
+  Previous question. The recap's first task is composed from the answers, and its Change walks the
+  questions again from the first, each answer already chosen, so Next question keeps it and Make
+  the recap composes the task again. A first task rewritten by hand is never composed over; its
+  Change opens the page of words.
 - **An unavailable prompt keeps its place**, drawn quiet, its cap outlined even for the main action
   and its words in the secondary colour; its reason is the page's last line of content, above the
   source line.
