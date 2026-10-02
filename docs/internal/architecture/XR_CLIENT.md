@@ -1057,6 +1057,15 @@ scripts use only long-stable core Unity APIs:
   above the stage also counts what needs the person across every project ("2 need you", in the
   attention color), so it stays findable when the window covers the characters. Whether Unity
   reports each of these as a focus change on the Quest is verified only on the device.
+- **The glance (spike, development builds only).** A second client in the same APK, for use
+  inside another immersive app: `GlanceActivity` (Java, `apps/xr/Android/glance`), a 2D window with
+  the `OVERLAY_LAUNCHER` category, which `GlanceInDevelopmentBuilds` adds to development builds
+  only and `BuildReleaseApk` refuses. It cannot share the C# client core, so it reads only the
+  snapshot's computed fields (a test holds them to the JSON Schema), sends no command, takes the
+  access token only from a mode-600 file in app-private storage after the control plane proves it
+  holds it (`GlanceProof`, held equal to `security.ts`), and shows titles under `LabelText`'s rule
+  (`GlanceText`, held equal by one table in both languages). See XR_DEVELOPMENT.md, "The glance on
+  a Quest (spike)".
 - `DeviceMeasures` logs what a device session needs about the headset, in numbers only: the first
   frame's time after start, each eye's field of view once the headset renders in stereo (read from
   its projection by the client core's `ViewField`), each minute's frames, slowest frame and frames

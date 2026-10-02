@@ -1296,3 +1296,52 @@ battery used and per hour, the hottest reading, the lowest minute's frame rate, 
 A USB cable charges the headset, so `plugged` reads 1 and the battery barely moves; for the hour's
 battery figures, connect adb over Wi-Fi (`adb tcpip 5555`, then `adb connect <headset address>`) and
 unplug the cable.
+
+### The glance on a Quest (spike)
+
+The glance is a small 2D window of Halcyonic's, opened from the Library or the Navigator while a game
+or another immersive app runs, to learn whether agents can reach the person there
+([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md), "Reaching the person inside
+another app"). It shows what waits and what is working, offers only Open Halcyonic, and raises a
+notification without the task's title when a task starts waiting. It is in development builds only
+(`GlanceInDevelopmentBuilds`); `BuildReleaseApk` deletes and fails an APK that carries it. Its Java
+lives in `apps/xr/Android/glance`; `tooling/glance` and `GlanceParityTests` hold its loopback proof
+and text rule to the TypeScript and C# ones.
+
+Setup, after installing a development APK and `adb reverse tcp:47800 tcp:47800`. Put the access
+token in the app's private storage, readable only by the app, with no copy on the headset's shared
+storage (`run-as` works on debuggable builds only):
+
+```bash
+adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; cat > files/glance-access-token'" < ~/.halcyonic/access-token
+```
+
+It refuses a token file that anyone else can read or write, and before every request that carries
+the token the control plane must prove it holds it. To remove it:
+`adb shell run-as com.halcyonic.xr rm files/glance-access-token`.
+
+Its log lines, tag `Halcyonic`, codes and numbers only (`adb logcat -s Halcyonic`):
+`glance started`, `glance visible`, `glance hidden`, `glance polled ok in 42 ms, 1 waiting, 2
+working, visible 1` (other codes: `no_token`, `token_readable_by_others`, `unreachable`,
+`unproved`, `refused_401`, `unreadable`), `glance notified, 1 newly waiting`, `glance notification
+not allowed`, `glance stopped`. It polls every 10 seconds while visible and every 30 while hidden.
+
+The checks, in order, about 20 minutes:
+
+1. Glance alone, no game: open Halcyonic's 2D window from the Library (or start it with
+   `adb shell am start -n com.halcyonic.xr/com.halcyonic.glance.GlanceActivity`). Its list matches the
+   stage's tasks; allow notifications when asked.
+2. Over a game: start any immersive game, then open Halcyonic from the Library or the Navigator. Does
+   the glance open as a window over the game, and does the game keep running?
+3. Live while visible: `pnpm demo --scenario approval_required` on the Mac. Does the row turn to
+   Waiting for you within one poll, does "A task is waiting for you" show as a toast over the game,
+   and is it heard?
+4. Minimised: minimise the window and repeat 3. Do `glance polled` lines continue, and does the toast
+   still show?
+5. How long it lives: leave it minimised over the game with `pnpm quest:session -- --minutes 60`
+   running; note when the poll lines stop, and the battery per hour against the game alone.
+6. Open Halcyonic from the toast's action and from the window's button: does the game end, and does
+   Halcyonic open?
+7. With Do Not Disturb on, is the toast silenced?
+
+Record what the Quest shows in [horizon-os-multitasking.md](../validation/horizon-os-multitasking.md).
