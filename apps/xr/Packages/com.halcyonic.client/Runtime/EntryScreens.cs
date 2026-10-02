@@ -223,7 +223,10 @@ namespace Halcyonic.Client
             {
                 model.Context = CompanionText.View(ask.View);
                 model.Rows.Add(new PanelRow { Line = true, Title = CompanionText.Says(ask.Line), TitleIsData = true, TitleLines = 3, Claim = true });
-                model.Rows.Add(new PanelRow { Line = true, Title = LabelText.Plain(ask.Question.Text), TitleIsData = true, TitleLines = 2, Size = PanelTextSize.Title });
+                model.Rows.Add(new PanelRow
+                {
+                    Line = true, Title = LabelText.Plain(ask.Question.Text), TitleIsData = true, TitleLines = 2, Size = PanelTextSize.Title, Claim = true,
+                });
                 var choices = ask.Question.Choices ?? new List<string>();
                 var recordedAnswer = recording?.RecordedAnswer(exchange);
                 for (var index = 0; index < choices.Count; index++)
@@ -233,6 +236,7 @@ namespace Halcyonic.Client
                     {
                         Title = LabelText.Plain(choices[index]),
                         TitleIsData = true,
+                        TitleLines = 2,
                         Action = pressable ? CompanionChoice : null,
                         Available = pressable,
                         Key = index.ToString(CultureInfo.InvariantCulture),

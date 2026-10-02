@@ -311,24 +311,29 @@ namespace Halcyonic.Client
         public static ProjectIdea Restore(CreationDraft kept)
         {
             if (kept == null) throw new ArgumentNullException(nameof(kept));
+            foreach (var id in new[] { kept.ExistingProjectId, kept.MadeProjectId, kept.MadeWorkstreamId })
+            {
+                if (id != null && !CreationDraft.IsId(id)) throw new ArgumentException("A kept id is not one the computer gives.", nameof(kept));
+            }
             var projectId = kept.MadeProjectId ?? kept.ExistingProjectId;
             var idea = projectId == null
                 ? new ProjectIdea()
                 : new ProjectIdea(projectId, kept.MadeProjectId != null ? kept.MadeProjectName ?? kept.Name : kept.Name);
             if (projectId == null)
             {
-                idea.Name = Limit(kept.Name, NameLimit);
+                idea.Name = Kept(kept.Name, NameLimit);
                 idea.NameTyped = kept.NameTyped;
                 idea.NameSuggested = kept.NameSuggested;
             }
-            idea.FirstTask = Limit(kept.FirstTask, TaskLimit);
+            idea.FirstTask = Kept(kept.FirstTask, TaskLimit);
             idea.TaskSuggested = kept.TaskSuggested && idea.FirstTask.Length > 0;
-            idea.OwnWords = string.IsNullOrWhiteSpace(kept.OwnWords) ? null : Limit(kept.OwnWords!, TaskLimit);
+            idea.OwnWords = string.IsNullOrWhiteSpace(kept.OwnWords) ? null : Kept(kept.OwnWords!, TaskLimit);
             idea.Guided = kept.Guided;
-            for (var index = 0; index < Math.Min(idea.answers.Length, kept.Answers?.Count ?? 0); index++)
+            if ((kept.Answers?.Count ?? 0) > idea.answers.Length) throw new ArgumentException("More answers were kept than there are questions.", nameof(kept));
+            for (var index = 0; index < (kept.Answers?.Count ?? 0); index++)
             {
                 var answer = kept.Answers![index];
-                idea.answers[index] = string.IsNullOrWhiteSpace(answer) ? null : Limit(answer!, TaskLimit);
+                idea.answers[index] = string.IsNullOrWhiteSpace(answer) ? null : Kept(answer!, TaskLimit);
             }
             idea.Question = Math.Max(0, Math.Min(Fixed.Count, kept.Question));
             if (idea.Question == NameQuestion && projectId != null) idea.Question++;
@@ -339,17 +344,21 @@ namespace Halcyonic.Client
             }
             if (kept.Companion is KeptExchange exchange && projectId == null)
             {
+                if (!Enum.IsDefined(typeof(CompanionStart), exchange.Start)) throw new ArgumentException("A kept exchange began in no known way.", nameof(kept));
                 idea.Companion = CompanionExchange.Restore(exchange.Start, exchange.MaxQuestions, exchange.Turns ?? new List<CompanionExchangeTurn>());
             }
             return idea;
         }
 
-        private static string Limit(string? text, int limit)
+        /// <summary>
+        /// Kept text as it was, never cut: one longer than what could be sent shows the recap's own
+        /// problem until the person shortens it, and one far past that is no draft at all.
+        /// </summary>
+        private static string Kept(string? text, int limit)
         {
             var value = (text ?? "").Trim();
-            if (value.Length <= limit) return value;
-            var end = char.IsHighSurrogate(value[limit - 1]) ? limit - 1 : limit;
-            return value.Substring(0, end);
+            if (value.Length > limit * 4) throw new ArgumentException("Kept text is far longer than anything the headset makes.");
+            return value;
         }
 
         /// <summary>

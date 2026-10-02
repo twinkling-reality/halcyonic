@@ -129,10 +129,67 @@ namespace Halcyonic.Client
             }
         }
 
+        /// <summary>
+        /// The draft again, held to what the computer says now, or null when it is no longer one to
+        /// resume: a project it names must be one the computer has, and shows by the computer's own
+        /// name, never the kept one; a task it made must belong to that project, with no work started
+        /// and no start of it on its way. A task that has started was started, so its draft is done.
+        /// </summary>
+        public RestoredDraft? Resume(ClientProjection state)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            var projectId = ProjectAfterRestart;
+            if (projectId != null)
+            {
+                if (!state.Projects.TryGetValue(projectId, out var project)) return null;
+                if (MadeProjectId != null) MadeProjectName = project.Name;
+                else Name = project.Name;
+            }
+            string? workstream = null;
+            if (MadeWorkstreamId != null)
+            {
+                if (projectId == null || !state.Workstreams.TryGetValue(MadeWorkstreamId, out var made) || made.ProjectId != projectId) return null;
+                if (made.ExecutionIds.Count > 0 || made.CurrentExecutionId != null) return null;
+                foreach (var command in state.Commands.Values)
+                {
+                    var settled = command.Status == CommandStatus.Rejected || (command.Status == CommandStatus.Failed && command.Failure?.Effect != FailureEffect.Unknown);
+                    if (command.CommandType == CommandType.ExecutionStart && command.WorkstreamId == MadeWorkstreamId && !settled) return null;
+                }
+                workstream = MadeWorkstreamId;
+            }
+            var idea = ToIdea();
+            return idea == null ? null : new RestoredDraft(idea, projectId, workstream);
+        }
+
+        /// <summary>Whether <paramref name="id"/> has the shape of an id the computer gives: a lowercase UUID.</summary>
+        public static bool IsId(string id) => Uuid.IsMatch(id);
+
+        private static readonly System.Text.RegularExpressions.Regex Uuid = new System.Text.RegularExpressions.Regex(
+            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
         /// <summary>The project the work belongs to after a restart: the one the Mac made, or the one the draft added to.</summary>
         public string? ProjectAfterRestart => MadeProjectId ?? ExistingProjectId;
 
-        public bool ExpiredAt(DateTimeOffset now) => now - ChangedAt > Retention;
+        /// <summary>Past its retention, or changed in a future no clock of this device saw, which counts as kept too long.</summary>
+        public bool ExpiredAt(DateTimeOffset now) => now - ChangedAt > Retention || ChangedAt - now > TimeSpan.FromDays(1);
+    }
+
+    /// <summary>A kept draft held to the computer's own view: the idea, its project, and a task made for it that waits to be started.</summary>
+    public sealed class RestoredDraft
+    {
+        public RestoredDraft(ProjectIdea idea, string? projectId, string? workstreamToStart)
+        {
+            Idea = idea;
+            ProjectId = projectId;
+            WorkstreamToStart = workstreamToStart;
+        }
+
+        public ProjectIdea Idea { get; }
+
+        public string? ProjectId { get; }
+
+        /// <summary>A task the computer made for the draft and never started; Start building only starts it (<see cref="BuildSequence.Resume"/>).</summary>
+        public string? WorkstreamToStart { get; }
     }
 
     /// <summary>A folder choice as kept: the root and the name exactly as the host listed them.</summary>
@@ -192,7 +249,7 @@ namespace Halcyonic.Client
             try
             {
                 if (!File.Exists(path) || new FileInfo(path).Length > MaxBytes) return Array.Empty<CreationDraft>();
-                var file = JsonConvert.DeserializeObject<DraftFile>(File.ReadAllText(path), HalcyonicJson.Tolerant);
+                var file = JsonConvert.DeserializeObject<DraftFile>(File.ReadAllText(path), HalcyonicJson.Strict);
                 if (file == null || file.Version != DraftFile.CurrentVersion) return Array.Empty<CreationDraft>();
                 return file.Drafts.Where(draft => draft != null).ToList();
             }
@@ -213,7 +270,14 @@ namespace Halcyonic.Client
             var directory = Path.GetDirectoryName(Path.GetFullPath(path));
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
             var temporary = path + ".new";
-            File.WriteAllText(temporary, JsonConvert.SerializeObject(new DraftFile { Drafts = drafts.ToList() }, Formatting.None, HalcyonicJson.Tolerant));
+            var json = JsonConvert.SerializeObject(new DraftFile { Version = DraftFile.CurrentVersion, Drafts = drafts.ToList() }, Formatting.None, HalcyonicJson.Tolerant);
+            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
+            {
+                writer.Write(json);
+                writer.Flush();
+                stream.Flush(true);
+            }
             if (File.Exists(path)) File.Replace(temporary, path, null);
             else File.Move(temporary, path);
         }
@@ -222,8 +286,9 @@ namespace Halcyonic.Client
         {
             public const int CurrentVersion = 1;
 
-            [JsonProperty("version")]
-            public int Version { get; set; } = CurrentVersion;
+            /// <summary>Required: a file that does not say its version is not read.</summary>
+            [JsonProperty("version", Required = Required.Always)]
+            public int Version { get; set; }
 
             [JsonProperty("drafts")]
             public List<CreationDraft> Drafts { get; set; } = new List<CreationDraft>();
@@ -239,6 +304,7 @@ namespace Halcyonic.Client
         private readonly ICreationDraftStore store;
         private readonly Func<DateTimeOffset> now;
         private string? lastWritten;
+        private List<CreationDraft>? kept;
 
         public CreationDrafts(ICreationDraftStore store, Func<DateTimeOffset>? now = null)
         {
@@ -250,11 +316,14 @@ namespace Halcyonic.Client
         public IReadOnlyList<CreationDraft> For(string journalId)
         {
             var at = now();
-            return store.Load()
+            return Kept()
                 .Where(draft => draft.JournalId == journalId && !draft.ExpiredAt(at))
                 .OrderByDescending(draft => draft.ChangedAt)
                 .ToList();
         }
+
+        /// <summary>What the store holds, read once; this object writes every change after that, so it never reads again.</summary>
+        private List<CreationDraft> Kept() => kept ??= store.Load().ToList();
 
         /// <summary>
         /// Keeps <paramref name="current"/> as this computer's drafts, in place of what was kept for it,
@@ -265,12 +334,20 @@ namespace Halcyonic.Client
         {
             var at = now();
             var mine = current.Where(draft => draft != null).ToList();
-            var others = store.Load().Where(draft => draft.JournalId != journalId && !draft.ExpiredAt(at));
+            var before = Kept();
+            // A draft whose content did not change keeps the time it last changed: retention counts from there.
+            foreach (var draft in mine)
+            {
+                var earlier = before.FirstOrDefault(each => each.JournalId == journalId && each.Place == draft.Place);
+                if (earlier != null && Content(earlier) == Content(draft) && !earlier.ExpiredAt(at)) draft.ChangedAt = earlier.ChangedAt;
+            }
+            var others = before.Where(draft => draft.JournalId != journalId && !draft.ExpiredAt(at));
             var all = others.Concat(mine).ToList();
             // Compared without the times, so an unchanged draft is not written again.
             var shape = JsonConvert.SerializeObject(all.Select(draft => (draft.JournalId, draft.Place, Content: Content(draft))), HalcyonicJson.Tolerant);
             if (shape == lastWritten) return false;
             store.Save(all);
+            kept = all;
             lastWritten = shape;
             return true;
         }
