@@ -42,7 +42,11 @@ public class PairingLiveTests
         return directory;
     }
 
-    private async Task<ControlPlaneProcess> StartAsync(int networkPort, string? dataDir = null)
+    /// <summary>
+    /// A control plane with its network listener on, on a port it chooses itself unless one is named,
+    /// as when another starts where an earlier one served.
+    /// </summary>
+    private async Task<ControlPlaneProcess> StartAsync(int networkPort = 0, string? dataDir = null)
     {
         var process = await ControlPlaneProcess.StartAsync(dataDir ?? TemporaryDirectory(), networkPort: networkPort);
         processes.Add(process);
@@ -102,8 +106,8 @@ public class PairingLiveTests
     [Test]
     public async Task PairsWithTheCodeThenDirectsWorkOverPinnedTlsAsTheDevice()
     {
-        var networkPort = ControlPlaneProcess.FreePort();
-        var controlPlane = await StartAsync(networkPort);
+        var controlPlane = await StartAsync();
+        var networkPort = controlPlane.NetworkPort!.Value;
         var (code, pin) = await OpenPairingAsync(controlPlane);
 
         var paired = await PairingClient.PairAsync("127.0.0.1", networkPort, code[..4] + " " + code[4..], "Quest 3");
@@ -151,8 +155,8 @@ public class PairingLiveTests
     [Test]
     public async Task RefusesWrongCodesAndClosesPairingAfterThree()
     {
-        var networkPort = ControlPlaneProcess.FreePort();
-        var controlPlane = await StartAsync(networkPort);
+        var controlPlane = await StartAsync();
+        var networkPort = controlPlane.NetworkPort!.Value;
         var (code, _) = await OpenPairingAsync(controlPlane);
         foreach (var left in new long[] { 2, 1, 0 })
         {
@@ -170,8 +174,8 @@ public class PairingLiveTests
     [Test]
     public async Task ARelayInTheMiddleCannotPairEvenWithTheCode()
     {
-        var networkPort = ControlPlaneProcess.FreePort();
-        var controlPlane = await StartAsync(networkPort);
+        var controlPlane = await StartAsync();
+        var networkPort = controlPlane.NetworkPort!.Value;
         var (code, _) = await OpenPairingAsync(controlPlane);
         await using var relay = TlsRelay.Start(networkPort);
 
@@ -188,8 +192,8 @@ public class PairingLiveTests
     [Test]
     public async Task RevokingTheDeviceEndsItsSessionAndItsCredential()
     {
-        var networkPort = ControlPlaneProcess.FreePort();
-        var controlPlane = await StartAsync(networkPort);
+        var controlPlane = await StartAsync();
+        var networkPort = controlPlane.NetworkPort!.Value;
         var (code, _) = await OpenPairingAsync(controlPlane);
         var paired = await PairingClient.PairAsync("127.0.0.1", networkPort, code, "Quest 3");
         var target = ControlPlaneTarget.Paired(paired);
@@ -206,8 +210,8 @@ public class PairingLiveTests
     [Test]
     public async Task ForgettingTheControlPlaneRevokesTheCredentialThere()
     {
-        var networkPort = ControlPlaneProcess.FreePort();
-        var controlPlane = await StartAsync(networkPort);
+        var controlPlane = await StartAsync();
+        var networkPort = controlPlane.NetworkPort!.Value;
         var (code, _) = await OpenPairingAsync(controlPlane);
         var paired = await PairingClient.PairAsync("127.0.0.1", networkPort, code, "Quest 3");
 
@@ -220,8 +224,8 @@ public class PairingLiveTests
     [Test]
     public async Task APairedDeviceRefusesAControlPlaneWithAnotherIdentity()
     {
-        var networkPort = ControlPlaneProcess.FreePort();
-        var first = await StartAsync(networkPort);
+        var first = await StartAsync();
+        var networkPort = first.NetworkPort!.Value;
         var (code, _) = await OpenPairingAsync(first);
         var paired = await PairingClient.PairAsync("127.0.0.1", networkPort, code, "Quest 3");
         first.Dispose();
