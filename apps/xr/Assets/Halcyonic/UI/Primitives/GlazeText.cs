@@ -24,6 +24,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Supporting lines and tags (15 dp), the smallest text anywhere.</summary>
         Caption,
+
+        /// <summary>A column's subject on the menu (24 dp), drawn light, one a column (ADR 0026).</summary>
+        Subject,
     }
 
     /// <summary>
@@ -42,6 +45,11 @@ namespace Halcyonic.XR.UI
         private const float StrongSpacing = 1.5f;
 
         private static readonly Dictionary<TMP_FontAsset, Material> strongMaterials = new Dictionary<TMP_FontAsset, Material>();
+
+        /// <summary>How much thinner a subject's glyphs are drawn, in TextMeshPro's face dilation (ADR 0026).</summary>
+        private const float LightDilate = -0.12f;
+
+        private static readonly Dictionary<TMP_FontAsset, Material> lightMaterials = new Dictionary<TMP_FontAsset, Material>();
 
         /// <summary>Every label made to follow <see cref="Scale"/>, with its role, so a change reaches the ones that show.</summary>
         private static readonly List<(WeakReference<TMP_Text> Label, GlazeType Type)> made = new List<(WeakReference<TMP_Text>, GlazeType)>();
@@ -66,6 +74,7 @@ namespace Halcyonic.XR.UI
             GlazeType.Title => Glaze.TitleDegrees,
             GlazeType.Body => Glaze.BodyDegrees,
             GlazeType.Badge => Glaze.BadgeDegrees,
+            GlazeType.Subject => Glaze.Menu.TitleDegrees,
             _ => Glaze.CaptionDegrees,
         };
 
@@ -121,11 +130,8 @@ namespace Halcyonic.XR.UI
             text.textWrappingMode = TextWrappingModes.Normal;
             text.overflowMode = TextOverflowModes.Ellipsis;
             text.sortingOrder = order;
-            if (strong ?? IsStrong(type))
-            {
-                text.fontSharedMaterial = StrongMaterial(text.font);
-                text.characterSpacing = StrongSpacing;
-            }
+            if (type == GlazeType.Subject) text.fontSharedMaterial = LightMaterial(text.font);
+            else if (strong ?? IsStrong(type)) SetStrong(text, true);
             var renderer = text.GetComponent<MeshRenderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
@@ -197,6 +203,27 @@ namespace Halcyonic.XR.UI
         private const float LeanShear = 0.35f;
 
         /// <summary>
+        /// Draws <paramref name="text"/> heavier, by its material, or as it is: on the menu only the
+        /// chosen section and the main action are drawn heavier (ADR 0026).
+        /// </summary>
+        public static void SetStrong(TMP_Text text, bool strong)
+        {
+            text.fontSharedMaterial = strong ? StrongMaterial(text.font) : text.font.material;
+            text.characterSpacing = strong ? StrongSpacing : 0f;
+        }
+
+        /// <summary>The font's own material with thinner glyphs, for a subject drawn light.</summary>
+        private static Material LightMaterial(TMP_FontAsset font)
+        {
+            if (lightMaterials.TryGetValue(font, out var light) && light != null) return light;
+            light = new Material(font.material) { name = font.material.name + " (light)" };
+            light.SetFloat(ShaderUtilities.ID_FaceDilate, LightDilate);
+            ShaderUtilities.UpdateShaderRatios(light);
+            lightMaterials[font] = light;
+            return light;
+        }
+
+        /// <summary>
         /// The font's own material with thicker glyphs, for strong text. TextMeshPro keeps a glyph's
         /// room around it from the material, so the thicker glyphs are not clipped.
         /// </summary>
@@ -215,6 +242,7 @@ namespace Halcyonic.XR.UI
         private static void Reset()
         {
             strongMaterials.Clear();
+            lightMaterials.Clear();
             made.Clear();
             Scale = 1f;
             ScaleChanged = null;

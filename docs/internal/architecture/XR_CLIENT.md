@@ -293,7 +293,10 @@ the same definition names, as the JSON Schema document:
   wall. `Surface.DrawGlass` draws the glass in one call of the one surface shader: the panel colour
   at 96 percent, a white hairline, a light from the top edge fading out by a third of the height,
   or within a content surface's top padding, and a sheen just inside the top edge; the component
-  render samples it. `PanelModel` stays until nothing draws it.
+  render samples it. A subject is `GlazeType.Subject`, 24 dp drawn light; only the chosen section and
+  the main action are drawn heavier (`GlazeText.SetStrong`). A file's state pill is the stage's
+  badge drawn `StateBadgeView.PillScale` larger, its word at 18 dp, on the subject's top edge, and
+  `GlazeChecks.TypeStepsDown` reads it with its subject. `PanelModel` stays until nothing draws it.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (no surface uses it yet): columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line

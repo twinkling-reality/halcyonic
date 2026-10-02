@@ -125,6 +125,7 @@ namespace Halcyonic.XR.UI.Editor
                 foreach (var holder in third) holder.gameObject.SetActive(false);
                 var files = FileIcons();
                 var glass = GlassSample();
+                SplitHeaderSample();
                 failures.AddRange(Check(folder, "gallery-files.png", camera, texture, root, eyes, new List<(GlazeButton, string)>()));
                 failures.AddRange(GlassLightsFromItsTop(camera, texture, glass));
                 foreach (var holder in third) holder.gameObject.SetActive(true);
@@ -134,6 +135,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(TextAsSeenCatchesASlant());
                 failures.AddRange(OnePlaneCatchesEachBreak());
                 failures.AddRange(TypeStepsDownCatchesARise());
+                failures.AddRange(TypeStepsDownReadsThePillWithItsSubject());
                 failures.AddRange(OneSelectionTreatmentCatchesEachBreak());
                 MeasureFooters();
             }
@@ -514,6 +516,50 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// The type check reads a state pill on a subject's top edge with that subject, the split
+        /// header's one exception (ADR 0026), and still catches the same 18 dp words there as a plain
+        /// line over the 24 dp title. Fails if it fails the first or misses the second.
+        /// </summary>
+        private static IEnumerable<string> TypeStepsDownReadsThePillWithItsSubject()
+        {
+            var failures = new List<string>();
+            foreach (var asPill in new[] { true, false })
+            {
+                var (holder, column) = OneColumn(asPill ? "Subject with its pill" : "Subject with a line over it", 4f, 6f);
+                var subject = column[0].Root;
+                var size = column[0].Size / PlaneComposition.Distance;
+                if (asPill)
+                {
+                    var pill = StateBadgeView.Create(subject, "Pill", 3, pill: true);
+                    pill.Show(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired)));
+                    pill.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(3f), size.y / 2f, -0.002f);
+                }
+                else
+                {
+                    var line = GlazeText.Create(subject, "Line", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Center, 3);
+                    GlazeText.SetLiteral(line, "Waiting for you");
+                    GlazeText.Lay(line, GlazeTokens.Units(10f), 1);
+                    line.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(6f), size.y / 2f + GlazeText.LineHeight(line) / 2f, -0.002f);
+                }
+                var title = GlazeText.Create(subject, "Subject", GlazeType.Subject, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 3);
+                title.rectTransform.pivot = new Vector2(0f, 1f);
+                GlazeText.SetLiteral(title, "Add rate limiting");
+                GlazeText.Lay(title, size.x - GlazeTokens.Units(3f), 1);
+                title.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(1.5f), size.y / 2f - GlazeTokens.Units(1.2f), -0.002f);
+                var body = GlazeText.Create(column[1].Root, "Body", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 3);
+                body.rectTransform.pivot = new Vector2(0f, 1f);
+                GlazeText.SetLiteral(body, "It wants to run make migrate.");
+                GlazeText.Lay(body, GlazeTokens.Units(20f), 1);
+                body.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(1.5f), column[1].Size.y / PlaneComposition.Distance / 2f - GlazeTokens.Units(1.5f), -0.002f);
+                var found = GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)column }, galleryEyes, "component render: " + holder.name).ToList();
+                if (asPill) failures.AddRange(found);
+                else if (!found.Any(failure => failure.Contains("type only steps down"))) failures.Add("component render: the type check missed 18 dp words over a 24 dp subject.");
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            }
+            return failures;
+        }
+
+        /// <summary>
         /// The selection check passes a row with one chosen shape, lit and framed, one pointed at,
         /// framed alone, and a footer whose main action's cap takes the accent; and catches an accent
         /// bar under the chosen shape (as a bar and as the accent, exactly those two), a second chosen
@@ -744,6 +790,27 @@ namespace Halcyonic.XR.UI.Editor
             var glass = Surface.Create(holder, "Glass", 1);
             glass.DrawGlass(new Vector2(GlazeTokens.Units(8f), GlazeTokens.Units(4f)) * 2f);
             return glass;
+        }
+
+        /// <summary>
+        /// A file's subject with the split header (ADR 0026): its glass plate, its task's state pill on
+        /// the plate's top edge at its left, the badge's word at 18 dp, and its title drawn light at 24 dp.
+        /// </summary>
+        private static void SplitHeaderSample()
+        {
+            var holder = Holder("Split header", 26f, -9f);
+            var size = new Vector2(GlazeTokens.Units(9f), GlazeTokens.Units(2.2f)) * 2f;
+            var plate = Surface.Create(holder, "Subject plate", 1);
+            plate.DrawGlass(size);
+            var pill = StateBadgeView.Create(holder, "Pill", 3, pill: true);
+            pill.Show(StateLanguage.BadgeOf(Character(CharacterActivity.WaitingForHuman, AttentionLevel.ActionRequired)));
+            var padding = GlazeTokens.Units(Glaze.Menu.PaddingDegrees);
+            pill.transform.localPosition = new Vector3(-size.x / 2f + padding + pill.Width / 2f, size.y / 2f, -0.002f);
+            var title = GlazeText.Create(holder, "Subject", GlazeType.Subject, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 3);
+            title.rectTransform.pivot = new Vector2(0f, 1f);
+            GlazeText.SetLiteral(title, "Add rate limiting");
+            GlazeText.Lay(title, size.x - 2f * padding, 1);
+            title.transform.localPosition = new Vector3(-size.x / 2f + padding, size.y / 2f - StateBadgeView.PillHeight / 2f - GlazeTokens.Units(Glaze.Menu.GridDegrees), -0.002f);
         }
 
         /// <summary>
