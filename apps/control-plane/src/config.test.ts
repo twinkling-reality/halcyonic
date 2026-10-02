@@ -284,6 +284,36 @@ describe('configuration', () => {
     assert.throws(() => loadConfig(proxy), /environment proxy/);
     assert.ok(loadConfig({ ...proxy, NO_PROXY: 'localhost,127.0.0.1' }).companion);
     assert.ok(loadConfig({ ...proxy, NODE_USE_ENV_PROXY: '0' }).companion);
+    assert.ok(loadConfig({ ...proxy, NO_PROXY: '*' }).companion);
+    assert.ok(loadConfig({ ...proxy, no_proxy: '127.0.0.1:11434' }).companion);
+    // Read as Node's fetch reads them: lowercase first, `*` only alone, brackets kept.
+    const proxyOn = { HALCYONIC_COMPANION_MODEL: 'm:t', NODE_USE_ENV_PROXY: '1' };
+    for (const env of [
+      { HTTP_PROXY: '', http_proxy: 'http://proxy.example:3128' },
+      { HTTP_PROXY: 'http://proxy.example:3128', NO_PROXY: '127.0.0.1', no_proxy: 'example.com' },
+      { HTTP_PROXY: 'http://proxy.example:3128', NO_PROXY: '127.0.0.1', no_proxy: '' },
+      { HTTP_PROXY: 'http://proxy.example:3128', NO_PROXY: '*,example.com' },
+      { HTTP_PROXY: 'http://proxy.example:3128', NO_PROXY: '*,' },
+      { HTTP_PROXY: 'http://proxy.example:3128', NO_PROXY: ' *' },
+      {
+        HTTP_PROXY: 'http://proxy.example:3128',
+        NO_PROXY: '::1',
+        HALCYONIC_COMPANION_OLLAMA_URL: 'http://[::1]:11434',
+      },
+    ])
+      assert.throws(
+        () => loadConfig({ ...proxyOn, ...env }),
+        /environment proxy/,
+        JSON.stringify(env),
+      );
+    assert.ok(
+      loadConfig({
+        ...proxyOn,
+        HTTP_PROXY: 'http://proxy.example:3128',
+        NO_PROXY: '[::1]',
+        HALCYONIC_COMPANION_OLLAMA_URL: 'http://[::1]:11434',
+      }).companion,
+    );
     for (const model of ['gemma4:cloud', 'gemma4:Cloud', 'gpt-oss:120b-cloud'])
       assert.throws(() => loadConfig({ HALCYONIC_COMPANION_MODEL: model }), /cloud models/, model);
     for (const model of ['-flag', 'two words', 'x'.repeat(201)])
