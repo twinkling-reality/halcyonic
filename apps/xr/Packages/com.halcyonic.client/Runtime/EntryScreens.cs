@@ -55,6 +55,14 @@ namespace Halcyonic.Client
         public const string OpenNow = "open-now";
         public const string KeepCreating = "keep-creating";
 
+        // Create's companion (ADR 0025).
+        public const string CompanionChoice = "companion-choice";
+        public const string CompanionType = "companion-type";
+        public const string MakeRecap = "make-recap";
+        public const string GoOnWithout = "go-on-without";
+        public const string CompanionRetry = "companion-retry";
+        public const string UseMyWords = "use-my-words";
+
         /// <summary>The first live visit: two choices, and Not now in Close's place.</summary>
         public static PanelModel Welcome()
         {
@@ -138,7 +146,12 @@ namespace Halcyonic.Client
         /// talk's words, shown under the field.
         /// </summary>
         /// <param name="voice">Hold to talk is offered: in development builds, while connected, never in the demonstration.</param>
-        public static PanelModel CreateStart(ProjectIdea idea, bool voice, string? said)
+        /// <param name="companion">
+        /// Whether the companion can be asked, as the Mac said when Create opened (ADR 0025); null when
+        /// not read, as in the demonstration. Help me figure it out says which helper it opens, and when
+        /// the companion can't run, one line says why.
+        /// </param>
+        public static PanelModel CreateStart(ProjectIdea idea, bool voice, string? said, CompanionStatus? companion = null)
         {
             var existing = idea.ExistingProjectId != null;
             var model = new PanelModel(EntryText.CreateTitle(existing ? idea.Name : null))
@@ -155,8 +168,99 @@ namespace Halcyonic.Client
                 Side = voice ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk) : null,
             });
             if (said != null) model.Rows.Add(Line(said, PanelTextSize.Caption, lines: 2));
-            model.Rows.Add(new PanelRow { Title = EntryText.HelpMe, Detail = EntryText.HelpMeInvite, Action = HelpMe });
+            var talk = !existing && companion is AvailableCompanion;
+            model.Rows.Add(new PanelRow { Title = EntryText.HelpMe, Detail = talk ? CompanionText.TalkItThrough : EntryText.HelpMeInvite, Action = HelpMe });
+            if (!existing && said == null && companion is UnavailableCompanion unavailable)
+            {
+                model.Rows.Add(Line(CompanionText.Unavailable(unavailable.Reason?.Code), PanelTextSize.Caption, lines: 2));
+            }
             return model;
+        }
+
+        /// <summary>
+        /// The exchange with the companion (ADR 0025): its latest line, quoted and tagged as its own, its
+        /// view of the idea as its opinion under the title, then its question with up to four choices,
+        /// and Type my answer with hold to talk beside it. While a reply is on its way, only that it is
+        /// waiting, and, once the wait is long, that the computer's model may be busy with a task; after
+        /// a failure, why and Try again. Back, Go on without it and Make the recap keep their places on
+        /// every one of these screens. Nothing here is sent anywhere but to the companion.
+        /// </summary>
+        /// <param name="voice">Hold to talk is offered: development builds, connected, never in the demonstration.</param>
+        /// <param name="said">A line for this screen only, such as hold to talk's words or why an answer was refused.</param>
+        /// <param name="waitedSeconds">How long the reply has been on its way.</param>
+        /// <param name="recorded">The demonstration plays a recorded exchange: said so, and only its recorded choices.</param>
+        public static PanelModel Companion(ProjectIdea idea, bool voice, string? said, double waitedSeconds, bool recorded = false)
+        {
+            var exchange = idea.Companion ?? throw new System.ArgumentException("The idea has no exchange with the companion.", nameof(idea));
+            var model = new PanelModel(EntryText.HelpMe)
+            {
+                Lead = recorded ? CompanionText.Recorded : CompanionText.Note,
+                LeadTone = recorded ? GlazeTone.Simulated : (GlazeTone?)null,
+                Columns = 2,
+            };
+            var goOn = new PanelAction(GoOnWithout, CompanionText.GoOnWithout, PanelActionRole.Secondary);
+            var back = new PanelAction(Back, EntryText.Back, PanelActionRole.Back, icon: GlazeIcon.Back);
+            if (exchange.Waiting)
+            {
+                model.Rows.Add(Line(CompanionText.Waiting, PanelTextSize.Title, lines: 1));
+                if (waitedSeconds >= CompanionText.WaitingLongSeconds) model.Rows.Add(Line(CompanionText.WaitingLong, PanelTextSize.Body, lines: 2));
+                model.Actions = new ActionSet(back, goOn,
+                    new PanelAction(MakeRecap, CompanionText.MakeTheRecap, PanelActionRole.Primary, available: false, reason: CompanionText.Waiting));
+                return model;
+            }
+            if (exchange.Failure != null)
+            {
+                model.Rows.Add(Line(CompanionText.Failure(exchange.Failure) ?? CompanionText.CouldNotAsk, PanelTextSize.Body, lines: 3, tone: GlazeTone.Failure));
+                model.Actions = new ActionSet(back, goOn,
+                    new PanelAction(CompanionRetry, EntryText.TryAgain, PanelActionRole.Primary, icon: GlazeIcon.Refresh));
+                return model;
+            }
+            if (exchange.Latest is AskReply ask)
+            {
+                model.Context = CompanionText.View(ask.View);
+                model.Rows.Add(new PanelRow { Line = true, Title = CompanionText.Says(ask.Line), TitleIsData = true, TitleLines = 3, Claim = true });
+                model.Rows.Add(new PanelRow { Line = true, Title = LabelText.Plain(ask.Question.Text), TitleIsData = true, TitleLines = 2, Size = PanelTextSize.Title });
+                var choices = ask.Question.Choices ?? new List<string>();
+                for (var index = 0; index < choices.Count; index++)
+                {
+                    model.Rows.Add(new PanelRow
+                    {
+                        Title = LabelText.Plain(choices[index]),
+                        TitleIsData = true,
+                        Action = recorded || exchange.CanSay ? CompanionChoice : null,
+                        Available = recorded || exchange.CanSay,
+                        Key = index.ToString(CultureInfo.InvariantCulture),
+                    });
+                }
+                if (!recorded)
+                {
+                    model.Rows.Add(new PanelRow
+                    {
+                        Title = CompanionText.TypeAnswer,
+                        Action = exchange.CanSay ? CompanionType : null,
+                        Available = exchange.CanSay,
+                        Side = voice && exchange.CanSay
+                            ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk)
+                            : null,
+                    });
+                }
+                if (said != null) model.Rows.Add(Line(said, PanelTextSize.Caption, lines: 2));
+                if (!exchange.CanSay && !recorded) model.Rows.Add(Line(CompanionText.Full, PanelTextSize.Caption, lines: 2));
+            }
+            model.Actions = new ActionSet(back, recorded ? null : goOn,
+                new PanelAction(MakeRecap, CompanionText.MakeTheRecap, PanelActionRole.Primary, available: recorded || exchange.CanAskForRecap,
+                    reason: recorded || exchange.CanAskForRecap ? null : CompanionText.Waiting));
+            return model;
+        }
+
+        /// <summary>
+        /// What the recap says first when the companion has just proposed it: its view, when it found
+        /// the idea unclear or not buildable, then its line, quoted and tagged as its own.
+        /// </summary>
+        public static string Proposed(ProposeReply reply)
+        {
+            var view = CompanionText.View(reply.View);
+            return (view == null ? "" : view + " ") + CompanionText.Says(reply.Line);
         }
 
         /// <summary>
@@ -218,6 +322,7 @@ namespace Halcyonic.Client
                 Title = named ? LabelText.Plain(idea.Name) : EntryText.NotNamedYet,
                 TitleIsData = named,
                 TitleLines = lines,
+                Detail = idea.NameSuggested && !compact ? CompanionText.Suggested : null,
                 Action = existing ? null : Rename,
                 End = existing ? null : EntryText.Change,
             });
@@ -227,6 +332,7 @@ namespace Halcyonic.Client
                 Title = LabelText.Plain(idea.FirstTask),
                 TitleIsData = true,
                 TitleLines = lines,
+                Detail = idea.TaskSuggested && !compact ? CompanionText.Suggested : null,
                 Action = Rewrite,
                 End = EntryText.Change,
             });
@@ -261,6 +367,7 @@ namespace Halcyonic.Client
             }
             model.Actions = new ActionSet(
                 new PanelAction(StartOver, EntryText.StartOver, PanelActionRole.Destructive, icon: GlazeIcon.StartOver),
+                idea.TaskSuggested && idea.OwnWords != null ? new PanelAction(UseMyWords, CompanionText.UseMyWords, PanelActionRole.Secondary) : null,
                 new PanelAction(StartBuilding, EntryText.StartBuilding, PanelActionRole.Primary, available: problem == null, reason: problem,
                     icon: GlazeIcon.StartBuilding));
             return model;

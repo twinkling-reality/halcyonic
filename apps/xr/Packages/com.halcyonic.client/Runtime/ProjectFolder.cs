@@ -63,6 +63,18 @@ namespace Halcyonic.Client
         public static bool IsValidNewName(string name) => name != null && NewName.IsMatch(name);
 
         /// <summary>
+        /// A choice the device kept across an app restart (<see cref="CreationDraft"/>), or null when it
+        /// cannot be one: the host checks the root and the name again when it is sent, as it does any.
+        /// </summary>
+        public static ProjectFolder? Restore(string? rootPath, string? rootName, string? folderName, bool isNew)
+        {
+            if (string.IsNullOrEmpty(rootPath) || rootName == null) return null;
+            if (isNew && (folderName == null || !IsValidNewName(folderName))) return null;
+            if (folderName != null && folderName.Length == 0) return null;
+            return new ProjectFolder(rootPath!, rootName, folderName, isNew);
+        }
+
+        /// <summary>
         /// A new folder's name from the project's name: its letters and digits, lowercase, words
         /// joined by dashes, at most 64 characters, starting with a letter or digit; "project" when
         /// nothing of it fits the rule. Always valid.

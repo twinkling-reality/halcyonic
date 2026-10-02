@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -36,10 +37,13 @@ namespace Halcyonic.Client
     /// Only then does the entry panel send the ordinary project, workstream and execution commands.
     /// </summary>
     /// <remarks>
-    /// No model is involved: the questions, the answers offered and the way answers become the first
-    /// task are fixed here, so the same answers always give the same recap. It is never presented as
-    /// an assistant's reply. A precise idea goes straight to the recap; a vague one is shaped by the
-    /// questions. The idea is kept in memory only: an app restart loses it.
+    /// The fixed questions involve no model: the questions, the answers offered and the way answers
+    /// become the first task are fixed here, so the same answers always give the same recap, and they
+    /// are never presented as an assistant's reply. A precise idea goes straight to the recap; a vague
+    /// one is shaped by the questions, or by the companion (<see cref="Companion"/>, ADR 0025), whose
+    /// proposal fills the recap marked as its suggestion until the person changes it, with the person's
+    /// own typed words one press away. The device keeps the idea across an app restart
+    /// (<see cref="CreationDraft"/>).
     /// </remarks>
     public sealed class ProjectIdea
     {
@@ -115,6 +119,65 @@ namespace Halcyonic.Client
         /// <summary>Chooses where the project's files live, or clears the choice with null.</summary>
         public void ChooseFolder(ProjectFolder? folder) => Folder = folder;
 
+        /// <summary>The exchange with the companion, once the person began one; null for the fixed questions or a typed idea alone.</summary>
+        public CompanionExchange? Companion { get; private set; }
+
+        /// <summary>The idea as the person typed or said it, kept when the companion's proposal takes its place in the recap.</summary>
+        public string? OwnWords { get; private set; }
+
+        /// <summary>The name in the recap is the companion's suggestion, unchanged.</summary>
+        public bool NameSuggested { get; private set; }
+
+        /// <summary>The first task in the recap is the companion's suggestion, unchanged.</summary>
+        public bool TaskSuggested { get; private set; }
+
+        /// <summary>
+        /// Begins an exchange with the companion: from the idea already typed, which is its first
+        /// message, or from Help me figure it out. A new exchange replaces an earlier one.
+        /// </summary>
+        public CompanionExchange BeginCompanion(CompanionStart start, int maxQuestions = CompanionExchange.DefaultMaxQuestions)
+        {
+            Companion = new CompanionExchange(start, maxQuestions);
+            if (start == CompanionStart.Idea && OwnWords != null) Companion.Say(OwnWords);
+            return Companion;
+        }
+
+        /// <summary>Takes back an exchange the device kept, as it was.</summary>
+        public void RestoreCompanion(CompanionExchange? exchange) => Companion = exchange;
+
+        /// <summary>
+        /// The companion's proposal into the recap, marked as its suggestion: its first task, and its
+        /// name unless the person typed one or the work goes to an existing project. What the person
+        /// typed stays in <see cref="OwnWords"/>.
+        /// </summary>
+        public void UseProposal(CompanionProposal proposal)
+        {
+            var task = (proposal.FirstTask ?? "").Trim();
+            if (task.Length == 0) return;
+            FirstTask = task;
+            TaskSuggested = true;
+            var name = (proposal.ProjectName ?? "").Trim();
+            if (ExistingProjectId == null && !NameTyped && name.Length > 0)
+            {
+                Name = name;
+                NameSuggested = true;
+            }
+        }
+
+        /// <summary>Puts the person's own words back as the first task, and a name from them in place of a suggested one.</summary>
+        public bool UseOwnWords()
+        {
+            if (OwnWords == null) return false;
+            FirstTask = OwnWords;
+            TaskSuggested = false;
+            if (NameSuggested)
+            {
+                Name = NameFrom(OwnWords);
+                NameSuggested = false;
+            }
+            return true;
+        }
+
         /// <summary>The recap exists: an idea was typed or every question was answered.</summary>
         public bool HasRecap => FirstTask.Length > 0;
 
@@ -136,7 +199,13 @@ namespace Halcyonic.Client
         public void UseIdea(string idea)
         {
             FirstTask = (idea ?? "").Trim();
-            if (!NameTyped && ExistingProjectId == null) Name = NameFrom(FirstTask);
+            OwnWords = FirstTask.Length == 0 ? null : FirstTask;
+            TaskSuggested = false;
+            if (!NameTyped && ExistingProjectId == null)
+            {
+                Name = NameFrom(FirstTask);
+                NameSuggested = false;
+            }
         }
 
         /// <summary>Starts the fixed questions from the first, keeping any answers already given.</summary>
@@ -186,6 +255,7 @@ namespace Halcyonic.Client
             if (text.Length == 0) return false;
             Name = text;
             NameTyped = true;
+            NameSuggested = false;
             return true;
         }
 
@@ -195,6 +265,7 @@ namespace Halcyonic.Client
             var text = (task ?? "").Trim();
             if (text.Length == 0) return false;
             FirstTask = text;
+            TaskSuggested = false;
             return true;
         }
 
@@ -208,6 +279,77 @@ namespace Halcyonic.Client
                 if (FirstTask.Length > TaskLimit) return "Shorten the first task to at most 4,000 characters.";
                 return null;
             }
+        }
+
+        /// <summary>The idea as the device keeps it (<see cref="CreationDraft"/>), without where or for which computer.</summary>
+        public CreationDraft Keep() => new CreationDraft
+        {
+            ExistingProjectId = ExistingProjectId,
+            Name = Name,
+            NameTyped = NameTyped,
+            NameSuggested = NameSuggested,
+            FirstTask = FirstTask,
+            TaskSuggested = TaskSuggested,
+            OwnWords = OwnWords,
+            Guided = Guided,
+            Question = Question,
+            Answers = answers.ToList(),
+            Folder = Folder == null
+                ? null
+                : new KeptFolder { RootPath = Folder.RootPath, RootName = Folder.RootName, FolderName = Folder.FolderName, IsNew = Folder.IsNew },
+            Companion = Companion == null
+                ? null
+                : new KeptExchange { Start = Companion.Start, MaxQuestions = Companion.MaxQuestions, Turns = Companion.Turns.ToList() },
+        };
+
+        /// <summary>
+        /// The idea a device kept, as it was. A new project the Mac already made comes back as a task
+        /// for that project, its folder already bound. What can't be an idea is refused with an
+        /// <see cref="ArgumentException"/>; a part that can't be kept, such as a folder name the host
+        /// would refuse, is left out.
+        /// </summary>
+        public static ProjectIdea Restore(CreationDraft kept)
+        {
+            if (kept == null) throw new ArgumentNullException(nameof(kept));
+            var projectId = kept.MadeProjectId ?? kept.ExistingProjectId;
+            var idea = projectId == null
+                ? new ProjectIdea()
+                : new ProjectIdea(projectId, kept.MadeProjectId != null ? kept.MadeProjectName ?? kept.Name : kept.Name);
+            if (projectId == null)
+            {
+                idea.Name = Limit(kept.Name, NameLimit);
+                idea.NameTyped = kept.NameTyped;
+                idea.NameSuggested = kept.NameSuggested;
+            }
+            idea.FirstTask = Limit(kept.FirstTask, TaskLimit);
+            idea.TaskSuggested = kept.TaskSuggested && idea.FirstTask.Length > 0;
+            idea.OwnWords = string.IsNullOrWhiteSpace(kept.OwnWords) ? null : Limit(kept.OwnWords!, TaskLimit);
+            idea.Guided = kept.Guided;
+            for (var index = 0; index < Math.Min(idea.answers.Length, kept.Answers?.Count ?? 0); index++)
+            {
+                var answer = kept.Answers![index];
+                idea.answers[index] = string.IsNullOrWhiteSpace(answer) ? null : Limit(answer!, TaskLimit);
+            }
+            idea.Question = Math.Max(0, Math.Min(Fixed.Count, kept.Question));
+            if (idea.Question == NameQuestion && projectId != null) idea.Question++;
+            // A project already made has its folder; another choice would move it.
+            if (kept.MadeProjectId == null && kept.Folder is KeptFolder folder)
+            {
+                idea.Folder = ProjectFolder.Restore(folder.RootPath, folder.RootName, folder.FolderName, folder.IsNew);
+            }
+            if (kept.Companion is KeptExchange exchange && projectId == null)
+            {
+                idea.Companion = CompanionExchange.Restore(exchange.Start, exchange.MaxQuestions, exchange.Turns ?? new List<CompanionExchangeTurn>());
+            }
+            return idea;
+        }
+
+        private static string Limit(string? text, int limit)
+        {
+            var value = (text ?? "").Trim();
+            if (value.Length <= limit) return value;
+            var end = char.IsHighSurrogate(value[limit - 1]) ? limit - 1 : limit;
+            return value.Substring(0, end);
         }
 
         /// <summary>
@@ -261,7 +403,9 @@ namespace Halcyonic.Client
                 task.Append(" First, ").Append(offered ? LowerFirst(first) : first.TrimEnd('.')).Append('.');
             }
             FirstTask = task.ToString();
+            TaskSuggested = false;
             if (ExistingProjectId != null || NameTyped) return;
+            NameSuggested = false;
             Name = answers[NameQuestion] ?? kind switch
             {
                 "A website" => "New website",
