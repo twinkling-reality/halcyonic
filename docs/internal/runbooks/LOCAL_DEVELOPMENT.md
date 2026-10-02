@@ -516,6 +516,38 @@ It answers `"outcome":"heard"` with the text in about half a second; a silent cl
 `nothing_heard`. Each clip holds about 920 MiB of memory for the half
 second whisper.cpp runs.
 
+## Turn on Create's companion
+
+Create's companion helps a person shape an idea into a project name and a first task, on a local
+model this Mac's Ollama serves ([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md),
+[record](../validation/companion-model.md)). It is off until you name its model; nothing is pulled
+because someone asked it something. Run Ollama on loopback with its cloud features off
+(`OLLAMA_NO_CLOUD=1`, as for the agents' local models above), pull the model yourself, then start the
+control plane with it:
+
+```bash
+HALCYONIC_COMPANION_MODEL=qwen3.6:35b-a3b-nvfp4 pnpm dev
+```
+
+The name is the model's as `ollama list` shows it; one with a `cloud` tag is refused. Ollama's
+address defaults to `http://127.0.0.1:11434`; set `HALCYONIC_COMPANION_OLLAMA_URL` only for another
+loopback port. The agents' own model works, but Ollama serves it one request at a time, so while a
+task generates a companion turn waits for the task's step and often passes its 30 s bound; a
+separate, smaller companion model is being chosen (the record says which, once the owner approves
+the download). Check that it can be asked, without asking the model:
+
+```bash
+curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0.0.1:47800/api/companion
+```
+
+The demonstration plays one exchange recorded from the companion. Record it again after changing
+the prompt or the model, review the diff, and commit it; `--check` holds the committed file to its
+rules (no brand a judge may not read, answers that were offered, a proposal at the end):
+
+```bash
+HALCYONIC_COMPANION_MODEL=qwen3.6:35b-a3b-nvfp4 pnpm companion:record
+```
+
 ## Pair a headset over Wi-Fi
 
 Devices on the local network reach the control plane through a second listener, TLS only, which
