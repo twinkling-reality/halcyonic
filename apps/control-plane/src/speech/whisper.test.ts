@@ -160,19 +160,23 @@ describe('whisper.cpp launched for one clip', () => {
     });
   });
 
+  // Each fake engine is a Node process, which can take seconds to start on a loaded machine. An
+  // engine that ends by itself gets more time than it could need, and one that never ends gets
+  // enough to have started, so only the behaviour under test decides the outcome.
   test('an engine that fails, runs too long or writes too much gives a failure, and its clip is still removed', async () => {
     const cases = [
-      ['fails', 'process.exit(3);', 'The engine stopped with an error.'],
-      ['hangs', 'setTimeout(() => {}, 60_000);', 'The engine took longer than 0.3 s.'],
+      ['fails', 'process.exit(3);', 30_000, 'The engine stopped with an error.'],
+      ['hangs', 'setTimeout(() => {}, 60_000);', 5_000, 'The engine took longer than 5 s.'],
       [
         'floods',
         "process.stdout.write('x'.repeat(200_000));",
+        30_000,
         'The engine wrote more than a transcript.',
       ],
     ] as const;
-    for (const [name, behaviour, message] of cases) {
+    for (const [name, behaviour, timeoutMs, message] of cases) {
       const { config, launches } = fakeWhisper(name, behaviour);
-      const engine = await WhisperEngine.open(config, 300);
+      const engine = await WhisperEngine.open(config, timeoutMs);
       assert.deepEqual(await engine.transcribe(clip), { kind: 'failed', message }, name);
       const launch = launches()[0];
       assert.ok(launch);
@@ -187,13 +191,14 @@ describe('whisper.cpp launched for one clip', () => {
 fs.writeFileSync(${JSON.stringify(`${join(scratch, 'forks')}.grandchild`)}, String(kid.pid));
 setTimeout(() => {}, 30000);`,
     );
-    const engine = await WhisperEngine.open(config, 300);
+    const engine = await WhisperEngine.open(config, 5_000);
     const started = performance.now();
     assert.deepEqual(await engine.transcribe(clip), {
       kind: 'failed',
-      message: 'The engine took longer than 0.3 s.',
+      message: 'The engine took longer than 5 s.',
     });
-    assert.ok(performance.now() - started < 3_000, 'not held open by what the engine started');
+    // The grandchild sleeps for 30 s, so an answer held open by it would come far later than this.
+    assert.ok(performance.now() - started < 15_000, 'not held open by what the engine started');
     const launch = launches()[0];
     assert.ok(launch);
     assert.equal(await alive(launch.pid), false);
@@ -206,7 +211,7 @@ setTimeout(() => {}, 30000);`,
 
   test('the warm-up has longer than a clip, for the first compile of the GPU shaders', async () => {
     const { config } = fakeWhisper('slow', 'setTimeout(() => process.exit(0), 700);');
-    const engine = await WhisperEngine.open(config, 300, 5_000);
+    const engine = await WhisperEngine.open(config, 300, 30_000);
     assert.equal((await engine.transcribe(clip)).kind, 'failed');
     assert.equal(typeof (await engine.warmUp()), 'number');
   });
@@ -239,14 +244,15 @@ setTimeout(() => {}, 30000);`,
       `import { WhisperEngine } from ${JSON.stringify(whisper)};
 const engine = await WhisperEngine.open(JSON.parse(process.argv[2]));
 void engine.transcribe(Buffer.from(process.argv[3], 'base64'));
-setTimeout(() => process.exit(1), 800);
+setTimeout(() => process.exit(1), 5000);
 `,
     );
+    // Five seconds is long enough for the engine to have started even on a loaded machine.
     const done = spawnSync(
       process.execPath,
       [script, JSON.stringify(config), clip.toString('base64')],
       {
-        timeout: 20_000,
+        timeout: 30_000,
       },
     );
     assert.equal(done.status, 1);
