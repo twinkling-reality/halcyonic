@@ -272,7 +272,7 @@ the same definition names, as the JSON Schema document:
   want of room: one that opened under the labels lower than the field allows stays where it was
   and goes no lower (`PanelDrag`).
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
-  redesign proposed in ADR 0026 (no surface uses it yet): columns of parts, every part of a column as
+  redesign ADR 0026 decides (no surface uses it yet): columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
   and, its last part stretched down, ending on one bottom line, all grown whole by the reading text's
   step. Its centre is placed as one panel of its size by `WorkspacePlacement.Place`, so the band,

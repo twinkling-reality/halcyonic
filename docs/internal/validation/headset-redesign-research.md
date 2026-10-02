@@ -297,5 +297,5 @@ from the eyes looking at it, square to that line, as the headset draws what a pe
   or need a surface further away that the hand ray reaches, is a headset check.
 - The owner chose D, then asked for its surfaces on one upright plane, single-word places, sections
   as separate shapes and type that only steps down. Measured, the upright plane shrank its low text
-  under 14 dp, and the coordinator chose one plane facing the eyes at its centre instead. ADR 0026
-  (Proposed) records D's structure and these rules.
+  under 14 dp, and the coordinator chose one plane facing the eyes at its centre instead. ADR 0026,
+  accepted by the owner on 2026-10-02 with the split header, records D's structure and these rules.

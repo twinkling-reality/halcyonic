@@ -1,6 +1,6 @@
 # ADR 0023: The headset's interface is one system of tokens, components and render-checked rules
 
-- Status: Accepted on 2026-10-01 by the owner.
+- Status: Accepted on 2026-10-01 by the owner. Its foreground panels and the workspace superseded by [ADR 0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) on 2026-10-02.
 - Date: 2026-10-01
 
 ## Context
