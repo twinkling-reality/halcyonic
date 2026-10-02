@@ -2332,6 +2332,15 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("path", Required = Required.Always)]
         public string Path { get; set; } = default!;
+
+        [JsonProperty("repository", Required = Required.AllowNull)]
+        public bool? Repository { get; set; }
+
+        [JsonProperty("changed_at", Required = Required.AllowNull)]
+        public string? ChangedAt { get; set; }
+
+        [JsonProperty("used_by", Required = Required.Always)]
+        public List<string> UsedBy { get; set; } = new List<string>();
     }
 
     public sealed class LocationRoot
@@ -2344,6 +2353,15 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("status", Required = Required.Always)]
         public LocationRootStatus Status { get; set; }
+
+        [JsonProperty("repository", Required = Required.AllowNull)]
+        public bool? Repository { get; set; }
+
+        [JsonProperty("changed_at", Required = Required.AllowNull)]
+        public string? ChangedAt { get; set; }
+
+        [JsonProperty("used_by", Required = Required.Always)]
+        public List<string> UsedBy { get; set; } = new List<string>();
 
         [JsonProperty("folders", Required = Required.Always)]
         public List<LocationFolder> Folders { get; set; } = new List<LocationFolder>();

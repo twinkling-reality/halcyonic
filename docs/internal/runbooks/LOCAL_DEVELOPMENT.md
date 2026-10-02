@@ -106,7 +106,9 @@ configuration directories.
 Every real execution runs in its project's folder, a folder inside one of the project roots
 ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). No start option
 names a folder. `GET /api/locations` lists each root, as its real path, and the folders directly
-inside it. Give a project its folder when you create it:
+inside it, each with whether it is a repository (a `.git` entry directly inside), when it last
+changed at its top level, and the projects already bound to it (`used_by`). Give a project its
+folder when you create it:
 
 ```json
 {"name": "Storefront", "location": {"kind": "existing_folder", "root": "/Users/you/dev", "folder_name": "storefront"}}

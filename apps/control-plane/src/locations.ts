@@ -12,7 +12,9 @@ import {
   type LocationFolder,
   type LocationRoot,
   type LocationsResponse,
+  MAX_FOLDER_USERS,
   MAX_LOCATION_FOLDERS,
+  type ProjectId,
   type ProjectLocation,
   type ProjectLocationChoice,
 } from '@halcyonic/contracts';
@@ -48,10 +50,19 @@ export type LocationBinding =
  * as given: a choice names a root, which must be one of the host's, and a folder directly inside
  * it, and the host composes the path.
  */
+/** A project bound to a folder, as the projection has it, so the listing can say who uses what. */
+export interface BoundProject {
+  readonly project_id: ProjectId;
+  readonly path: string;
+}
+
 export interface HostLocations {
   readonly policy: DirectoryPolicy;
-  /** What a person can choose from now, read from the file system each time. */
-  list(): LocationsResponse;
+  /**
+   * What a person can choose from now, read from the file system each time. `bound` are the
+   * projects with a folder, oldest first: each listed folder names those bound to it.
+   */
+  list(bound?: readonly BoundProject[]): LocationsResponse;
   /** Whether a choice can be bound now, changing nothing. */
   check(choice: ProjectLocationChoice): { readonly ok: true } | LocationRefusal;
   /** Binds a choice: checks it again and creates a new folder when asked for one. */
@@ -175,7 +186,10 @@ export function createHostLocations(
 
   return {
     policy,
-    list: () => ({ roots: known.map(listRoot) }),
+    list: (bound = []) => {
+      const users = usersByFolder(bound, known);
+      return { roots: known.map((root) => listRoot(root, users)) };
+    },
     check,
     bind: (choice) => unreadable(() => bindReadable(choice)),
   };
@@ -244,11 +258,12 @@ function shown(text: string): string {
 /**
  * Lists a root's folders from at most `MAX_SCANNED_ENTRIES` of its entries, in the order the file
  * system gives them, so a root holding a very large number of files cannot hold up the control
- * plane; a root with more is listed as truncated.
+ * plane; a root with more is listed as truncated. Facts are read only for the folders listed, at
+ * most three `lstat` calls each.
  */
-function listRoot(root: Root): LocationRoot {
+function listRoot(root: Root, users: ReadonlyMap<string, ProjectId[]>): LocationRoot {
   let available = rootChanged(root) === null;
-  let folders: LocationFolder[] = [];
+  let names: string[] = [];
   let unread = false;
   if (available) {
     let directory: Dir | null = null;
@@ -262,14 +277,12 @@ function listRoot(root: Root): LocationRoot {
         }
         scanned += 1;
         // A symbolic link reads as one here, never as a directory, so none is listed.
-        if (entry.isDirectory() && singleVisibleSegment(entry.name)) {
-          folders.push({ name: entry.name, path: join(root.real, entry.name) });
-        }
+        if (entry.isDirectory() && singleVisibleSegment(entry.name)) names.push(entry.name);
       }
     } catch {
       // A root that cannot be read lists as missing: nothing in it can be used.
       available = false;
-      folders = [];
+      names = [];
     } finally {
       try {
         directory?.closeSync();
@@ -278,14 +291,135 @@ function listRoot(root: Root): LocationRoot {
       }
     }
   }
-  folders.sort((a, b) => byName.compare(a.name, b.name) || (a.name < b.name ? -1 : 1));
+  names.sort((a, b) => byName.compare(a, b) || (a < b ? -1 : 1));
+  const folders: LocationFolder[] = [];
+  for (const name of names.slice(0, MAX_LOCATION_FOLDERS)) {
+    const path = join(root.real, name);
+    const facts = factsOf(path, users);
+    // Gone, or no longer a folder, since the root was read: not listed.
+    if (facts !== null) folders.push({ name, path, ...facts });
+  }
+  const rootFacts = available ? factsOf(root.real, users) : null;
+  // A root replaced while it was read may have had its folders' facts read elsewhere: none is kept.
+  if (available && rootChanged(root) !== null) {
+    return {
+      path: root.real,
+      name: nameOf(root.real),
+      status: 'missing',
+      repository: null,
+      changed_at: null,
+      used_by: [],
+      folders: [],
+      folders_truncated: false,
+    };
+  }
   return {
     path: root.real,
     name: nameOf(root.real),
     status: available ? 'available' : 'missing',
-    folders: folders.slice(0, MAX_LOCATION_FOLDERS),
-    folders_truncated: unread || folders.length > MAX_LOCATION_FOLDERS,
+    ...(rootFacts ?? { repository: null, changed_at: null, used_by: [] }),
+    folders,
+    folders_truncated: unread || names.length > MAX_LOCATION_FOLDERS,
   };
+}
+
+type FolderFacts = Pick<LocationFolder, 'repository' | 'changed_at' | 'used_by'>;
+
+/** A folder's identity on the file system, which no spelling of its path changes. */
+function identity(entry: Stats): string {
+  return `${entry.dev}:${entry.ino}`;
+}
+
+/**
+ * The projects bound to each folder, by the identity of the folder now at each project's path.
+ * Only a path that is a root or directly inside one can name a listed folder, so no other is read,
+ * and each path is read once however many projects share it. A path counts only while it is its
+ * own real path, the rule every start applies, so a project whose path now leads anywhere through
+ * a symbolic link, at its end or on the way, names no folder; nor does one that cannot be read.
+ */
+function usersByFolder(
+  bound: readonly BoundProject[],
+  roots: readonly Root[],
+): Map<string, ProjectId[]> {
+  const real = new Set(roots.map((root) => root.real));
+  const byPath = new Map<string, ProjectId[]>();
+  for (const project of bound) {
+    if (!real.has(project.path) && !real.has(dirname(project.path))) continue;
+    const list = byPath.get(project.path) ?? [];
+    list.push(project.project_id);
+    byPath.set(project.path, list);
+  }
+  const users = new Map<string, ProjectId[]>();
+  for (const [path, projects] of byPath) {
+    let entry: Stats | undefined;
+    try {
+      entry = realpathSync.native(path) === path ? entryAt(path) : undefined;
+    } catch {
+      entry = undefined;
+    }
+    if (entry === undefined || !entry.isDirectory()) continue;
+    const key = identity(entry);
+    users.set(key, [...(users.get(key) ?? []), ...projects]);
+  }
+  // Oldest first across paths, as the projects came, and at most the contract's number.
+  const order = new Map(bound.map((project, index) => [project.project_id, index]));
+  for (const [key, list] of users) {
+    users.set(
+      key,
+      list.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0)).slice(0, MAX_FOLDER_USERS),
+    );
+  }
+  return users;
+}
+
+/**
+ * What the folder at `path` shows of itself: whether a `.git` entry sits directly inside it, the
+ * newer change time of the two, and the projects bound to it. Each read leaves a link at the end
+ * of its path unfollowed. Null when it is not a folder, or not the same folder after the reads as
+ * before, so a folder simply swapped meanwhile is left out; one swapped for a link and back between
+ * two reads, or a root replaced meanwhile (which `listRoot` checks again afterwards), can still have
+ * a fact read elsewhere. Whoever can do that already reads the file system directly.
+ */
+function factsOf(path: string, users: ReadonlyMap<string, ProjectId[]>): FolderFacts | null {
+  let before: Stats | undefined;
+  try {
+    before = entryAt(path);
+  } catch {
+    return null;
+  }
+  if (before === undefined || !before.isDirectory()) return null;
+  let git: Stats | undefined | null;
+  try {
+    git = entryAt(join(path, '.git'));
+  } catch {
+    // The folder cannot be searched: what is inside it is unknown.
+    git = null;
+  }
+  let after: Stats | undefined;
+  try {
+    after = entryAt(path);
+  } catch {
+    return null;
+  }
+  if (after === undefined || !after.isDirectory() || identity(after) !== identity(before)) {
+    return null;
+  }
+  const repository = git === null ? null : git !== undefined && (git.isDirectory() || git.isFile());
+  const newest = repository === true && git ? Math.max(after.mtimeMs, git.mtimeMs) : after.mtimeMs;
+  return {
+    repository,
+    changed_at: repository === null ? null : timestamp(newest),
+    used_by: [...(users.get(identity(after)) ?? [])],
+  };
+}
+
+/** A file system time as a contract timestamp; null for one the contract cannot carry. */
+function timestamp(milliseconds: number): string | null {
+  if (!Number.isFinite(milliseconds)) return null;
+  const date = new Date(Math.floor(milliseconds));
+  if (Number.isNaN(date.getTime())) return null;
+  const text = date.toISOString();
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(text) ? text : null;
 }
 
 function notCreated(path: string, error: unknown): LocationBinding {

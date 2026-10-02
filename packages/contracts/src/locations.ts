@@ -1,5 +1,5 @@
 import Type, { type Static } from 'typebox';
-import { Nullable } from './primitives.ts';
+import { Nullable, ProjectId, Timestamp } from './primitives.ts';
 
 const strict = { additionalProperties: false } as const;
 
@@ -64,8 +64,43 @@ export const ProjectLocation = Type.Object(
 );
 export type ProjectLocation = Static<typeof ProjectLocation>;
 
+/** The most projects a listed folder names as using it. */
+export const MAX_FOLDER_USERS = 100;
+
+/**
+ * What the host can tell about a listed folder from the folder's own entry and one name directly
+ * inside it, never from inside a file. Each read leaves a link at the end of its path unfollowed,
+ * and the facts are kept only while the folder stays the same folder (its device and inode) from
+ * before the reads to after them, and its root the one the host allowed, so a folder or root simply
+ * swapped meanwhile is not described by what is elsewhere.
+ */
+const FolderFacts = {
+  /**
+   * True when a `.git` folder or file sits directly inside it, false when nothing or something else
+   * by that name does, null when that could not be read. Nothing more of the repository is read.
+   */
+  repository: Nullable(Type.Boolean()),
+  /**
+   * The newer modification time of the folder itself and, for a repository, of its `.git` entry;
+   * null when either could not be read. A folder's own time moves when an entry directly inside it
+   * is added, removed or renamed, and a repository's `.git` moves with commits and staging, so an
+   * edit deeper inside that touched neither is not seen: this is the latest change the host saw,
+   * not a promise that nothing changed since.
+   */
+  changed_at: Nullable(Timestamp),
+  /**
+   * The projects bound to this very folder, empty when none is: a project counts while its recorded
+   * path is still its own real path, the rule every start applies, and is matched to the folder by
+   * identity on the file system (device and inode). At most `MAX_FOLDER_USERS`, the oldest first.
+   */
+  used_by: Type.Array(ProjectId, { maxItems: MAX_FOLDER_USERS }),
+};
+
 /** A folder directly inside a project root, as the host found it when asked. */
-export const LocationFolder = Type.Object({ name: DisplayName, path: HostPath }, strict);
+export const LocationFolder = Type.Object(
+  { name: DisplayName, path: HostPath, ...FolderFacts },
+  strict,
+);
 export type LocationFolder = Static<typeof LocationFolder>;
 
 /** The most folders listed for one root. */
@@ -82,6 +117,8 @@ export const LocationRoot = Type.Object(
     /** The root's own name, for display. */
     name: DisplayName,
     status: Type.Union([Type.Literal('available'), Type.Literal('missing')]),
+    /** The root's own facts, read as a listed folder's are; null and empty while it is missing. */
+    ...FolderFacts,
     folders: Type.Array(LocationFolder, { maxItems: MAX_LOCATION_FOLDERS }),
     /** True when the root holds more folders than were listed; the list is sorted by name. */
     folders_truncated: Type.Boolean(),

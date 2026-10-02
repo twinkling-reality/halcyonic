@@ -325,14 +325,54 @@ describe('GET /api/locations', () => {
             path: root,
             name: 'route',
             status: 'available',
-            folders: [{ name: 'app', path: join(root, 'app') }],
+            repository: false,
+            changed_at: (body as LocationsResponse).roots[0]?.changed_at,
+            used_by: [],
+            folders: [
+              {
+                name: 'app',
+                path: join(root, 'app'),
+                repository: false,
+                changed_at: (body as LocationsResponse).roots[0]?.folders[0]?.changed_at,
+                used_by: [],
+              },
+            ],
             folders_truncated: false,
           },
         ],
       });
+      assert.equal(typeof (body as LocationsResponse).roots[0]?.folders[0]?.changed_at, 'string');
       assert.equal(server.journal.head(), head);
       const anonymous = await fetch(`${server.baseUrl}/api/locations`);
       assert.equal(anonymous.status, 401);
+    } finally {
+      await server.stop();
+    }
+  });
+
+  test('names the projects bound to each folder, so Connect offers only folders no project uses', async () => {
+    const root = join(base, 'route-used');
+    mkdirSync(join(root, 'app'), { recursive: true });
+    mkdirSync(join(root, 'free'), { recursive: true });
+    const server = await startTestServer({ locations: createHostLocations([root]) });
+    try {
+      const created = server.controlPlane.commands.submit(
+        server.commands.createProject('App', { kind: 'existing_folder', root, folder_name: 'app' }),
+        'internal',
+      );
+      const result = created.command?.result;
+      assert.equal(result?.kind, 'project_created');
+      const response = await fetch(`${server.baseUrl}/api/locations`, {
+        headers: { authorization: `Bearer ${server.token}` },
+      });
+      const body = (await response.json()) as LocationsResponse;
+      const usedBy = Object.fromEntries(
+        (body.roots[0]?.folders ?? []).map((folder) => [folder.name, folder.used_by]),
+      );
+      assert.deepEqual(usedBy, {
+        app: [result?.kind === 'project_created' ? result.project_id : null],
+        free: [],
+      });
     } finally {
       await server.stop();
     }
