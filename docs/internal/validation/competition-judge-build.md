@@ -158,6 +158,13 @@ Built again on this branch (after the device measures and the question) with
 its own check passed, and `ProjectSettings.asset` still says version code 1 afterwards, with
 `DevAgentSettings.asset` back in Resources.
 
+Built a third time after Meta VR Glasses were dropped from the project's target devices
+(`HALCYONIC_VERSION_CODE=26100202`): `com.oculus.supportedDevices` reads
+`quest2|questpro|quest3|quest3s`, and the build's own check now refuses `stanley`. Unity wrote the
+APK and said "Exiting batchmode successfully now!", then aborted in its own shutdown (exit 134,
+"terminate_handler unexpectedly returned"); the APK and the project were intact. A batch build's
+exit code alone is therefore not proof of failure; read the log's `Halcyonic: built` line.
+
 Before an upload, still the owner's: a release key, a version code above every earlier upload
 (now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
