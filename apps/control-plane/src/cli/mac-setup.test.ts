@@ -71,6 +71,8 @@ interface Mac {
   rg: boolean;
   /** Whether the fake running Halcyonic proves it holds the access token. */
   proves: boolean;
+  /** How many more proofs it gives before it stops, as a control plane replaced mid-check would. */
+  proofsLeft: number;
   interactive: boolean;
   env: NodeJS.ProcessEnv;
   run(...args: string[]): Promise<number>;
@@ -100,6 +102,7 @@ function mac(t: TestContext): Mac {
     routes,
     firewall: { enabled: true, blockAll: false },
     proves: true,
+    proofsLeft: Number.POSITIVE_INFINITY,
     rg: true,
     interactive: true,
     env: { HOME: home, HALCYONIC_DATA_DIR: dataDir, HALCYONIC_PORT: '47999' },
@@ -131,7 +134,8 @@ function mac(t: TestContext): Mac {
             host === 'halcyonic' &&
             url.pathname === '/api/health' &&
             machine.proves &&
-            challenge !== null
+            challenge !== null &&
+            machine.proofsLeft-- > 0
               ? { [PROOF_HEADER]: loopbackProof(TOKEN, url.host, challenge) }
               : {};
           return new Response(JSON.stringify(answer.body), {
@@ -569,7 +573,15 @@ describe('pnpm mac-setup', () => {
     );
     assert.ok(machine.requests.every((request) => request.authorization === null));
 
+    // Replaced after its first proof: every later request proves again first, so none carries it.
     machine.proves = true;
+    machine.proofsLeft = 1;
+    machine.requests.length = 0;
+    await machine.run('--with-token');
+    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Look at this');
+    assert.ok(machine.requests.every((request) => request.authorization === null));
+
+    machine.proofsLeft = Number.POSITIVE_INFINITY;
     chmodSync(join(machine.dataDir, 'access-token'), 0o000);
     await machine.run('--with-token');
     assert.match(text(machine), /there is no access token/);

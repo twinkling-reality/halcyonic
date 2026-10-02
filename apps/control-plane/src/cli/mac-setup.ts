@@ -47,7 +47,12 @@ import {
   readOpenCodeSettings,
 } from '../config.ts';
 import { assessFolder, type FolderContext, realOrSelf } from '../folder-safety.ts';
-import { ACCESS_TOKEN_FILE, loopbackBases, provenBase } from '../http/security.ts';
+import {
+  ACCESS_TOKEN_FILE,
+  loopbackBases,
+  provenBase,
+  serverProvesToken,
+} from '../http/security.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
@@ -1169,7 +1174,11 @@ class MacSetup {
     // a server that first proves it holds it.
     const proven = await provenBase(this.#io.fetch, this.#bases(), token);
     if (typeof proven !== 'object') return { ...answering, tokenProblem: 'unproved' };
-    const get = (path: string) => this.#get(proven.base, path, token);
+    // Each request proves the server again first: one that stopped since gets no token.
+    const get = async (path: string) =>
+      (await serverProvesToken(this.#io.fetch, proven.base, token)) === 'proved'
+        ? this.#get(proven.base, path, token)
+        : null;
     const locations = await get('/api/locations');
     if (locations === null || locations.status !== 200) {
       return { ...answering, tokenProblem: 'unproved' };

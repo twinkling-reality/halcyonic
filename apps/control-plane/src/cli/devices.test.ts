@@ -82,6 +82,43 @@ describe('pnpm devices before it sends the token', () => {
   });
 });
 
+describe('pnpm pair while the control plane is replaced', () => {
+  test('stops at the first request that the server on the port cannot prove, sending it no token', async (t) => {
+    const server = await startTestServer({ network: {} });
+    const dataDir = mkdtempSync(join(tmpdir(), 'halcyonic-cli-'));
+    writeFileSync(join(dataDir, 'access-token'), `${server.token}\n`);
+    const authorizations: (string | undefined)[] = [];
+    const impostor = createServer((request, response) => {
+      authorizations.push(request.headers.authorization);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end('{"status":"ok"}');
+    });
+    t.after(async () => {
+      await new Promise<void>((resolve) => impostor.close(() => resolve()));
+      rmSync(dataDir, { recursive: true, force: true });
+    });
+    // Polls slowly enough that the impostor holds the port before the next one.
+    const lines: string[] = [];
+    const status = runDevicesCli(['pair'], {
+      env: { HALCYONIC_DATA_DIR: dataDir, HALCYONIC_PORT: String(server.port) },
+      print: (line) => lines.push(line),
+      interrupted: new Promise(() => {}),
+      pollMs: 400,
+    });
+    await shownCode(lines);
+    // The control plane stops while pairing is open, and something else takes its port.
+    await server.stop();
+    await new Promise<void>((resolve) => impostor.listen(server.port, '127.0.0.1', resolve));
+    // Its next request finds the old connection gone, or the impostor unable to prove the token;
+    // either way it stops there, and the impostor gets no token.
+    await assert.rejects(status, /can't prove it holds this Mac's access token|stopped answering/);
+    assert.ok(
+      authorizations.every((value) => value === undefined),
+      'no request carried the token',
+    );
+  });
+});
+
 describe('pnpm pair and pnpm devices', () => {
   test('pair shows the address and the code, tells of a refused code, and ends when a device pairs', async (t) => {
     const { server, env } = await start(t);

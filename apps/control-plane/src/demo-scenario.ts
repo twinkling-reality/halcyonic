@@ -7,6 +7,7 @@ import type {
 } from '@halcyonic/contracts';
 import type { RealtimeClient } from './client/realtime-client.ts';
 import { type createCommandFactory, type DemoWorkstream, MOCK_RUNTIME_ID } from './demo-plan.ts';
+import { fetchWithProof } from './http/security.ts';
 
 /** A scenario's name as the mock runtime's fixtures are named: `question_asked`, `approval_required`. */
 const SCENARIO_NAME = /^[a-z][a-z0-9_]{0,63}$/;
@@ -52,15 +53,21 @@ export function chooseModel(
   );
 }
 
-/** Reads the models a listing runtime offers, through the control plane's REST API. */
+/**
+ * Reads the models a listing runtime offers, through the control plane's REST API, sending the
+ * token only once the server proves, just before, that it holds it (SECURITY.md).
+ */
 export async function listModels(
   baseUrl: string,
   token: string,
   runtimeId: string,
 ): Promise<RuntimeModel[]> {
-  const response = await fetch(`${baseUrl}/api/runtimes/${encodeURIComponent(runtimeId)}/models`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
+  const response = await fetchWithProof(
+    fetch,
+    baseUrl,
+    token,
+    `/api/runtimes/${encodeURIComponent(runtimeId)}/models`,
+  );
   if (!response.ok)
     throw new Error(`listing ${runtimeId}'s models answered HTTP ${response.status}`);
   const body = (await response.json()) as RuntimeModelsResponse;
