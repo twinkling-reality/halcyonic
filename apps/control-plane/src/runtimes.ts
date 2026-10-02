@@ -58,7 +58,7 @@ export function createRuntimeAdapters(
         binaryPath: config.opencodeBinary,
         serverRecordFile: join(dependencies.dataDir, OPENCODE_SERVER_RECORD),
         directoryPolicy: dependencies.directoryPolicy,
-        env: additions,
+        env: openCodeEnvironment(config, additions),
       }),
     );
   }
@@ -130,6 +130,19 @@ function withAnthropicKey(environment: NodeJS.ProcessEnv, dataDir: string): Node
  */
 export function claudeAgentEnvironment(additions: Record<string, string>): Record<string, string> {
   return { ...additions, SEORAK_LAUNCHER: 'halcyonic' };
+}
+
+/**
+ * OpenCode's additions: the pass-through variables, then Halcyonic's own OpenCode settings as its
+ * configuration home when configured, given to OpenCode alone, so the person's own OpenCode
+ * settings stay as they are and nothing else Halcyonic launches sees the change.
+ */
+export function openCodeEnvironment(
+  config: Pick<ControlPlaneConfig, 'opencodeConfigHome'>,
+  additions: Record<string, string>,
+): Record<string, string> {
+  if (config.opencodeConfigHome === null) return additions;
+  return { ...additions, XDG_CONFIG_HOME: config.opencodeConfigHome };
 }
 
 function passThrough(

@@ -5,7 +5,7 @@ import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
-import { loadConfig, type NetworkListenerConfig } from './config.ts';
+import { defaultDataDir, loadConfig, type NetworkListenerConfig } from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
 import { registerRealtime } from './http/realtime.ts';
@@ -22,11 +22,14 @@ import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
+import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
 
 async function main(): Promise<void> {
-  const config = loadConfig();
+  // What `pnpm mac-setup` wrote fills in what the environment leaves unset (ADR 0024).
+  const settings = readHostSettings(defaultDataDir(process.env));
+  const config = loadConfig(withSettings(process.env, settings));
   await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
   await chmod(config.dataDir, 0o700);
   const access = await loadOrCreateAccessToken(config.dataDir);
@@ -142,6 +145,10 @@ async function main(): Promise<void> {
       runtimes: controlPlane.registry.descriptors().map((runtime) => runtime.runtime_id),
       project_roots: config.projectRoots,
       speech: speech?.engine ?? null,
+      settings: {
+        file: join(config.dataDir, SETTINGS_FILE),
+        used: settingsInUse(process.env, settings),
+      },
     },
     'control plane ready',
   );

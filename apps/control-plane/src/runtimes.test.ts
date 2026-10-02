@@ -18,6 +18,7 @@ import {
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
   createRuntimeAdapters,
+  openCodeEnvironment,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
 import { SCENARIOS } from './testing/harness.ts';
@@ -45,6 +46,21 @@ describe('runtime composition', () => {
     assert.deepEqual(
       adapters({}, {}).map((adapter) => adapter.descriptor.runtime_id),
       ['mock'],
+    );
+  });
+
+  test("OpenCode alone gets Halcyonic's own OpenCode settings as its configuration home", () => {
+    const additions = { HTTPS_PROXY: 'http://127.0.0.1:3128' };
+    assert.deepEqual(openCodeEnvironment({ opencodeConfigHome: null }, additions), additions);
+    assert.deepEqual(
+      openCodeEnvironment(
+        { opencodeConfigHome: '/Users/someone/.halcyonic/opencode-config' },
+        {
+          ...additions,
+          XDG_CONFIG_HOME: '/elsewhere',
+        },
+      ),
+      { ...additions, XDG_CONFIG_HOME: '/Users/someone/.halcyonic/opencode-config' },
     );
   });
 
