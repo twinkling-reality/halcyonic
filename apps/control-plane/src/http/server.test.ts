@@ -12,6 +12,7 @@ import { RealtimeClient } from '../client/realtime-client.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { startTestServer, TEST_CLIENT } from '../testing/harness.ts';
 import {
+  fetchWithProof,
   loopbackBases,
   loopbackProof,
   PROOF_CHALLENGE_HEADER,
@@ -19,6 +20,7 @@ import {
   proofAddress,
   provenBase,
   serverProvesToken,
+  TokenNotSent,
 } from './security.ts';
 
 const validateSnapshot = compileValidator(Snapshot);
@@ -157,6 +159,26 @@ describe('REST', () => {
         base: `http://127.0.0.1:${server.port}`,
       },
     );
+  });
+
+  test('a request carrying the token is sent only after a fresh proof, and never to what cannot give one', async (t) => {
+    const base = `http://127.0.0.1:${server.port}`;
+    const answered = await fetchWithProof(fetch, base, server.token, '/api/snapshot');
+    assert.equal(answered.status, 200);
+    const authorizations: (string | undefined)[] = [];
+    const impostor = createServer((request, response) => {
+      authorizations.push(request.headers.authorization);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end('{"status":"ok"}');
+    });
+    await new Promise<void>((resolve) => impostor.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise<void>((resolve) => impostor.close(() => resolve())));
+    const elsewhere = `http://127.0.0.1:${(impostor.address() as AddressInfo).port}`;
+    await assert.rejects(
+      fetchWithProof(fetch, elsewhere, server.token, '/api/snapshot'),
+      (error: unknown) => error instanceof TokenNotSent && error.reason === 'unproved',
+    );
+    assert.deepEqual(authorizations, [undefined], 'only the health check, with no token');
   });
 
   test('a loopback client dials addresses, never a name another listener could answer to', () => {

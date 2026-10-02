@@ -189,3 +189,37 @@ export async function provenBase(
   }
   return answered ? 'unproved' : 'unreachable';
 }
+
+/** Why a loopback client did not send the token: what answered could not prove it, or nothing did. */
+export class TokenNotSent extends Error {
+  readonly reason: 'unproved' | 'unreachable';
+
+  constructor(reason: 'unproved' | 'unreachable', base: string) {
+    super(
+      reason === 'unreachable'
+        ? `The control plane is not answering at ${base}, so the access token was not sent.`
+        : `Something answers at ${base}, but it can't prove it holds this Mac's access token, so the token was not sent. It may be another program, or another account on this Mac, listening while the control plane is stopped.`,
+    );
+    this.name = 'TokenNotSent';
+    this.reason = reason;
+  }
+}
+
+/**
+ * A request that carries the token, sent only after the server at `base` proves again, just
+ * before, that it holds it: a control plane that stopped since an earlier proof, and whatever took
+ * its port, gets no token. Throws `TokenNotSent` instead of sending it.
+ */
+export async function fetchWithProof(
+  fetchImpl: typeof fetch,
+  base: string,
+  token: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const proof = await serverProvesToken(fetchImpl, base, token);
+  if (proof !== 'proved') throw new TokenNotSent(proof, base);
+  const headers = new Headers(init.headers);
+  headers.set('authorization', `Bearer ${token}`);
+  return fetchImpl(`${base}${path}`, { ...init, headers });
+}

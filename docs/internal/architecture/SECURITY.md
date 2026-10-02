@@ -109,9 +109,12 @@ logged or passed to launched agents:
 
 The access token meets the same risk on loopback: while the control plane is stopped, another local
 account could listen on its port and receive the token from a client that sends it, and the token
-never expires. `pnpm devices`, `pnpm pair` and `pnpm mac-setup --with-token` therefore send it only
-after the server proves it holds it: they send a fresh 32-byte challenge to the public
-`GET /api/health` in `x-halcyonic-challenge`, and only the loopback listener answers, in
+never expires. `pnpm devices`, `pnpm pair`, `pnpm demo` and `pnpm mac-setup --with-token` therefore
+send it only after the server proves, again before every request that carries it, that it holds
+it, and stop at the first request that can't be proved (`fetchWithProof`), so a control plane
+restarted while `pnpm pair` polls, and whatever took its port, gets no token; what remains is the
+moment between a proof and the request it precedes. For each proof the client sends a fresh
+32-byte challenge to the public `GET /api/health` in `x-halcyonic-challenge`, and only the loopback listener answers, in
 `x-halcyonic-proof`, with an HMAC-SHA256 under the token of a fixed label, the local address and
 port the connection reached, and the challenge, which reveals nothing about the token. The clients
 dial a literal address, 127.0.0.1 or [::1] (`localhost` is tried as each), and check the proof

@@ -19,7 +19,7 @@ import {
   startScenario,
   submit as submitTo,
 } from '../demo-scenario.ts';
-import { ACCESS_TOKEN_FILE } from '../http/security.ts';
+import { ACCESS_TOKEN_FILE, loopbackBases, provenBase, TokenNotSent } from '../http/security.ts';
 import { createUuidV7Generator } from '../ids.ts';
 
 const APPROVAL_DELAY_MS = 3000;
@@ -35,10 +35,17 @@ async function main(): Promise<void> {
   }
   const config = loadConfig();
   const token = (await readFile(join(config.dataDir, ACCESS_TOKEN_FILE), 'utf8')).trim();
-  const host = config.host === '::1' ? '[::1]' : config.host;
-  const client = await RealtimeClient.connect(`ws://${host}:${config.port}/realtime`, token);
+  // The token goes only to a server that proves, just before, that it holds it (SECURITY.md).
+  const proven = await provenBase(fetch, loopbackBases(config.host, config.port), token);
+  if (typeof proven !== 'object') {
+    process.stderr.write(`${new TokenNotSent(proven, `port ${config.port}`).message}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const host = new URL(proven.base).host;
+  const client = await RealtimeClient.connect(`ws://${host}/realtime`, token);
   try {
-    await drive(client, parsed.scenario, config.port, host, token);
+    await drive(client, parsed.scenario, config.port, new URL(proven.base).hostname, token);
   } finally {
     // An open socket would keep the process alive after a refusal.
     await client.close();

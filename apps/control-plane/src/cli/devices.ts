@@ -21,7 +21,13 @@ import type {
   PairingStatus,
 } from '@halcyonic/contracts';
 import { loadConfig } from '../config.ts';
-import { ACCESS_TOKEN_FILE, loopbackBases, provenBase } from '../http/security.ts';
+import {
+  ACCESS_TOKEN_FILE,
+  fetchWithProof,
+  loopbackBases,
+  provenBase,
+  TokenNotSent,
+} from '../http/security.ts';
 
 export interface CliIo {
   readonly env: NodeJS.ProcessEnv;
@@ -74,14 +80,20 @@ async function connect(env: NodeJS.ProcessEnv): Promise<Api> {
   }
   const base = proven.base;
   return {
+    // Each request proves the server again first, so a control plane restarted while pairing is
+    // open, and whatever took its port, gets no token; the first one that can't prove it stops.
     async request<T>(method: string, path: string) {
       let response: Response;
       try {
-        response = await fetch(`${base}${path}`, {
-          method,
-          headers: { authorization: `Bearer ${token}` },
-        });
-      } catch {
+        response = await fetchWithProof(fetch, base, token, path, { method });
+      } catch (error) {
+        if (error instanceof TokenNotSent) {
+          throw new Error(
+            error.reason === 'unreachable'
+              ? `The control plane stopped answering at ${base}, so nothing more was sent. Start it with pnpm dev.`
+              : `${error.message} lsof -nP -iTCP:${config.port} -sTCP:LISTEN shows what listens.`,
+          );
+        }
         throw new Error(`The control plane is not answering at ${base}. Start it with pnpm dev.`);
       }
       const text = await response.text();
