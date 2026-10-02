@@ -84,6 +84,16 @@ ICONS = {
     "Settings": "settings",
     "UsageLeft": "speed",
     "Locked": "lock",
+    # What a file holds, generic only (ADR 0026), and the chevron for a line that opens more.
+    "CodeFile": "code",
+    "DatabaseFile": "database",
+    "DataFile": "data_object",
+    "TextFile": "description",
+    "ImageFile": "image",
+    "ScriptFile": "terminal",
+    "PackageFile": "deployed_code",
+    "Folder": "folder",
+    "OpensMore": "chevron_right",
 }
 
 

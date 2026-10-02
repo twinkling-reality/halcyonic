@@ -115,7 +115,18 @@ namespace Halcyonic.XR.UI.Editor
                 foreach (var holder in second) holder.gameObject.SetActive(false);
                 var actions = Actions();
                 failures.AddRange(Check(folder, "gallery-actions.png", camera, texture, root, eyes, actions.ConvertAll(action => (action.Button, action.What))));
-                failures.AddRange(EveryIconShows(badges, marks, actions));
+
+                // What a file holds, each kind's icon beside its word, on a page of its own.
+                var third = new List<Transform>();
+                foreach (Transform holder in gallery)
+                {
+                    if (holder != behind && holder.gameObject.activeSelf) third.Add(holder);
+                }
+                foreach (var holder in third) holder.gameObject.SetActive(false);
+                var files = FileIcons();
+                failures.AddRange(Check(folder, "gallery-files.png", camera, texture, root, eyes, new List<(GlazeButton, string)>()));
+                foreach (var holder in third) holder.gameObject.SetActive(true);
+                failures.AddRange(EveryIconShows(badges, marks, actions, files));
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
                 failures.AddRange(IconAloneKeepsPresses());
                 failures.AddRange(TextAsSeenCatchesASlant());
@@ -676,7 +687,8 @@ namespace Halcyonic.XR.UI.Editor
         /// as its own glyph. No two states or marks share a glyph, so a state never borrows another's
         /// icon, and no two actions do; an action may share a state's, as Stop shares Stopped's.
         /// </summary>
-        private static IEnumerable<string> EveryIconShows(List<StateBadgeView> badges, List<MarkTag> marks, List<(GlazeButton Button, string What, GlazeIcon Icon)> actions)
+        private static IEnumerable<string> EveryIconShows(List<StateBadgeView> badges, List<MarkTag> marks, List<(GlazeButton Button, string What, GlazeIcon Icon)> actions,
+            List<(TextMeshPro Icon, GlazeIcon Kind)> files)
         {
             var stateIcons = new HashSet<GlazeIcon> { GlazeIcon.LastKnown };
             foreach (WorkState state in Enum.GetValues(typeof(WorkState))) stateIcons.Add(StateLanguage.Look(state).Icon);
@@ -712,10 +724,44 @@ namespace Halcyonic.XR.UI.Editor
                 if (button.Icon == null || button.Icon.text != GlazeIconGlyphs.Of(icon)) yield return "component render: " + what + " shows no " + icon + " icon.";
                 else shown.Add(icon);
             }
+            foreach (var (icon, kind) in files)
+            {
+                if (icon.text != GlazeIconGlyphs.Of(kind)) yield return "component render: the " + kind + " row shows another icon.";
+                else shown.Add(kind);
+            }
             foreach (GlazeIcon icon in Enum.GetValues(typeof(GlazeIcon)))
             {
                 if (!shown.Contains(icon)) yield return "component render: nothing in the gallery shows the " + icon + " icon.";
             }
+        }
+
+        /// <summary>
+        /// What a file holds, generic only (ADR 0026), each kind's icon beside its word at the content's
+        /// size, as a page line shows a file, and the chevron of a line that opens more.
+        /// </summary>
+        private static List<(TextMeshPro Icon, GlazeIcon Kind)> FileIcons()
+        {
+            var shown = new List<(TextMeshPro, GlazeIcon)>();
+            var kinds = new (GlazeIcon Icon, string Words)[]
+            {
+                (GlazeIcon.CodeFile, "Code"), (GlazeIcon.DatabaseFile, "Database"), (GlazeIcon.DataFile, "Data"),
+                (GlazeIcon.TextFile, "Writing"), (GlazeIcon.ImageFile, "Image"), (GlazeIcon.ScriptFile, "Script"),
+                (GlazeIcon.PackageFile, "Package"), (GlazeIcon.Folder, "Folder"), (GlazeIcon.OpensMore, "Opens more"),
+            };
+            for (var index = 0; index < kinds.Length; index++)
+            {
+                var (kind, words) = kinds[index];
+                var holder = Holder("File " + words, index < 5 ? -12f : 8f, 10f - 4.5f * (index % 5));
+                var icon = GlazeIcons.Create(holder, "Icon", Glaze.Menu.BodyDegrees, GlazeTokens.Text, 12);
+                GlazeIcons.Show(icon, kind);
+                var label = GlazeText.Create(holder, "Words", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 12);
+                label.rectTransform.pivot = new Vector2(0f, 0.5f);
+                GlazeText.SetLiteral(label, words);
+                GlazeText.Lay(label, GlazeTokens.Units(14f), 1);
+                label.transform.localPosition = new Vector3(GlazeTokens.Units(Glaze.Menu.IconColumnDegrees / 2f + Glaze.Menu.GridDegrees), 0f, 0f);
+                shown.Add((icon, kind));
+            }
+            return shown;
         }
 
         /// <summary>

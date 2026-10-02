@@ -357,8 +357,9 @@ namespace Halcyonic.Client
     /// or, where there is none, a long list's Next page. It refuses what would put anything else
     /// anywhere: a second prompt in a slot, a main action anywhere but the far right, paging as a main
     /// action, and Yes anywhere but the free middle, which held nothing on that page or since. A footer
-    /// is a function of its page and the row chosen on it. Its working limit is three prompts, Close,
-    /// one other and the main action, as long as the measured footers say so.
+    /// is a function of its page and the row chosen on it. What limits it is its prompts' width, not
+    /// their count: four short ones fit in a file, and three long ones may not in the menu; the view
+    /// fails a render whose footer does not fit its column.
     /// </summary>
     public sealed class Footer
     {

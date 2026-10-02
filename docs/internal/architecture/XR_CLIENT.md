@@ -285,8 +285,9 @@ the same definition names, as the JSON Schema document:
   secondary prompt, and a confirmation's Yes only in the free middle, which held nothing on that page
   or since, with Cancel in the place of the press it would undo (`Footer.Confirm`); a request in
   parts pages by a row on the page. An unavailable prompt keeps its place, drawn quiet, and an
-  action says why. A footer's working limit is three prompts, Close, one other and the main action,
-  as the measured footers say. The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
+  action says why. What limits a footer is its prompts' width at 18 dp, not their count: four
+  short ones fit in a 38 degree file, and Close, Hide from the stage and Add a task overrun the
+  32 degree menu (the component render logs each footer's measure). The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
   one radius, the glass, the selection treatment, which `GlazeChecks.OneSelectionTreatment` pins,
   and quiet words in the secondary colour, every word held to 4.5 to 1 on the glass over a white
   wall. `PanelModel` stays until nothing draws it.
