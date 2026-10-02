@@ -299,7 +299,14 @@ namespace Halcyonic.Client
                 : new KeptFolder { RootPath = Folder.RootPath, RootName = Folder.RootName, FolderName = Folder.FolderName, IsNew = Folder.IsNew },
             Companion = Companion == null
                 ? null
-                : new KeptExchange { Start = Companion.Start, MaxQuestions = Companion.MaxQuestions, Turns = Companion.Turns.ToList() },
+                : new KeptExchange
+                {
+                    Start = Companion.Start,
+                    MaxQuestions = Companion.MaxQuestions,
+                    Turns = Companion.Turns.ToList(),
+                    Answer = Companion.Written,
+                    AnswerHeard = Companion.WrittenHeard,
+                },
         };
 
         /// <summary>
@@ -346,6 +353,8 @@ namespace Halcyonic.Client
             {
                 if (!Enum.IsDefined(typeof(CompanionStart), exchange.Start)) throw new ArgumentException("A kept exchange began in no known way.", nameof(kept));
                 idea.Companion = CompanionExchange.Restore(exchange.Start, exchange.MaxQuestions, exchange.Turns ?? new List<CompanionExchangeTurn>());
+                // An answer not yet sent comes back chosen, as it was left; one that could not be sent now is dropped.
+                if (exchange.Answer != null) idea.Companion.Write(Kept(exchange.Answer, CompanionExchange.PersonLimit), exchange.AnswerHeard);
             }
             return idea;
         }

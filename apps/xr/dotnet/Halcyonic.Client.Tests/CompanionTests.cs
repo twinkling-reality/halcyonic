@@ -549,6 +549,34 @@ public class CreationDraftTests
     }
 
     [Test]
+    public void AnAnswerNotYetSentComesBackChosenAndOneThatCannotBeSentIsDropped()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        var exchange = idea.BeginCompanion(CompanionStart.Idea);
+        exchange.Ask(CompanionWant.Next);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
+        exchange.Write("Only me", heard: true);
+        exchange.Choose(1);
+        var kept = idea.Keep();
+        Assert.That(kept.Companion!.Answer, Is.EqualTo("Only me"));
+
+        var back = ProjectIdea.Restore(kept).Companion!;
+        Assert.That(back.Written, Is.EqualTo("Only me"));
+        Assert.That(back.WrittenHeard, Is.True, "still the computer's hearing, for the person to check");
+        Assert.That(back.Chosen, Is.EqualTo(CompanionAnswerRow.Written), "a lit suggestion is not kept; the written words are");
+        Assert.That(back.Turns, Has.Count.EqualTo(2), "nothing was sent by coming back");
+
+        kept.Companion.Answer = new string('x', CompanionExchange.PersonLimit + 1);
+        Assert.That(ProjectIdea.Restore(kept).Companion!.Written, Is.Null, "longer than could be sent");
+        kept.Companion.Answer = "Only me";
+        kept.Companion.Turns.Add(new CompanionTurn { Reply = Companions.Propose() });
+        Assert.That(ProjectIdea.Restore(kept).Companion!.Written, Is.Null, "no question left to answer");
+        kept.Companion.Answer = new string('x', CompanionExchange.PersonLimit * 4 + 1);
+        Assert.That(() => ProjectIdea.Restore(kept), Throws.ArgumentException, "far past anything the headset writes, it is no draft");
+    }
+
+    [Test]
     public void TheFixedAnswersComeBackWhereThePersonWas()
     {
         var idea = new ProjectIdea();
