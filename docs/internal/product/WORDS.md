@@ -93,7 +93,7 @@ Halcyonic's own words go without one. The words below were settled by the coordi
 | A subagent's own words | Subagent says | |
 | Words whose author the source does not know | Author unknown | Quoted |
 | A model's account of the work, after it | Model explains | Explanation |
-| Halcyonic's reading of what it observed | Inferred | |
+| The source's own reading of what it observed, not a fact | Inferred | |
 | What the agent planned to do | Planned | |
 
 ## Sentence patterns

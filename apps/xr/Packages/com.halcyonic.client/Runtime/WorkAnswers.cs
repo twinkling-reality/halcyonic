@@ -315,9 +315,10 @@ namespace Halcyonic.Client
             UnderstandingExplanationStatus.Disabled => "Explanations are turned off on " + HostText.Your + ", so there's none for this work.",
             UnderstandingExplanationStatus.Failed => "The explanation could not be written.",
             UnderstandingExplanationStatus.None => "No explanation was written for this work.",
-            // Salidium's answer when no writer may explain this work, as for OpenCode's sessions with
-            // no local model chosen: there is none, and nothing failed.
-            UnderstandingExplanationStatus.Unavailable => "There's no explanation for this work: nothing on " + HostText.Your + " is set to write one.",
+            // Salidium's answer when no writer can explain this work: none may for its provider, as for
+            // OpenCode's sessions without a local model, the chosen one is not installed, none is
+            // found, or the setting is invalid. There is none, and nothing failed.
+            UnderstandingExplanationStatus.Unavailable => "There's no explanation for this work: nothing on " + HostText.Your + " can write one for it.",
             _ => "No explanation can be written now.",
         };
 
