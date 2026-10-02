@@ -14,6 +14,7 @@ import { isIP } from 'node:net';
 import { homedir, userInfo } from 'node:os';
 import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isCloudName } from './companion/ollama.ts';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
 
 export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
@@ -42,6 +43,17 @@ export interface SpeechConfig {
   readonly model: string;
   readonly vadModel: string;
 }
+
+/**
+ * Create's companion (ADR 0025): the local model it asks, by the name Ollama lists it under, and
+ * Ollama's address, which must be on this computer.
+ */
+export interface CompanionConfig {
+  readonly model: string;
+  readonly ollama: URL;
+}
+
+export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 
 export interface ControlPlaneConfig {
   readonly host: string;
@@ -74,6 +86,8 @@ export interface ControlPlaneConfig {
   readonly codexBinary: string | null;
   /** Null, and voice off, unless the owner set all three HALCYONIC_WHISPER_ variables. */
   readonly speech: SpeechConfig | null;
+  /** Null, and the companion off, unless the owner named its model in HALCYONIC_COMPANION_MODEL. */
+  readonly companion: CompanionConfig | null;
   /**
    * Whether the end of stdin shuts the control plane down as SIGTERM does. For a launcher, such as
    * a test harness, that runs it as a child and holds its stdin open without writing to it: when
@@ -146,6 +160,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     speech: parseSpeech(env),
+    companion: parseCompanion(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
   };
 }
@@ -416,6 +431,51 @@ function parseSpeech(env: NodeJS.ProcessEnv): SpeechConfig | null {
       env.HALCYONIC_WHISPER_VAD_MODEL,
     ) as string,
   };
+}
+
+/** An Ollama model name as it lists it, such as `qwen3.6:35b-a3b-nvfp4` or `library/model:tag`. */
+const OLLAMA_MODEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/;
+
+function parseCompanion(env: NodeJS.ProcessEnv): CompanionConfig | null {
+  const model = env.HALCYONIC_COMPANION_MODEL;
+  const address = env.HALCYONIC_COMPANION_OLLAMA_URL;
+  if (model === undefined || model === '') {
+    if (address !== undefined && address !== '') {
+      throw new ConfigError(
+        'HALCYONIC_COMPANION_OLLAMA_URL is set, but the companion is off; name its model in HALCYONIC_COMPANION_MODEL.',
+      );
+    }
+    return null;
+  }
+  if (!OLLAMA_MODEL.test(model)) {
+    throw new ConfigError(`HALCYONIC_COMPANION_MODEL is not an Ollama model name, got "${model}".`);
+  }
+  if (isCloudName(model)) {
+    throw new ConfigError(
+      `HALCYONIC_COMPANION_MODEL ${model} is one of Ollama's cloud models; the companion runs only on this computer.`,
+    );
+  }
+  let ollama: URL;
+  try {
+    ollama = new URL(address === undefined || address === '' ? DEFAULT_OLLAMA_URL : address);
+  } catch {
+    throw new ConfigError(`HALCYONIC_COMPANION_OLLAMA_URL is not a URL, got "${address}".`);
+  }
+  const host = ollama.hostname.replace(/^\[|\]$/g, '');
+  if (
+    ollama.protocol !== 'http:' ||
+    !LOOPBACK_HOSTS.has(host) ||
+    ollama.username !== '' ||
+    ollama.password !== '' ||
+    ollama.pathname !== '/' ||
+    ollama.search !== '' ||
+    ollama.hash !== ''
+  ) {
+    throw new ConfigError(
+      `HALCYONIC_COMPANION_OLLAMA_URL must be http:// on a loopback address with a port and nothing else, such as ${DEFAULT_OLLAMA_URL}, got "${address}".`,
+    );
+  }
+  return { model, ollama };
 }
 
 function parseNames(name: string, raw: string | undefined): string[] {

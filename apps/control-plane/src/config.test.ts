@@ -230,6 +230,41 @@ describe('configuration', () => {
     assert.equal(loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: home }).opencodeConfigHome, home);
   });
 
+  test('the companion is off unless its model is named, and asks only Ollama on this computer', () => {
+    assert.equal(loadConfig({}).companion, null);
+    const on = loadConfig({ HALCYONIC_COMPANION_MODEL: 'qwen3.6:35b-a3b-nvfp4' }).companion;
+    assert.equal(on?.model, 'qwen3.6:35b-a3b-nvfp4');
+    assert.equal(on?.ollama.href, 'http://127.0.0.1:11434/');
+    for (const address of ['http://[::1]:11434', 'http://localhost:8080'])
+      assert.ok(
+        loadConfig({ HALCYONIC_COMPANION_MODEL: 'm:t', HALCYONIC_COMPANION_OLLAMA_URL: address })
+          .companion,
+        address,
+      );
+    assert.throws(
+      () => loadConfig({ HALCYONIC_COMPANION_OLLAMA_URL: 'http://127.0.0.1:11434' }),
+      /the companion is off/,
+    );
+    for (const address of [
+      'http://192.168.1.20:11434',
+      'https://ollama.com',
+      'http://127.0.0.1:11434/v1',
+      'http://user:pass@127.0.0.1:11434',
+      'http://127.0.0.1:11434/?x=1',
+      'not a url',
+    ])
+      assert.throws(
+        () =>
+          loadConfig({ HALCYONIC_COMPANION_MODEL: 'm:t', HALCYONIC_COMPANION_OLLAMA_URL: address }),
+        ConfigError,
+        address,
+      );
+    for (const model of ['gemma4:cloud', 'gpt-oss:120b-cloud'])
+      assert.throws(() => loadConfig({ HALCYONIC_COMPANION_MODEL: model }), /cloud models/, model);
+    for (const model of ['-flag', 'two words', 'x'.repeat(201)])
+      assert.throws(() => loadConfig({ HALCYONIC_COMPANION_MODEL: model }), ConfigError, model);
+  });
+
   test('agent environment pass-through takes variable names only', () => {
     assert.deepEqual(
       loadConfig({ HALCYONIC_AGENT_ENV: 'SSH_AUTH_SOCK, HTTPS_PROXY' }).agentEnvironment,
