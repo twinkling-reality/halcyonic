@@ -76,6 +76,9 @@ public class MenuFrameTests
         Assert.That(footer.Reason, Is.EqualTo("The companion is still answering."));
         Assert.That(new Footer(Close, farRight: Action("go", main: true)).Reason, Is.Null);
         Assert.That(Action("ready", reason: "never said").Reason, Is.Null, "an available prompt has no reason");
+        Assert.Throws<ArgumentException>(() => _ = Action("approve", available: false), "an action that can't be taken says why");
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
+        Assert.That(Previous(available: false).Reason, Is.Null, "paging at the ends is quiet with no reason");
         var frame = new MenuFrame("New project", footer);
         Assert.That(frame.Reason, Is.EqualTo("The companion is still answering."));
     }
@@ -95,6 +98,8 @@ public class MenuFrameTests
 
         Assert.Throws<InvalidOperationException>(() => new Footer(Close, rare: Action("stop")).WithPages(Previous(), Next()), "the rare place is taken");
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(secondary: Next(), farRight: Action("send")), "Next page is secondary only beside a main action");
+        var built = new Footer(Close, secondary: Next(), farRight: Action("new-project", main: true));
+        Assert.That(built[PromptSlot.Secondary]!.Kind, Is.EqualTo(PromptKind.NextPage), "the constructor takes Next page beside a main action, as WithPages does");
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Next()));
         Assert.Throws<InvalidOperationException>(() => _ = new Footer(farRight: Previous()));
         Assert.Throws<ArgumentException>(() => new Footer(Close).WithPages(Next(), Previous()));
@@ -166,15 +171,16 @@ public class MenuFrameTests
     [Test]
     public void ALineOnlySaysSomethingOrTakesThePersonSomewhere()
     {
-        var opens = new PageLine("src/auth/rate-limit.ts", wordsAreData: true, icon: GlazeIcon.Change, fact: "2 min ago", chip: "reported",
+        var opens = new PageLine("src/auth/rate-limit.ts", wordsAreData: true, icon: GlazeIcon.Change, fact: "2 min ago", chip: "Agent says",
             action: "open-file", key: "rate-limit", opens: true);
-        Assert.That((opens.Pressable, opens.Opens, opens.Chip), Is.EqualTo((true, true, "reported")));
+        Assert.That((opens.Pressable, opens.Opens, opens.Chip), Is.EqualTo((true, true, "Agent says")));
         var answer = new PageLine("Use Postgres", wordsAreData: true, action: "answer", key: "0", choice: true, chosen: true);
         Assert.That(answer.Choice, Is.True);
         var recorded = new PageLine("Add a test for the limit", wordsAreData: true, action: "tell-it", key: "1", available: false);
         Assert.That(recorded.Pressable, Is.False, "shown but taking no press, as an answer the recording doesn't hold");
 
         Assert.Throws<ArgumentException>(() => _ = new PageLine("It ran the tests", chip: "observed"), "an observed fact takes no chip");
+        Assert.Throws<ArgumentException>(() => _ = new PageLine("It ran the tests", chip: "Observed"));
         Assert.Throws<ArgumentException>(() => _ = new PageLine("x", opens: true), "opening needs an action");
         Assert.Throws<ArgumentException>(() => _ = new PageLine("x", choice: true), "an answer raises an action");
         Assert.Throws<ArgumentException>(() => _ = new PageLine("x", chosen: true), "only a line that takes a press is chosen");
