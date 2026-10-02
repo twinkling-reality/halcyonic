@@ -211,12 +211,11 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Voice'), 'Optional');
     assert.equal(status(machine, 'Usage left'), 'Optional');
     assert.equal(status(machine, 'Halcyonic running on this Mac'), 'To do');
-    assert.equal(status(machine, 'Your headset'), 'To do');
+    assert.equal(status(machine, 'Your headset'), "Can't tell yet");
     const output = text(machine);
     for (const sentence of FOLDER_MEANING) {
       assert.ok(output.includes(sentence), sentence);
     }
-    assert.match(output, /Your Mac doesn't allow any folder yet\./);
     assert.match(output, /pnpm mac-setup allow/);
     assert.match(
       output,
@@ -229,6 +228,12 @@ describe('pnpm mac-setup', () => {
     );
     assert.match(output, /smollm2:135m \(0\.3 GB\) can't use tools/);
     assert.match(output, /plays a recorded demo, labelled as one/);
+    assert.doesNotMatch(
+      output,
+      /Next: pnpm mac-setup pairing on/,
+      'pairing is never the default next step',
+    );
+    assert.match(output, /Your computer doesn't allow any folder yet\./);
     assert.match(output, /Start with “Folders agents may use”\./);
     assert.equal(machine.lines.filter((line) => line.includes('--ignore-scripts')).length, 2);
     assert.equal(existsSync(machine.dataDir), false, 'checking writes nothing');
@@ -467,12 +472,30 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /Nothing you say leaves the Mac or is kept\./);
   });
 
-  test('pairing on and off write the listener setting and say what each means', async (t) => {
+  test('pairing on says what it opens and changes nothing unless the person says yes', async (t) => {
     const machine = mac(t);
+    machine.answers.push('no');
+    assert.equal(await machine.run('pairing', 'on'), 1);
+    assert.match(
+      text(machine),
+      /opens a second listener, encrypted, on port 47801, to every device on your network/,
+    );
+    assert.match(text(machine), /Anyone on your network can try in that time/);
+    assert.match(text(machine), /until you revoke it with pnpm devices revoke/);
+    assert.match(text(machine), /macOS asks whether node may accept incoming connections/);
+    assert.match(text(machine), /Nothing changed\./);
+    assert.equal(existsSync(join(machine.dataDir, SETTINGS_FILE)), false);
+    machine.interactive = false;
+    assert.equal(await machine.run('pairing', 'on'), 1);
+    assert.equal(existsSync(join(machine.dataDir, SETTINGS_FILE)), false);
+  });
+
+  test('pairing on and off write the listener setting', async (t) => {
+    const machine = mac(t);
+    machine.answers.push('yes');
     assert.equal(await machine.run('pairing', 'on'), 0);
     assert.equal(machine.settings().HALCYONIC_NETWORK_HOST, '0.0.0.0');
-    assert.match(text(machine), /Only a headset you pair can use it/);
-    assert.match(text(machine), /macOS asks whether node may accept incoming connections/);
+    assert.match(text(machine), /Settings, Your computer, Pair with a computer/);
     machine.firewall = { enabled: true, blockAll: true };
     await machine.run();
     assert.equal(status(machine, 'Your headset'), 'To do');
@@ -484,7 +507,7 @@ describe('pnpm mac-setup', () => {
 
   test('it tells a running Halcyonic with other settings to restart, and what restarting stops', async (t) => {
     const machine = mac(t);
-    machine.answers.push('yes');
+    machine.answers.push('yes', 'yes');
     await machine.run('allow');
     running(machine, { roots: [] });
     assert.equal(await machine.run('pairing', 'on'), 0);
@@ -550,6 +573,7 @@ describe('pnpm mac-setup', () => {
 
   test('it lists the headsets paired, and never the revoked ones', async (t) => {
     const machine = mac(t);
+    machine.answers.push('yes');
     await machine.run('pairing', 'on');
     const device = (id: string, label: string, revoked: string | null) => ({
       device_id: id,
@@ -583,7 +607,7 @@ describe('pnpm mac-setup', () => {
 
   test('a Mac set up for work on this Mac is ready', async (t) => {
     const machine = mac(t);
-    machine.answers.push('yes');
+    machine.answers.push('yes', 'yes');
     await machine.run('allow');
     machine.install('opencode');
     machine.install('codex');
@@ -613,7 +637,10 @@ describe('pnpm mac-setup', () => {
     });
     assert.equal(await machine.run(), 0, text(machine));
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Ready');
-    assert.match(text(machine), /Codex is set to Ollama on this Mac/);
+    assert.match(
+      text(machine),
+      /Codex: your own Codex settings name Ollama, so the headset lists Codex's model as running on this Mac\./,
+    );
     assert.match(
       text(machine),
       /OpenCode also offers free models that run on a remote service of its own, opencode\.ai/,
@@ -630,9 +657,12 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Look at this');
     assert.match(
       text(machine),
-      /Codex uses your own Codex settings, which run it on a remote service \(OpenAI, its default\)/,
+      /Codex: your own Codex settings name OpenAI, their default, so the headset lists Codex's models as running on a remote service\. Nothing starts on one without its second press/,
     );
-    assert.match(text(machine), /Claude Agent is on: every task on it runs on a remote service/);
+    assert.match(
+      text(machine),
+      /Claude Agent is on\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press/,
+    );
   });
 
   test('a settings file it cannot use is the first thing it says', async (t) => {

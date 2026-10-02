@@ -38,6 +38,7 @@ import { createInterface } from 'node:readline/promises';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
 import {
   ConfigError,
+  DEFAULT_NETWORK_PORT,
   DEFAULT_PORT,
   defaultDataDir,
   isLocalOllamaModel,
@@ -406,7 +407,7 @@ class MacSetup {
         title,
         status: 'todo',
         lines: [
-          "No folder is allowed yet, so no agent can start work. The headset says “Your Mac doesn't allow any folder yet.”",
+          "No folder is allowed yet, so no agent can start work. The headset says “Your computer doesn't allow any folder yet.”",
           ...FOLDER_MEANING,
           ...source,
         ],
@@ -492,7 +493,7 @@ class MacSetup {
     );
     if (ready === 0) {
       lines.unshift(
-        'No agent app is set up, so no task can start. The headset says “No agent app on your Mac can start work right now.”',
+        'No agent app is set up, so no task can start. The headset says “No agent app on your computer can start work right now.”',
       );
     }
     return { title, status: ready === 0 ? 'todo' : look ? 'look' : 'ready', lines, next };
@@ -617,7 +618,7 @@ class MacSetup {
   #costStep(env: NodeJS.ProcessEnv, ollama: OllamaModel[] | null): Step {
     const title = 'Where work goes, and what it costs';
     const lines = [
-      'Halcyonic never picks a model by itself: each task runs on the model chosen for it. The headset lists the models that run on your Mac first, and a model that runs on a remote service takes a second press.',
+      'Halcyonic never picks a model by itself: each task runs on the model chosen for it. The headset lists the models that run on this Mac first, and a model that runs on a remote service takes a second press.',
     ];
     let hosted = false;
     if (present(env.HALCYONIC_OPENCODE_BIN)) {
@@ -628,18 +629,20 @@ class MacSetup {
     if (present(env.HALCYONIC_CODEX_BIN)) {
       const provider = this.#codexProvider();
       if (provider === 'ollama') {
-        lines.push('Codex is set to Ollama on this Mac in your own Codex settings.');
+        lines.push(
+          "Codex: your own Codex settings name Ollama, so the headset lists Codex's model as running on this Mac.",
+        );
       } else {
         hosted = true;
         lines.push(
-          `Codex uses your own Codex settings, which run it on a remote service (${provider === null ? 'OpenAI, its default' : provider}): your code and instructions go there, and it may cost money. To keep it on this Mac, see “Codex” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
+          `Codex: your own Codex settings name ${provider === null ? 'OpenAI, their default' : provider}, so the headset lists Codex's models as running on a remote service. Nothing starts on one without its second press; a task on one sends your code and instructions there, and may cost money. To run Codex on this Mac, see “Codex” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
         );
       }
     }
     if (this.#io.env.HALCYONIC_CLAUDE_AGENT === '1') {
       hosted = true;
       lines.push(
-        "Claude Agent is on: every task on it runs on a remote service, Anthropic's, so your code and instructions go there, paid for with your API key.",
+        "Claude Agent is on. Its models run on a remote service, Anthropic's: nothing starts on one without its second press, and a task on one is paid for with your API key.",
       );
       const key = this.#fileState(ANTHROPIC_KEY_FILE);
       if (key === 'exposed')
@@ -688,7 +691,7 @@ class MacSetup {
       title,
       status: 'optional',
       lines: [
-        "Voice isn't set up. The headset then offers typing only, and says “Voice isn't set up on your Mac.”",
+        "Voice isn't set up. The headset then offers typing only, and says “Voice isn't set up on your computer.”",
         about,
         ...(standard === null
           ? [
@@ -711,7 +714,7 @@ class MacSetup {
         title,
         status: 'optional',
         lines: [
-          "Usage left isn't set up. The headset says “Usage left isn't set up on your Mac yet.”",
+          "Usage left isn't set up. The headset says “Usage left isn't set up on your computer yet.”",
           about,
           `It needs Seorak running on this Mac and a credential you issue in Seorak's dashboard, saved as ${this.#tilde(path)} with mode 600. Move it as a file, never through the clipboard or a chat: see “Connect Seorak” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
         ],
@@ -783,7 +786,7 @@ class MacSetup {
         title,
         status: 'todo',
         lines: [
-          "Halcyonic isn't running. Start it, and leave that window open while you use the headset. The headset says “Can't reach your Mac” until it runs.",
+          "Halcyonic isn't running. Start it, and leave that window open while you use the headset. The headset says “Can't reach your computer” until it runs.",
         ],
         next: ['pnpm start'],
       };
@@ -840,20 +843,18 @@ class MacSetup {
   #headsetStep(env: NodeJS.ProcessEnv, running: Running): Step {
     const title = 'Your headset';
     const demo =
-      'Until it reaches your Mac, the headset plays a recorded demo, labelled as one; nothing in it reaches an agent.';
+      'Until it reaches this Mac, the headset plays a recorded demo, labelled as one; nothing in it reaches an agent.';
     const usb =
       'A development build can also connect over USB instead: see “Install and connect” in docs/internal/runbooks/XR_DEVELOPMENT.md.';
     if (!present(env.HALCYONIC_NETWORK_HOST)) {
       return {
         title,
-        status: 'todo',
+        status: 'unknown',
         lines: [
-          'Pairing over Wi-Fi is off, so a headset can reach this Mac only over USB.',
-          'With pairing on, devices on your network can find Halcyonic on port 47801. Only a headset you pair can use it, over an encrypted connection, and you can stop any of them at once.',
-          usb,
+          "This check can't tell whether a headset is connected over USB, as a development build can be: see “Install and connect” in docs/internal/runbooks/XR_DEVELOPMENT.md.",
+          'Pairing over Wi-Fi is off. Turning it on is your choice: pnpm mac-setup pairing on says what it opens, and asks before it changes anything.',
           demo,
         ],
-        next: ['pnpm mac-setup pairing on'],
       };
     }
     const lines: string[] = [];
@@ -879,7 +880,7 @@ class MacSetup {
       if (kept.length === 0) {
         if (status !== 'todo') status = 'todo';
         lines.push(
-          'Pairing over Wi-Fi is on, and no headset is paired yet. Pair one: in the headset, Settings, Your Mac, Pair with a Mac, then enter the address and code this shows.',
+          'Pairing over Wi-Fi is on, and no headset is paired yet. Pair one: in the headset, Settings, Your computer, Pair with a computer, then enter the address and code pnpm pair shows.',
         );
       } else {
         if (status !== 'todo') status = 'ready';
@@ -1144,24 +1145,33 @@ class MacSetup {
     if (settings === null) return 1;
     const next: Record<string, string | undefined> = { ...settings };
     if (state === 'on') {
+      const port = io.env.HALCYONIC_NETWORK_PORT ?? String(DEFAULT_NETWORK_PORT);
+      io.print('Pairing over Wi-Fi is your choice. Turning it on:');
+      const firewall = io.firewall();
+      for (const line of [
+        `opens a second listener, encrypted, on port ${port}, to every device on your network, from the next time Halcyonic starts. Without pairing, anything that reaches it gets no further than a health check.`,
+        'lets a device try to pair only while pnpm pair runs, for five minutes, with the eight-digit code it shows; three wrong codes close it. Anyone on your network can try in that time, so pair where you trust the network.',
+        'lets a paired headset start and steer agents in the folders you allow, until you revoke it with pnpm devices revoke.',
+        ...(firewall?.blockAll === true
+          ? [
+              "This Mac's firewall blocks all incoming connections, so no headset can reach it until you allow them in System Settings, Network, Firewall, Options.",
+            ]
+          : firewall?.enabled === true
+            ? [
+                'The first time Halcyonic listens, macOS asks whether node may accept incoming connections: allow it, or no headset can reach it.',
+              ]
+            : []),
+      ]) {
+        for (const wrapped of wrap(line, 2)) io.print(wrapped);
+      }
+      if (!(await this.#confirm('Turn pairing over Wi-Fi on?'))) return 1;
       next.HALCYONIC_NETWORK_HOST = '0.0.0.0';
       this.#save(next);
-      io.print('Pairing over Wi-Fi turns on when Halcyonic restarts.');
       for (const line of [
-        'Devices on your network can then find Halcyonic on port 47801. Only a headset you pair can use it, over an encrypted connection; anything else gets no further than a health check.',
-        'Then run pnpm pair, and in the headset choose Settings, Your Mac, Pair with a Mac, and enter the address and code it shows.',
+        'Pairing over Wi-Fi turns on when Halcyonic restarts.',
+        'Then run pnpm pair, and in the headset choose Settings, Your computer, Pair with a computer, and enter the address and code it shows.',
       ]) {
         for (const wrapped of wrap(line, 0)) io.print(wrapped);
-      }
-      const firewall = io.firewall();
-      if (firewall?.blockAll === true) {
-        io.print(
-          "This Mac's firewall blocks all incoming connections, so no headset can reach it until you allow them in System Settings, Network, Firewall, Options.",
-        );
-      } else if (firewall?.enabled === true) {
-        io.print(
-          'The first time Halcyonic listens, macOS asks whether node may accept incoming connections: allow it.',
-        );
       }
     } else {
       next.HALCYONIC_NETWORK_HOST = undefined;
