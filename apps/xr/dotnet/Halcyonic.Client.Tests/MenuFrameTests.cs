@@ -242,6 +242,13 @@ public class MenuFrameTests
     }
 
     [Test]
+    public void AListsPageHoldsFourRowsOrThreeWithLargerText()
+    {
+        Assert.That(MenuFrame.RowsAPage(TextSize.Standard), Is.EqualTo(4));
+        Assert.That(MenuFrame.RowsAPage(TextSize.Larger), Is.EqualTo(3), "4 would take the menu and a file past a Quest 3S's field");
+    }
+
+    [Test]
     public void APromptAlwaysHasItsIdAndWords()
     {
         Assert.Throws<ArgumentException>(() => _ = new Prompt("", "Approve", GlazeIcon.Approve));
