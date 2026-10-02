@@ -141,6 +141,28 @@ namespace Halcyonic.Client
         /// <summary>The composition as placement takes it: one panel of its size at the plane's distance.</summary>
         public PanelSize Size => new PanelSize(Distance, Width / 2f * Distance, Height / 2f * Distance);
 
+        /// <summary>
+        /// How large text reads as the eyes see it at a point <paramref name="right"/> across and
+        /// <paramref name="up"/> up from the centre, along the plane in units of its distance, as a share
+        /// of its size at the centre (ADR 0026): the plane faces the eyes there, and away from it a word
+        /// stands farther and at a slant, so its em spans sqrt(1 + right²) / (1 + right² + up²) of itself.
+        /// </summary>
+        public static float ShrinkAt(float right, float up)
+        {
+            var across = 1f + right * right;
+            return MathF.Sqrt(across) / (across + up * up);
+        }
+
+        /// <summary>
+        /// The size small text takes at a point (ADR 0026): 15 dp (<see cref="Glaze.Menu.LabelDegrees"/>)
+        /// where it still reads at 14 dp or more as the eyes see it, and the content's 18 dp
+        /// (<see cref="Glaze.Menu.BodyDegrees"/>) where it wouldn't, as a fact at the far side of a
+        /// file and its side panel. Asked of the far end of the text, from the part's place, before
+        /// the text is laid out, so nothing overlaps afterwards.
+        /// </summary>
+        public static float SmallTextDegreesAt(float right, float up) =>
+            Glaze.Menu.LabelDegrees * ShrinkAt(right, up) >= Glaze.MinimumTextDegrees ? Glaze.Menu.LabelDegrees : Glaze.Menu.BodyDegrees;
+
         /// <summary>A length that spans <paramref name="degrees"/> at the eyes when centred in front of them, in units of the plane's distance.</summary>
         public static float Units(float degrees) => 2f * Glaze.MetersAt(degrees / 2f, 1f);
 

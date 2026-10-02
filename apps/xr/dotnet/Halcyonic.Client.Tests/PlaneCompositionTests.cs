@@ -120,6 +120,29 @@ public class PlaneCompositionTests
     }
 
     [Test]
+    public void TextShrinksAwayFromThePlanesCentreAndSmallTextTakesTheContentsSizeWhereItWouldReadUnder14Dp()
+    {
+        Assert.That(PlaneComposition.ShrinkAt(0f, 0f), Is.EqualTo(1f));
+        // A word straight across: farther by 1/cos and seen square on, so cos of the angle.
+        var across = MathF.Tan(30f * Radians);
+        Assert.That(PlaneComposition.ShrinkAt(across, 0f), Is.EqualTo(MathF.Cos(30f * Radians)).Within(1e-5f));
+        // Straight up: farther by 1/cos and seen at a slant, so cos squared.
+        Assert.That(PlaneComposition.ShrinkAt(0f, MathF.Tan(20f * Radians)), Is.EqualTo(MathF.Pow(MathF.Cos(20f * Radians), 2f)).Within(1e-5f));
+        Assert.That(PlaneComposition.ShrinkAt(0.3f, -0.2f), Is.EqualTo(PlaneComposition.ShrinkAt(-0.3f, 0.2f)), "the same in every direction");
+
+        Assert.That(PlaneComposition.SmallTextDegreesAt(0f, 0f), Is.EqualTo(Glaze.Menu.LabelDegrees), "15 dp at the centre");
+        Assert.That(PlaneComposition.SmallTextDegreesAt(MathF.Tan(15f * Radians), 0f), Is.EqualTo(Glaze.Menu.LabelDegrees));
+        // A file and its side panel, about 60 degrees wide: a count at the far right reads 0.81 degrees at 15 dp.
+        Assert.That(Glaze.Menu.LabelDegrees * PlaneComposition.ShrinkAt(across, 0f), Is.LessThan(Glaze.MinimumTextDegrees));
+        Assert.That(PlaneComposition.SmallTextDegreesAt(across, 0f), Is.EqualTo(Glaze.Menu.BodyDegrees), "there it takes the content's 18 dp");
+        Assert.That(Glaze.Menu.BodyDegrees * PlaneComposition.ShrinkAt(across, 0f), Is.GreaterThanOrEqualTo(Glaze.MinimumTextDegrees), "which reads");
+        // 15 dp reads where the shrink is 14/15 or more.
+        var edge = MathF.Sqrt(MathF.Pow(15f / 14f, 2f) - 1f);
+        Assert.That(PlaneComposition.SmallTextDegreesAt(edge * 0.99f, 0f), Is.EqualTo(Glaze.Menu.LabelDegrees));
+        Assert.That(PlaneComposition.SmallTextDegreesAt(edge * 1.01f, 0f), Is.EqualTo(Glaze.Menu.BodyDegrees));
+    }
+
+    [Test]
     public void AColumnNeedsAWidthAndAPartAndACompositionAColumn()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new PlaneColumn(0f, 1f));
