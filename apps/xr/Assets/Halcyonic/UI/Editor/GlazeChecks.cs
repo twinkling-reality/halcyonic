@@ -420,7 +420,7 @@ namespace Halcyonic.XR.UI.Editor
                 var accented = Mathf.Abs(fill.r - accent.r) + Mathf.Abs(fill.g - accent.g) + Mathf.Abs(fill.b - accent.b) < 0.05f && fill.a > 0.3f;
                 if (accented && shape.Selection != SurfaceSelection.MainCap) yield return what + ": " + name + " is filled with the accent, which marks only the main action's cap.";
                 var scale = shape.transform.lossyScale;
-                var thinnest = Glaze.DegreesOf(Mathf.Min(scale.x, scale.y), PlaneDistance(eyes, shape.transform));
+                var thinnest = Glaze.DegreesOf(Mathf.Min(Mathf.Abs(scale.x), Mathf.Abs(scale.y)), PlaneDistance(eyes, shape.transform));
                 if (thinnest < 0.2f && fill.a > 0.2f) yield return what + ": " + name + " is a bar, " + thinnest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees thin; nothing is marked by a bar or an underline.";
             }
         }

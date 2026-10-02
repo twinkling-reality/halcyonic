@@ -296,7 +296,14 @@ the same definition names, as the JSON Schema document:
   render samples it. A subject is `GlazeType.Subject`, 24 dp drawn light; only the chosen section and
   the main action are drawn heavier (`GlazeText.SetStrong`). A file's state pill is the stage's
   badge drawn `StateBadgeView.PillScale` larger, its word at 18 dp, on the subject's top edge, and
-  `GlazeChecks.TypeStepsDown` reads it with its subject. `PanelModel` stays until nothing draws it.
+  `GlazeChecks.TypeStepsDown` reads it with its subject. `GlazeButton` takes the menu's three
+  roles: `Prompt`, a round key cap holding its icon (a degree, the least any icon is drawn), then
+  its words, with an unseen 60 dp hit area, the main action's cap filled with the accent, a plain
+  one an outline, an unavailable one quiet in its place, the pointed frame round it, its cap sinking
+  when pressed; `Row`, a page line's place to press, nothing at rest; and `Answer`, a hairline shape
+  at rest; both lit when chosen and framed when pointed at, their words laid on them by the view
+  (`ShowArea`). Each sets its shapes' `Surface.Selection`, so the selection check holds them.
+  `PanelModel` stays until nothing draws it.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (no surface uses it yet): columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
