@@ -6,7 +6,8 @@ import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { createVirtualTime, type RuntimeAdapter, type VirtualTime } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
-import type { LogLevel } from '../config.ts';
+import { Companion, type CompanionBounds } from '../companion/companion.ts';
+import type { CompanionConfig, LogLevel } from '../config.ts';
 import { ControlPlane } from '../core/control-plane.ts';
 import { createCommandFactory } from '../demo-plan.ts';
 import { registerDeviceRoutes } from '../http/device-routes.ts';
@@ -117,6 +118,11 @@ export interface TestServerOptions extends TestControlPlaneOptions {
   readonly logStream?: NodeJS.WritableStream;
   /** The engine behind `POST /api/transcriptions`; without one, voice is off. */
   readonly speech?: SpeechEngine;
+  /** Create's companion and its bounds; without it, the companion is off. */
+  readonly companion?: {
+    readonly config: CompanionConfig;
+    readonly bounds?: Partial<CompanionBounds>;
+  };
 }
 
 export interface TestNetworkListener {
@@ -154,6 +160,11 @@ export async function startTestServer(options: TestServerOptions = {}) {
       modelListTimeoutMs: options.modelListTimeoutMs,
     }),
     transcriptions: new Transcriptions({ engine: options.speech ?? null, clock: harness.time }),
+    companion: new Companion({
+      config: options.companion?.config ?? null,
+      clock: harness.time,
+      ...(options.companion?.bounds === undefined ? {} : { bounds: options.companion.bounds }),
+    }),
   };
   const devices = new DeviceAccess({
     controlPlane: harness.controlPlane,

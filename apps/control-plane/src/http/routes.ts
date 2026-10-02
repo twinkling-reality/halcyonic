@@ -1,5 +1,7 @@
 import {
   type CommandSubmissionResponse,
+  CompanionReplyResponse,
+  CompanionStatus,
   compileValidator,
   DEVICE_EVENT_TYPES,
   EvaluationResponse,
@@ -23,6 +25,7 @@ import {
   type WorkstreamsResponse,
 } from '@halcyonic/contracts';
 import type { FastifyInstance } from 'fastify';
+import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
@@ -37,6 +40,14 @@ const validateRuntimeId = compileValidator(RuntimeId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
 const validateEvaluationResponse = compileValidator(EvaluationResponse);
 const validateUsageLimitsResponse = compileValidator(UsageLimitsResponse);
+const validateCompanionStatus = compileValidator(CompanionStatus);
+const validateCompanionReply = compileValidator(CompanionReplyResponse);
+
+/**
+ * The largest request for a companion reply: 24,000 characters of exchange (ADR 0025), each of
+ * which JSON may spell in up to six bytes, with room for the rest of the request.
+ */
+const COMPANION_BODY_LIMIT = 256 * 1024;
 
 export interface RouteSources {
   readonly understanding: UnderstandingSource;
@@ -45,6 +56,8 @@ export interface RouteSources {
   readonly modelListTimeoutMs?: number;
   /** Speech to drafts, shared by both listeners so its bounds hold across them; absent, voice is off. */
   readonly transcriptions?: Transcriptions;
+  /** Create's companion, shared by both listeners so its bounds hold across them; absent, it is off. */
+  readonly companion?: Companion;
 }
 
 /**
@@ -297,6 +310,71 @@ export function registerRoutes(
       },
     );
   });
+
+  // Create's companion (ADR 0025): whether it can be asked, and one reply to the exchange so far.
+  // Neither the exchange nor the reply is journaled, stored or logged; the log carries codes,
+  // counts and times only.
+  app.get('/api/companion', async (request): Promise<CompanionStatus> => {
+    const status: CompanionStatus = (await sources.companion?.status()) ?? {
+      availability: 'unavailable',
+      reason: {
+        code: 'companion_not_set_up',
+        message: 'The companion is not set up on this computer.',
+      },
+    };
+    if (!validateCompanionStatus(status).ok) {
+      request.log.warn('companion status does not match the contract');
+      return {
+        availability: 'unavailable',
+        reason: { code: 'companion_not_running', message: 'The companion cannot be read.' },
+      };
+    }
+    if (status.availability === 'unavailable') {
+      request.log.info({ code: status.reason.code }, 'companion unavailable');
+    }
+    return status;
+  });
+
+  app.post(
+    '/api/companion/replies',
+    { bodyLimit: COMPANION_BODY_LIMIT },
+    async (request, reply) => {
+      if (sources.companion === undefined) {
+        return reply
+          .code(503)
+          .send(errorBody('companion_not_set_up', 'The companion is not set up on this computer.'));
+      }
+      // The headset going away ends the turn, which closes the request to the model and stops it.
+      const ended = new AbortController();
+      const onClose = () => {
+        if (!reply.raw.writableFinished) ended.abort();
+      };
+      reply.raw.once('close', onClose);
+      const started = performance.now();
+      const answer = await sources.companion.reply(request.principal, request.body, ended.signal);
+      reply.raw.off('close', onClose);
+      const ms = Math.round(performance.now() - started);
+      if (answer.kind === 'refused') {
+        request.log.info({ code: answer.code, ms, ...answer.log }, 'companion refused');
+        return reply
+          .code(answer.status)
+          .send(
+            errorBody(answer.code, answer.message, answer.issues ? [...answer.issues] : undefined),
+          );
+      }
+      if (!validateCompanionReply(answer.body).ok) {
+        request.log.warn({ ms, ...answer.log }, 'companion reply does not match the contract');
+        return reply
+          .code(502)
+          .send(errorBody('companion_unreadable', "The companion's answer could not be read."));
+      }
+      request.log.info(
+        { next: answer.body.reply.next, view: answer.body.reply.view, ms, ...answer.log },
+        'companion replied',
+      );
+      return answer.body;
+    },
+  );
 
   app.post('/api/commands', async (request, reply) => {
     const parsed = parseCommandEnvelope(request.body);

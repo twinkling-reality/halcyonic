@@ -5,6 +5,7 @@ import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
+import { Companion } from './companion/companion.ts';
 import {
   type ControlPlaneConfig,
   defaultDataDir,
@@ -87,10 +88,12 @@ async function main(): Promise<void> {
   });
   controlPlane.reconcile();
   const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
+  const companion = new Companion({ config: config.companion, clock: systemClock });
   const sources = {
     understanding: salidiumUnderstandingFor(config.dataDir),
     evaluation: seorakEvaluationFor(config.dataDir),
     transcriptions,
+    companion,
   };
   const devices = new DeviceAccess({ controlPlane, ids, logger: app.log });
 
@@ -161,6 +164,7 @@ async function main(): Promise<void> {
         used: settingsInUse(process.env, settings),
       },
       agent_binaries: agentBinaries,
+      companion: config.companion?.model ?? null,
     },
     'control plane ready',
   );
