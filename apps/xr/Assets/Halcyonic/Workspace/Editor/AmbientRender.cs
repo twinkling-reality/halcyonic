@@ -129,6 +129,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         if (count > 0 || labels > 0) failures.Add("beside a window, the window covers " + count + " bodies and " + labels + " labels.");
                         failures.AddRange(LaneClear(eyes, characters));
+                        LogAlike(characters);
                         failures.AddRange(StripUnderTheLane(eyes, banner!, outline, camera, characters));
                         failures.AddRange(StripCounts(banner!, work!));
                         failures.AddRange(NothingTouches(eyes, characters));
@@ -177,6 +178,10 @@ namespace Halcyonic.XR.Workspace.Editor
             third.Attention = new Attention { Level = AttentionLevel.ActionRequired, Reasons = new List<AttentionReason>() };
             var lineup = new CharacterLineup(CharacterStage.WindowCapacity);
             lineup.Update(state.Workstreams.Values);
+            // Two tasks whose titles start alike and cut to the same words beside a window, which the log names.
+            var slots = lineup.Slots.Where(id => id != null).ToList();
+            state.Workstreams[slots[0]!].Title = "Add rate limiting to the sign-in endpoint";
+            state.Workstreams[slots[1]!].Title = "Add rate limiting to the sign-up form";
             var shown = lineup.Slots.Select(id => CharacterPresenter.Present(state.Workstreams[id!], state, live: true)).ToList();
             return new Beside(state, lineup, shown);
         }
@@ -224,6 +229,35 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
+        /// Beside a window, the short titles that read the same as laid out, cut to the same words:
+        /// named in the log, not solved, since the peek tells them apart.
+        /// </summary>
+        private static void LogAlike(List<CharacterTarget> characters)
+        {
+            var shown = characters.Select(target => (target.View.WorkstreamId, Words: Visible(target.View.Label.ShortTitle))).ToList();
+            foreach (var same in shown.GroupBy(each => each.Words).Where(group => group.Count() > 1))
+            {
+                Debug.Log("Halcyonic: ambient render: beside a window, " + same.Count() + " titles cut to the same words, \"" + same.Key + "\": "
+                    + string.Join(", ", same.Select(each => each.WorkstreamId)) + ".");
+            }
+        }
+
+        /// <summary>The characters a label shows, the ellipsis included.</summary>
+        private static string Visible(TMPro.TMP_Text label)
+        {
+            label.ForceMeshUpdate();
+            var info = label.textInfo;
+            var last = -1;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                if (info.characterInfo[index].isVisible) last = index;
+            }
+            var text = new System.Text.StringBuilder();
+            for (var index = 0; index <= last; index++) text.Append(info.characterInfo[index].character);
+            return text.ToString();
+        }
+
+        /// <summary>
         /// Beside a window, every character's body and label stands a degree or more outside the
         /// window's lane, as the eyes see it: its sides at <see cref="CharacterStage.WindowLaneHalfWidthDegrees"/>.
         /// </summary>
@@ -239,7 +273,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (yaw - bodyHalf < lane) yield return "beside a window, " + view.WorkstreamId + "'s body reaches " + WorkspaceRender.Degrees(yaw - bodyHalf) + " degrees from straight ahead, inside the lane and its degree.";
                 var inner = InnermostYaw(eyes, view);
                 if (inner < lane) yield return "beside a window, " + view.WorkstreamId + "'s label reaches " + WorkspaceRender.Degrees(inner) + " degrees from straight ahead, inside the lane and its degree.";
-                if (view.Label.Title.gameObject.activeSelf) yield return "beside a window, " + view.WorkstreamId + " shows its title; only its badge and marks belong there.";
+                if (view.Label.Title.gameObject.activeSelf) yield return "beside a window, " + view.WorkstreamId + " shows its whole title; only one short line belongs there.";
+                var shortTitle = view.Label.ShortTitle;
+                if (!shortTitle.gameObject.activeSelf || string.IsNullOrEmpty(shortTitle.text))
+                {
+                    yield return "beside a window, " + view.WorkstreamId + " shows no short title, so it can't be told from the others.";
+                    continue;
+                }
+                shortTitle.ForceMeshUpdate();
+                if (shortTitle.textInfo.lineCount != 1) yield return "beside a window, " + view.WorkstreamId + "'s short title takes " + shortTitle.textInfo.lineCount + " lines.";
+                // As designed, in units of the distance from the eyes, as the widest plate's 10.5 degrees are.
+                var wide = GlazeTokens.DegreesOf(view.Label.Plate.Size.x);
+                if (wide > CharacterLabelView.MaxWidthDegrees + 0.01f)
+                {
+                    yield return "beside a window, " + view.WorkstreamId + "'s short title is " + WorkspaceRender.Degrees(wide) + " degrees wide, over "
+                        + WorkspaceRender.Degrees(CharacterLabelView.MaxWidthDegrees) + ".";
+                }
             }
         }
 

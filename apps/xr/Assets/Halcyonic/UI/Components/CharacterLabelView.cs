@@ -17,9 +17,10 @@ namespace Halcyonic.XR.UI
     /// The mark sits under the title rather than beside the badge: six characters stand 12 degrees
     /// apart, and a badge with a mark beside it would reach a neighbour's. For the same reason the
     /// badge shows its icon only while it stays as narrow as the widest plate, 10.5 degrees; a longer
-    /// word, such as Finished this round, shows alone. Beside a window the label
-    /// shows only its badge and, under it, its mark (<see cref="BadgeOnly"/>): work that is not real
-    /// always says so, and the title waits for the peek.
+    /// word, such as Finished this round, shows alone. Beside a window the label shows its badge,
+    /// under it the title in one short line on a plate of its own, cut to the widest plate's 10.5
+    /// degrees, so tasks can be told apart, and under that its mark (<see cref="BadgeOnly"/>): work
+    /// that is not real always says so, and the whole title waits for the peek.
     /// </remarks>
     public sealed class CharacterLabelView : MonoBehaviour
     {
@@ -37,11 +38,17 @@ namespace Halcyonic.XR.UI
         /// <summary>Between the title's last line and the mark on the plate's edge: its descenders' room.</summary>
         private const float MarkRoomDegrees = 0.15f;
         private const float MarkEdgeDegrees = 0.1f;
+
+        /// <summary>Beside a window: between the badge and the short title's plate, and inside that plate above and below its line.</summary>
+        private const float ShortTitleGapDegrees = 0.25f;
+
+        private const float ShortTitlePaddingDegrees = 0.15f;
         private const float MarkDashDegrees = 0.45f;
 
         private readonly List<MarkTag> tags = new List<MarkTag>();
         private Surface plate = null!;
         private TextMeshPro title = null!;
+        private TextMeshPro shortTitle = null!;
         private StateBadgeView badge = null!;
         private string shownTitle = "";
         private string shownMark = "";
@@ -61,6 +68,9 @@ namespace Halcyonic.XR.UI
         public StateBadgeView Badge => badge;
 
         public TextMeshPro Title => title;
+
+        /// <summary>The title in one short line, beside a window.</summary>
+        public TextMeshPro ShortTitle => shortTitle;
 
         public IReadOnlyList<MarkTag> Tags => tags;
 
@@ -100,6 +110,8 @@ namespace Halcyonic.XR.UI
             var view = go.AddComponent<CharacterLabelView>();
             view.plate = Surface.Create(go.transform, "Plate", 0);
             view.title = GlazeText.Create(go.transform, "Title", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
+            view.shortTitle = GlazeText.Create(go.transform, "Short title", GlazeType.Caption, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
+            view.shortTitle.gameObject.SetActive(false);
             view.badge = StateBadgeView.Create(go.transform, "Badge", 1);
             // No wider with its icon than the widest plate, so a badge never reaches a neighbour's; a
             // longer one shows its word alone.
@@ -157,24 +169,37 @@ namespace Halcyonic.XR.UI
                 widest = Mathf.Max(widest, tags[index].Width);
             }
 
-            plate.gameObject.SetActive(!badgeOnly);
             title.gameObject.SetActive(!badgeOnly);
+            shortTitle.gameObject.SetActive(badgeOnly);
             if (badgeOnly)
             {
-                // The marks in a row under the badge, a little apart from it.
+                // The title in one line on a plate of its own, as narrow as the widest plate, then
+                // the marks in a row under it, a little apart.
+                GlazeText.SetLiteral(shortTitle, label.Title);
+                var (_, shortWidth) = GlazeText.Lay(shortTitle, maxWidth - 2f * side, 1);
+                var line = GlazeText.LineHeight(shortTitle);
+                var pad = GlazeTokens.Units(ShortTitlePaddingDegrees);
+                var shortTop = top - badgeHeight - GlazeTokens.Units(ShortTitleGapDegrees);
+                shortTitle.transform.localPosition = new Vector3(0f, shortTop - pad, -0.001f);
+                var shortPlate = new Vector2(Mathf.Min(maxWidth, shortWidth + 2f * side), line + 2f * pad);
+                plate.transform.localPosition = new Vector3(0f, shortTop - shortPlate.y / 2f, 0f);
+                plate.Draw(shortPlate, GlazeTokens.Units(Glaze.PlateRadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel, Glaze.PlateOpacity));
+                plate.gameObject.SetActive(true);
+                var under = shortTop - shortPlate.y;
                 var markRow = 0f;
                 for (var index = 0; index < label.Marks.Count; index++) markRow += tags[index].Width + (index > 0 ? GlazeTokens.Units(0.35f) : 0f);
-                var markMiddle = top - badgeHeight - GlazeTokens.Units(MarkRoomDegrees) - MarkTag.Height / 2f;
+                var markMiddle = under - GlazeTokens.Units(MarkRoomDegrees) - MarkTag.Height / 2f;
                 var left = -markRow / 2f;
                 for (var index = 0; index < label.Marks.Count; index++)
                 {
                     tags[index].transform.localPosition = new Vector3(left + tags[index].Width / 2f, markMiddle, -0.001f);
                     left += tags[index].Width + GlazeTokens.Units(0.35f);
                 }
-                bottom = label.Marks.Count > 0 ? markMiddle - MarkTag.Height / 2f : top - badgeHeight;
-                HalfWidth = Mathf.Max(widest, markRow) / 2f;
+                bottom = label.Marks.Count > 0 ? markMiddle - MarkTag.Height / 2f : under;
+                HalfWidth = Mathf.Max(Mathf.Max(widest, markRow), shortPlate.x) / 2f;
                 return;
             }
+            plate.gameObject.SetActive(true);
             var plateTop = top - badgeHeight / 2f;
             var marked = label.Marks.Count > 0;
             var plateBottom = titleTop - lines * GlazeText.LineHeight(title)
