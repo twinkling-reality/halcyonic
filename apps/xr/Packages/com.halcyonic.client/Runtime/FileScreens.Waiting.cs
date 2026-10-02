@@ -30,7 +30,7 @@ namespace Halcyonic.Client
 
         private static Page Waiting(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
-            var source = RuntimeSource(workspace);
+            var source = AgentSource;
             if (steering.Request(workspace) is string request && steering.Armed is WorkspaceAction answer)
             {
                 var before = ApprovalFooter(workspace);

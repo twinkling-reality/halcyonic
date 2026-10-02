@@ -232,7 +232,7 @@ public class FileScreensTests
         var quote = frame.Lines.Last();
         Assert.That((quote.Words, quote.Chip, quote.Claim, quote.Fact), Is.EqualTo(("“Done with the migration”", "Agent says", true, "09:00")));
         Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(Room.Rows), "the source line takes one of the page's rows");
-        Assert.That(frame.Source, Does.EndWith(" reported it"));
+        Assert.That(frame.Source, Is.EqualTo(FileScreens.AgentSource));
     }
 
     [Test]
