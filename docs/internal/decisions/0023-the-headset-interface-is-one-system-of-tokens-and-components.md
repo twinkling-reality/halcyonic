@@ -62,7 +62,10 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   handle as well: pressed, it steps the panel aside as before; held, the panel follows the hand round
   the eyes at touch distance, as Meta lets a person reposition a touch panel. A separate handle in
   the header would have cut the panel's title. Neither Move nor Reset position moves a panel while
-  a confirmation is armed.)
+  a confirmation is armed. The same day the run line found its place: Show details beside What is
+  it doing? turns it to How is it running?, the agent app, the model, the folder, when it started
+  and the round, its button running beside the heading's words rather than taking a row; and, as the
+  owner chose, a question screen offers one Hold to talk, the one beside the answers.)
 - **Words and decisions stay in the client core.** A state language maps every work state to a
   word, a tone, an icon, an edge and a motion, so no state is told by colour alone; an action set
   admits one primary, two secondary, one destructive and an overflow, and nothing more;

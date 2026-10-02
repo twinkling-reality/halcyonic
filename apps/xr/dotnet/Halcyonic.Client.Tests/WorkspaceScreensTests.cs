@@ -153,7 +153,8 @@ public class WorkspaceScreensTests
             Assert.That(model.Heading, Is.EqualTo(heading), question.ToString());
             var section = question == WorkspaceQuestion.Understand || question == WorkspaceQuestion.Checked;
             Assert.That(model.CustomBody && model.CustomBodyIsText, Is.EqualTo(section), "a section draws its own lines, only words");
-            Assert.That(model.HeadingAction?.Label, Is.EqualTo(section ? "Refresh" : null), "Refresh reads a section's source again");
+            Assert.That(model.HeadingAction?.Label, Is.EqualTo(section ? "Refresh" : question == WorkspaceQuestion.Doing ? "Show details" : null),
+                "Refresh reads a section's source again; Show details turns Doing to the run's details");
         }
     }
 
@@ -398,6 +399,49 @@ public class WorkspaceScreensTests
         var model = Screen(work.Present(), steering, screen);
         Assert.That(Titles(model), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Sign in, Settings" }));
         Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label), Is.EqualTo(("Send these answers?", "Yes, send answer")));
+    }
+
+    [Test]
+    public void TheRunsDetailsShowInPlaceOfTheLogAndSayOnlyWhatIsKnown()
+    {
+        var work = Running();
+        string[] Lines(PanelModel model) => model.Rows.Select(row => row.Title).ToArray();
+        var practice = Screen(work.Present(), new WorkspaceSteering(factory), new WorkspaceScreen { Details = true });
+        Assert.That(Lines(practice)[0], Is.EqualTo(EntryText.PracticeRun + "."), "practice names no agent app or model");
+        work.Change(execution =>
+        {
+            execution.Runtime.Synthetic = false;
+            execution.ModelRef = "ollama/qwen3.6";
+            execution.Directory = "/Users/person/HalcyonicProjects/shop";
+            execution.StartedAt = "2026-10-02T09:05:00.000Z";
+            execution.TurnCount = 2;
+        }, WorkstreamStatus.Running);
+        var steering = new WorkspaceSteering(factory);
+        var doing = Screen(work.Present(), steering);
+        Assert.That((doing.Heading, doing.HeadingAction!.Id, doing.HeadingAction.Label), Is.EqualTo(("What is it doing?", WorkspaceScreens.ShowDetails, "Show details")));
+        var details = Screen(work.Present(), steering, new WorkspaceScreen { Details = true });
+        Assert.That((details.Heading, details.HeadingAction!.Id, details.HeadingAction.Label), Is.EqualTo(("How is it running?", WorkspaceScreens.ShowLog, "Show the log")));
+        Assert.That(details.Rows.Select(row => (row.Title, row.TitleIsData)), Is.EqualTo(new[]
+        {
+            ("Agent app: " + work.Present().Runtime!.DisplayName + ", on your Mac.", true),
+            ("Model: ollama/qwen3.6. Where it runs isn't known here.", true),
+            ("Folder: shop, in HalcyonicProjects.", true),
+            ("Started at 09:05 on 2 Oct · Round 2.", false),
+        }));
+        Assert.That(details.Rows.All(row => row.Line && row.Action == null), Is.True, "the details only say something, a line each");
+
+        work.Change(execution =>
+        {
+            execution.ModelRef = null;
+            execution.Directory = null;
+            execution.StartedAt = null;
+            execution.TurnCount = 0;
+        }, WorkstreamStatus.Running);
+        Assert.That(Lines(Screen(work.Present(), steering, new WorkspaceScreen { Details = true })).Skip(1), Is.EqualTo(new[]
+        {
+            "Model: chosen by the agent app. Where it runs isn't known here.", "Folder: none given to it.", "Not started yet.",
+        }));
+        Assert.That(Lines(Screen(new WaitingWork().Present(live: false), steering, new WorkspaceScreen { Details = true })).All(line => line.Length > 0), Is.True);
     }
 
     /// <summary>Every action, its confirmation's Yes and Cancel, the heading's Refresh and a row's hold to talk.</summary>

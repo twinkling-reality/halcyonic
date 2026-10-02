@@ -26,6 +26,9 @@ namespace Halcyonic.Client
         /// <summary>The instructions offered where there is no keyboard, while they show in place of the tab; null otherwise.</summary>
         public IReadOnlyList<PresetInstruction>? Presets { get; set; }
 
+        /// <summary>The run's details show on What is it doing? in place of its log.</summary>
+        public bool Details { get; set; }
+
         /// <summary>The zone the activity's times are in.</summary>
         public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Utc;
 
@@ -86,6 +89,8 @@ namespace Halcyonic.Client
         public const string Choose = "choose";
         public const string TypeAnswer = "type-answer";
         public const string SpeakAnswer = "speak-answer";
+        public const string ShowDetails = "show-details";
+        public const string ShowLog = "show-log";
 
         /// <summary>The lines in each part of the agent's question, the answers on their page under them.</summary>
         public const int QuestionLines = 2;
@@ -216,7 +221,13 @@ namespace Halcyonic.Client
         /// </summary>
         private static void Doing(PanelModel model, WorkspacePresentation workspace, WorkspaceScreen screen, bool confirming)
         {
+            if (screen.Details)
+            {
+                RunDetails(model, workspace, screen);
+                return;
+            }
             model.Heading = WorkspaceText.Question(WorkspaceQuestion.Doing);
+            model.HeadingAction = new PanelAction(ShowDetails, WorkspaceText.ShowDetails, PanelActionRole.Secondary);
             var tone = AnswerTone(workspace.Character);
             var answer = WorkspaceText.Answer(workspace);
             for (var index = 0; index < answer.Count; index++)
@@ -256,6 +267,21 @@ namespace Halcyonic.Client
                     Continues = true,
                     Droppable = true,
                 });
+            }
+        }
+
+        /// <summary>
+        /// How is it running?: the run's details in place of the log, a line each, with Show the log
+        /// beside the question to go back.
+        /// </summary>
+        private static void RunDetails(PanelModel model, WorkspacePresentation workspace, WorkspaceScreen screen)
+        {
+            model.Heading = WorkspaceText.HowIsItRunning;
+            model.HeadingAction = new PanelAction(ShowLog, WorkspaceText.ShowLog, PanelActionRole.Secondary);
+            var lines = WorkspaceText.RunDetails(workspace, screen.Zone);
+            for (var index = 0; index < lines.Count; index++)
+            {
+                model.Rows.Add(new PanelRow { Line = true, Title = lines[index].Line, TitleIsData = lines[index].IsData, Continues = index > 0 });
             }
         }
 

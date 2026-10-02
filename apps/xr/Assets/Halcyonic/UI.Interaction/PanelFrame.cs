@@ -49,6 +49,9 @@ namespace Halcyonic.XR.UI
         private static float TargetGap => Glaze.TargetGapMeters / Distance;
 
         private const float LineGapDegrees = 0.6f;
+
+        /// <summary>Between the heading's action and the words that run beside it: words, not a target, so less than 12 mm.</summary>
+        private const float NotchGapDegrees = 0.4f;
         private const float BannerPaddingDegrees = 0.25f;
         private const float MarkGapDegrees = 0.5f;
         private const int LeadLines = 2;
@@ -461,8 +464,9 @@ namespace Halcyonic.XR.UI
                     var acts = model.HeadingAction != null;
                     y -= Gap(above, acts);
                     y = LayHeading(model, left, right, y);
-                    // A body the screen draws itself starts under the heading's words, beside its action.
-                    above = acts && !model.CustomBody;
+                    // A body the screen draws itself, or one that starts with lines, starts under the
+                    // heading's words, beside its action; any other under the action.
+                    above = acts && notch == null;
                 }
                 if (model.Lead != null)
                 {
@@ -680,7 +684,8 @@ namespace Halcyonic.XR.UI
                 var x = PutRight(headingAction, action.Id, action.Label, right, top - height / 2f, available: action.Available, icon: action.Icon);
                 laidOut.Add(RectOf(headingAction));
                 width = x - left;
-                if (model.CustomBody) notch = RectOf(headingAction);
+                // Beside a body the screen draws itself, or lines, which can run short of it.
+                if (model.CustomBody || (model.Rows.Count > 0 && model.Rows[0].Line)) notch = RectOf(headingAction);
                 else middle = top - height / 2f;
             }
             GlazeText.SetLiteral(heading, model.Heading!);
@@ -979,12 +984,23 @@ namespace Halcyonic.XR.UI
             var rowsOf = model.Rows;
             var flow = new bool[rowsOf.Count];
             var heightOf = new float[rowsOf.Count];
+            // Lines that start beside the heading's action run short of it, measured at that width.
+            var besideWidth = notch is Rect action ? action.xMin - Units(NotchGapDegrees) - area.xMin : area.width;
+            var measuredTop = area.yMax;
             for (var index = 0; index < rowsOf.Count; index++)
             {
                 var row = rowsOf[index];
                 flow[index] = Flows(row, columns);
-                if (row.Line) heightOf[index] = MeasureLine(row, area.width);
-                else if (flow[index]) heightOf[index] = Measure(row, area.width, 0f);
+                if (row.Line)
+                {
+                    if (index > 0 && !row.Continues) measuredTop -= Units(LineGapDegrees);
+                    heightOf[index] = MeasureLine(row, Beside(measuredTop) ? besideWidth : area.width);
+                    measuredTop -= heightOf[index];
+                    continue;
+                }
+                // Only lines run beside the action; nothing after anything else does.
+                measuredTop = float.MinValue;
+                if (flow[index]) heightOf[index] = Measure(row, area.width, 0f);
                 else
                 {
                     anyCard |= row.Card;
@@ -1032,7 +1048,7 @@ namespace Halcyonic.XR.UI
                         if (item.Line)
                         {
                             var label = LineLabel(usedLines++);
-                            LayLine(label, item, area.xMin, area.width, y);
+                            LayLine(label, item, area.xMin, Beside(y) ? besideWidth : area.width, y);
                             if (item.Meter is float share) LayMeter(Meter(usedMeters++), item, share, area.xMax, y - GlazeText.LineHeight(label) / 2f);
                         }
                         else ShowRow(RowButton(used++), item, area.xMin, area.width, y, heightOf[kept[slot.First]]);
@@ -1070,6 +1086,9 @@ namespace Halcyonic.XR.UI
                 LayPager(page, pages.Count, EntryText.Page(page, pages.Count), area.xMax, area.yMin + GlazeButton.HeightOf(true) / 2f, external: false);
             }
         }
+
+        /// <summary>Whether a line whose top is at <paramref name="top"/> starts beside the heading's action.</summary>
+        private bool Beside(float top) => notch is Rect action && top > action.yMin + 1e-5f;
 
         /// <summary>A line, or in a single column a row that only says something: as tall as its words, in a row of its own.</summary>
         private static bool Flows(PanelRow row, int columns) => row.Line || (columns == 1 && !row.Pressable && row.Side == null);
