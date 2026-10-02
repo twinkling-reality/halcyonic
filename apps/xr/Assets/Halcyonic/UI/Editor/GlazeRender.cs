@@ -21,7 +21,9 @@ namespace Halcyonic.XR.UI.Editor
     /// checks each by <see cref="GlazeChecks"/>: words at least the caption's size, targets at least
     /// 60 dp (48 compact), nothing of ours cut short, every badge's whole word, each button's label
     /// contrasting with its own fill as drawn, at least 4.5:1, and each meter filled to its share, or
-    /// not at all while waiting. A token changed shows here everywhere at once. It saves the gallery at a Quest
+    /// not at all while waiting; and every icon the client core names in the icon atlas and on a
+    /// badge or mark, each on its own beside words, and no label of words drawing from the atlas. A
+    /// token changed shows here everywhere at once. It saves the gallery at a Quest
     /// 3's 25 pixels per degree in apps/xr/Builds/GlazeRenders, which git ignores. In the editor:
     /// Halcyonic > Render Every Component. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md;
     /// it exits with 1 when a check fails.
@@ -84,13 +86,16 @@ namespace Halcyonic.XR.UI.Editor
                 panel.Draw(new Vector2(GlazeTokens.Units(90f), GlazeTokens.Units(60f)), GlazeTokens.Units(Glaze.PanelRadiusDegrees), GlazeTokens.ColorOf(Glaze.Panel));
 
                 var first = new List<Transform>();
-                var badges = Badges();
+                var marks = new List<MarkTag>();
+                var badges = Badges(marks);
                 var buttons = Buttons();
                 Banners();
                 var meters = Meters();
                 foreach (Transform holder in gallery) first.Add(holder);
                 failures.AddRange(Check(folder, "gallery.png", camera, texture, root, eyes, buttons));
                 failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, "component render"));
+                failures.AddRange(GlazeChecks.IconAtlasHoldsEveryIcon("component render"));
+                failures.AddRange(EveryIconShows(badges, marks));
                 failures.AddRange(MetersFilled(meters));
 
                 // A panel's list rows on a page of their own, in the middle of the view.
@@ -133,6 +138,8 @@ namespace Halcyonic.XR.UI.Editor
             failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, "component render"));
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons.Where(button => !button.Button.Static).Select(button => button.Button), eyes, "component render"));
             failures.AddRange(GlazeChecks.NothingCut(root.GetComponentsInChildren<TMP_Text>(false), "component render"));
+            failures.AddRange(GlazeChecks.IconsBesideWords(root, eyes, "component render"));
+            foreach (var label in root.GetComponentsInChildren<TMP_Text>(false)) failures.AddRange(GlazeChecks.NotFromIcons(label, "component render"));
             foreach (var (button, what) in buttons)
             {
                 var contrast = LabelContrast(camera, render, button);
@@ -144,7 +151,7 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>Every state's badge, a count and a last known one, and the three marks, in rows from the top.</summary>
-        private static List<StateBadgeView> Badges()
+        private static List<StateBadgeView> Badges(List<MarkTag> marks)
         {
             var badges = new List<StateBadgeView>();
             var states = (CharacterActivity[])Enum.GetValues(typeof(CharacterActivity));
@@ -171,14 +178,19 @@ namespace Halcyonic.XR.UI.Editor
             }
             x = -33f;
             y -= 3f;
-            foreach (var word in new[] { StateLanguage.Practice, StateLanguage.Demo, StateLanguage.Recorded })
+            // Practice, Demo and Recorded, as the client core marks practice, the demonstration and recorded work.
+            foreach (var (synthetic, recorded) in new[] { (true, false), (true, true), (false, true) })
             {
-                var holder = Holder("Mark " + word, 0f, 0f);
-                var mark = MarkTag.Create(holder, "Mark", 1);
-                mark.Show(new WorkMark(word, GlazeIcon.Practice));
-                var width = GlazeTokens.DegreesOf(mark.Width);
-                Aim(holder, x + width / 2f, y);
-                x += width + 1.5f;
+                foreach (var shownMark in StateLanguage.MarksOf(Character(CharacterActivity.Working, AttentionLevel.None, synthetic: synthetic, recorded: recorded)))
+                {
+                    var holder = Holder("Mark " + shownMark.Word, 0f, 0f);
+                    var mark = MarkTag.Create(holder, "Mark", 1);
+                    mark.Show(shownMark);
+                    var width = GlazeTokens.DegreesOf(mark.Width);
+                    Aim(holder, x + width / 2f, y);
+                    x += width + 1.5f;
+                    marks.Add(mark);
+                }
             }
             return badges;
         }
@@ -371,6 +383,37 @@ namespace Halcyonic.XR.UI.Editor
             return meters;
         }
 
+        /// <summary>
+        /// Every icon the client core names shows in the gallery, on a badge or a mark, each as its own
+        /// glyph: a state, a mark or the last known one never borrows another's icon.
+        /// </summary>
+        private static IEnumerable<string> EveryIconShows(List<StateBadgeView> badges, List<MarkTag> marks)
+        {
+            var byGlyph = new Dictionary<string, GlazeIcon>();
+            foreach (GlazeIcon icon in Enum.GetValues(typeof(GlazeIcon)))
+            {
+                var glyph = GlazeIconGlyphs.Of(icon);
+                if (byGlyph.TryGetValue(glyph, out var other)) yield return "component render: " + icon + " and " + other + " share a glyph.";
+                else byGlyph[glyph] = icon;
+            }
+            var shown = new HashSet<GlazeIcon>();
+            foreach (var badge in badges)
+            {
+                if (badge.Shown == null || !badge.ShowsIcon) continue;
+                shown.Add(badge.Shown.Icon);
+                if (badge.Icon.text != GlazeIconGlyphs.Of(badge.Shown.Icon)) yield return "component render: the " + badge.Shown.Text + " badge shows another icon than " + badge.Shown.Icon + ".";
+            }
+            foreach (var mark in marks)
+            {
+                if (byGlyph.TryGetValue(mark.Icon.text, out var icon)) shown.Add(icon);
+                else yield return "component render: the " + mark.Word.text + " mark shows no icon of the set.";
+            }
+            foreach (GlazeIcon icon in Enum.GetValues(typeof(GlazeIcon)))
+            {
+                if (!shown.Contains(icon)) yield return "component render: no badge or mark shows the " + icon + " icon.";
+            }
+        }
+
         /// <summary>Each meter is filled to its share of its track, or not at all while it waits for a read.</summary>
         private static IEnumerable<string> MetersFilled(List<(MeterView Meter, float Share, bool Waiting)> meters)
         {
@@ -399,9 +442,10 @@ namespace Halcyonic.XR.UI.Editor
             return GlazeChecks.Contrast(render, rect, fill);
         }
 
-        private static CharacterPresentation Character(CharacterActivity activity, AttentionLevel attention, int waiting = 0, bool stale = false) =>
+        private static CharacterPresentation Character(CharacterActivity activity, AttentionLevel attention, int waiting = 0, bool stale = false,
+            bool synthetic = false, bool recorded = false) =>
             new CharacterPresentation("render", "Render", activity, CharacterPresenter.LabelOf(activity), attention,
-                Enumerable.Range(0, waiting).Select(index => "Waiting " + index).ToList(), waiting, false, false, stale);
+                Enumerable.Range(0, waiting).Select(index => "Waiting " + index).ToList(), waiting, synthetic, recorded, stale);
 
         private static Camera Camera(Transform parent, Vector3 eyes, RenderTexture texture)
         {

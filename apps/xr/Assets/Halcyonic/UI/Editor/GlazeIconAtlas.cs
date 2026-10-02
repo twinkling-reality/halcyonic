@@ -27,6 +27,9 @@ namespace Halcyonic.XR.UI.Editor
 
         private const string BuildingPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/GlazeIcons building.asset";
 
+        /// <summary>The atlas's name, its file's.</summary>
+        private const string Name = "GlazeIcons";
+
         /// <summary>The pixels a glyph's em is drawn at, and the reach of its distance field around it.</summary>
         private const int SamplingSize = 56;
 
@@ -66,7 +69,7 @@ namespace Halcyonic.XR.UI.Editor
                 }
                 // Static from here: the asset keeps no reference to the font, so a player carries none.
                 atlas.atlasPopulationMode = AtlasPopulationMode.Static;
-                atlas.name = "GlazeIcons";
+                atlas.name = Name;
                 atlas.atlasTexture.name = "GlazeIcons Atlas";
                 atlas.material.name = "GlazeIcons Material";
                 Save(atlas);
@@ -75,6 +78,7 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     return "the saved atlas lacks glyphs or still refers to its font.";
                 }
+                if (saved.name != Name) return "the saved atlas is named " + saved.name + ", not " + Name + ".";
                 Debug.Log("Halcyonic: icon atlas: " + GlazeIconGlyphs.All.Length + " glyphs in " + size + " by " + size + " pixels, sampled at "
                     + SamplingSize.ToString(CultureInfo.InvariantCulture) + " with a padding of " + Padding.ToString(CultureInfo.InvariantCulture) + ", in " + AssetPath + ".");
                 return null;
@@ -103,6 +107,12 @@ namespace Halcyonic.XR.UI.Editor
             File.Copy(Path.Combine(project, BuildingPath), Path.Combine(project, AssetPath), overwrite: true);
             AssetDatabase.DeleteAsset(BuildingPath);
             AssetDatabase.ImportAsset(AssetPath, ImportAssetOptions.ForceUpdate);
+            // The copy keeps the name the building file gave it; the asset is named for its own file.
+            var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
+            if (saved == null || saved.name == Name) return;
+            saved.name = Name;
+            EditorUtility.SetDirty(saved);
+            AssetDatabase.SaveAssets();
         }
 
         private static void Discard(TMP_FontAsset atlas)

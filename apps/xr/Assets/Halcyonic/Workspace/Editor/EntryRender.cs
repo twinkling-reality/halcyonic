@@ -168,7 +168,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (frame.Shown?.Confirm != null && frame.Shown.Parts is (_, var parts) && parts > 1) failures.AddRange(PagerOnTop(frame, what));
                     if (hostile && !suffix.StartsWith("review", StringComparison.Ordinal))
                     {
-                        failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what));
+                        failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what, eyes));
                     }
                     else if (hostile)
                     {
@@ -181,7 +181,7 @@ namespace Halcyonic.XR.Workspace.Editor
                                 failures.Add(what + ": the whole request shows a character beyond ASCII.");
                             }
                         }
-                        failures.AddRange(WorkspaceRender.AllShowLiterally(frame.Title.gameObject, "entry render " + what));
+                        failures.AddRange(WorkspaceRender.AllShowLiterally(frame.Title.gameObject, "entry render " + what, eyes));
                     }
                 }
                 failures.AddRange(PlacesHold(name, places));
@@ -196,7 +196,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": the panel's center is outside the comfortable band.");
                 }
                 if (!hostile) failures.AddRange(ReviewShowsEverything(name, folder, camera, texture, panel, state));
-                if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(rail.Root.gameObject, "entry render " + name + " rail"));
+                if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(rail.Root.gameObject, "entry render " + name + " rail", eyes));
             }
             finally
             {
@@ -603,7 +603,7 @@ namespace Halcyonic.XR.Workspace.Editor
             failures.AddRange(GlazeChecks.Apart(others).Where(failure => failure.Contains("the Settings sheet")).Select(failure => name + ": " + failure));
             failures.AddRange(GlazeChecks.TargetsLargeEnough(sheet.Root.GetComponentsInChildren<GlazeButton>(false), eyes, name + " settings"));
             failures.AddRange(GlazeChecks.TextLargeEnough(sheet.Root.gameObject, eyes, name + " settings"));
-            if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(sheet.Root.gameObject, name + " settings"));
+            if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(sheet.Root.gameObject, name + " settings", eyes));
             else failures.AddRange(NothingOfOursCut(sheet.Root.GetComponentsInChildren<TMP_Text>(false).Cast<Component>()
                 .Concat(sheet.Root.GetComponentsInChildren<GlazeButton>(false)), name + " settings"));
             var toward = sheet.Root.position - eyes;

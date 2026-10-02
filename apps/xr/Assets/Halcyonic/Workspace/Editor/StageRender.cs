@@ -20,8 +20,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// banner under the labels and the peek under one label, and then the characters on a desk with
     /// the peek over one. It checks the interface's rules (<see cref="GlazeChecks"/>): nothing touches
     /// as seen from the eyes, every word is at least the caption's size, plates are opaque, every
-    /// badge says its whole state, a plate reaches the render in its token's colour, and titles
-    /// contrast with their plates. It saves each render in apps/xr/Builds/StageRenders, which git
+    /// badge says its whole state and shows its icon only within the plate's room, a plate reaches
+    /// the render in its token's colour, and titles contrast with their plates. It saves each render in apps/xr/Builds/StageRenders, which git
     /// ignores, with close-ups at a Quest 3's pixels per degree. In the editor: Halcyonic > Render
     /// Every State on the Stage. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md; it
     /// exits with 1 when a check fails.
@@ -133,7 +133,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (banner.gameObject.activeSelf) failures.Add(name + ": the banner still shows while the peek is where it goes.");
                 WorkspaceRender.ForceMeshes(root);
                 failures.AddRange(Checks(name + " with the peek", root, eyes, characters, banner, peek.Card));
-                failures.AddRange(WorkspaceRender.AllShowLiterally(peek.gameObject, "stage render " + name + " peek"));
+                failures.AddRange(WorkspaceRender.AllShowLiterally(peek.gameObject, "stage render " + name + " peek", eyes));
                 var withPeek = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + "-peek.png"), withPeek.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(withPeek);
@@ -187,10 +187,40 @@ namespace Halcyonic.XR.Workspace.Editor
             var badges = characters.Select(character => character.View.Label.Badge).ToList();
             if (peek != null) badges.Add(peek.Badge);
             failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, name));
-            failures.AddRange(WorkspaceRender.AllShowLiterally(root, "stage render " + name));
+            failures.AddRange(BadgesKeepTheirRoom(name, characters));
+            failures.AddRange(WorkspaceRender.AllShowLiterally(root, "stage render " + name, eyes));
             var lowest = labels.Min(label => label.Bottom);
             Debug.Log("Halcyonic: stage render " + name + ": labels end " + GlazeChecks.Degrees(-lowest) + " degrees below eye level; widest "
                 + GlazeChecks.Degrees(labels.Max(label => label.Right - label.Left)) + " degrees.");
+            return failures;
+        }
+
+        /// <summary>
+        /// Every label's badge has the widest plate's room, 10.5 degrees, and shows its icon exactly
+        /// when the badge with it fits there; the log says each badge's width and whether its icon shows.
+        /// </summary>
+        private static IEnumerable<string> BadgesKeepTheirRoom(string name, List<(CharacterView View, CharacterTarget Target)> characters)
+        {
+            var failures = new List<string>();
+            var room = GlazeTokens.Units(CharacterLabelView.MaxWidthDegrees);
+            var widths = new List<string>();
+            foreach (var (view, _) in characters)
+            {
+                var badge = view.Label.Badge;
+                if (badge.Shown == null) continue;
+                var what = name + ": " + view.WorkstreamId + "'s badge, \"" + badge.Shown.Text + "\",";
+                if (badge.MaxWidth is not float most || Mathf.Abs(most - room) > 1e-6f)
+                {
+                    failures.Add(what + " does not have the plate's room of " + GlazeChecks.Degrees(CharacterLabelView.MaxWidthDegrees) + " degrees.");
+                    continue;
+                }
+                if (badge.ShowsIcon && badge.Width > room + 1e-5f) failures.Add(what + " is wider than its room with its icon.");
+                if (!badge.ShowsIcon && badge.Width + StateBadgeView.IconWidth <= room + 1e-5f) failures.Add(what + " leaves out its icon, which had room.");
+                widths.Add("\"" + badge.Shown.Text + "\" " + GlazeChecks.Degrees(GlazeTokens.DegreesOf(badge.Width))
+                    + (badge.ShowsIcon ? " with its icon" : " with no icon (" + GlazeChecks.Degrees(GlazeTokens.DegreesOf(badge.Width + StateBadgeView.IconWidth)) + " with it)"));
+            }
+            Debug.Log("Halcyonic: stage render " + name + ": badges, at most " + GlazeChecks.Degrees(CharacterLabelView.MaxWidthDegrees) + " degrees with an icon: "
+                + string.Join("; ", widths) + ".");
             return failures;
         }
 

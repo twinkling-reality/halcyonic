@@ -15,7 +15,8 @@ then build the atlas in Unity (Halcyonic > Build the Icon Atlas):
 
     python3 apps/xr/tools/glaze_icons.py "MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf"
 
-It needs fontTools (made with 4.53.1). Only its output and the font's LICENSE are committed.
+It needs fontTools; 4.65.0 makes the committed font byte for byte. Only its output and the font's
+LICENSE are committed.
 """
 
 import argparse

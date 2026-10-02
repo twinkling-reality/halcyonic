@@ -1050,7 +1050,7 @@ namespace Halcyonic.XR.Workspace.Editor
             waiting.Workstream.Objective = Hostile("objective");
             var screen = new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Notice = "Couldn't send: " + Hostile("setup problem") };
             view.Show(waiting.Present(), screen, Steering());
-            failures.AddRange(AllShowLiterally(root, name + " need"));
+            failures.AddRange(AllShowLiterally(root, name + " need", view.Eyes));
             failures.AddRange(Carry(root, name + " need", "Notice", "Line 0", "Line 1"));
             screen.Notice = null;
             view.Show(waiting.Present(), screen, Steering());
@@ -1073,7 +1073,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var doing = With(running.Present(), hostileActivity, feedback, failed);
             var doingScreen = new WorkspaceScreen { ActivityNote = " · " + Hostile("note"), Zone = TimeZoneInfo.Utc };
             view.Show(doing, doingScreen, Steering());
-            failures.AddRange(AllShowLiterally(root, name + " activity"));
+            failures.AddRange(AllShowLiterally(root, name + " activity", view.Eyes));
             var lines = view.Frame.ShownLines.Where(line => line.Row.Title.Contains(Marker)).Select(line => line.Label.name).ToArray();
             if (lines.Length < 6) failures.Add(name + " activity: " + lines.Length + " lines carry the hostile text, not the answer, what was sent, the caption and three lines of the log.");
             failures.AddRange(Carry(root, name + " activity", lines));
@@ -1091,7 +1091,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // The recorded instructions offered in place of the keyboard.
             var presets = new WorkspaceScreen { Presets = new[] { new PresetInstruction(Hostile("preset"), "Continue."), new PresetInstruction("Continue", "Continue.") } };
             view.Show(running.Present(), presets, Steering());
-            failures.AddRange(AllShowLiterally(root, name + " presets"));
+            failures.AddRange(AllShowLiterally(root, name + " presets", view.Eyes));
             failures.AddRange(Carry(root, name + " presets", "Label"));
 
             // The agent's question: its prompt's header, its text, a label and its description.
@@ -1101,7 +1101,7 @@ namespace Halcyonic.XR.Workspace.Editor
             hostile.Prompts[0].Options[0].Label = Hostile("label");
             hostile.Prompts[0].Options[0].Description = Hostile("description");
             view.Show(Work.Asking(hostile).Present(), new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou }, Steering());
-            failures.AddRange(AllShowLiterally(root, name + " question"));
+            failures.AddRange(AllShowLiterally(root, name + " question", view.Eyes));
             failures.AddRange(Carry(root, name + " question", "Pager heading", "Line 0", "Label"));
 
             // The whole request in parts while Approve asks to be confirmed.
@@ -1112,12 +1112,12 @@ namespace Halcyonic.XR.Workspace.Editor
             approving.Press(WorkspaceAction.Approve, armed);
             Split(view, armed, approving, armedScreen, approving.Request(armed)!);
             view.Show(armed, armedScreen, approving);
-            failures.AddRange(AllShowLiterally(root, name + " confirming"));
+            failures.AddRange(AllShowLiterally(root, name + " confirming", view.Eyes));
             failures.AddRange(Carry(root, name + " confirming", "Line 0"));
 
             // A section from a source quoting the agent.
             view.Show(running.Present(), new WorkspaceScreen { Question = WorkspaceQuestion.Understand }, Steering(), HostileSection());
-            failures.AddRange(AllShowLiterally(root, name + " section"));
+            failures.AddRange(AllShowLiterally(root, name + " section", view.Eyes));
             failures.AddRange(Carry(root, name + " section", "Provenance", "Class 0", "Line 0"));
 
             failures.AddRange(CharacterShowsLiterally(root, name, view.Camera));
@@ -1405,19 +1405,30 @@ namespace Halcyonic.XR.Workspace.Editor
             },
         };
 
-        /// <summary>Every TextMeshPro label that shows now shows its text literally.</summary>
-        internal static IEnumerable<string> AllShowLiterally(GameObject root, string what)
+        /// <summary>
+        /// Every TextMeshPro label that shows now shows its text literally, and every icon, which is
+        /// no text, stands on its own: one glyph of the icon set, at least
+        /// <see cref="GlazeIcons.MinimumDegrees"/> as seen from <paramref name="eyes"/>, beside words.
+        /// </summary>
+        internal static IEnumerable<string> AllShowLiterally(GameObject root, string what, Vector3 eyes)
         {
             ForceMeshes(root);
             var failures = new List<string>();
             var count = 0;
+            var icons = 0;
             foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
             {
                 if (string.IsNullOrEmpty(label.text)) continue;
+                if (GlazeIcons.IsIcon(label))
+                {
+                    icons++;
+                    failures.AddRange(GlazeChecks.IconBesideWord(label, eyes, what));
+                    continue;
+                }
                 count++;
                 failures.AddRange(ShowsLiterally(label, what));
             }
-            Debug.Log("Halcyonic: workspace render " + what + ": checked " + count + " labels, " + failures.Count + " failing.");
+            Debug.Log("Halcyonic: workspace render " + what + ": checked " + count + " labels and " + icons + " icons, " + failures.Count + " failing.");
             return failures;
         }
 
@@ -1445,6 +1456,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 break;
             }
             label.ForceMeshUpdate();
+            failures.AddRange(GlazeChecks.NotFromIcons(label, what));
             var expected = Unescaped(label.text);
             var laidOut = LaidOut(label);
             if (label.isTextTruncated)
@@ -1494,7 +1506,9 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var label in view.GetComponentsInChildren<TMP_Text>(false))
             {
                 if (string.IsNullOrEmpty(label.text)) continue;
-                failures.AddRange(ShowsLiterally(label, name + " character"));
+                failures.AddRange(GlazeIcons.IsIcon(label)
+                    ? GlazeChecks.IconBesideWord(label, camera.transform.position, name + " character")
+                    : ShowsLiterally(label, name + " character"));
             }
             failures.AddRange(Carry(view.gameObject, name + " character", "Title"));
             UnityEngine.Object.DestroyImmediate(view.gameObject);

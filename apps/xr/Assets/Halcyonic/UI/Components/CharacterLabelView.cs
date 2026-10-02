@@ -15,7 +15,9 @@ namespace Halcyonic.XR.UI
     /// </summary>
     /// <remarks>
     /// The mark sits under the title rather than beside the badge: six characters stand 12 degrees
-    /// apart, and a badge with a mark beside it would reach a neighbour's. Beside a window the label
+    /// apart, and a badge with a mark beside it would reach a neighbour's. For the same reason the
+    /// badge shows its icon only while it stays as narrow as the widest plate, 10.5 degrees; a longer
+    /// word, such as Finished this round, shows alone. Beside a window the label
     /// shows only its badge and, under it, its mark (<see cref="BadgeOnly"/>): work that is not real
     /// always says so, and the title waits for the peek.
     /// </remarks>
@@ -99,6 +101,9 @@ namespace Halcyonic.XR.UI
             view.plate = Surface.Create(go.transform, "Plate", 0);
             view.title = GlazeText.Create(go.transform, "Title", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
             view.badge = StateBadgeView.Create(go.transform, "Badge", 1);
+            // No wider with its icon than the widest plate, so a badge never reaches a neighbour's; a
+            // longer one shows its word alone.
+            view.badge.MaxWidth = GlazeTokens.Units(MaxWidthDegrees);
             return view;
         }
 
