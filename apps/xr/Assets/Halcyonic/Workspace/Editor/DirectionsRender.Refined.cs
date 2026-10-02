@@ -30,12 +30,45 @@ namespace Halcyonic.XR.Workspace.Editor
             ("r2-waiting-approve", false, shot => Lay(Facing.Upright, () => RefinedApproval(shot))),
             ("r3-arriving-tasks-file-facing", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot))),
             ("r4-waiting-approve-facing", false, shot => Lay(Facing.Eyes, () => RefinedApproval(shot))),
+            ("r5-menu-alone-facing", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot, withFile: false))),
+            ("r6-file-slides-out-staying", false, shot => Lay(Facing.Stay, () => RefinedHero(shot))),
         };
 
-        /// <summary>How the plane stands: upright, or tipped back as a whole to face the eyes at its centre.</summary>
-        private enum Facing { Upright, Eyes }
+        /// <summary>
+        /// How the plane stands: upright; tipped back as a whole to face the eyes at its centre; or, when
+        /// a file slides out beside the menu, staying where the menu alone put it, the file to its right
+        /// (Stay, kept to show what re-centring the plane avoids).
+        /// </summary>
+        private enum Facing { Upright, Eyes, Stay }
 
         private static Facing facing = Facing.Upright;
+
+        /// <summary>
+        /// Shots kept to show what a rule catches, with the failures each must show. Those are expected and
+        /// logged; a shot that stops showing one fails the run, and any other failure still counts.
+        /// </summary>
+        private static readonly Dictionary<string, string[]> MustFail = new Dictionary<string, string[]>
+        {
+            // An upright plane below the eyes: its low text shrinks as the eyes see it.
+            ["r1-arriving-tasks-file"] = new[] { "as the eyes see it" },
+            ["r2-waiting-approve"] = new[] { "as the eyes see it" },
+            // A plane that stays where the menu alone put it while the file slides out to its right: off
+            // square, the file's far text shrunk, a corner past a Quest 3S's field, and its top in a label.
+            ["r6-file-slides-out-staying"] = new[] { "off square to the eyes", "as the eyes see it", "lie outside the field", "'s outline and" },
+        };
+
+        private static List<string> KeptToFail(string name, List<string> failures)
+        {
+            if (!MustFail.TryGetValue(name, out var expected)) return failures;
+            var left = failures.Where(failure => !expected.Any(failure.Contains)).ToList();
+            foreach (var phrase in expected)
+            {
+                var shown = failures.Count(failure => failure.Contains(phrase));
+                if (shown == 0) left.Add(name + ": kept to fail \"" + phrase + "\", it no longer does; the check has stopped catching it.");
+                else Debug.Log("Halcyonic: directions render " + name + ": as expected, " + shown + " failures \"" + phrase + "\".");
+            }
+            return left;
+        }
 
         private static void Lay(Facing how, Action build)
         {
@@ -316,7 +349,9 @@ namespace Halcyonic.XR.Workspace.Editor
         private static void LayOnPlane(Shot shot, float yaw, IReadOnlyList<IReadOnlyList<Board>> stacks)
         {
             var gap = 0.015f / PlaneMeters;
-            var total = stacks.Sum(stack => stack[0].Width) + gap * (stacks.Count - 1);
+            // Staying, the plane is where the first column alone put it, and the rest slide out to its right.
+            var placed = facing == Facing.Stay ? stacks.Take(1).ToList() : stacks.ToList();
+            var total = placed.Sum(stack => stack[0].Width) + gap * (placed.Count - 1);
             var tall = stacks.Max(stack => stack.Sum(part => part.Height) + U(RowGap) * (stack.Count - 1));
             var lower = 0f;
             for (var attempt = 0; attempt < 80; attempt++)
@@ -339,7 +374,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     x += stack[0].Width + gap;
                 }
                 var labels = shot.Characters.Select(character => GlazeChecks.Of("label", shot.Eyes, character.View.Label.gameObject)).ToList();
-                var least = stacks.SelectMany(stack => stack).Min(part => labels.Min(label => OutlineApart(Outline(part, shot.Eyes), label)));
+                var least = placed.SelectMany(stack => stack).Min(part => labels.Min(label => OutlineApart(Outline(part, shot.Eyes), label)));
                 if (least >= 1.15f) break;
                 lower += 0.25f;
             }
@@ -367,17 +402,20 @@ namespace Halcyonic.XR.Workspace.Editor
         // ---------------------------------------------------------------------------------------------
         // The two frames.
 
-        /// <summary>The hero: the menu open on Tasks, its waiting task chosen, and that task's file slid out beside it.</summary>
-        private static void RefinedHero(Shot shot)
+        /// <summary>
+        /// The hero: the menu open on Tasks, its waiting task chosen, and that task's file slid out beside
+        /// it; without the file, the menu as it stands before the row is pressed.
+        /// </summary>
+        private static void RefinedHero(Shot shot, bool withFile = true)
         {
             var slot = shot.SlotOf(OpenedTitle);
             var menuWidth = 2f * U(16f);
             var fileWidth = 2f * U(18f);
 
-            var fileHead = SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, fileWidth);
-            var menuHead = SubjectShape(shot, "Menu subject", "1 task is waiting for you", AmberText, menuWidth, fileHead.Height);
+            var fileHead = withFile ? SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, fileWidth) : null;
+            var menuHead = SubjectShape(shot, "Menu subject", "1 task is waiting for you", AmberText, menuWidth, fileHead?.Height);
             var menuTabs = SectionShapes(shot, "Places", Places, menuWidth, chosen: 0, waiting: 0);
-            var fileTabs = SectionShapes(shot, "File sections", FileSections, fileWidth, chosen: 0, waiting: 0);
+            var fileTabs = withFile ? SectionShapes(shot, "File sections", FileSections, fileWidth, chosen: 0, waiting: 0) : null;
 
             // The menu's content: what waits first, then each project's tasks.
             var menu = shot.Board("Tasks", PlaneMeters);
@@ -396,6 +434,14 @@ namespace Halcyonic.XR.Workspace.Editor
             RefinedRow(menu, "Refresh the checkout copy", ml, mr, my, (cx, cy) => Glyph(menu, "State", GlazeIcon.CheckingItsWork, cx, cy, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground)),
                 "Docs site", more: true);
             my -= U(RowHeight);
+
+            var stacks = new List<IReadOnlyList<Board>> { new[] { menuHead, menuTabs, menu } };
+            if (fileHead == null || fileTabs == null)
+            {
+                ContentShape(menu, menuWidth, -my + FooterRoom(menu) + U(GroupGap) * 0.5f, new Prompt("Close", GlazeIcon.Close), null, null, new Prompt("Next page", GlazeIcon.Next));
+                LayOnPlane(shot, 0f, stacks);
+                return;
+            }
 
             // The file's content: the question and its answers, nothing else.
             var file = shot.Board("Waiting", PlaneMeters);
@@ -429,7 +475,8 @@ namespace Halcyonic.XR.Workspace.Editor
             ContentShape(file, fileWidth, bodyHeight, new Prompt("Close", GlazeIcon.Close), null, new Prompt("Hold to talk", GlazeIcon.HoldToTalk),
                 new Prompt("Send answer", GlazeIcon.SendAnswer, main: true));
 
-            LayOnPlane(shot, 0f, new List<IReadOnlyList<Board>> { new[] { menuHead, menuTabs, menu }, new[] { fileHead, fileTabs, file } });
+            stacks.Add(new[] { fileHead, fileTabs, file });
+            LayOnPlane(shot, 0f, stacks);
             Projection(shot, slot, fileHead, fileHead);
         }
 
@@ -640,6 +687,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (Mathf.Min(plate.Size.x, plate.Size.y) < U(0.2f) && fill.a > 0.2f) yield return shot.Name + ": " + plate.name + " in " + part.Name + " is a bar; nothing is marked by a bar or an underline.";
                 }
             }
+            // Inside a Quest 3S's field as the product's FieldChecks see it: the head level and turned to the
+            // composition's centre, tipped down only by ReadingPitch for a composition taller than designed.
+            var centre = CompositionCenter(parts);
+            var corners = parts.SelectMany(part => new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }
+                .Select(y => part.Root.TransformPoint(new Vector3(x * part.Width, y * part.Height, 0f))))).ToList();
+            var sideways = corners.Select(corner => Vector3.Dot(corner - centre, plane.right)).ToList();
+            var upward = corners.Select(corner => Vector3.Dot(corner - centre, plane.up)).ToList();
+            var size = new PanelSize((centre - shot.Eyes).magnitude, (sideways.Max() - sideways.Min()) / 2f, (upward.Max() - upward.Min()) / 2f);
+            foreach (var failure in FieldChecks.Inside(shot.Name + " composition", corners, shot.Eyes, centre, WorkspacePlacement.ReadingPitch(size), FieldChecks.Quest3S))
+            {
+                yield return failure;
+            }
             // Text as the eyes see it: the angle its em spans from the eyes, which shrinks where a surface
             // is seen at a slant, never under Meta's 14 dp.
             var seen = parts.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false))
@@ -654,20 +713,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 })
                 .OrderBy(label => label.Seen)
                 .ToList();
-            var shrunk = seen.Where(label => label.Seen < Glaze.MinimumTextDegrees - 0.0005f).ToList();
-            if (facing == Facing.Upright)
+            foreach (var label in seen.Where(label => label.Seen < Glaze.MinimumTextDegrees - 0.0005f))
             {
-                // The upright plane is kept as the case this check must catch: so low, its text shrinks.
-                if (shrunk.Count == 0) yield return shot.Name + ": the upright plane's low text should read under 14 dp as the eyes see it; the eye check missed it.";
-                else Debug.Log("Halcyonic: directions render " + shot.Name + ": upright, as expected, " + shrunk.Count + " labels read under 14 dp as the eyes see it.");
-            }
-            else
-            {
-                foreach (var label in shrunk)
-                {
-                    yield return shot.Name + ": " + label.Name + " is " + GlazeChecks.Degrees(label.Seen) + " degrees as the eyes see it (" + Mathf.RoundToInt(label.Share * 100f)
-                        + " percent of its size); no text under 14 dp, " + Glaze.MinimumTextDegrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees.";
-                }
+                yield return shot.Name + ": " + label.Name + " is " + GlazeChecks.Degrees(label.Seen) + " degrees as the eyes see it (" + Mathf.RoundToInt(label.Share * 100f)
+                    + " percent of its size); no text under 14 dp, " + Glaze.MinimumTextDegrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees.";
             }
             if (seen.Count > 0)
             {
