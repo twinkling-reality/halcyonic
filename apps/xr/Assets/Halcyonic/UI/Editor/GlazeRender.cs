@@ -465,7 +465,10 @@ namespace Halcyonic.XR.UI.Editor
                 ("New project's Start over, confirming", 38f, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),
                 ("New project's review, confirming", 38f, new[] { ("Close", false), ("Yes, start building", false), ("Cancel", false) }),
                 ("Tasks, paging", 32f, new[] { ("Close", false), ("Next page", false) }),
-                ("Projects, a row chosen", 32f, new[] { ("Close", false), ("Hide from the stage", false), ("Add a task", true) }),
+                ("Projects, a project shown", 32f, new[] { ("Close", false), (ProjectsText.HideFromStage, false), ("Add a task", true) }),
+                ("Projects, a project hidden", 32f, new[] { ("Close", false), (ProjectsText.ShowOnStage, false), ("Add a task", true) }),
+                ("Projects, a folder chosen", 32f, new[] { ("Close", false), ("Connect", true) }),
+                ("Projects, a folder refused", 32f, new[] { ("Close", false), ("Choose a folder", true) }),
                 ("Projects, paging", 32f, new[] { ("Close", false), ("Next page", false), ("New project", true) }),
             };
             var words = cases.SelectMany(each => each.Prompts).Distinct().OrderBy(prompt => prompt.Words);
@@ -478,6 +481,16 @@ namespace Halcyonic.XR.UI.Editor
                 Debug.Log("Halcyonic: component render: footer measure: " + name + " needs " + Degrees(needed).ToString("0.0", CultureInfo.InvariantCulture)
                     + " degrees of a " + column.ToString("0", CultureInfo.InvariantCulture) + " degree column's " + Degrees(room).ToString("0.0", CultureInfo.InvariantCulture)
                     + (needed <= room ? ": it fits, " + Degrees(room - needed).ToString("0.0", CultureInfo.InvariantCulture) + " to spare." : ": it does not fit, " + Degrees(needed - room).ToString("0.0", CultureInfo.InvariantCulture) + " short."));
+            }
+            // A subject at the Title's 24 dp in its 32 degree column, measured by the Body face scaled to the
+            // Title's size: whether it keeps to one line. A frame grows whole with larger text, so what keeps
+            // to one line at the standard size keeps to one at the larger.
+            foreach (var subject in new[] { ProjectsText.Subject })
+            {
+                var width = label.GetPreferredValues(subject).x * Glaze.Menu.TitleDegrees / Glaze.Menu.BodyDegrees;
+                var room = Room(32f) - 2f * Units(0.6f);
+                Debug.Log("Halcyonic: component render: subject measure: \"" + subject + "\" needs " + Degrees(width).ToString("0.0", CultureInfo.InvariantCulture)
+                    + " of " + Degrees(room).ToString("0.0", CultureInfo.InvariantCulture) + " degrees: " + (width <= room ? "one line." : "it wraps."));
             }
             UnityEngine.Object.DestroyImmediate(holder.gameObject);
         }

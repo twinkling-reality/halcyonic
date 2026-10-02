@@ -88,8 +88,6 @@ public class ProjectsScreensTests
         Assert.That(frame.Subject, Is.EqualTo("What would you like to work on?"));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
         Assert.That(frame.Lines.First().Words, Is.EqualTo(ProjectsText.FoldersHeading), "no projects yet: the folders answer it");
-        state.ShortQuestion = true;
-        Assert.That(ProjectsScreens.Projects(state).Subject, Is.EqualTo("What do you want to work on?"));
     }
 
     [Test]
@@ -218,7 +216,7 @@ public class ProjectsScreensTests
         Assert.That(first.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading));
         Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Secondary, PromptSlot.FarRight }),
             "three prompts fit the column: Close, Next page, New project");
-        Assert.That((first.Footer[PromptSlot.Secondary]!.Kind, first.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((PromptKind.NextPage, ProjectsText.NextPage)));
+        Assert.That((first.Footer[PromptSlot.Secondary]!.Kind, first.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((PromptKind.NextPage, "Next page")));
         Assert.That(first.Footer.All.Count(each => each.Prompt.DrawnAsMain), Is.EqualTo(1));
 
         var seen = new List<string>();
@@ -228,7 +226,7 @@ public class ProjectsScreensTests
             state.Page = page;
             var frame = ProjectsScreens.Projects(state);
             seen.AddRange(frame.Lines.Select(line => line.Words));
-            if (frame.Footer[PromptSlot.Secondary]!.Words == ProjectsText.FirstPage) break;
+            if (frame.Footer[PromptSlot.Secondary]!.Words == "First page") break;
         }
         Assert.That(seen, Is.Unique, "each row on one page");
         Assert.That(seen.Count, Is.EqualTo(2 + 1 + 9), "every row on some page");
