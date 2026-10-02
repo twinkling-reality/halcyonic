@@ -11,6 +11,7 @@
       "!**/node_modules",
       "!fixtures/traces",
       "!apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json",
+      "!apps/xr/Assets/Halcyonic/Resources/HalcyonicCompanionDemonstration.json",
       "!packages/contracts/schema",
       "!apps/xr/Packages/packages-lock.json",
       "!apps/xr/ProjectSettings"
