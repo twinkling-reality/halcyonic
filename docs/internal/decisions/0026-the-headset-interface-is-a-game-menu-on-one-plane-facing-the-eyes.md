@@ -181,6 +181,14 @@ coordinator's first-visit words:
   distances and held to text as the eyes see it; the three sizes govern the menu's plane.
 - **A subject's line holds about 36 characters** at 24 dp in the menu's 32 degree column; a longer
   one wraps to a second line, and its plate grows.
+- **Small text keeps 15 dp only where it reads at 14 dp or more** as the eyes see it. Toward the outer
+  edges of a wide composition, where the plane's slant would shrink it under, as a side panel's
+  counts at the far right or a chip at the far left of a file beside its side panel, it takes the
+  content's 18 dp. The layout decides it from the place on the plane, before the text is laid.
+- **A footer about 38 degrees wide holds three prompts** at 18 dp with words as long as Hold to talk
+  or Make the recap; four such need about 42 degrees. A page's fourth action goes where it fits, as
+  New project's Start over, which is not on Questions; how many fit at both text sizes is measured
+  with the footer model.
 
 ## Alternatives considered
 
