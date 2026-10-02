@@ -469,6 +469,12 @@ These steps need the owner's accounts.
 
 ### Install and connect
 
+Run the control plane from the same commit of main the APK was built from. A headset reads what the
+control plane sends strictly where a field is required, so an APK newer than the control plane can
+fail to read it: since `repository`, `changed_at` and `used_by` joined `GET /api/locations`, a new
+APK cannot read an older control plane's folders, and Create's folder step fails with it. An older
+APK ignores fields it does not know, so the other way round works.
+
 The control plane serves only loopback; over USB, `adb reverse` makes the headset's loopback reach
 it. With `pnpm dev` running, from the repository root:
 
