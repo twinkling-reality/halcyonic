@@ -108,15 +108,33 @@ sensors; it sent questions and proposals together. A shape guarantee says nothin
 | Loading the model when it is not loaded | 6.0 and 6.4 s, from [local-models.md](local-models.md) (not remeasured) |
 
 **A turn waits for an agent's request.** A request of 1,500 output tokens, as an agent's step might
-be, was sent first; a short companion request 1.5 s later was answered after 23.9 s, all of it
-waiting: Ollama reported a prompt of 295 ms and counts the wait in `total_duration`. With one
-request per model at a time, a companion turn can wait as long as an agent's step, which for a long
-context was minutes in [local-models.md](local-models.md).
+be, was sent first; a short companion request 1.5 s later was answered after 23.9 s, nearly all of
+it waiting: Ollama reported a prompt of 295 ms and counts the wait in `total_duration`. Measured
+again after the server was restarted with the settings of [local-models.md](local-models.md)
+(`OLLAMA_NO_CLOUD=1`, `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL` 1, flash attention, a q8_0
+KV cache, context 65,536): 23.1 s, a prompt of 88 ms. With one request per model at a time, a
+companion turn can wait as long as an agent's step, which for a long context was minutes in
+[local-models.md](local-models.md).
 
 **Closing a request frees the model.** A long request was closed after 2.5 s and a short one sent at
 once: it was answered in 0.25 s when the long request was not streamed and in 2.2 s when it was,
-instead of after the roughly 20 s the long request still had to run. So a control plane that gives
-up on a turn and closes the connection does not leave the model generating for nobody.
+instead of after the roughly 20 s the long request still had to run; on the restarted server, in
+0.14 s. So a control plane that gives up on a turn and closes the connection does not leave the
+model generating for nobody.
+
+**The first turn after the model loads reads its prompt slowly.** On the restarted server the first
+turn's 571-token prompt took 5.3 s to read, as the very first turn of the earlier trial did (5.0 s),
+against 39 to 92 ms once its prefix was cached and 910 tokens a second for a long prompt in
+[local-models.md](local-models.md). The cause was not looked into.
+
+## What Ollama logs
+
+The server measured last logs at its default level (`OLLAMA_DEBUG:INFO` in its startup line) and
+says `Ollama cloud disabled: true`. One companion turn and one request whose person's words held a
+made-up marker word were sent, and the server's log searched for the marker and for the idea's
+words: neither was there. For a request the log holds the path, status and time taken
+(`ServeHTTP`), prompt and cache token counts, speculative decoding statistics and memory; no
+prompt or reply text. At a debug level it may log more; not tried.
 
 ## Through a runtime instead
 
@@ -150,10 +168,13 @@ providers.
 
 - A model listed with `remote_host` or `remote_model`, or with a `cloud` tag, being refused: no
   cloud or remote model exists on this Mac, and none was made.
-- Whether Ollama writes prompt text to its log at its default level. Its documentation only says
-  where the log is (`~/.ollama/logs/server.log` for the app; the terminal for `ollama serve`).
-- Whether `OLLAMA_NO_CLOUD` was set on the server measured here; it held two models at once, so it
-  did not run with `OLLAMA_MAX_LOADED_MODELS=1` as in [local-models.md](local-models.md).
+- What Ollama logs with `OLLAMA_DEBUG` set. Its documentation only says where the log is
+  (`~/.ollama/logs/server.log` for the app; the terminal for `ollama serve`).
+- The first trials ran on the server before its restart, which held two models at once and whose
+  settings were not read; the queueing, closing and logging checks were repeated on the restarted
+  one.
+- A companion model other than the loaded one under `OLLAMA_MAX_LOADED_MODELS=1`, which would
+  unload the agents' model for each turn: not tried, so as not to disturb other sessions.
 - Other models: the dense `qwen3.8:27b-nvfp4` and `muse-glimmer:30b-mlx` were not tried, so as not
   to evict the model other sessions were using; they write 21 to 36 tokens a second
   ([local-models.md](local-models.md)), so a turn would take two to three times as long.
