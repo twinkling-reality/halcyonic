@@ -497,6 +497,13 @@ namespace Halcyonic.Client
         /// <summary>What choosing a section raises, with its key as the key.</summary>
         public const string ChooseSection = "section";
 
+        /// <summary>
+        /// How many rows a list's page holds, as Tasks and Projects do (ADR 0026): 4 at the standard
+        /// size and 3 with text a step larger, where 4 would take the menu and a file past a Quest 3S's
+        /// field. A line that wraps counts each of its rows.
+        /// </summary>
+        public static int RowsAPage(TextSize text) => text == TextSize.Larger ? 3 : 4;
+
         /// <param name="pill">On a file, its task's state badge, as its character wears it.</param>
         /// <param name="source">Where the page's words come from, one line, last on the page, in the secondary colour.</param>
         public MenuFrame(string subject, Footer footer, bool subjectIsData = false, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
