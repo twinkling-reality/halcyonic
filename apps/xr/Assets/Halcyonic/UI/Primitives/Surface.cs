@@ -16,6 +16,21 @@ namespace Halcyonic.XR.UI
     /// transform and faces along its parent's back, as text does, so it reads seen along the
     /// parent's forward axis.
     /// </remarks>
+    /// <summary>What a shape says about choosing (ADR 0026): nothing, what is chosen, what is pointed at, or the main action's cap.</summary>
+    public enum SurfaceSelection
+    {
+        None,
+
+        /// <summary>The chosen one: the lit fill with its frame.</summary>
+        Lit,
+
+        /// <summary>What a hand or the eyes point at: the frame alone.</summary>
+        Pointed,
+
+        /// <summary>The main action's key cap, the one shape the accent fills.</summary>
+        MainCap,
+    }
+
     public sealed class Surface : MonoBehaviour
     {
         private const string MaterialPath = "HalcyonicUI/Surface";
@@ -46,6 +61,17 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The shape's fill as drawn, before any fade, for checks.</summary>
         public Color Fill => fill;
+
+        /// <summary>The shape's edge and how wide it is drawn, in the parent's units, for checks.</summary>
+        public Color Edge => edge;
+
+        public float EdgeWidth => edgeWidth;
+
+        /// <summary>
+        /// What the shape says about choosing (ADR 0026), set by the component that draws it, so the
+        /// renders hold one selection treatment (<c>GlazeChecks.OneSelectionTreatment</c>).
+        /// </summary>
+        public SurfaceSelection Selection { get; set; }
 
         public static Surface Create(Transform parent, string name, int order)
         {
