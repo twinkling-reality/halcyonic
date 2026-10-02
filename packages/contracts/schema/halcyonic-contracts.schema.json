@@ -6699,6 +6699,7 @@
         "verdict",
         "latest_statement",
         "waiting",
+        "revision",
         "changes",
         "verification",
         "review",
@@ -6832,6 +6833,36 @@
               "type": "null"
             }
           ]
+        },
+        "revision": {
+          "type": "object",
+          "required": [
+            "at_start",
+            "at_latest_turn_end"
+          ],
+          "properties": {
+            "at_start": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/UnderstandingRevisionAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "at_latest_turn_end": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/UnderstandingRevisionAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "changes": {
           "type": "object",
@@ -7281,6 +7312,49 @@
       },
       "additionalProperties": false
     },
+    "UnderstandingRevisionAnchor": {
+      "type": "object",
+      "required": [
+        "head",
+        "branch",
+        "at",
+        "epistemic"
+      ],
+      "properties": {
+        "head": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "branch": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+        },
+        "epistemic": {
+          "type": "string",
+          "const": "observed"
+        }
+      },
+      "additionalProperties": false
+    },
     "UnderstandingExplanation": {
       "type": "object",
       "required": [
@@ -7544,9 +7618,11 @@
       "type": "object",
       "required": [
         "path",
+        "repository_path",
         "change_count",
         "lines_added",
         "lines_removed",
+        "lines_removed_exact",
         "kinds",
         "last_changed_at",
         "coverage",
@@ -7556,6 +7632,17 @@
         "path": {
           "type": "string",
           "maxLength": 4096
+        },
+        "repository_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "change_count": {
           "type": "integer",
@@ -7568,6 +7655,16 @@
         "lines_removed": {
           "type": "integer",
           "minimum": 0
+        },
+        "lines_removed_exact": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "kinds": {
           "type": "array",

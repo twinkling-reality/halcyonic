@@ -32,7 +32,8 @@ internal static class Answers
         Intelligence.Edit(json, response => Intelligence.UnderstandingOf(response)["changes"]!["files"] = JArray.Parse(files));
 
     public static string File(string path, string kinds, int added, int removed, string at, string? reason = null, string author = "agent") =>
-        "{\"path\":\"" + path + "\",\"change_count\":1,\"lines_added\":" + added + ",\"lines_removed\":" + removed + ",\"kinds\":" + kinds
+        "{\"path\":\"" + path + "\",\"repository_path\":null,\"change_count\":1,\"lines_added\":" + added + ",\"lines_removed\":" + removed
+        + ",\"lines_removed_exact\":null,\"kinds\":" + kinds
         + ",\"last_changed_at\":\"" + at + "\",\"coverage\":{\"verified_after\":false,\"by\":null,\"epistemic\":\"inferred\"},\"reason\":"
         + (reason == null ? "null" : "{\"text\":\"" + reason + "\",\"author\":\"" + author + "\",\"at\":\"2026-09-20T15:39:00.000Z\",\"epistemic\":\"reported\"}")
         + "}";
@@ -91,6 +92,52 @@ public class WhatChangedTests
             "New, removed: odd.ts (+4 −4)",
             "Changed: unsaid.ts (+1 −1)",
         }));
+    }
+
+    [Test]
+    public void AFileShowsByItsPathInItsRepositoryWhereTheSourceResolvedOneAndALowerBoundSaysSo()
+    {
+        var json = Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            var files = (JArray)Intelligence.UnderstandingOf(response)["changes"]!["files"]!;
+            files[0]!["repository_path"] = "src/payments/refunds.ts";
+            files[0]!["lines_removed_exact"] = false;
+            files[1]!["lines_removed_exact"] = true;
+        });
+        var texts = Intelligence.Texts(Answers.Understand(UnderstandPrompt.WhatChanged, json));
+        Assert.That(texts.Skip(1).Take(2), Is.EqualTo(new[]
+        {
+            "Edited: src/payments/refunds.ts (+5 −1 or more)",
+            "Edited: ChargeService.test.ts (+6 −0)",
+        }), "a file with no repository path keeps its name; an exact count reads as before");
+    }
+
+    [Test]
+    public void TheCommitsTheWorkStartedFromAndStandsAtAreSaidUnderTheCount()
+    {
+        string Anchor(string? head, string? branch) =>
+            "{\"head\":" + (head == null ? "null" : "\"" + head + "\"") + ",\"branch\":" + (branch == null ? "null" : "\"" + branch + "\"")
+            + ",\"at\":\"2026-09-20T15:40:05.000Z\",\"epistemic\":\"observed\"}";
+        string? Line(string? start, string? latest)
+        {
+            var json = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["revision"] =
+                JObject.Parse("{\"at_start\":" + (start ?? "null") + ",\"at_latest_turn_end\":" + (latest ?? "null") + "}"));
+            var lines = Answers.Understand(UnderstandPrompt.WhatChanged, json).Lines;
+            return lines[1].Text.StartsWith("Edited", StringComparison.Ordinal) ? null : lines[1].Text;
+        }
+        const string A = "3f9a2c1d8e7b6a5f4c3d2e1f0a9b8c7d6e5f4a3b";
+        const string B = "8b1e4d7a2c9f6b3e0d5a8c1f4b7e2d9a6c3f0b5e";
+        Assert.That(Line(Anchor(A, "fix/double-charge"), Anchor(B, "fix/double-charge")), Is.EqualTo("From commit 3f9a2c1 to 8b1e4d7 on fix/double-charge"));
+        Assert.That(Line(Anchor(A, "main"), Anchor(B, "fix/x")), Is.EqualTo("From commit 3f9a2c1 on main to 8b1e4d7 on fix/x"));
+        Assert.That(Line(Anchor(A, "main"), Anchor(A, "main")), Is.EqualTo("At commit 3f9a2c1 on main, where it started"));
+        Assert.That(Line(null, Anchor(B, null)), Is.EqualTo("At commit 8b1e4d7"), "a detached HEAD names no branch");
+        Assert.That(Line(Anchor(A, "main"), null), Is.EqualTo("Started at commit 3f9a2c1 on main"));
+        Assert.That(Line(null, Anchor(null, "main")), Is.EqualTo("At a repository with no commits yet on main"));
+        Assert.That(Line(null, null), Is.Null, "nothing is said when the source saw neither boundary");
+        var json = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["revision"] =
+            JObject.Parse("{\"at_start\":null,\"at_latest_turn_end\":" + Anchor(B, "main") + "}"));
+        var line = Answers.Understand(UnderstandPrompt.WhatChanged, json).Lines[1];
+        Assert.That((line.Tag, line.Tone), Is.EqualTo(("observed", SectionTone.Secondary)));
     }
 
     [Test]

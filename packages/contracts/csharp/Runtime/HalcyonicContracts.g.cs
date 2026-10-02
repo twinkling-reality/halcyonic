@@ -2539,6 +2539,30 @@ namespace Halcyonic.Contracts
         public UnderstandingEpistemic Epistemic { get; set; }
     }
 
+    public sealed class UnderstandingRevisionAnchor
+    {
+        [JsonProperty("head", Required = Required.AllowNull)]
+        public string? Head { get; set; }
+
+        [JsonProperty("branch", Required = Required.AllowNull)]
+        public string? Branch { get; set; }
+
+        [JsonProperty("at", Required = Required.Always)]
+        public string At { get; set; } = default!;
+
+        [JsonProperty("epistemic", Required = Required.Always)]
+        public string Epistemic { get; set; } = "observed";
+    }
+
+    public sealed class UnderstandingRevision
+    {
+        [JsonProperty("at_start", Required = Required.AllowNull)]
+        public UnderstandingRevisionAnchor? AtStart { get; set; }
+
+        [JsonProperty("at_latest_turn_end", Required = Required.AllowNull)]
+        public UnderstandingRevisionAnchor? AtLatestTurnEnd { get; set; }
+    }
+
     [JsonConverter(typeof(StringEnumConverter))]
     public enum UnderstandingChangeKind
     {
@@ -2565,6 +2589,9 @@ namespace Halcyonic.Contracts
         [JsonProperty("path", Required = Required.Always)]
         public string Path { get; set; } = default!;
 
+        [JsonProperty("repository_path", Required = Required.AllowNull)]
+        public string? RepositoryPath { get; set; }
+
         [JsonProperty("change_count", Required = Required.Always)]
         public long ChangeCount { get; set; }
 
@@ -2573,6 +2600,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("lines_removed", Required = Required.Always)]
         public long LinesRemoved { get; set; }
+
+        [JsonProperty("lines_removed_exact", Required = Required.AllowNull)]
+        public bool? LinesRemovedExact { get; set; }
 
         [JsonProperty("kinds", Required = Required.Always)]
         public List<UnderstandingChangeKind> Kinds { get; set; } = new List<UnderstandingChangeKind>();
@@ -2949,6 +2979,9 @@ namespace Halcyonic.Contracts
 
         [JsonProperty("waiting", Required = Required.AllowNull)]
         public UnderstandingWaiting? Waiting { get; set; }
+
+        [JsonProperty("revision", Required = Required.Always)]
+        public UnderstandingRevision Revision { get; set; } = default!;
 
         [JsonProperty("changes", Required = Required.Always)]
         public UnderstandingChanges Changes { get; set; } = default!;

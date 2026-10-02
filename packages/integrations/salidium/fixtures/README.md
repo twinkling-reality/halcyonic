@@ -22,6 +22,12 @@ Twelve of Salidium's thirteen are copied:
 `session-list.json` is not copied because this client does not read the list. The values are
 unchanged; whitespace in the reports follows this repository's formatter.
 
+`v1/1.1/` holds the same twelve of contract 1.1 (Salidium 0.7.0), from
+`packages/consumer-contract/fixtures/v1/1.1/` at Salidium commit `5b53b77` on main, copied on
+2026-10-02 while `@salidium/consumer-contract@1.1.0` waited for publishing. They add the revision
+anchors, each changed file's repository and `linesRemovedExact`, and the providers in discovery;
+every path and id in them is invented too.
+
 They are used under the MIT License:
 
 ```text

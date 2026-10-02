@@ -80,7 +80,15 @@ export interface SourceStory {
   readonly reported: Readonly<Record<string, string>>;
   /** The explanation of a finished turn, by the agent message that ended it. */
   readonly explanations: Readonly<Record<string, StoryExplanation>>;
+  /**
+   * The branch and commit the work starts from, invented. The stories make no commits, so the
+   * work stands at the same commit at every round's end.
+   */
+  readonly revision: { readonly branch: string; readonly head: string };
 }
+
+/** Where the stories' repository lies, invented; Halcyonic's contract carries none of it. */
+const STORY_ROOT = '/Users/demo/projects/shop';
 
 const SIGN_IN_BEFORE = 'Sign-in accepted any number of failed attempts.';
 const SIGN_IN_WHY = {
@@ -98,6 +106,7 @@ const SIGN_IN_WHY = {
 /** The demonstration's three scenarios, as the stand-ins know them. */
 export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
   order_history_pagination: {
+    revision: { branch: 'paginate-orders', head: '5c1e9a07d3b4f2861e0a7c95d4b3a2f1e0d9c8b7' },
     edits: {
       'call-2': {
         added: 38,
@@ -141,6 +150,7 @@ export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
     },
   },
   order_confirmation_email: {
+    revision: { branch: 'order-confirmation', head: 'a8d4e2b19f07c63e5d2a1b0c9f8e7d6c5b4a3928' },
     edits: {
       'call-1': {
         added: 46,
@@ -173,6 +183,7 @@ export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
     },
   },
   sign_in_rate_limit: {
+    revision: { branch: 'sign-in-rate-limit', head: '3e7b0c2d91f4a8657c0b3e2d1a9f8e7d6c5b4a31' },
     edits: {
       'call-2': { added: 57, removed: 0, creates: true },
       'call-3': { added: 14, removed: 0, creates: true },
@@ -773,6 +784,11 @@ function salidiumReport(nativeId: string, observed: Observed, story: SourceStory
             since: observed.waiting.since,
             provenance: 'observed',
           },
+    // Contract 1.1: the commit the work started from and, once a round has ended, stands at.
+    revision: {
+      atStart: anchor(story, observed.startedAt),
+      atLatestTurnEnd: lastEnd === undefined ? null : anchor(story, lastEnd.at),
+    },
     changes: {
       glance:
         files.length === 0
@@ -784,9 +800,11 @@ function salidiumReport(nativeId: string, observed: Observed, story: SourceStory
             }`,
       files: files.map((file) => ({
         path: file.path,
+        repository: { root: STORY_ROOT, path: file.path, mainRoot: null, provenance: 'observed' },
         changeCount: file.changeCount,
         linesAdded: file.added,
         linesRemoved: file.removed,
+        linesRemovedExact: true,
         kinds: [...file.kinds],
         lastChangedAt: file.lastChangedAt,
         coverage: {
@@ -860,6 +878,16 @@ function salidiumReport(nativeId: string, observed: Observed, story: SourceStory
               },
             },
           },
+  };
+}
+
+function anchor(story: SourceStory, at: string): Json {
+  return {
+    root: STORY_ROOT,
+    head: story.revision.head,
+    branch: story.revision.branch,
+    at,
+    provenance: 'observed',
   };
 }
 

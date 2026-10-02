@@ -68,6 +68,59 @@ function withEveryClass(document: Json, epistemic: WireEpistemic): [Json, number
 }
 
 describe('mapping a Salidium report onto an understanding', () => {
+  test("carries contract 1.1's commits and repository paths, never the host's paths", () => {
+    const verified = understand(fixture('1.1/session-report-verified'));
+    assert.deepEqual(verified.revision, {
+      at_start: {
+        head: '3f9a2c1d8e7b6a5f4c3d2e1f0a9b8c7d6e5f4a3b',
+        branch: 'fix/double-charge',
+        at: '2026-09-20T15:40:05.000Z',
+        epistemic: 'observed',
+      },
+      at_latest_turn_end: verified.revision.at_latest_turn_end,
+    });
+    assert.equal(
+      verified.revision.at_latest_turn_end?.head,
+      '8b1e4d7a2c9f6b3e0d5a8c1f4b7e2d9a6c3f0b5e',
+    );
+    const files = verified.changes.files.map((file) => [
+      file.repository_path,
+      file.lines_removed_exact,
+    ]);
+    assert.deepEqual(
+      files[1],
+      ['src/payments/refunds.ts', true],
+      'a file in a linked worktree, by its path in it',
+    );
+    assert.deepEqual(
+      files[0],
+      [null, true],
+      'a file outside any repository has no repository path',
+    );
+    const text =
+      JSON.stringify(verified.revision) +
+      JSON.stringify(verified.changes.files.map((file) => file.repository_path));
+    assert.doesNotMatch(text, /\/Users\//, 'no repository root or worktree path crosses');
+
+    for (const name of ['session-report-failing', 'session-report-working']) {
+      assert.deepEqual(
+        understand(fixture(`1.1/${name}`)).revision,
+        { at_start: null, at_latest_turn_end: null },
+        name,
+      );
+    }
+  });
+
+  test('maps a contract 1.0 report with no commits or repository paths, said as unknown', () => {
+    const older = understand(fixture('session-report-verified'));
+    assert.deepEqual(older.revision, { at_start: null, at_latest_turn_end: null });
+    assert.ok(
+      older.changes.files.every(
+        (file) => file.repository_path === null && file.lines_removed_exact === null,
+      ),
+    );
+  });
+
   test('maps every retained report onto a valid understanding', () => {
     const verified = understand(fixture('session-report-verified'));
     assert.equal(verified.verdict.headline, '4 files changed, unverified');
