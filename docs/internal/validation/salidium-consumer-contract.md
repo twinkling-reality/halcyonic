@@ -137,3 +137,16 @@ Answers now carry `source.synthetic`, false for everything read from Salidium
   `packages/integrations/salidium/src/client.test.ts`), not against any Salidium release. When 1.1 is
   published, re-copy its fixtures, replace the stand-in's list with the published discovery fixture,
   and run the real-wire test with an OpenCode session.
+
+## Waiting for a Salidium that is catching up (2026-10-02)
+
+Salidium's coordinator reported that after the upgrade to 0.7.0, the first read of an older session
+replays it on the daemon's main thread for 5 to 8 seconds until a background warm-up finishes. On
+the development Mac on 2026-10-02, Salidium 0.6.1 did not answer even its discovery request within 3
+seconds while it reingested its history. Halcyonic's client now gives each request 10 seconds and the
+whole read (discovery, lookup, report) a budget of 12, so an answer always reaches a headset inside
+its own 15 seconds. A read that runs out of time answers `unavailable` with its own reason,
+`timed_out`, apart from `unreachable` (nothing listening), in words without the product's name,
+since the provenance line names the source: "No answer in time: it may still be catching up after
+an update. Press Refresh in a moment." Tested with a stand-in that answers a report late
+(`packages/integrations/salidium/src/client.test.ts`).

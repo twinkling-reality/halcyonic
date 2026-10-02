@@ -3,6 +3,7 @@ import {
   checkCredential,
   connect,
   credentialRejected,
+  DEFAULT_BUDGET_MS,
   DEFAULT_TIMEOUT_MS,
   type Failure,
   fail,
@@ -12,6 +13,8 @@ import {
   type Reply,
   refusal,
   type SalidiumOptions,
+  TIMED_OUT,
+  timedOut,
 } from './connection.ts';
 import { toUnderstanding } from './report.ts';
 import {
@@ -67,11 +70,13 @@ export class SalidiumClient {
   readonly #home: string;
   readonly #credential: SalidiumOptions['credential'];
   readonly #timeoutMs: number;
+  readonly #budgetMs: number;
 
   constructor(options: SalidiumOptions) {
     this.#home = options.home;
     this.#credential = options.credential;
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.#budgetMs = options.budgetMs ?? DEFAULT_BUDGET_MS;
   }
   /** The credential as configured, read now when it is read on demand. */
   #configured(): string | null | UnderstandingFailure {
@@ -108,7 +113,9 @@ export class SalidiumClient {
     const declaredOnly = DECLARED_ONLY.has(provider);
     let configured = declaredOnly ? null : this.#configured();
     if (configured !== null && typeof configured !== 'string') return configured;
-    const instance = await connect(this.#home, this.#timeoutMs, signal);
+    // One budget for the whole read, so it answers in time whatever each request takes.
+    const deadline = AbortSignal.timeout(this.#budgetMs);
+    const instance = await connect(this.#home, this.#timeoutMs, signal, deadline);
     if (isFailure(instance)) return declaredOnly ? notObserved : instance;
     if (instance.providers === null ? declaredOnly : !instance.providers.has(provider))
       return instance.providers === null
@@ -128,7 +135,7 @@ export class SalidiumClient {
       const url = new URL(`${CONSUMER_BASE_PATH}/sessions/lookup`, instance.origin);
       url.searchParams.set('provider', provider);
       url.searchParams.set('sessionId', nativeId);
-      const reply = await get(url, credential, this.#timeoutMs, signal);
+      const reply = await get(url, credential, this.#timeoutMs, signal, deadline);
       const body = interpret(reply, 'session lookup', 'session-not-observed', NOT_OBSERVED);
       if (isFailure(body)) return body;
       const lookup = validateLookup(body.value);
@@ -137,7 +144,13 @@ export class SalidiumClient {
     }
 
     const path = `${CONSUMER_BASE_PATH}/sessions/${encodeURIComponent(sessionId)}/report`;
-    const reply = await get(new URL(path, instance.origin), credential, this.#timeoutMs, signal);
+    const reply = await get(
+      new URL(path, instance.origin),
+      credential,
+      this.#timeoutMs,
+      signal,
+      deadline,
+    );
     const body = interpret(reply, 'session report', 'not-found', NO_REPORT);
     if (isFailure(body)) return body;
     const report = validateReport(body.value);
@@ -166,11 +179,12 @@ const NO_REPORT = 'Salidium holds no report for this session; it may have been d
  * contract does not give is incompatibility rather than a guess.
  */
 function interpret(
-  reply: Reply | null,
+  reply: Reply | typeof TIMED_OUT | null,
   what: string,
   missing: 'session-not-observed' | 'not-found',
   missingMessage: string,
 ): { value: unknown } | Failure {
+  if (reply === TIMED_OUT) return timedOut();
   if (reply === null)
     return fail('unavailable', 'unreachable', `Salidium did not answer the ${what} request.`);
   if (reply.status === 200) return { value: reply.body };
