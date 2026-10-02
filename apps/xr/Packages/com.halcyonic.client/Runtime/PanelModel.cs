@@ -341,6 +341,9 @@ namespace Halcyonic.Client
         /// </summary>
         public bool Movable { get; set; } = true;
 
+        /// <summary>Move and Reset position take a press, and Move a hold: never while a confirmation is armed.</summary>
+        public bool CanMove => Movable && Confirm == null;
+
         /// <summary>The header's close button, "Close" unless the screen says otherwise.</summary>
         public string CloseLabel { get; set; } = EntryText.Close;
 

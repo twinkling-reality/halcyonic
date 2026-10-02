@@ -1057,7 +1057,8 @@ For each step write down what you saw and how it felt, in
 
 1. **Reading at touch distance (3 minutes).** Open the character that waits for you: the workspace
    opens 0.46 m away, 44 by 26 degrees, beside it. Read the whole request, part by part, and poke
-   Next, Approve and Cancel. Then press Create a project and read the first screen. Can you read for
+   Next, Approve and Cancel. Then press Create a project and read the first screen. Hold its Move
+   and drag: does the panel follow your hand smoothly, with the ray and with a poke? Can you read for
    a few minutes without strain, and poke every button without leaning or stretching? If reading
    strains, say so: the fallback is the same panel at 1 m, ray only.
 2. **The stage's height and the labels (2 minutes).** The characters stand 2.4 m away, their centres

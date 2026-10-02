@@ -820,6 +820,10 @@ scripts use only long-stable core Unity APIs:
   the stage never references it. `PointerTarget` lives here: a ray, poke and gaze target whose
   `Selected` and `Released` say a press began and ended, let go or cancelled, as hold to talk needs,
   and which the interaction log names as its creator says (`LogAs`: a character by its work's id).
+  One that drags (`EnableDrag`) reports the point a press holds as it moves (`Dragged`): a poke's
+  on its surface, a ray's at the distance along the ray where it took hold, the ray kept on that
+  point by the SDK's `MoveFromTargetProvider`
+  ([workspace-interaction.md](../validation/workspace-interaction.md)).
   `GlazeButton` is the interface's button: its role sets its look (Primary in the accent, Secondary,
   Destructive outlined in red and its confirmation solid red, Filter outlined in the accent while on,
   Choice a raised tile edged in the accent while chosen, Attention in the attention colour, only to
@@ -1031,8 +1035,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   `PanelModel` from `EntryScreens`, drawn by a `PanelFrame` 0.46 m from the eyes, 44 by 26 degrees
   (ADR 0023), opened where a foreground panel goes, clear of every character and its label
   (`WorkspaceLayout.PlaceForeground` with the panel's size), so every screen puts the same things in
-  the same places: Move (to the right, the left and back, 28 degrees about the eyes), Reset position
-  (the panel and the rail in front of where the person faces now) and Close at the top right; Back at
+  the same places: Move (pressed, to the right, the left and back, 28 degrees about the eyes; held,
+  the panel follows the hand round the eyes at touch distance, facing them, its center kept in the
+  comfortable band and above a desk, `PanelDrag`), Reset position (the panel and the rail in front
+  of where the person faces now) and Close at the top right, Move and Reset position unavailable
+  while a confirmation is armed (`PanelModel.CanMove`); Back at
   the bar's left; the primary at its right end; the pager at the body's bottom right. An action that
   can't be taken now stays in its place, unavailable, with why beside it. Opening the panel
   collapses an open workspace; a workspace opened while it shows, by a pinch on a character or by
@@ -1617,7 +1624,10 @@ screen and then pressing (Start building on the recap, then Next through every p
 the second press that clears a start that may have run), fails unless Yes stands 12 mm clear of
 every control shown before its confirm step and since, never in the pager's row, with no
 microphone on Yes or Cancel or on any button that is not held, and, while it pages, its pager
-stands above the body. It fails if the rail
+stands above the body. It holds Move on the recap and drags it 10
+degrees right and 4 up, and fails unless the panel follows by as much, at touch distance, facing
+the eyes, and unless, while Start over asks to be confirmed, Move and Reset position take no press
+and a drag moves nothing. It fails if the rail
 reaches more than 24 degrees from its middle, runs past its ends, puts two buttons closer than
 12 mm, has a target under 60 dp (48 compact) or a word under the caption's size, or comes within a
 degree of a character's body or label. It opens Settings from the rail, with the sections the room

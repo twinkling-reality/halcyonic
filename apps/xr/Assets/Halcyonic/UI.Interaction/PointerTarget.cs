@@ -26,6 +26,10 @@ namespace Halcyonic.XR.UI
         private readonly HashSet<int> pressing = new HashSet<int>();
         private BoundsClipper? clipper;
         private PokeInteractable? poke;
+        private RayInteractable? ray;
+        private bool drags;
+        private Vector3? held;
+        private float heldAlongRay;
         private string logKind = "control";
         private string? logId;
 
@@ -43,6 +47,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>A look and pinch: the gaze interactor selected this, on a pinch <see cref="GazeHover"/> allowed.</summary>
         public event Action? GazeSelected;
+
+        /// <summary>While a press holds it, after <see cref="EnableDrag"/>: the point the hand holds moved, to here in the world.</summary>
+        public event Action<Vector3>? Dragged;
+
+        /// <summary>The point the hand took hold of, or holds now, in the world, while a press is on it after <see cref="EnableDrag"/>.</summary>
+        public Vector3? HeldPoint => held;
 
         /// <summary>A hand ray or a finger is on some target: a character, the workspace, a button.</summary>
         public static bool AnyHandOnTarget => handsOnTargets > 0;
@@ -74,6 +84,7 @@ namespace Halcyonic.XR.UI
                 var rayInteractable = host.AddComponent<RayInteractable>();
                 rayInteractable.InjectAllRayInteractable(patch);
                 rayInteractable.WhenPointerEventRaised += target.OnRay;
+                target.ray = rayInteractable;
             }
             if (poke)
             {
@@ -120,6 +131,19 @@ namespace Halcyonic.XR.UI
             logId = id;
         }
 
+        /// <summary>
+        /// Lets a press drag: a ray then keeps hold of the point it hit, at that distance along it, as
+        /// the Interaction SDK moves what a ray selects (its <c>MoveFromTargetProvider</c>, whose pose is
+        /// the ray's origin, verified in 207.0.0's RayInteractor); a poke holds the point it touches.
+        /// Every move of either raises <see cref="Dragged"/>.
+        /// </summary>
+        public void EnableDrag()
+        {
+            if (drags) return;
+            drags = true;
+            if (ray != null) ray.InjectOptionalMovementProvider(gameObject.AddComponent<MoveFromTargetProvider>());
+        }
+
         public void Resize(Vector2 size)
         {
             if (clipper != null) clipper.Size = new Vector3(size.x, size.y, 0.1f);
@@ -137,6 +161,7 @@ namespace Halcyonic.XR.UI
         {
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
             rays.Clear();
+            held = null;
             if (pressing.Count > 0)
             {
                 pressing.Clear();
@@ -149,7 +174,9 @@ namespace Halcyonic.XR.UI
             HoverChanged?.Invoke();
         }
 
-        private void OnHand(PointerEvent pointer)
+        private void OnHand(PointerEvent pointer) => OnPointer(pointer, fromRay: false);
+
+        private void OnPointer(PointerEvent pointer, bool fromRay)
         {
             var before = hands.Count;
             if (Track(hands, pointer))
@@ -160,16 +187,45 @@ namespace Halcyonic.XR.UI
             if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended)
             {
                 pressing.Add(pointer.Identifier);
+                if (drags) held = TakeHold(pointer.Pose, fromRay);
                 Selected?.Invoke();
             }
-            else if (pointer.Type == PointerEventType.Unselect && pressing.Remove(pointer.Identifier)) Released?.Invoke(false);
-            else if (pointer.Type == PointerEventType.Cancel && pressing.Remove(pointer.Identifier)) Released?.Invoke(true);
+            else if (pointer.Type == PointerEventType.Move && drags && held != null && pressing.Contains(pointer.Identifier))
+            {
+                var point = fromRay ? pointer.Pose.position + pointer.Pose.forward * heldAlongRay : pointer.Pose.position;
+                held = point;
+                Dragged?.Invoke(point);
+            }
+            else if (pointer.Type == PointerEventType.Unselect && pressing.Remove(pointer.Identifier))
+            {
+                held = null;
+                Released?.Invoke(false);
+            }
+            else if (pointer.Type == PointerEventType.Cancel && pressing.Remove(pointer.Identifier))
+            {
+                held = null;
+                Released?.Invoke(true);
+            }
+        }
+
+        /// <summary>
+        /// The point a press takes hold of: a poke's on the surface; a ray's, whose pose is its origin
+        /// while it drags, where it meets this target's plane, kept at that distance along it.
+        /// </summary>
+        private Vector3 TakeHold(Pose pose, bool fromRay)
+        {
+            if (!fromRay) return pose.position;
+            var normal = transform.forward;
+            var across = Vector3.Dot(pose.forward, normal);
+            heldAlongRay = Mathf.Abs(across) > 1e-4f ? Vector3.Dot(transform.position - pose.position, normal) / across : -1f;
+            if (heldAlongRay <= 0f) heldAlongRay = Vector3.Distance(pose.position, transform.position);
+            return pose.position + pose.forward * heldAlongRay;
         }
 
         private void OnRay(PointerEvent pointer)
         {
             var changed = Track(rays, pointer);
-            OnHand(pointer);
+            OnPointer(pointer, fromRay: true);
             if (!changed) return;
             Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, this,
                 "Halcyonic interaction: ray target {0} {1} {2}",

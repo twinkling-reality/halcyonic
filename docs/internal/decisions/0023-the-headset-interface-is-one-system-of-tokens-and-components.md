@@ -58,7 +58,11 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   neither moves nor resets, took only Close, at the end of its row of tabs, and Refresh beside a
   section's heading, so its body keeps room for the question and the log; a confirmation whose
   content pages shows its pager at the top, away from Yes. Usage left, which belongs to no character
-  and stays where it opened, took only Close, in its header.)
+  and stays where it opened, took only Close, in its header. On 2026-10-02 Move became the grab
+  handle as well: pressed, it steps the panel aside as before; held, the panel follows the hand round
+  the eyes at touch distance, as Meta lets a person reposition a touch panel. A separate handle in
+  the header would have cut the panel's title. Neither Move nor Reset position moves a panel while
+  a confirmation is armed.)
 - **Words and decisions stay in the client core.** A state language maps every work state to a
   word, a tone, an icon, an edge and a motion, so no state is told by colour alone; an action set
   admits one primary, two secondary, one destructive and an overflow, and nothing more;

@@ -137,6 +137,15 @@ namespace Halcyonic.XR.UI
         /// <summary>A hold ended: let go on it (true), or dropped (false).</summary>
         public event Action<string, bool>? HoldEnded;
 
+        /// <summary>
+        /// While Move is held (its hold started, <see cref="HoldStarted"/> with <see cref="PanelModel.Move"/>):
+        /// the point the hand holds moved, to here in the world, for the panel's owner to follow.
+        /// </summary>
+        public event Action<Vector3>? Dragged;
+
+        /// <summary>The point the hand holds on Move, in the world, while a press is on it.</summary>
+        public Vector3? MoveHeldPoint => move.Target.HeldPoint;
+
         /// <summary>Presses are ignored while false, as while the panel is hidden or the app lacks focus.</summary>
         public Func<bool> Accepting { get; set; } = () => true;
 
@@ -351,6 +360,13 @@ namespace Halcyonic.XR.UI
             badge.gameObject.SetActive(false);
 
             move = Button("Move", ButtonRole.Secondary, compact: true);
+            // A press steps the panel aside; held, it moves with the hand.
+            move.Holds = true;
+            move.Target.EnableDrag();
+            move.Target.Dragged += point =>
+            {
+                if (move.Holding) Dragged?.Invoke(point);
+            };
             reset = Button("Reset position", ButtonRole.Secondary, compact: true);
             close = Button("Close", ButtonRole.Secondary, compact: true);
             headingAction = Button("Heading action", ButtonRole.Secondary, compact: true);
@@ -543,8 +559,9 @@ namespace Halcyonic.XR.UI
             move.Hide();
             if (model.Movable)
             {
-                x = PutRight(reset, PanelModel.ResetPosition, EntryText.ResetPosition, x, middle, icon: PanelModel.ResetPositionIcon);
-                x = PutRight(move, PanelModel.Move, EntryText.Move, x, middle, icon: PanelModel.MoveIcon);
+                // Neither moves the panel while a confirmation is armed.
+                x = PutRight(reset, PanelModel.ResetPosition, EntryText.ResetPosition, x, middle, available: model.CanMove, icon: PanelModel.ResetPositionIcon);
+                x = PutRight(move, PanelModel.Move, EntryText.Move, x, middle, available: model.CanMove, icon: PanelModel.MoveIcon);
             }
             foreach (var button in new[] { close, reset, move })
             {
