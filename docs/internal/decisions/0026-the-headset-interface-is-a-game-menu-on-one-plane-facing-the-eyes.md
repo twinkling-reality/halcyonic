@@ -95,8 +95,9 @@ today and, once built, in lane U's renders of every surface:
    15 dp, for small facts inside a row and the names of facts in a side panel. From the top of a
    column to its bottom, size never grows again, so a page's source line, one a page, stands last on
    the page, at Body in the secondary colour, and a detail under a part, as each Seorak part's
-   availability, coverage and freshness, is a small fact in the part's own row or a Body line in the
-   secondary colour. Only the chosen section and the main action are drawn heavier.
+   availability, coverage and freshness, is its own Body line in the secondary colour. Partial, stale
+   or unavailable, it stays in the secondary colour and its words say so: amber means waiting for you
+   and nothing else. Only the chosen section and the main action are drawn heavier.
 5. **One grid.** An 8 dp step: 24 dp padding, 16 dp between groups, 8 dp from a label to its value.
    Words and icons start on one left content line, small facts and chevrons end on the right one, and
    icons stand in a fixed 24 dp column. A shape round words, as an answer or a well, reaches 0.7
@@ -129,7 +130,8 @@ today and, once built, in lane U's renders of every surface:
   foreground panels of 44 by 26 degrees with Move, Reset position and Close in a header and every
   action in a bottom bar; the workspace's tabs and sub-tabs, its Close at the end of the tabs, and
   Refresh and pagers beside headings; the rail's 2 rows of buttons; `PanelFrame` as every surface's
-  frame; and the entry panel's screens, which move into Projects and New project.
+  frame; the entry panel's screens, which move into Projects and New project; and the stage's labels
+  standing upright on a desk, which lean back to face the eyes.
 
 ## Alternatives considered
 
