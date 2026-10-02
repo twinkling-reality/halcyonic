@@ -761,8 +761,8 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var column in columns)
             {
                 // Rows of text from the top: a row is the labels whose heights overlap; its size, its largest.
-                // The split header's state pill reads with the subject it stands on: the one exception, for
-                // the owner to agree, to type only stepping down.
+                // The split header's state pill reads with the subject it stands on: the one exception to
+                // type only stepping down (ADR 0026).
                 var labels = column.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false))
                     .Where(label => !string.IsNullOrEmpty(label.text) && !GlazeIcons.IsIcon(label) && (protoIcons == null || label.font != protoIcons)
                         && label.textInfo.characterCount > 0 && label.GetComponentInParent<StateBadgeView>() == null)
