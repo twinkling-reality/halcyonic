@@ -115,6 +115,7 @@ namespace Halcyonic.XR.UI.Editor
                 var actions = Actions();
                 failures.AddRange(Check(folder, "gallery-actions.png", camera, texture, root, eyes, actions.ConvertAll(action => (action.Button, action.What))));
                 failures.AddRange(EveryIconShows(badges, marks, actions));
+                failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
                 failures.AddRange(IconAloneKeepsPresses());
             }
             catch (Exception error)
@@ -517,6 +518,7 @@ namespace Halcyonic.XR.UI.Editor
             {
                 var button = GlazeButton.Create(Holder("Action " + words, 0f, 0f), "Button", role, compact);
                 button.Available = available;
+                button.Holds = icon == GlazeIcon.HoldToTalk;
                 // A confirmation's Yes, as the frame draws it: solid red for what can't be taken back.
                 button.On = role == ButtonRole.Destructive && words.StartsWith("Yes", StringComparison.Ordinal);
                 var degrees = GlazeTokens.DegreesOf(button.Measure(words, null, icon));

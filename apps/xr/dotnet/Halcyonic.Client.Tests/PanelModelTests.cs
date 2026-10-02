@@ -40,6 +40,16 @@ public class PanelModelTests
     }
 
     [Test]
+    public void OnlyAHeldActionShowsTheMicrophone()
+    {
+        Assert.Throws<ArgumentException>(() => _ = new PanelAction("approve", "Approve", PanelActionRole.Primary, icon: GlazeIcon.HoldToTalk));
+        Assert.Throws<ArgumentException>(() => _ = new ConfirmStep("Sure?",
+            new PanelAction("yes", "Yes, tell it", PanelActionRole.Primary, icon: GlazeIcon.HoldToTalk), Action("cancel", PanelActionRole.Secondary)));
+        var hold = new PanelAction("hold", "Hold to talk", PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk);
+        Assert.That((hold.Holds, hold.Icon), Is.EqualTo((true, (GlazeIcon?)GlazeIcon.HoldToTalk)));
+    }
+
+    [Test]
     public void ABannerOffersAtMostTwoActions()
     {
         var banner = new PanelBanner("News", GlazeTone.Attention, Action("a", PanelActionRole.Attention), Action("b", PanelActionRole.Secondary));
