@@ -2,7 +2,7 @@
 
 - **Question:** Can Halcyonic stay present while the person does something else in the headset:
   codes on their Mac through Meta's Virtual Display, or uses another immersive app?
-- **Date:** 2026-09-29.
+- **Date:** 2026-09-29; corrected and extended on 2026-10-02 (below).
 - **Method:** Meta's developer documentation, help pages and release notes, and press coverage,
   read on the date above; for focus with windows open, also the v207 SDK sources, Unity's OpenXR
   package documentation and the OpenXR specification, and the second headset session's findings.
@@ -30,8 +30,9 @@
 - **System windows sit close.** System overlays render within about 2 m of the person
   ([focus awareness](https://developers.meta.com/horizon/documentation/unity/unity-focus-awareness/),
   2024-12-20), so content placed beyond that is not intersected by them.
-- **One immersive app at a time.** Launching another immersive app suspends Halcyonic's; passthrough
-  changes the background, not this rule.
+- **One immersive app at a time.** Only one immersive app runs in the foreground. That launching
+  another one suspends Halcyonic's, rather than ending it, has no Meta source we have read
+  (unverified, 2026-10-02); passthrough changes the background, not this rule.
 - **A 2D window from the same APK.** Meta's hybrid app guide puts a 2D activity beside the immersive
   one in one APK; with the `OVERLAY_LAUNCHER` category, the 2D activity is what opens when the app
   is launched from inside another immersive app, and started with `NEW_TASK` from the immersive
@@ -43,13 +44,58 @@
   through a foreground `MediaSessionService`; `SYSTEM_ALERT_WINDOW` and
   `START_FOREGROUND_SERVICES_FROM_BACKGROUND` are prohibited
   ([prohibited permissions](https://developers.meta.com/horizon/resources/permissions-prohibited/),
-  2025-04-30). `POST_NOTIFICATIONS` requires review, and Meta points apps to dashboard
-  notifications, which do not appear in VR
+  2025-04-30). `POST_NOTIFICATIONS` requires review, and Meta points apps to the dashboard's User
+  Notifications instead
   ([review-required permissions](https://developers.meta.com/horizon/resources/permissions-review-required/),
-  2025-11-26).
+  2025-11-26). Corrected on 2026-10-02: dashboard notifications do reach the headset, in its
+  notification feed (below); the earlier "do not appear in VR" was wrong.
 - **The competition.** An entry is one APK in a release channel named Competition, and it must be a
   VR or MR application ([rules](https://start-developer-competition-26.devpost.com/rules)); a
   second app would not be judged.
+
+## Reaching the person inside another app (2026-10-02)
+
+Read on 2026-10-02 by the coordinator's research and checked again in this lane; each page's own date
+is given where it shows one.
+
+- **Dashboard notifications reach the headset's feed, not a toast.** Single-send and event-based
+  notifications go to the "VR notification feed"; only mobile ones also push. They are made and
+  submitted in the Developer Dashboard, are reviewed (Approved, Pending, Rejected and so on), follow
+  wording rules, and follower notifications are limited to "1 notification sent per day from your
+  organization" ([user notifications](https://developers.meta.com/horizon/documentation/native/ps-user-notifications),
+  2025-11-04). Sending one from an app's own events goes through Meta's servers with the app's
+  credentials (the coordinator's research; the page read here does not show the endpoints).
+- **A device notification from the app itself.** The Kotlin VR Platform SDK's
+  `Notifications.deviceNotification()` "Triggers a device notification to show the notification
+  toast and feed the notification to notification feed"
+  ([reference v0.2.2](https://developers.meta.com/horizon/reference/horizon-platform-sdk-android-kotlin/v0.2.2/horizon_platform_notifications_notifications),
+  no date shown). Its `DeviceNotificationConfig` takes a title and a message, and optionally
+  `isToastOnly`, an image (`mediaAttachmentUri`), an app icon by package name, a delivery id, and
+  an action with a title, an icon and a display type that opens an app by id or package, or an
+  intent with data and extras
+  ([config reference](https://developers.meta.com/horizon/reference/horizon-platform-sdk-android-kotlin/v0.2.2/horizon_platform_notifications_configs_devicenotificationconfig)).
+  Meta's sample (meta-quest/horizon-platform-sdk-samples at dde65b4, 2026-09-16, notifications,
+  SDK 0.2.0) declares only `INTERNET`, sets `minSdk` 34, and first calls
+  `HorizonServiceConnection.connect(APPLICATION_ID, …)` with the app's Application ID from the
+  Developer Dashboard. The guide page for Kotlin apps is not yet published, and the Unity Platform
+  SDK v207 has no such call. Not verified: whether the toast shows over another immersive app,
+  whether it makes a sound, whether it is reviewed, and its rate limits. Do Not Disturb "silences
+  notifications while you're in 3-dimensional games and apps"
+  ([v49 announcement](https://www.meta.com/blog/meta-quest-v49-do-not-disturb-family-center-abstract-home/)),
+  which suggests that without it toasts do show over them (inference).
+- **Windows over a game keep their state.** Up to three windows stay open over an immersive app
+  (above), and "Minimized apps will maintain their state" and reopen from the Navigator
+  ([moving and adjusting windows](https://www.meta.com/help/quest/542427545314119/)). Nothing read
+  says whether a window, visible or minimized, keeps its network connections or what it may cost in
+  battery; a hidden window's process is likely ended under memory pressure, as on Android
+  (inference).
+- **From inside the game.** A hybrid app's 2D activity with `OVERLAY_LAUNCHER` is what opens when
+  the app is launched from inside another immersive app (above). Going to Home ends the immersive
+  app that was running (the coordinator's research; unverified here).
+- **Prohibited**, rechecked: `SYSTEM_ALERT_WINDOW`, `STATUS_BAR`, `BIND_APPWIDGET`,
+  `BIND_NOTIFICATION_LISTENER_SERVICE` and `START_FOREGROUND_SERVICES_FROM_BACKGROUND`
+  ([prohibited permissions](https://developers.meta.com/horizon/resources/permissions-prohibited/),
+  2025-04-30). `FOREGROUND_SERVICE` itself is not on that list.
 
 ## Focus with system windows open (after the second headset session, 2026-09-29)
 
@@ -112,8 +158,10 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
   not intersect them.
 - A 2D companion window for use inside other immersive apps is possible in the same APK, but its
   lifetime when hidden, its cost (a second client in Kotlin or Java) and store review are
-  unverified; it is not built.
-- Notifications are not a channel for the competition build.
+  unverified; it is not built. A spike that tries it, with a device notification, is being designed
+  (2026-10-02).
+- Notifications are not a channel for the competition build. Dashboard notifications need Meta's
+  servers and the app's credentials, so they stay out unless the owner approves a hosted service.
 - The stage ignores reference space changes that move nothing, and moves with a tracking space
   that does, so focus flapping under system windows no longer moves the characters.
 - Returning focus with hands is the person's gesture, documented in the milestone 3 checks of
@@ -125,7 +173,8 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
    characters both visible, and does the client stay connected? (Second session: both visible,
    the screens in front of the arc.)
 2. Run `pnpm demo` while the owner types on the Mac: is "Needs you" noticed at the side?
-3. Launch another immersive app: what happens to Halcyonic's process and to open windows?
+3. Launch another immersive app: what happens to Halcyonic's process and to open windows? Is
+   Halcyonic suspended or ended?
 4. With the screens open, point between them and the characters: does the stage stay put, and does
    the log show the reference space changes as kept?
 5. Unfocused, and again after minimizing the screens: does pointing at Halcyonic's content and
