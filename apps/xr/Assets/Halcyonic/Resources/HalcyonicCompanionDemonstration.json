@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "source": "Recorded once from the companion on the owner computer; replayed on the headset, never asked.",
+  "model": "qwen3.5:9b",
+  "recorded_at": "2026-10-02T19:31:06.542Z",
+  "start": "idea",
+  "turns": [
+    {
+      "from": "person",
+      "text": "A page where my running club keeps everyone's race times"
+    },
+    {
+      "from": "companion",
+      "reply": {
+        "next": "ask",
+        "line": "A page showing race times sounds like a good start.",
+        "view": "unclear",
+        "question": {
+          "text": "Where will the club store these times?",
+          "choices": [
+            "A shared file",
+            "A database",
+            "Manual entry on the page",
+            "Another option"
+          ]
+        }
+      }
+    },
+    {
+      "from": "person",
+      "text": "A shared file"
+    },
+    {
+      "from": "companion",
+      "reply": {
+        "next": "propose",
+        "line": "A shared file works well for a small club.",
+        "view": "clear",
+        "proposal": {
+          "project_name": "Race Time Page",
+          "first_task": "Create a single web page that lists race times read from a shared CSV or JSON file uploaded by the user."
+        }
+      }
+    }
+  ]
+}

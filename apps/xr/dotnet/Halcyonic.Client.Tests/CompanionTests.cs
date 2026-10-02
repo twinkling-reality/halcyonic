@@ -596,6 +596,23 @@ public class CompanionRecordingTests
     }
 
     [Test]
+    public void TheCommittedRecordingPlaysToItsProposalByItsRecordedPresses()
+    {
+        var recording = CompanionRecording.Parse(File.ReadAllText(Repository.PathTo(
+            "apps/xr/Assets/Halcyonic/Resources/" + CompanionRecording.ResourceName + ".json")));
+        var idea = new ProjectIdea();
+        var exchange = recording.Begin(idea);
+        for (var step = 0; step < CompanionExchange.MaxMessages && exchange.Proposal == null; step++)
+        {
+            var answer = recording.RecordedAnswer(exchange);
+            if (answer != null) Assert.That(recording.Press(exchange, answer), Is.True);
+            else Assert.That(recording.AskForRecap(exchange), Is.True);
+        }
+        Assert.That(exchange.Proposal!.Proposal.ProjectName, Is.EqualTo(recording.Proposal.ProjectName));
+        Assert.That(exchange.Turns, Has.Count.EqualTo(recording.Turns.Count));
+    }
+
+    [Test]
     public void RefusesARecordingThatBreaksItsRules()
     {
         var broken = new[]
