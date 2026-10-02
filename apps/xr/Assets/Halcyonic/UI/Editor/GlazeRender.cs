@@ -120,6 +120,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(IconAloneKeepsPresses());
                 failures.AddRange(TextAsSeenCatchesASlant());
                 failures.AddRange(OnePlaneCatchesEachBreak());
+                failures.AddRange(TypeStepsDownCatchesARise());
             }
             catch (Exception error)
             {
@@ -398,6 +399,55 @@ namespace Halcyonic.XR.UI.Editor
                 meters.Add((meter, share, waiting));
             }
             return meters;
+        }
+
+        /// <summary>
+        /// Lays a one-column composition of parts <paramref name="heights"/> degrees tall, 24 wide, on the
+        /// plane 30 degrees below eye level, each part an empty holder; returns its column for the checks.
+        /// </summary>
+        private static (Transform Holder, List<GlazeChecks.PlaneShape> Column) OneColumn(string name, params float[] heights)
+        {
+            var composition = new PlaneComposition(new[] { new PlaneColumn(PlaneComposition.Units(24f), heights.Select(PlaneComposition.Units).ToArray()) });
+            var direction = new PanelDirection(0f, -30f, true, false);
+            var holder = new GameObject(name).transform;
+            holder.SetParent(gallery, false);
+            var column = new List<GlazeChecks.PlaneShape>();
+            foreach (var placed in composition.Parts)
+            {
+                var part = new GameObject("Part " + placed.Index).transform;
+                part.SetParent(holder, false);
+                PlaneLayout.Lay(part, galleryEyes, direction, placed);
+                column.Add(new GlazeChecks.PlaneShape(part.name, part, new Vector2(placed.Width, placed.Height) * PlaneComposition.Distance));
+            }
+            return (holder, column);
+        }
+
+        /// <summary>
+        /// The type check passes a column whose title stands above its body text, and catches body
+        /// text above a larger title (ADR 0026). Fails if it fails the first or misses the second.
+        /// </summary>
+        private static IEnumerable<string> TypeStepsDownCatchesARise()
+        {
+            var failures = new List<string>();
+            foreach (var (name, upper, lower) in new[] { ("stepping down", GlazeType.Title, GlazeType.Body), ("rising", GlazeType.Body, GlazeType.Title) })
+            {
+                var (holder, column) = OneColumn("Type " + name, 4f, 6f);
+                foreach (var (part, type) in new[] { (column[0], upper), (column[1], lower) })
+                {
+                    var words = GlazeText.Create(part.Root, type.ToString(), type, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 12);
+                    words.rectTransform.pivot = new Vector2(0f, 1f);
+                    GlazeText.SetLiteral(words, type == GlazeType.Title ? "Waiting for you" : "It wants to run make migrate.");
+                    GlazeText.Lay(words, PlaneComposition.Units(20f), 1);
+                    var size = part.Size / PlaneComposition.Distance;
+                    words.transform.localPosition = new Vector3(-size.x / 2f + GlazeTokens.Units(1f), size.y / 2f - GlazeTokens.Units(1f), -0.001f);
+                }
+                var found = GlazeChecks.TypeStepsDown(new[] { (IReadOnlyList<GlazeChecks.PlaneShape>)column }, galleryEyes, "component render: type " + name).ToList();
+                if (upper == GlazeType.Title) failures.AddRange(found);
+                else if (!found.Any(failure => failure.Contains("type only steps down"))) failures.Add("component render: the type check missed body text above a larger title.");
+                else Debug.Log("Halcyonic: component render: the type check caught type " + name + ": " + string.Join(" ", found));
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            }
+            return failures;
         }
 
         /// <summary>
