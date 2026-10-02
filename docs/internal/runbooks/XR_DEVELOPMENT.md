@@ -211,6 +211,25 @@ share, or at all while waiting; and if the icon atlas lacks an icon the client c
 shows on no badge, mark or button (`gallery-actions.png` shows every action's), an icon is under a
 degree or has no words beside it, or a label of words draws from the icon atlas.
 
+The headset redesign's frames (ADR 0026) render the same way, **Halcyonic > Render the Redesign
+Directions**, or in batch mode:
+
+```bash
+/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.DirectionsRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-directions-render.log
+```
+
+It saves every round's frames in `apps/xr/Builds/DirectionRenders`: the first three directions (`a`),
+the game menu and the case file (`d`, `e`), D styled (`s`), D refined on one plane (`r`) and the
+heads-up concept (`h`); `HALCYONIC_DIRECTIONS_ONLY=r` renders only the shots whose names start so.
+The refined shots are held to ADR 0026's rules: one plane facing the eyes at its centre, never
+rolled, its parts a degree apart and its columns aligned; one selection treatment; type that only
+steps down, a state pill reading with its subject; no text under 14 dp as the eyes see it; and a
+Quest 3S's field as `FieldChecks` sees it. Shots kept to show what a rule catches name what they
+must fail, the upright plane (`r1`, `r2`) and a plane that stays put while a file slides out (`r6`),
+and the run fails if they stop failing. `HALCYONIC_PROTO_ICONS`, the path of a font of the file-type
+glyphs cut from Material Symbols, which is not committed, draws those icons in the styled and refined
+shots; without it they are left out.
+
 What the interface costs a Quest 3, measured off the device, **Halcyonic > Measure the Interface**,
 or in batch mode:
 
