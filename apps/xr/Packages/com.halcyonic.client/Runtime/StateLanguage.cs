@@ -91,6 +91,34 @@ namespace Halcyonic.Client
 
         /// <summary>A final press locked until everything it confirms has been read.</summary>
         Locked,
+
+        // What a file holds, generic only, beside its name (ADR 0026): never a language's or a brand's logo.
+
+        /// <summary>Source code.</summary>
+        CodeFile,
+
+        /// <summary>A database, or a schema or migration for one.</summary>
+        DatabaseFile,
+
+        /// <summary>Structured data: JSON, YAML, TOML and the like.</summary>
+        DataFile,
+
+        /// <summary>Writing: a README, notes, docs, and any file whose kind isn't known.</summary>
+        TextFile,
+
+        /// <summary>A picture.</summary>
+        ImageFile,
+
+        /// <summary>A script or command to run.</summary>
+        ScriptFile,
+
+        /// <summary>A build or package: a lockfile, a manifest, a container.</summary>
+        PackageFile,
+
+        Folder,
+
+        /// <summary>A line that opens more beside it: the chevron.</summary>
+        OpensMore,
     }
 
     /// <summary>How a badge is filled: outline only, a soft container of its tone, or its tone's solid fill.</summary>

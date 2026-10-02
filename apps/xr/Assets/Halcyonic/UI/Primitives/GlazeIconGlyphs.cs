@@ -51,10 +51,19 @@ namespace Halcyonic.XR.UI
             GlazeIcon.Settings => "\uE8B8", // settings
             GlazeIcon.UsageLeft => "\uE9E4", // speed
             GlazeIcon.Locked => "\uE88D", // lock
+            GlazeIcon.CodeFile => "\uE86F", // code
+            GlazeIcon.DatabaseFile => "\uF20E", // database
+            GlazeIcon.DataFile => "\uEAD3", // data_object
+            GlazeIcon.TextFile => "\uE873", // description
+            GlazeIcon.ImageFile => "\uE251", // image
+            GlazeIcon.ScriptFile => "\uEB8E", // terminal
+            GlazeIcon.PackageFile => "\uF720", // deployed_code
+            GlazeIcon.Folder => "\uE2C7", // folder
+            GlazeIcon.OpensMore => "\uE409", // chevron_right
             _ => throw new ArgumentOutOfRangeException(nameof(icon), icon, "Unhandled icon."),
         };
 
         /// <summary>Every glyph the font holds, in code point order: what the atlas is built from.</summary>
-        public const string All = "\uE029\uE02C\uE033\uE037\uE0B7\uE145\uE14C\uE150\uE153\uE157\uE163\uE192\uE28E\uE312\uE3B4\uE417\uE5C4\uE5C8\uE5C9\uE5CA\uE5D5\uE745\uE769\uE836\uE85F\uE887\uE88D\uE8B8\uE9D0\uE9E4\uEA4B\uEA5B\uEF71\uF053\uF0C5\uF1CE\uF23A\uF71E";
+        public const string All = "\uE029\uE02C\uE033\uE037\uE0B7\uE145\uE14C\uE150\uE153\uE157\uE163\uE192\uE251\uE28E\uE2C7\uE312\uE3B4\uE409\uE417\uE5C4\uE5C8\uE5C9\uE5CA\uE5D5\uE745\uE769\uE836\uE85F\uE86F\uE873\uE887\uE88D\uE8B8\uE9D0\uE9E4\uEA4B\uEA5B\uEAD3\uEB8E\uEF71\uF053\uF0C5\uF1CE\uF20E\uF23A\uF71E\uF720";
     }
 }

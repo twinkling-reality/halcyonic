@@ -84,12 +84,22 @@
 | Settings | settings | U+E8B8 |
 | Usage left | speed | U+E9E4 |
 | A locked final press | lock | U+E88D |
+| Code (a file's kind) | code | U+E86F |
+| Database | database | U+F20E |
+| Data | data_object | U+EAD3 |
+| Writing, and a file of unknown kind | description | U+E873 |
+| Image | image | U+E251 |
+| Script | terminal | U+EB8E |
+| Package | deployed_code | U+F720 |
+| Folder | folder | U+E2C7 |
+| A line that opens more | chevron_right | U+E409 |
 
 ### The atlas
 
 - `GlazeIconAtlas` draws the glyphs into a static TextMeshPro SDF atlas, sampled at 56 with a
   padding of 7, which keeps no reference to the font and has no fallback: the 13 in 256 by 256
-  pixels, the 38 in 512 by 512.
+  pixels, the 38 in 512 by 512, and since 2026-10-02 the 47, with ADR 0026's file kinds and the
+  chevron, in 512 by 512 too.
 - Built again over the committed atlas, it is the same in every glyph, pixel and material setting;
   only the identifiers Unity gives the texture and the material inside the asset change, and
   nothing outside the asset refers to them. Until this check, a build over an existing atlas left
