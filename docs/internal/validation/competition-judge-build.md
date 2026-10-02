@@ -66,7 +66,7 @@ wearer finds it without coaching is the headset session's question.
 | Agent questions (ADR 0022) | Closed on this branch: the story's first decision is a question with two options, each with its own recorded continuation; Understand still reads Working at the question, since the simulated explanation treats only approvals as waiting | `sign_in_rate_limit.json`, `DemonstrationAnswerKind.Answer` | Lane W for the explanation at a question |
 | Create a project | "The demo can't start new work. Connect your Mac to start real work." | `EntryText.DemoCannotStart` | Lane C's companion, then a recorded Create path |
 | Understand and Checked | Shown with the recorded simulated answers, but Checked reads as data ("available · 1 of 1 session, complete · fresh, data to 05:00:08", "unavailable: not yet computed …") | `WorkspaceRenders/desk-evaluation-panel.png` | Lane W |
-| Usage left | The chip opens an empty panel: "Usage left isn't part of the demo." | `UsageLeftRenders/far-demo-panel.png` | Hide the chip in the demonstration, or record a simulated reading (`UsageLeftPresentation.Simulated` exists) |
+| Usage left | Closed 2026-10-02 (coordinator): the rail offers no Usage left while the demonstration plays; before, the chip opened an empty panel | `UsageLeftGlance` | None |
 | The line above the stage | Closed: the owner's words of 2026-10-02 | `DemonstrationFallback.Describe` | None |
 | Agent app names | Closed: "Practice agent" and "Practice agent, watch only" | `demonstration.ts` | None |
 | Sound on answering | Answering a question has no cue of its own (no `WorkspaceAct` for it), live or in the demo | `SoundCues.cs` | Lane U or sound |
@@ -74,7 +74,7 @@ wearer finds it without coaching is the headset session's question.
 | Three arrangements | In Settings as live; nothing in the story shows why to use them | Settings words in `JudgeWordsTests` | The video, not the build |
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
 | Icons | On badges, marks and actions, as live | Stage and workspace renders | None |
-| Starting again | After the end, and after a sleep, it plays from the beginning; a judge mid-story loses their place | ADR 0012 | Decide: resume where it stood, or keep |
+| Starting again | Closed 2026-10-02: after a pause it goes on where it stood; only after its end does it start again | `DemonstrationTransport.Resume` | None |
 
 ## Names a judge reads
 
@@ -137,8 +137,9 @@ session confirms it with `Halcyonic: device frames` each minute, which counts fr
 
 ## Pause and resume
 
-On a pause the demonstration's session stops; on resume it plays from its beginning (ADR 0012), the
-stage keeps its place and `DeviceMeasures` logs `paused` and `resumed after N ms`. Not yet seen on a
+On a pause the demonstration's session stops; on resume it goes on where it stood (decided
+2026-10-02; tested in `PausingStopsTheDemonstrationAndResumingGoesOnWhereItStood`), the stage keeps
+its place and `DeviceMeasures` logs `paused` and `resumed after N ms`. Not yet seen on a
 headset: a clean resume after the system menu, after sleep, and after another app.
 
 ## The release APK
@@ -158,7 +159,7 @@ its own check passed, and `ProjectSettings.asset` still says version code 1 afte
 `DevAgentSettings.asset` back in Resources.
 
 Before an upload, still the owner's: a release key, a version code above every earlier upload
-(now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN), whether to declare `stanley`, and
+(now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
 
 ## Consequences

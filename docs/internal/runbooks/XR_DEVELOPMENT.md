@@ -878,13 +878,14 @@ headset):
   recorded simulated answers with their provenance and the time they were recorded. At the
   question, Understand still reads Working: the simulated explanation does not yet treat a
   question as waiting (lane W).
-- **Not in the demo.** Create a project says the demo can't start new work; Usage left says it
-  isn't part of the demo; Connect projects says these are demo projects.
+- **Not in the demo.** Create a project says the demo can't start new work; the rail offers no
+  Usage left; Connect projects says these are demo projects.
 - **The end.** Once the story has ended the line adds "This recording has ended and starts again
   shortly.", and about 20 seconds later the characters go back to Not started and it plays again,
   never Disconnected or Last known on the way. Unanswered instructions give way after a minute.
-- **Sleep.** Take the headset off until it sleeps and put it back on: the demonstration plays from
-  its beginning.
+- **Sleep.** Take the headset off until it sleeps and put it back on, or open the system menu and
+  come back: the demonstration goes on where it stood, with no Disconnected and no rewind; only a
+  recording that had reached its end starts again.
 - **Log.** `adb logcat -s Unity` shows `Halcyonic: demonstration plays from its beginning (n)` at
   each start, `demonstration reached an end` at each end, and the `Halcyonic: device` lines
   ("Device measures on a Quest"), never what was answered.
@@ -1152,6 +1153,9 @@ clean pause and resume, a field of view that suits a Quest 3S). Every build logs
   minute: frames below 60 a second should be 0 or near it; missed counts frames slower than one
   refresh. "ended by a pause" marks a stretch cut short by sleep or the system menu.
 - `Halcyonic: device paused` and `Halcyonic: device resumed after N ms`.
+- `Halcyonic: demonstration read K KiB, loaded in L ms on the main thread, parsed in P ms on
+  another`: what the recorded demonstration costs a cold start (P delays its first play; L holds up
+  a frame).
 
 From the Mac, with the headset on USB (both tools only read the headset, and start or stop
 Halcyonic; `HALCYONIC_ADB` names another adb):
@@ -1161,8 +1165,9 @@ pnpm quest:cold-start -- --runs 5
 ```
 
 stops Halcyonic, starts it, and prints for each run, on the headset's clock from the start command,
-`launch_ms` (Android's own measure), `first_frame_ms` and `stage_ready_ms` (the demonstration's
-first play, or a live control plane), then their medians. The headset must be worn or its
+`launch_ms` (Android's own measure), `first_frame_ms`, `stage_ready_ms` (the demonstration's
+first play, or a live control plane) and the demonstration's `demo_loaded_ms` and `demo_parsed_ms`,
+then their medians. The headset must be worn or its
 proximity sensor overridden, or nothing renders.
 
 ```bash

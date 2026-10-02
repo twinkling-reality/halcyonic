@@ -138,12 +138,19 @@ public class DemonstrationRecordingTests
     [Test]
     public void ItTakesLessThanASecondToRead()
     {
+        // The best of five reads after a warm-up: a loaded machine slows some reads, never all of
+        // them, while a reader that got slower is slower every time.
         var text = Demonstration.Text();
         DemonstrationRecording.Parse(text);
-        var clock = Stopwatch.StartNew();
-        DemonstrationRecording.Parse(text);
-        TestContext.Out.WriteLine("Read " + text.Length / 1024 + " KiB in " + clock.ElapsedMilliseconds + " ms.");
-        Assert.That(clock.Elapsed, Is.LessThan(TimeSpan.FromSeconds(1)));
+        var best = TimeSpan.MaxValue;
+        for (var read = 0; read < 5; read++)
+        {
+            var clock = Stopwatch.StartNew();
+            DemonstrationRecording.Parse(text);
+            if (clock.Elapsed < best) best = clock.Elapsed;
+        }
+        TestContext.Out.WriteLine("Read " + text.Length / 1024 + " KiB in " + (long)best.TotalMilliseconds + " ms at best.");
+        Assert.That(best, Is.LessThan(TimeSpan.FromSeconds(1)));
     }
 
     [Test]
@@ -473,6 +480,18 @@ public class DemonstrationTransportTests
             JToken.FromObject(recording.Snapshot, JsonSerializer.Create(HalcyonicJson.Strict))), Is.True, "it starts again from the beginning");
         var replayed = (await ReceiveAsync(transport, recording.Nodes[0].Events.Count)).Cast<EventMessage>();
         Assert.That(replayed.Last().Event, Is.InstanceOf<RuntimeQuestionAskedEvent>());
+    }
+
+    [Test]
+    public async Task AHelloResumingAPositionOffItsPathPlaysFromTheBeginning()
+    {
+        var recording = Demonstration.Recording();
+        using var transport = new DemonstrationTransport(recording, Demonstration.Fast());
+        var elsewhere = new ResumeCursor { JournalId = "01a0dcf1-5a80-7000-8000-0000000000aa", Position = 3 };
+        await SendAsync(transport, new HelloMessage { Client = Samples.Client, Resume = elsewhere });
+        var welcome = (WelcomeMessage)await ReceiveAsync(transport);
+        Assert.That(welcome.Resumed, Is.False, "a transport with nothing to go on from starts again");
+        Assert.That(await ReceiveAsync(transport), Is.InstanceOf<SnapshotMessage>());
     }
 
     [Test]
@@ -847,17 +866,25 @@ public class DemonstrationFallbackTests
     }
 
     [Test]
-    public async Task PausingStopsTheDemonstrationAndResumingPlaysItFromTheBeginning()
+    public async Task PausingStopsTheDemonstrationAndResumingGoesOnWhereItStood()
     {
         var fallback = Start(null, PlayDemonstration);
-        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds for the person");
+        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds at its question");
+        var position = fallback.Current!.State.Position;
 
         await fallback.SetPausedAsync(true);
         await Until(fallback, () => fallback.Current!.Status.Phase == ConnectionPhase.Stopped, "the demonstration stops");
         await fallback.SetPausedAsync(false);
-        var pumped = await Until(fallback, () => fallback.Current!.Status.IsLive, "the demonstration plays again");
-        Assert.That(pumped.Any(changes => changes.Rewound), Is.True, "consumers learn it went back to its beginning");
-        Assert.That(fallback.Player!.Plays, Is.EqualTo(2));
+        var pumped = await Until(fallback, () => fallback.Current!.Status.IsLive, "the demonstration goes on");
+        Assert.That(pumped.Any(changes => changes.Rewound || changes.Resynchronized), Is.False, "nothing went back to the beginning");
+        Assert.That(fallback.Player!.Plays, Is.EqualTo(1));
+        Assert.That(fallback.Current!.State.Position, Is.EqualTo(position));
+        Assert.That(Demonstration.AsksItsQuestion(fallback.Current), Is.True, "still at the question");
+
+        // And it still follows answers from there.
+        await fallback.Current.SubmitAsync(Demonstration.AnswerCommand(new CommandFactory(Samples.Client)));
+        await Until(fallback, () => Demonstration.AsksForApproval(fallback.Current!), "the recording goes on to the approval");
+        Assert.That(fallback.Player.Plays, Is.EqualTo(1));
     }
 
     [Test]

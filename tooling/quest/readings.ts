@@ -122,6 +122,19 @@ export function readViewField(line: string): { across: number; tall: number } | 
     : { across: Number(match[1]), tall: Number(match[2]) };
 }
 
+/** `Halcyonic: demonstration read 1373 KiB, loaded in 40 ms on the main thread, parsed in 900 ms on another`. */
+export function readDemonstrationRead(
+  line: string,
+): { kib: number; loadedMs: number; parsedMs: number } | null {
+  const match =
+    /Halcyonic: demonstration read (\d+) KiB, loaded in (\d+) ms on the main thread, parsed in (\d+) ms/.exec(
+      line,
+    );
+  return match?.[1] === undefined || match[2] === undefined || match[3] === undefined
+    ? null
+    : { kib: Number(match[1]), loadedMs: Number(match[2]), parsedMs: Number(match[3]) };
+}
+
 /**
  * Whether a Halcyonic line says the stage has something to show: the demonstration's first play,
  * or a live control plane.

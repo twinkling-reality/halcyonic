@@ -7,6 +7,7 @@ import {
   median,
   readBattery,
   readCompositor,
+  readDemonstrationRead,
   readFirstFrame,
   readFrames,
   readLaunch,
@@ -102,6 +103,12 @@ describe('device readings', () => {
         'Halcyonic: device view field left eye left 52.0 right 43.0 up 48.0 down 50.0, right eye left 43.0 right 52.0 up 48.0 down 50.0, both 104.0 across 96.0 tall',
       ),
       { across: 104, tall: 96 },
+    );
+    assert.deepEqual(
+      readDemonstrationRead(
+        'I Unity   : Halcyonic: demonstration read 1373 KiB, loaded in 40 ms on the main thread, parsed in 912 ms on another',
+      ),
+      { kib: 1373, loadedMs: 40, parsedMs: 912 },
     );
     assert.equal(isStageReady('Halcyonic: demonstration plays from its beginning (1)'), true);
     assert.equal(isStageReady('Halcyonic: demonstration plays from its beginning (2)'), false);
