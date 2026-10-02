@@ -183,7 +183,6 @@ files. Read through public articles, interviews and wikis (wikis labelled); no g
 4. Small labels and actions attach to the object they are about and face the person.
 5. Navigation strips are few and short; actions are not navigation.
 6. What a person acts on is near the hands; what a person reads for long is at least 0.5 m away.
-
 7. A few sections named in the person's words, one on screen at a time, and every button in one
    fixed place, as game menus and case files are organised.
 8. State lives on the object it describes, and a file opens out of that object; the world keeps
@@ -197,11 +196,10 @@ files. Read through public articles, interviews and wikis (wikis labelled); no g
   section at a time, and every button in a footer; and E, a case file the task's character projects,
   an index of the sections with a line each beside one page. Both are rendered by
   `DirectionsRender` beside the first round's A.
-- Lane V proposed three directions for the owner in its first round, each rendered at the same five moments by
-  `DirectionsRender` (lane-v-redesign): a card and its shelf with answers beside it (patterns 1, 2
+- The first round's directions were a card and its shelf with answers beside it (patterns 1, 2
   and 4), a story ending in what the task needs with a composer under it (the agent tools' thread),
-  and one step at a time in a smaller panel (pattern 3). The owner chooses; the chosen direction
-  gets an ADR superseding the parts of ADR 0023 it replaces.
+  and one step at a time in a smaller panel (pattern 3). Whichever direction the owner chooses gets
+  an ADR superseding the parts of ADR 0023 it replaces.
 - Reading at 0.46 m sits under Apple's 1 m for sustained reading and Meta's 0.5 m for content
   looked at for long, while inside Meta's touch range. Whether long answers read comfortably there,
   or need a surface further away that the hand ray reaches, is a headset check.
