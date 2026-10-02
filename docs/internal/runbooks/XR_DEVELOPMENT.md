@@ -406,21 +406,43 @@ development APK asks for it, because hold to talk uses the microphone.
 
 The release APK is signed with Unity's debug key, and Meta requires the developer's own
 ([horizon-store-release.md](../validation/horizon-store-release.md)). These steps need the owner's
-account and secrets, and are not automated:
+account and secrets, and are not automated; never paste a password, the keystore or the app secret
+into a chat or a command line that a log keeps.
 
-1. Create a release keystore outside the repository, for example with `keytool -genkeypair` from
-   Unity's OpenJDK (`PlaybackEngines/AndroidPlayer/OpenJDK/bin`). Back it up with its passwords:
-   every update to the app must be signed with the same key. Never commit it, and never put its
-   passwords on a command line.
-2. Raise **Bundle Version Code** (`AndroidBundleVersionCode` in `ProjectSettings.asset`) above
-   that of every build already uploaded for the app.
-3. Build the release APK, then sign it with the release key. `apksigner` replaces the debug
-   signature and asks for the passwords:
+1. Once: create a release keystore outside the repository with `keytool` from Unity's OpenJDK
+   (`PlaybackEngines/AndroidPlayer/OpenJDK/bin/keytool -genkeypair -v -keystore <path> -alias
+   halcyonic -keyalg RSA -keysize 4096 -validity 10000`, which asks for its passwords). Back the file
+   and its passwords up together: every update to the app must be signed with the same key, and a
+   lost key means a new app.
+2. Once: in the Developer Dashboard, create the release channel named exactly `Competition`, and
+   note the app's id. Meta says every upload to any channel must meet the release packaging
+   requirements.
+3. Choose the version code, YYMMDDNN: the date and that day's build number, for example
+   `26111701` for the first build on 2026-11-17. It must be above every code uploaded before for the
+   app, on any channel; developers report the store refuses a repeated one. Record each uploaded code
+   in the owner's notes.
+4. Build the release APK with it. `BuildReleaseApk` sets it for the build only and puts the
+   project's code back, so `ProjectSettings.asset` does not change; without the variable the log says
+   which code it kept:
+   ```bash
+   HALCYONIC_VERSION_CODE=26111701 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildReleaseApk -logFile ~/Library/Logs/Unity/halcyonic-xr-release.log
+   ```
+   Check the log's `Halcyonic: the release APK carries version code …` and
+   `Halcyonic: built …`, and `aapt2 dump badging` for `versionCode`.
+5. Sign it with the release key. `apksigner` replaces the debug signature and asks for the
+   passwords:
    ```bash
    $TOOLS/apksigner sign --ks /path/outside/the/repository/release.keystore apps/xr/Builds/Halcyonic-release.apk
    $TOOLS/apksigner verify --verbose --print-certs apps/xr/Builds/Halcyonic-release.apk
    ```
-4. Upload it to the release channel with Meta Quest Developer Hub or `ovr-platform-util`.
+   The certificate printed must be the release key's, not `CN=Android Debug`.
+6. Install the signed APK on the headset (uninstall first, see below) and walk the judge's path in
+   "The demonstration judges see", with no token and no pairing.
+7. Upload it to the `Competition` channel with Meta Quest Developer Hub, or with Meta's platform
+   utility, which takes the app's id, its secret or a token, the APK, the channel and the age group the
+   owner chose (`ovr-platform-util upload-quest-build --age-group <group> --app-id <id> --app-secret
+   <secret> --apk <apk> --channel Competition`, per Meta's page of 2026-07-20). Then invite the
+   judges' accounts or share the channel's invite link as the competition asks.
 
 Once the release APK carries the owner's key, the headset needs an uninstall before installing it
 over a debug-signed build, and the uninstall deletes the pushed access token.
@@ -1109,3 +1131,43 @@ dotted, still readable); the peek, which never covers another label; a desk, its
 it, read looking down; lists four to a page in two columns.
 
 Results on a Quest 3, including the milestone 2 checks: [quest-3-device.md](../validation/quest-3-device.md).
+
+### Device measures on a Quest
+
+For milestone 6 and the competition's guidelines (at least 60 frames a second, a fast cold start, a
+clean pause and resume, a field of view that suits a Quest 3S). Every build logs, under the tag
+`Unity`, lines of numbers only (`DeviceMeasures`):
+
+- `Halcyonic: device first frame N ms after start`: the app's first frame, by its own clock.
+- `Halcyonic: device view field left eye left L right R up U down D, right eye …, both A across T
+  tall`: each eye's field in degrees, once the headset renders in stereo. Record both eyes' four
+  numbers in the device record: the layout's field-of-view rules use them.
+- `Halcyonic: device frames N in S s, F a second at H Hz, slowest X ms, B below 60, M missed`, each
+  minute: frames below 60 a second should be 0 or near it; missed counts frames slower than one
+  refresh. "ended by a pause" marks a stretch cut short by sleep or the system menu.
+- `Halcyonic: device paused` and `Halcyonic: device resumed after N ms`.
+
+From the Mac, with the headset on USB (both tools only read the headset, and start or stop
+Halcyonic; `HALCYONIC_ADB` names another adb):
+
+```bash
+pnpm quest:cold-start -- --runs 5
+```
+
+stops Halcyonic, starts it, and prints for each run, on the headset's clock from the start command,
+`launch_ms` (Android's own measure), `first_frame_ms` and `stage_ready_ms` (the demonstration's
+first play, or a live control plane), then their medians. The headset must be worn or its
+proximity sensor overridden, or nothing renders.
+
+```bash
+pnpm quest:session -- --minutes 60 --every 30
+```
+
+prints a row every 30 seconds and writes it to `.private/m6/session-<time>.csv`: battery percent and
+degrees, whether it charges, the thermal status (Android's 0 none to 6 shutdown), the hottest CPU,
+GPU and skin sensors, the app's frames a second, frames below 60 and slowest frame from its last
+minute, and the compositor's `FPS=` where the headset logs a VrApi line. It ends with a summary:
+battery used and per hour, the hottest reading, the lowest minute's frame rate, and frames below 60.
+A USB cable charges the headset, so `plugged` reads 1 and the battery barely moves; for the hour's
+battery figures, connect adb over Wi-Fi (`adb tcpip 5555`, then `adb connect <headset address>`) and
+unplug the cable.

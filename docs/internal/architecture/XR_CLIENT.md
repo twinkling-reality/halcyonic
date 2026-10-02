@@ -906,6 +906,12 @@ scripts use only long-stable core Unity APIs:
   above the stage also counts what needs the person across every project ("2 need you", in the
   attention color), so it stays findable when the window covers the characters. Whether Unity
   reports each of these as a focus change on the Quest is verified only on the device.
+- `DeviceMeasures` logs what a device session needs about the headset, in numbers only: the first
+  frame's time after start, each eye's field of view once the headset renders in stereo (read from
+  its projection by the client core's `ViewField`), each minute's frames, slowest frame and frames
+  below 60 a second (`FrameTally`, which allocates nothing per frame), and pauses with how long the
+  app was away. `pnpm quest:session` and `pnpm quest:cold-start` read these lines over adb
+  ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Device measures on a Quest").
 
 ### The workspace
 

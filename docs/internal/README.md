@@ -53,6 +53,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [quest-3-device.md](validation/quest-3-device.md) | The XR client on a Meta Quest 3: build, install, WebSocket under IL2CPP, milestone 2 checks |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, background limits |
 | [horizon-store-release.md](validation/horizon-store-release.md) | Meta Horizon Store requirements for a Quest build, and the release APK checked against them |
+| [competition-judge-build.md](validation/competition-judge-build.md) | The judge build against the competition's rules and today's product: the demonstration's path and timings, names a judge reads, field of view, frame rate, pause and the release APK |
 | [mixed-reality-room.md](validation/mixed-reality-room.md) | Passthrough, the scene model through MRUK, spatial anchors and their permissions |
 | [character-rendering.md](validation/character-rendering.md) | How the characters render and place themselves, and their cost on a Quest 3 |
 | [workspace-interaction.md](validation/workspace-interaction.md) | Interaction SDK rig and targets, TextMeshPro and the system keyboard for the workspace, and what TextMeshPro and TextMesh make of text from outside |
