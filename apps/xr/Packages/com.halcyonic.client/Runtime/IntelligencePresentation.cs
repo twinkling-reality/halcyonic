@@ -66,7 +66,7 @@ namespace Halcyonic.Client
         /// <param name="words">What it says beside its chip, without saying the chip again; <paramref name="text"/> when not given.</param>
         /// <param name="chip">Its chip's words; from its evidence when not given.</param>
         public SectionLine(string tag, string text, SectionTone tone, bool detail = false, int rows = 0, bool source = false, bool startsPage = false,
-            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null)
+            bool repeats = false, Evidence? evidence = null, string? words = null, string? chip = null, FileKind? file = null)
         {
             Tag = tag;
             Text = text;
@@ -79,7 +79,11 @@ namespace Halcyonic.Client
             Evidence = evidence ?? (source ? Client.Evidence.Halcyonic : EvidenceOf(tag));
             Words = words ?? text;
             Chip = chip ?? ChipOf(Evidence);
+            File = file;
         }
+
+        /// <summary>The kind of the changed file the line names, for the generic glyph beside it; null for any other line.</summary>
+        public FileKind? File { get; }
 
         /// <summary>How it is known, which decides whether it has a chip.</summary>
         public Evidence Evidence { get; }
@@ -123,7 +127,7 @@ namespace Halcyonic.Client
         public SectionLine With(string? tag = null, string? text = null, string? words = null, string? chip = null, bool? startsPage = null,
             bool? repeats = null) =>
             new SectionLine(tag ?? Tag, text ?? Text, Tone, Detail, Rows, Source, startsPage ?? StartsPage, repeats ?? Repeats, Evidence, words ?? Words,
-                chip ?? Chip);
+                chip ?? Chip, File);
 
         /// <summary>
         /// The claim's epistemic class in the source's own word ("observed", "reported", "inferred",

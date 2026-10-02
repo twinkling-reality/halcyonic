@@ -182,7 +182,8 @@ namespace Halcyonic.Client
             if (Revision(understanding.Revision) is string revision) page.Add(new SectionLine("observed", revision, SectionTone.Secondary));
             var shown = Shown(changes.Files);
             var files = changes.Files.Select((file, index) =>
-                new SectionLine("observed", KindOf(file.Kinds) + ": " + shown[index] + " " + LinesOf(file), SectionTone.Normal)).ToList();
+                new SectionLine("observed", KindOf(file.Kinds) + ": " + shown[index] + " " + LinesOf(file), SectionTone.Normal,
+                    file: FileKinds.Of(file.RepositoryPath ?? file.Path))).ToList();
             var coverage = Coverage(understanding);
             page.AddCounted(files, more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more file"), SectionTone.Secondary),
                 reserve: coverage);
