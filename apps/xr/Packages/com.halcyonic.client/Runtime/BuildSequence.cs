@@ -128,6 +128,26 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Unresolved { get; private set; }
 
+        /// <summary>
+        /// A sequence whose project, and perhaps its task, the Mac already made before the app restarted
+        /// (<see cref="CreationDraft"/>): stopped where it was, so Start building sends only what is left
+        /// and never makes either twice. Without <paramref name="workstreamId"/> it creates the task and
+        /// starts it; with it, it only starts it.
+        /// </summary>
+        public static BuildSequence Resume(NewWorkDraft draft, CommandFactory commands, string projectId, string? workstreamId)
+        {
+            draft.ProjectId = projectId ?? throw new ArgumentNullException(nameof(projectId));
+            var sequence = new BuildSequence(draft, commands, null);
+            if (workstreamId != null)
+            {
+                sequence.steps[0].Status = BuildStepStatus.Confirmed;
+                sequence.WorkstreamId = workstreamId;
+                sequence.index = 1;
+            }
+            sequence.Stopped = true;
+            return sequence;
+        }
+
         /// <summary>The first command to send.</summary>
         public CommandEnvelope Begin()
         {

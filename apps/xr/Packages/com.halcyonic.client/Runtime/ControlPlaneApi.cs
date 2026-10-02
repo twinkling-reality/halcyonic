@@ -17,15 +17,28 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class ControlPlaneApi : IEventHistory, IIntelligenceReader, IDisposable
     {
+        /// <summary>
+        /// How long a companion reply may take on this side: the control plane's 45 s for a turn, with
+        /// room for the network, so the Mac gives up first and says why (ADR 0025).
+        /// </summary>
+        public static readonly TimeSpan CompanionTimeout = TimeSpan.FromSeconds(55);
+
         private readonly HttpClient http;
+        private readonly HttpClient companion;
+        private readonly HttpMessageHandler? handler;
         private readonly Uri baseUri;
 
         public ControlPlaneApi(Uri baseUri, string accessToken, HttpMessageHandler? handler = null)
         {
             this.baseUri = baseUri;
-            http = handler == null ? new HttpClient() : new HttpClient(handler);
+            // Both clients share a given handler, which this object disposes once, as before.
+            this.handler = handler;
+            http = handler == null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             http.Timeout = TimeSpan.FromSeconds(15);
+            companion = handler == null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
+            companion.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            companion.Timeout = CompanionTimeout;
         }
 
         /// <summary>The REST address of the control plane that serves a realtime endpoint.</summary>
@@ -153,7 +166,54 @@ namespace Halcyonic.Client
             }
         }
 
-        public void Dispose() => http.Dispose();
+        /// <summary>
+        /// Whether Create's companion can be asked now (ADR 0025), read from the Mac's model list
+        /// without asking the model. <see cref="UnavailableCompanion"/> carries why by its code, which
+        /// <see cref="CompanionText.Unavailable"/> puts in words. Read it when Create opens, never on a timer.
+        /// </summary>
+        public async Task<CompanionStatus> GetCompanionAsync(CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/companion", cancellationToken).ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<CompanionStatus>(body);
+        }
+
+        /// <summary>
+        /// One reply from Create's companion to the exchange so far (ADR 0025). The reply is model text:
+        /// untrusted and reported, shown only as the companion's, and nothing in it is sent anywhere
+        /// until the person confirms the recap. A refusal throws <see cref="ControlPlaneRequestException"/>
+        /// with its <c>Code</c>, which <see cref="CompanionText.Failure"/> puts in words. Ask one at a
+        /// time, only when the person has said something or asked for the recap. A turn can take up to
+        /// <see cref="CompanionTimeout"/>.
+        /// </summary>
+        public async Task<CompanionReplyResponse> AskCompanionAsync(CompanionRepliesRequest request, CancellationToken cancellationToken = default)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                var content = new StringContent(HalcyonicJson.Serialize(request), System.Text.Encoding.UTF8, "application/json");
+                response = await companion.PostAsync(new Uri(baseUri, "api/companion/replies"), content, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException error)
+            {
+                throw new ControlPlaneRequestException("The control plane could not be reached: " + error.Message, error);
+            }
+            using (response)
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
+                }
+                return HalcyonicJson.Deserialize<CompanionReplyResponse>(body);
+            }
+        }
+
+        public void Dispose()
+        {
+            http.Dispose();
+            companion.Dispose();
+            handler?.Dispose();
+        }
 
         private async Task<string> GetAsync(string path, CancellationToken cancellationToken)
         {
