@@ -31,7 +31,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { homedir, platform, totalmem } from 'node:os';
+import { platform, totalmem, userInfo } from 'node:os';
 import { delimiter, dirname, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
@@ -47,7 +47,7 @@ import {
   readOpenCodeSettings,
 } from '../config.ts';
 import { assessFolder, type FolderContext, realOrSelf } from '../folder-safety.ts';
-import { ACCESS_TOKEN_FILE, serverProvesToken } from '../http/security.ts';
+import { ACCESS_TOKEN_FILE, loopbackBases, provenBase } from '../http/security.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
@@ -1124,8 +1124,7 @@ class MacSetup {
       io.print(`Halcyonic won't start with its settings yet: ${error.message}`);
       return;
     }
-    const health = await this.#get('/api/health', null);
-    if (health === null) {
+    if (!(await this.#answers())) {
       io.print('Halcyonic uses this the next time it starts: pnpm start');
     } else {
       io.print(
@@ -1157,8 +1156,7 @@ class MacSetup {
       usageLeft: null,
       tokenProblem: null,
     };
-    const health = await this.#get('/api/health', null);
-    if (health === null || health.status !== 200) return none;
+    if (!(await this.#answers())) return none;
     const answering = { ...none, answering: true };
     if (!this.#useToken) return answering;
     let token: string;
@@ -1169,17 +1167,16 @@ class MacSetup {
     }
     // Another account could listen on the port while Halcyonic is stopped: the token goes only to
     // a server that first proves it holds it.
-    const base = this.#base();
-    if (base === null || (await serverProvesToken(this.#io.fetch, base, token)) !== 'proved') {
-      return { ...answering, tokenProblem: 'unproved' };
-    }
-    const locations = await this.#get('/api/locations', token);
+    const proven = await provenBase(this.#io.fetch, this.#bases(), token);
+    if (typeof proven !== 'object') return { ...answering, tokenProblem: 'unproved' };
+    const get = (path: string) => this.#get(proven.base, path, token);
+    const locations = await get('/api/locations');
     if (locations === null || locations.status !== 200) {
       return { ...answering, tokenProblem: 'unproved' };
     }
-    const snapshot = await this.#get('/api/snapshot', token);
-    const devices = await this.#get('/api/devices', token);
-    const usage = await this.#get('/api/usage-limits', token);
+    const snapshot = await get('/api/snapshot');
+    const devices = await get('/api/devices');
+    const usage = await get('/api/usage-limits');
     const usageBody = usage?.body as
       | { availability?: string; reason?: { code?: string } }
       | undefined;
@@ -1201,12 +1198,19 @@ class MacSetup {
     };
   }
 
+  /** Whether Halcyonic's public health check answers at any loopback address it may listen on. */
+  async #answers(): Promise<boolean> {
+    for (const base of this.#bases()) {
+      if ((await this.#get(base, '/api/health', null))?.status === 200) return true;
+    }
+    return false;
+  }
+
   async #get(
+    base: string,
     path: string,
     token: string | null,
   ): Promise<{ status: number; body: unknown } | null> {
-    const base = this.#base();
-    if (base === null) return null;
     try {
       const response = await this.#io.fetch(`${base}${path}`, {
         headers: token === null ? {} : { authorization: `Bearer ${token}` },
@@ -1225,13 +1229,13 @@ class MacSetup {
     }
   }
 
-  /** Where Halcyonic listens on loopback, as the control plane validates it; null when invalid. */
-  #base(): string | null {
+  /** Where Halcyonic listens on loopback, by literal address, as the control plane validates it. */
+  #bases(): string[] {
     try {
       const { host, port } = loopbackListener(this.#io.env);
-      return `http://${host === '::1' ? '[::1]' : host}:${port}`;
+      return loopbackBases(host, port);
     } catch {
-      return null;
+      return [];
     }
   }
 
@@ -1335,9 +1339,10 @@ class MacSetup {
 }
 
 /**
- * What OpenCode does with an action under these settings, for every resource: the last rule for
- * the action or for every action wins, as OpenCode applies them, and with no rule it allows. A
- * rule that allows only some resources makes the answer `some`.
+ * What OpenCode does with an action under these settings, for every resource: the last rule whose
+ * action matches wins, as OpenCode applies them, a `*` in a rule's action matching any run of
+ * characters (`web*` matches `webfetch`), and with no rule it allows. A rule that allows only some
+ * resources makes the answer `some`.
  */
 export function effectOf(
   settings: OpenCodeSettings,
@@ -1346,7 +1351,7 @@ export function effectOf(
   let effect: 'allow' | 'ask' | 'deny' = 'allow';
   let someAllowed = false;
   for (const rule of settings.permissions) {
-    if (rule.action !== action && rule.action !== '*') continue;
+    if (!globMatches(rule.action, action)) continue;
     if (rule.resource === '*') {
       effect = rule.effect;
       someAllowed = false;
@@ -1355,6 +1360,20 @@ export function effectOf(
     }
   }
   return someAllowed && effect !== 'allow' ? 'some' : effect;
+}
+
+/** Whether a pattern with `*` (any run of characters) and `?` (one character) matches the whole name. */
+function globMatches(pattern: string, name: string): boolean {
+  const source = [...pattern]
+    .map((character) =>
+      character === '*'
+        ? '.*'
+        : character === '?'
+          ? '.'
+          : character.replace(/[.+^${}()|[\]\\]/g, '\\$&'),
+    )
+    .join('');
+  return new RegExp(`^${source}$`, 's').test(name);
 }
 
 function usageLeftProblem(code: string | null): string {
@@ -1469,7 +1488,7 @@ if (import.meta.main) {
     : null;
   runMacSetup(process.argv.slice(2), {
     env: process.env,
-    home: homedir(),
+    home: userInfo().homedir,
     print: (line) => process.stdout.write(`${line}\n`),
     ask,
     fetch,

@@ -11,7 +11,7 @@ import {
   statSync,
 } from 'node:fs';
 import { isIP } from 'node:net';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
 import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
@@ -131,7 +131,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
         fileURLToPath(new URL('../../../fixtures/scenarios', import.meta.url)),
     ),
     projectRoots: parseProjectRoots(env.HALCYONIC_PROJECT_ROOTS, {
-      home: env.HOME ?? homedir(),
+      // The account's own home, not $HOME, which a launcher may change.
+      home: userInfo().homedir,
       dataDir: defaultDataDir(env),
       uid: process.getuid?.(),
     }),
@@ -226,8 +227,9 @@ export function isLocalOllamaModel(model: unknown): boolean {
 /**
  * Reads Halcyonic's own OpenCode settings, held to the settings file's standard (ADR 0024): the
  * configuration home and its `opencode` folder are real folders, not links, owned by this user and
- * closed to others, holding nothing but `opencode/opencode.json`, a regular file of mode 600 that
- * holds only what `pnpm mac-setup local-model` writes. Its default model, and its small model when
+ * closed to others, and the `opencode` folder holds nothing but `opencode.json`, a regular file of
+ * mode 600 that holds only what `pnpm mac-setup local-model` writes. Other tools an agent runs may
+ * keep their own folders beside `opencode`, since they inherit the same configuration home. Its default model, and its small model when
  * it names one, must be a model this Mac serves through Ollama, so a hand edit can't make a remote
  * model the default. A start through Halcyonic always names its model (`model_required`); the
  * default only decides what OpenCode would choose by itself.
@@ -252,7 +254,6 @@ export function readOpenCodeSettings(home: string): OpenCodeSettings {
       );
     }
   };
-  only(home, 'opencode');
   only(folder, 'opencode.json');
   const settings = parseOpenCodeSettings(path, readPrivateFile(path, MAX_OPENCODE_SETTINGS_BYTES));
   return settings;
