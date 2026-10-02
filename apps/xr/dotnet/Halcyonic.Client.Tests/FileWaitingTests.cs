@@ -32,8 +32,11 @@ public class FileWaitingTests
             ("It wants to run a command:", LineTone.Waiting),
             ("Run the migration", LineTone.Primary),
         }));
-        Assert.That(frame.Lines[1].Rows, Is.EqualTo(FileScreens.RequestRows));
-        Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(Room.Rows), "the notes fill only the room left");
+        Assert.That(frame.Lines[1].Rows, Is.EqualTo(2), "as much of the request as fits beside the source line; Approve shows it whole");
+        Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(Room.Rows), "the source line takes one of the page's rows");
+        var roomy = FileScreens.Screen(workspace, new WorkspaceSteering(factory), screen, new AnswerRoom(8));
+        Assert.That(roomy.Lines[1].Rows, Is.EqualTo(FileScreens.RequestRows));
+        Assert.That(roomy.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(8), "the notes fill only the room left");
         Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.Deny, FileScreens.Approve }));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         Assert.That(frame.Footer[PromptSlot.Secondary]!.DrawnAsMain, Is.False);

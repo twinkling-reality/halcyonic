@@ -195,7 +195,7 @@ namespace Halcyonic.Client
             if (workspace.Commands.FirstOrDefault() is { } sent) lines.Add(new PageLine(sent.Text, wordsAreData: true, tone: LineTone.Secondary));
             var used = lines.Sum(line => line.Rows);
             var activity = workspace.Activity;
-            var fits = Math.Max(0, room.Rows - used);
+            var fits = Math.Max(0, WithSource(room).Rows - used);
             if (activity.Count == 0 && screen.ActivityNote.Length > 0 && fits > 0)
             {
                 lines.Add(new PageLine(screen.ActivityNote.TrimStart(' ', '·'), wordsAreData: true, tone: LineTone.Secondary));
@@ -312,7 +312,7 @@ namespace Halcyonic.Client
                 }
             }
 
-            var pages = Paged(lines, room.Rows);
+            var pages = Paged(lines, source == null ? room.Rows : WithSource(room).Rows);
             screen.Pages = pages.Count;
             screen.Page = Math.Min(screen.Page, pages.Count - 1);
             var shown = pages[screen.Page];
@@ -329,6 +329,13 @@ namespace Halcyonic.Client
             else if (pages.Count > 1) footer = footer.WithNext(Next(screen.Page, pages.Count));
             return new Page(shown, source, footer, side);
         }
+
+        /// <summary>
+        /// The room a page's lines have beside its source line, which takes one of the page's rows (ADR
+        /// 0026): with a side panel open, a page of the room's rows and its source reached past the
+        /// field of view.
+        /// </summary>
+        internal static AnswerRoom WithSource(AnswerRoom room) => new AnswerRoom(Math.Max(1, room.Rows - 1), room.RowsOf);
 
         /// <summary>Lines split into pages of at most <paramref name="rows"/> rows, a line never split; a line taller than a page has one of its own.</summary>
         private static List<List<PageLine>> Paged(IReadOnlyList<PageLine> lines, int rows)
@@ -354,7 +361,7 @@ namespace Halcyonic.Client
         /// </summary>
         private static SidePanel Side(string subject, SectionPresentation full, FileScreen screen, AnswerRoom room)
         {
-            var parts = AnswerPages.Split(full, room);
+            var parts = AnswerPages.Split(full, WithSource(room));
             screen.SideParts = parts.Count;
             screen.SidePart = Math.Min(screen.SidePart, parts.Count - 1);
             var part = parts[screen.SidePart];

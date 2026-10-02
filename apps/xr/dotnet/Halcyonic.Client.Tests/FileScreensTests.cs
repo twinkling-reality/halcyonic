@@ -159,8 +159,12 @@ public class FileScreensTests
                 do
                 {
                     var frame = Screen(screen);
-                    Assert.That(frame.Lines.Sum(line => line.Rows) <= Room.Rows || frame.Lines.Count == 1, Is.True,
-                        "a page holds the room's rows, or one line taller than it");
+                    Assert.That(frame.Lines.Sum(line => line.Rows) + (frame.Source == null ? 0 : 1) <= Room.Rows || frame.Lines.Count == 1, Is.True,
+                        "a page holds the room's rows, its source line one of them, or one line taller than it");
+                    if (frame.Side is { } side)
+                    {
+                        Assert.That(side.Lines.Sum(line => line.Rows) + 1 <= Room.Rows || side.Lines.Count == 1, Is.True, "and so does its side panel");
+                    }
                     foreach (var line in frame.Lines)
                     {
                         Assert.That(line.Chip, Is.Not.EqualTo("Observed"));
@@ -227,7 +231,7 @@ public class FileScreensTests
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         var quote = frame.Lines.Last();
         Assert.That((quote.Words, quote.Chip, quote.Claim, quote.Fact), Is.EqualTo(("“Done with the migration”", "Agent says", true, "09:00")));
-        Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(Room.Rows));
+        Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(Room.Rows), "the source line takes one of the page's rows");
         Assert.That(frame.Source, Does.EndWith(" reported it"));
     }
 
