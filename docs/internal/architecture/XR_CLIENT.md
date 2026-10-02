@@ -422,8 +422,33 @@ the same definition names, as the JSON Schema document:
   words, named from its first words, or the answers to Help me figure it out's four fixed
   questions (kind, who it is for, what it should do first, with first steps offered for the kind,
   and a name that can be skipped), which always compose the same recap ("Make a website for my
-  team. First, show one page that says what it is."). Typed answers go in as typed. No model is
-  involved and nothing presents it as an assistant. It is kept in memory only.
+  team. First, show one page that says what it is."). Typed answers go in as typed. The fixed
+  questions involve no model and never present themselves as an assistant. With the companion
+  ([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)),
+  it also holds the exchange, and a proposal fills the recap marked as the companion's suggestion
+  (`NameSuggested`, `TaskSuggested`) until the person changes it, with the typed idea kept
+  (`OwnWords`, Use my words). `Keep` and `Restore` give it to and take it from the device.
+- **`CompanionExchange`** is one exchange with Create's companion: the person's words and the
+  companion's replies in order, kept on the device and sent whole with each request (the computer
+  keeps nothing). One request at a time (`Ask`, `Replied`, `Failed`, `Retry`), only after the
+  person's words or when they ask for the recap, inside the request's bounds (20 messages, 2,000
+  characters a message, about 23,000 in all); a reply to a request the person left behind
+  (`Leave`) is dropped by its generation. After a proposal, the recap is where things change.
+- **`CompanionText`** writes the words around the companion, with the computer as `HostText`
+  says it: its line quoted and tagged as its own ("The companion says: “…”"), its view as its
+  opinion, the note that it is an AI that can be wrong, waiting, and every failure from its code
+  with a next step. `EntryScreens.Companion` is its screen as a model; the headset's panel does
+  not show it yet (below).
+- **`CreationDraft`** and **`CreationDrafts`** keep every Create draft on the device across an
+  app restart: the idea or answers, the recap, the exchange, the folder, agent app and model
+  chosen, and what the computer already made of it (a project, a task), for the journal it was
+  made with, for 7 days without a change, in one JSON file in the app's private storage that is
+  written only when something changed. A project the computer already made comes back as a task
+  for it, and a task it made resumes at its start (`BuildSequence.Resume`), so nothing is made
+  twice; a model that runs elsewhere is never chosen again without the person's second press.
+- **`CompanionRecording`** plays the companion's part of the demonstration: one exchange recorded
+  once from the real companion (`pnpm companion:record`), pressed through in its recorded order,
+  labelled recorded, never asking a model, and never showing the model's name.
 - **`AttentionWatch`** notices work that comes to need the person while they create, hidden
   projects included, so the entry panel can offer Open now or Keep creating; what already needed
   them is not offered again, and it never switches by itself.
@@ -1819,9 +1844,10 @@ Code, diffs, tests and output in the workspace; the Understanding section's full
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
-choosing a folder deeper than one level inside a place the Mac allows; a companion that converses (Help me figure it out asks fixed questions); voice for the
-fixed questions' own answers, a folder's name and the recap's Change, and voice in release builds; and a
-creation draft that survives an app restart; discovering or attaching work Halcyonic did not
+choosing a folder deeper than one level inside a place the Mac allows; the companion and kept drafts on the headset's panel (the control plane and the client core have
+both; the panel's screens wait for the headset's redesign, so Help me figure it out still asks the
+fixed questions and a restart still loses a draft); voice for the companion's answers, the fixed
+questions' own answers, a folder's name and the recap's Change, and voice in release builds; discovering or attaching work Halcyonic did not
 start; the soundbook's softer repeat of "Waiting for you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
 the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,

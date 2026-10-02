@@ -98,8 +98,11 @@ first version of this entry: a low project rail, a welcome, Connect projects ove
 Halcyonic's journal knows, More work, Create a project from a typed idea or a few fixed guided
 questions with an editable recap, choosing where its files live from the folders the Mac allows,
 and the four questions in an opened workspace ([XR_CLIENT.md](../architecture/XR_CLIENT.md)). It is
-checked in editor renders and tests, not yet on a headset, and it has no conversing companion,
-voice, discovery or attach.
+checked in editor renders and tests, not yet on a headset, and it has no discovery or attach. The
+companion runs on a local model on the computer and keeps its exchange on the headset
+([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md));
+the control plane and the client core have it, and its headset screens wait for the redesign of
+the headset's interface.
 
 ## Collaboration policies (future)
 

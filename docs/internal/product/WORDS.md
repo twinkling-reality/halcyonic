@@ -76,6 +76,7 @@ counts, "paused" covers tasks at rest that are neither running nor waiting for y
 | agent app | The runtime, such as OpenCode or Codex, named as data | runtime, adapter |
 | practice run | Work on the simulated runtime: nothing is built | mock, simulated |
 | demo | The recorded demonstration | interactive example |
+| companion | The AI on your computer that helps shape an idea in Create; it builds nothing and is never a task | assistant, AI, chatbot |
 
 A person never reads: execution, journal, command, principal, scenario, capability, projection,
 snapshot, workstream, access token (an access code, only where the person must act on one).
@@ -97,6 +98,7 @@ snapshot, workstream, access token (an access code, only where the person must a
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |
 | Locked final press | Read to part {n} first | Read to part 3 first |
 | Kept while away | Still open: {panel} | Still open: Create a project |
+| The companion's words | The companion says: “{line}”, quoted and leaning, never in our voice; its view as its opinion | The companion thinks this is unclear. |
 
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
 the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the
