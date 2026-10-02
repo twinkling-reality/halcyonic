@@ -123,6 +123,27 @@ same note without tags.
 - The control plane's log held one `companion replied` line a turn, with the reply's kind, the
   companion's view, times and token counts, and none of the ideas' words.
 
+## With an agent task generating (the gate of ADR 0025)
+
+On the same scratch control plane, with the pinned Codex 0.157.0 registered (a scratch `CODEX_HOME`
+naming the `ollama` provider, plugins and analytics off), one real task was started on
+`ollama/qwen3.6:35b-a3b-nvfp4` (context 65,536, compaction at 52,000): write a Python module of 20
+functions and 20 pytest tests, files only. It ran for about six minutes and wrote both files. While
+it ran, a companion turn was asked every 5.2 s once the previous one ended, cycling through four
+cases, on the validated Ollama settings (`OLLAMA_NUM_PARALLEL` 1).
+
+| | Turns | Time to the first token | Whole turn |
+| --- | --- | --- | --- |
+| Refused, `companion_too_slow` | 10 of 14 | over the 30 s bound | 30.0 to 30.2 s |
+| Answered | 4 of 14 | 12.7, 16.6, 22.4 and 24.9 s | 15.0, 18.2, 24.3 and 27.5 s |
+
+So with one agent task generating, the median turn reached the 30 s bound and was refused; the
+gate is not met at one request per model. Each of Codex's steps on this task wrote long file
+contents, so a companion turn waited for a step of more than 30 s; the four answered turns came at
+the end of a step. The answered turns read 624 to 634 prompt tokens and wrote 55 to 62. Not yet
+measured: `OLLAMA_NUM_PARALLEL=2`, which would let a turn run beside the agent's step, and what it
+costs in memory.
+
 ## Speed
 
 `qwen3.6:35b-a3b-nvfp4`, thinking off, loaded, from the request to the whole reply:

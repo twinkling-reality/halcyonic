@@ -200,6 +200,11 @@ competition demonstration.
    recorded in [companion-model.md](../validation/companion-model.md) and here. If the 30 s bound
    to the first token is often reached, `OLLAMA_NUM_PARALLEL=2` is evaluated with its memory cost
    measured, rather than a small model, which obeyed the injection.
+
+   Measured on 2026-10-02 with one Codex task generating on the same model at
+   `OLLAMA_NUM_PARALLEL` 1: 10 of 14 turns reached the 30 s bound and were refused; the 4 answered
+   had their first token after 12.7 to 24.9 s. The gate is not met there; `OLLAMA_NUM_PARALLEL=2`
+   is next ([companion-model.md](../validation/companion-model.md)).
 2. **Words.** The table above is approved, except that every phrase saying "your Mac" follows the
    owner's decision on the brand finding of the competition build's review; the host's wording is
    agreed with the host setup and competition build lanes before it reaches `EntryText`.
