@@ -9,6 +9,114 @@
   `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0`, then
   `export PATH="$HOME/.dotnet:$PATH"`.
 
+## First run on a Mac
+
+What a person new to Halcyonic does on their Mac before the headset can do real work. It is a
+prototype: it has been run on the owner's Mac, not yet by someone new
+([mac-host-setup.md](../validation/mac-host-setup.md)). How Halcyonic will be packaged is not
+decided ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)),
+so today it starts from this repository, with the prerequisites above.
+
+At any point, see where you are:
+
+```bash
+pnpm mac-setup
+```
+
+It checks each step below, says what is ready, what each step allows, and the next command, and
+changes nothing. Every command that changes something says what it will do first; the ones that
+open something (a folder, pairing) ask before they do it. They write `~/.halcyonic/settings.json`,
+which only you can read or change, and Halcyonic reads it when it starts
+([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)). A
+`HALCYONIC_` variable set in the environment still wins over the file.
+
+1. **Allow a folder for projects.** Agents may read and change anything in a folder you allow, and
+   in every folder inside it. A paired headset sees the names of the folders directly inside it, can
+   make new empty folders there with no limit on how many, and can move any project to another
+   folder there. So allow one folder you keep for projects, never your whole home folder:
+
+   ```bash
+   pnpm mac-setup allow
+   ```
+
+   makes `~/HalcyonicProjects`, empty, once you say yes. `pnpm mac-setup allow <folder>` allows a
+   folder that is already there; it refuses your home folder and any folder holding it, macOS's and
+   other people's folders, Halcyonic's own data, the hidden folders and Library in your home folder,
+   and a folder any user can change. `pnpm mac-setup disallow <folder>` takes one back; nothing in it
+   is deleted.
+2. **Get an agent app ready.** Halcyonic runs only the OpenCode and Codex versions it was checked
+   with. Installing them downloads them from npm, without running their install scripts:
+
+   ```bash
+   npm install --prefix ~/.halcyonic/runtimes/opencode-2.0.18 @opencode/cli@2.0.18 --ignore-scripts
+   npm install --prefix ~/.halcyonic/runtimes/codex-0.157.0 @openai/codex@0.157.0 --ignore-scripts
+   pnpm mac-setup agent-apps
+   ```
+
+   The last command records each one only if its SHA-256 is the one Halcyonic was checked with (on
+   Apple silicon; Intel Macs have no checksums yet). OpenCode searches files with ripgrep and
+   downloads it from GitHub when none is on the PATH: `brew install ripgrep`.
+3. **Choose where work runs, and what it costs.** A model on your Mac costs nothing per task and
+   keeps your code and instructions on the Mac; a model on a remote service sends them there, and
+   some cost money. Halcyonic never picks a model by itself: the headset lists the Mac's models
+   first, and a remote one takes a second press. For work on the Mac, install
+   [Ollama](https://ollama.com), start it with `OLLAMA_CONTEXT_LENGTH=65536` (and
+   `OLLAMA_NO_CLOUD=1` to hide Ollama's own remote models), download a model that fits your Mac's
+   memory, and give OpenCode settings of its own on it:
+
+   ```bash
+   ollama pull qwen3.6:35b-a3b-nvfp4     # 23.6 GB; qwen3.8:27b-nvfp4 is 18.2 GB
+   pnpm mac-setup local-model qwen3.6:35b-a3b-nvfp4
+   ```
+
+   OpenCode then starts on that model when none is chosen, asks you before every shell command, which
+   is how its approvals reach the headset, and cannot fetch from the web; your own OpenCode settings
+   are left as they are. Codex follows your own Codex settings: to keep it on the Mac, see
+   [Codex](#codex). Claude Agent runs only on Anthropic's remote service and is paid with your API
+   key, so the setup never turns it on; see [Run real agents](#run-real-agents).
+4. **Optional: voice, Usage left, and what changed and why.** Voice turns Hold to talk into a draft on
+   the Mac: build it as in [Turn on voice](#turn-on-voice), then `pnpm mac-setup voice`, which records
+   the files once their checksums match. Usage left needs Seorak and a credential, and the Understand
+   tab's explanations need Salidium and a credential ([Connect Seorak](#connect-seorak),
+   [Connect Salidium](#connect-salidium)). Credentials move only as files with mode 600, never
+   through the clipboard, a prompt or a chat; the setup checks that they exist and that no one else
+   can read them, and never opens them.
+5. **Start Halcyonic**, and leave its window open while you use the headset:
+
+   ```bash
+   pnpm start
+   ```
+
+   Settings take effect when it starts. To use changed settings, stop it with Ctrl-C and start it
+   again; restarting stops any agent at work, and its task then shows Can't tell yet.
+6. **Connect the headset.** A development build connects over USB
+   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). Pairing over Wi-Fi is your choice
+   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): `pnpm mac-setup pairing on` says what it
+   opens and asks first; then restart Halcyonic, run `pnpm pair`, and in the headset choose Settings,
+   Your computer, Pair with a computer. Until the headset reaches your Mac it plays the recorded
+   demo, labelled as one; nothing in it reaches an agent.
+
+### When the headset says something is wrong
+
+The headset calls the Mac "your computer" ([WORDS.md](../product/WORDS.md)).
+
+| The headset says | On the Mac |
+| --- | --- |
+| Can't reach your computer; trying again. | Start Halcyonic (`pnpm start`). Over USB, run `adb reverse tcp:47800 tcp:47800` again; over Wi-Fi, check pairing is on, the headset is on the same network, and the firewall (`pnpm mac-setup` checks it) |
+| Your computer refused this headset's access token | Over USB: put the current access token on the headset ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect") |
+| Your computer no longer accepts this headset's pairing. | It was revoked: forget the computer on the headset, then `pnpm pair` |
+| Your computer doesn't allow any folder yet. | `pnpm mac-setup allow`, then restart Halcyonic |
+| Your computer can't use that folder right now | The folder moved or can't be read: put it back or choose another. If a folder you allowed is gone, Halcyonic won't start until it is back or you `pnpm mac-setup disallow` it |
+| No agent app on your computer can start work right now. | `pnpm mac-setup agent-apps`, then restart Halcyonic |
+| Voice isn't set up on your computer. Type instead. | Step 4, or keep typing |
+| Usage left isn't set up on your computer yet. | Step 4; `pnpm mac-setup` says which part is missing |
+| A task shows Can't tell yet after a restart | Its agent stopped with Halcyonic: open it and start it again |
+
+If Halcyonic itself won't start, its last line says why, and `pnpm mac-setup` puts it first: a
+settings file others can read (`chmod 600 ~/.halcyonic/settings.json`), Halcyonic's own OpenCode
+settings naming a model that isn't on the Mac (run `pnpm mac-setup local-model` again), or a folder
+you allowed that is gone.
+
 ## Run the control plane
 
 ```bash
@@ -17,8 +125,18 @@ pnpm dev
 
 This listens on `127.0.0.1:47800`, stores its journal in `~/.halcyonic/control-plane.db`, and
 creates the access token `~/.halcyonic/access-token` on first start. Logs are JSON on stdout; the
-`control plane ready` line shows the address, the journal id and the registered runtimes. The
-token never appears in logs. Use `pnpm start` for a run without file watching.
+`control plane ready` line shows the address, the journal id, the registered runtimes and which
+settings it took from `~/.halcyonic/settings.json` (`settings.used`). The token never appears in
+logs. Use `pnpm start` for a run without file watching.
+
+Every `HALCYONIC_` variable below can be set in the environment. `pnpm mac-setup` keeps the ones a
+person sets up once (`HALCYONIC_PROJECT_ROOTS`, `HALCYONIC_OPENCODE_BIN`,
+`HALCYONIC_OPENCODE_CONFIG_HOME`, `HALCYONIC_CODEX_BIN`, the three `HALCYONIC_WHISPER_` files and
+`HALCYONIC_NETWORK_HOST`) in `settings.json` in the data directory, mode 600, which the control
+plane reads for whatever its environment leaves unset; a variable present in the environment wins,
+even empty. The file can never hold `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE` or
+`HALCYONIC_AGENT_ENV`, so paid model use and pass-through variables stay in the environment
+([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)).
 
 Use another data directory or port through the environment:
 
@@ -171,6 +289,13 @@ work put this in `~/.config/opencode/opencode.json` (one `models` entry per mode
   }
 }
 ```
+
+`pnpm mac-setup local-model <tag>` writes these settings for you, with a `limit` for every model
+Ollama lists, into a directory of Halcyonic's own, `~/.halcyonic/opencode-config`, which the control
+plane gives OpenCode alone as its `XDG_CONFIG_HOME` (`HALCYONIC_OPENCODE_CONFIG_HOME`), so your own
+`~/.config/opencode` stays as it is. The control plane refuses to start if those settings name a
+default `model` or `small_model` that is not an Ollama model on this Mac, or if another OpenCode
+settings file sits beside them.
 
 The `model` makes a start without one use the local model instead of OpenCode's free hosted
 default. The permissions make shell commands ask the person, which is how approvals reach
@@ -397,7 +522,9 @@ HALCYONIC_NETWORK_HOST=0.0.0.0 pnpm dev
 ```
 
 `0.0.0.0` listens on every IPv4 interface; name one address, such as `192.168.1.23`, to listen on
-that one only. The port is 47801 (`HALCYONIC_NETWORK_PORT`). The first start creates the listener's
+that one only. `pnpm mac-setup pairing on` keeps `0.0.0.0` in the settings file instead, after
+saying what it opens and asking, and `pnpm mac-setup pairing off` takes it out; either takes effect
+at the next start. The port is 47801 (`HALCYONIC_NETWORK_PORT`). The first start creates the listener's
 TLS identity, `network-key.pem` and `network-certificate.pem` in the data directory, and logs its
 certificate's SHA-256, which is not secret; the `control plane ready` line names the listener. If
 macOS asks whether `node` may accept incoming connections, allow it: the listener serves nothing
