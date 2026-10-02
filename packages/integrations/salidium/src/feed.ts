@@ -48,7 +48,9 @@ export type SalidiumFeedEvent =
       readonly reason: ErrorInfo;
     };
 
-export interface SalidiumFeedOptions extends SalidiumOptions {
+export interface SalidiumFeedOptions extends Omit<SalidiumOptions, 'credential'> {
+  /** The consumer credential the person created for Halcyonic, or null when none is configured. */
+  readonly credential: string | null;
   /**
    * Called in order. It must not throw: an exception is not caught, stops the feed, and is thrown
    * again by `close()`, or surfaces as an unhandled rejection if `close()` is never called.

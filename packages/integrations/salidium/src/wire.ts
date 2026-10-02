@@ -62,6 +62,22 @@ export const WireContractEntry = Type.Object({
 });
 export type WireContractEntry = Static<typeof WireContractEntry>;
 
+/** A provider id as lookup takes it: Salidium's own two, or a namespaced `owner/name`. */
+export const PROVIDER_ID_PATTERN =
+  '^(?:claude-code|codex|[a-z][a-z0-9-]{0,62}\\/[a-z][a-z0-9-]{0,62})$';
+
+/**
+ * The providers a daemon instance observes, from contract 1.1 on: a top-level `providers` list on
+ * the discovery document, sorted, unique, at most 32, every one it observes now, Salidium's own
+ * two included. It is fixed for the instance's life. Read only beside a major 1 entry of minor 1 or
+ * later; each entry is open for facts a later minor adds.
+ */
+export const WireProviders = Type.Array(
+  Type.Object({ id: Type.String({ pattern: PROVIDER_ID_PATTERN }) }),
+  { maxItems: 32 },
+);
+export type WireProviders = Static<typeof WireProviders>;
+
 /** Whether a discovery entry names the contract and major version this client implements. */
 export function isMajorOneEntry(entry: unknown): boolean {
   const { name, major } = (entry ?? {}) as { name?: unknown; major?: unknown };
@@ -293,6 +309,7 @@ export function readFeedMessage(value: unknown): Validated<WireFeedMessage> | nu
 
 export const validateDiscovery = compileValidator(WireDiscovery);
 export const validateContractEntry = compileValidator(WireContractEntry);
+export const validateProviders = compileValidator(WireProviders);
 export const validateError = compileValidator(WireError);
 export const validateLookup = compileValidator(WireLookup);
 export const validateReport = compileValidator(WireReport);

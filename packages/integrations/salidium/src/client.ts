@@ -1,4 +1,4 @@
-import type { UnderstandingResult } from '@halcyonic/contracts';
+import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
 import {
   checkCredential,
   connect,
@@ -22,20 +22,28 @@ import {
   validateReport,
 } from './wire.ts';
 
-/** The provider ids Salidium's consumer contract uses for the runtimes it observes. */
-export type SalidiumProvider = 'claude-code' | 'codex';
+/** The provider ids Salidium's consumer contract uses for the runtimes it may observe. */
+export type SalidiumProvider = 'claude-code' | 'codex' | 'salidium/opencode';
 
 /**
- * Halcyonic runtime kinds whose sessions Salidium observes, with the provider id Salidium uses for
- * each. A runtime kind is Halcyonic's adapter type and a provider id is Salidium's vocabulary, so
- * the mapping is written out rather than assumed: the Claude Agent adapter (kind `claude-agent`)
- * runs Claude Code sessions, which Salidium names `claude-code`. Every other kind, such as
- * `mock` or `opencode`, is not observed by Salidium.
+ * Halcyonic runtime kinds whose sessions Salidium may observe, with the provider id Salidium uses
+ * for each. A runtime kind is Halcyonic's adapter type and a provider id is Salidium's vocabulary,
+ * so the mapping is written out rather than assumed: the Claude Agent adapter (kind `claude-agent`)
+ * runs Claude Code sessions, which Salidium names `claude-code`. Every other kind, such as `mock`,
+ * is not observed by Salidium.
  */
 const PROVIDER_BY_RUNTIME_KIND: ReadonlyMap<string, SalidiumProvider> = new Map([
   ['claude-agent', 'claude-code'],
   ['codex', 'codex'],
+  ['opencode', 'salidium/opencode'],
 ]);
+
+/**
+ * Providers Salidium observes only where a person turned them on, as its OpenCode provider ships
+ * (Salidium 0.7.0, consumer contract 1.1, unreleased when written): asked about only when the
+ * running daemon lists them, never on a guess from its version.
+ */
+const DECLARED_ONLY: ReadonlySet<SalidiumProvider> = new Set(['salidium/opencode']);
 
 export function salidiumProviderFor(runtimeKind: string): SalidiumProvider | null {
   return PROVIDER_BY_RUNTIME_KIND.get(runtimeKind) ?? null;
@@ -57,13 +65,17 @@ export interface UnderstandOptions {
  */
 export class SalidiumClient {
   readonly #home: string;
-  readonly #credential: string | null;
+  readonly #credential: SalidiumOptions['credential'];
   readonly #timeoutMs: number;
 
   constructor(options: SalidiumOptions) {
     this.#home = options.home;
     this.#credential = options.credential;
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  }
+  /** The credential as configured, read now when it is read on demand. */
+  #configured(): string | null | UnderstandingFailure {
+    return typeof this.#credential === 'function' ? this.#credential() : this.#credential;
   }
 
   /**
@@ -77,12 +89,12 @@ export class SalidiumClient {
     options: UnderstandOptions = {},
   ): Promise<UnderstandingResult> {
     const provider = salidiumProviderFor(runtimeKind);
-    if (provider === null)
-      return fail(
-        'unavailable',
-        'runtime_not_observed',
-        `Salidium does not observe sessions of the ${runtimeKind} runtime.`,
-      );
+    const notObserved = fail(
+      'unavailable',
+      'runtime_not_observed',
+      `Salidium does not observe sessions of the ${runtimeKind} runtime.`,
+    );
+    if (provider === null) return notObserved;
     if (!NATIVE_SESSION_ID_PATTERN.test(nativeId))
       return fail(
         'not_found',
@@ -90,9 +102,25 @@ export class SalidiumClient {
         "Salidium's contract cannot name a session id with control characters or over 512 characters.",
       );
     const { signal } = options;
+    // A provider asked about only where the daemon says it observes it: without a daemon that says
+    // so, the answer is what it always was, and the credential is not read for it. For the others,
+    // a missing credential is said first, as it always was.
+    const declaredOnly = DECLARED_ONLY.has(provider);
+    let configured = declaredOnly ? null : this.#configured();
+    if (configured !== null && typeof configured !== 'string') return configured;
     const instance = await connect(this.#home, this.#timeoutMs, signal);
-    if (isFailure(instance)) return instance;
-    const credential = checkCredential(this.#credential);
+    if (isFailure(instance)) return declaredOnly ? notObserved : instance;
+    if (instance.providers === null ? declaredOnly : !instance.providers.has(provider))
+      return instance.providers === null
+        ? notObserved
+        : fail(
+            'unavailable',
+            'runtime_not_observed',
+            `Salidium is not observing sessions of the ${runtimeKind} runtime now; it lists the ones it does.`,
+          );
+    if (declaredOnly) configured = this.#configured();
+    if (configured !== null && typeof configured !== 'string') return configured;
+    const credential = checkCredential(configured);
     if (typeof credential !== 'string') return credential;
 
     let sessionId = options.sessionId;

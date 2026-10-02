@@ -50,6 +50,13 @@ export class FakeSalidium {
   instanceId = randomBytes(16).toString('hex');
   /** The version its discovery document reports, or the retained fixture's when null. */
   version: string | null = null;
+  /** The minor version of contract 1 it serves, or the retained fixture's when null. */
+  minor: number | null = null;
+  /**
+   * The providers its discovery document lists, as contract 1.1 adds them (Salidium's proposal of
+   * 2026-10-02, unreleased), or none when null, as every daemon of contract 1.0.
+   */
+  providers: readonly string[] | null = null;
   /** Whether a new feed connection starts with `resync`, as the contract requires. */
   resyncOnConnect = true;
   feedConnections = 0;
@@ -84,13 +91,18 @@ export class FakeSalidium {
       ...(this.version === null ? {} : { salidium: { version: this.version } }),
       instanceId: this.instanceId,
       contracts: [this.contract()],
+      ...(this.providers === null ? {} : { providers: this.providers.map((id) => ({ id })) }),
     };
   }
 
   /** This daemon's entry for major version 1 in `contracts`. */
   contract(): Json {
     const [entry] = fixture('consumer-discovery').contracts as Json[];
-    return { ...entry, baseUrl: `http://127.0.0.1:${this.#port}/consumer/v1` };
+    return {
+      ...entry,
+      ...(this.minor === null ? {} : { minor: this.minor }),
+      baseUrl: `http://127.0.0.1:${this.#port}/consumer/v1`,
+    };
   }
 
   writeDiscovery(document: unknown = this.discovery()): void {

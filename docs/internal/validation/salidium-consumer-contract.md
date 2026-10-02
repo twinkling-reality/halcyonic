@@ -54,7 +54,8 @@ it is fixing them before the freeze.
 - Halcyonic reads understanding through at `GET /api/executions/:execution_id/understanding` and
   never journals it ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)).
 - Halcyonic's runtime kind `claude-agent` maps to Salidium's provider `claude-code`, and `codex` to
-  `codex`; every other kind, including `mock` and `opencode`, is not observed by Salidium.
+  `codex`; `opencode` maps to `salidium/opencode` only where the running daemon lists it (below);
+  every other kind, including `mock`, is not observed by Salidium.
 - The credential lives in `<data dir>/salidium-credential` with mode 0600, is read on every request,
   and is never logged or passed to launched agents.
 - Re-run the real-wire tests (`SALIDIUM_CHECKOUT=<checkout> node --test
@@ -104,3 +105,35 @@ not exist, so a control plane there answers `unavailable` (`not_running`). Nothi
 Answers now carry `source.synthetic`, false for everything read from Salidium
 ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md),
 [understanding-and-evaluation.md](understanding-and-evaluation.md)).
+
+## The OpenCode provider, gated on what the daemon declares (2026-10-02)
+
+- **Source:** the Salidium coordinator's answers on 2026-10-02 in a session message. None of it is
+  released or in Salidium's public text: Salidium targets 0.7.0 with consumer contract 1.1 before
+  2026-11-04, its OpenCode provider is in development, experimental and off unless a person turns it
+  on. Salidium's owner decided the provider id (D11) and approved the declaration for implementation
+  (D12).
+- **What Salidium said:** the provider id is `salidium/opencode`, which consumer v1's provider id
+  pattern already accepts (`claude-code`, `codex`, or a namespaced `owner/name`). From contract 1.1,
+  the discovery document (`consumer.json` and `GET /consumer/v1/discovery`) carries a top-level
+  `providers` list beside `instanceId`: `[{ "id": "claude-code" }, { "id": "codex" }, { "id":
+  "salidium/opencode" }]`, sorted, unique, at most 32, never null, each entry open for later facts.
+  It lists every provider the instance observes now, Salidium's own two included, and is fixed for
+  the instance's life; turning a provider on or off restarts the daemon with a new instance id. A
+  consumer trusts it only beside a major 1 entry of minor 1 or later; without it, what the daemon
+  observes is unknown. The native session id is OpenCode's own `ses_` id: Salidium's OpenCode lane
+  ran the pinned OpenCode 2.0.18 server on a scratch store and found it equal to the id `POST
+  /api/session` returns and every event carries, which is the id Halcyonic's OpenCode adapter keeps
+  as the execution's native id. Subagents are child sessions with their own ids, and a fork makes a
+  new one.
+- **What Halcyonic does:** `opencode` maps to `salidium/opencode`, asked about only when the
+  verified discovery document lists it under a minor of 1 or later. Otherwise the answer is what it
+  always was, `unavailable` (`runtime_not_observed`), including when Salidium is not running, and the
+  credential is not read. A daemon that lists its providers and leaves out `claude-code` or `codex`
+  is no longer asked about it (`runtime_not_observed`, "not observing ... now"). A list that breaks
+  the stated shape is `incompatible`. One credential-free discovery read is the only new request for
+  an OpenCode execution.
+- **Status:** tested against the stand-in daemon (`FakeSalidium` with a minor and a providers list,
+  `packages/integrations/salidium/src/client.test.ts`), not against any Salidium release. When 1.1 is
+  published, re-copy its fixtures, replace the stand-in's list with the published discovery fixture,
+  and run the real-wire test with an OpenCode session.

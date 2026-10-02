@@ -79,7 +79,8 @@ describe('reading an understanding from Salidium', () => {
   test('maps Halcyonic runtime kinds to Salidium provider ids explicitly', () => {
     assert.equal(salidiumProviderFor('claude-agent'), 'claude-code');
     assert.equal(salidiumProviderFor('codex'), 'codex');
-    for (const kind of ['claude-code', 'mock', 'opencode', 'Codex', 'toString', 'constructor', ''])
+    assert.equal(salidiumProviderFor('opencode'), 'salidium/opencode');
+    for (const kind of ['claude-code', 'mock', 'OpenCode', 'Codex', 'toString', 'constructor', ''])
       assert.equal(salidiumProviderFor(kind), null, kind);
   });
 
@@ -140,6 +141,93 @@ describe('reading an understanding from Salidium', () => {
       assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
     }
     assert.deepEqual(fake.requests, []);
+  });
+
+  test('asks about OpenCode only when the running daemon lists it, never on a guess', async (t) => {
+    const OPENCODE = { kind: 'opencode', id: 'ses_6a1f0c2e9b7d4e3fa5c8b1d2e4f6a8c0' };
+    const read: string[] = [];
+    const reading = (fake: FakeSalidium) => () => {
+      read.push('credential');
+      return fake.token;
+    };
+    const ask = (fake: FakeSalidium) =>
+      new SalidiumClient({
+        home: fake.home,
+        credential: reading(fake),
+        timeoutMs: 2_000,
+      }).understand(OPENCODE.kind, OPENCODE.id);
+
+    // A daemon of contract 1.0 says nothing about providers, so OpenCode stays unobserved.
+    const older = await start(t);
+    older.providers = ['claude-code', 'codex', 'salidium/opencode'];
+    older.writeDiscovery();
+    assert.deepEqual(reason(await ask(older)), ['unavailable', 'runtime_not_observed']);
+    assert.deepEqual(older.authorizedRequests(), [], 'a list beside minor 0 is not read');
+
+    // Contract 1.1 without OpenCode in the list.
+    const without = await start(t);
+    without.minor = 1;
+    without.providers = ['claude-code', 'codex'];
+    without.writeDiscovery();
+    assert.deepEqual(reason(await ask(without)), ['unavailable', 'runtime_not_observed']);
+    assert.deepEqual(without.authorizedRequests(), []);
+
+    // Not running: what it would observe is unknown, so the answer is what it always was.
+    const stopped = await start(t);
+    stopped.removeDiscovery();
+    assert.deepEqual(reason(await ask(stopped)), ['unavailable', 'runtime_not_observed']);
+    assert.deepEqual(read, [], 'the credential is not read for a session no daemon observes');
+
+    // Contract 1.1 listing it: looked up by Salidium's provider id and OpenCode's own session id.
+    const listing = await start(t);
+    listing.minor = 1;
+    listing.providers = ['claude-code', 'codex', 'salidium/opencode'];
+    listing.writeDiscovery();
+    const report = structuredClone(fixture('session-report-verified'));
+    const session = report.session as Record<string, unknown>;
+    session.id = `salidium/opencode:${OPENCODE.id}`;
+    session.native = { provider: 'salidium/opencode', sessionId: OPENCODE.id };
+    listing.reports.set(session.id as string, report);
+    const result = await ask(listing);
+    assert.equal(result.availability, 'available');
+    const lookup = listing.requests.find((request) => request.path.endsWith('/lookup'));
+    assert.deepEqual(Object.fromEntries(lookup?.query ?? []), {
+      provider: 'salidium/opencode',
+      sessionId: OPENCODE.id,
+    });
+    assert.deepEqual(read, ['credential'], 'read once a request carries it');
+  });
+
+  test('stops asking about a provider a daemon that lists its providers leaves out', async (t) => {
+    const fake = await start(t);
+    fake.minor = 1;
+    fake.providers = ['claude-code'];
+    fake.writeDiscovery();
+    const result = await understand(fake, FAILING);
+    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.match(
+      'reason' in result ? result.reason.message : '',
+      /not observing sessions of the codex runtime now/,
+    );
+    assert.deepEqual(fake.authorizedRequests(), []);
+    assert.equal((await understand(fake, VERIFIED)).availability, 'available');
+  });
+
+  test('refuses a providers list that breaks the contract', async (t) => {
+    for (const providers of [[{ id: 'OpenCode' }], 'claude-code', [{}]]) {
+      const fake = await start(t);
+      fake.minor = 1;
+      fake.overrides.set('/consumer/v1/discovery', (response) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({ ...fake.discovery(), providers }));
+      });
+      fake.writeDiscovery({ ...fake.discovery(), providers });
+      assert.deepEqual(reason(await understand(fake, VERIFIED)), [
+        'incompatible',
+        'invalid_document',
+      ]);
+      assert.deepEqual(fake.authorizedRequests(), []);
+    }
   });
 
   test('says unavailable when Salidium is not running', async (t) => {
