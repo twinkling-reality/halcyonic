@@ -108,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("a4-creating", false, shot => ShelfCreating(shot)),
             ("a5-video-watching", true, shot => Folded(shot)),
             ("a5-video-opened", true, shot => ShelfBesideWindow(shot)),
-        }.Concat(MenuShots()).Concat(StyledShots());
+        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots());
 
         // ---------------------------------------------------------------------------------------------
         // The work on the stage.
@@ -222,6 +222,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 build(shot);
                 WorkspaceRender.ForceMeshes(root);
                 failures.AddRange(Checks(shot));
+                if (name.StartsWith("r", StringComparison.Ordinal))
+                {
+                    // An upright plane, rendered upright.
+                    Save(folder, name, WideUpright(eyes, root.transform));
+                    Save(folder, name + "-closeup", CloseUpUpright(shot));
+                    return failures;
+                }
                 Save(folder, name, Wide(eyes, root.transform));
                 var framed = shot.Framed.Count > 0 ? shot.Framed : shot.Boards;
                 // Each surface faces the eyes, so two side by side look rolled in one flat close-up: one each.
@@ -263,8 +270,9 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var surfaces = shot.Boards.Select(board => GlazeChecks.Of(board.Name, eyes, board.Plates.Select(plate => (Renderer)plate.Renderer))).ToList();
             foreach (var floating in shot.Floating) surfaces.Add(GlazeChecks.Of(floating.name, eyes, floating));
-            // Surfaces keep a degree from each other, by their boxes as seen from the eyes.
-            failures.AddRange(GlazeChecks.Apart(surfaces).Select(failure => shot.Name + ": " + failure));
+            // Surfaces keep a degree from each other, by their boxes as seen from the eyes; the parts of one
+            // composition on one upright plane are checked on that plane instead (PlaneChecks).
+            if (!shot.Name.StartsWith("r", StringComparison.Ordinal)) failures.AddRange(GlazeChecks.Apart(surfaces).Select(failure => shot.Name + ": " + failure));
             // And from every label and body, by their outlines: a surface tipped to face the eyes from
             // below them is a trapezoid there, narrow where the labels are and wide only at its low corners.
             foreach (var board in shot.Boards)
@@ -299,6 +307,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(shot.Name + ": " + extent + " reaches past a Quest 3S's field.");
                 }
             }
+            failures.AddRange(PlaneChecks(shot));
             Debug.Log("Halcyonic: directions render " + shot.Name + ": the whole scene, characters included, at most " + DrawCalls(shot.Root.gameObject)
                 + " draw calls before batching (budget 220).");
             return failures;
