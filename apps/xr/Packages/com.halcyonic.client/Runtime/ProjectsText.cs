@@ -11,21 +11,21 @@ namespace Halcyonic.Client
     /// </summary>
     public static class ProjectsText
     {
-        public const string Subject = "Projects";
-
-        /// <summary>The subject on a first visit, which New project and the folder rows answer.</summary>
-        public const string FirstVisit = "What would you like to work on?";
+        /// <summary>Projects' subject, the place's purpose, which New project and the rows answer.</summary>
+        public const string Subject = "What would you like to work on?";
 
         /// <summary>The same question where the longer one wraps, as at the larger text size.</summary>
-        public const string FirstVisitShort = "What do you want to work on?";
+        public const string SubjectShort = "What do you want to work on?";
 
         public const string FoldersHeading = "Folders on " + HostText.Your;
         public const string NewProject = "New project";
         public const string ShowOnStage = "Show on the stage";
         public const string HideFromStage = "Hide from the stage";
         public const string Close = "Close";
-        public const string PreviousPage = "Previous page";
         public const string NextPage = "Next page";
+
+        /// <summary>Next page on a list's last page, which starts it again.</summary>
+        public const string FirstPage = "First page";
 
         // The names of a side panel's facts.
         public const string ItsWork = "Its work";

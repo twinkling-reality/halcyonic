@@ -63,7 +63,7 @@ public class ProjectsScreensTests
     public void ProjectsListsKnownProjectsThenFreeFoldersAndOffersNewProject()
     {
         var frame = ProjectsScreens.Projects(State(Listing(Root("Projects", Folder("shop"), Folder("used", true, "2026-10-02T11:00:00.000Z", ProjectA)))));
-        Assert.That(frame.Subject, Is.EqualTo(ProjectsText.Subject));
+        Assert.That(frame.Subject, Is.EqualTo("What would you like to work on?"), "the place's purpose; the lit place already says Projects");
         Assert.That(frame.Lines.Select(line => (line.Words, line.Fact, line.Action)), Is.EqualTo(new (string, string?, string?)[]
         {
             ("Alpha", "1 task waiting", ProjectsScreens.ChooseProject),
@@ -81,10 +81,9 @@ public class ProjectsScreensTests
     }
 
     [Test]
-    public void TheFirstVisitAsksWhatThePersonWouldLikeToWorkOn()
+    public void WithNoProjectsYetTheFoldersAndNewProjectAnswerTheQuestion()
     {
         var state = State(overview: WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false));
-        state.FirstVisit = true;
         var frame = ProjectsScreens.Projects(state);
         Assert.That(frame.Subject, Is.EqualTo("What would you like to work on?"));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
@@ -210,31 +209,37 @@ public class ProjectsScreensTests
     }
 
     [Test]
-    public void ALongListPagesWithItsPagerOutOfTheAccentAndAHeadingNeverEndsAPage()
+    public void ALongListPagesWithNextPageAloneOutOfTheAccentAndAHeadingNeverEndsAPage()
     {
         var folders = Enumerable.Range(0, 9).Select(index => Folder("folder-" + index, false, "2026-09-" + (10 + index) + "T00:00:00.000Z")).ToArray();
         var state = State(Listing(Root("Projects", folders)));
         var first = ProjectsScreens.Projects(state);
         Assert.That(first.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(ProjectsScreens.Rows));
         Assert.That(first.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading));
-        Assert.That(first.Footer[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.PreviousPage));
-        Assert.That(first.Footer[PromptSlot.Rare]!.Available, Is.False, "at the first page it keeps its place");
-        Assert.That(first.Footer[PromptSlot.Secondary]!.Kind, Is.EqualTo(PromptKind.NextPage), "New project holds the far right");
+        Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Secondary, PromptSlot.FarRight }),
+            "three prompts fit the column: Close, Next page, New project");
+        Assert.That((first.Footer[PromptSlot.Secondary]!.Kind, first.Footer[PromptSlot.Secondary]!.Words), Is.EqualTo((PromptKind.NextPage, ProjectsText.NextPage)));
         Assert.That(first.Footer.All.Count(each => each.Prompt.DrawnAsMain), Is.EqualTo(1));
 
         var seen = new List<string>();
-        for (var page = 0; page < 5; page++)
+        var page = 0;
+        for (; ; page++)
         {
             state.Page = page;
-            seen.AddRange(ProjectsScreens.Projects(state).Lines.Select(line => line.Words));
+            var frame = ProjectsScreens.Projects(state);
+            seen.AddRange(frame.Lines.Select(line => line.Words));
+            if (frame.Footer[PromptSlot.Secondary]!.Words == ProjectsText.FirstPage) break;
         }
-        Assert.That(seen.Distinct().Count(), Is.EqualTo(2 + 1 + 9), "every row on some page, once");
+        Assert.That(seen, Is.Unique, "each row on one page");
+        Assert.That(seen.Count, Is.EqualTo(2 + 1 + 9), "every row on some page");
+        state.Page = page + 1;
+        Assert.That(ProjectsScreens.Projects(state).Lines.Select(line => line.Words), Is.EqualTo(first.Lines.Select(line => line.Words)), "First page starts again");
 
         state.Page = 0;
         state.ChosenFolder = FolderConnect.Offers(state.Listing!).Last().Key;
         var chosen = ProjectsScreens.Projects(state);
         Assert.That(chosen.Lines.Any(line => line.Chosen), Is.True, "a chosen row shows on its own page");
-        Assert.That(chosen.Footer[PromptSlot.Rare], Is.Null, "paging waits while a row is chosen");
+        Assert.That(chosen.Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage), Is.False, "paging waits while a row is chosen");
     }
 
     [Test]
