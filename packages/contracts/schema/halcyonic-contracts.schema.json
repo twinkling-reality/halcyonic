@@ -8899,6 +8899,304 @@
         }
       ]
     },
+    "CompanionModel": {
+      "type": "object",
+      "required": [
+        "name",
+        "served"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "served": {
+          "type": "string",
+          "const": "this_mac"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CompanionView": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "clear"
+        },
+        {
+          "type": "string",
+          "const": "unclear"
+        },
+        {
+          "type": "string",
+          "const": "not_buildable"
+        }
+      ]
+    },
+    "CompanionQuestion": {
+      "type": "object",
+      "required": [
+        "text",
+        "choices"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "\\S"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 48,
+            "pattern": "\\S"
+          },
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false
+    },
+    "CompanionProposal": {
+      "type": "object",
+      "required": [
+        "project_name",
+        "first_task"
+      ],
+      "properties": {
+        "project_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "pattern": "\\S"
+        },
+        "first_task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CompanionReply": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "next",
+            "line",
+            "view",
+            "question"
+          ],
+          "properties": {
+            "next": {
+              "type": "string",
+              "const": "ask"
+            },
+            "line": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "\\S"
+            },
+            "view": {
+              "$ref": "#/$defs/CompanionView"
+            },
+            "question": {
+              "$ref": "#/$defs/CompanionQuestion"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "next",
+            "line",
+            "view",
+            "proposal"
+          ],
+          "properties": {
+            "next": {
+              "type": "string",
+              "const": "propose"
+            },
+            "line": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "\\S"
+            },
+            "view": {
+              "$ref": "#/$defs/CompanionView"
+            },
+            "proposal": {
+              "$ref": "#/$defs/CompanionProposal"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "CompanionExchangeTurn": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "from",
+            "text"
+          ],
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "person"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "from",
+            "reply"
+          ],
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "companion"
+            },
+            "reply": {
+              "$ref": "#/$defs/CompanionReply"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "CompanionStart": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "idea"
+        },
+        {
+          "type": "string",
+          "const": "help"
+        }
+      ]
+    },
+    "CompanionWant": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "next"
+        },
+        {
+          "type": "string",
+          "const": "proposal"
+        }
+      ]
+    },
+    "CompanionRepliesRequest": {
+      "type": "object",
+      "required": [
+        "start",
+        "want",
+        "messages"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/CompanionStart"
+        },
+        "want": {
+          "$ref": "#/$defs/CompanionWant"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanionExchangeTurn"
+          },
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "CompanionReplyResponse": {
+      "type": "object",
+      "required": [
+        "reply",
+        "provenance",
+        "companion"
+      ],
+      "properties": {
+        "reply": {
+          "$ref": "#/$defs/CompanionReply"
+        },
+        "provenance": {
+          "type": "string",
+          "const": "reported"
+        },
+        "companion": {
+          "$ref": "#/$defs/CompanionModel"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CompanionStatus": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "companion",
+            "max_questions"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "companion": {
+              "$ref": "#/$defs/CompanionModel"
+            },
+            "max_questions": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "ExecutionStatus": {
       "anyOf": [
         {

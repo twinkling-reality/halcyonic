@@ -6,6 +6,12 @@ import { renderCSharpContracts } from './csharp.ts';
 import {
   buildSchemaDocument,
   COMMAND_VARIANTS,
+  COMPANION_LINE_MAX,
+  COMPANION_MAX_MESSAGES,
+  COMPANION_NAME_MAX,
+  COMPANION_PERSON_MAX,
+  CompanionRepliesRequest,
+  CompanionReplyResponse,
   compileValidator,
   DEVICE_EVENT_TYPES,
   ESTIMATED_COST_NOTE,
@@ -289,6 +295,68 @@ describe('the evaluation contract', () => {
         false,
         reason,
       );
+  });
+});
+
+describe('the companion contract', () => {
+  const validateReply = compileValidator(CompanionReplyResponse);
+  const validateRequest = compileValidator(CompanionRepliesRequest);
+  const ask = {
+    next: 'ask',
+    line: 'A tracker for race times fits a small web page.',
+    view: 'unclear',
+    question: { text: 'Who enters the times?', choices: ['Each runner', 'One organiser'] },
+  };
+  const reply = (value: object) =>
+    validateReply({
+      reply: value,
+      provenance: 'reported',
+      companion: { name: 'a-local-model:tag', served: 'this_mac' },
+    });
+
+  test('a reply is reported, from a model on this Mac, and never observed', () => {
+    assert.ok(reply(ask).ok);
+    const companion = { name: 'a-local-model:tag', served: 'this_mac' };
+    for (const provenance of ['observed', 'inferred'])
+      assert.equal(validateReply({ reply: ask, provenance, companion }).ok, false, provenance);
+    const remote = { ...companion, served: 'remote' };
+    assert.equal(
+      validateReply({ reply: ask, provenance: 'reported', companion: remote }).ok,
+      false,
+    );
+  });
+
+  test('a reply asks one question or proposes, never both', () => {
+    const proposal = { project_name: 'Race Times', first_task: 'Make one page.' };
+    assert.ok(reply({ next: 'propose', line: 'Clear.', view: 'clear', proposal }).ok);
+    assert.equal(reply({ ...ask, proposal }).ok, false);
+    assert.equal(reply({ next: 'propose', line: 'Clear.', view: 'clear' }).ok, false);
+  });
+
+  test('bounds every part of a reply', () => {
+    const choices = ['a', 'b', 'c', 'd', 'e'];
+    assert.equal(reply({ ...ask, question: { text: 'Which?', choices } }).ok, false);
+    assert.equal(reply({ ...ask, line: 'x'.repeat(COMPANION_LINE_MAX + 1) }).ok, false);
+    assert.equal(reply({ ...ask, view: 'feasible' }).ok, false);
+    const name = 'x'.repeat(COMPANION_NAME_MAX + 1);
+    const proposal = { project_name: name, first_task: 'Make one page.' };
+    assert.equal(reply({ next: 'propose', line: 'Clear.', view: 'clear', proposal }).ok, false);
+  });
+
+  test('a request carries the exchange so far, bounded, with nothing else', () => {
+    const person = { from: 'person', text: 'something for my running club' };
+    const companion = { from: 'companion', reply: ask };
+    assert.ok(validateRequest({ start: 'idea', want: 'next', messages: [person] }).ok);
+    assert.ok(validateRequest({ start: 'help', want: 'next', messages: [] }).ok);
+    assert.ok(
+      validateRequest({ start: 'idea', want: 'proposal', messages: [person, companion] }).ok,
+    );
+    const many = Array.from({ length: COMPANION_MAX_MESSAGES + 1 }, () => person);
+    assert.equal(validateRequest({ start: 'idea', want: 'next', messages: many }).ok, false);
+    const long = { from: 'person', text: 'x'.repeat(COMPANION_PERSON_MAX + 1) };
+    assert.equal(validateRequest({ start: 'idea', want: 'next', messages: [long] }).ok, false);
+    const folder = { ...person, folder: '/Users/someone/Projects' };
+    assert.equal(validateRequest({ start: 'idea', want: 'next', messages: [folder] }).ok, false);
   });
 });
 

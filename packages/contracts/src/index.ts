@@ -1,5 +1,6 @@
 export * from './api.ts';
 export * from './commands.ts';
+export * from './companion.ts';
 export * from './devices.ts';
 export * from './evaluation.ts';
 export * from './events.ts';
