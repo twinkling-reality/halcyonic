@@ -128,7 +128,7 @@ namespace Halcyonic.Client
         /// far below the eyes the surface under the characters is, in meters, when they stand on one.
         /// </summary>
         public static PanelDirection Place(float lookYaw, BodyInView opened, IReadOnlyList<BodyInView> bodies, PanelSize size,
-            float? surfaceDrop = null)
+            float? surfaceDrop = null, ViewField? field = null)
         {
             var yaw = lookYaw + Math.Clamp(DeltaAngle(lookYaw, opened.Yaw), -MaxSideDegrees, MaxSideDegrees);
             var halfHeight = size.HalfHeightDegrees;
@@ -159,6 +159,9 @@ namespace Halcyonic.Client
             bool Fits(float elevation) => elevation >= floor - 1e-3f && elevation <= HighestDegrees + 1e-3f;
             var belowFits = Fits(below);
             var aboveFits = Fits(above);
+            // Within the headset's measured field: the side that keeps the panel inside it wins, but
+            // the field never pushes a panel into a label; below the labels is already as high as it goes.
+            if (belowFits && aboveFits && below < Lowest(size, field) - 1e-3f) return new PanelDirection(yaw, above, true, true);
             if (belowFits && aboveFits)
             {
                 var preferAbove = MathF.Abs(above - NaturalDegrees) < MathF.Abs(below - NaturalDegrees);
@@ -167,11 +170,26 @@ namespace Halcyonic.Client
             if (belowFits) return new PanelDirection(yaw, below, true, false);
             if (aboveFits) return new PanelDirection(yaw, above, true, true);
 
-            // Neither clears: the side that needs less moving, moved into the band.
+            // Neither clears: the side that needs less moving, moved into the band, inside the field.
+            floor = Math.Max(floor, Lowest(size, field));
             float Moving(float elevation) => MathF.Abs(elevation - Math.Clamp(elevation, floor, HighestDegrees));
             var up = Moving(above) < Moving(below);
             var chosen = Math.Clamp(up ? above : below, Math.Min(floor, HighestDegrees), HighestDegrees);
             return new PanelDirection(yaw, chosen, false, up);
+        }
+
+        /// <summary>
+        /// The lowest the center of a panel of <paramref name="size"/> may go, in degrees from eye
+        /// level: <see cref="LowestDegrees"/>, raised so that every corner stays
+        /// <see cref="ViewField.EdgeMarginDegrees"/> inside <paramref name="field"/> when the person
+        /// looks toward it with the head level (<see cref="ViewField.LowestCenter"/>), but never above
+        /// <see cref="HighestDegrees"/>. Without a field, <see cref="LowestDegrees"/>.
+        /// </summary>
+        public static float Lowest(PanelSize size, ViewField? field)
+        {
+            if (field is not ViewField known) return LowestDegrees;
+            var inside = known.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees);
+            return Math.Min(HighestDegrees, Math.Max(LowestDegrees, inside));
         }
 
         /// <summary>

@@ -89,6 +89,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A desk 0.46 m below the eyes, the lineup 0.55 m ahead, its bodies about 0.1 m above it.
                 failures.AddRange(RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                // Again with a Quest 3S's narrower field measured: the workspace stays inside it.
+                ViewField.Current = FieldChecks.Quest3S;
+                failures.AddRange(RenderStage("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                failures.AddRange(RenderStage("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
             }
             catch (Exception error)
             {
@@ -96,6 +100,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally
             {
+                ViewField.Current = null;
                 KeepFontAssetsAsCommitted();
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: workspace render: " + failure);
@@ -130,6 +135,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 var waiting = Work.Approval("Run make migrate");
                 view.Show(waiting.Present(), new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou }, Steering());
                 Backdrop(characters[3].View.transform, eyes, pose);
+                if (ViewField.Current is ViewField field)
+                {
+                    // Read with the head level and turned toward it, over a desk as well: it opens above the lineup.
+                    failures.AddRange(FieldChecks.Inside(name + ": the workspace", FieldChecks.Corners(view.Frame), eyes, pose.position, 0f, field));
+                }
 
                 var both = Render(camera, texture);
                 foreach (var (character, _) in characters) character.gameObject.SetActive(false);

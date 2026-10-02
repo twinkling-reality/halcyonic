@@ -67,6 +67,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: false));
                 failures.AddRange(RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f, hostile: false));
                 failures.AddRange(RenderStage("far-untrusted", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: true));
+                // Again with a Quest 3S's narrower field measured: the rail and every panel stay inside it.
+                ViewField.Current = FieldChecks.Quest3S;
+                failures.AddRange(RenderStage("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: false));
+                failures.AddRange(RenderStage("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f, hostile: false));
             }
             catch (Exception error)
             {
@@ -74,6 +78,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             finally
             {
+                ViewField.Current = null;
                 WorkspaceRender.KeepFontAssetsAsCommitted();
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: entry render: " + failure);
@@ -106,6 +111,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 var rail = ProjectRail.ForRender(root.transform, overview, surface);
                 rail.ResetPosition();
                 failures.AddRange(RailFits(name, rail, camera, hostile));
+                // With a measured field, the rail as the person looks at the characters: ahead and level, or down to a desk's lineup.
+                var pitchDown = surfaceDrop.HasValue ? Mathf.Atan2(surfaceDrop.Value, radius) * Mathf.Rad2Deg : 0f;
+                if (ViewField.Current is ViewField field)
+                {
+                    failures.AddRange(FieldChecks.Inside(name + ": the rail", rail.Shown.SelectMany(FieldChecks.Corners), eyes, rail.Root.position, pitchDown, field));
+                }
                 WorkspaceRender.ForceMeshes(root);
                 var railRender = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + "-rail.png"), railRender.EncodeToPNG());
@@ -159,6 +170,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (WorkspaceRender.Covered(camera, target, rect)) failures.Add(what + ": " + view.WorkstreamId + "'s body is behind the panel.");
                     }
                     failures.AddRange(PanelFits(what, frame, characters, eyes));
+                    if (ViewField.Current is ViewField shownField)
+                    {
+                        // A panel is read with the head level and turned toward it, over a desk as well: it opens above the lineup.
+                        failures.AddRange(FieldChecks.Inside(what + ": the panel", FieldChecks.Corners(frame), eyes, frame.transform.position, 0f, shownField));
+                    }
                     if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what, frame));
                     failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));
                     if (suffix == "options-models-pages") failures.AddRange(PagesAndDone(frame, what));

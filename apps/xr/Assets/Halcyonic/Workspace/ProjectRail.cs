@@ -34,8 +34,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>From the eyes to the rail's middle, at touch distance (ADR 0023).</summary>
         public const float Distance = 0.43f;
 
-        /// <summary>The rail's middle, below eye level.</summary>
+        /// <summary>The rail's middle, below eye level, where the headset's field allows (<see cref="Below"/>).</summary>
         public const float BelowDegrees = 44.5f;
+
+        /// <summary>
+        /// The highest the rail's middle rises, in degrees below eye level, when a narrow field lifts
+        /// it: its top then stays at least a degree below the lowest the line above the stage reaches
+        /// (15.6 degrees down beside a window), as GlazeChecks.Apart asks.
+        /// </summary>
+        public const float HighestBelowDegrees = 25f;
 
         /// <summary>How far to either side the rail reaches, its buttons included.</summary>
         public const float HalfWidthDegrees = 24f;
@@ -74,6 +81,7 @@ namespace Halcyonic.XR.Workspace
         private int savedVersion;
         private float nextRefresh;
         private bool placed;
+        private int placedField = -1;
 
         /// <summary>The gap kept between buttons, 12 mm wherever the rail stands, in its own units.</summary>
         private float gap = Glaze.TargetGapMeters / Distance;
@@ -185,7 +193,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
-            if (!placed || surface().HasValue != placedOnSurface) ResetPosition();
+            if (!placed || surface().HasValue != placedOnSurface || placedField != ViewField.Version) ResetPosition();
             // One foreground surface at a time: the entry panel, a workspace, Usage left and Settings open where the rail would show.
             // TryGetComponent, unlike GetComponent, allocates nothing for a component that is not there, each frame.
             if (glance == null) TryGetComponent(out glance);
@@ -227,8 +235,22 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// Puts the rail in front of where the person faces now, <see cref="BelowDegrees"/> below eye
-        /// level at <see cref="Distance"/>; over a desk, nearer and never into it.
+        /// How far below eye level the rail's middle goes: <see cref="BelowDegrees"/>, or higher when
+        /// the headset's measured field (<see cref="ViewField.Current"/>) would cut its lower row, so
+        /// every corner stays inside it with the head level, but never above
+        /// <see cref="HighestBelowDegrees"/>.
+        /// </summary>
+        public static float Below(ViewField? field)
+        {
+            // Its rows reach from its middle a button's height and half the gap between them, in the
+            // rail's own units, which are radians at its distance.
+            var halfHeight = Mathf.Atan(GlazeButton.HeightOf(false) + Glaze.TargetGapMeters / Distance / 2f) * Mathf.Rad2Deg;
+            return ViewField.BelowWithin(BelowDegrees, HalfWidthDegrees, halfHeight, field, HighestBelowDegrees);
+        }
+
+        /// <summary>
+        /// Puts the rail in front of where the person faces now, <see cref="Below"/> eye level at
+        /// <see cref="Distance"/>; over a desk, nearer and never into it.
         /// </summary>
         public void ResetPosition()
         {
@@ -239,7 +261,8 @@ namespace Halcyonic.XR.Workspace
             forward.Normalize();
             var desk = surface();
             placedOnSurface = desk.HasValue;
-            var below = BelowDegrees * Mathf.Deg2Rad;
+            placedField = ViewField.Version;
+            var below = Below(ViewField.Current) * Mathf.Deg2Rad;
             var position = desk.HasValue
                 ? head.position + forward * DeskAhead + Vector3.down * DeskBelow
                 : head.position + forward * (Distance * Mathf.Cos(below)) + Vector3.down * (Distance * Mathf.Sin(below));

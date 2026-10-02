@@ -253,7 +253,17 @@ the same definition names, as the JSON Schema document:
   the characters stand on. It keeps 1.5 degrees from bodies, which move, and 1.2 from labels, which
   do not, measured at the panel's corners: a flat panel's corners are farther than its edges'
   middles, so below eye level they look higher (`CornerElevation`). Where neither side clears, it
-  moves the least into the band and may cover a character.
+  moves the least into the band and may cover a character. Once the headset's field of view is
+  measured (`ViewField.Current`), the side that keeps every corner 1.5 degrees inside it with the
+  head level wins when both sides clear, and where neither clears it moves into the band no lower
+  than that (`Lowest`, which a dragged panel's limit can use too); the field never pushes a panel
+  into a label, since below the labels is already as high as it can go.
+- **`ViewField`** is a headset's field of view about where the person looks, read from each eye's
+  projection by `DeviceMeasures` and kept as `ViewField.Current` (null in the editor and the tests,
+  so the layout keeps its own angles there). Meta gives a Quest 3 as 110 by 96 degrees and a Quest
+  3S as 96 by 90, without the split, which only the device tells. `LowestCenter` says how low a
+  plate that faces the eyes may stand with every corner inside the field less a 1.5 degree margin
+  (a design decision), and `BelowWithin` keeps the rail inside it.
 - **`SeatedPointing`** makes a hand ray for a seated person: through the index knuckle from a pivot
   0.40 m below the eyes, 0.10 m behind them and 0.13 m to the hand's side, so a hand resting a
   little above a desk points ahead; on only while the hand is tracked with high confidence, in
@@ -986,7 +996,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   a draft waits) at the left; Usage left, when its glance offers it, and Settings, compact, at the
   right, since they open sheets rather than act on work, each action with its icon before its words
   (the pills have none). Every button is 60 dp tall (48 compact) and 12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
-  to either side, its rows 40 to 49 degrees down; over a desk, 0.3 m ahead and never into the desk,
+  to either side, its rows 40 to 49 degrees down; with a measured field of view too short for that, higher, its corners 1.5 degrees inside the field with the head level but never above 25 degrees down (`ProjectRail.Below`; about 39 degrees on a Quest 3S split evenly); over a desk, 0.3 m ahead and never into the desk,
   about 53 degrees down, under the lineup's labels. It is placed in front of the person when the app
   starts and when the stage moves onto or off a surface, and again by Reset position, and it steps
   out of the way while the entry panel, a workspace, the Usage left panel or Settings is open. Which

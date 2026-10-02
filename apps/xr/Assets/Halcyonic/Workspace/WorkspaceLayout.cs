@@ -33,7 +33,7 @@ namespace Halcyonic.XR.Workspace
             }
             var size = FrameSize;
             var direction = WorkspacePlacement.Place(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, InView(opened, eyes), scratch, size,
-                surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null);
+                surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null, ViewField.Current);
             var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
             return (new Pose(eyes + forward * size.Distance, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }
@@ -60,7 +60,7 @@ namespace Halcyonic.XR.Workspace
             }
             // Without characters, a point just above where its upper edge would be at rest: it opens below it.
             var opened = nearest ?? new BodyInView(lookYaw, WorkspacePlacement.NaturalDegrees + size.HalfHeightDegrees + WorkspacePlacement.ClearanceDegrees, 0f);
-            var direction = WorkspacePlacement.Place(lookYaw, opened, scratch, size, surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null);
+            var direction = WorkspacePlacement.Place(lookYaw, opened, scratch, size, surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null, ViewField.Current);
             var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
             return (new Pose(eyes + forward * size.Distance, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }

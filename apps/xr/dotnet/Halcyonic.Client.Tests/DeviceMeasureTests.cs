@@ -120,4 +120,96 @@ public class DeviceMeasureTests
         Assert.That(narrow.Shows(30, -42), Is.False);
         Assert.That(narrow.Shows(-120, 0), Is.False);
     }
+
+    [Test]
+    public void WithoutAMeasuredFieldTheLayoutKeepsItsOwnAngles()
+    {
+        var panel = new PanelSize(0.46f, 0.186f, 0.106f);
+        Assert.That(WorkspacePlacement.Lowest(panel, null), Is.EqualTo(WorkspacePlacement.LowestDegrees));
+        Assert.That(ViewField.BelowWithin(44.5f, 24f, 4.5f, null, 25f), Is.EqualTo(44.5f));
+    }
+
+    /// <summary>The corners of a plate facing the eyes, its center at an elevation, as yaw and elevation from a level head.</summary>
+    private static (double Yaw, double Up)[] CornersOf(double elevation, double halfWidth, double halfHeight)
+    {
+        double e = elevation * Math.PI / 180, across = Math.Tan(halfWidth * Math.PI / 180), tall = Math.Tan(halfHeight * Math.PI / 180);
+        return new[] { -1.0, 1.0 }.SelectMany(x => new[] { -1.0, 1.0 }.Select(y =>
+        {
+            double px = x * across, py = Math.Sin(e) + y * tall * Math.Cos(e), pz = Math.Cos(e) - y * tall * Math.Sin(e);
+            return (Math.Atan2(px, pz) * 180 / Math.PI, Math.Atan2(py, Math.Sqrt(px * px + pz * pz)) * 180 / Math.PI);
+        })).ToArray();
+    }
+
+    [Test]
+    public void APlatesLowestCenterPutsItsLowerCornersOnTheMargin()
+    {
+        var quest3S = new ViewField(48, 48, 45, 45);
+        var margin = ViewField.EdgeMarginDegrees;
+        var inside = new ViewField(48 - margin, 48 - margin, 45 - margin, 45 - margin);
+        var lowest = quest3S.LowestCenter(22f, 13f);
+        Assert.That(CornersOf(lowest + 0.01, 22, 13).All(corner => inside.Shows(corner.Yaw, corner.Up)), Is.True, "inside at its lowest");
+        Assert.That(CornersOf(lowest - 0.1, 22, 13).All(corner => inside.Shows(corner.Yaw, corner.Up)), Is.False, "outside any lower");
+        // Looked at with the head turned toward it, its lower corners lie on the field's edge with its lower edge's middle.
+        Assert.That(lowest - 13, Is.EqualTo(-(45 - margin)).Within(1e-3));
+        Assert.That(new ViewField(10, 10, 10, 10).LowestCenter(22f, 13f), Is.Zero, "too narrow to hold it at all");
+    }
+
+    [Test]
+    public void ANarrowFieldLiftsThePanelsLowestCenter()
+    {
+        var panel = new PanelSize(0.46f, 0.186f, 0.106f);  // about 44 by 26 degrees
+        var quest3S = new ViewField(48, 48, 45, 45);
+        var lowest = WorkspacePlacement.Lowest(panel, quest3S);
+        Assert.That(lowest, Is.EqualTo(quest3S.LowestCenter(panel.HalfWidthDegrees, panel.HalfHeightDegrees)).Within(1e-4));
+        Assert.That(lowest, Is.GreaterThan(WorkspacePlacement.LowestDegrees));
+        Assert.That(WorkspacePlacement.Lowest(panel, new ViewField(55, 55, 55, 70)), Is.EqualTo(WorkspacePlacement.LowestDegrees), "a deep field never lowers it");
+        Assert.That(WorkspacePlacement.Lowest(panel, new ViewField(30, 30, 20, 20)), Is.LessThanOrEqualTo(WorkspacePlacement.HighestDegrees));
+    }
+
+    [Test]
+    public void TheFieldPrefersTheSideInsideItButNeverPushesAPanelIntoALabel()
+    {
+        var panel = new PanelSize(0.46f, 0.186f, 0.106f);
+        var narrow = new ViewField(48, 48, 45, 40);
+        // A character just under where a seated person looks: room below its label and above its body.
+        var level = new BodyInView(0f, -14f, 1f, lowest: -15f);
+        var wide = WorkspacePlacement.Place(0f, level, new[] { level }, panel);
+        Assert.That(wide.Above, Is.False, "below, nearer where a seated person looks");
+        var inField = WorkspacePlacement.Place(0f, level, new[] { level }, panel, field: narrow);
+        Assert.That(inField.Above, Is.True, "below would leave the field, so above");
+        // Far characters a little below the eyes: only below fits, and stays under the label even
+        // though the field would want it higher.
+        var far = new BodyInView(0f, -4f, 2f, lowest: -15f);
+        var under = WorkspacePlacement.Place(0f, far, new[] { far }, panel, field: narrow);
+        Assert.That(under.Clear, Is.True);
+        Assert.That(under.Elevation + panel.HalfHeightDegrees, Is.LessThanOrEqualTo(-15f - WorkspacePlacement.LabelClearanceDegrees + 1e-3f));
+    }
+
+    [Test]
+    public void ANarrowFieldLiftsTheRailButNeverIntoWhatStandsAboveIt()
+    {
+        var even3S = new ViewField(48, 48, 45, 45);
+        var lifted = ViewField.BelowWithin(44.5f, 24f, 4.5f, even3S, 25f);
+        Assert.That(lifted, Is.EqualTo(-even3S.LowestCenter(24f, 4.5f)).Within(1e-4));
+        Assert.That(lifted, Is.LessThan(44.5f).And.GreaterThan(25f));
+        Assert.That(ViewField.BelowWithin(44.5f, 24f, 4.5f, new ViewField(55, 55, 50, 70), 25f), Is.EqualTo(44.5f), "a deep field keeps the rail where it is");
+        Assert.That(ViewField.BelowWithin(44.5f, 24f, 4.5f, new ViewField(40, 40, 30, 20), 25f), Is.EqualTo(25f), "never above its highest");
+    }
+
+    [Test]
+    public void SettingTheFieldCountsAVersion()
+    {
+        var before = ViewField.Version;
+        var kept = ViewField.Current;
+        try
+        {
+            ViewField.Current = new ViewField(48, 48, 45, 45);
+            Assert.That(ViewField.Version, Is.EqualTo(before + 1));
+            Assert.That(ViewField.Current?.Down, Is.EqualTo(45));
+        }
+        finally
+        {
+            ViewField.Current = kept;
+        }
+    }
 }
