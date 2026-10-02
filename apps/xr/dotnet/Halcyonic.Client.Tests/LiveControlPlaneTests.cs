@@ -40,7 +40,7 @@ public class LiveControlPlaneTests
         Directory.Delete(dataDir, recursive: true);
     }
 
-    private async Task<ControlPlaneProcess> StartControlPlaneAsync(int port)
+    private async Task<ControlPlaneProcess> StartControlPlaneAsync(int port = 0)
     {
         var process = await ControlPlaneProcess.StartAsync(dataDir, port);
         processes.Add(process);
@@ -102,7 +102,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task TellsARefusedAccessTokenFromAnUnreachableMac()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
         // The fifth headset session: a token pushed earlier no longer matched the Mac's, and the app
         // said "Unable to connect to the remote server" although the control plane answered 401.
         session = ControlPlaneTarget.Local(controlPlane.RealtimeEndpoint, "an-access-token-from-an-earlier-session").CreateSession(Samples.Client);
@@ -134,7 +134,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task DrivesAnApprovalToCompletionAndResumesAfterADroppedConnection()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
         Connect(controlPlane);
         await Until(s => s.Status.IsLive, "the session is live");
         var mock = session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock");
@@ -215,7 +215,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task SteersFromTheWorkspaceToRuntimeConfirmedResults()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
         Connect(controlPlane);
         await Until(s => s.Status.IsLive, "the session is live");
         var (workstreamId, executionId) = await StartWorkAsync("approval_required");
@@ -257,7 +257,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task AnswersAQuestionTheAgentAsked()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
         Connect(controlPlane);
         await Until(s => s.Status.IsLive, "the session is live");
         var mock = session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock");
@@ -296,7 +296,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task TheHeadsetAnswersTheAgentsQuestionOnlyThroughSendAnswer()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
         Connect(controlPlane);
         await Until(s => s.Status.IsLive, "the session is live");
         var (workstreamId, executionId) = await StartWorkAsync("question_asked");
@@ -345,8 +345,7 @@ public class LiveControlPlaneTests
         try
         {
             Directory.CreateDirectory(Path.Combine(root, "storefront"));
-            var controlPlane = await ControlPlaneProcess.StartAsync(
-                dataDir, ControlPlaneProcess.FreePort(), projectRoot: root);
+            var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, projectRoot: root);
             processes.Add(controlPlane);
             Connect(controlPlane);
             await Until(s => s.Status.IsLive, "the session is live");
@@ -400,7 +399,7 @@ public class LiveControlPlaneTests
         try
         {
             Directory.CreateDirectory(Path.Combine(root, "recipes"));
-            var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, ControlPlaneProcess.FreePort(), projectRoot: root);
+            var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, projectRoot: root);
             processes.Add(controlPlane);
             Connect(controlPlane);
             await Until(s => s.Status.IsLive, "the session is live");
@@ -472,7 +471,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task StartsWorkOnAModelTheRuntimeLists()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
         Connect(controlPlane);
         await Until(s => s.Status.IsLive, "the session is live");
         var mock = session!.State.Runtimes.Single(runtime => runtime.RuntimeId == "mock");
@@ -525,8 +524,9 @@ public class LiveControlPlaneTests
     [Test]
     public async Task ShowsWorkInFlightAsUnknownAfterTheControlPlaneRestarts()
     {
-        var port = ControlPlaneProcess.FreePort();
-        var controlPlane = await StartControlPlaneAsync(port);
+        var controlPlane = await StartControlPlaneAsync();
+        // Started again below on the port this one chose, where the session looks for it.
+        var port = controlPlane.Port;
         Connect(controlPlane);
         await Until(s => s.Status.IsLive, "the session is live");
         var (workstreamId, executionId) = await StartWorkAsync("successful_feature");
@@ -560,7 +560,7 @@ public class LiveControlPlaneTests
     [Test]
     public async Task StopsByItselfWhenItsStandardInputCloses()
     {
-        var controlPlane = await StartControlPlaneAsync(ControlPlaneProcess.FreePort());
+        var controlPlane = await StartControlPlaneAsync();
 
         controlPlane.CloseStandardInput();
 

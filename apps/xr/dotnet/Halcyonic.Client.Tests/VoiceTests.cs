@@ -171,7 +171,7 @@ public class LiveTranscriptionTests
     [Test]
     public async Task WithoutVoiceSetUpTheMacSaysSo()
     {
-        using var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, ControlPlaneProcess.FreePort());
+        using var controlPlane = await ControlPlaneProcess.StartAsync(dataDir);
         using var api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
         var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.TranscribeAsync(Second))!;
         Assert.That(refused.Code, Is.EqualTo("transcription_unavailable"));
@@ -199,7 +199,7 @@ public class LiveTranscriptionTests
             ["HALCYONIC_WHISPER_MODEL"] = model,
             ["HALCYONIC_WHISPER_VAD_MODEL"] = model,
         };
-        using var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, ControlPlaneProcess.FreePort(), environment: environment);
+        using var controlPlane = await ControlPlaneProcess.StartAsync(dataDir, environment: environment);
         using var api = new ControlPlaneApi(ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint), controlPlane.AccessToken);
         TranscriptionResponse? answer = null;
         // The control plane warms the engine once at startup and holds the Mac while it does, which
