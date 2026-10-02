@@ -25,6 +25,13 @@ export const REPLIES_PER_MINUTE = 12;
 /** How long one read of whether the companion can be asked answers every status asked. */
 export const STATUS_MS = 2_000;
 
+/**
+ * The fewest bytes of UTF-8 a token holds, as the exchange is measured against the model's context:
+ * English runs about four bytes a token and most other scripts about three, so two leaves room, and
+ * an exchange that fits is never cut at its start, the instructions, by the engine.
+ */
+export const BYTES_PER_TOKEN = 2;
+
 /** The bounds of one reply (ADR 0025); tests shorten the times. */
 export interface CompanionBounds {
   /** Until the first line of the reply: waiting behind other requests, loading, reading the prompt. */
@@ -44,7 +51,7 @@ export const COMPANION_BOUNDS: CompanionBounds = {
   firstTokenMs: 30_000,
   totalMs: 45_000,
   listMs: 1_000,
-  contextTokens: 8_192,
+  contextTokens: 16_384,
   outputTokens: 512,
   temperature: 0.3,
   maxCharacters: 4_096,
@@ -127,8 +134,10 @@ export class Companion {
    */
   status(): Promise<CompanionStatus> {
     const now = this.#clock.now().getTime();
-    if (this.#status !== null && now - this.#statusAt < STATUS_MS)
+    // A clock moved back makes the cached answer old, never new for longer.
+    if (this.#status !== null && now >= this.#statusAt && now - this.#statusAt < STATUS_MS) {
       return Promise.resolve(this.#status);
+    }
     if (this.#statusRead !== null) return this.#statusRead;
     const read = this.#readStatus().then((status) => {
       this.#status = status;
@@ -175,6 +184,18 @@ export class Companion {
     const request = parsed.value;
     const shape = exchangeProblem(request.start, request.want, request.messages);
     if (shape !== null) return refused(400, { code: 'invalid_exchange', message: shape });
+    const onlyPropose = proposalOnly(request.want, request.messages, COMPANION_MAX_QUESTIONS);
+    const messages = chatMessages(request.start, request.messages, onlyPropose);
+    const bytes = messages.reduce(
+      (sum, message) => sum + Buffer.byteLength(message.content, 'utf8'),
+      0,
+    );
+    if (bytes > (this.#bounds.contextTokens - this.#bounds.outputTokens) * BYTES_PER_TOKEN) {
+      return refused(400, {
+        code: 'invalid_exchange',
+        message: 'The exchange is longer than the model can read at once.',
+      });
+    }
     const key = principal?.kind === 'device' ? `device:${principal.device_id}` : 'local';
     if (this.#inFlight.has(key)) {
       return refused(429, {
@@ -200,8 +221,6 @@ export class Companion {
       const check = await checkModel(config.ollama, config.model, this.#bounds.listMs);
       const problem = problemOf(check);
       if (problem !== null) return refused(503, problem);
-      const onlyPropose = proposalOnly(request.want, request.messages, COMPANION_MAX_QUESTIONS);
-      const messages = chatMessages(request.start, request.messages, onlyPropose);
       const deadline = performance.now() + this.#bounds.totalMs;
       let log: CompanionLog = NO_LOG;
       for (let attempt = 1; attempt <= 2; attempt++) {

@@ -116,6 +116,21 @@ describe('whether it can be asked', () => {
     await companion.status();
     assert.equal(ollama.tagReads - reads, 2);
   });
+
+  test('a clock moved back never keeps an answer longer', async (t) => {
+    const ollama = await startFakeOllama();
+    t.after(() => ollama.stop());
+    let now = Date.parse('2026-10-02T10:00:00.000Z');
+    const companion = new Companion({
+      config: { model: 'local-model:tag', ollama: ollama.url },
+      clock: { now: () => new Date(now) },
+    });
+    await companion.status();
+    const reads = ollama.tagReads;
+    now -= 3_600_000;
+    await companion.status();
+    assert.equal(ollama.tagReads - reads, 1);
+  });
 });
 
 describe('a reply', () => {
@@ -326,6 +341,24 @@ describe('what a request may carry', () => {
     );
   });
 
+  test("refuses an exchange longer than the model's context could hold, before asking it", async (t) => {
+    const { ollama, companion } = await setUp(t);
+    // 2,000 characters of three-byte script ten times stays inside the characters but not the context.
+    const wide = '世'.repeat(2_000);
+    const messages: CompanionExchangeTurn[] = [];
+    for (let index = 0; index < 10; index++) {
+      messages.push({ from: 'person', text: wide });
+      if (index < 9) messages.push({ from: 'companion', reply: ASK });
+    }
+    const answer = await ask(companion, {
+      start: 'idea',
+      want: 'next',
+      messages: messages.slice(0, 12),
+    });
+    assert.equal(refusedCode(answer), 'invalid_exchange');
+    assert.equal(ollama.requests.length, 0);
+  });
+
   test('refuses anything outside the contract or out of order, before asking any model', async (t) => {
     const { ollama, companion } = await setUp(t);
     const bodies: [object, string][] = [
@@ -430,21 +463,50 @@ describe("reading the model's text", () => {
   test('refuses a reply carrying characters that hide or reorder what the person reads', () => {
     const plain = modelReply(ASK);
     assert.deepEqual(readReply(JSON.stringify(plain)), ASK);
-    for (const line of ['a\u202eb', 'a\u200bb', 'a\u0007b', 'a\ufeffb']) {
+    for (const line of ['a‮b', 'a​b', 'a\u0007b', 'a﻿b', 'a⁦b', 'a؜b', 'a b', 'a󠁁b', 'a\ud800b'])
       assert.equal(readReply(JSON.stringify({ ...plain, say: line })), null, JSON.stringify(line));
-    }
+    // An escape reads as what it means.
     assert.equal(
       readReply(
         '{"say":"a\\u202eb","assessment":"clear","next":"ask","question":{"text":"q","choices":[]},"proposal":null}',
       ),
       null,
     );
+    for (const line of [
+      'a family 👨‍👩‍👧 page',
+      'می‌خواهم',
+      'tab\there',
+      'café, “quoted”',
+      'literal \\u0000 text',
+    ])
+      assert.notEqual(
+        readReply(JSON.stringify({ ...plain, say: line })),
+        null,
+        JSON.stringify(line),
+      );
     assert.deepEqual(
       readReply(JSON.stringify({ ...plain, say: `${ASK.line}\n` })),
       ASK,
       'a newline is trimmed, not refused',
     );
-    assert.equal(readReply(JSON.stringify({ ...plain, assessment: '__proto__' })) === null, false);
+  });
+
+  test('writes back the entities the model saw in its fenced input', () => {
+    const plain = modelReply(PROPOSE);
+    const reply = readReply(
+      JSON.stringify({
+        ...plain,
+        proposal: {
+          name: 'A &lt;canvas&gt; page',
+          first_task: 'Draw on a &lt;canvas&gt; &amp; save it.',
+        },
+      }),
+    );
+    assert.equal(
+      reply?.next === 'propose' && reply.proposal.first_task,
+      'Draw on a <canvas> & save it.',
+    );
+    assert.equal(reply?.next === 'propose' && reply.proposal.project_name, 'A <canvas> page');
   });
 
   test('reads nothing from text that is not one reply, nor a next step it does not know', () => {

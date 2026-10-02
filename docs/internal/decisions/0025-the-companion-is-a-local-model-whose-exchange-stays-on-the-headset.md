@@ -215,3 +215,8 @@ competition demonstration.
 2. **Words.** The table above is approved, except that every phrase saying "your Mac" follows the
    owner's decision on the brand finding of the competition build's review; the host's wording is
    agreed with the host setup and competition build lanes before it reaches `EntryText`.
+3. **After the security review** (2026-10-02): the model's context is 16,384 tokens rather than
+   8,192, and an exchange is refused before the model is asked when its UTF-8 size, at two bytes a
+   token, could pass it, since an engine that truncates drops the start, the instructions. Every
+   angle bracket the client sends is written as an entity, the rule is repeated after the exchange,
+   and the review notes a first task that names a web address or something to run, by fixed rules.

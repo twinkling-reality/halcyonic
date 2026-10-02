@@ -171,6 +171,15 @@ const VIEWS: Readonly<Record<string, string>> = {
  * part. The caller checks the result against the contract.
  */
 export function readReply(text: string): CompanionReply | null {
+  try {
+    return parseReply(text);
+  } catch (error) {
+    if (error instanceof HiddenCharacter) return null;
+    throw error;
+  }
+}
+
+function parseReply(text: string): CompanionReply | null {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
@@ -182,7 +191,6 @@ export function readReply(text: string): CompanionReply | null {
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const parsed = value as Record<string, unknown>;
-  if (hidden(text.slice(start, end + 1))) return null;
   const line = trimmed(parsed.say);
   const view =
     typeof parsed.assessment === 'string' && Object.hasOwn(VIEWS, parsed.assessment)
@@ -215,23 +223,34 @@ export function readReply(text: string): CompanionReply | null {
 }
 
 /**
- * Characters a reply never needs and that could hide or reorder what the person reads: controls,
- * zero-width and bidirectional marks, as JSON escapes or as written. The headset shows them as code
- * points anyway; a reply carrying one is refused here as well.
+ * Whether text holds a character that could hide or reorder what the person reads, or end it early:
+ * controls (but tab and line breaks), bidirectional controls and marks, zero-width space, line and
+ * paragraph separators, the byte order mark, tag characters, and half a surrogate pair. Joiners and
+ * variation selectors, which emoji and some scripts need, pass; the headset shows every one of these
+ * as its code point anyway. Checked on the parsed values, so an escape reads as what it means.
  */
-const HIDDEN_ESCAPE = /\\u(?:00[01][0-9a-f]|007f|00[89][0-9a-f]|200[b-f]|202[a-e]|206[0-9]|feff)/i;
-
-function hidden(text: string): boolean {
-  if (HIDDEN_ESCAPE.test(text)) return true;
+export function hidden(text: string): boolean {
   for (let index = 0; index < text.length; index++) {
     const code = text.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = text.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      const point = (code - 0xd800) * 0x400 + (next - 0xdc00) + 0x10000;
+      if (point >= 0xe0000 && point <= 0xe007f) return true;
+      index++;
+      continue;
+    }
+    if (code >= 0xdc00 && code <= 0xdfff) return true;
     if (code === 0x09 || code === 0x0a || code === 0x0d) continue;
     if (
       code < 0x20 ||
       (code >= 0x7f && code <= 0x9f) ||
-      (code >= 0x200b && code <= 0x200f) ||
-      (code >= 0x202a && code <= 0x202e) ||
-      (code >= 0x2060 && code <= 0x2069) ||
+      code === 0x061c ||
+      code === 0x200b ||
+      code === 0x200e ||
+      code === 0x200f ||
+      (code >= 0x2028 && code <= 0x202e) ||
+      (code >= 0x2066 && code <= 0x2069) ||
       code === 0xfeff
     ) {
       return true;
@@ -240,6 +259,21 @@ function hidden(text: string): boolean {
   return false;
 }
 
-function trimmed(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim() : value;
+/** The three entities `fenced` writes, back to the characters they stand for, in what the model wrote. */
+function unfenced(text: string): string {
+  return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 }
+
+/**
+ * A string field as the person will read it: trimmed, with the entities the model saw in its fenced
+ * input written back, so "&lt;canvas&gt;" reads as "<canvas>". A field holding a hidden character
+ * makes the whole reply unreadable.
+ */
+function trimmed(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const text = unfenced(value).trim();
+  if (hidden(text)) throw new HiddenCharacter();
+  return text;
+}
+
+class HiddenCharacter extends Error {}
