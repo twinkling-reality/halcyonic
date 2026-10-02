@@ -46,15 +46,15 @@ centre, which keeps every word at its size.
 - **Tasks is the orchestration view:** every running and recent task across all projects, what waits
   first, grouped by project. A row is a state icon, the task's title, a small fact (its project, a
   time, what it needs) and a chevron. Choosing a row slides that task's file out beside the menu.
-  Tasks only reads and navigates; actions stay in files. Rows that do not fit page by footer prompts.
+  Tasks only reads and navigates; actions stay in files. Rows that do not fit page by Next page.
 - **A task's file replaces the workspace panel:** its subject, the task's title under its state pill
   (the split header, below); a row of 4
   sections, Waiting, Activity, Changes and Checks, an amber dot on the one that waits; a page of the
   chosen section alone, in a few short lines; and a footer of prompts. No sub-sections. A line with
   more opens a side panel that slides out to the right on the same plane (the changed files with their
   icons, the agent's reasons, the checks), holding no action but its own Close. The file opens on
-  Waiting when something waits, else on Activity, out of its character, with a light line from the
-  character's body to the file's top corners.
+  Waiting when something waits, else on Activity, out of its character, with a light line from under
+  the character's label to the file's subject.
 - **The split header:** a file's subject carries its character's state pill, the same badge as the
   character's label on the stage, on its top edge at its left, its word at the content's 18 dp, so
   the file reads as that label opened up and its state shows at a readable size. Every column's
@@ -69,7 +69,7 @@ centre, which keeps every word at its size.
   beside it, and one rare action, such as Stop, beside Close. Pointed at, a prompt shows the selection
   treatment's frame; pressed, its cap sinks and Touch plays. Confirmations keep ADR 0023's rule: Yes
   appears in a slot no control held on that page or since, Cancel takes the first press's place, and
-  the whole request shows before Yes, its parts paged by footer prompts. Move and Reset position have
+  the whole request shows before Yes, its parts paged by a row on the page. Move and Reset position have
   no slot: Reset position lives in Settings' Your room, and holding a file's subject drags the whole
   plane round the eyes at touch distance, still facing them (lane U's hold-to-drag, `PanelDrag`), if
   that keeps the plane rule; otherwise holding does nothing.
@@ -111,8 +111,9 @@ today and, once built, in lane U's renders of every surface:
    degrees past the content line, and its words stay on it. Every shape has one corner radius, 0.9
    degrees.
 6. **Glass.** The panel colour at 96 percent opacity; a light from the top edge fading out by a third
-   of the height; a sheen along the top edge; a hairline edge. No blur and no corner ticks. In the
-   product the `Surface` shader draws it in one call.
+   of the height, and on a page of content within its top padding, so no row stands in it; a sheen
+   along the top edge; a hairline edge. No blur and no corner ticks. In the product the `Surface`
+   shader draws it in one call.
 7. **File-type icons** from Material Symbols Rounded (Apache-2.0,
    [material-symbols.md](../validation/material-symbols.md)), generic only: code, database,
    data_object, description, image, terminal, deployed_code, folder, and chevron_right for what opens
@@ -149,21 +150,41 @@ coordinator's first-visit words:
   what works, then what ended, newest first. Older ended tasks fall to later pages.
 - **A footer's places and a prompt's emphasis are separate.** Only the main action is drawn as one,
   its cap filled with the accent and its words heavier, and only at the far right. Any other prompt
-  there is drawn plain. A list that pages puts Previous page beside Close, and Next page at the far
-  right where nothing else is the main action, as on the menu or a side panel, else beside the main
-  action; paging is never the main action.
+  there is drawn plain.
+- **A list pages by Next page alone**, at the far right where nothing else is the main action, as on
+  the menu or a side panel, else beside the main action; on the last page it reads First page and
+  starts again. Paging is never the main action, and there is no Previous page: beside Close and a
+  main action, two paging prompts do not fit.
+- **A confirmation pages by a row.** A request in parts shows one part a page, with a row at the end,
+  "Next part, 2 of 3", which only takes you on, and Yes appears once the last part has shown. Its
+  footer is Close, Yes in the middle, and Cancel where the pressed prompt stood.
 - **Each action is one footer prompt in its place.** On an approval: Approve as the main action, Deny
   beside it. Under a question's answer rows: Send answer as the main action. On a working task's
   Activity: Stop beside Close, and Tell it as the main action, opening a page whose rows are
   instructions (the recorded ones, in the demonstration).
 - **Rows only take you somewhere and carry no side action.** Choosing a row lights it and may set the
   footer's main action or the prompt beside it, as a project's Add a task and Hide from the stage, or
-  a recap fact's Use my words. Choosing an answer lights it, and Send answer sends it; nothing is sent
+  a recap fact's Change. Choosing an answer lights it, and Send answer sends it; nothing is sent
   by the press that chooses. A project row opens its own side panel, and nothing toggles from a row. A
   side panel holds nothing but its own Close details.
 - **Hold to talk is the prompt beside the main action** wherever the person can speak: a file's
   Waiting page, and New project's Your idea and Questions, where Go on without it is the last answer
-  row. It is never a cap on a row.
+  row. It is never a cap on a row. Wherever the person gives words, the same holds: a fixed
+  question's answers, the first task's change page, and a page of words for a name (a project's, a
+  new folder's), whose footer is Close, Hold to talk and Done. A row holding their own words opens
+  the keyboard; heard words land in it, chosen, with today's line under it, "This is what your
+  computer heard. Check it before you go on."
+- **The companion's words are one quote of at most 2 rows**, its line and its question; the line
+  drops first and the question is never cut. When it thinks the idea cannot be built as software,
+  that view goes first, in our words and the secondary colour, and the quote is the question alone.
+  Under that view a quote of 3 rows takes the page 0.2 degrees past a Quest 3S's field at today's
+  text size, a render kept to fail.
+- **Fixed questions page forward only**, as lists do (Answer a few questions, and Add a task): the
+  question with "Question 2 of 4" as its small fact, its answers as rows, the row for their own
+  answer, and Go on without it last where a question can be skipped. Next question, the main
+  action, records the chosen answer; on the last question it is Make the recap. There is no
+  Previous question: the recap lists every answer, and its Change opens that question again with
+  its answer chosen and Done as the main action.
 - **An unavailable prompt keeps its place**, drawn quiet, its cap outlined even for the main action
   and its words in the secondary colour; its reason is the page's last line of content, above the
   source line.
@@ -185,10 +206,22 @@ coordinator's first-visit words:
   edges of a wide composition, where the plane's slant would shrink it under, as a side panel's
   counts at the far right or a chip at the far left of a file beside its side panel, it takes the
   content's 18 dp. The layout decides it from the place on the plane, before the text is laid.
-- **A footer about 38 degrees wide holds three prompts** at 18 dp with words as long as Hold to talk
-  or Make the recap; four such need about 42 degrees. A page's fourth action goes where it fits, as
-  New project's Start over, which is not on Questions; how many fit at both text sizes is measured
-  with the footer model.
+- **A footer holds what its words fit, not a count.** Lane U's footer measure takes each prompt as
+  its 1.45 degree cap, a grid step, its 18 dp words (a main action's 5 percent wider) and 1.2
+  degrees of margin, 12 mm apart, against its column's content width. Frames grow whole with larger
+  text, so a footer that fits at one size fits at both, and a render whose footer does not fit
+  fails. In a 38 degree file, with 36.4 of room, Close, Stop, Deny and Approve take 30.3, while
+  Close, Start over, Hold to talk and Make the recap take 38.3: Start over stands on the recap
+  alone, beside Close while no row is chosen, where a chosen fact's Change takes its place. In the
+  menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt's words shorten.
+- **The light line is one leg** from under the character's label to the file's subject: straight
+  down from the middle of their overlap where the label stands over the subject, as the eyes see
+  them, else from the label's nearer bottom corner to the subject's nearer top corner. Leaving from
+  under the label, below any mark, it crosses no words, and it crosses no other label or character;
+  the render checks it against every label and character as the eyes see them.
+- **A page of content keeps its glow above its first row.** The light from its top edge ends within
+  its top padding, so a row that is not chosen never looks lit; a subject keeps the glow's full
+  reach. The render checks that nothing to press stands in a page's glow.
 
 ## Alternatives considered
 
