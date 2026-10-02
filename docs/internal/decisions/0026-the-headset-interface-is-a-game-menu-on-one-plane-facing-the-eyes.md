@@ -163,7 +163,7 @@ coordinator's first-visit words:
   Activity: Stop beside Close, and Tell it as the main action, opening a page whose rows are
   instructions (the recorded ones, in the demonstration).
 - **Rows only take you somewhere and carry no side action.** Choosing a row lights it and may set the
-  footer's main action or the prompt beside it, as a project's Add a task and Hide from the stage, or
+  footer's main action or the prompt beside it, as a project's Add a task and Hide from stage, or
   a recap fact's Change. Choosing an answer lights it, and Send answer sends it; nothing is sent
   by the press that chooses. A project row opens its own side panel, and nothing toggles from a row. A
   side panel holds nothing but its own Close details.
@@ -181,8 +181,10 @@ coordinator's first-visit words:
   text size, a render kept to fail.
 - **Fixed questions page forward only**, as lists do (Answer a few questions, and Add a task): the
   question with "Question 2 of 4" as its small fact, its answers as rows, the row for their own
-  answer, and Go on without it last where a question can be skipped. Next question, the main
-  action, records the chosen answer; on the last question it is Make the recap. There is no
+  answer, and last, where a question can be skipped, a skip that says what skipping leaves, as Name
+  it later under the name question. Next question, the main action, records the chosen answer, and
+  until one is chosen it waits with its reason, "Choose or type an answer first."; on the last
+  question it is Make the recap. There is no
   Previous question. The recap's first task is composed from the answers, and its Change walks the
   questions again from the first, each answer already chosen, so Next question keeps it and Make
   the recap composes the task again. A first task rewritten by hand is never composed over; its
@@ -215,7 +217,9 @@ coordinator's first-visit words:
   fails. In a 38 degree file, with 36.4 of room, Close, Stop, Deny and Approve take 30.3, while
   Close, Start over, Hold to talk and Make the recap take 38.3: Start over stands on the recap
   alone, beside Close while no row is chosen, where a chosen fact's Change takes its place. In the
-  menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt's words shorten.
+  menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
+  from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
+  tasks.
 - **The light line is one leg** from under the character's label to the file's subject: straight
   down from the middle of their overlap where the label stands over the subject, as the eyes see
   them, else from the label's nearer bottom corner to the subject's nearer top corner. Leaving from
