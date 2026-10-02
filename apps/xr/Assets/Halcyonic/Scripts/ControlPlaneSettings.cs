@@ -10,8 +10,8 @@ namespace Halcyonic.XR
     /// <summary>
     /// Where the control plane is and how to authenticate. In the editor and the XR Simulator the
     /// control plane runs on the same machine. On a headset, `adb reverse tcp:47800 tcp:47800`
-    /// makes the same loopback address reach it over USB, and the token is pushed to the app's
-    /// persistent data directory (docs/internal/runbooks/XR_DEVELOPMENT.md). A headset paired with a
+    /// makes the same loopback address reach it over USB, and the token is written into the app's
+    /// private storage with `run-as` (docs/internal/runbooks/XR_DEVELOPMENT.md). A headset paired with a
     /// control plane over the network (ADR 0017) reaches that one instead, over pinned TLS. Without
     /// either no control plane is configured, and the stage shows the recorded demonstration instead.
     /// </summary>
@@ -22,6 +22,7 @@ namespace Halcyonic.XR
         private const string PairingFileName = "halcyonic-pairing.json";
 
         private static IPairingStore? pairingStore;
+        private static bool tokenMigrated;
         private static ControlPlaneApi? api;
         private static ControlPlaneTarget? apiTarget;
 
@@ -74,16 +75,11 @@ namespace Halcyonic.XR
             }
         }
 
-        /// <summary>The first access token found, or null when none is provisioned.</summary>
+        /// <summary>The first access token found, or null when none is provisioned. Call it on the main thread.</summary>
         public static string? ReadAccessToken()
         {
-            foreach (var path in TokenPaths())
-            {
-                if (!File.Exists(path)) continue;
-                var token = File.ReadAllText(path).Trim();
-                if (token.Length > 0) return token;
-            }
-            return null;
+            MigrateAccessToken();
+            return AccessTokenFile.Read(TokenPaths());
         }
 
         /// <summary>Where the token is looked for, in order.</summary>
@@ -91,7 +87,7 @@ namespace Halcyonic.XR
         {
             var configured = Environment.GetEnvironmentVariable("HALCYONIC_TOKEN_FILE");
             if (!string.IsNullOrEmpty(configured)) yield return configured;
-            yield return Path.Combine(Application.persistentDataPath, TokenFileName);
+            yield return PrivatePath(TokenFileName);
 #if UNITY_EDITOR || UNITY_STANDALONE
             var dataDir = Environment.GetEnvironmentVariable("HALCYONIC_DATA_DIR")
                 ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".halcyonic");
@@ -99,18 +95,58 @@ namespace Halcyonic.XR
 #endif
         }
 
-        private static string PairingPath()
+        private static string PairingPath() => PrivatePath(PairingFileName);
+
+        /// <summary>
+        /// A file in the app's private storage: on Android Context.getFilesDir(), internal storage,
+        /// which no other app can read and adb reaches only through run-as on a debuggable build, unlike
+        /// persistentDataPath on shared storage; elsewhere the persistent data directory.
+        /// </summary>
+        private static string PrivatePath(string name)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            // Context.getFilesDir(): internal storage, which no other app can read and adb reaches only
-            // through run-as on a debuggable build, unlike persistentDataPath on shared storage.
             using var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
             using var activity = player.GetStatic<AndroidJavaObject>("currentActivity");
             using var files = activity.Call<AndroidJavaObject>("getFilesDir");
-            return Path.Combine(files.Call<string>("getAbsolutePath"), PairingFileName);
+            return Path.Combine(files.Call<string>("getAbsolutePath"), name);
 #else
-            return Path.Combine(Application.persistentDataPath, PairingFileName);
+            return Path.Combine(Application.persistentDataPath, name);
 #endif
         }
+
+        /// <summary>
+        /// Moves a token an earlier build read from shared storage into private storage, once a run,
+        /// and removes the old copy. Only Android kept it on shared storage. The token never reaches
+        /// the log.
+        /// </summary>
+        private static void MigrateAccessToken()
+        {
+            if (tokenMigrated) return;
+            tokenMigrated = true;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            var legacy = Path.Combine(Application.persistentDataPath, TokenFileName);
+            try
+            {
+                var outcome = AccessTokenFile.Migrate(legacy, PrivatePath(TokenFileName), OwnerOnly);
+                if (outcome == AccessTokenMigration.Moved) Debug.Log("Halcyonic: moved the access token from shared storage into app-private storage.");
+                else if (outcome == AccessTokenMigration.RemovedStaleCopy) Debug.Log("Halcyonic: removed the access token from shared storage; the one in app-private storage is used.");
+                else if (outcome == AccessTokenMigration.RemovedEmptyCopy) Debug.Log("Halcyonic: removed an empty access token file from shared storage.");
+                else if (outcome == AccessTokenMigration.NotMoved) Debug.LogWarning("Halcyonic: the access token in shared storage could not be moved into private storage, so it is not used.");
+            }
+            catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
+            {
+                Debug.LogWarning("Halcyonic: the access token in shared storage could not be moved: " + error.GetType().Name);
+            }
+#endif
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        /// <summary>Mode 600: only this app's own user may read or write the file.</summary>
+        private static void OwnerOnly(string path)
+        {
+            using var os = new AndroidJavaClass("android.system.Os");
+            os.CallStatic("chmod", path, 0x180);
+        }
+#endif
     }
 }

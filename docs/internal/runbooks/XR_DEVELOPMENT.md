@@ -525,20 +525,25 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 The first launch creates the app's data directory, logs that it has neither a pairing nor an access
 token, and shows the recorded demonstration, labeled as such, which is what a headset without a
 control plane shows.
-Copy the token there and start the app again:
+Write the token into the app's private storage and start the app again:
 
 ```bash
-adb push ~/.halcyonic/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token
+adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token' < ~/.halcyonic/access-token
 adb shell am force-stop com.halcyonic.xr
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
-The token survives reinstalls. The control plane logs `realtime client connected` for
-`halcyonic-xr`.
+The token goes from the Mac's own file straight into `files/access-token` in the app's private
+storage, mode 600, with no copy anywhere in between; no other app can read it there, and `run-as`
+reaches it only on a development build, which is debuggable. It survives `adb install -r`. Builds
+before this kept the token on shared storage, in `/sdcard/Android/data/com.halcyonic.xr/files`;
+the app moves a token it finds there into private storage at its next start and removes it from
+shared storage (`Halcyonic: moved the access token ...` in the log), and never reads shared storage
+for it again. The control plane logs `realtime client connected` for `halcyonic-xr`.
 
 If the line above the stage says "Your computer refused this headset's access token", the token on the
 headset is from an earlier data directory or was replaced on the Mac: the control plane answered
-401, and the app stopped trying. Push the current token and start the app again, as above. "Can't
+401, and the app stopped trying. Write the current token again and start the app again, as above. "Can't
 reach your computer" instead means nothing answered: check the control plane is running and
 `adb reverse tcp:47800 tcp:47800` is in place.
 
@@ -885,11 +890,11 @@ on a development build that has a token, move the token aside and start the app 
 that is paired, stop the Mac's control plane first; move the token back afterwards:
 
 ```bash
-adb shell mv /sdcard/Android/data/com.halcyonic.xr/files/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token.off
+adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
 adb shell am force-stop com.halcyonic.xr
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 # afterwards
-adb shell mv /sdcard/Android/data/com.halcyonic.xr/files/access-token.off /sdcard/Android/data/com.halcyonic.xr/files/access-token
+adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
 ```
 
 Then, with hands only (intended behaviour, from the recording and the renders; not yet walked on a

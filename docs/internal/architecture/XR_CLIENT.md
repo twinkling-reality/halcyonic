@@ -1677,10 +1677,13 @@ release build, such as the one judges run, offers no pairing
   within six seconds ("Yes, forget this computer") asks the Mac to revoke this headset, deletes the
   pairing, and connects again as before pairing. If the Mac cannot be reached, the line says to
   revoke the headset there.
-- **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` in app-internal
-  storage on Android (`Context.getFilesDir()`, which no other app can read and which `adb` reaches
-  only through `run-as` on a debuggable build), and in the persistent data directory elsewhere. A
-  pairing takes the place of a pushed access token; forgetting it returns to the token.
+- **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` and the access
+  token in `access-token`, both in app-internal storage on Android (`Context.getFilesDir()`, which no
+  other app can read and which `adb` reaches only through `run-as` on a debuggable build), and in the
+  persistent data directory elsewhere. A token an earlier build kept on shared storage is moved in
+  once, the new file made mode 600 before the token is written, and the shared copy removed
+  (`AccessTokenFile` in the client core); shared storage is never read for it again. A pairing takes
+  the place of the access token; forgetting it returns to the token.
 - **Logs.** `Halcyonic: pairing with the control plane at <address>`, `paired; connecting over the
   network`, `pairing refused: <code>` and whether forgetting revoked the headset on the Mac, never
   the code or the credential. The connection logs the paired address it connects to.
