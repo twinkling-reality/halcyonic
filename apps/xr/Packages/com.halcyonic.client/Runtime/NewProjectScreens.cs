@@ -205,7 +205,10 @@ namespace Halcyonic.Client
         /// can't. Choosing a row lights it and sets the main action: Make the recap from the idea, Talk
         /// it through, or Answer the questions. Hold to talk says the idea; Close keeps the draft.
         /// </summary>
-        /// <param name="chosen">The row the person chose; the typed idea is chosen while nothing else is.</param>
+        /// <param name="chosen">
+        /// The row the person chose. While nothing is, the typed idea is chosen, or before there is one
+        /// the way to figure it out, so the main action can always be taken.
+        /// </param>
         /// <param name="voice">Hold to talk is offered: development builds, connected, never in the demonstration.</param>
         /// <param name="said">A line for this page only, such as hold to talk's words, or that the idea is what the computer heard.</param>
         /// <param name="companion">
@@ -216,13 +219,18 @@ namespace Halcyonic.Client
         {
             var existing = idea.ExistingProjectId != null;
             var typed = idea.OwnWords;
-            if (chosen == IdeaRow.None && typed != null) chosen = IdeaRow.Typed;
             var talk = !existing && companion is AvailableCompanion;
+            // A row not on the page, or the typed idea before there is one, is never what the main action acts on.
+            if ((chosen == IdeaRow.Typed && typed == null) || (chosen == IdeaRow.Companion && !talk) || (chosen == IdeaRow.FixedQuestions && talk))
+            {
+                chosen = IdeaRow.None;
+            }
+            if (chosen == IdeaRow.None) chosen = typed != null ? IdeaRow.Typed : talk ? IdeaRow.Companion : IdeaRow.FixedQuestions;
             var lines = new List<PageLine>
             {
                 new PageLine(existing ? EntryText.WorkPrompt : EntryText.IdeaPrompt),
                 new PageLine(typed == null ? EntryText.TypeIdea : LabelText.Plain(typed), wordsAreData: typed != null, icon: GlazeIcon.Type,
-                    action: TypeIdea, choice: true, chosen: chosen == IdeaRow.Typed && typed != null, rows: typed == null ? 1 : 2),
+                    action: TypeIdea, choice: true, chosen: chosen == IdeaRow.Typed, rows: typed == null ? 1 : 2),
                 talk
                     ? new PageLine(CompanionText.TalkItThrough, action: ChooseCompanion, choice: true, chosen: chosen == IdeaRow.Companion)
                     : new PageLine(EntryText.AnswerQuestions, action: ChooseQuestions, choice: true, chosen: chosen == IdeaRow.FixedQuestions),
@@ -235,9 +243,9 @@ namespace Halcyonic.Client
             lines.Add(new PageLine(EntryText.NothingStartsYet, tone: LineTone.Secondary));
             var main = chosen switch
             {
-                IdeaRow.Companion when talk => new Prompt(BeginCompanion, CompanionText.TalkItThroughShort, GlazeIcon.Next, main: true),
-                IdeaRow.FixedQuestions when !talk => new Prompt(BeginQuestions, EntryText.StartQuestions, GlazeIcon.Next, main: true),
-                _ => new Prompt(UseIdea, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: typed != null),
+                IdeaRow.Companion => new Prompt(BeginCompanion, CompanionText.TalkItThroughShort, GlazeIcon.Next, main: true),
+                IdeaRow.FixedQuestions => new Prompt(BeginQuestions, EntryText.StartQuestions, GlazeIcon.Next, main: true),
+                _ => new Prompt(UseIdea, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true),
             };
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
             var (subject, isData) = Subject(idea);
@@ -252,7 +260,8 @@ namespace Halcyonic.Client
         /// suggestion or the person's words, Make the recap from my words for Go on without it, and Make
         /// the recap with nothing chosen. While a reply is on its way, only that it is waiting, and, once
         /// the wait is long, that the computer's model may be busy; after a failure, why, and Try again.
-        /// Hold to talk is the secondary prompt wherever the person may speak; Close keeps the draft.
+        /// Hold to talk is the secondary prompt wherever the person may answer, quiet with its reason
+        /// while a reply is on its way or the exchange is full; Close keeps the draft.
         /// </summary>
         /// <param name="startReached">Start building's step can be chosen: nothing stops it.</param>
         /// <param name="voice">Hold to talk is offered: development builds, connected, never in the demonstration.</param>
@@ -270,16 +279,21 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             var withoutIt = exchange.Chosen == CompanionAnswerRow.WithoutIt;
             Prompt main;
+            // Hold to talk stands where the person answers the companion: quiet, saying why, while they can't now.
+            var answering = true;
+            string? quiet = null;
             if (exchange.Waiting)
             {
                 // Make the recap's reason, the page's last line, says it is waiting, and once the wait is long, why it may be.
                 var waiting = waitedSeconds >= CompanionText.WaitingLongSeconds ? CompanionText.Waiting + " " + CompanionText.WaitingLong : CompanionText.Waiting;
                 main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: false, reason: waiting);
+                quiet = waiting;
             }
             else if (exchange.Failure != null)
             {
                 lines.Add(new PageLine(CompanionText.Failure(exchange.Failure) ?? CompanionText.CouldNotAsk, tone: LineTone.Problem, rows: 3));
                 main = new Prompt(TryAgain, EntryText.TryAgain, GlazeIcon.Refresh, main: true);
+                answering = false;
             }
             else if (exchange.Latest is AskReply ask)
             {
@@ -304,17 +318,26 @@ namespace Halcyonic.Client
                         icon: GlazeIcon.Type, action: TypeAnswer, choice: true, chosen: exchange.Chosen == CompanionAnswerRow.Written,
                         available: exchange.CanSay, rows: written == null ? 1 : 2));
                 }
-                main = exchange.Answer != null
-                    ? new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true)
-                    : new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true,
-                        available: recorded ? recording!.RecapHere(exchange) : exchange.CanAskForRecap,
-                        reason: recorded || exchange.PersonSpoke ? null : CompanionText.AnswerFirst);
+                var send = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true);
+                if (exchange.Answer != null) main = send;
+                else if (recorded && !recording!.RecapHere(exchange))
+                {
+                    // The recording answers this question before its recap: its answer is the one to choose.
+                    main = new Prompt(SendAnswer, send.Words, send.Icon, main: true, available: false, reason: CompanionText.ChooseOne);
+                }
+                else
+                {
+                    main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: recorded || exchange.CanAskForRecap,
+                        reason: exchange.PersonSpoke ? CompanionText.Full : CompanionText.AnswerFirst);
+                }
+                if (!exchange.CanSay) quiet = CompanionText.Full;
             }
             else
             {
                 // The companion has proposed: its recap is made, and Make the recap only opens it.
                 if (exchange.Latest is CompanionReply reply) lines.Add(new PageLine(CompanionText.Says(reply.Line), wordsAreData: true, claim: true, rows: 3));
                 main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true);
+                answering = false;
             }
             // Go on without it, the last answer, until the companion has proposed; the recording plays to its proposal.
             if (!recorded && exchange.Proposal == null)
@@ -324,13 +347,11 @@ namespace Halcyonic.Client
             if (withoutIt && exchange.Proposal == null) main = new Prompt(MakeRecapFromMyWords, CompanionText.MakeTheRecapFromMyWords, GlazeIcon.Next, main: true);
             if (exchange.WrittenHeard && exchange.Chosen == CompanionAnswerRow.Written) lines.Add(new PageLine(VoiceText.HeardAnswer, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
-            if (!recorded && !exchange.Waiting && exchange.Failure == null && exchange.Latest is AskReply && !exchange.CanSay)
-            {
-                lines.Add(new PageLine(CompanionText.Full, tone: LineTone.Secondary, rows: 2));
-            }
-            var talk = voice && !recorded
-                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: exchange.CanSay, holds: true)
+            var talk = voice && !recorded && answering
+                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: quiet == null, reason: quiet, holds: true)
                 : null;
+            // A full exchange says so: as Hold to talk's reason where it stands, else on a line of its own.
+            if (talk == null && !recorded && quiet == CompanionText.Full) lines.Add(new PageLine(CompanionText.Full, tone: LineTone.Secondary, rows: 2));
             var footer = new Footer(Close(), secondary: talk, farRight: main);
             var (subject, isData) = Subject(idea);
             return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines,

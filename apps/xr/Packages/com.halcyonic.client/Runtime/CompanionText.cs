@@ -54,6 +54,9 @@ namespace Halcyonic.Client
         /// <summary>The same, where a footer measures too narrow for it beside Close and Hold to talk.</summary>
         public const string RecapFromMyWords = "Recap from my words";
 
+        /// <summary>Why Send answer can't be pressed in the demonstration until its recorded answer is chosen: a question's own words on a file.</summary>
+        public const string ChooseOne = "Choose one.";
+
         /// <summary>Why Make the recap can't be pressed yet: the person has said nothing for the companion to work from.</summary>
         public const string AnswerFirst = "Answer a question first, or go on without it.";
 

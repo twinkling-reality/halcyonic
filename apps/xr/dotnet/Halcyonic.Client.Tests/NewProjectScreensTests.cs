@@ -72,8 +72,12 @@ public class NewProjectScreensTests
         Assert.That(frame.Lines[0].Words, Is.EqualTo(EntryText.IdeaPrompt));
         Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { EntryText.TypeIdea, CompanionText.TalkItThrough }));
         Assert.That(frame.Footer[PromptSlot.Secondary]!.Holds, Is.True);
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.UseIdea));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False, "nothing to make a recap from yet");
+        Assert.That(Answers(frame).Single(line => line.Chosen).Action, Is.EqualTo(NewProjectScreens.ChooseCompanion),
+            "before there is an idea, the way to figure it out is chosen, so the main action can be taken");
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.BeginCompanion));
+        Assert.That(frame.Footer.All.All(each => each.Prompt.Available), Is.True);
+        Assert.That(NewProjectScreens.YourIdea(idea, IdeaRow.Typed, startReached: false, voice: true, said: null, companion: available)
+            .Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.BeginCompanion), "no recap from an idea not typed yet");
         Assert.That(frame.Source, Is.Null, "nothing here came from outside");
 
         frame = NewProjectScreens.YourIdea(idea, IdeaRow.Companion, startReached: false, voice: false, said: null, companion: available);
@@ -105,7 +109,7 @@ public class NewProjectScreensTests
             companion: available);
         Assert.That(task.Lines[0].Words, Is.EqualTo(EntryText.WorkPrompt));
         Assert.That(Answers(task).Any(line => line.Action == NewProjectScreens.ChooseCompanion), Is.False, "the companion shapes new projects only");
-        Assert.That(task.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.UseIdea), "a row not on the page is never acted on");
+        Assert.That(task.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.BeginQuestions), "a row not on the page is never acted on");
     }
 
     [Test]
@@ -197,6 +201,7 @@ public class NewProjectScreensTests
         exchange.Failed(exchange.Generation, "companion_too_slow");
         frame = Questions(idea);
         HoldsThreePrompts(frame);
+        Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "nothing to answer after a failure: Try again, or go on without it");
         Assert.That(frame.Lines[0].Words, Is.EqualTo(CompanionText.TooSlow));
         Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Problem));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.TryAgain));
@@ -230,6 +235,7 @@ public class NewProjectScreensTests
         Assert.That(Answers(frame).Where(line => line.Pressable).Select(line => line.Words), Is.EqualTo(new[] { "One organiser" }));
         Assert.That(Answers(frame).Any(line => line.Action == NewProjectScreens.TypeAnswer || line.Action == NewProjectScreens.GoOnWithout), Is.False);
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False, "the recording asks for the recap later");
+        Assert.That(frame.Reason, Is.EqualTo(CompanionText.ChooseOne));
         Assert.That(exchange.Choose(Answers(frame).ToList().FindIndex(line => line.Pressable)), Is.True);
         Assert.That(Questions(idea, recording: recording).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.SendAnswer));
         recording.Press(exchange, exchange.Answer!);
@@ -247,9 +253,12 @@ public class NewProjectScreensTests
             exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
         }
         var frame = Questions(idea);
-        Assert.That(frame.Lines.Any(line => line.Words == CompanionText.Full), Is.True);
+        Assert.That(frame.Footer[PromptSlot.Secondary]!.Available, Is.False);
+        Assert.That(frame.Reason, Is.EqualTo(CompanionText.Full), "hold to talk says why it can't be held");
+        Assert.That(frame.Lines.Any(line => line.Words == CompanionText.Full), Is.False, "said once");
         Assert.That(Answers(frame).Where(line => line.Action != NewProjectScreens.GoOnWithout).All(line => !line.Available), Is.True);
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.True, "the recap adds no words");
+        Assert.That(Questions(idea, voice: false).Lines.Any(line => line.Words == CompanionText.Full), Is.True, "without hold to talk, a line says it");
     }
 
     [Test]
@@ -258,7 +267,7 @@ public class NewProjectScreensTests
         foreach (var words in new[]
                  {
                      CompanionText.TalkItThroughShort, CompanionText.AnswerFirst, CompanionText.MakeTheRecapFromMyWords, CompanionText.RecapFromMyWords,
-                     EntryText.AnswerQuestions, EntryText.StartQuestions, EntryText.TypeMyOwn, CompanionText.SuggestedShort, CompanionText.YourOwnWords,
+                     EntryText.AnswerQuestions, EntryText.StartQuestions, EntryText.TypeMyOwn, CompanionText.ChooseOne, CompanionText.SuggestedShort, CompanionText.YourOwnWords,
                  })
         {
             Assert.That(words, Does.Not.Contain("—").And.Not.Contain("!"), words);
