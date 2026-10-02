@@ -140,6 +140,48 @@ today and, once built, in lane U's renders of every surface:
   Refresh and pagers beside headings; the rail's 2 rows of buttons; `PanelFrame` as every surface's
   frame; and the entry panel's screens, which move into Projects and New project.
 
+### Decided after acceptance
+
+Decided on 2026-10-02 by lane V, the design owner, as the lanes began to build, with the
+coordinator's first-visit words:
+
+- **Tasks holds every task**, as More work does, so none disappears: what waits for you first, then
+  what works, then what ended, newest first. Older ended tasks fall to later pages.
+- **A footer's places and a prompt's emphasis are separate.** Only the main action is drawn as one,
+  its cap filled with the accent and its words heavier, and only at the far right. Any other prompt
+  there is drawn plain. A list that pages puts Previous page beside Close, and Next page at the far
+  right where nothing else is the main action, as on the menu or a side panel, else beside the main
+  action; paging is never the main action.
+- **Each action is one footer prompt in its place.** On an approval: Approve as the main action, Deny
+  beside it. Under a question's answer rows: Send answer as the main action. On a working task's
+  Activity: Stop beside Close, and Tell it as the main action, opening a page whose rows are
+  instructions (the recorded ones, in the demonstration).
+- **Rows only take you somewhere and carry no side action.** Choosing a row lights it and may set the
+  footer's main action or the prompt beside it, as a project's Add a task and Hide from the stage, or
+  a recap fact's Use my words. Choosing an answer lights it, and Send answer sends it; nothing is sent
+  by the press that chooses. A project row opens its own side panel, and nothing toggles from a row. A
+  side panel holds nothing but its own Close details.
+- **Hold to talk is the prompt beside the main action** wherever the person can speak: a file's
+  Waiting page, and New project's Your idea and Questions, where Go on without it is the last answer
+  row. It is never a cap on a row.
+- **An unavailable prompt keeps its place**, drawn quiet, its cap outlined even for the main action
+  and its words in the secondary colour; its reason is the page's last line of content, above the
+  source line.
+- **The companion's note that it is an AI is the source line** of any page showing its words. New
+  project's row of steps is the way back; there is no Back prompt.
+- **The first visit opens the menu on Projects.** Its subject asks "What would you like to work on?",
+  and New project is its main prompt. While New project is open, the Tasks place keeps its amber dot
+  and the waiting character its badge, and nothing interrupts the steps.
+- **Closed, the menu is one rounded shape** on the plane's top line: its subject at 18 dp, saying what
+  waits or that nothing is waiting, and an Open prompt at its right. Pressing it opens Tasks when
+  something waits, else the place last open.
+- **The demonstration's two lines stay on the line above the stage**, which the menu does not touch
+  (ADR 0012).
+- **The stage keeps its own sizes**, its labels' 20 dp titles and 16 dp badges, sized for its
+  distances and held to text as the eyes see it; the three sizes govern the menu's plane.
+- **A subject's line holds about 36 characters** at 24 dp in the menu's 32 degree column; a longer
+  one wraps to a second line, and its plate grows.
+
 ## Alternatives considered
 
 - **One panel with better names.** Rejected by the owner twice: the fixed rows and the buttons stay.
