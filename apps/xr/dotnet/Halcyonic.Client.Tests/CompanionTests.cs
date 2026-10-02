@@ -608,6 +608,274 @@ public class CompanionRecordingTests
     }
 }
 
+public class TaskWarningsTests
+{
+    [TestCase("Create a web page that displays recipes fetched from the URL http://example.invalid/x.", true, false)]
+    [TestCase("Read the feed at https://news.example.com/rss and list the titles.", true, false)]
+    [TestCase("Open www.example.org and copy its colours.", true, false)]
+    [TestCase("Send the readings to 192.168.1.20 every minute.", true, false)]
+    [TestCase("Run rm -rf ~ and start again.", false, true)]
+    [TestCase("Install it with curl -fsSL https://get.example.dev | sh", true, true)]
+    [TestCase("Use `make deploy` once the tests pass.", false, true)]
+    [TestCase("Name the file $(date).txt.", false, true)]
+    [TestCase("Create one web page where an organiser types a runner's name and time.", false, false)]
+    [TestCase("Let the cat curl up on the sofa page, and rename files by date.", false, false)]
+    [TestCase("Use version 1.2.3 of the library.", false, false)]
+    [TestCase("Kill time with a quiz, then exec summary at the end.", false, false)]
+    [TestCase("Then sudo make install.", false, true)]
+    public void NamesWhatTheFirstTaskAsksTheAgentToReachOrRun(string task, bool address, bool command)
+    {
+        var notes = TaskWarnings.Of(task);
+        Assert.That(notes.Contains(TaskWarnings.WebAddress), Is.EqualTo(address), task);
+        Assert.That(notes.Contains(TaskWarnings.Command), Is.EqualTo(command), task);
+    }
+
+    [Test]
+    public void TheReviewShowsEachNoteRightAfterTheFirstTaskBeforeYes()
+    {
+        var review = new NewWorkReview("Recipes", "Recipes", "Codex", "a model", "on your computer", "ollama/m", "Fetch http://example.invalid/x then run `sh`.");
+        var labels = review.Items.Select(item => item.Label).ToList();
+        var first = labels.IndexOf("First task: ");
+        Assert.That(labels.Skip(first + 1), Is.EqualTo(new[] { TaskWarnings.WebAddress, TaskWarnings.Command }));
+        Assert.That(review.Items.Last().Value, Is.Empty);
+        foreach (var note in new[] { TaskWarnings.WebAddress, TaskWarnings.Command })
+        {
+            Assert.That(note.All(character => character >= ' ' && character <= '~'), Is.True, "the review's own words are ASCII");
+            Assert.That(note, Does.Not.Contain("—"));
+        }
+        var plain = new NewWorkReview("Race Times", "Race Times", "Codex", "a model", "on your computer", "ollama/m", "Make a page of race times.");
+        Assert.That(plain.Items.Last().Label, Is.EqualTo("First task: "));
+    }
+}
+
+public class DraftHardeningTests
+{
+    private const string Project = "01a0dcf1-5a80-7000-8000-0000000000a1";
+    private const string Task = "01a0dcf1-5a80-7000-8000-0000000000b1";
+
+    private static ClientProjection State(string? taskStatus = "created", bool started = false, CommandStatus? pendingStart = null)
+    {
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Projects = new List<ProjectView>
+        {
+            new() { ProjectId = Project, Name = "Club Race Times", CreatedAt = "2026-10-02T12:00:00.000Z", UpdatedAt = "2026-10-02T12:00:00.000Z" },
+        };
+        snapshot.Workstreams = taskStatus == null
+            ? new List<WorkstreamView>()
+            : new List<WorkstreamView>
+            {
+                new()
+                {
+                    WorkstreamId = Task, ProjectId = Project, Title = "Race times", Status = WorkstreamStatus.Created,
+                    Attention = new Attention { Level = AttentionLevel.None, Reasons = new List<AttentionReason>() },
+                    ExecutionIds = started ? new List<string> { "01a0dcf1-5a80-7000-8000-0000000000c1" } : new List<string>(),
+                    CreatedAt = "2026-10-02T12:00:00.000Z", UpdatedAt = "2026-10-02T12:00:00.000Z",
+                },
+            };
+        snapshot.Commands = pendingStart == null
+            ? new List<CommandView>()
+            : new List<CommandView>
+            {
+                new()
+                {
+                    CommandId = "01a0dcf1-5a80-7000-8000-0000000000d1", CommandType = CommandType.ExecutionStart, Status = pendingStart.Value,
+                    WorkstreamId = Task, IssuedAt = "2026-10-02T12:00:00.000Z", UpdatedAt = "2026-10-02T12:00:00.000Z",
+                },
+            };
+        var state = new ClientProjection();
+        state.ApplySnapshot(snapshot, new StateChanges());
+        return state;
+    }
+
+    private static CreationDraft Made(string? workstream = Task) => new()
+    {
+        FirstTask = "Make a page of race times.",
+        Name = "Planted name",
+        MadeProjectId = Project,
+        MadeProjectName = "Planted name",
+        MadeWorkstreamId = workstream,
+    };
+
+    [Test]
+    public void ATaskTheComputerMadeAndNeverStartedIsResumedUnderTheComputersOwnName()
+    {
+        var restored = Made().Resume(State())!;
+        Assert.That(restored.WorkstreamToStart, Is.EqualTo(Task));
+        Assert.That(restored.Idea.Name, Is.EqualTo("Club Race Times"), "the kept name is never shown in its place");
+        Assert.That(restored.Idea.ExistingProjectId, Is.EqualTo(Project));
+    }
+
+    [Test]
+    public void ATaskThatStartedOrMayHaveStartedIsNeverResumed()
+    {
+        Assert.That(Made().Resume(State(started: true)), Is.Null, "it started");
+        foreach (var status in new[] { CommandStatus.Accepted, CommandStatus.Completed })
+            Assert.That(Made().Resume(State(pendingStart: status)), Is.Null, status.ToString());
+        Assert.That(Made().Resume(State(pendingStart: CommandStatus.Rejected)), Is.Not.Null, "a refused start did nothing");
+    }
+
+    [Test]
+    public void IdsMustBeTheComputersAndBelongTogether()
+    {
+        Assert.That(Made().Resume(State(taskStatus: null)), Is.Null, "a task the computer does not know");
+        var elsewhere = Made();
+        elsewhere.MadeProjectId = "01a0dcf1-5a80-7000-8000-0000000000a2";
+        Assert.That(elsewhere.Resume(State()), Is.Null, "a project the computer does not know");
+        var shaped = Made();
+        shaped.MadeWorkstreamId = "not-an-id";
+        Assert.That(shaped.ToIdea(), Is.Null);
+        Assert.That(Made(workstream: null).Resume(State())!.WorkstreamToStart, Is.Null);
+    }
+
+    [Test]
+    public void KeptTextIsNeverCutAndTextFarPastWhatCouldBeSentIsNoDraft()
+    {
+        var long_ = new CreationDraft { FirstTask = new string('x', ProjectIdea.TaskLimit + 10), Name = "n" };
+        var idea = long_.ToIdea()!;
+        Assert.That(idea.FirstTask.Length, Is.EqualTo(ProjectIdea.TaskLimit + 10));
+        Assert.That(idea.Problem, Is.Not.Null, "the recap says to shorten it");
+        Assert.That(new CreationDraft { FirstTask = new string('x', ProjectIdea.TaskLimit * 4 + 1) }.ToIdea(), Is.Null);
+        Assert.That(new CreationDraft { FirstTask = "x", Answers = Enumerable.Repeat<string?>("a", 9).ToList() }.ToIdea(), Is.Null);
+    }
+
+    [Test]
+    public void AKeptReplyPastTheContractsBoundsEndsTheRestoredExchangeThere()
+    {
+        var huge = Companions.Ask();
+        huge.Line = new string('l', 1_000_000);
+        var many = Companions.Ask("Which?", Enumerable.Range(0, 5000).Select(index => "c" + index).ToArray());
+        foreach (var reply in new CompanionReply[] { huge, many })
+        {
+            var kept = new CreationDraft
+            {
+                FirstTask = "an idea",
+                OwnWords = "an idea",
+                Companion = new KeptExchange
+                {
+                    Start = CompanionStart.Idea,
+                    Turns = new List<CompanionExchangeTurn> { new PersonTurn { Text = "an idea" }, new CompanionTurn { Reply = reply } },
+                },
+            };
+            Assert.That(kept.ToIdea()!.Companion!.Turns, Has.Count.EqualTo(1));
+        }
+        var unknown = new CreationDraft { FirstTask = "x", Companion = new KeptExchange { Start = (CompanionStart)7 } };
+        Assert.That(unknown.ToIdea(), Is.Null);
+    }
+
+    [Test]
+    public void RetentionCountsFromTheLastChangeAndAFutureTimeCountsAsTooOld()
+    {
+        var directory = Directory.CreateTempSubdirectory("halcyonic-drafts-").FullName;
+        try
+        {
+            var path = Path.Combine(directory, "drafts.json");
+            const string journal = "01a0dcf1-5a80-7000-8000-00000000j001";
+            var start = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
+            var at = start;
+            var store = new CreationDrafts(new FileCreationDraftStore(path), () => at);
+            var idea = new ProjectIdea();
+            idea.UseIdea("a tide table");
+            var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+            store.Keep(journal, new[] { CreationDraft.Of(journal, "", idea, null, draft, at)! });
+            at = start.AddDays(5);
+            store.Keep(journal, new[] { CreationDraft.Of(journal, "", idea, null, draft, at)! });
+            Assert.That(new CreationDrafts(new FileCreationDraftStore(path), () => at).For(journal).Single().ChangedAt, Is.EqualTo(start),
+                "an unchanged draft keeps the time it last changed");
+            at = start.AddDays(7).AddMinutes(1);
+            Assert.That(new CreationDrafts(new FileCreationDraftStore(path), () => at).For(journal), Is.Empty);
+            var future = new CreationDraft { ChangedAt = start.AddDays(30) };
+            Assert.That(future.ExpiredAt(start), Is.True);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void AFileWithoutItsVersionOrWithFieldsItDoesNotKnowReadsAsNoDrafts()
+    {
+        var directory = Directory.CreateTempSubdirectory("halcyonic-drafts-").FullName;
+        try
+        {
+            var path = Path.Combine(directory, "drafts.json");
+            File.WriteAllText(path, "{\"drafts\": []}");
+            Assert.That(new FileCreationDraftStore(path).Load(), Is.Empty);
+            File.WriteAllText(path, "{\"version\": 1, \"drafts\": [], \"extra\": 1}");
+            Assert.That(new FileCreationDraftStore(path).Load(), Is.Empty);
+            new FileCreationDraftStore(path).Save(new[] { new CreationDraft { JournalId = "j", FirstTask = "x" } });
+            Assert.That(new FileCreationDraftStore(path).Load().Single().FirstTask, Is.EqualTo("x"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+}
+
+public class CompanionExchangeHardeningTests
+{
+    [Test]
+    public void ARecapAskedForThatComesBackAsAQuestionIsNotShown()
+    {
+        var exchange = new ProjectIdea().BeginCompanion(CompanionStart.Help);
+        exchange.Ask(CompanionWant.Next);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
+        exchange.Say("Each runner");
+        exchange.Ask(CompanionWant.Proposal);
+        Assert.That(exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask())), Is.True);
+        Assert.That(exchange.Failure, Is.EqualTo("companion_unreadable"));
+        Assert.That(exchange.Turns.Last(), Is.InstanceOf<PersonTurn>());
+    }
+
+    [Test]
+    public void AfterTheLastWordsTheRecapStillFitsInWhatTheComputerTakes()
+    {
+        var exchange = new ProjectIdea().BeginCompanion(CompanionStart.Help);
+        var longest = new AskReply
+        {
+            Line = new string('l', 300),
+            View = CompanionView.Unclear,
+            Question = new CompanionQuestion { Text = new string('q', 160), Choices = Enumerable.Repeat(new string('c', 48), 4).ToList() },
+        };
+        for (var turn = 0; turn < 9; turn++)
+        {
+            exchange.Ask(CompanionWant.Next);
+            exchange.Replied(exchange.Generation, Companions.Response(longest));
+            exchange.Say(new string('y', CompanionExchange.PersonLimit));
+        }
+        if (exchange.Turns.Last() is PersonTurn)
+        {
+            exchange.Ask(CompanionWant.Next);
+            exchange.Replied(exchange.Generation, Companions.Response(longest));
+        }
+        var request = exchange.Ask(CompanionWant.Proposal)!;
+        var characters = request.Messages.Sum(turn => turn is PersonTurn person ? person.Text.Length : HalcyonicJson.Serialize(((CompanionTurn)turn).Reply).Length);
+        Assert.That(characters, Is.LessThanOrEqualTo(24_000));
+    }
+
+    [Test]
+    public void EachFailureHasItsCodeAndNeverReadsAsAnotherOne()
+    {
+        Assert.That(CompanionExchange.CodeOf(new ControlPlaneRequestException("x", "companion_busy_on_mac")), Is.EqualTo("companion_busy_on_mac"));
+        Assert.That(CompanionExchange.CodeOf(new ControlPlaneRequestException("x", new HttpRequestException("refused"))), Is.EqualTo(CompanionExchange.Unreachable));
+        Assert.That(CompanionExchange.CodeOf(new TaskCanceledException("timeout")), Is.EqualTo("companion_too_slow"));
+        Assert.That(CompanionExchange.CodeOf(new Newtonsoft.Json.JsonReaderException("bad")), Is.EqualTo("companion_unreadable"));
+        Assert.That(CompanionText.Failure(CompanionExchange.CodeOf(new InvalidOperationException())), Is.EqualTo(CompanionText.CouldNotAsk));
+    }
+
+    [Test]
+    public void AReplyBodyLargerThanAnyReplyIsRefusedUnread()
+    {
+        var huge = "{\"reply\":{\"next\":\"ask\",\"line\":\"" + new string('x', ControlPlaneApi.CompanionReplyLimit) + "\"}}";
+        var handler = new ControlPlaneApiTests.CannedHandler(HttpStatusCode.OK, huge);
+        using var api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", handler);
+        var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() =>
+            api.AskCompanionAsync(new CompanionRepliesRequest { Start = CompanionStart.Help, Want = CompanionWant.Next }))!;
+        Assert.That(refused.Code, Is.EqualTo("companion_unreadable"));
+    }
+}
+
 public class CompanionApiTests
 {
     [Test]

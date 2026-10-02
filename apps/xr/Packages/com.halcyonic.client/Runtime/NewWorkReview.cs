@@ -95,6 +95,8 @@ namespace Halcyonic.Client
             Add("Where the model runs: ", modelFacts);
             Add("Model id: ", modelRef);
             Add("First task: ", objective);
+            // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
+            foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, ""));
         }
 
         public IReadOnlyList<ReviewItem> Items => items;

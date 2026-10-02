@@ -199,13 +199,32 @@ namespace Halcyonic.Client
             }
             using (response)
             {
-                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var body = await ReadBoundedAsync(response, CompanionReplyLimit).ConfigureAwait(false)
+                    ?? throw new ControlPlaneRequestException("The companion's answer is longer than one can be.", "companion_unreadable");
                 if (!response.IsSuccessStatusCode)
                 {
                     throw new ControlPlaneRequestException("The control plane refused the request: " + Describe(response, body), CodeOf(body));
                 }
                 return HalcyonicJson.Deserialize<CompanionReplyResponse>(body);
             }
+        }
+
+        /// <summary>The most a companion reply's body is read: far more than the contract's bounds allow.</summary>
+        public const int CompanionReplyLimit = 64 * 1024;
+
+        /// <summary>The body as text, or null once it passes <paramref name="limit"/> bytes, when the rest is not read.</summary>
+        private static async Task<string?> ReadBoundedAsync(HttpResponseMessage response, int limit)
+        {
+            using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            var buffer = new byte[8192];
+            using var collected = new System.IO.MemoryStream();
+            int read;
+            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+            {
+                if (collected.Length + read > limit) return null;
+                collected.Write(buffer, 0, read);
+            }
+            return System.Text.Encoding.UTF8.GetString(collected.ToArray());
         }
 
         public void Dispose()

@@ -28,6 +28,9 @@ namespace Halcyonic.Client
         /// </summary>
         public const int CharacterLimit = 23000;
 
+        /// <summary>Room kept for the reply that follows the person's words, so a recap can still be asked for after it.</summary>
+        public const int ReplyRoom = 2500;
+
         /// <summary>The questions the companion asks before it only proposes, unless the Mac said otherwise.</summary>
         public const int DefaultMaxQuestions = 4;
 
@@ -98,7 +101,7 @@ namespace Halcyonic.Client
         {
             var words = (text ?? "").Trim();
             if (words.Length == 0 || words.Length > PersonLimit || !CanSay) return false;
-            if (characters + words.Length > CharacterLimit) return false;
+            if (characters + words.Length + ReplyRoom > CharacterLimit) return false;
             turns.Add(new PersonTurn { Text = words });
             characters += words.Length;
             Failure = null;
@@ -140,6 +143,11 @@ namespace Halcyonic.Client
         public bool Replied(int generation, CompanionReplyResponse response)
         {
             if (!Waiting || generation != Generation) return false;
+            // A recap asked for that comes back as a question, or a reply outside its bounds, is not shown.
+            if ((LastWant == CompanionWant.Proposal && !(response.Reply is ProposeReply)) || !WithinBounds(response.Reply))
+            {
+                return Failed(generation, "companion_unreadable");
+            }
             Waiting = false;
             Failure = null;
             Model = response.Companion.Name;
@@ -182,16 +190,53 @@ namespace Halcyonic.Client
                 else if (turn is CompanionTurn companion && companion.Reply != null)
                 {
                     var last = exchange.turns.LastOrDefault();
+                    var proposes = companion.Reply is ProposeReply;
                     // Twice in a row only to propose, as when the person asked for the recap after a question.
-                    if ((last is CompanionTurn && !(companion.Reply is ProposeReply)) || (last == null && start == CompanionStart.Idea)) break;
-                    if (exchange.turns.Count + 1 > MaxMessages) break;
+                    if ((last is CompanionTurn && !proposes) || (last == null && start == CompanionStart.Idea)) break;
+                    // A final proposal may follow a full request, as one asked for with 20 messages does.
+                    if (exchange.turns.Count + 1 > MaxMessages + (proposes ? 1 : 0)) break;
+                    if (!WithinBounds(companion.Reply)) break;
+                    var size = Measure(companion.Reply);
+                    if (exchange.characters + size > CharacterLimit) break;
                     exchange.turns.Add(new CompanionTurn { Reply = companion.Reply });
-                    exchange.characters += Measure(companion.Reply);
+                    exchange.characters += size;
+                    if (proposes) break;
                 }
                 else break;
             }
             return exchange;
         }
+
+        /// <summary>
+        /// Whether a reply keeps to the contract's bounds: the Mac checks every reply it sends, so one
+        /// that does not came from somewhere else, such as a damaged file.
+        /// </summary>
+        public static bool WithinBounds(CompanionReply? reply)
+        {
+            static bool Text(string? value, int max) => !string.IsNullOrWhiteSpace(value) && value!.Length <= max;
+            if (reply == null || !Text(reply.Line, 300) || !Enum.IsDefined(typeof(CompanionView), reply.View)) return false;
+            return reply switch
+            {
+                AskReply ask => ask.Question != null && Text(ask.Question.Text, 160) && ask.Question.Choices != null
+                    && ask.Question.Choices.Count <= 4 && ask.Question.Choices.All(choice => Text(choice, 48)),
+                ProposeReply propose => propose.Proposal != null && Text(propose.Proposal.ProjectName, 60) && Text(propose.Proposal.FirstTask, 1000),
+                _ => false,
+            };
+        }
+
+        /// <summary>
+        /// The failure's code for an exception from asking the companion: the Mac's own code when it gave
+        /// one; too slow when this side's time ran out; unreachable when the Mac could not be reached;
+        /// unreadable for an answer that is not one.
+        /// </summary>
+        public static string CodeOf(Exception? error) => error switch
+        {
+            ControlPlaneRequestException { Code: string code } => code,
+            ControlPlaneRequestException { InnerException: System.Net.Http.HttpRequestException _ } => Unreachable,
+            OperationCanceledException _ => "companion_too_slow",
+            Newtonsoft.Json.JsonException _ => "companion_unreadable",
+            _ => "companion_failed",
+        };
 
         /// <summary>A reply's size as the Mac counts it: its JSON.</summary>
         private static int Measure(CompanionReply reply) => HalcyonicJson.Serialize(reply).Length;
