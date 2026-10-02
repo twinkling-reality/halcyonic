@@ -4,7 +4,7 @@
   storage instead of shared storage, move a token earlier builds left on shared storage, and be given
   a new one from the Mac without the token passing through any other file?
 - **Date:** 2026-10-02.
-- **Versions:** Halcyonic on main 9ffb25c; Unity 6000.3.25f1 for Android (IL2CPP); .NET 10 for the
+- **Versions:** Halcyonic branch lane-g-private-token on main 9ffb25c; Unity 6000.3.25f1 for Android (IL2CPP); .NET 10 for the
   client core's tests; the adb in Unity's Android module.
 - **Method:** Code and tests, a development APK build, and an independent security review that read
   adb's `commandline.cpp`. Nothing was run on a headset.
@@ -17,7 +17,7 @@
   and the shared copy is removed. A token already in private storage wins, and the shared copy goes.
   An empty file, or one larger than 1 KiB, is removed and nothing is written. If restricting fails,
   the token still leaves shared storage. Two names for one file, directly or through a linked
-  folder, never lose the token. A move interrupted by the owner writing a token at the same moment
+  folder, never lose the token, and a link at the old place is removed without being followed. A move interrupted by the owner writing a token at the same moment
   leaves no `.new` file, and the next run removes the shared copy.
 - A development APK built from this branch compiles the Android-only code: `Context.getFilesDir()`
   for private storage and `android.system.Os.chmod(path, 0600)`.

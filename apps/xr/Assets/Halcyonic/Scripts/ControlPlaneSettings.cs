@@ -119,17 +119,27 @@ namespace Halcyonic.XR
         /// <summary>
         /// Moves a token an earlier build read from shared storage into private storage, once a run,
         /// and removes the old copy. Only Android kept it on shared storage, and only development
-        /// builds, which reach the computer over USB, look there: a release build never reads shared
-        /// storage for a token. The token never reaches the log.
+        /// builds, which reach the computer over USB, take it from there: a release build, which may
+        /// have replaced one without clearing its data, removes it without reading it. The token never
+        /// reaches the log.
         /// </summary>
         private static void MigrateAccessToken()
         {
             if (tokenMigrated) return;
             tokenMigrated = true;
 #if UNITY_ANDROID && !UNITY_EDITOR
-            if (!Debug.isDebugBuild) return;
             try
             {
+                if (!Debug.isDebugBuild)
+                {
+                    var left = Path.Combine(Application.persistentDataPath, TokenFileName);
+                    if (File.Exists(left))
+                    {
+                        File.Delete(left);
+                        Debug.Log("Halcyonic: removed an access token from shared storage without reading it; a release build does not use one there.");
+                    }
+                    return;
+                }
                 // Where earlier builds kept it. Should Unity ever put persistentDataPath in private
                 // storage, the two name one file, which the move keeps.
                 var legacy = Path.Combine(Application.persistentDataPath, TokenFileName);
