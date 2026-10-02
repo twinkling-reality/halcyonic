@@ -30,6 +30,12 @@ namespace Halcyonic.XR.UI
     {
         public const float MaxWidthDegrees = 24f;
         public const int MaxLines = 4;
+
+        /// <summary>
+        /// The widest the banner grows, in degrees: <see cref="MaxWidthDegrees"/>, wider by the reading
+        /// text's step (<see cref="GlazeText.Scale"/>), so a line a step larger keeps the lines it has.
+        /// </summary>
+        public static float WidestDegrees => MaxWidthDegrees * GlazeText.Scale;
         private const float SideDegrees = 1f;
         private const float EndDegrees = 0.55f;
         private const float RadiusDegrees = 0.9f;
@@ -83,7 +89,7 @@ namespace Halcyonic.XR.UI
         {
             var side = GlazeTokens.Units(SideDegrees);
             var end = GlazeTokens.Units(EndDegrees);
-            var room = GlazeTokens.Units(MaxWidthDegrees) - 2f * side;
+            var room = GlazeTokens.Units(WidestDegrees) - 2f * side;
             line.color = kind == BannerKind.Live ? GlazeTokens.TextSecondary : GlazeTokens.Text;
             GlazeText.SetLiteral(line, text);
             var after = (needsYou != null ? 1 : 0) + (notShown != null ? 1 : 0) + (stillOpen != null ? 1 : 0);
