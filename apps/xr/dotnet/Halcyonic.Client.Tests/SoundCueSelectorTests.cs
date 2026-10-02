@@ -439,14 +439,15 @@ public class SoundCueSelectorTests
             }
         }
 
-        void Answer(DemonstrationNode node, Func<DemonstrationBranch, bool> which, WorkspaceAct act)
+        void Answer(DemonstrationNode node, Func<DemonstrationBranch, bool> which, WorkspaceAct? act)
         {
             var branch = node.BranchesAfter(node.Events.Count).First(which);
             var workstream = state.Executions[branch.Answer.ExecutionId].WorkstreamId;
             now += 3;
             Heard(new[] { selector.Act(WorkspaceAct.Open, workstream, now, audible: true)! });
             now += 4;
-            Heard(new[] { selector.Act(act, workstream, now, audible: true)! });
+            // Sending an answer to a question has no act of its own (ADR 0022 added none).
+            if (act is WorkspaceAct sent) Heard(new[] { selector.Act(sent, workstream, now, audible: true)! });
             now += 1;
             Heard(new[] { selector.Act(WorkspaceAct.Collapse, workstream, now, audible: true)! });
             Play(recording.Nodes[branch.Node]);
@@ -460,7 +461,8 @@ public class SoundCueSelectorTests
 
         var first = recording.Nodes[0];
         Play(first);
-        Answer(first, branch => branch.Answer.Kind == DemonstrationAnswerKind.Approve, WorkspaceAct.Approve);
+        Answer(first, branch => branch.Answer.Kind == DemonstrationAnswerKind.Answer, null);
+        Answer(Demonstration.Answered(), branch => branch.Answer.Kind == DemonstrationAnswerKind.Approve, WorkspaceAct.Approve);
         var approved = recording.Nodes[Demonstration.AtApproval(DemonstrationAnswerKind.Approve).Node];
         Answer(approved, branch => branch.Answer.Kind == DemonstrationAnswerKind.Instruct, WorkspaceAct.Instruct);
 
@@ -472,6 +474,9 @@ public class SoundCueSelectorTests
         }
         Assert.That(heard.Where(cue => cue.Title == Demonstration.Directed).Select(cue => cue.Cue), Is.EqualTo(new[]
         {
+            SoundCue.Working, SoundCue.WaitingForYou,
+            // The question: opened, answered with no cue of its own, collapsed; then the work goes on to its approval.
+            SoundCue.Open, SoundCue.Close,
             SoundCue.Working, SoundCue.WaitingForYou,
             SoundCue.Open, SoundCue.Approve, SoundCue.Close,
             // The approval's result, confirmed by the recording's runtime, as the character's own cues.

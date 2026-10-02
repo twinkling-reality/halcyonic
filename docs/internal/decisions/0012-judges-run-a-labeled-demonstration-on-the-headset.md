@@ -225,5 +225,11 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
   with hands only, its Understanding and Evaluation sections included, and the release build that
   leaves Meta's development tools out
   ([horizon-store-release.md](../validation/horizon-store-release.md)).
+- 2026-10-02: the story asks an agent question first (ADR 0022): one prompt with two options, a
+  continuation recorded for each, answered in words like the others ("Nothing is sent to an agent.
+  The recording goes on as if you answered “15 minutes”."). The recording grows to about 1.4 MB.
+  For the competition's rule on brand names, the runtimes are now "Practice agent" and "Practice
+  agent, watch only", and the line above the stage reads "Demo: recorded work played on this
+  headset. Nothing here is live." ([competition-judge-build.md](../validation/competition-judge-build.md)).
 - Revisit if the organizers accept a hosted service and the owner wants the control loop shown, or
   once device pairing and encrypted transport exist.

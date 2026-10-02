@@ -132,8 +132,8 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Describe(DemonstrationReason reason, ConnectionStatus? controlPlane, bool ended = false)
         {
-            var line = "Demonstration: recorded, simulated work played on this device, not live.\n"
-                + "It follows your answers, and nothing reaches an agent.";
+            var line = "Demo: recorded work played on this headset. Nothing here is live.\n"
+                + "It follows your answers. Nothing reaches an agent.";
             if (ended) line += "\nThis recording has ended and starts again shortly.";
             if (reason == DemonstrationReason.NotConfigured) return line;
             return line + "\n" + ConnectionText.WhyNotLive(controlPlane);

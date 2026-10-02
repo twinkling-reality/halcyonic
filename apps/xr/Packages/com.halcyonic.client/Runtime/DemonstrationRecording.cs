@@ -29,18 +29,24 @@ namespace Halcyonic.Client
         Deny,
         Interrupt,
         Instruct,
+
+        /// <summary>One option of an agent's question (ADR 0022).</summary>
+        Answer,
     }
 
     /// <summary>An answer a person can give in the workspace, for which the recording holds a continuation.</summary>
     public sealed class DemonstrationAnswer
     {
-        public DemonstrationAnswer(DemonstrationAnswerKind kind, string executionId, string? approvalId, string? text, string? label)
+        public DemonstrationAnswer(DemonstrationAnswerKind kind, string executionId, string? approvalId, string? text, string? label,
+            string? questionId = null, IReadOnlyList<QuestionAnswer>? answers = null)
         {
             Kind = kind;
             ExecutionId = executionId;
             ApprovalId = approvalId;
             Text = text;
             Label = label;
+            QuestionId = questionId;
+            Answers = answers ?? Array.Empty<QuestionAnswer>();
         }
 
         public DemonstrationAnswerKind Kind { get; }
@@ -53,8 +59,14 @@ namespace Halcyonic.Client
         /// <summary>Exactly the instruction the recording sent, for an instruct.</summary>
         public string? Text { get; }
 
-        /// <summary>What a button offering the instruction says, for an instruct.</summary>
+        /// <summary>What a button offering the instruction says, for an instruct; the option chosen, for an answer.</summary>
         public string? Label { get; }
+
+        /// <summary>The question an answer is for.</summary>
+        public string? QuestionId { get; }
+
+        /// <summary>Exactly the answers the recording sent, for an answer; empty otherwise.</summary>
+        public IReadOnlyList<QuestionAnswer> Answers { get; }
     }
 
     /// <summary>Where the recording continues when a person gives an answer.</summary>
@@ -392,7 +404,7 @@ namespace Halcyonic.Client
                 {
                     throw new InvalidDataException("An answer of node " + index + " continues with no later node.");
                 }
-                branches.Add(new DemonstrationBranch(after, ReadAnswer(answer), node));
+                branches.Add(new DemonstrationBranch(after, ReadAnswer(answer, serializer), node));
             }
 
             var ending = entry["ending"] ?? throw Missing("ending of node " + index);
@@ -410,7 +422,7 @@ namespace Halcyonic.Client
             return new DemonstrationNode(events, branches, endingSnapshot, holdMs == null ? (TimeSpan?)null : TimeSpan.FromMilliseconds(holdMs.Value));
         }
 
-        private static DemonstrationAnswer ReadAnswer(JToken answer)
+        private static DemonstrationAnswer ReadAnswer(JToken answer, JsonSerializer serializer)
         {
             var kind = answer.Value<string>("kind") switch
             {
@@ -418,6 +430,7 @@ namespace Halcyonic.Client
                 "deny" => DemonstrationAnswerKind.Deny,
                 "interrupt" => DemonstrationAnswerKind.Interrupt,
                 "instruct" => DemonstrationAnswerKind.Instruct,
+                "answer" => DemonstrationAnswerKind.Answer,
                 var other => throw new InvalidDataException("The demonstration offers an unknown answer: " + (other ?? "none") + "."),
             };
             var executionId = answer.Value<string>("execution_id") ?? throw Missing("execution_id");
@@ -426,7 +439,11 @@ namespace Halcyonic.Client
             var label = answer.Value<string>("label");
             if ((kind == DemonstrationAnswerKind.Approve || kind == DemonstrationAnswerKind.Deny) && approvalId == null) throw Missing("approval_id");
             if (kind == DemonstrationAnswerKind.Instruct && (text == null || label == null)) throw Missing("the instruction's text and label");
-            return new DemonstrationAnswer(kind, executionId, approvalId, text, label);
+            if (kind != DemonstrationAnswerKind.Answer) return new DemonstrationAnswer(kind, executionId, approvalId, text, label);
+            var questionId = answer.Value<string>("question_id");
+            var answers = answer["answers"]?.Type == JTokenType.Array ? answer["answers"]!.ToObject<List<QuestionAnswer>>(serializer) : null;
+            if (questionId == null || label == null || answers == null || answers.Count == 0) throw Missing("the answer's question, option and answers");
+            return new DemonstrationAnswer(kind, executionId, null, null, label, questionId, answers);
         }
 
         /// <summary>

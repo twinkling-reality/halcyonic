@@ -1,15 +1,43 @@
 {
   "format": 1,
   "id": "sign_in_rate_limit",
-  "description": "Limits failed sign-in attempts in a new table. Asks before running the migration; the tests then show one gap, which a later instruction closes. The recorded demonstration's main story.",
+  "description": "Limits failed sign-in attempts in a new table. Asks how long a lockout lasts, then asks before running the migration; the tests then show one gap, which a later instruction closes. The recorded demonstration's main story.",
   "steps": [
     {
       "after_ms": 500,
       "emit": {
         "type": "runtime.agent_message",
         "payload": {
-          "text": "I will count failed sign-in attempts in a new table and answer 429 after five failures within fifteen minutes."
+          "text": "I will count failed sign-in attempts in a new table and answer 429 after five failures within fifteen minutes. One choice is yours first."
         }
+      }
+    },
+    {
+      "after_ms": 400,
+      "await_answer": {
+        "question_id": "question-1",
+        "answerable": true,
+        "prompts": [
+          {
+            "key": "lockout",
+            "header": "Lockout",
+            "text": "How long should an address stay locked after five failed sign-ins?",
+            "options": [
+              {
+                "label": "15 minutes",
+                "description": "Slows guessing; someone who mistyped waits less"
+              },
+              {
+                "label": "1 hour",
+                "description": "Slows guessing more; someone who mistyped waits longer"
+              }
+            ],
+            "multiple": false,
+            "free_text": false,
+            "secret": false
+          }
+        ],
+        "if_answered": []
       }
     },
     {

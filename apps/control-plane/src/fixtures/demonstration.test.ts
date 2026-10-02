@@ -201,6 +201,16 @@ function offered(projection: Projection, runtimes: readonly RuntimeDescriptor[])
         }
       }
     }
+    for (const { question_id, prompts, answerable } of execution.pending_questions) {
+      const prompt = prompts[0];
+      if (!answerable || prompts.length !== 1 || prompt === undefined) continue;
+      for (const { label } of prompt.options) {
+        const answers = [{ key: prompt.key, selected: [label], text: null }];
+        if (probe('execution.answer_question', { execution_id, question_id, answers })) {
+          keys.push(`answer ${execution_id} ${question_id} ${label}`);
+        }
+      }
+    }
     if (probe('execution.interrupt', { execution_id })) keys.push(`interrupt ${execution_id}`);
     if (probe('execution.send_instruction', { execution_id, text: 'Anything.' })) {
       keys.push(`instruct ${execution_id}`);
@@ -210,9 +220,33 @@ function offered(projection: Projection, runtimes: readonly RuntimeDescriptor[])
 }
 
 function keyOf(answer: DemonstrationAnswer): string {
-  return answer.kind === 'approve' || answer.kind === 'deny'
-    ? `${answer.kind} ${answer.execution_id} ${answer.approval_id}`
-    : `${answer.kind} ${answer.execution_id}`;
+  if (answer.kind === 'approve' || answer.kind === 'deny') {
+    return `${answer.kind} ${answer.execution_id} ${answer.approval_id}`;
+  }
+  if (answer.kind === 'answer') {
+    return `answer ${answer.execution_id} ${answer.question_id} ${answer.label}`;
+  }
+  return `${answer.kind} ${answer.execution_id}`;
+}
+
+/**
+ * The directed work's question, where the beginning holds, and the node that continues after the
+ * first option, which runs on to the approval.
+ */
+function atQuestion(): {
+  asked: DemonstrationNode['answers'][number][];
+  answered: DemonstrationNode;
+  index: number;
+} {
+  const beginning = DEMONSTRATION.nodes[0] as DemonstrationNode;
+  const asked = beginning.answers.filter(({ after }) => after === beginning.events.length);
+  const first = asked.find(({ answer }) => answer.kind === 'answer');
+  if (first === undefined) throw new Error('no question');
+  return {
+    asked,
+    answered: DEMONSTRATION.nodes[first.node] as DemonstrationNode,
+    index: first.node,
+  };
 }
 
 describe('the XR client demonstration', () => {
@@ -356,10 +390,32 @@ describe('the XR client demonstration', () => {
     );
   });
 
-  test('it holds for a person at the approval, offers its instructions for a while, and ends otherwise', () => {
+  test('it holds for a person at the question and the approval, offers its instructions for a while, and ends otherwise', () => {
     const beginning = DEMONSTRATION.nodes[0] as DemonstrationNode;
     assert.deepEqual(beginning.ending, { snapshot: null, hold_ms: null });
-    const atApproval = beginning.answers.filter(({ after }) => after === beginning.events.length);
+    const { asked, answered } = atQuestion();
+    assert.deepEqual(
+      asked.map(({ answer }) => [answer.kind, answer.label]),
+      [
+        ['answer', '15 minutes'],
+        ['answer', '1 hour'],
+        ['interrupt', null],
+      ],
+    );
+    // Either option goes on to the same approval.
+    for (const { answer, node } of asked.filter(({ answer }) => answer.kind === 'answer')) {
+      const after = DEMONSTRATION.nodes[node] as DemonstrationNode;
+      assert.deepEqual(after.ending, { snapshot: null, hold_ms: null }, answer.label ?? '');
+      const said = after.events.flatMap(({ message: { event } }) =>
+        event.event_type === 'runtime.agent_message' ? [event.payload.text] : [],
+      );
+      assert.ok(
+        said.some((text) => text.endsWith(`: ${answer.label}.`)),
+        'the agent repeats the answer',
+      );
+    }
+    assert.deepEqual(answered.ending, { snapshot: null, hold_ms: null });
+    const atApproval = answered.answers.filter(({ after }) => after === answered.events.length);
     assert.deepEqual(
       atApproval.map(({ answer }) => answer.kind),
       ['approve', 'deny', 'interrupt'],
@@ -493,9 +549,12 @@ describe('the XR client demonstration', () => {
 
   test('the directed work reads as the story goes: waiting, then failing tests, then verified', () => {
     const beginning = DEMONSTRATION.nodes[0] as DemonstrationNode;
+    const { answered, index } = atQuestion();
+    const question = beginning.answers.find(({ node }) => node === index);
+    if (question === undefined) throw new Error('no answer');
     const answer = (of: DemonstrationNode, kind: string) =>
       of.answers.find(({ answer: { kind: candidate } }) => candidate === kind);
-    const approve = answer(beginning, 'approve');
+    const approve = answer(answered, 'approve');
     if (approve === undefined) throw new Error('no approval');
     const approved = DEMONSTRATION.nodes[approve.node] as DemonstrationNode;
     const instruct = approved.answers.find(
@@ -504,7 +563,10 @@ describe('the XR client demonstration', () => {
     if (instruct === undefined) throw new Error('no instruction');
     const instructed = DEMONSTRATION.nodes[instruct.node] as DemonstrationNode;
 
-    const atApproval = directedAt([{ node: 0, played: beginning.events.length }]);
+    const atApproval = directedAt([
+      { node: 0, played: question.after },
+      { node: index, played: answered.events.length },
+    ]);
     assert.equal(atApproval.understanding.verdict.headline, 'Waiting for you');
     assert.equal(atApproval.understanding.verdict.epistemic, 'observed');
     assert.match(atApproval.understanding.waiting?.summary ?? '', /^Run make migrate/);
@@ -517,7 +579,8 @@ describe('the XR client demonstration', () => {
     assert.ok(atApproval.evaluation.verification.lens?.empty_reason);
 
     const failing = directedAt([
-      { node: 0, played: approve.after },
+      { node: 0, played: question.after },
+      { node: index, played: approve.after },
       { node: approve.node, played: approved.events.length },
     ]);
     assert.equal(failing.understanding.verdict.headline, '1 test failing');
@@ -540,7 +603,8 @@ describe('the XR client demonstration', () => {
     ]);
 
     const verified = directedAt([
-      { node: 0, played: approve.after },
+      { node: 0, played: question.after },
+      { node: index, played: approve.after },
       { node: approve.node, played: instruct.after },
       { node: instruct.node, played: instructed.events.length },
     ]);

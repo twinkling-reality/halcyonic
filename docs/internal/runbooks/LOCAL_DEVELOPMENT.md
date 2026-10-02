@@ -472,8 +472,10 @@ from stand-ins that speak the products' contracts with content written for the s
 Where a path would
 leave work open to an action it has no answer for, it ends with its control plane started again
 without runtimes, as a replay serves a journal. The recorder names the two runtimes for the
-demonstration, "Simulated agent (demonstration)" and "Simulated agent (demonstration, watch only)";
-both are the synthetic mock runtime, and the second declares nothing but starting work. Every
+demonstration, "Practice agent" and "Practice agent, watch only"; both are the synthetic mock
+runtime, and the second declares nothing but starting work. A question the directed scenario asks
+(ADR 0022) must have one prompt, one choice among at least two options and nothing to type, so the
+recording holds a continuation for each option; the recorder refuses any other. Every
 answer multiplies what follows it, so a longer story or another directed workstream grows the
 file quickly; its tests check that the workspace offers exactly the answers recorded.
 

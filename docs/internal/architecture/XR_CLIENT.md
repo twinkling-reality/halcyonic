@@ -505,17 +505,19 @@ the same definition names, as the JSON Schema document:
   `DemonstrationRecording` reads what the control plane records with `pnpm demonstration:record`
   ([LOCAL_DEVELOPMENT.md](../runbooks/LOCAL_DEVELOPMENT.md)): the welcome, the beginning's
   snapshot, and a tree of nodes, each a stretch of event messages with their times. Where a person
-  could act, a node lists the answers it holds a continuation for (approve, deny, stop the turn, or
-  one of its recorded instructions, each with a short label), each leading to its own node. A node
-  ends by holding its final state: until an answer at an approval, for 60 seconds while it offers
+  could act, a node lists the answers it holds a continuation for (approve, deny, stop the turn, one
+  of its recorded instructions, each with a short label, or one option of the agent's question of
+  [ADR 0022](../decisions/0022-agent-questions-reach-the-person.md), with the answers sent), each
+  leading to its own node. A node ends by holding its final state: until an answer at an approval
+  or a question, for 60 seconds while it offers
   instructions, or, where the recording has nothing more, after a snapshot of its control plane
   started again without runtimes, for 20 seconds. The control plane computed every state in it,
   so the client still derives nothing. A recording whose journal is not a fixture, whose answers
   are not where an instant ends, or whose nodes do not form a tree that continues the journal, is
   refused; every character reads recorded, and its runtimes are synthetic, so it also reads
-  simulated. The work a person directs runs on "Simulated agent (demonstration)", with the mock
-  runtime's capabilities; the work beside it runs first, on "Simulated agent (demonstration, watch
-  only)", which declares nothing to direct. `WorkspacePresenter` therefore offers, as it does live
+  simulated. The work a person directs runs on "Practice agent", with the mock
+  runtime's capabilities; the work beside it runs first, on "Practice agent, watch
+  only", which declares nothing to direct. `WorkspacePresenter` therefore offers, as it does live
   and with no special case, exactly the actions the recording holds an answer for; a test checks
   every point of every path. Beside the tree, the recording holds the control plane's REST answers
   about each execution's understanding and evaluation, keyed by execution id, each from the point of
@@ -532,7 +534,8 @@ the same definition names, as the JSON Schema document:
   it is answered with a `rejected` acknowledgement with the code `demonstration`
   ([REALTIME.md](REALTIME.md)), whose words say that nothing was sent to any agent and what the
   recording continues with, for example "Not sent to any agent; the recording continues as
-  recorded for approving." `WorkspacePresenter.Feedback` shows those words as they are, without
+  recorded for approving." or, for an option of the question, "Nothing is sent to an agent. The
+  recording goes on as if you answered “1 hour”." `WorkspacePresenter.Feedback` shows those words as they are, without
   "Refused:", since the recording then plays its own recorded command, which its runtime confirmed.
   Typed text that matches no recorded instruction, ignoring case and spacing, continues with the
   first one offered and says so; any other command changes nothing and says that too. Nothing is
@@ -552,8 +555,8 @@ the same definition names, as the JSON Schema document:
   is tried again behind it. Once the control plane is live the demonstration stops for good, and a
   control plane that drops later shows its last known state as usual. Each switch reaches consumers
   as a resynchronization, like a journal change. Its `Line` is what the line above the stage says
-  while the demonstration is shown: that it is recorded, simulated work played on the device, not
-  live, that it follows the person's answers and that nothing reaches an agent, and, while it holds
+  while the demonstration is shown: "Demo: recorded work played on this headset. Nothing here is
+  live." and "It follows your answers. Nothing reaches an agent.", and, while it holds
   an end, that it starts again shortly.
 - **The room placement's decisions** ([ADR 0015](../decisions/0015-the-stage-stands-on-the-persons-desk.md)),
   on plain floor plan geometry the Unity layer converts to and from its vectors:

@@ -5,6 +5,7 @@ import type {
   ExecutionId,
   ProjectId,
   ProjectLocationChoice,
+  QuestionAnswer,
   RuntimeId,
   WorkstreamId,
 } from '@halcyonic/contracts';
@@ -130,6 +131,15 @@ export function createCommandFactory(ids: IdGenerator, clock: Clock, client: Cli
       ...base(),
       command_type: 'execution.send_instruction',
       payload: { execution_id: executionId, text },
+    }),
+    answerQuestion: (
+      executionId: ExecutionId,
+      questionId: string,
+      answers: readonly QuestionAnswer[],
+    ): CommandOf<'execution.answer_question'> => ({
+      ...base(),
+      command_type: 'execution.answer_question',
+      payload: { execution_id: executionId, question_id: questionId, answers: [...answers] },
     }),
     interrupt: (executionId: ExecutionId): CommandOf<'execution.interrupt'> => ({
       ...base(),

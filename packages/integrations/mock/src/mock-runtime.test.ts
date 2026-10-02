@@ -365,6 +365,12 @@ describe('mock runtime actions', () => {
     const { time, runtime, start, observed, types } = setup();
     await start('sign_in_rate_limit');
     await time.runUntilIdle();
+    await runtime.answerQuestion({
+      execution,
+      question_id: 'question-1',
+      answers: [{ key: 'lockout', selected: ['15 minutes'], text: null }],
+    });
+    await time.runUntilIdle();
     await runtime.respondToApproval({ execution, approval_id: 'approval-1', decision: 'approve' });
     await time.runUntilIdle();
     const texts = () =>
