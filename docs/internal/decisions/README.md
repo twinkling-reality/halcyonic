@@ -36,3 +36,4 @@ Name files `NNNN-short-title.md`, numbered in sequence, starting from [TEMPLATE.
 | [0022](0022-agent-questions-reach-the-person.md) | An agent's questions reach the person, who answers them through the runtime's own surface | Accepted |
 | [0023](0023-the-headset-interface-is-one-system-of-tokens-and-components.md) | The headset's interface is one system of tokens, components and render-checked rules | Accepted |
 | [0024](0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md) | The Mac's settings live in one file only its owner can write, and never start paid model use | Proposed |
+| [0025](0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md) | Create's companion is a local model the control plane asks one reply at a time, and its exchange stays on the headset | Proposed |
