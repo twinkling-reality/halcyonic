@@ -526,15 +526,19 @@ because someone asked it something. Run Ollama on loopback with its cloud featur
 control plane with it:
 
 ```bash
-HALCYONIC_COMPANION_MODEL=qwen3.6:35b-a3b-nvfp4 pnpm dev
+ollama pull qwen3.5:9b
+OLLAMA_MAX_LOADED_MODELS=2 OLLAMA_NO_CLOUD=1 ollama serve
+HALCYONIC_COMPANION_MODEL=qwen3.5:9b pnpm dev
 ```
 
-The name is the model's as `ollama list` shows it; one with a `cloud` tag is refused. Ollama's
-address defaults to `http://127.0.0.1:11434`; set `HALCYONIC_COMPANION_OLLAMA_URL` only for another
-loopback port. The agents' own model works, but Ollama serves it one request at a time, so while a
-task generates a companion turn waits for the task's step and often passes its 30 s bound; a
-separate, smaller companion model is being chosen (the record says which, once the owner approves
-the download). Check that it can be asked, without asking the model:
+`qwen3.5:9b` (Apache-2.0, 6.6 GB, about 5.3 GiB loaded) is the companion's recommended model: a model
+of its own, on Ollama's GGUF engine, which keeps to the reply's schema and answers beside a task that
+generates on the agents' model, where the agents' own model would make it wait for each of the
+task's steps ([record](../validation/companion-model.md)). Ollama must be able to keep two models
+loaded (`OLLAMA_MAX_LOADED_MODELS=2`). The name is the model's as `ollama list` shows it; one with a
+`cloud` tag is refused. Ollama's address defaults to `http://127.0.0.1:11434`; set
+`HALCYONIC_COMPANION_OLLAMA_URL` only for another loopback port. Check that it can be asked, without
+asking the model:
 
 ```bash
 curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0.0.1:47800/api/companion
@@ -545,7 +549,7 @@ the prompt or the model, review the diff, and commit it; `--check` holds the com
 rules (no brand a judge may not read, answers that were offered, a proposal at the end):
 
 ```bash
-HALCYONIC_COMPANION_MODEL=qwen3.6:35b-a3b-nvfp4 pnpm companion:record
+HALCYONIC_COMPANION_MODEL=qwen3.5:9b pnpm companion:record
 ```
 
 ## Pair a headset over Wi-Fi

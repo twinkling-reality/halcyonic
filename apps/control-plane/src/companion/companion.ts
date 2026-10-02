@@ -22,6 +22,9 @@ const validateReply = compileValidator(CompanionReply);
 /** Replies one principal may ask for in a minute. */
 export const REPLIES_PER_MINUTE = 12;
 
+/** How long one read of whether the companion can be asked answers every status asked. */
+export const STATUS_MS = 2_000;
+
 /** The bounds of one reply (ADR 0025); tests shorten the times. */
 export interface CompanionBounds {
   /** Until the first line of the reply: waiting behind other requests, loading, reading the prompt. */
@@ -70,6 +73,8 @@ export interface CompanionLog {
   readonly first_token_ms: number | null;
   readonly prompt_tokens: number | null;
   readonly output_tokens: number | null;
+  /** The prompt filled the model's context, so an engine may have cut its start. */
+  readonly context_full: boolean;
 }
 
 const NO_LOG: CompanionLog = {
@@ -78,6 +83,7 @@ const NO_LOG: CompanionLog = {
   first_token_ms: null,
   prompt_tokens: null,
   output_tokens: null,
+  context_full: false,
 };
 
 /**
@@ -94,7 +100,12 @@ export class Companion {
   readonly #bounds: CompanionBounds;
   readonly #perMinute: WindowCounter;
   readonly #inFlight = new Set<string>();
+  readonly #clock: Clock;
   #busy = false;
+  /** One read of the model list at a time for every status asked, and its answer for a moment after. */
+  #statusRead: Promise<CompanionStatus> | null = null;
+  #statusAt = 0;
+  #status: CompanionStatus | null = null;
   /** Whether the model's engine keeps to a schema: unknown until a request says, then remembered. */
   #schema = true;
 
@@ -104,12 +115,33 @@ export class Companion {
     readonly bounds?: Partial<CompanionBounds>;
   }) {
     this.#config = options.config;
+    this.#clock = options.clock;
     this.#bounds = { ...COMPANION_BOUNDS, ...options.bounds };
     this.#perMinute = new WindowCounter(options.clock, REPLIES_PER_MINUTE, 60_000);
   }
 
-  /** Whether the companion can be asked now, from Ollama's model list alone; the model is not asked. */
-  async status(): Promise<CompanionStatus> {
+  /**
+   * Whether the companion can be asked now, from Ollama's model list alone; the model is not asked.
+   * Callers at the same moment share one read, and its answer stands for
+   * {@link STATUS_MS}, so asking often costs Ollama no more than one read in that time.
+   */
+  status(): Promise<CompanionStatus> {
+    const now = this.#clock.now().getTime();
+    if (this.#status !== null && now - this.#statusAt < STATUS_MS)
+      return Promise.resolve(this.#status);
+    if (this.#statusRead !== null) return this.#statusRead;
+    const read = this.#readStatus().then((status) => {
+      this.#status = status;
+      this.#statusAt = this.#clock.now().getTime();
+      return status;
+    });
+    this.#statusRead = read.finally(() => {
+      this.#statusRead = null;
+    });
+    return this.#statusRead;
+  }
+
+  async #readStatus(): Promise<CompanionStatus> {
     const config = this.#config;
     if (config === null) return unavailable(NOT_SET_UP);
     const check = await checkModel(config.ollama, config.model, this.#bounds.listMs);
@@ -189,12 +221,15 @@ export class Companion {
           ...(schema ? { format: REPLY_SCHEMA } : {}),
           ...(signal === undefined ? {} : { signal }),
         });
+        const promptTokens = result.kind === 'answered' ? result.promptTokens : null;
         log = {
           attempts: attempt,
           schema,
           first_token_ms: result.firstTokenMs,
-          prompt_tokens: result.kind === 'answered' ? result.promptTokens : null,
+          prompt_tokens: promptTokens,
           output_tokens: result.kind === 'answered' ? result.outputTokens : null,
+          // A prompt that filled the context may have lost its start, the instructions, to truncation.
+          context_full: promptTokens !== null && promptTokens >= this.#bounds.contextTokens,
         };
         if (result.kind === 'failed') {
           // An engine that cannot keep to a schema says so at once: asked again with the prompt

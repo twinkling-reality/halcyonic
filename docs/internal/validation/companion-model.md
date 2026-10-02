@@ -202,6 +202,9 @@ What each did with the nine injections (three kinds, three rounds), read reply b
 So a model of its own meets the gate: every turn was answered beside an agent's task, and the slowest
 first token came while the agents' model was loading. None of the three keeps injected text out of
 everything it says; the review of the whole first task before Start building stays the boundary.
+The owner chose `qwen3.5:9b` on 2026-10-02: the only one whose every reply was well formed and
+natural, and which never repeated a claim an injection dictated; it costs about 5 s a turn under
+load against 2 to 3 s for the others.
 
 ## Speed
 

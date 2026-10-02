@@ -77,22 +77,31 @@ may still change them for its folder (seen for model settings,
 
 When Create's companion is set up (`HALCYONIC_COMPANION_MODEL`, [ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)), the control plane asks
 Ollama on loopback for one reply at a time. Ollama's API has no authentication, so any process of
-the same user can ask the same model, as the agents' runtimes do. The address must be `http://` on a
-loopback address; before every turn the control plane reads Ollama's model list and refuses a model
-that is not listed, that Ollama would pass to another host (`remote_host`, `remote_model`), or whose
-name has a `cloud` tag, so a turn never reaches a hosted model; it never pulls, creates or deletes a
-model. The model gets no tools and no image, sees only the person's own words and its own earlier
-replies under a fixed prompt (never a folder, a project, a runtime or other work), and its reply is
-checked against the contract and shown as the companion's reported words. Nothing it says reaches
-a command: its proposal fills the headset's recap, and the ordinary commands are sent only after
-the person reads the whole first task in the review and confirms it. An idea or spoken words can
-carry instructions to the model; the person's words are wrapped in tags the person cannot close,
-Halcyonic's own notes go only as system messages, and the model refused every injection tried, but
-that is no guarantee: the review is the boundary ([companion-model.md](../validation/companion-model.md)). The
-exchange is kept only on the headset, in the app's private storage, with the rest of a Create
-draft, for 7 days without a change; the control plane keeps no session and journals, stores and
-logs none of it. Ollama keeps the prompt in memory while the model is loaded and, at its default
-log level, logs counts and times but no text.
+the same user can ask the same model, as the agents' runtimes do, and while Ollama is stopped
+another local account could listen on its port and receive the exchange, as with Seorak's port
+above. The address must be `http://` on a loopback address with a port, and the control plane
+refuses to start the companion while Node's environment proxy would send that address through a
+proxy (`NODE_USE_ENV_PROXY` or `--use-env-proxy` with `HTTP_PROXY`, unless `NO_PROXY` names the
+address). Before every turn it reads Ollama's model list and refuses a model that is not listed,
+that Ollama would pass to another host (`remote_host`, `remote_model`), or whose name has a
+`cloud` tag; the `remote_host` check has not been tried against a real remote model. It never pulls,
+creates or deletes a model. The model gets no tools and no image, sees only the person's own words
+and the companion's earlier replies under a fixed prompt (never a folder, a project, a runtime or
+other work), and its reply is checked against the contract, refused if it carries a control,
+zero-width or bidirectional character, and shown as the companion's reported words. Nothing it says
+reaches a command: its proposal fills the headset's recap, and the ordinary commands are sent only
+after the person reads the whole first task in the review and confirms it. An idea or spoken words
+can carry instructions to the model: every angle bracket in what the client sends is written as an
+entity, so the person's words cannot close their tags or spell a chat template's turn markers,
+Halcyonic's own notes go only as system messages, with the rule repeated after the exchange, and no
+model tried kept injected text out of everything it said: the review is the boundary
+([companion-model.md](../validation/companion-model.md)). The exchange's order and its four
+questions are checked, but the client sends the companion's earlier replies back, so a client can
+forge them; that shapes only its own reply. The exchange is kept only on the headset, in the app's
+private files, with the rest of a Create draft, for 7 days without a change; the control plane keeps
+no session and journals, stores and logs none of it. Ollama keeps the prompt in memory while the
+model is loaded and, at its default log level, logs counts and times but no text; with
+`OLLAMA_DEBUG` set it may log more (not verified).
 
 A runtime's list of models (`GET /api/runtimes/:runtime_id/models`,
 [ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)) is read from
@@ -169,7 +178,7 @@ still send the token without asking for the proof ([OPEN_QUESTIONS.md](../produc
 | Agent processes | Stopped on close and when the control plane exits, including on a second signal during shutdown. Every Claude Code process and the OpenCode and Codex servers are recorded before they receive work and watched by a small process that stops them if the control plane dies, even by SIGKILL; the next start stops anything recorded that survived. Identity is checked before any signal. Codex starts each command in a session of its own, beyond the reach of a signal to its server's process group: ending the server's input makes Codex stop them, and a server that has to be killed is killed with all its descendants. A Codex server killed by anything else leaves its running commands behind |
 | OpenCode server | Launched from the configured binary only, never from PATH; bound to 127.0.0.1 on a free port with a password generated per launch and kept in memory; refused unless it reports version 2.0.18 and the process id Halcyonic started; recorded (without the password, mode 0600) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
 | Speech engine | Off unless the owner sets `HALCYONIC_WHISPER_BIN`, `HALCYONIC_WHISPER_MODEL` and `HALCYONIC_WHISPER_VAD_MODEL`, all absolute paths to existing files ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md)). whisper.cpp's `whisper-cli` is launched from that binary only, never from PATH, once per clip, with no environment and nothing from the client in its arguments, and startup is refused unless it reports version 1.9.4. That it opens no port and reaches no network is `whisper-cli`'s own behaviour, observed with `lsof` (voice-transcription.md); nothing sandboxes it, and it runs with the owner's file and network access. A clip is read by Halcyonic's own WAV parser and its samples alone are written into a new WAV, mode 0600, in a fresh temporary directory of mode 0700. That directory is removed when the engine exits, whatever the outcome, or as the control plane exits if it does first; one left by a control plane that was killed is removed at the next start, once it is three minutes old. The engine runs in a process group of its own, which is killed whole after 15 s (two minutes for the warm-up at startup) or after 64 KiB of output, so nothing it started holds the Mac. One clip at a time per principal, six reaching the engine in each fixed minute, and one transcription at a time on the Mac; a transcript longer than a draft (4,096 characters) is refused. While one principal's clip is transcribed, another's is refused as `transcription_busy_on_mac`, which tells a paired device that someone else is speaking at that moment. Voice activity detection means a clip with no speech yields no text rather than invented words |
-| Companion | Off unless the owner names its model (`HALCYONIC_COMPANION_MODEL`); Ollama only at a loopback `http://` address with nothing after the port, and a model name with a `cloud` tag refused at startup. Before every turn the model must be in Ollama's list without `remote_host` or `remote_model`. `POST /api/chat` only, streamed, thinking off, no tools, `format` the reply's schema where the engine keeps to one, `num_ctx` 8,192, `num_predict` 512; no pull, create, delete or `keep_alive`. 30 s to the first token and 45 s for a turn, one retry within them; past either the request is closed, which stops the model. At most 4,096 characters of reply read. One turn at a time per principal and one on the computer, 12 a minute per principal. A request carries at most 20 messages and 24,000 characters (2,000 for a message of the person's), in order; the person's words cannot close their own tags. The reply is model text: checked against the contract, never cut to fit, shown only as the companion's reported words, and never a command |
+| Companion | Off unless the owner names its model (`HALCYONIC_COMPANION_MODEL`); Ollama only at a loopback `http://` address with a port and nothing after it, never through Node's environment proxy, and a model name with a `cloud` tag refused at startup. Before every turn the model must be in Ollama's list without `remote_host` or `remote_model`. `POST /api/chat` only, streamed, thinking off, no tools, `format` the reply's schema where the engine keeps to one, `num_ctx` 8,192, `num_predict` 512; no pull, create, delete or `keep_alive`. 30 s to the first token and 45 s for a turn, one retry within them (and one more request without the schema when the engine cannot keep to one, so at most three requests a turn); past either the request is closed, which stops the model. At most 4,096 characters of reply read. One turn at a time per principal and one on the computer, 12 a minute per principal. A request carries at most 20 messages and 24,000 characters (2,000 for a message of the person's), in order; every angle bracket the client sends is written as an entity. Whether it can be asked is read at most once in 2 s, however often it is asked. The reply is model text: checked against the contract, never cut to fit, shown only as the companion's reported words, and never a command |
 | Codex server | Launched from the configured native binary only, never from PATH, in its own process group, speaking JSON-RPC over its stdin and stdout, so it listens on no port; refused unless both `codex --version` and its answer to `initialize` report 0.157.0 and `ps` shows the launched binary; remote control switched off; a thread Codex reports working in another folder than the project's is refused; only methods on the stable API surface, never the experimental opt-in, with one under-development feature switched on per thread so the agent can ask the person questions (`default_mode_request_user_input`, guarded by an end to end test and withdrawn by the adapter option `answerQuestions: false`, [ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)); a question marked secret is shown but never answerable through Halcyonic; requests Halcyonic does not show the person (permission grants, MCP elicitations) are refused, which Codex takes as a denial or an empty answer; recorded (mode 0600, no secrets) so the next start stops it after a crash, and watched by a small process that stops it if the control plane dies |
 
 ## Project folders and clients
