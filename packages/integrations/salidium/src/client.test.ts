@@ -203,6 +203,108 @@ describe('reading an understanding from Salidium', () => {
     assert.deepEqual(read, ['credential'], 'read once a request carries it');
   });
 
+  test('says why it could not ask about OpenCode, apart from Salidium not running', async (t) => {
+    const OPENCODE = { kind: 'opencode', id: 'ses_6a1f0c2e9b7d4e3fa5c8b1d2e4f6a8c0' };
+    const read: string[] = [];
+    const ask = (fake: FakeSalidium, timeoutMs = 2_000) =>
+      new SalidiumClient({
+        home: fake.home,
+        credential: () => {
+          read.push('credential');
+          return fake.token;
+        },
+        timeoutMs,
+      }).understand(OPENCODE.kind, OPENCODE.id);
+
+    // Catching up: the answer says it timed out, never that OpenCode is not observed.
+    const slow = await start(t);
+    slow.overrides.set('/consumer/v1/discovery', () => {});
+    assert.deepEqual(reason(await ask(slow, 100)), ['unavailable', 'timed_out']);
+
+    // Another process on the port, naming another instance: said, not hidden.
+    const squatter = await start(t);
+    squatter.overrides.set('/consumer/v1/discovery', (response) => {
+      response.setHeader('Content-Type', 'application/json');
+      response.end(JSON.stringify({ ...squatter.discovery(), instanceId: 'f'.repeat(32) }));
+    });
+    assert.deepEqual(reason(await ask(squatter)), ['unavailable', 'instance_mismatch']);
+
+    // A broken providers list on a daemon that says it declares them.
+    const broken = await start(t);
+    broken.minor = 1;
+    broken.overrides.set('/consumer/v1/discovery', (response) => {
+      response.setHeader('Content-Type', 'application/json');
+      response.end(JSON.stringify({ ...broken.discovery(), providers: [{ id: 'OpenCode' }] }));
+    });
+    broken.writeDiscovery({ ...broken.discovery(), providers: [{ id: 'OpenCode' }] });
+    assert.deepEqual(reason(await ask(broken)), ['incompatible', 'invalid_document']);
+
+    assert.deepEqual(
+      read,
+      [],
+      'the credential is not read for a session no daemon was found to observe',
+    );
+  });
+
+  test('stops reading what answers on the port past its size, and checks its instance before validating it', async (t) => {
+    // A discovery answer far past a real one's size: not read on, and taken for another process.
+    const flood = await start(t);
+    flood.overrides.set('/consumer/v1/discovery', (response) => {
+      response.setHeader('Content-Type', 'application/json');
+      response.end(`{"contracts":[${'0,'.repeat(200_000)}0]}`);
+    });
+    assert.deepEqual(reason(await understand(flood, VERIFIED)), [
+      'unavailable',
+      'instance_mismatch',
+    ]);
+    assert.deepEqual(flood.authorizedRequests(), []);
+
+    // Within the size, of another instance: refused before any validation.
+    const other = await start(t);
+    other.overrides.set('/consumer/v1/discovery', (response) => {
+      response.setHeader('Content-Type', 'application/json');
+      response.end(
+        JSON.stringify({
+          contracts: Array.from({ length: 5_000 }, () => 0),
+          instanceId: 'f'.repeat(32),
+        }),
+      );
+    });
+    assert.deepEqual(reason(await understand(other, VERIFIED)), [
+      'unavailable',
+      'instance_mismatch',
+    ]);
+
+    // A discovery file past the size is not read.
+    const big = await start(t);
+    big.writeDiscovery(`{"pad":"${'x'.repeat(70 * 1024)}"}`);
+    assert.deepEqual(reason(await understand(big, VERIFIED)), ['incompatible', 'answer_too_large']);
+    assert.deepEqual(big.requests, []);
+
+    // A document listing more contract versions than the contract allows.
+    const many = await start(t);
+    const listed = {
+      ...many.discovery(),
+      contracts: [many.contract(), ...Array.from({ length: 40 }, () => ({}))],
+    };
+    many.writeDiscovery(listed);
+    assert.deepEqual(reason(await understand(many, VERIFIED)), [
+      'incompatible',
+      'invalid_document',
+    ]);
+
+    // A report past its size, after the credential was accepted: not read on.
+    const huge = await start(t);
+    huge.overrides.set(VERIFIED_REPORT, (response) => {
+      response.setHeader('Content-Type', 'application/json');
+      response.end(`{"pad":"${'x'.repeat(9 * 1024 * 1024)}"}`);
+    });
+    assert.deepEqual(reason(await understand(huge, VERIFIED)), [
+      'incompatible',
+      'answer_too_large',
+    ]);
+  });
+
   test('stops asking about a provider a daemon that lists its providers leaves out', async (t) => {
     const fake = await start(t);
     fake.minor = 1;
@@ -393,10 +495,7 @@ describe('reading an understanding from Salidium', () => {
     const result = await understand(fake, VERIFIED, { timeoutMs: 100 });
     assert.deepEqual(reason(result), ['unavailable', 'timed_out']);
     const message = 'reason' in result ? result.reason.message : '';
-    assert.equal(
-      message,
-      'No answer in time: it may still be catching up after an update. Press Refresh in a moment.',
-    );
+    assert.equal(message, 'No answer in time. Press Refresh in a moment.');
     assert.doesNotMatch(message, /Salidium/, 'the provenance line names the source');
   });
 

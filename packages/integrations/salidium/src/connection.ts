@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { UnderstandingFailure, ValidationIssue } from '@halcyonic/contracts';
@@ -19,8 +19,10 @@ export interface SalidiumOptions {
   readonly home: string;
   /**
    * The consumer credential the person created for Halcyonic, or null when none is configured; or
-   * a function that reads it, called only once a request will carry it, which may say why there
-   * is none instead.
+   * a function that reads it, which may say why there is none instead. For Claude Code and Codex
+   * it is read before Salidium is found, so a missing credential is said first; for a provider
+   * asked about only where the daemon declares it, only once a request will carry it. It is sent
+   * only after the instance check, never before.
    */
   readonly credential: string | null | (() => string | UnderstandingFailure);
   /** How long one request may take, in milliseconds. Defaults to 10,000. */
@@ -39,16 +41,33 @@ export interface SalidiumOptions {
 export const DEFAULT_TIMEOUT_MS = 10_000;
 export const DEFAULT_BUDGET_MS = 12_000;
 
+/**
+ * The most a discovery document may hold, as a file or an answer: a real one is under a kilobyte.
+ * Anything on the port may answer while the file is stale, so its answer is cut off here before it
+ * is parsed, and checked against the file's instance before it is validated.
+ */
+export const DISCOVERY_MAX_BYTES = 64 * 1024;
+
+/** The most any other answer may hold: a session report with every changed file is far smaller. */
+export const ANSWER_MAX_BYTES = 8 * 1024 * 1024;
+
+/** What `get` gives back when an answer runs past its size limit; nothing past it is read. */
+export const TOO_LARGE = 'too-large';
+
+export function tooLarge(what: string, maxBytes: number): Failure<'incompatible'> {
+  return fail(
+    'incompatible',
+    'answer_too_large',
+    `The ${what} ran past ${Math.round(maxBytes / 1024)} KiB, more than Salidium consumer contract v1 gives, so it was not read.`,
+  );
+}
+
 /** What `get` gives back when Salidium did not answer in time, as distinct from not at all. */
 export const TIMED_OUT = 'timed-out';
 
 /** Salidium did not answer in time. Said without the product's name, which the provenance line gives. */
 export function timedOut(): Failure<'unavailable'> {
-  return fail(
-    'unavailable',
-    'timed_out',
-    'No answer in time: it may still be catching up after an update. Press Refresh in a moment.',
-  );
+  return fail('unavailable', 'timed_out', 'No answer in time. Press Refresh in a moment.');
 }
 
 /** Where Salidium keeps its state, resolved as Salidium resolves it: `$SALIDIUM_HOME`, else `~/.salidium`. */
@@ -158,10 +177,10 @@ export interface Reply {
 }
 
 /**
- * One GET. Resolves to null when Salidium cannot be reached, and to `TIMED_OUT` when it does not
- * answer within `timeoutMs` or before `deadline`, the whole read's budget. Rejects only when the
- * caller's own signal aborts, because that is the caller's decision rather than a state of
- * Salidium.
+ * One GET. Resolves to null when Salidium cannot be reached, to `TIMED_OUT` when it does not
+ * answer within `timeoutMs` or before `deadline`, the whole read's budget, and to `TOO_LARGE` when
+ * its answer runs past `maxBytes`, of which no more is read. Rejects only when the caller's own
+ * signal aborts, because that is the caller's decision rather than a state of Salidium.
  */
 export async function get(
   url: URL,
@@ -169,7 +188,8 @@ export async function get(
   timeoutMs: number,
   signal: AbortSignal | undefined,
   deadline?: AbortSignal,
-): Promise<Reply | typeof TIMED_OUT | null> {
+  maxBytes: number = ANSWER_MAX_BYTES,
+): Promise<Reply | typeof TIMED_OUT | typeof TOO_LARGE | null> {
   const signals = [
     AbortSignal.timeout(timeoutMs),
     ...(deadline ? [deadline] : []),
@@ -185,7 +205,8 @@ export async function get(
       redirect: 'error',
       signal: AbortSignal.any(signals),
     });
-    const text = await response.text();
+    const text = await readLimited(response, maxBytes);
+    if (text === null) return TOO_LARGE;
     return { status: response.status, body: parseJson(text) };
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
@@ -193,6 +214,25 @@ export async function get(
     if (error instanceof Error && error.name === 'TypeError') return null;
     throw error;
   }
+}
+
+/** A response's body as text, or null once it runs past `maxBytes`, when reading stops. */
+async function readLimited(response: Response, maxBytes: number): Promise<string | null> {
+  if (response.body === null) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 export function parseJson(text: string): unknown {
@@ -277,7 +317,16 @@ export async function connect(
 ): Promise<Instance | Failure<'unavailable' | 'incompatible'>> {
   let text: string;
   try {
-    text = await readFile(join(home, 'consumer.json'), 'utf8');
+    const file = await open(join(home, 'consumer.json'), 'r');
+    try {
+      // One byte past the limit says whether it runs over, without reading what follows.
+      const buffer = Buffer.alloc(DISCOVERY_MAX_BYTES + 1);
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+      if (bytesRead > DISCOVERY_MAX_BYTES) return tooLarge('discovery file', DISCOVERY_MAX_BYTES);
+      text = buffer.subarray(0, bytesRead).toString('utf8');
+    } finally {
+      await file.close();
+    }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT')
       return fail(
@@ -297,7 +346,7 @@ export async function connect(
   }
 
   const url = new URL(`${CONSUMER_BASE_PATH}/discovery`, origin);
-  const reply = await get(url, null, timeoutMs, signal, deadline);
+  const reply = await get(url, null, timeoutMs, signal, deadline, DISCOVERY_MAX_BYTES);
   if (reply === TIMED_OUT) return timedOut();
   if (reply === null)
     return fail(
@@ -310,7 +359,14 @@ export async function connect(
     'instance_mismatch',
     "The port in Salidium's discovery file did not answer as the Salidium instance that wrote it, so no credential was sent.",
   );
+  // Whatever answers on the port is someone else's until it names the file's instance: an answer
+  // too large, or of another instance, is not validated at all.
+  if (reply === TOO_LARGE) return mismatch;
   if (reply.status !== 200) return refusal(reply.status, reply.body, 'discovery') ?? mismatch;
+  if (
+    (reply.body as { instanceId?: unknown } | undefined)?.instanceId !== file.discovery.instanceId
+  )
+    return mismatch;
   const served = readDiscovery(reply.body, 'discovery document');
   if (isFailure(served) || served.discovery.instanceId !== file.discovery.instanceId)
     return mismatch;

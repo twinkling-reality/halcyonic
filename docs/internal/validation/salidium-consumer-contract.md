@@ -147,6 +147,13 @@ seconds while it reingested its history. Halcyonic's client now gives each reque
 whole read (discovery, lookup, report) a budget of 12, so an answer always reaches a headset inside
 its own 15 seconds. A read that runs out of time answers `unavailable` with its own reason,
 `timed_out`, apart from `unreachable` (nothing listening), in words without the product's name,
-since the provenance line names the source: "No answer in time: it may still be catching up after
-an update. Press Refresh in a moment." Tested with a stand-in that answers a report late
+since the provenance line names the source: "No answer in time. Press Refresh in a moment." It
+guesses no cause, since an impostor on the port that never answers reads the same. For OpenCode,
+only a Salidium that is not running keeps the old answer, "not observed"; a timeout, another
+process on the port or a broken document is said as it is. Anything on the port may answer while
+the discovery file is stale, so an answer is read only up to a size (64 KiB for discovery, 8 MiB
+for any other), a discovery answer must name the file's instance before it is validated at all,
+and the discovery document may list at most 32 contract versions; TypeBox gathers every error of
+a document it refuses, so these bounds, not a cap on the issues kept, bound the work. Tested with a
+stand-in that answers late, floods, or names another instance
 (`packages/integrations/salidium/src/client.test.ts`).
