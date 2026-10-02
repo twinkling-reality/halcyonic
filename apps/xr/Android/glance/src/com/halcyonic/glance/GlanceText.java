@@ -93,13 +93,22 @@ public final class GlanceText {
         return result.toString();
     }
 
-    /** <code>plain</code> text cut to at most <code>most</code> characters, ending in an ellipsis when cut. */
+    /**
+     * <code>plain</code> text of at most <code>most</code> characters of what it says, ending in an
+     * ellipsis when cut. The cut is made in the original text, between code points, so a character
+     * shown by its code is never shown half.
+     */
     public static String cut(String text, int most) {
+        if (text == null) return "";
         String plain = plain(text);
         if (plain.length() <= most) return plain;
-        int end = most - 1;
-        if (end > 0 && Character.isHighSurrogate(plain.charAt(end - 1))) end--;
-        return plain.substring(0, end) + "…";
+        int end = 0;
+        int kept = 0;
+        while (end < text.length() && kept < most - 1) {
+            end += Character.charCount(text.codePointAt(end));
+            kept++;
+        }
+        return plain(text.substring(0, end)) + "…";
     }
 
     private static boolean in(int[] ranges, int codePoint) {

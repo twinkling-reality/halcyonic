@@ -106,7 +106,12 @@ describe('the glance', {
     }
     assert.equal(run('cut', 'A long title that goes on', '10'), 'A long ti…');
     assert.equal(run('cut', 'Short', '10'), 'Short');
-    assert.equal(run('cut', 'abcdefgh\u{1F600}xyz', '10'), 'abcdefgh…', 'never half a pair');
+    assert.equal(
+      run('cut', 'abcdefgh\u{1F600}xyz', '10'),
+      'abcdefgh\u{1F600}…',
+      'counts code points',
+    );
+    assert.equal(run('cut', 'ab\u202Ecdefghijkl', '5'), 'ab‹U+202E›c…', 'never half a code shown');
   });
 });
 
@@ -141,6 +146,30 @@ describe('the snapshot fields the glance reads', () => {
     const text = JSON.stringify(schema);
     for (const literal of ['action_required', 'running', 'verifying', 'starting']) {
       assert.ok(text.includes(`"const":"${literal}"`), literal);
+    }
+  });
+
+  test('its text rule has exactly LabelText’s ranges', () => {
+    const java = readFileSync(join(GLANCE, 'src/com/halcyonic/glance/GlanceText.java'), 'utf8');
+    const csharp = readFileSync(
+      join(ROOT, 'apps/xr/Packages/com.halcyonic.client/Runtime/LabelText.cs'),
+      'utf8',
+    );
+    const ranges = (source: string, name: string) => {
+      const match = new RegExp(`${name}\\s*=\\s*(?:new int\\[\\]\\s*)?\\{([^}]*)\\}`).exec(source);
+      assert.ok(match?.[1], name);
+      return [...match[1].matchAll(/0x([0-9A-Fa-f]+)/g)].map((hex) =>
+        Number.parseInt(hex[1] as string, 16),
+      );
+    };
+    for (const [javaName, csharpName] of [
+      ['WHITE_SPACE', 'WhiteSpace'],
+      ['SHOWN_BY_CODE', 'ShownByCode'],
+      ['PRIVATE_USE', 'PrivateUse'],
+    ] as const) {
+      const fromJava = ranges(java, javaName);
+      assert.ok(fromJava.length > 0);
+      assert.deepEqual(fromJava, ranges(csharp, csharpName), javaName);
     }
   });
 
