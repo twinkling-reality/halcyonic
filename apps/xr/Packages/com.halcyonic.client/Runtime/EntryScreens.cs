@@ -188,9 +188,13 @@ namespace Halcyonic.Client
         /// <param name="voice">Hold to talk is offered: development builds, connected, never in the demonstration.</param>
         /// <param name="said">A line for this screen only, such as hold to talk's words or why an answer was refused.</param>
         /// <param name="waitedSeconds">How long the reply has been on its way.</param>
-        /// <param name="recorded">The demonstration plays a recorded exchange: said so, and only its recorded choices.</param>
-        public static PanelModel Companion(ProjectIdea idea, bool voice, string? said, double waitedSeconds, bool recorded = false)
+        /// <param name="recording">
+        /// The demonstration plays this recorded exchange: said so, only the recorded answer can be
+        /// pressed, and Make the recap only where the recording asked for it.
+        /// </param>
+        public static PanelModel Companion(ProjectIdea idea, bool voice, string? said, double waitedSeconds, CompanionRecording? recording = null)
         {
+            var recorded = recording != null;
             var exchange = idea.Companion ?? throw new System.ArgumentException("The idea has no exchange with the companion.", nameof(idea));
             var model = new PanelModel(EntryText.HelpMe)
             {
@@ -221,14 +225,16 @@ namespace Halcyonic.Client
                 model.Rows.Add(new PanelRow { Line = true, Title = CompanionText.Says(ask.Line), TitleIsData = true, TitleLines = 3, Claim = true });
                 model.Rows.Add(new PanelRow { Line = true, Title = LabelText.Plain(ask.Question.Text), TitleIsData = true, TitleLines = 2, Size = PanelTextSize.Title });
                 var choices = ask.Question.Choices ?? new List<string>();
+                var recordedAnswer = recording?.RecordedAnswer(exchange);
                 for (var index = 0; index < choices.Count; index++)
                 {
+                    var pressable = recorded ? choices[index] == recordedAnswer : exchange.CanSay;
                     model.Rows.Add(new PanelRow
                     {
                         Title = LabelText.Plain(choices[index]),
                         TitleIsData = true,
-                        Action = recorded || exchange.CanSay ? CompanionChoice : null,
-                        Available = recorded || exchange.CanSay,
+                        Action = pressable ? CompanionChoice : null,
+                        Available = pressable,
                         Key = index.ToString(CultureInfo.InvariantCulture),
                     });
                 }
@@ -247,9 +253,10 @@ namespace Halcyonic.Client
                 if (said != null) model.Rows.Add(Line(said, PanelTextSize.Caption, lines: 2));
                 if (!exchange.CanSay && !recorded) model.Rows.Add(Line(CompanionText.Full, PanelTextSize.Caption, lines: 2));
             }
+            var canRecap = recording != null ? recording.RecapHere(exchange) : exchange.CanAskForRecap;
             model.Actions = new ActionSet(back, recorded ? null : goOn,
-                new PanelAction(MakeRecap, CompanionText.MakeTheRecap, PanelActionRole.Primary, available: recorded || exchange.CanAskForRecap,
-                    reason: recorded || exchange.CanAskForRecap ? null : CompanionText.Waiting));
+                new PanelAction(MakeRecap, CompanionText.MakeTheRecap, PanelActionRole.Primary, available: canRecap,
+                    reason: canRecap ? null : recorded ? null : CompanionText.Waiting));
             return model;
         }
 
