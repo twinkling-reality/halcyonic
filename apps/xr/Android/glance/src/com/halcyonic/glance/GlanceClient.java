@@ -110,22 +110,12 @@ final class GlanceClient {
         String base = "http://" + address;
         String challenge = GlanceProof.challenge();
         String proof;
-        HttpURLConnection health = null;
-        ScheduledFuture<?> healthDeadline = null;
         try {
-            health = open(base + "/api/health");
-            healthDeadline = deadline(health);
-            health.setRequestProperty("x-halcyonic-challenge", challenge);
-            int status = health.getResponseCode();
-            proof = health.getHeaderField("x-halcyonic-proof");
-            // Nothing is read from what has not proved itself yet, not even the body.
-            if (status != 200) return new Poll("unproved", null);
+            proof = GlanceHealth.proof(HOST, PORT, challenge);
         } catch (IOException error) {
             return new Poll("unreachable", null);
-        } finally {
-            if (healthDeadline != null) healthDeadline.cancel(false);
-            if (health != null) health.disconnect();
         }
+        if (proof == null) return new Poll("unproved", null);
         if (!GlanceProof.proves(proof, token, address, challenge)) return new Poll("unproved", null);
         HttpURLConnection snapshot = null;
         ScheduledFuture<?> snapshotDeadline = null;
@@ -164,6 +154,7 @@ final class GlanceClient {
         } catch (ErrnoException missing) {
             throw new IOException("no token file");
         }
+        // Android's FileInputStream does not own a descriptor it is given: close it ourselves.
         try (FileInputStream in = new FileInputStream(descriptor)) {
             StructStat stat;
             try {
@@ -180,6 +171,12 @@ final class GlanceClient {
             // The control plane's tokens are base64url, at least 32 characters (security.ts).
             if (token.length() < SHORTEST_TOKEN || !token.matches("[A-Za-z0-9_-]+")) throw new SecurityException("token_malformed");
             return token;
+        } finally {
+            try {
+                Os.close(descriptor);
+            } catch (ErrnoException ignored) {
+                // Already closed: nothing more to release.
+            }
         }
     }
 

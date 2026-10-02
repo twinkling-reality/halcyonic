@@ -7,7 +7,8 @@ import java.util.Base64;
  * Prints what the glance's plain-Java parts make of the inputs tooling/glance/glance.test.ts gives
  * it, one result a line, so the test can hold them equal to security.ts's proof and the client
  * core's LabelText. Arguments come as base64 of UTF-16, so any code unit, an unpaired surrogate included, passes through intact.
- * Usage: proof TOKEN ADDRESS CHALLENGE | proves ANSWER TOKEN ADDRESS CHALLENGE | plain TEXT | cut TEXT MOST
+ * Usage: proof TOKEN ADDRESS CHALLENGE | proves ANSWER TOKEN ADDRESS CHALLENGE | plain TEXT | cut TEXT MOST |
+ * health HOST PORT CHALLENGE
  */
 public final class GlanceSelfTest {
     public static void main(String[] args) {
@@ -37,6 +38,14 @@ public final class GlanceSelfTest {
                 break;
             case "challenge":
                 result = GlanceProof.challenge();
+                break;
+            case "health":
+                try {
+                    String answered = GlanceHealth.proof(decoded[1], Integer.parseInt(decoded[2]), decoded[3]);
+                    result = answered == null ? "no proof" : answered;
+                } catch (java.io.IOException error) {
+                    result = "unreachable";
+                }
                 break;
             default:
                 throw new IllegalArgumentException("unknown " + args[0]);

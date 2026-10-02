@@ -7,13 +7,16 @@
  * bundled OpenJDK, or `JAVA_HOME`.
  */
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { loopbackProof } from '../../apps/control-plane/src/http/security.ts';
+import { startTestServer } from '../../apps/control-plane/src/testing/harness.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const GLANCE = join(ROOT, 'apps/xr/Android/glance');
@@ -29,7 +32,7 @@ function jdk(): string | null {
 }
 
 /** The plain-Java sources: everything in the glance that does not touch Android. */
-const PLAIN = ['GlanceProof.java', 'GlanceText.java'];
+const PLAIN = ['GlanceHealth.java', 'GlanceProof.java', 'GlanceText.java'];
 
 /** The same table GlanceParityTests checks against LabelText.Plain in C#. */
 export const TEXT_CASES: readonly (readonly [string, string])[] = [
@@ -100,18 +103,86 @@ describe('the glance', {
     assert.notEqual(run('challenge'), challengeMade);
   });
 
+  /** As run, without blocking the event loop, for a server in this process to answer. */
+  async function runAsync(...args: string[]): Promise<string> {
+    const [command, ...rest] = args;
+    const encoded = rest.map((value) => Buffer.from(value, 'utf16le').toString('base64'));
+    const { stdout } = await promisify(execFile)(
+      join(bin as string, 'java'),
+      ['-cp', classes, 'com.halcyonic.glance.GlanceSelfTest', command as string, ...encoded],
+      { encoding: 'utf8' },
+    );
+    return Buffer.from(stdout.trim(), 'base64').toString('utf8');
+  }
+
+  /** A listener on loopback that answers every connection with `answer`, then keeps it open. */
+  async function squatter(answer: string): Promise<{ server: Server; port: number }> {
+    const server = createServer((socket) => {
+      socket.on('error', () => {});
+      socket.once('data', () => socket.write(answer));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('no port');
+    return { server, port: address.port };
+  }
+
+  test('it asks a real control plane for its proof, and gets the one security.ts makes', async () => {
+    const server = await startTestServer();
+    try {
+      const challenge = 'cd'.repeat(32);
+      const proof = await runAsync('health', '127.0.0.1', String(server.port), challenge);
+      assert.equal(proof, loopbackProof(server.token, `127.0.0.1:${server.port}`, challenge));
+    } finally {
+      await server.stop();
+    }
+  });
+
+  test('it takes no proof from a listener that misbehaves, and reads no more than its head', async () => {
+    const answers = [
+      ['endless header', `HTTP/1.1 200 OK\r\nx-filler: ${'x'.repeat(20_000)}`],
+      [
+        'two proofs',
+        `HTTP/1.1 200 OK\r\nx-halcyonic-proof: ${'a'.repeat(64)}\r\nx-halcyonic-proof: ${'b'.repeat(64)}\r\n\r\n`,
+      ],
+      ['not a 200', `HTTP/1.1 403 Forbidden\r\nx-halcyonic-proof: ${'a'.repeat(64)}\r\n\r\n`],
+      ['no blank line', `HTTP/1.1 200 OK\r\nx-halcyonic-proof: ${'a'.repeat(64)}\r\n`],
+    ] as const;
+    for (const [what, answer] of answers) {
+      const { server, port } = await squatter(answer);
+      try {
+        const started = Date.now();
+        const result = await runAsync('health', '127.0.0.1', String(port), 'ef'.repeat(32));
+        assert.equal(result, what === 'no blank line' ? 'unreachable' : 'no proof', what);
+        if (what !== 'no blank line')
+          assert.ok(Date.now() - started < 5000, `${what} answered at once`);
+      } finally {
+        server.close();
+      }
+    }
+    const nobody = await squatter('');
+    const port = nobody.port;
+    await new Promise<void>((resolve) => nobody.server.close(() => resolve()));
+    assert.equal(
+      await runAsync('health', '127.0.0.1', String(port), 'ef'.repeat(32)),
+      'unreachable',
+    );
+  });
+
   test('it shows text from outside as LabelText does', () => {
     for (const [input, expected] of TEXT_CASES) {
       assert.equal(run('plain', input), expected, JSON.stringify(input));
     }
     assert.equal(run('cut', 'A long title that goes on', '10'), 'A long ti…');
     assert.equal(run('cut', 'Short', '10'), 'Short');
+    assert.equal(run('cut', 'abcdefgh\u{1F600}xyz', '10'), 'abcdefgh…', 'never half a pair');
     assert.equal(
-      run('cut', 'abcdefgh\u{1F600}xyz', '10'),
-      'abcdefgh\u{1F600}…',
-      'counts code points',
+      run('cut', 'ab\u202Ecdefghijkl', '5'),
+      'ab…',
+      'a code that would pass the limit is left out whole',
     );
-    assert.equal(run('cut', 'ab\u202Ecdefghijkl', '5'), 'ab‹U+202E›c…', 'never half a code shown');
+    assert.equal(run('cut', 'ab\u202Ecdefghijkl', '12'), 'ab‹U+202E›c…', 'never half a code shown');
+    assert.ok(run('cut', '\u200B'.repeat(79), '40').length <= 40, 'at most the limit as shown');
   });
 });
 
