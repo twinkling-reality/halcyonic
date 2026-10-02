@@ -271,6 +271,23 @@ the same definition names, as the JSON Schema document:
   degrees tall, would need more, and is not held to the field. Holding Move never lifts a panel for
   want of room: one that opened under the labels lower than the field allows stays where it was
   and goes no lower (`PanelDrag`).
+- **The menu's models** (`MenuFrame.cs`, ADR 0026), engine-free, what to show and never where:
+  `MenuBar`, the four places with their amber dots and the closed bar's line; `MenuFrame`, a
+  column's subject (with a file's state pill), its row of `FrameSection`s (chosen, reached, waits),
+  its page of `PageLine`s (an icon, words, a small fact, a tone, an evidence chip, the agent's claim,
+  and what a press opens or raises: a row only takes the person somewhere), why a prompt can't be
+  taken now as the page's last content line, one source line, a `SidePanel` (facts or lines,
+  nothing to press but its own Close) and its `Footer`. A footer's `Prompt`s stand in slots, Close,
+  Rare, Free, Secondary and the far right, and it refuses what would stand anywhere else: one
+  prompt a slot, the one main action only at the far right and drawn with the accent, paging never
+  the main action (Previous page beside Close, Next page at the far right where nothing is the main
+  action, else as the secondary prompt), Hold to talk only as the secondary prompt, and a
+  confirmation's Yes only in the free middle, which held nothing on that page or since, with Cancel
+  in the place of the press it would undo (`Footer.Confirm`). An unavailable prompt keeps its place,
+  drawn quiet. The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
+  one radius, the glass, the selection treatment, which `GlazeChecks.OneSelectionTreatment` pins,
+  and quiet words in the secondary colour, every word held to 4.5 to 1 on the glass over a white
+  wall. `PanelModel` stays until nothing draws it.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (no surface uses it yet): columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
