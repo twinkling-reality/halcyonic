@@ -1682,9 +1682,11 @@ release build, such as the one judges run, offers no pairing
   other app can read and which `adb` reaches only through `run-as` on a debuggable build), and in the
   persistent data directory elsewhere. A development build that finds a token an earlier build kept
   on shared storage moves it in at startup, before it reads a pairing, the new file made mode 600
-  before the token is written, and removes the shared copy (`AccessTokenFile` in the client core); it
-  reads shared storage only to move a token in, and a release build removes one it finds there
-  without reading it. A pairing takes
+  where it can be before the token is written, and removes the shared copy, or logs that a copy
+  remains when it may not; a release build removes one it finds there without reading it.
+  `AccessTokenFile` in the client core decides; `AndroidTokenStorage` reaches the files through
+  `android.system.Os`, so only a regular file with one name holding a token in its own form is
+  taken, and no link is followed or pipe waited on. A pairing takes
   the place of the access token; forgetting it returns to the token.
 - **Logs.** `Halcyonic: pairing with the control plane at <address>`, `paired; connecting over the
   network`, `pairing refused: <code>` and whether forgetting revoked the headset on the Mac, never

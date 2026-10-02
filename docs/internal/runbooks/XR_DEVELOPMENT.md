@@ -528,27 +528,41 @@ control plane shows.
 Write the token into the app's private storage and start the app again:
 
 ```bash
-adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token' < ~/.halcyonic/access-token
+adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token.tmp && test -s files/access-token.tmp && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token' < ~/.halcyonic/access-token
 adb shell run-as com.halcyonic.xr ls -l files/access-token
 adb shell am force-stop com.halcyonic.xr
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
-The token goes from the Mac's own file straight into `files/access-token` in the app's private
-storage, with no copy anywhere in between; no other app can read it there, and `run-as` reaches it
-only on a development build, which is debuggable. `adb exec-in` says nothing when `run-as` fails,
-as on a release build, so the second line checks: it should list the file with `-rw-------` and 44
-bytes, and never shows what is in it. It should survive `adb install -r`. Development builds before
-this kept the token on shared storage, in `/sdcard/Android/data/com.halcyonic.xr/files`; a
-development build that finds a token there moves it into private storage at its next start, before
-it reads a pairing, and removes it from shared storage (`Halcyonic: moved the access token ...` in
-the log). It reads that place only to move a token in; a release build removes a token it finds
-there without reading it. A token
-that sat on shared storage stays valid on the Mac; if the headset was ever plugged into another
-computer that could browse its files, replace it: stop the control plane, delete
-`~/.halcyonic/access-token`, start it again, and write the new token as above. The control plane
-logs `realtime client connected` for `halcyonic-xr`. None of this has been run on a headset yet
-([headset-token-storage.md](../validation/headset-token-storage.md)).
+The token goes from the Mac's own file into the app's private storage with no copy anywhere in
+between: it is written whole beside the old one, made mode 600 and only then put in its place, so a
+cut-off write never replaces a token and an old file's mode never carries over. No other app can
+read it there, and `run-as` reaches it only on a development build, which is debuggable. `adb
+exec-in` says nothing when `run-as` fails, as on a release build, so the second line checks: it
+should list `files/access-token` with `-rw-------` and 44 bytes, and never shows what is in it. It
+should survive `adb install -r`. The control plane logs `realtime client connected` for
+`halcyonic-xr`.
+
+**A token left on shared storage.** Development builds before this kept the token on shared
+storage, in `/sdcard/Android/data/com.halcyonic.xr/files`, where `adb push` left it readable by
+anything with `adb` or file access over USB. A development build that finds a token there moves it
+into private storage at its next start, before it reads a pairing, and removes it; a release build
+removes it without reading it. Only a regular file with one name holding a token in its own form is
+taken, and nothing there is followed through a link or waited on as a pipe. The app may not be
+allowed to remove a file `adb push` made, since `shell` owns it; it then logs "a copy of the access
+token is still on shared storage". Remove it from the Mac, which can, and check that it is gone:
+
+```bash
+adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token
+adb shell ls /sdcard/Android/data/com.halcyonic.xr/files/
+```
+
+Once every headset has moved its token, replace the token once, whatever happened, since it sat
+readable on shared storage and never expires: stop the control plane, delete
+`~/.halcyonic/access-token`, start it again, which makes a new one, and write it to each headset
+as above. Paired headsets are not affected; they use their own credential. None of this has been
+run on a headset yet ([headset-token-storage.md](../validation/headset-token-storage.md));
+"Token storage on a Quest" below lists what to check.
 
 If the line above the stage says "Your computer refused this headset's access token", the token on the
 headset is from an earlier data directory or was replaced on the Mac: the control plane answered
@@ -641,6 +655,28 @@ What the Mac cannot check ([network-pairing.md](../validation/network-pairing.md
   back.
 - **Frame rate:** `adb logcat -s VrApi` stays at 72 fps while pairing, since the exchange runs in the
   background.
+
+### Token storage on a Quest
+
+What only a headset can tell about the access token ([headset-token-storage.md](../validation/headset-token-storage.md)):
+
+- **The write.** After the `run-as` write above, `ls -l files/access-token` shows `-rw-------` and 44
+  bytes, and the app connects. It still connects after `adb install -r` of a new development build.
+- **The move.** Push a token the old way (`adb push ~/.halcyonic/access-token
+  /sdcard/Android/data/com.halcyonic.xr/files/access-token`) with no private token, start the app:
+  the log says it moved the token, the private file exists with `-rw-------`, and the shared copy is
+  gone, or the log says a copy remains, which shows whether the app may remove a file `shell` made.
+  Repeat on a paired headset: the move happens there too.
+- **The release build.** Install a release build over a development build's data, with a token left
+  on shared storage: the log says it was not read, and it is gone or reported.
+- **Links and pipes.** Whether `adb shell` or file transfer over USB can make a link or a named pipe
+  in `/sdcard/Android/data/com.halcyonic.xr/files` at all (`ln -s`, `mkfifo`); if so, that the app
+  starts at once and logs that what was there was not a token.
+- **The calls.** That `android.system.Os` `lstat`, `open` with `O_NOFOLLOW | O_NONBLOCK`, `fstat`,
+  `read`, `chmod` and `remove` work through JNI under IL2CPP (no warning in the log), and what the
+  app's umask makes a new file's mode before `chmod`.
+- **Backups.** Whether a Meta or Horizon backup ever copied the shared file; the app itself sets
+  `android:allowBackup="false"`.
 
 ### Captures and an unattended headset
 
