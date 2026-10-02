@@ -199,6 +199,37 @@ as the reference for clean, intentional type and layout.
   strokes, which the product's Surface shader would draw in one. Frame time on a Quest is not
   measured.
 
+### Star Citizen's mobiGlas
+
+Added on 2026-10-02 at the owner's request, as a reference for how several panels relate. Read the
+same day; no image was copied and the videos the article embeds could not be played here.
+
+- **The article** (Jono Yuen, *Star Citizen - UI Revisited (part 2)*, HUDS+GUIS, 2023-05-04,
+  [hudsandguis.com](https://www.hudsandguis.com/home/star-citizen-revisited-part-2)) is mostly images.
+  Its text calls mobiGlas the player's main interface for inventory, missions, messages, ship and
+  navigation: a see-through hologram projected from the wrist, readable from many angles and by other
+  players, which it praises as social. It reports the developer's aims for modular, reusable parts,
+  and names no problem but the difficulty of interfaces every player can see.
+- **The developer's own notes** (Dave Richard, *Design Notes: mobiGlas*, 2015-01-31,
+  [robertsspaceindustries.com](https://robertsspaceindustries.com/en/comm-link/engineering/14466-Design-Notes-MobiGlas)):
+  an augmented-reality layer and the wrist hologram run together; open, the hologram takes about 95
+  percent of the view. It is built on a grid from simple shapes, with solid fills separating sections
+  because the screens float, one blue base, pale text and a few accents, and the world behind it
+  blurred and tinted so text stays readable. Home is a hub that adapts: apps for the situation,
+  favourites, recent apps. Objects step from dim to bright to animated as they become selectable,
+  then selected, and filters cap how many labels show at once. The notes name clutter, items too
+  close together to read, and readability against the world as the problems to solve.
+- **What the images show** (inference, from uncaptioned screenshots): one large panel at a time, tied
+  to the forearm so it is often seen at a slant; app cards that keep their title top left and close
+  top right while the content changes in the same frame; detail opening as a pane on the right of the
+  same panel, its actions at the bottom right; side panes angled in toward a flat centre; and a footer
+  of key prompts. Outline-only cards with glow wash out against bright scenes.
+- **Borrowed:** list and detail on one plane, the detail sliding out to the right; a footer of key
+  prompts; controls in fixed places; solid fills, one base and one accent; a home that adapts to what
+  waits; and, for a heads-up mode, few labels, the focused one brightest.
+- **Left behind:** reading surfaces tied to the wrist and seen at a slant, side panes angled against
+  the centre, outline-only glass, and a panel that fills the view.
+
 ### A plane below the eyes, measured
 
 Added the same day, after the owner asked for every surface on one plane facing the person, upright.
