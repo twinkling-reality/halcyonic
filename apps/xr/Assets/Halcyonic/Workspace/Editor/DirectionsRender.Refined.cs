@@ -281,8 +281,11 @@ namespace Halcyonic.XR.Workspace.Editor
             return board;
         }
 
-        /// <summary>A row of the content: icon, words, a small fact, a chevron when it opens more; lit when chosen.</summary>
-        private static void RefinedRow(Board board, string words, float left, float right, float top, Action<float, float> icon, string? fact = null,
+        /// <summary>
+        /// A row of the content: icon, words, a small fact, a chevron when it opens more; lit when chosen.
+        /// Without an icon, as on a page none of whose rows has one, its words start on the content line.
+        /// </summary>
+        private static void RefinedRow(Board board, string words, float left, float right, float top, Action<float, float>? icon, string? fact = null,
             Color? factColour = null, bool chosen = false, bool more = false)
         {
             var tall = U(RowHeight);
@@ -290,11 +293,12 @@ namespace Halcyonic.XR.Workspace.Editor
             var inset = U(RowInset);
             if (chosen) Select(board, (left + right) / 2f, middle, right - left + 2f * inset, tall, lit: true);
             Target(board, "Row " + words, (left + right) / 2f, middle, right - left + 2f * inset, compact: true);
-            icon(left + U(IconColumn) / 2f, middle);
+            icon?.Invoke(left + U(IconColumn) / 2f, middle);
             var factWidth = fact == null ? 0f : WidthOf(board, fact, GlazeType.Caption) + U(0.3f);
             var end = right - (more ? U(1.6f) : 0f);
-            Body(board, "Row words " + words, words, left + U(IconColumn) + U(Grid), middle + U(BodySize) * 0.6f,
-                end - left - U(IconColumn) - U(Grid) - factWidth - U(0.8f), chosen ? GlazeTokens.Text : new Color(0.93f, 0.95f, 0.97f, 0.9f));
+            var start = icon == null ? left : left + U(IconColumn) + U(Grid);
+            Body(board, "Row words " + words, words, start, middle + U(BodySize) * 0.6f,
+                end - start - factWidth - U(0.8f), chosen ? GlazeTokens.Text : new Color(0.93f, 0.95f, 0.97f, 0.9f));
             if (fact != null) Fact(board, "Row fact " + words, fact, end, middle + U(LabelSize) * 0.6f, factWidth, factColour, TextAlignmentOptions.TopRight);
             if (more) ProtoGlyph(board, "More", GlyphChevron, right - U(0.5f), middle, chosen ? GlazeTokens.Text : Secondary, 1.2f);
         }

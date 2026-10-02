@@ -98,7 +98,7 @@ today and, once built, in lane U's renders of every surface:
    main action.
 4. **Type only steps down (checked).** Three sizes on the menu's surfaces: Title, 24 dp, drawn light,
    for the subject, one a column; Body, 18 dp, for the sections, the content and the prompts; Label,
-   15 dp, for small facts inside a row and the names of facts in a side panel. From the top of a
+   15 dp, for small facts inside a row (below, a side panel's fact names). From the top of a
    column to its bottom, size never grows again, so a page's source line, one a page, stands last on
    the page, at Body in the secondary colour, and a detail under a part, as each Seorak part's
    availability, coverage and freshness, is its own Body line in the secondary colour. Partial, stale
@@ -220,6 +220,22 @@ coordinator's first-visit words:
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
   from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
   tasks.
+- **A side panel's fact names its value above it at 18 dp**, in the secondary colour, the value at
+  18 dp under it. At 15 dp the name would stand above larger type, which type stepping down
+  forbids; the render caught it on Usage's side panel.
+- **A page's source line counts as one of its rows.** With a side panel open, a page of 4 rows and
+  its source line reaches 0.1 degrees past a Quest 3S's field, so such a page holds 3 rows, and 2
+  at larger text.
+- **Usage lists each limit as a row**: whose and which window, its share left as the small fact,
+  "At most 60% left", and a chevron; chosen, its side panel says when it was seen, when it resets
+  and whose account it is, with the source. Refresh stands beside Close and Next page at the far
+  right. A meter under each row read as an underline, which one selection treatment forbids, so the
+  words carry the share.
+- **Settings lists each setting as a row** under its group's heading (Your room, Comfort, and in
+  development builds Your computer), its value the small fact; chosen, its side panel says what it
+  is now and what the change does, and the footer's main action is that one change, as Make text
+  larger. A setting of more than two values steps to the next, its prompt naming it, as the sounds
+  and the characters' arrangement do today.
 - **The light line is one leg** from under the character's label to the file's subject: straight
   down from the middle of their overlap where the label stands over the subject, as the eyes see
   them, else from the label's nearer bottom corner to the subject's nearer top corner. Leaving from
