@@ -51,9 +51,6 @@ namespace Halcyonic.Client
             /// <summary>The recorded demonstration, which connects nothing and starts nothing.</summary>
             public bool Demonstration { get; set; }
 
-            /// <summary>The longer question wraps at this text size, so the shorter one is asked.</summary>
-            public bool ShortQuestion { get; set; }
-
             /// <summary>The chosen project's id, or null.</summary>
             public string? ChosenProject { get; set; }
 
@@ -77,7 +74,7 @@ namespace Halcyonic.Client
         public static MenuFrame Projects(State state)
         {
             // The place's purpose as its subject, every visit; the lit place under it already says "Projects".
-            var subject = state.ShortQuestion ? ProjectsText.SubjectShort : ProjectsText.Subject;
+            var subject = ProjectsText.Subject;
             var projects = state.Overview?.Projects ?? (IReadOnlyList<ProjectSummary>)Array.Empty<ProjectSummary>();
             var offers = state.Listing == null ? (IReadOnlyList<ConnectableFolder>)Array.Empty<ConnectableFolder>() : FolderConnect.Offers(state.Listing);
             var project = state.ChosenProject == null ? null : projects.FirstOrDefault(each => each.ProjectId == state.ChosenProject);
@@ -124,9 +121,7 @@ namespace Halcyonic.Client
             // the row's actions hold both right-hand places, and its row is on this page.
             if (side == null && pages.Count > 1)
             {
-                var last = page == pages.Count - 1;
-                var next = new Prompt(Footer.NextPage, last ? ProjectsText.FirstPage : ProjectsText.NextPage, GlazeIcon.Next, PromptKind.NextPage);
-                footer = footer.With(footer[PromptSlot.FarRight] == null ? PromptSlot.FarRight : PromptSlot.Secondary, next);
+                footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(page, pages.Count), GlazeIcon.Next, PromptKind.NextPage));
             }
             return new MenuFrame(subject, footer, lines: pages[page], side: side);
         }
