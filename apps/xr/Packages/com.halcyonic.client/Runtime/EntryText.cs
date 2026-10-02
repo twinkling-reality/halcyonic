@@ -153,6 +153,9 @@ namespace Halcyonic.Client
         /// <summary>The final press, locked in its place until the person has seen the last part: what is left to do, not a part's name.</summary>
         public static string ReadToPart(int pages) => "Read to part " + Count(pages) + " first";
 
+        /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
+        public static string NextPart(int part, int parts) => "Next part, " + Count(part) + " of " + Count(parts);
+
         /// <summary>The pager's words, everywhere in the entry panel: a word with its direction, never Back, which leaves the screen.</summary>
         public const string Previous = "Previous";
         public const string Next = "Next";

@@ -109,6 +109,11 @@ namespace Halcyonic.Client
         public const string ChooseModel = "choose-model";
         public const string ChangeRuntime = "change-runtime";
 
+        /// <summary>The review's row to the next part; only once the last part has shown is Yes, start building offered.</summary>
+        public const string NextPart = "next-part";
+
+        public const string ConfirmStart = "confirm-start";
+
         // Start building, once Yes was pressed, and a start whose outcome is unknown.
         public const string TryAgainStart = "try-again";
         public const string ChangeRequest = "change";
@@ -606,6 +611,35 @@ namespace Halcyonic.Client
                     if (EntryText.ModelLine(draft) is string model && model.Length > 0) runLines.Add(new PageLine(model, tone: LineTone.Secondary, rows: 3));
                     return new SidePanel(EntryText.HowItRuns, lines: runLines);
             }
+        }
+
+        /// <summary>
+        /// Start building's confirmation: the whole request as it will be sent, a part at a time as the
+        /// Unity layer measured it, never cut, with Next part as the last row of every part but the last.
+        /// Cancel stands where Start building was pressed; Yes, start building appears in the middle,
+        /// where nothing stood, only once the last part has shown, and stays there unavailable, saying
+        /// why, while something else stops the start.
+        /// </summary>
+        /// <param name="problem">Why it can't start now even on the last part, such as the computer gone, or null.</param>
+        public static MenuFrame Review(ProjectIdea idea, NewWorkReview review, string? problem)
+        {
+            var lines = new List<PageLine> { new PageLine(EntryText.ReviewLine, tone: LineTone.Secondary) };
+            foreach (var part in review.Parts)
+            {
+                lines.Add(new PageLine(review.Items[part.Item].Text, wordsAreData: true, rows: part.Lines, fromRow: part.FirstLine));
+            }
+            if (review.Paginated && !review.CanConfirm)
+            {
+                lines.Add(new PageLine(EntryText.NextPart(review.Page + 2, review.PageCount), icon: GlazeIcon.Next, action: NextPart));
+            }
+            var before = new Footer(Close(), farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true));
+            var yes = review.CanConfirm
+                ? new Prompt(ConfirmStart, EntryText.ConfirmStart, GlazeIcon.StartBuilding, PromptKind.Yes, available: problem == null, reason: problem)
+                : null;
+            var footer = Footer.Confirm(before, PromptSlot.FarRight, yes, new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.StartBuilding, idea, startReached: true),
+                lines: lines);
         }
 
         /// <summary>

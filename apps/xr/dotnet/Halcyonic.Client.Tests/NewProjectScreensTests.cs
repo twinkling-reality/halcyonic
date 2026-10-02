@@ -582,4 +582,62 @@ public class NewProjectStartTests
         Assert.That(armed.Lines.Any(line => line.Words.Contains("may have changed something")), Is.True);
         Assert.That(NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: true, live: false).Footer.All.Count(), Is.EqualTo(1), "nothing to clear while not connected");
     }
+
+    private static IEnumerable<string> Ids(MenuFrame frame) =>
+        frame.Footer.All.Select(each => each.Prompt.Id).Concat(frame.Lines.Where(line => line.Action != null).Select(line => line.Action!));
+
+    [Test]
+    public void YesStartBuildingCanNeitherAppearNorBePressedBeforeTheLastPartHasShown()
+    {
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
+        review.Paginate(review.Items.Select(_ => 2).ToList(), 6);
+        Assert.That(review.PageCount, Is.GreaterThan(2));
+        for (var page = 0; page < review.PageCount - 1; page++)
+        {
+            var frame = NewProjectScreens.Review(Idea(), review, problem: null);
+            HoldsThreePrompts(frame);
+            Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo(EntryText.StartBuilding));
+            Assert.That(Ids(frame), Does.Not.Contain(NewProjectScreens.ConfirmStart), "no Yes anywhere before the last part: part " + (page + 1));
+            Assert.That(frame.Footer[PromptSlot.Free], Is.Null);
+            Assert.That(frame.Footer.Confirming, Is.True);
+            Assert.That(frame.Footer[PromptSlot.FarRight]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Start building was pressed");
+            var next = frame.Lines.Last();
+            Assert.That((next.Action, next.Words), Is.EqualTo((NewProjectScreens.NextPart, EntryText.NextPart(page + 2, review.PageCount))));
+            Assert.That(review.CanConfirm, Is.False, "the panel's own check refuses Yes too");
+            review.Next();
+        }
+
+        var last = NewProjectScreens.Review(Idea(), review, problem: null);
+        HoldsThreePrompts(last);
+        Assert.That(last.Lines.Any(line => line.Action == NewProjectScreens.NextPart), Is.False);
+        var yes = last.Footer[PromptSlot.Free]!;
+        Assert.That((yes.Id, yes.Kind, yes.Available, yes.Main), Is.EqualTo((NewProjectScreens.ConfirmStart, PromptKind.Yes, true, false)),
+            "Yes stands in the middle, where nothing stood, drawn plain");
+        Assert.That(last.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Free, PromptSlot.FarRight }));
+        var gone = NewProjectScreens.Review(Idea(), review, problem: EntryText.WaitingForMac);
+        Assert.That((gone.Footer[PromptSlot.Free]!.Available, gone.Reason), Is.EqualTo((false, EntryText.WaitingForMac)));
+    }
+
+    [Test]
+    public void TheReviewShowsEachPartWholeFromWhereItsItemWasSplit()
+    {
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
+        // The first task, last, wraps to more rows than a part holds, so it is split across parts.
+        review.Paginate(review.Items.Select((_, index) => index == review.Items.Count - 1 ? 7 : 1).ToList(), 4);
+        var split = false;
+        for (var page = 0; page < review.PageCount; page++)
+        {
+            var frame = NewProjectScreens.Review(Idea(), review, problem: null);
+            var parts = frame.Lines.Skip(1).Where(line => line.Action == null).ToList();
+            Assert.That(parts.Select(line => (line.Words, line.Rows, line.FromRow)),
+                Is.EqualTo(review.Parts.Select(part => (review.Items[part.Item].Text, part.Lines, part.FirstLine))));
+            Assert.That(parts.All(line => line.WordsAreData), Is.True);
+            split |= parts.Any(line => line.FromRow > 0);
+            review.Next();
+        }
+        Assert.That(split, Is.True, "an item split across parts starts its later part at the row it left off");
+        var unmeasured = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
+        var waiting = NewProjectScreens.Review(Idea(), unmeasured, problem: null);
+        Assert.That(Ids(waiting), Does.Not.Contain(NewProjectScreens.ConfirmStart), "nothing to confirm before the request is measured");
+    }
 }
