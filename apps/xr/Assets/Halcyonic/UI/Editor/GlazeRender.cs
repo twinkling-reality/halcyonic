@@ -124,7 +124,9 @@ namespace Halcyonic.XR.UI.Editor
                 }
                 foreach (var holder in third) holder.gameObject.SetActive(false);
                 var files = FileIcons();
+                var glass = GlassSample();
                 failures.AddRange(Check(folder, "gallery-files.png", camera, texture, root, eyes, new List<(GlazeButton, string)>()));
+                failures.AddRange(GlassLightsFromItsTop(camera, texture, glass));
                 foreach (var holder in third) holder.gameObject.SetActive(true);
                 failures.AddRange(EveryIconShows(badges, marks, actions, files));
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
@@ -733,6 +735,40 @@ namespace Halcyonic.XR.UI.Editor
             {
                 if (!shown.Contains(icon)) yield return "component render: nothing in the gallery shows the " + icon + " icon.";
             }
+        }
+
+        /// <summary>The menu's glass (ADR 0026): a subject's plate, 16 by 8 degrees, to the right of the file kinds.</summary>
+        private static Surface GlassSample()
+        {
+            var holder = Holder("Glass", 26f, 4f);
+            var glass = Surface.Create(holder, "Glass", 1);
+            glass.DrawGlass(new Vector2(GlazeTokens.Units(8f), GlazeTokens.Units(4f)) * 2f);
+            return glass;
+        }
+
+        /// <summary>
+        /// The glass lights from its top edge as drawn: just under its sheen it is brighter than at its
+        /// middle, below the light's reach, and the sheen brighter still; its middle is the plain glass.
+        /// </summary>
+        private static IEnumerable<string> GlassLightsFromItsTop(Camera camera, RenderTexture texture, Surface glass)
+        {
+            var render = Render(camera, texture);
+            float Brightness(float fromTop)
+            {
+                var point = glass.transform.TransformPoint(new Vector3(0f, 0.5f - fromTop / glass.Size.y, 0f));
+                var screen = camera.WorldToScreenPoint(point);
+                var colour = render.GetPixel(Mathf.RoundToInt(screen.x), Mathf.RoundToInt(screen.y));
+                return (colour.r + colour.g + colour.b) / 3f;
+            }
+            var sheenWidth = GlazeTokens.Units(Glaze.Menu.SheenDegrees);
+            var sheen = Brightness(1.65f * sheenWidth);
+            var lit = Brightness(GlazeTokens.Units(0.5f));
+            var middle = Brightness(glass.Size.y / 2f);
+            UnityEngine.Object.DestroyImmediate(render);
+            Debug.Log("Halcyonic: component render: the glass's sheen " + (sheen * 255f).ToString("0", CultureInfo.InvariantCulture) + ", under it "
+                + (lit * 255f).ToString("0", CultureInfo.InvariantCulture) + ", its middle " + (middle * 255f).ToString("0", CultureInfo.InvariantCulture) + " of 255.");
+            if (!(lit > middle + 3f / 255f)) yield return "component render: the glass's top is no brighter than its middle; its light from the top edge is missing.";
+            if (!(sheen > lit + 3f / 255f)) yield return "component render: the glass's sheen is no brighter than the light under it.";
         }
 
         /// <summary>

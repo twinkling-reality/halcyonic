@@ -290,7 +290,10 @@ the same definition names, as the JSON Schema document:
   32 degree menu (the component render logs each footer's measure). The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
   one radius, the glass, the selection treatment, which `GlazeChecks.OneSelectionTreatment` pins,
   and quiet words in the secondary colour, every word held to 4.5 to 1 on the glass over a white
-  wall. `PanelModel` stays until nothing draws it.
+  wall. `Surface.DrawGlass` draws the glass in one call of the one surface shader: the panel colour
+  at 96 percent, a white hairline, a light from the top edge fading out by a third of the height,
+  or within a content surface's top padding, and a sheen just inside the top edge; the component
+  render samples it. `PanelModel` stays until nothing draws it.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (no surface uses it yet): columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
