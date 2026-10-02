@@ -301,7 +301,7 @@ public class HowBuiltTests
         var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
         var pages = Steps(older);
         Assert.That(pages.Take(6).Select(page => page.Lines[0].Text), Has.All.EndWith(" · explained by a model before the latest evidence"));
-        Assert.That(pages.Take(6).Select(page => page.Lines[0].Tone), Has.All.EqualTo(SectionTone.Attention));
+        Assert.That(pages.Take(6).Select(page => page.Lines[0].Tone), Has.All.EqualTo(SectionTone.Secondary), "the words say it; amber is for waiting only");
     }
 
     [Test]
@@ -477,7 +477,7 @@ public class UnderstandingAnswersTests
 
         Assert.That(section.Provenance, Does.Match(@"^Simulated explanation · recorded at \d\d:\d\d:\d\d$"));
         Assert.That(section.Simulated, Is.True);
-        Assert.That(section.ProvenanceTone, Is.EqualTo(SectionTone.Attention));
+        Assert.That(section.ProvenanceTone, Is.EqualTo(SectionTone.Secondary), "\"Simulated\" says so in words; amber is for waiting only");
         Assert.That(Intelligence.Texts(section)[0], Is.EqualTo("2 files changed: 2 new"));
         Assert.That(section.Lines[0].Tag, Is.EqualTo("observed"));
     }
@@ -536,7 +536,7 @@ public class CheckedTests
             ("", "partly available: not yet computed · 0 of 1 session, incomplete: still being computed, a gap not named · recomputing, no data yet", true, false),
         }));
         Assert.That(Intelligence.Line(section, "Tests passed").Tone, Is.EqualTo(SectionTone.Good));
-        Assert.That(Intelligence.Line(section, "Then refunds.ts").Tone, Is.EqualTo(SectionTone.Attention));
+        Assert.That(Intelligence.Line(section, "Then refunds.ts").Tone, Is.EqualTo(SectionTone.Normal));
         Assert.That(Intelligence.Line(section, "Agent says").Tone, Is.EqualTo(SectionTone.Claim));
         Assert.That(section.Lines.Where(line => line.Detail && line.Tag.Length == 0 && line.Text.StartsWith("available", StringComparison.Ordinal)).Select(line => line.Tone),
             Has.All.EqualTo(SectionTone.Secondary));
@@ -557,7 +557,7 @@ public class CheckedTests
         Assert.That((detail.Text, detail.Tone), Is.EqualTo(("Ran after the last change, to refunds.ts at 15:40; 2 later runs couldn't be read", SectionTone.Secondary)));
 
         var staleOnly = Intelligence.Edit(after, response => Intelligence.UnderstandingOf(response)["verification"]!["latest_by_method"]![0]!["stale"] = true);
-        Assert.That(Intelligence.Line(Answers.Checked(staleOnly, ControlPlaneApiTests.Available), "Files changed after").Tone, Is.EqualTo(SectionTone.Attention),
+        Assert.That(Intelligence.Line(Answers.Checked(staleOnly, ControlPlaneApiTests.Available), "Files changed after").Tone, Is.EqualTo(SectionTone.Normal),
             "the source's own word that files changed since stands even when the times say otherwise");
 
         var none = Answers.Files(after, "[]");
@@ -667,7 +667,7 @@ public class CheckedTests
         var statuses = Answers.Measurement(section).Where(line => line.Detail).ToList();
         Assert.That(statuses.Count, Is.EqualTo(3), "one statement per part");
         Assert.That(statuses.Select(line => line.Text), Has.All.EndWith("stale since 18:05"));
-        Assert.That(statuses.Select(line => line.Tone), Has.All.EqualTo(SectionTone.Attention));
+        Assert.That(statuses.Select(line => line.Tone), Has.All.EqualTo(SectionTone.Secondary), "\"stale\" says it in words");
     }
 
     [Test]
@@ -712,7 +712,7 @@ public class CheckedTests
         });
         var outcome = Answers.Measurement(Answers.Checked(Intelligence.Verified, measured));
         Assert.That((outcome[4].Text, outcome[4].Tone),
-            Is.EqualTo(("no commits landed · 2 tool errors, the first at 17:44 · not ended, or its end not captured", SectionTone.Attention)));
+            Is.EqualTo(("no commits landed · 2 tool errors, the first at 17:44 · not ended, or its end not captured", SectionTone.Normal)));
         Assert.That(outcome[5].Text, Is.EqualTo("uncommitted: 3 files, +41 −7 (120 generated lines apart) · lines kept after 3 days: 90% (36 of 40 lines)"));
 
         var noLens = Intelligence.Edit(ControlPlaneApiTests.Available, response => Intelligence.EvaluationOf(response)["verification"]!["lens"] = null);
@@ -740,9 +740,9 @@ public class CheckedTests
         var evaluation = Intelligence.Edit(ControlPlaneApiTests.Available, response => Intelligence.EvaluationOf(response)["source"]!["synthetic"] = true);
         var both = Answers.Checked(understanding, evaluation, recorded: true);
         Assert.That(both.Provenance, Is.EqualTo("Simulated checks · recorded at 16:21:30"));
-        Assert.That(both.ProvenanceTone, Is.EqualTo(SectionTone.Attention));
+        Assert.That(both.ProvenanceTone, Is.EqualTo(SectionTone.Secondary));
         var source = both.Lines.Single(line => line.Source);
-        Assert.That((source.Text, source.Tone), Is.EqualTo(("Simulated measurement · recorded at 18:01:00", SectionTone.Attention)));
+        Assert.That((source.Text, source.Tone), Is.EqualTo(("Simulated measurement · recorded at 18:01:00", SectionTone.Secondary)));
         Assert.That(both.Simulated, Is.True);
         Assert.That(Answers.Checked(Intelligence.Verified, evaluation).Simulated, Is.True, "either source simulated makes the answer simulated");
     }
@@ -820,7 +820,7 @@ public class BriefAnswersTests
         Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.HowBuilt, off)), Is.EqualTo(new[] { "Explanations are turned off on your computer, so there's none for this work." }));
         var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
         var stale = Brief(UnderstandPrompt.HowBuilt, older).Lines[1];
-        Assert.That((stale.Text, stale.Tone), Is.EqualTo(("Explained by a model before the latest evidence", SectionTone.Attention)));
+        Assert.That((stale.Text, stale.Tone), Is.EqualTo(("Explained by a model before the latest evidence", SectionTone.Secondary)));
 
         var allChecked = Intelligence.Edit(Intelligence.Verified, response =>
             Intelligence.UnderstandingOf(response)["verification"]!["unverified_files"] = new JArray());
@@ -939,6 +939,63 @@ public class AnswerWordsTests
                     Assert.That(line.Text, Does.Not.Contain(brand), "the model that wrote the explanation is not named");
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Amber is for what waits for the person (ADR 0023): none of these answers is that, since a task
+    /// waits by its own journal, so no line and no provenance of any answer takes the Attention tone,
+    /// at either depth, in any recorded answer or in a source's states; the words say partial,
+    /// stale, unavailable or simulated.
+    /// </summary>
+    [Test]
+    public void OnlyAWaitingLineTakesTheAttentionTone()
+    {
+        var sections = new List<SectionPresentation>();
+        void All(string? executionId, IntelligenceRead<UnderstandingResponse>? understood, IntelligenceRead<EvaluationResponse>? measured, DateTimeOffset now)
+        {
+            foreach (var depth in new[] { AnswerDepth.Brief, AnswerDepth.Full })
+            {
+                foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
+                {
+                    sections.Add(UnderstandingPresenter.Present(prompt, executionId, understood, false, null, now, Intelligence.Utc, depth: depth));
+                }
+                sections.Add(CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, now, Intelligence.Utc, depth: depth));
+            }
+        }
+        var recording = Demonstration.Recording();
+        foreach (var (executionId, answers) in recording.Understanding)
+        {
+            var measuredAnswers = recording.Evaluation.TryGetValue(executionId, out var found) ? found : Array.Empty<RecordedAnswer<EvaluationResponse>>();
+            foreach (var answer in answers)
+            {
+                var measured = measuredAnswers.LastOrDefault(each => each.ReadAt <= answer.ReadAt) ?? measuredAnswers.FirstOrDefault();
+                All(executionId, new IntelligenceRead<UnderstandingResponse>(answer.Response, answer.ReadAt, recorded: true),
+                    measured == null ? null : new IntelligenceRead<EvaluationResponse>(measured.Response, measured.ReadAt, recorded: true), answer.ReadAt);
+            }
+        }
+        var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
+        var partial = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
+            Intelligence.EvaluationOf(response)["cost"]!["availability"] = JObject.Parse("{\"state\":\"partial\",\"reason\":\"result_limit\"}"));
+        foreach (var understanding in new[] { Intelligence.Verified, older })
+        {
+            foreach (var evaluation in new[] { ControlPlaneApiTests.Available, partial })
+            {
+                All(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(understanding), "2026-09-20T16:21:30.000Z"),
+                    Intelligence.Live(Intelligence.Evaluation(evaluation), "2026-09-26T18:01:00.000Z"), Intelligence.At("2026-09-26T18:09:00.000Z"));
+            }
+        }
+        foreach (var availability in new[] { "not_found", "unavailable", "incompatible", "unauthorized" })
+        {
+            var failed = Intelligence.Failure(availability, "some_code", "Some reason.");
+            All(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(failed), "2026-09-20T16:21:30.000Z"),
+                Intelligence.Live(Intelligence.Evaluation(failed), "2026-09-26T18:01:00.000Z"), Intelligence.At("2026-09-26T18:02:00.000Z"));
+        }
+        Assert.That(sections.Count, Is.GreaterThan(400), "every recorded answer and every state is looked at");
+        foreach (var section in sections)
+        {
+            Assert.That(section.ProvenanceTone, Is.Not.EqualTo(SectionTone.Attention), section.Provenance);
+            foreach (var line in section.Lines) Assert.That(line.Tone, Is.Not.EqualTo(SectionTone.Attention), line.Text);
         }
     }
 

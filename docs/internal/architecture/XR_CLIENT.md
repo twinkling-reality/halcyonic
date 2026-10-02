@@ -546,7 +546,8 @@ the same definition names, as the JSON Schema document:
   allowed", with the control plane's reason, such as "No answer in time. Press Refresh in a
   moment." Every
   claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
-  explained), never upgraded. **`AnswerPages`** splits an answer that pages, keeping a line with
+  explained), never upgraded. No line of an answer is amber, which is for what waits for the person
+  only: partial, stale, unavailable and simulated are said in words, in the secondary tone. **`AnswerPages`** splits an answer that pages, keeping a line with
   its detail, never a provenance line at a page's foot, and a step's heading again at the top of a
   step that goes on; the page showing is named at the head of the provenance line ("Step 2 of 7 ·
   …"). **`IntelligenceText`** makes every text from a source plain by `LabelText`'s rule, so a

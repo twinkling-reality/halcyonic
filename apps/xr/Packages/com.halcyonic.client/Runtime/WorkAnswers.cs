@@ -67,7 +67,8 @@ namespace Halcyonic.Client
             var understanding = available.Understanding;
             var source = understanding.Source;
             var provenance = IntelligenceText.UnderstandingProvenance(read, source, now, zone) + status;
-            var tone = source.Synthetic ? SectionTone.Attention : SectionTone.Secondary;
+            // Amber is for what waits for the person only: "Simulated" says so in words.
+            var tone = SectionTone.Secondary;
             if (depth == AnswerDepth.Brief)
             {
                 var brief = prompt switch
@@ -94,7 +95,7 @@ namespace Halcyonic.Client
             NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "No understanding yet: ", notFound.Reason, SectionTone.Secondary, status),
             UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding unavailable: ", unavailable.Reason, SectionTone.Secondary, status),
             IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding unreadable: ", incompatible.Reason, SectionTone.Problem, status),
-            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding not allowed: ", unauthorized.Reason, SectionTone.Attention, status),
+            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding not allowed: ", unauthorized.Reason, SectionTone.Secondary, status),
             _ => IntelligenceText.Empty(kind, "The understanding came back in a form this app does not know."),
         };
 
@@ -110,7 +111,7 @@ namespace Halcyonic.Client
             var unverified = understanding.Verification.UnverifiedFiles.Count;
             lines.Add(unverified == 0
                 ? new SectionLine("inferred", "All checked after the last change", SectionTone.Normal)
-                : new SectionLine("inferred", IntelligenceText.Plural(unverified, "file") + " not checked after the last change", SectionTone.Attention));
+                : new SectionLine("inferred", IntelligenceText.Plural(unverified, "file") + " not checked after the last change", SectionTone.Normal));
             return lines;
         }
 
@@ -162,7 +163,7 @@ namespace Halcyonic.Client
                 new SectionLine("explained", IntelligenceText.Plain(content.How.Summary), SectionTone.Claim, rows: 2),
                 explanation.Current
                     ? new SectionLine("", "Explained by a model, up to date", SectionTone.Secondary)
-                    : new SectionLine("", "Explained by a model before the latest evidence", SectionTone.Attention),
+                    : new SectionLine("", "Explained by a model before the latest evidence", SectionTone.Secondary),
             };
         }
 
@@ -255,7 +256,7 @@ namespace Halcyonic.Client
             // Each step's heading says what it is, that a model wrote it, and whether it covers the
             // latest evidence, in one line that heads every page of the step.
             var note = explanation.Current ? " · explained by a model, up to date" : " · explained by a model before the latest evidence";
-            var noteTone = explanation.Current ? SectionTone.Secondary : SectionTone.Attention;
+            const SectionTone noteTone = SectionTone.Secondary;
             void Step(string title, string? theirs, IEnumerable<SectionLine> body)
             {
                 lines.Add(new SectionLine("", title + note, noteTone, startsPage: true, repeats: true));
@@ -475,7 +476,7 @@ namespace Halcyonic.Client
                 ? "Every changed file was checked after its last change" + (by == null ? "" : ", by " + IntelligenceText.Plain(by))
                 : IntelligenceText.Plural(unverified.Count, "file") + " not checked after the last change: " + Names(unverified);
             // Coverage is always the source's inference.
-            return new SectionLine("inferred", text, unverified.Count == 0 ? SectionTone.Normal : SectionTone.Attention);
+            return new SectionLine("inferred", text, SectionTone.Normal);
         }
 
         /// <summary>The latest run of each kind of check, the earliest first.</summary>
@@ -490,19 +491,21 @@ namespace Halcyonic.Client
         {
             yield return Run(run, zone);
             var at = At(run.At);
-            var since = files.Where(file => At(file.LastChangedAt) > at).Select(file => file.Path).ToList();
+            var since = ChangedSince(run, files);
             var before = files.Where(file => At(file.LastChangedAt) <= at).OrderByDescending(file => At(file.LastChangedAt)).FirstOrDefault();
             string after;
+            // Files changed since read in the normal tone, plainer than the change it ran after:
+            // amber is for what waits for the person only.
             var tone = SectionTone.Secondary;
             if (since.Count > 0)
             {
                 after = "Then " + Names(since) + " changed, so it no longer covers " + (since.Count == 1 ? "it" : "them");
-                tone = SectionTone.Attention;
+                tone = SectionTone.Normal;
             }
             else if (run.Stale)
             {
                 after = "Files changed after it ran, so it no longer covers them";
-                tone = SectionTone.Attention;
+                tone = SectionTone.Normal;
             }
             else if (before != null)
             {
@@ -515,6 +518,13 @@ namespace Halcyonic.Client
             }
             if (run.LaterUnreadable > 0) after += "; " + IntelligenceText.Plural(run.LaterUnreadable, "later run") + " couldn't be read";
             yield return new SectionLine("", after, tone, detail: true);
+        }
+
+        /// <summary>The files that changed after a check ran, by the times the source observed.</summary>
+        internal static IReadOnlyList<string> ChangedSince(UnderstandingVerificationRun run, IReadOnlyList<UnderstandingChangedFile> files)
+        {
+            var at = At(run.At);
+            return files.Where(file => At(file.LastChangedAt) > at).Select(file => file.Path).ToList();
         }
 
         private static SectionLine Run(UnderstandingVerificationRun run, TimeZoneInfo zone)
@@ -531,7 +541,7 @@ namespace Halcyonic.Client
             {
                 UnderstandingVerificationRunOutcome.Pass => ("passed", SectionTone.Good),
                 UnderstandingVerificationRunOutcome.Fail => ("failed", SectionTone.Problem),
-                UnderstandingVerificationRunOutcome.Partial => ("partly passed", SectionTone.Attention),
+                UnderstandingVerificationRunOutcome.Partial => ("partly passed", SectionTone.Normal),
                 _ => ("outcome unknown", SectionTone.Secondary),
             };
             var when = IntelligenceText.TryParse(run.At, out var at) ? " at " + IntelligenceText.Clock(at, zone, seconds: false) : "";
@@ -657,13 +667,14 @@ namespace Halcyonic.Client
             if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary));
             else
             {
-                var latest = UnderstandingPresenter.Run(runs[runs.Count - 1], understanding.Changes.Files, zone).ToList();
+                var run = runs[runs.Count - 1];
+                var latest = UnderstandingPresenter.Run(run, understanding.Changes.Files, zone).ToList();
                 lines.Add(latest[0]);
                 // Only what makes the check no longer cover the work: files changed since.
-                if (latest[1].Tone == SectionTone.Attention) lines.Add(latest[1]);
+                if (run.Stale || UnderstandingPresenter.ChangedSince(run, understanding.Changes.Files).Count > 0) lines.Add(latest[1]);
             }
             return new SectionPresentation(SectionKind.Checked, IntelligenceText.UnderstandingProvenance(read, source, now, zone, checks: true) + status,
-                source.Synthetic ? SectionTone.Attention : SectionTone.Secondary, lines, source.Synthetic);
+                SectionTone.Secondary, lines, source.Synthetic);
         }
 
         /// <summary>
@@ -690,7 +701,7 @@ namespace Halcyonic.Client
             {
                 var labels = string.Join("; ", review.Groups.Take(2).Select(group => IntelligenceText.Plain(group.Label)));
                 var first = review.Groups[0].Items.Count > 0 ? UnderstandingPresenter.Word(review.Groups[0].Items[0].Epistemic) : "";
-                page.AddIfRoom(new SectionLine(first, IntelligenceText.Plain(review.Summary) + ": " + labels, SectionTone.Attention, rows: 2));
+                page.AddIfRoom(new SectionLine(first, IntelligenceText.Plain(review.Summary) + ": " + labels, SectionTone.Normal, rows: 2));
             }
             var statement = understanding.Verification.Statements.LastOrDefault();
             if (statement != null)
@@ -698,7 +709,7 @@ namespace Halcyonic.Client
                 page.AddIfRoom(new SectionLine(UnderstandingPresenter.Word(statement.Epistemic), UnderstandingPresenter.Quote(statement), SectionTone.Claim, rows: 2));
             }
             return new SectionPresentation(SectionKind.Checked, IntelligenceText.UnderstandingProvenance(read, source, now, zone, checks: true) + status,
-                source.Synthetic ? SectionTone.Attention : SectionTone.Secondary, page.Lines, source.Synthetic);
+                SectionTone.Secondary, page.Lines, source.Synthetic);
         }
     }
 
