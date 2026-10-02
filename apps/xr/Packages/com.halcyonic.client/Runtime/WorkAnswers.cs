@@ -315,14 +315,22 @@ namespace Halcyonic.Client
             var latest = revision.AtLatestTurnEnd;
             string Commit(UnderstandingRevisionAnchor anchor) => anchor.Head == null ? "a repository with no commits yet" : "commit " + ShortSha(anchor.Head);
             string On(UnderstandingRevisionAnchor anchor) => anchor.Branch == null ? "" : " on " + IntelligenceText.Plain(anchor.Branch);
+            // A repository with no commits yet has no commit to stand at: "In a repository with no
+            // commits yet, on main".
+            string Empty(UnderstandingRevisionAnchor anchor) =>
+                "a repository with no commits yet" + (anchor.Branch == null ? "" : ", on " + IntelligenceText.Plain(anchor.Branch));
             if (start != null && latest != null)
             {
-                if (start.Head == latest.Head) return "At " + Commit(latest) + On(latest) + ", where it started";
+                if (start.Head == latest.Head)
+                {
+                    return latest.Head == null ? "In " + Empty(latest) : "At " + Commit(latest) + On(latest) + ", where it started";
+                }
+                if (latest.Head == null) return "In " + Empty(latest);
                 var startBranch = start.Branch == latest.Branch ? "" : On(start);
-                return "From " + Commit(start) + startBranch + " to " + (latest.Head == null ? Commit(latest) : ShortSha(latest.Head)) + On(latest);
+                return "From " + Commit(start) + startBranch + " to " + ShortSha(latest.Head) + On(latest);
             }
-            if (latest != null) return "At " + Commit(latest) + On(latest);
-            if (start != null) return "Started at " + Commit(start) + On(start);
+            if (latest != null) return latest.Head == null ? "In " + Empty(latest) : "At " + Commit(latest) + On(latest);
+            if (start != null) return start.Head == null ? "Started in " + Empty(start) : "Started at " + Commit(start) + On(start);
             return null;
         }
 

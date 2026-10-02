@@ -132,7 +132,10 @@ public class WhatChangedTests
         Assert.That(Line(Anchor(A, "main"), Anchor(A, "main")), Is.EqualTo("At commit 3f9a2c1 on main, where it started"));
         Assert.That(Line(null, Anchor(B, null)), Is.EqualTo("At commit 8b1e4d7"), "a detached HEAD names no branch");
         Assert.That(Line(Anchor(A, "main"), null), Is.EqualTo("Started at commit 3f9a2c1 on main"));
-        Assert.That(Line(null, Anchor(null, "main")), Is.EqualTo("At a repository with no commits yet on main"));
+        Assert.That(Line(null, Anchor(null, "main")), Is.EqualTo("In a repository with no commits yet, on main"));
+        Assert.That(Line(Anchor(null, "main"), Anchor(null, "main")), Is.EqualTo("In a repository with no commits yet, on main"));
+        Assert.That(Line(Anchor(null, null), null), Is.EqualTo("Started in a repository with no commits yet"));
+        Assert.That(Line(Anchor(null, "main"), Anchor(B, "main")), Is.EqualTo("From a repository with no commits yet to 8b1e4d7 on main"));
         Assert.That(Line(null, null), Is.Null, "nothing is said when the source saw neither boundary");
         var json = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["revision"] =
             JObject.Parse("{\"at_start\":null,\"at_latest_turn_end\":" + Anchor(B, "main") + "}"));
