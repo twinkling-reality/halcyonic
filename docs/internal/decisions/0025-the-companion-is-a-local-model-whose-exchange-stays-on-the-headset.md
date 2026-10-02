@@ -204,7 +204,12 @@ competition demonstration.
    Measured on 2026-10-02 with one Codex task generating on the same model at
    `OLLAMA_NUM_PARALLEL` 1: 10 of 14 turns reached the 30 s bound and were refused; the 4 answered
    had their first token after 12.7 to 24.9 s. The gate is not met there; `OLLAMA_NUM_PARALLEL=2`
-   is next ([companion-model.md](../validation/companion-model.md)).
+   does not help: Ollama's MLX engine serves one request at a time whatever it is set to. With the
+   owner's approval three models of the companion's own were then tried on Ollama's GGUF engine
+   beside the same task, with `OLLAMA_MAX_LOADED_MODELS=2`: `qwen3.5:9b`, `granite4.1:8b` and
+   `qwen3:4b-instruct` answered every turn, with first tokens at 0.15 to 1.0 s median and whole
+   turns at 2.1 to 5.5 s median ([companion-model.md](../validation/companion-model.md)). The gate is
+   met with a model of the companion's own; which one is the owner's choice.
 2. **Words.** The table above is approved, except that every phrase saying "your Mac" follows the
    owner's decision on the brand finding of the competition build's review; the host's wording is
    agreed with the host setup and competition build lanes before it reaches `EntryText`.
