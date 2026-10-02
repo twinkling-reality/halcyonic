@@ -109,6 +109,15 @@ namespace Halcyonic.Client
         public const string ChooseModel = "choose-model";
         public const string ChangeRuntime = "change-runtime";
 
+        // Start building, once Yes was pressed, and a start whose outcome is unknown.
+        public const string TryAgainStart = "try-again";
+        public const string ChangeRequest = "change";
+        public const string ChooseAnotherFolder = "choose-another-folder";
+        public const string UseThatFolder = "use-that-folder";
+        public const string CheckFirst = "check-first";
+        public const string Clear = "clear";
+        public const string ConfirmClear = "confirm-clear";
+
         /// <summary>
         /// The characters a row of the content holds, about: ADR 0026's subject line holds 36 at 24 dp
         /// in the menu's 32 degree column, so 48 at 18 dp.
@@ -577,6 +586,89 @@ namespace Halcyonic.Client
                     return new SidePanel(EntryText.HowItRuns, lines: runLines);
             }
         }
+
+        /// <summary>
+        /// Start building, once Yes was pressed: each step of the build and how it went, in words; sent
+        /// is not done, and a step is confirmed only by its completed record. Its footer comes from the
+        /// outcome: Close alone while it runs and once it started; Try again, with Change, after a
+        /// refusal; Use that folder or Try again, with Choose a folder, for one about a folder; and only
+        /// checking the work first when the outcome is unknown.
+        /// </summary>
+        /// <param name="chosenFolder">Where the person chose the files live, for Use that folder after the computer says it exists.</param>
+        public static MenuFrame Starting(ProjectIdea idea, BuildSequence sequence, ProjectFolder? chosenFolder)
+        {
+            var lines = new List<PageLine> { new PageLine(EntryText.SendingLine, tone: LineTone.Secondary) };
+            var newProject = sequence.Steps[0].Kind == BuildStepKind.CreateProject;
+            foreach (var step in sequence.Steps)
+            {
+                lines.Add(new PageLine(EntryText.StepName(step.Kind, newProject)));
+                lines.Add(new PageLine(EntryText.StepStatus(step), tone: ToneOf(step), rows: 3));
+            }
+            Prompt? beside = null;
+            Prompt? main = null;
+            if (sequence.Started)
+            {
+                lines.Add(new PageLine(EntryText.Started, tone: LineTone.Good, rows: 2));
+            }
+            else if (sequence.CanRetry && sequence.StoppedAt is BuildStep stopped && EntryText.AboutFolder(stopped))
+            {
+                // The next action comes from the refusal's code. Either way the request is reviewed again before it is sent.
+                var taken = stopped.Refusal == RejectionCode.LocationExists ? chosenFolder : null;
+                beside = new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change);
+                main = taken != null && taken.IsNew
+                    ? new Prompt(UseThatFolder, EntryText.UseThatFolder, GlazeIcon.Next, main: true)
+                    : new Prompt(TryAgainStart, EntryText.TryAgain, GlazeIcon.Refresh, main: true);
+            }
+            else if (sequence.CanRetry)
+            {
+                beside = new Prompt(ChangeRequest, EntryText.Change, GlazeIcon.Change);
+                main = new Prompt(TryAgainStart, EntryText.TryAgain, GlazeIcon.Refresh, main: true);
+            }
+            else if (sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown))
+            {
+                main = new Prompt(CheckFirst, EntryText.CheckFirst, GlazeIcon.Next, main: true);
+            }
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: beside, farRight: main), subjectIsData: isData,
+                sections: Sections(NewProjectStep.StartBuilding, idea, startReached: true), lines: lines);
+        }
+
+        /// <summary>
+        /// A start that may have run: its reference, the computer's record of it when one arrives, and
+        /// how to clear it, by two separate presses: Clear, then Yes, clear, which stands in the middle
+        /// where nothing stood. Clearing starts a blank draft, never a retry. Nothing is offered unless
+        /// connected.
+        /// </summary>
+        public static MenuFrame Unresolved(ProjectIdea idea, string commandId, CommandView? record, bool armed, bool live)
+        {
+            var lines = new List<PageLine>
+            {
+                new PageLine(EntryText.PreviousRequestTitle),
+                new PageLine(EntryText.PreviousRequestLine, rows: 3),
+                new PageLine(EntryText.Recorded(record?.Status), rows: 2),
+                new PageLine(armed ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked, rows: 2),
+                new PageLine(EntryText.Reference(commandId), tone: LineTone.Secondary),
+            };
+            var footer = new Footer(Close(), farRight: live ? new Prompt(Clear, EntryText.Clear, GlazeIcon.Next, main: true) : null);
+            if (live && armed)
+            {
+                footer = Footer.Confirm(footer, PromptSlot.FarRight,
+                    new Prompt(ConfirmClear, EntryText.ConfirmClear, GlazeIcon.Next, PromptKind.Yes),
+                    new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
+            }
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.StartBuilding, idea, startReached: true),
+                lines: lines);
+        }
+
+        /// <summary>A build step's colour: confirmed is good, refused or failed a problem, and waiting or unknown secondary, its words saying which.</summary>
+        private static LineTone ToneOf(BuildStep step) => step.Status switch
+        {
+            BuildStepStatus.Confirmed => LineTone.Good,
+            BuildStepStatus.Refused or BuildStepStatus.NotSent => LineTone.Problem,
+            BuildStepStatus.Failed => step.EffectUnknown ? LineTone.Secondary : LineTone.Problem,
+            _ => LineTone.Secondary,
+        };
 
         /// <summary>A runtime's own name, where it is shown, comes from outside; the practice agent's words in a live session are ours.</summary>
         private static bool RuntimeIsData(NewWorkDraft draft, bool live) =>

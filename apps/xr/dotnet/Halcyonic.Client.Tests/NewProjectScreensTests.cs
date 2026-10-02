@@ -479,3 +479,98 @@ public class NewProjectRecapTests
         Assert.That(runtimes.Footer[PromptSlot.Rare], Is.Null);
     }
 }
+
+public class NewProjectStartTests
+{
+    private static readonly CommandFactory Commands = new(Samples.Client);
+
+    private static LocationRoot Root() => new()
+    {
+        Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+        Folders = new List<LocationFolder>(),
+    };
+
+    private static NewWorkDraft Draft()
+    {
+        var runtime = Samples.MockRuntime();
+        runtime.RuntimeId = "local";
+        runtime.Synthetic = false;
+        runtime.ModelChoice = ModelChoice.None;
+        runtime.UsesProjectLocation = true;
+        var draft = new NewWorkDraft(Commands);
+        draft.ChooseRuntime(runtime);
+        draft.Objective = "Add a page.";
+        return draft;
+    }
+
+    private static ClientProjection With(CommandView command)
+    {
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Commands = new List<CommandView> { command };
+        state.ApplySnapshot(snapshot, new StateChanges());
+        return state;
+    }
+
+    private static ProjectIdea Idea()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("Add a page.");
+        return idea;
+    }
+
+    private static void HoldsThreePrompts(MenuFrame frame)
+    {
+        var prompts = frame.Footer.All.ToList();
+        Assert.That(prompts, Has.Count.InRange(1, 3), "Close, one other prompt and the main action");
+        Assert.That(prompts[0].Prompt.Kind, Is.EqualTo(PromptKind.Close));
+    }
+
+    [Test]
+    public void StartingOffersTheNextActionItsOutcomeAllows()
+    {
+        var folder = ProjectFolder.New(Root(), "recipes")!;
+        var sequence = new BuildSequence(Draft(), Commands, "Recipes", folder.ToContract());
+        var create = sequence.Begin();
+        var waiting = NewProjectScreens.Starting(Idea(), sequence, folder);
+        HoldsThreePrompts(waiting);
+        Assert.That(waiting.Sections.Single(step => step.Chosen).Words, Is.EqualTo(EntryText.StartBuilding));
+        Assert.That(waiting.Footer.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close }), "nothing to press while the computer answers");
+        Assert.That(waiting.Lines.Any(line => line.Tone == LineTone.Good), Is.False, "sent is not done");
+
+        sequence.Advance(With(new CommandView
+        {
+            CommandId = create.CommandId, Status = CommandStatus.Rejected, IssuedAt = Samples.Time, UpdatedAt = Samples.Time,
+            Rejection = new CommandRejection { Code = RejectionCode.LocationExists, Message = "There is already a folder named recipes." },
+        }));
+        var exists = NewProjectScreens.Starting(Idea(), sequence, folder);
+        HoldsThreePrompts(exists);
+        Assert.That(exists.Lines[2].Tone, Is.EqualTo(LineTone.Problem));
+        Assert.That(exists.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { Footer.Close, NewProjectScreens.ChooseAnotherFolder, NewProjectScreens.UseThatFolder }));
+        Assert.That(NewProjectScreens.Starting(Idea(), sequence, null).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.TryAgainStart));
+
+        var unknown = new BuildSequence(Draft(), Commands, "Recipes");
+        var made = unknown.Begin();
+        unknown.AcknowledgementLost(new CommandOutcomeUnknownException(made.CommandId, "The socket closed."));
+        unknown.Advance(new ClientProjection());
+        var check = NewProjectScreens.Starting(Idea(), unknown, null);
+        HoldsThreePrompts(check);
+        Assert.That(check.Lines[2].Tone, Is.EqualTo(LineTone.Secondary), "unknown is neither good nor a problem; its words say so");
+        Assert.That(check.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { Footer.Close, NewProjectScreens.CheckFirst }), "only checking the work first");
+    }
+
+    [Test]
+    public void ClearingAStartThatMayHaveRunTakesTwoPressesInTwoPlaces()
+    {
+        var waiting = NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: false, live: true);
+        HoldsThreePrompts(waiting);
+        Assert.That(waiting.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(null)).And.Contain("Reference: c-1"));
+        Assert.That(waiting.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Clear));
+        var armed = NewProjectScreens.Unresolved(Idea(), "c-1", new CommandView { CommandId = "c-1", Status = CommandStatus.Failed }, armed: true, live: true);
+        HoldsThreePrompts(armed);
+        Assert.That(armed.Footer[PromptSlot.Free]!.Id, Is.EqualTo(NewProjectScreens.ConfirmClear), "Yes, clear, in the middle, where nothing stood");
+        Assert.That(armed.Footer[PromptSlot.FarRight]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Clear was pressed");
+        Assert.That(armed.Lines.Any(line => line.Words.Contains("may have changed something")), Is.True);
+        Assert.That(NewProjectScreens.Unresolved(Idea(), "c-1", null, armed: true, live: false).Footer.All.Count(), Is.EqualTo(1), "nothing to clear while not connected");
+    }
+}
