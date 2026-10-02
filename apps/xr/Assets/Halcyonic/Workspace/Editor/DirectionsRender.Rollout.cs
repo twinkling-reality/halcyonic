@@ -20,6 +20,8 @@ namespace Halcyonic.XR.Workspace.Editor
             ("r10-understanding-changes", false, shot => Lay(Facing.Eyes, () => ChangesWithSidePanel(shot))),
             ("r11-projects-first-visit", false, shot => Lay(Facing.Eyes, () => ProjectsFirstVisit(shot))),
             ("r12-creating-questions", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot))),
+            ("r13-creating-questions-view", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot, view: true))),
+            ("r14-creating-questions-too-long", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot, view: true, tooLong: true))),
         };
 
         private static readonly string[] Steps = { "Your idea", "Questions", "Recap", "Start building" };
@@ -106,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ContentShape(side, sideWidth, fileHeight + tabs.Height + U(RowGap), new Prompt("Close details", GlazeIcon.Close), null, null, null);
 
             LayOnPlane(shot, 0f, new List<IReadOnlyList<Board>> { new[] { head, tabs, file }, new[] { sideHead, side } });
-            Projection(shot, slot, head, head, reserve);
+            LightLine(shot, slot, head, reserve);
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -136,7 +138,9 @@ namespace Halcyonic.XR.Workspace.Editor
         // ---------------------------------------------------------------------------------------------
         // New project, slid out beside the menu on Projects: the companion's question, its answers.
 
-        private static void NewProjectQuestions(Shot shot)
+        /// <param name="view">With the companion's view that this can't be built over its question: the longest a reply shows, the quote then the question alone.</param>
+        /// <param name="tooLong">The view over a quote of three rows, the companion's line and its question: past the field, kept to show why a quote holds two.</param>
+        private static void NewProjectQuestions(Shot shot, bool view = false, bool tooLong = false)
         {
             var menuWidth = 2f * U(16f);
             var stepsWidth = 2f * U(19f);
@@ -150,10 +154,10 @@ namespace Halcyonic.XR.Workspace.Editor
             var mr = menuWidth / 2f - U(PanelPadding);
             var my = -U(PanelPadding);
             RefinedRow(menu, "Storefront API", ml, mr, my, (cx, cy) => Glyph(menu, "State", GlazeIcon.Working, cx, cy, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground)),
-                "2 working", Secondary, more: true);
+                "2 tasks running", Secondary, more: true);
             my -= U(RowHeight) + menu.TargetGap;
             RefinedRow(menu, "Docs site", ml, mr, my, (cx, cy) => Glyph(menu, "State", GlazeIcon.CheckingItsWork, cx, cy, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground)),
-                "checking", Secondary, more: true);
+                "1 task checking its work", Secondary, more: true);
             my -= U(RowHeight) + U(GroupGap);
             my -= Body(menu, "Folders", "Folders on your computer", ml, my, mr - ml, Secondary).Height + U(Grid);
             RefinedRow(menu, "race-results", ml, mr, my, (cx, cy) => ProtoGlyph(menu, "Folder", GlyphFolder, cx, cy, GlazeTokens.Text), "last week", Secondary, more: true);
@@ -163,7 +167,11 @@ namespace Halcyonic.XR.Workspace.Editor
             var pl = -stepsWidth / 2f + U(PanelPadding);
             var pr = stepsWidth / 2f - U(PanelPadding);
             var py = -U(PanelPadding);
-            py -= Body(page, "Asks", CompanionText.Says("Should the page show each runner's best time, or every race?"), pl, py, pr - pl, GlazeTokens.Text, lines: 2, lean: true).Height + U(GroupGap);
+            if (view) py -= Body(page, "View", CompanionText.ThinksNotBuildable, pl, py, pr - pl, Secondary).Height + U(Grid);
+            var says = tooLong
+                ? CompanionText.Says("A shared file works well for a small club, and a page can read it as it changes. Should the page show each runner's best time, or every race?")
+                : CompanionText.Says("Should the page show each runner's best time, or every race?");
+            py -= Body(page, "Asks", says, pl, py, pr - pl, GlazeTokens.Text, lines: tooLong ? 3 : 2, lean: true).Height + U(GroupGap);
             var inset = U(RowInset);
             var tall = U(RowHeight);
             var half = (pr - pl + 2f * inset - page.TargetGap) / 2f;

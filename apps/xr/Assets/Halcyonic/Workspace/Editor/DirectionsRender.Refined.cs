@@ -63,6 +63,8 @@ namespace Halcyonic.XR.Workspace.Editor
             // A plane that stays where the menu alone put it while the file slides out to its right: off
             // square, the file's far text shrunk, a corner past a Quest 3S's field, and its top in a label.
             ["r6-file-slides-out-staying"] = new[] { "off square to the eyes", "as the eyes see it", "lie outside the field", "'s outline and" },
+            // A companion's reply too long to show, its view over a quote of three rows: past the field.
+            ["r14-creating-questions-too-long"] = new[] { "lie outside the field" },
         };
 
         private static List<string> KeptToFail(string name, List<string> failures)
@@ -103,6 +105,9 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly string[] Places = { "Tasks", "Projects", "Usage", "Settings" };
         private static readonly string[] FileSections = { "Waiting", "Activity", "Changes", "Checks" };
 
+        /// <summary>Where each content surface's glow ends, in its own units from its top, for the check that no row lies under it.</summary>
+        private static readonly Dictionary<Board, float> glowBottoms = new Dictionary<Board, float>();
+
         /// <summary>The surfaces of one composition, on one plane, for the plane's own checks.</summary>
         private static readonly List<List<Board>> columns = new List<List<Board>>();
 
@@ -110,19 +115,20 @@ namespace Halcyonic.XR.Workspace.Editor
         // Shapes, and the one selection treatment.
 
         /// <summary>A rounded glass shape: the panel colour a little transparent, a hairline edge; lit when chosen.</summary>
-        private static void Shape(Board board, float centerX, float centerY, float width, float height, bool lit = false, bool pointed = false, bool sheen = false)
+        /// <param name="glow">How far down the glow from the top edge reaches, where it must end above a first row; the shape's own reach when 0.</param>
+        private static void Shape(Board board, float centerX, float centerY, float width, float height, bool lit = false, bool pointed = false, bool sheen = false, float glow = 0f)
         {
             Plate(board, board.Name + " shape", centerX, centerY, width, height, U(ShapeRadius), GlazeTokens.ColorOf(Glaze.Panel, Glaze.PlateOpacity), new Color(1f, 1f, 1f, 0.12f), U(0.06f), 48);
             if (sheen)
             {
                 Plate(board, "Sheen", centerX, centerY + height / 2f - U(0.1f), width - 2f * U(ShapeRadius), U(0.06f), 0f, new Color(1f, 1f, 1f, 0.2f), order: 50, depth: -U(0.01f));
-                Gloss(board, centerX, centerY, width, height);
+                Gloss(board, centerX, centerY, width, height, glow);
             }
             if (lit || pointed) Select(board, centerX, centerY, width, height, lit);
         }
 
         /// <summary>The gloss: a light from the shape's top edge fading out by a third of its height, its top corners the shape's own.</summary>
-        private static void Gloss(Board board, float centerX, float centerY, float width, float height)
+        private static void Gloss(Board board, float centerX, float centerY, float width, float height, float glow = 0f)
         {
             if (gradient == null)
             {
@@ -137,7 +143,7 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             // Inside the hairline: the outline runs up the left side, round both top corners and down the right.
             var inset = U(0.06f);
-            var band = Mathf.Min(height, U(9f)) - inset;
+            var band = (glow > 0f ? glow : Mathf.Min(height, U(9f))) - inset;
             var half = width / 2f - inset;
             var radius = Mathf.Max(0f, Mathf.Min(U(ShapeRadius), height / 2f) - inset);
             var top = centerY + height / 2f - inset;
@@ -336,7 +342,9 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             board.Width = width;
             board.Height = height;
-            Shape(board, 0f, -height / 2f, width, height, sheen: true);
+            // The glow ends within the top padding, above the first row: lit only when chosen.
+            Shape(board, 0f, -height / 2f, width, height, sheen: true, glow: U(PanelPadding));
+            glowBottoms[board] = -U(PanelPadding);
             var left = -width / 2f + U(PanelPadding);
             var right = width / 2f - U(PanelPadding);
             var footerMiddle = -height + U(1.0f) + U(GlazeButton.HeightDegrees) / 2f;
@@ -506,7 +514,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
             stacks.Add(new[] { fileHead, fileTabs, file });
             LayOnPlane(shot, 0f, stacks);
-            Projection(shot, slot, fileHead, fileHead, reserve);
+            LightLine(shot, slot, fileHead, reserve);
         }
 
         /// <summary>The approval: the task's file alone, upright under its task, Approve pointed at.</summary>
@@ -533,7 +541,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ContentShape(file, width, height, new Prompt("Close", GlazeIcon.Close), null, new Prompt("Deny", GlazeIcon.Deny),
                 new Prompt("Approve", GlazeIcon.Approve, main: true, pointedAt: true));
             LayOnPlane(shot, CardYaw(shot, slot, 20f, 0f), new List<IReadOnlyList<Board>> { new[] { head, tabs, file } });
-            Projection(shot, slot, head, head, split ? StateBadgeView.Height * PillScale / 2f : 0f);
+            LightLine(shot, slot, head, split ? StateBadgeView.Height * PillScale / 2f : 0f);
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -763,6 +771,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 yield return failure;
             }
             foreach (var failure in SeenTextFailures(shot, parts)) yield return failure;
+            // A content surface's glow ends above its first row: nothing to press lies under it.
+            foreach (var part in parts)
+            {
+                if (!glowBottoms.TryGetValue(part, out var glowBottom)) continue;
+                foreach (var button in part.Buttons.Where(button => button.gameObject.activeInHierarchy))
+                {
+                    var top = button.transform.localPosition.y + button.Size.y / 2f;
+                    if (top > glowBottom + 0.0005f) yield return shot.Name + ": " + button.name + " in " + part.Name + " lies under its surface's glow, which would make it look chosen.";
+                }
+            }
+            // The light line crosses no label and no character, its own task's included, seen from the eyes.
+            foreach (var (from, to, slot) in lightLines)
+            {
+                for (var index = 0; index < shot.Characters.Count; index++)
+                {
+                    if (!shot.Characters[index].View.gameObject.activeInHierarchy) continue;
+                    var view = shot.Characters[index].View;
+                    foreach (var extent in new[] { GlazeChecks.Of(view.WorkstreamId + "'s label", shot.Eyes, view.Label.gameObject), WorkspaceRender.BodyExtent(view, shot.Eyes) })
+                    {
+                        for (var step = 1; step < 40; step++)
+                        {
+                            var point = Vector3.Lerp(from, to, step / 40f) - shot.Eyes;
+                            var across = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
+                            var up = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
+                            if (across < extent.Left || across > extent.Right || up < extent.Bottom || up > extent.Top) continue;
+                            yield return shot.Name + ": the light line crosses " + extent.Name + "; it leaves from under its label and crosses no label or character.";
+                            break;
+                        }
+                    }
+                }
+            }
             foreach (var column in columns)
             {
                 // Rows of text from the top: a row is the labels whose heights overlap; its size, its largest.

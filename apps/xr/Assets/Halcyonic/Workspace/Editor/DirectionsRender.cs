@@ -219,6 +219,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         (_, slot) => Six(name.Contains("understanding") ? Stage.Checked : name.Contains("creating") ? Stage.Creating : Stage.Waiting)[slot]);
                 if (window) VideoWindow(root.transform, eyes);
                 var shot = new Shot(name, root.transform, eyes, characters, window);
+                lightLines.Clear();
+                glowBottoms.Clear();
                 build(shot);
                 WorkspaceRender.ForceMeshes(root);
                 failures.AddRange(Checks(shot));
