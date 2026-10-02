@@ -1680,9 +1680,10 @@ release build, such as the one judges run, offers no pairing
 - **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` and the access
   token in `access-token`, both in app-internal storage on Android (`Context.getFilesDir()`, which no
   other app can read and which `adb` reaches only through `run-as` on a debuggable build), and in the
-  persistent data directory elsewhere. A token an earlier build kept on shared storage is moved in
-  once, the new file made mode 600 before the token is written, and the shared copy removed
-  (`AccessTokenFile` in the client core); shared storage is never read for it again. A pairing takes
+  persistent data directory elsewhere. A development build that finds a token an earlier build kept
+  on shared storage moves it in at startup, before it reads a pairing, the new file made mode 600
+  before the token is written, and removes the shared copy (`AccessTokenFile` in the client core); it
+  reads shared storage only to move a token in, and a release build never reads it. A pairing takes
   the place of the access token; forgetting it returns to the token.
 - **Logs.** `Halcyonic: pairing with the control plane at <address>`, `paired; connecting over the
   network`, `pairing refused: <code>` and whether forgetting revoked the headset on the Mac, never

@@ -43,6 +43,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [opencode-capabilities.md](validation/opencode-capabilities.md) | OpenCode server API |
 | [claude-code-capabilities.md](validation/claude-code-capabilities.md) | Claude Code CLI and Agent SDK |
 | [codex-capabilities.md](validation/codex-capabilities.md) | Codex exec, SDKs and app-server |
+| [headset-token-storage.md](validation/headset-token-storage.md) | The access token a development build uses over USB, kept in app-private storage: the move from shared storage, the run-as write, and what still needs a headset |
 | [mac-host-setup.md](validation/mac-host-setup.md) | `pnpm mac-setup` and the settings file on the owner's Mac: the read-only check, every setup step in a scratch data directory, a control plane started from the file alone, and what was not tried |
 | [project-location.md](validation/project-location.md) | Binding projects to host-approved folders: real OpenCode and Codex starts on a local model in a new folder, refusals, a moved folder and an unknown effect, through the control plane |
 | [local-models.md](validation/local-models.md) | Open models served by Ollama on the Mac, through the real runtimes and the control plane: flows, network, speed and memory, and choosing a model from a runtime's list |

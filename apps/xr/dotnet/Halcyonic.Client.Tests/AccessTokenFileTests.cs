@@ -65,23 +65,55 @@ public class AccessTokenFileTests
     }
 
     [Test]
-    public void AnEmptySharedCopyIsRemovedAndNothingIsWritten()
+    public void AnEmptyOrOversizedSharedCopyIsRemovedAndNothingIsWritten()
     {
-        File.WriteAllText(legacy, " \n");
-        Assert.That(AccessTokenFile.Migrate(legacy, private_, OwnerOnly), Is.EqualTo(AccessTokenMigration.RemovedEmptyCopy));
-        Assert.That(File.Exists(legacy), Is.False);
-        Assert.That(File.Exists(private_), Is.False);
+        foreach (var content in new[] { " \n", new string('x', (int)AccessTokenFile.MaxBytes + 1) })
+        {
+            File.WriteAllText(legacy, content);
+            Assert.That(AccessTokenFile.Migrate(legacy, private_, OwnerOnly), Is.EqualTo(AccessTokenMigration.RemovedUnusableCopy));
+            Assert.That(File.Exists(legacy), Is.False);
+            Assert.That(File.Exists(private_), Is.False);
+        }
     }
 
     [Test]
-    public void WhenTheNewFileCannotBeMadePrivateNothingIsWrittenAndTheOldCopyStays()
+    public void WhenTheNewFileCannotBeRestrictedTheTokenStillLeavesSharedStorage()
     {
         File.WriteAllText(legacy, "the-token\n");
         var outcome = AccessTokenFile.Migrate(legacy, private_, _ => throw new InvalidOperationException("chmod failed"));
-        Assert.That(outcome, Is.EqualTo(AccessTokenMigration.NotMoved));
-        Assert.That(File.Exists(private_), Is.False);
-        Assert.That(File.Exists(private_ + ".new"), Is.False, "no half-made file is left");
+        Assert.That(outcome, Is.EqualTo(AccessTokenMigration.MovedUnrestricted));
+        Assert.That(File.ReadAllText(private_), Is.EqualTo("the-token\n"));
+        Assert.That(File.Exists(private_ + ".new"), Is.False);
+        Assert.That(File.Exists(legacy), Is.False, "private storage is closed to other apps by itself, so the shared copy goes");
+    }
+
+    [Test]
+    public void TwoNamesForOneFileNeverLoseTheToken()
+    {
+        File.WriteAllText(legacy, "the-token\n");
+        Assert.That(AccessTokenFile.Migrate(legacy, legacy, OwnerOnly), Is.EqualTo(AccessTokenMigration.NothingToMove));
         Assert.That(File.ReadAllText(legacy), Is.EqualTo("the-token\n"));
+        if (OperatingSystem.IsWindows()) return;
+        // The private folder reached through a link from where the shared copy was looked for.
+        var linked = Path.Combine(directory, "linked");
+        Directory.CreateSymbolicLink(linked, Path.GetDirectoryName(legacy)!);
+        Assert.That(AccessTokenFile.Migrate(Path.Combine(linked, "access-token"), legacy, OwnerOnly), Is.EqualTo(AccessTokenMigration.RemovedStaleCopy));
+        Assert.That(File.ReadAllText(legacy), Is.EqualTo("the-token\n"), "deleting the other name took nothing away");
+    }
+
+    [Test]
+    public void AHalfMadeFileIsRemovedWhenTheMoveCannotFinish()
+    {
+        File.WriteAllText(legacy, "the-token\n");
+        // The owner writes a token with run-as between the check and the move.
+        Assert.Throws<IOException>(() => AccessTokenFile.Migrate(legacy, private_, path =>
+        {
+            OwnerOnly(path);
+            File.WriteAllText(private_, "written-by-the-owner\n");
+        }));
+        Assert.That(File.Exists(private_ + ".new"), Is.False, "no copy is left beside it");
+        Assert.That(File.ReadAllText(private_), Is.EqualTo("written-by-the-owner\n"));
+        Assert.That(AccessTokenFile.Migrate(legacy, private_, OwnerOnly), Is.EqualTo(AccessTokenMigration.RemovedStaleCopy), "the next run removes the shared copy");
     }
 
     [Test]
