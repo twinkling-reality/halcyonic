@@ -483,7 +483,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Light from the task's character to the file's outer top corners, as Dead Space's suit casts
         /// its menus into the room: the file is the character's, opened toward you.
         /// </summary>
-        private static void Projection(Shot shot, int slot, Board left, Board right)
+        /// <param name="drop">How far below its board's top a plate's top edge stands, as under a split header's state pill.</param>
+        private static void Projection(Shot shot, int slot, Board left, Board right, float drop = 0f)
         {
             var body = shot.Characters[slot].View.Body.position;
             var corners = shot.Window
@@ -491,7 +492,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 : new[] { (left, -0.5f), (right, 0.5f) };
             foreach (var (board, x) in corners)
             {
-                var corner = board.Root.TransformPoint(new Vector3(x * board.Width, board.Height / 2f, 0f));
+                var corner = board.Root.TransformPoint(new Vector3(x * board.Width, board.Height / 2f - drop, 0f));
                 var go = new GameObject("Projection");
                 go.transform.SetParent(shot.Root, false);
                 var beam = go.AddComponent<LineRenderer>();
