@@ -15,6 +15,7 @@ import {
   epochMillis,
   isStageReady,
   median,
+  readDemonstrationRead,
   readFirstFrame,
   readLaunch,
 } from './readings.ts';
@@ -28,6 +29,7 @@ await requireHeadset();
 const launches: number[] = [];
 const firstFrames: number[] = [];
 const ready: number[] = [];
+const parsed: number[] = [];
 
 for (let run = 1; run <= runs; run++) {
   await adb('shell', 'am', 'force-stop', PACKAGE);
@@ -35,11 +37,13 @@ for (let run = 1; run <= runs; run++) {
   const startedOnDevice = deviceMillis(await adb('shell', 'date', '+%s.%N'));
   let frame: number | null = null;
   let stage: number | null = null;
+  let demo: { kib: number; loadedMs: number; parsedMs: number } | null = null;
   const stop = follow(['Unity:I'], (line) => {
     const at = epochMillis(line);
     if (at === null || at < startedOnDevice) return;
     if (frame === null && readFirstFrame(line) !== null) frame = at - startedOnDevice;
     if (stage === null && isStageReady(line)) stage = at - startedOnDevice;
+    demo ??= readDemonstrationRead(line);
   });
   const launch = readLaunch(await adb('shell', 'am', 'start', '-W', '-n', ACTIVITY));
   const until = Date.now() + patience;
@@ -48,11 +52,13 @@ for (let run = 1; run <= runs; run++) {
   if (launch.totalMs !== null) launches.push(launch.totalMs);
   if (frame !== null) firstFrames.push(frame);
   if (stage !== null) ready.push(stage);
+  const read = demo as { kib: number; loadedMs: number; parsedMs: number } | null;
+  if (read !== null) parsed.push(read.parsedMs);
   console.log(
-    `run=${run} launch_ms=${launch.totalMs ?? ''} first_frame_ms=${frame ?? ''} stage_ready_ms=${stage ?? ''}`,
+    `run=${run} launch_ms=${launch.totalMs ?? ''} first_frame_ms=${frame ?? ''} stage_ready_ms=${stage ?? ''} demo_kib=${read?.kib ?? ''} demo_loaded_ms=${read?.loadedMs ?? ''} demo_parsed_ms=${read?.parsedMs ?? ''}`,
   );
 }
 
 console.log(
-  `median launch_ms=${median(launches) ?? ''} first_frame_ms=${median(firstFrames) ?? ''} stage_ready_ms=${median(ready) ?? ''} runs=${runs} ready_runs=${ready.length}`,
+  `median launch_ms=${median(launches) ?? ''} first_frame_ms=${median(firstFrames) ?? ''} stage_ready_ms=${median(ready) ?? ''} demo_parsed_ms=${median(parsed) ?? ''} runs=${runs} ready_runs=${ready.length}`,
 );

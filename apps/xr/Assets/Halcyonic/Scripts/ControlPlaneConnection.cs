@@ -100,6 +100,7 @@ namespace Halcyonic.XR
         /// </summary>
         private static DemonstrationPlayer? LoadDemonstration(ClientInfo client)
         {
+            var loading = System.Diagnostics.Stopwatch.StartNew();
             var asset = Resources.Load<TextAsset>(DemonstrationResource);
             if (asset == null)
             {
@@ -107,7 +108,16 @@ namespace Halcyonic.XR
                 return null;
             }
             var text = asset.text;
-            var reading = Task.Run(() => DemonstrationRecording.Parse(text));
+            var loaded = loading.ElapsedMilliseconds;
+            var reading = Task.Run(() =>
+            {
+                // How long a judge's cold start spends on the recording, in numbers only (pnpm quest:cold-start reads it).
+                var parsing = System.Diagnostics.Stopwatch.StartNew();
+                var recording = DemonstrationRecording.Parse(text);
+                Debug.Log("Halcyonic: demonstration read " + text.Length / 1024 + " KiB, loaded in " + loaded + " ms on the main thread, parsed in "
+                    + parsing.ElapsedMilliseconds + " ms on another");
+                return recording;
+            });
             _ = reading.ContinueWith(
                 failed => Debug.LogError("Halcyonic: the demonstration cannot be played. " + failed.Exception?.GetBaseException().Message),
                 TaskContinuationOptions.OnlyOnFaulted);
@@ -160,7 +170,7 @@ namespace Halcyonic.XR
         private void OnApplicationPause(bool paused)
         {
             // A sleeping headset loses its sockets: the session stops, then resumes from the last
-            // position; the demonstration plays from its beginning. Unity also reports resumes
+            // position; the demonstration goes on where it stood. Unity also reports resumes
             // without a pause, which the session ignores.
             if (sessions != null) Report(sessions.SetPausedAsync(paused));
         }
