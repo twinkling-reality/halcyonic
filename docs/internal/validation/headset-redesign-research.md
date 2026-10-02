@@ -173,6 +173,32 @@ files. Read through public articles, interviews and wikis (wikis labelled); no g
   2020-03-23). Red Matter 2 keeps information on the tools in the hand, with no floating UI
   ([Road to VR](https://roadtovr.com/these-clever-tools-make-vr-way-more-immersive-inside-xr-design/)).
 
+### The chosen direction's style
+
+Added the same day, after the owner chose D with changes, naming Detroit: Become Human's interface
+as the reference for clean, intentional type and layout.
+
+- **Detroit: Become Human**, seen on Interface In Game's gallery
+  ([interfaceingame.com](https://interfaceingame.com/games/detroit-become-human/), read 2026-10-02,
+  the screenshots only; the page describes no style and credits no designer). Its settings and
+  credits screens use one large, light title; small grey labels in spaced capitals above each
+  value in a larger face; hairlines and thin corner marks round the chosen item; one blue accent; a
+  translucent panel over the scene; and a single prompt, a glyph with a short word, at the bottom
+  right. No image was copied.
+- **File-type icons.** Material Symbols Rounded is already the project's icon set, under the Apache
+  License 2.0 ([material-symbols.md](material-symbols.md)). Its generic glyphs code, database,
+  data_object, description, image, terminal, deployed_code, folder and chevron_right are in the same
+  source file (SHA-256 `c2182b6337495e64cc9e2311c52522567ac277d25a842bd027f9c9e3a5cc6d86`, the file
+  that record names); they were cut in the Glaze style (filled, weight 500, grade 0, optical size
+  24) with fontTools 4.65.0 into a temporary font for the prototype renders only, never committed.
+  Language and brand logos were left out, since the competition rules forbid brands.
+- **Measured in the styled renders** (`DirectionsRender.Styled.cs`, editor, Android target): a task's
+  file 53 to 54 draw calls and its side panel 25 to 28, the menu with Tasks open 57, whole scenes with
+  six characters 93 to 123, against lane U's budgets of 60 a panel and 220 a scene, counted before
+  batching as `MeasureRender` counts; the prototype draws a panel's glass as about eleven separate
+  strokes, which the product's Surface shader would draw in one. Frame time on a Quest is not
+  measured.
+
 ## Patterns these share
 
 1. A content surface holds content; persistent controls sit in one attached bar.
