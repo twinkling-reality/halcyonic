@@ -36,7 +36,7 @@ packaging requirements, so they apply to a "Competition" channel as they do to p
 | Head tracking feature, required, version 1 | [Manifest][manifest] | yes |
 | MAIN and LAUNCHER on the launch activity, and `com.oculus.intent.category.VR` for OpenXR apps | [Manifest][manifest] | yes |
 | `excludeFromRecents` on the launch activity; a unique `android:label` | [Manifest][manifest] | true; Halcyonic |
-| `com.oculus.supportedDevices` with the identifiers quest2, questpro, quest3, quest3s | [Manifest][manifest] | those four and `stanley` (below) |
+| `com.oculus.supportedDevices` with the identifiers quest2, questpro, quest3, quest3s | [Manifest][manifest] | those four (`stanley` removed, below) |
 | APK Signature Scheme v2 (VRC.Quest.Packaging.2); v1 or v2, v3 allowed; the developer's own certificate, the same for every update | [Requirements][req]; [Signing][signing] | v2, Unity's debug key |
 | A supported SDK and engine, and a valid network security configuration (Packaging.4) | [Packaging.4][pkg4] | Meta's configuration, cleartext refused |
 | APK under 1 GB (Packaging.5); 64-bit binaries (Packaging.6) | [Requirements][req] | 50 MB; native code arm64-v8a only |
@@ -198,8 +198,10 @@ a release build and a development build in batch mode, `aapt2 dump badging`, the
   installs over the other. Once the release APK carries the owner's key, installing it needs an
   uninstall first, which deletes the pushed access token. The release APK shows no debugger
   interface although the debugger's runtime is in it.
-- Decide whether the store build declares Meta VR Glasses (`stanley`) before submitting
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- Decided on 2026-10-02 (coordinator, for the owner): the store build does not declare Meta VR
+  Glasses, since it never claims a device nobody has run it on. `OculusProjectConfig` targets Quest
+  2, Quest Pro, Quest 3 and Quest 3S only, the committed manifest matches, and `BuildReleaseApk`
+  deletes and fails an APK whose manifest still names `stanley`.
 - Re-read these pages before the upload: their requirements change.
 
 [req]: https://developers.meta.com/horizon/resources/publish-quest-req
