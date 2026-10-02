@@ -461,9 +461,9 @@ namespace Halcyonic.XR.UI.Editor
         {
             var failures = new List<string>();
             var accent = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Accent).Strong);
-            var litFill = new Color(1f, 1f, 1f, 0.10f);
-            var litEdge = new Color(1f, 1f, 1f, 0.78f);
-            var pointedEdge = new Color(1f, 1f, 1f, 0.42f);
+            var litFill = new Color(1f, 1f, 1f, Glaze.Menu.LitFillOpacity);
+            var litEdge = new Color(1f, 1f, 1f, Glaze.Menu.LitFrameOpacity);
+            var pointedEdge = new Color(1f, 1f, 1f, Glaze.Menu.PointedFrameOpacity);
             var frame = GlazeTokens.Units(0.1f);
             Surface Shape(Transform part, string name, Vector2 size, Vector2 at, Color fill, Color edge, SurfaceSelection selection)
             {
@@ -478,7 +478,7 @@ namespace Halcyonic.XR.UI.Editor
                 ("as drawn", Array.Empty<string>(), _ => { }),
                 ("with an accent bar under the chosen shape", new[] { "is a bar", "filled with the accent" },
                     row => Shape(row, "Bar", new Vector2(8f, 0.1f), new Vector2(-6f, -1.8f), accent, Color.clear, SurfaceSelection.None)),
-                ("with a second chosen shape lit otherwise", new[] { "lit otherwise" },
+                ("with a second chosen shape lit otherwise", new[] { "lit otherwise than the lit fill" },
                     row => Shape(row, "Chosen too", new Vector2(5f, 3f), new Vector2(8f, 0f), new Color(1f, 1f, 1f, 0.3f), litEdge, SurfaceSelection.Lit)),
                 ("with a pointed shape filled", new[] { "more than a frame" },
                     row => Shape(row, "Pointed and filled", new Vector2(5f, 3f), new Vector2(8f, 0f), litFill, pointedEdge, SurfaceSelection.Pointed)),

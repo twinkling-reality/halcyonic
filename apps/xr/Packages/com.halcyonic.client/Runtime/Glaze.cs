@@ -46,6 +46,13 @@ namespace Halcyonic.Client
         public override int GetHashCode() => (R << 16) | (G << 8) | B;
 
         public override string ToString() => "#" + R.ToString("X2") + G.ToString("X2") + B.ToString("X2");
+
+        /// <summary>This colour drawn <paramref name="opacity"/> opaque over <paramref name="under"/>, as a display blends them.</summary>
+        public GlazeColor Over(GlazeColor under, double opacity)
+        {
+            byte Blend(byte top, byte bottom) => (byte)Math.Round(top * opacity + bottom * (1 - opacity));
+            return new GlazeColor(Blend(R, under.R), Blend(G, under.G), Blend(B, under.B));
+        }
     }
 
     /// <summary>
@@ -223,6 +230,99 @@ namespace Halcyonic.Client
 
         /// <summary>Hover labels and tooltips stay this long after the hand leaves (Meta).</summary>
         public const float LingerSeconds = 0.5f;
+
+        /// <summary>
+        /// The menu's surfaces on one plane facing the eyes (ADR 0026): three sizes of type that only step
+        /// down, one 8 dp grid, one corner radius, glass, and one selection treatment. The stage keeps
+        /// its own labels' sizes above.
+        /// </summary>
+        public static class Menu
+        {
+            /// <summary>The subject, one a column, drawn light (24 dp).</summary>
+            public const float TitleDegrees = 1.5f;
+
+            /// <summary>The sections, the content, the prompts, a source line, and the pill's word (18 dp).</summary>
+            public const float BodyDegrees = 1.125f;
+
+            /// <summary>Small facts inside a row and the names of facts in a side panel (15 dp), never a line of its own.</summary>
+            public const float LabelDegrees = 0.9375f;
+
+            /// <summary>The split header's state pill: the same badge as the stage's, its word at the content's size.</summary>
+            public const float PillDegrees = BodyDegrees;
+
+            /// <summary>One grid step, 8 dp.</summary>
+            public const float GridDegrees = 0.5f;
+
+            /// <summary>Inside a shape, from its edge to its content (24 dp).</summary>
+            public const float PaddingDegrees = 1.5f;
+
+            /// <summary>Between groups inside a shape (16 dp).</summary>
+            public const float GroupGapDegrees = 1f;
+
+            /// <summary>From a fact's name to its value (8 dp).</summary>
+            public const float LabelToValueDegrees = 0.5f;
+
+            /// <summary>The fixed column icons stand in, on the left content line (24 dp).</summary>
+            public const float IconColumnDegrees = 1.5f;
+
+            /// <summary>Between the parts of a column: a degree, as between any two things (<see cref="PlaneComposition.PartGapDegrees"/>).</summary>
+            public const float PartGapDegrees = PlaneComposition.PartGapDegrees;
+
+            /// <summary>Between columns, in meters on the plane (<see cref="PlaneComposition.ColumnGapMeters"/>).</summary>
+            public const float ColumnGapMeters = PlaneComposition.ColumnGapMeters;
+
+            /// <summary>The plane's distance from the eyes, at touch distance.</summary>
+            public const float PlaneMeters = PlaneComposition.Distance;
+
+            /// <summary>Every shape's corners.</summary>
+            public const float RadiusDegrees = 0.9f;
+
+            /// <summary>How far a shape round words, as an answer or a well, reaches past the content line; its words stay on it.</summary>
+            public const float InsetDegrees = 0.7f;
+
+            /// <summary>The glass: the panel colour this opaque, with no blur.</summary>
+            public const float GlassOpacity = PlateOpacity;
+
+            /// <summary>The light from the glass's top edge at its brightest, white at this opacity, fading out by <see cref="GlowReach"/> of its height.</summary>
+            public const float GlowOpacity = 0.06f;
+
+            public const float GlowReach = 1f / 3f;
+
+            /// <summary>The sheen along the glass's top edge, white at this opacity and this thin.</summary>
+            public const float SheenOpacity = 0.2f;
+
+            public const float SheenDegrees = 0.06f;
+
+            /// <summary>The glass's hairline edge, white at this opacity and this thin.</summary>
+            public const float HairlineOpacity = 0.12f;
+
+            public const float HairlineDegrees = 0.06f;
+
+            /// <summary>Chosen: the shape lights up, white at this opacity, and gains a crisp white frame at <see cref="LitFrameOpacity"/>.</summary>
+            public const float LitFillOpacity = 0.10f;
+
+            public const float LitFrameOpacity = 0.78f;
+
+            /// <summary>Pointed at: the frame alone, fainter.</summary>
+            public const float PointedFrameOpacity = 0.42f;
+
+            /// <summary>A prompt's round key cap, and the icon inside it.</summary>
+            public const float PromptCapDegrees = 1.45f;
+
+            public const float PromptIconDegrees = 0.95f;
+
+            /// <summary>
+            /// Quiet words, of a prompt or a line that can't be taken now: the secondary colour, never
+            /// <see cref="TextDisabled"/>, which reads only 3.5 to 1 on a chosen shape over a white wall.
+            /// </summary>
+            public static GlazeColor QuietText => TextSecondary;
+
+            /// <summary>The glass as it reaches the eyes over the brightest room, a white wall in passthrough: what every word on it is held to.</summary>
+            public static GlazeColor GlassOverWhite => Panel.Over(GlazeColor.Hex(0xFFFFFF), GlassOpacity);
+
+            /// <summary>A chosen shape's lit fill over the glass over white.</summary>
+            public static GlazeColor LitOverWhite => GlazeColor.Hex(0xFFFFFF).Over(GlassOverWhite, LitFillOpacity);
+        }
 
         /// <summary>The size in meters an angle spans at a distance, as a label of that angular size there.</summary>
         public static float MetersAt(float degrees, float distance) => distance * MathF.Tan(degrees * MathF.PI / 180f);

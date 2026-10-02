@@ -382,15 +382,19 @@ namespace Halcyonic.XR.UI.Editor
 
         /// <summary>
         /// One selection treatment (ADR 0026), by the role each shape's component gives it
-        /// (<see cref="Surface.Selection"/>): what is chosen is a lit fill with its frame, and every lit
-        /// shape the same; what is pointed at is a frame alone, every one the same; no shape is filled
-        /// with the accent but the main action's cap; and no shape thinner than 0.2 degrees is drawn
-        /// over 20 percent opaque, which rules out bars and underlines marking anything.
+        /// (<see cref="Surface.Selection"/>): what is chosen is the lit fill, white at
+        /// <see cref="Glaze.Menu.LitFillOpacity"/>, with the lit frame; what is pointed at is the fainter
+        /// frame alone; no shape is filled with the accent but the main action's cap; and no shape
+        /// thinner than 0.2 degrees is drawn over 20 percent opaque, which rules out bars and underlines
+        /// marking anything.
         /// </summary>
         public static IEnumerable<string> OneSelectionTreatment(IEnumerable<Surface> shapes, Vector3 eyes, string what)
         {
             var accent = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Accent).Strong);
-            Color? lit = null, litEdge = null, pointedEdge = null;
+            var lit = new Color(1f, 1f, 1f, Glaze.Menu.LitFillOpacity);
+            var litEdge = new Color(1f, 1f, 1f, Glaze.Menu.LitFrameOpacity);
+            var pointedEdge = new Color(1f, 1f, 1f, Glaze.Menu.PointedFrameOpacity);
+            bool Same(Color a, Color b) => Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b) + Mathf.Abs(a.a - b.a) < 0.01f;
             foreach (var shape in shapes)
             {
                 if (!shape.isActiveAndEnabled) continue;
@@ -400,17 +404,14 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     case SurfaceSelection.Lit:
                         if (!framed || shape.Fill.a <= 0f) yield return what + ": " + name + " is chosen without its lit fill and frame; there is one selection treatment.";
-                        if ((lit.HasValue && lit.Value != shape.Fill) || (litEdge.HasValue && litEdge.Value != shape.Edge))
+                        else if (!Same(shape.Fill, lit) || !Same(shape.Edge, litEdge))
                         {
-                            yield return what + ": " + name + " is lit otherwise than the other chosen shapes; there is one selection treatment.";
+                            yield return what + ": " + name + " is lit otherwise than the lit fill and frame; there is one selection treatment.";
                         }
-                        lit ??= shape.Fill;
-                        litEdge ??= shape.Edge;
                         break;
                     case SurfaceSelection.Pointed:
                         if (!framed || shape.Fill.a > 0f) yield return what + ": " + name + " is pointed at with more than a frame; pointed at is the frame alone.";
-                        if (pointedEdge.HasValue && pointedEdge.Value != shape.Edge) yield return what + ": " + name + " is framed otherwise than the other pointed shapes.";
-                        pointedEdge ??= shape.Edge;
+                        else if (!Same(shape.Edge, pointedEdge)) yield return what + ": " + name + " is framed otherwise than the pointed frame.";
                         break;
                 }
                 var fill = shape.Fill;
