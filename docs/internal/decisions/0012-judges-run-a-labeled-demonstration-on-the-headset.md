@@ -208,7 +208,8 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
     the first recorded one and says which.
   - *Starting again.* The demonstration starts again within its connection, with the beginning's
     snapshot, so it never reads as disconnected; clients treat the same journal at an earlier
-    position as a rewind. After the headset sleeps it plays from the beginning.
+    position as a rewind. After the headset sleeps it plays from the beginning (since 2026-10-02 it
+    goes on where it stood: see the dated note below).
   - *The runtime's name.* The recorder names the recorded runtimes "Simulated agent
     (demonstration)" and "Simulated agent (demonstration, watch only)"; both are the synthetic mock
     runtime, so every surface still labels the work as simulated.
@@ -231,5 +232,8 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
   For the competition's rule on brand names, the runtimes are now "Practice agent" and "Practice
   agent, watch only", and the line above the stage reads "Demo: recorded work played on this
   headset. Nothing here is live." ([competition-judge-build.md](../validation/competition-judge-build.md)).
+- 2026-10-02, decided by the coordinator for the competition's "clean pause and resume": after a
+  pause the demonstration goes on where it stood, through the realtime protocol's resume, instead of
+  starting again; the rail offers no Usage left while it plays.
 - Revisit if the organizers accept a hosted service and the owner wants the control loop shown, or
   once device pairing and encrypted transport exist.

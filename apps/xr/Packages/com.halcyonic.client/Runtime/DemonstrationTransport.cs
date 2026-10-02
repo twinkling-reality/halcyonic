@@ -48,6 +48,9 @@ namespace Halcyonic.Client
         private TimeSpan nodeStart;
         private TimeSpan? holdStart;
 
+        /// <summary>The answers taken since the beginning: each node left and how many of its events had played.</summary>
+        private readonly List<(int Node, int After)> path = new List<(int Node, int After)>();
+
         public DemonstrationTransport(DemonstrationRecording recording, DemonstrationOptions? options = null)
             : this(options, null)
         {
@@ -136,11 +139,15 @@ namespace Halcyonic.Client
                     }
                     lock (gate)
                     {
-                        // Every connection plays from the beginning, whatever the client last applied.
-                        Send(Playing.Welcome);
-                        Send(Playing.Snapshot);
                         clock.Start();
-                        Begin(0);
+                        // A connection after a pause goes on where the last one stood, if the client
+                        // holds what was played up to there; otherwise it plays from the beginning.
+                        if (!Resume(((HelloMessage)received).Resume))
+                        {
+                            Send(Playing.Welcome);
+                            Send(Playing.Snapshot);
+                            Begin(0);
+                        }
                     }
                     _ = PlayAsync(closing.Token);
                     break;
@@ -164,7 +171,67 @@ namespace Halcyonic.Client
 
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref disposed, 1) == 0) closing.Cancel();
+            if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+            closing.Cancel();
+            lock (gate)
+            {
+                // Where this connection stood, for the next one to go on from, as after a pause.
+                if (player != null && read != null && helloReceived == 1)
+                {
+                    var now = clock.Elapsed;
+                    player.Stood(new DemonstrationPlace(path.ToArray(), node, played, now - nodeStart, holdStart.HasValue ? now - holdStart.Value : (TimeSpan?)null));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Goes on where the player's last connection stood: welcomes the client as resumed and sends
+        /// only the events along that path after the position it holds, then keeps the timing it had.
+        /// False, with nothing sent, when there is no such place or the client's cursor is not on its
+        /// path, as after a journal it never saw.
+        /// </summary>
+        private bool Resume(ResumeCursor? cursor)
+        {
+            var place = player?.TakeStood();
+            if (place == null || cursor == null || cursor.JournalId != Playing.Welcome.Journal.JournalId) return false;
+            var steps = new List<(int Node, int Count)>(place.Path);
+            steps.Add((place.Node, place.Played));
+            var position = Playing.Snapshot.Snapshot.Position;
+            var onPath = cursor.Position == position;
+            var missed = new List<EventMessage>();
+            foreach (var (index, count) in steps)
+            {
+                var events = Playing.Nodes[index].Events;
+                for (var each = 0; each < count; each++)
+                {
+                    var message = events[each].Message;
+                    position = message.Position;
+                    if (position == cursor.Position) onPath = true;
+                    else if (position > cursor.Position) missed.Add(message);
+                }
+            }
+            var current = Playing.Nodes[place.Node];
+            var ended = place.Played == current.Events.Count && current.EndingSnapshot != null;
+            if (!onPath || ended) return false;
+            Send(new WelcomeMessage
+            {
+                Protocol = Playing.Welcome.Protocol,
+                Journal = Playing.Welcome.Journal,
+                Head = position,
+                Resumed = true,
+                ServerTime = Playing.Welcome.ServerTime,
+                CommandPolicies = Playing.Welcome.CommandPolicies,
+            });
+            foreach (var message in missed) Send(message);
+            path.Clear();
+            path.AddRange(place.Path);
+            node = place.Node;
+            played = place.Played;
+            var now = clock.Elapsed;
+            nodeStart = now - place.IntoNode;
+            holdStart = place.IntoHold.HasValue ? now - place.IntoHold.Value : (TimeSpan?)null;
+            Report();
+            return true;
         }
 
         private async Task PlayAsync(CancellationToken stop)
@@ -235,6 +302,7 @@ namespace Halcyonic.Client
         /// <summary>Continues with a node from its first event, now.</summary>
         private void Begin(int index)
         {
+            if (index == 0) path.Clear();
             node = index;
             played = 0;
             nodeStart = clock.Elapsed;
@@ -283,6 +351,7 @@ namespace Halcyonic.Client
                 var branch = Match(offered, command, out var words);
                 Send(Acknowledge(command, words));
                 if (branch == null) return;
+                path.Add((node, played));
                 Begin(branch.Node);
                 var woken = wake;
                 wake = NewWake();

@@ -141,10 +141,12 @@ namespace Halcyonic.XR.Workspace
                 Build();
             }
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
-            if (open && foreground) Close();
+            // The recorded demonstration has nothing to read, so it offers no Usage left at all.
+            var demonstration = connection!.DemonstrationLine != null;
+            if (open && (foreground || demonstration)) Close();
             ApplyFold();
             // The chip hides while the app lacks focus, the return's grace included, and comes back after.
-            rail!.OfferUsageLeft(FocusGuard.InputSuspended ? null : UsageLeftPresenter.Title);
+            rail!.OfferUsageLeft(FocusGuard.InputSuspended || demonstration ? null : UsageLeftPresenter.Title);
             if (FocusGuard.InputSuspended) return;
             if (read != null && read.IsCompleted) Finish();
             if (open && Time.unscaledTime >= nextLayout) Layout();
@@ -155,7 +157,7 @@ namespace Halcyonic.XR.Workspace
             // The rail makes and places the chip; the glance answers it and says when it shows.
             chip = rail!.UsageLeft;
             chip.Pressed += Toggle;
-            rail.OfferUsageLeft(UsageLeftPresenter.Title);
+            rail.OfferUsageLeft(connection?.DemonstrationLine != null ? null : UsageLeftPresenter.Title);
             root = new GameObject("Usage left panel").transform;
             root.SetParent(transform, false);
             // The stage's banner steps aside while the panel shows where it goes, and names it while it is folded.
