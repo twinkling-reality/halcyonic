@@ -870,7 +870,9 @@ scripts use only long-stable core Unity APIs:
   headset. Characters and labels scale with their distance from the eyes, so they keep their
   apparent size near or far, above or below (`Stance`); seen from above, as on a desk, the arc
   spreads so neighbours look as far apart as in front of the person (`Spread`), and each label hangs
-  a little lower so its body never covers its badge. A character the lineup moves glides along the arc, swinging out behind the
+  a little lower so its body never covers its badge and leans back about its top edge to face the
+  eyes (`CharacterLabelView.ViewFrom`): upright, seen from above, its words read at about two thirds
+  of their size, under 14 dp as the eyes see it; leaned, at their size, which the stage render holds. A character the lineup moves glides along the arc, swinging out behind the
   others. Everything is looked at and pointed at from the seat; nothing needs the person to stand
   or reach. The arc is placed at the person's head, facing where they face, when
   `InFrontPlacement` says so, fed by `PersonPlacement` with the head's pose, whether it is tracked,
