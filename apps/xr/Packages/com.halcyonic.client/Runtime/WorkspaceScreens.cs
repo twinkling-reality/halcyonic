@@ -112,6 +112,7 @@ namespace Halcyonic.Client
             // While an approval or denial waits for its confirmation, the whole request it answers
             // shows instead of the tabs and their answers; Cancel brings them back.
             var request = steering.Request(workspace);
+            var answering = false;
             if (request != null) Request(model, screen, request);
             else
             {
@@ -120,8 +121,11 @@ namespace Halcyonic.Client
                 if (screen.Presets != null) Presets(model, screen.Presets);
                 else if (steering.Armed == WorkspaceAction.Answer && screen.Place.Draft != null) Answers(model, screen.Place.Draft);
                 else Body(model, workspace, screen, shown, confirming: steering.Armed != null);
+                // The agent's question with its answers: hold to talk there speaks the answer, beside it.
+                answering = shown == WorkspaceQuestion.NeedFromYou && !(WorkspaceText.NeedFromYou(workspace) is NeedAnswer)
+                    && Asked(workspace, screen)?.Question.Answerable == true;
             }
-            Bar(model, workspace, steering, screen);
+            Bar(model, workspace, steering, screen, answering);
             return model;
         }
 
@@ -389,10 +393,12 @@ namespace Halcyonic.Client
         /// The bar: Stop at the left; Deny, hold to talk and Tell it, then at the right end the action
         /// the work leads to: Approve, Send answer, Tell it while nothing waits, or, while an answer
         /// sent may still take effect, Sent…, which takes no press. No Tell it or hold to talk while
-        /// the agent asks for a secret. Or the confirm step; or Cancel, while the keyboard or the
-        /// instructions offered in its place show; or why nothing can be sent.
+        /// the agent asks for a secret, and no hold to talk while <paramref name="answering"/> its
+        /// question, where the one beside the answers speaks the answer: one Hold to talk a screen.
+        /// Or the confirm step; or Cancel, while the keyboard or the instructions offered in its place
+        /// show; or why nothing can be sent.
         /// </summary>
-        private static void Bar(PanelModel model, WorkspacePresentation workspace, WorkspaceSteering steering, WorkspaceScreen screen)
+        private static void Bar(PanelModel model, WorkspacePresentation workspace, WorkspaceSteering steering, WorkspaceScreen screen, bool answering)
         {
             var cancel = new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary, icon: GlazeIcon.Close);
             if (steering.Armed is WorkspaceAction armed)
@@ -426,7 +432,7 @@ namespace Halcyonic.Client
                 ?? (workspace.AnswerInFlight ? new PanelAction(Sent, WorkspaceText.Sent, PanelActionRole.Primary, available: false) : null);
             // Hold to talk beside Tell it, only where the bar has room for it.
             var secondaries = (deny != null ? 1 : 0) + (tell?.Role == PanelActionRole.Secondary ? 1 : 0);
-            var hold = screen.Speak && tell != null && secondaries < ActionSet.MaxSecondary
+            var hold = screen.Speak && !answering && tell != null && secondaries < ActionSet.MaxSecondary
                 ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk)
                 : null;
             model.Actions = new ActionSet(stop, deny, hold, tell, primary);

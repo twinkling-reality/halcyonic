@@ -853,8 +853,8 @@ scripts use only long-stable core Unity APIs:
   action at the left and the primary at a right end at least 14 degrees wide, or the confirm step in
   its place. Every action shows its model's icon beside its words, Move, Reset position and Close
   included; a bar whose actions would not all fit 12 mm apart with their icons shows each word
-  alone (`BarIcons`), as a question's bar does once an answer is typed or sent: Stop, Hold to
-  talk, Tell it, and Send answer or Sent….
+  alone (`BarIcons`). Since a question's bar gave up its own Hold to talk, no screen the renders
+  show needs that; they log any that does.
   The pager and the tabs show words only. Targets keep 12 mm apart; words need less, so a body that starts or ends in words sits
   closer to what is above or below it. The frame records where every control stood on each screen
   without a confirm step and every control it shows while one shows (`Recorded`); the step puts
@@ -945,7 +945,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   pager. A question Halcyonic cannot answer shows why (a secret, or cut to fit) and that the agent
   waits; while it asks for a secret, the bar offers no Tell it or Hold to talk, so nothing invites
   typing or saying it where it would be journaled, and Stop is the way on. The bar holds Stop at its left, outlined in red; Deny, Hold to talk (in development builds,
-  beside Tell it, only where the bar has room) and Tell it; and at its right end the action the work
+  beside Tell it, only where the bar has room, and never while the question's answers show, where
+  the Hold to talk beside them speaks the answer: one a screen, as the owner chose on 2026-10-02)
+  and Tell it; and at its right end the action the work
   leads to: Approve, Send answer, or Tell it while nothing waits. While an answer this headset sent
   may still take effect, an unavailable Sent… stands where Send answer stood, so none races it.
   Pressing an action returns the answer showing to Doing, where its result shows, except Send
@@ -1520,7 +1522,7 @@ not fit under its heading, beside Refresh, or a part's own statement is cut shor
 with a log of the agent's words and fails unless the newest line shows last under its caption, the
 agent's words lean and keep their ellipsis, and nothing pages, also while Stop asks to be confirmed.
 It shows the agent's questions: one with an answer chosen, which must say so in words; its typed
-answer with Hold to talk beside it; three questions waiting, whose note must say more wait; the
+answer with Hold to talk beside it and none in the bar; three questions waiting, whose note must say more wait; the
 second prompt reached with Next; a question longer than two lines, which must show in parts whose
 text together is the question, never cut, and count as read only once its last part has shown; twenty
 answers, eleven steps; a long label, which must show whole; a secret question, with no answers to

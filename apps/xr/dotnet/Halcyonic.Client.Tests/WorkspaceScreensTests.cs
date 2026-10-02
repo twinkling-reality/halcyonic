@@ -340,6 +340,16 @@ public class WorkspaceScreensTests
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
         var typed = model.Rows.Last();
         Assert.That((typed.Title, typed.Action, typed.Side!.Label, typed.Side.Holds), Is.EqualTo(("Type an answer", WorkspaceScreens.TypeAnswer, "Hold to talk", true)));
+
+        // One Hold to talk a screen: beside the answers it speaks the answer, so the bar offers none of its own.
+        var instructable = Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
+        var asking = Screen(instructable, new WorkspaceSteering(factory), screen);
+        Assert.That(asking.Actions.All.Select(action => action.Label), Is.EqualTo(new[] { "Stop", "Tell it", "Send answer" }));
+        Assert.That(asking.Rows.Count(row => row.Side?.Holds == true), Is.EqualTo(1));
+        screen.Question = WorkspaceQuestion.Doing;
+        Assert.That(Screen(instructable, new WorkspaceSteering(factory), screen).Actions.All.Select(action => action.Label),
+            Is.EqualTo(new[] { "Stop", "Hold to talk", "Tell it", "Send answer" }), "away from the question, hold to talk speaks an instruction");
+        screen.Question = WorkspaceQuestion.NeedFromYou;
         screen.Place.Turn(-1);
         model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
         Assert.That((model.Rows[2].Title, model.Rows[2].Chosen), Is.EqualTo(("Chosen: Dark · Light text on a dark background", true)), "chosen in words as well");
