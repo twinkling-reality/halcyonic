@@ -142,7 +142,7 @@ namespace Halcyonic.XR.Workspace
             }
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
             // The recorded demonstration has nothing to read, so it offers no Usage left at all.
-            var demonstration = connection!.DemonstrationLine != null;
+            var demonstration = connection?.DemonstrationLine != null;
             if (open && (foreground || demonstration)) Close();
             ApplyFold();
             // The chip hides while the app lacks focus, the return's grace included, and comes back after.

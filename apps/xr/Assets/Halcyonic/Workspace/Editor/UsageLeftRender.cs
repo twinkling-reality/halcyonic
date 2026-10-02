@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
@@ -181,6 +182,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 rail.ResetPosition();
 
                 var glance = UsageLeftGlance.ForRender(rail);
+                // A glance made for a render has no connection, as MeasureRender's does: its frame must still run.
+                try
+                {
+                    typeof(UsageLeftGlance).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(glance, null);
+                }
+                catch (TargetInvocationException error)
+                {
+                    failures.Add(name + ": a frame of a glance without a connection fails: " + error.InnerException?.GetType().Name + ".");
+                }
                 foreach (var answer in Answers())
                 {
                     var shown = answer.Shown;
