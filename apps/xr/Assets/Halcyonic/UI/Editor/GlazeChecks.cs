@@ -267,17 +267,19 @@ namespace Halcyonic.XR.UI.Editor
             // A word beside it: a label of its own parent that shows words, level with it and no more than an em away.
             var seen = Of("the icon", eyes, new[] { icon.GetComponent<Renderer>() });
             var beside = false;
+            var nearest = "";
             foreach (Transform sibling in icon.transform.parent)
             {
                 if (sibling == icon.transform || !sibling.gameObject.activeInHierarchy) continue;
                 if (!sibling.TryGetComponent<TMP_Text>(out var word) || GlazeIcons.IsIcon(word) || string.IsNullOrWhiteSpace(word.text)) continue;
-                var words = Of("its words", eyes, new[] { word.GetComponent<Renderer>() });
+                var words = Of(sibling.name, eyes, new[] { word.GetComponent<Renderer>() });
                 if (words.IsEmpty) continue;
                 var level = words.Bottom < seen.Top && seen.Bottom < words.Top;
                 var near = Mathf.Max(words.Left - seen.Right, seen.Left - words.Right) <= degrees;
                 if (level && near) beside = true;
+                nearest += " " + words;
             }
-            if (!beside) yield return name + " has no words beside it.";
+            if (!beside) yield return name + " " + seen + " has no words beside it:" + (nearest.Length > 0 ? nearest : " none") + ".";
         }
 
         /// <summary>

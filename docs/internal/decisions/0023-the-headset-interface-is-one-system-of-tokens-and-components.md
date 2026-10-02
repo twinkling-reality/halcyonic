@@ -86,7 +86,12 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   from outside shows every Private Use Area character as its code point, so only Halcyonic draws
   an icon. Starting and Working turn theirs. On the stage a badge shows its icon only while it
   stays within the plate's 10.5 degrees, so Checking its work, Finished this round and Waiting for
-  you with a count show their word alone there, and their icon in the peek and the workspace.)
+  you with a count show their word alone there, and their icon in the peek and the workspace.
+  Then the actions took theirs, before their words, from the spec's table: every action keeps its
+  words, the window controls included, though the spec gave those only a word on hover; only Hold
+  to talk shows the microphone, never approving, denying, stopping or any confirmation; a panel's
+  bar shows its icons only where all its actions fit with them, else its words alone. The pager,
+  the tabs and the rail's project pills have none yet.)
 - **The renders enforce the rules.** Every render checks overlap between zones, target size and
   spacing, text size, contrast, that no state is told by colour alone, that navigation and the
   primary action stand in the same place on every screen, and Halcyonic's own words. A stage

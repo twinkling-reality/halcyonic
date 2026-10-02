@@ -30,9 +30,10 @@ namespace Halcyonic.XR.UI
 
     /// <summary>
     /// A button of the interface (ADR 0023): pinched from afar with a hand ray, or poked. Its label
-    /// always says what it does; a second, smaller line under it can say more, such as a project's
-    /// counts. It is 60 dp tall, or 48 dp when compact, never less, and it shows every state: at rest,
-    /// pointed at, pressed, unavailable, set aside while the app lacks focus, and done. Built in units
+    /// always says what it does, an icon beside it where the action has one, never in its place; a
+    /// second, smaller line under it can say more, such as a project's counts. It is 60 dp tall, or
+    /// 48 dp when compact, never less, and it shows every state: at rest, pointed at, pressed,
+    /// unavailable, set aside while the app lacks focus, and done. Built in units
     /// of its distance from the eyes, under a parent scaled by that distance. As a row of a panel's
     /// list (<see cref="ShowRow"/>) its words are left-aligned: a small line over the title, the title
     /// and its detail in lines of their own, and a word at its right saying what pressing it does.
@@ -63,6 +64,9 @@ namespace Halcyonic.XR.UI
         private const float EdgeDegrees = 0.12f;
         private const float HoverEdgeDegrees = 0.15f;
 
+        /// <summary>Between an icon and the words after it.</summary>
+        private const float IconGapDegrees = 0.4f;
+
         /// <summary>How much smaller a press draws the button's plate, for the time a press shows; its words keep their size.</summary>
         private const float PressedScale = 0.97f;
 
@@ -74,6 +78,8 @@ namespace Halcyonic.XR.UI
         private TextMeshPro detail = null!;
         private TextMeshPro? overline;
         private TextMeshPro? end;
+        private TextMeshPro? icon;
+        private GlazeIcon? shownIcon;
         private PointerTarget target = null!;
         private ButtonRole role;
         private bool compact;
@@ -157,6 +163,9 @@ namespace Halcyonic.XR.UI
         /// <summary>A row's word at its right end, while one shows.</summary>
         public TextMeshPro? End => end != null && end.gameObject.activeSelf ? end : null;
 
+        /// <summary>The icon before the label's words, while one shows.</summary>
+        public TextMeshPro? Icon => icon != null && icon.gameObject.activeSelf ? icon : null;
+
         public PointerTarget Target => target;
 
         /// <summary>What the button does, which sets its look; a button can change role, as Forget becomes its confirmation.</summary>
@@ -198,11 +207,14 @@ namespace Halcyonic.XR.UI
             return button;
         }
 
-        /// <summary>How wide the button is with this label and second line: the wider and the padding, never narrower than tall.</summary>
-        public float Measure(string text, string? detailText = null)
+        /// <summary>
+        /// How wide the button is with this label, its icon and second line: the wider and the padding,
+        /// never narrower than tall.
+        /// </summary>
+        public float Measure(string text, string? detailText = null, GlazeIcon? withIcon = null)
         {
             var padding = GlazeTokens.Units(compact ? CompactPaddingDegrees : PaddingDegrees);
-            var widest = label.GetPreferredValues(LabelText.ForTextMeshPro(text)).x;
+            var widest = label.GetPreferredValues(LabelText.ForTextMeshPro(text)).x + IconRoom(withIcon);
             if (detailText != null) widest = Mathf.Max(widest, detail.GetPreferredValues(LabelText.ForTextMeshPro(detailText)).x);
             return Mathf.Max(HeightOf(compact), widest + 2f * padding);
         }
@@ -210,38 +222,65 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Shows the button centred at <paramref name="center"/>, in its parent's units, as wide as
         /// <paramref name="width"/>, its label and second line as written, the line in
-        /// <paramref name="tone"/>'s colour when given.
+        /// <paramref name="tone"/>'s colour when given, and <paramref name="withIcon"/> before the
+        /// label's words, the two centred together.
         /// </summary>
-        public void Show(string text, Vector2 center, float width, string? detailText = null, GlazeTone? tone = null)
+        public void Show(string text, Vector2 center, float width, string? detailText = null, GlazeTone? tone = null, GlazeIcon? withIcon = null)
         {
-            var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(text)
+            var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(text) || withIcon != shownIcon
                 || (detailText == null ? detail.gameObject.activeSelf : !detail.gameObject.activeSelf || detail.text != LabelText.ForTextMeshPro(detailText));
             GlazeText.SetLiteral(label, text);
+            ShowIcon(withIcon);
             detailTone = tone;
             var height = HeightOf(compact);
             size = new Vector2(Mathf.Max(width, height), height);
             var padding = GlazeTokens.Units(compact ? CompactPaddingDegrees : PaddingDegrees);
             var inner = size.x - 2f * padding;
-            if (detailText == null)
-            {
-                detail.gameObject.SetActive(false);
-                GlazeText.Lay(label, inner, 1);
-                label.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
-            }
+            var room = IconRoom(withIcon);
+            var (_, words) = GlazeText.Lay(label, inner - room, 1);
+            // The icon and the words after it, centred together; without an icon, the words alone.
+            var wordsAt = room / 2f;
+            var labelY = 0f;
+            if (detailText == null) detail.gameObject.SetActive(false);
             else
             {
                 GlazeText.SetLiteral(detail, detailText);
                 detail.gameObject.SetActive(true);
-                GlazeText.Lay(label, inner, 1);
                 GlazeText.Lay(detail, inner, 1);
                 // The label over the line, the pair centred in the button.
                 var labelLine = GlazeText.LineHeight(label);
                 var detailLine = GlazeText.LineHeight(detail);
                 var top = (labelLine + detailLine) / 2f;
-                label.transform.localPosition = new Vector3(0f, top - labelLine / 2f, -0.0005f);
+                labelY = top - labelLine / 2f;
                 detail.transform.localPosition = new Vector3(0f, top - labelLine - detailLine / 2f, -0.0005f);
             }
+            label.transform.localPosition = new Vector3(wordsAt, labelY, -0.0005f);
+            if (icon != null && withIcon != null) icon.transform.localPosition = new Vector3(-(room + words) / 2f + IconEm / 2f, labelY, -0.0005f);
             Place(center, changed);
+        }
+
+        /// <summary>An icon's em on this button: 24 dp, or a badge's on a compact button.</summary>
+        private float IconEm => GlazeTokens.Units(compact ? GlazeIcons.BadgeDegrees : GlazeIcons.ControlDegrees);
+
+        /// <summary>What an icon and its gap add before the words; nothing without one.</summary>
+        private float IconRoom(GlazeIcon? which) => which == null ? 0f : IconEm + GlazeTokens.Units(IconGapDegrees);
+
+        /// <summary>Shows <paramref name="which"/> before the label, or no icon.</summary>
+        private void ShowIcon(GlazeIcon? which)
+        {
+            shownIcon = which;
+            if (which is not GlazeIcon showing)
+            {
+                if (icon != null) icon.gameObject.SetActive(false);
+                return;
+            }
+            if (icon == null)
+            {
+                icon = GlazeIcons.Create(transform, "Icon", GlazeTokens.DegreesOf(IconEm), label.color, label.sortingOrder);
+                paintedState = -1;
+            }
+            GlazeIcons.Show(icon, showing);
+            icon.gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -253,6 +292,7 @@ namespace Halcyonic.XR.UI
         public float LayRow(PanelRow words, float width, float? minimum = null)
         {
             EnsureRow();
+            ShowIcon(null);
             var padding = GlazeTokens.Units(RowPaddingDegrees);
             var gap = GlazeTokens.Units(RowEndGapDegrees);
             var inner = width - 2f * padding;
@@ -598,6 +638,7 @@ namespace Halcyonic.XR.UI
             var opacity = away ? AwayOpacity : 1f;
             plate.Fade(opacity);
             label.color = new Color(text.r, text.g, text.b, opacity);
+            if (icon != null) icon.color = label.color;
             var quiet = available && !done ? GlazeTokens.TextSecondary : text;
             var line = detailTone.HasValue && available && !done ? GlazeTokens.ColorOf(Glaze.Tone(detailTone.Value).Foreground)
                 : role == ButtonRole.Primary || role == ButtonRole.Attention || (role == ButtonRole.Destructive && on) ? text : quiet;

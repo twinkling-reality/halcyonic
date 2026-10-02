@@ -51,7 +51,7 @@ namespace Halcyonic.Client
                 // With no rows the list's own line says it; with rows, the bar says they are being read again.
                 if (reading) model.BarNote = UsageLeftPresenter.Reading;
             }
-            if (canRead) model.Actions = new ActionSet(new PanelAction(Refresh, WorkspaceText.Refresh, PanelActionRole.Secondary, available: !reading));
+            if (canRead) model.Actions = new ActionSet(new PanelAction(Refresh, WorkspaceText.Refresh, PanelActionRole.Secondary, available: !reading, icon: GlazeIcon.Refresh));
             return model;
         }
     }

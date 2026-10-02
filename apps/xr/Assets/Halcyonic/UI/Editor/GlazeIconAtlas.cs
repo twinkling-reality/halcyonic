@@ -107,9 +107,12 @@ namespace Halcyonic.XR.UI.Editor
             File.Copy(Path.Combine(project, BuildingPath), Path.Combine(project, AssetPath), overwrite: true);
             AssetDatabase.DeleteAsset(BuildingPath);
             AssetDatabase.ImportAsset(AssetPath, ImportAssetOptions.ForceUpdate);
-            // The copy keeps the name the building file gave it; the asset is named for its own file.
+            // The atlas loaded before the copy keeps the lookup tables it built then, and the copy the
+            // name the building file gave it: both come from the new file.
             var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
-            if (saved == null || saved.name == Name) return;
+            if (saved == null) return;
+            saved.ReadFontAssetDefinition();
+            if (saved.name == Name) return;
             saved.name = Name;
             EditorUtility.SetDirty(saved);
             AssetDatabase.SaveAssets();

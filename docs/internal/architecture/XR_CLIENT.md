@@ -410,9 +410,13 @@ the same definition names, as the JSON Schema document:
   older lines do) in one column or two; a pager for a body the screen pages itself, with a heading
   and a note at its left; a note at the bar's left; and its actions: an `ActionSet`, which refuses a
   second primary, a third secondary, a second destructive or a second Back, or a `ConfirmStep` in
-  the bar's place, whose Yes stands where no control of the screen stood a moment before. Text from
-  outside comes in as `LabelText.Plain` shows it and says it is data, which alone may end in an
-  ellipsis.
+  the bar's place, whose Yes stands where no control of the screen stood a moment before. Each
+  `PanelAction` may name its icon by meaning (`GlazeIcon`, from the spec's table): Approve, Deny,
+  Stop, Tell it, Send answer and their Yes the same icon, Hold to talk the microphone and nothing
+  else, Cancel and Close a cross, a locked Yes a lock, and words with no icon in the table, such as
+  Done, Skip and Clear, none. The header's Close says its icon (`CloseIcon`, a clock for the
+  welcome's Not now). Text from outside comes in as `LabelText.Plain` shows it and says it is data,
+  which alone may end in an ellipsis.
 - **`EntryScreens`** builds every entry screen as a `PanelModel` from the draft, the overview and
   the Mac's state, so the Unity layer only draws it and acts on the id a press raises, and decides
   what each offers: Start building at the right end, unavailable with what is missing
@@ -820,7 +824,8 @@ scripts use only long-stable core Unity APIs:
   Destructive outlined in red and its confirmation solid red, Filter outlined in the accent while on,
   Choice a raised tile edged in the accent while chosen, Attention in the attention colour, only to
   go to what waits for the person), it is 60 dp tall or 48 dp compact, a label in strong body text
-  and an optional second line, and it shows each state: at rest, pointed at (lighter, with an
+  with an icon before it where its action has one (24 dp, or the badge's 1.2 degrees compact, the
+  two centred together, never the icon alone) and an optional second line, and it shows each state: at rest, pointed at (lighter, with an
   accent ring), pressed (darker, its plate a little smaller, its words not), unavailable (outlined
   and quiet, taking no press), done (in the success colours) and set aside while the app lacks focus
   (faded). As a row of a panel's list (`ShowRow`) its words are left-aligned: a line over the title,
@@ -844,7 +849,11 @@ scripts use only long-stable core Unity APIs:
   than paged, with the pager in the body's bottom right cell, or a screen's own pager in a row under
   the body with its heading and note at the left; and the bar, Back and the destructive
   action at the left and the primary at a right end at least 14 degrees wide, or the confirm step in
-  its place. Targets keep 12 mm apart; words need less, so a body that starts or ends in words sits
+  its place. Every action shows its model's icon beside its words, Move, Reset position and Close
+  included; a bar whose actions would not all fit 12 mm apart with their icons shows each word
+  alone (`BarIcons`), as a question's bar does once an answer is typed or sent: Stop, Hold to
+  talk, Tell it, and Send answer or Sent….
+  The pager and the tabs show words only. Targets keep 12 mm apart; words need less, so a body that starts or ends in words sits
   closer to what is above or below it. The frame records where every control stood on each screen
   without a confirm step and every control it shows while one shows (`Recorded`); the step puts
   Cancel at the right end and Yes at the right-most place in the bar's row 12 mm clear of all of
@@ -953,8 +962,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   other tasks, while some work has no character, with how much of it waits for the person. Below,
   actions: Connect projects, with how many projects show, and Create a project (Keep creating while
   a draft waits) at the left; Usage left, when its glance offers it, and Settings, compact, at the
-  right, since they open sheets rather than act on work. Every button is 60 dp tall (48 compact) and
-  12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
+  right, since they open sheets rather than act on work, each action with its icon before its words
+  (the pills have none). Every button is 60 dp tall (48 compact) and 12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
   to either side, its rows 40 to 49 degrees down; over a desk, 0.3 m ahead and never into the desk,
   about 53 degrees down, under the lineup's labels. It is placed in front of the person when the app
   starts and when the stage moves onto or off a surface, and again by Reset position, and it steps
@@ -963,8 +972,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   its characters only.
 - **Settings:** `SettingsSheet`, which the rail's Settings opens, is one foreground panel, 44
   degrees wide like every foreground panel and as tall as its sections, at most about 26 degrees, at
-  0.46 m, placed where the entry panel would be, clear of every character and label, with Close at
-  its top right. It holds the controls that change how Halcyonic is arranged rather than act on
+  0.46 m, placed where the entry panel would be, clear of every character and label, with Close and
+  its icon at its top right. It holds the controls that change how Halcyonic is arranged rather than act on
   work, each feature in a section of its own (`SettingsSection`): Your room, with the room's line,
   its switch and offer, and under them, as a part with no heading (`SettingsSheet.Continuation`),
   where the characters stand and a button for each other arrangement; and, in development builds,
@@ -1524,7 +1533,8 @@ demonstration's short request must fit one part and be confirmable at once, and 
 reading. Every confirmation, reached by showing its screen and then pressing (Approve, Deny, Stop
 beside Hold to talk and without it, a spoken instruction, and answers a policy reviews), fails unless
 Yes stands 12 mm clear of every control shown before its confirm step and since, never in the
-pager's row, its question whole. Hold to talk must show beside Stop and Tell it and be left out where
+pager's row, its question whole, and neither Yes nor Cancel shows the microphone; the log names
+every screen whose bar had no room for its actions' icons. Hold to talk must show beside Stop and Tell it and be left out where
 Deny and Tell it fill the bar. Last, it puts hostile text on every
 label that shows text from outside, through the code that shows it: markup, backslash sequences,
 an end of text character, a carriage return and a line break, a bidirectional override, a zero
@@ -1546,10 +1556,12 @@ saved at a Quest 3's 25 pixels per degree in `apps/xr/Builds/GlazeRenders`. It f
 under the caption's size, a button under 60 dp (48 compact), anything of ours cut short, a badge
 missing its word, or a button's label under 4.5:1 on its own fill as drawn, as an off filter's grey
 word was on its lighter fill when pointed at, before it brightened. Its marks are the client core's
-(`StateLanguage.MarksOf`). It fails if the icon atlas lacks a glyph for an icon the client core
-names, is not static, keeps its font file, falls back to another font or is a fallback of one;
-if two icons share a glyph, or an icon shows on no badge or mark; if an icon stands alone or under
-a degree; or if a label of words draws from the icon atlas.
+(`StateLanguage.MarksOf`), and a third page (`gallery-actions.png`) shows every action's icon on a
+button beside its words. It fails if the icon atlas lacks a glyph for an icon the client core
+names, is not static, keeps its font file, falls back to another font or is a fallback of one; if
+two states or marks, or two actions, share a glyph (an action may share a state's, as Stop shares
+Stopped's); if an icon shows on no badge, mark or button; if an icon stands alone or under a
+degree; or if a label of words draws from the icon atlas.
 
 `StageRender` (**Halcyonic > Render Every State on the Stage**, also runnable in batch mode) renders
 every state of a task on a character at the stage's default distance and height, practice, demo and
@@ -1597,8 +1609,8 @@ Close, the bar's right end, Back and the pager stand in the same place on every 
 confirmation's pager, which stands at the top, apart). Every confirmation, reached by showing its
 screen and then pressing (Start building on the recap, then Next through every part; Start over;
 the second press that clears a start that may have run), fails unless Yes stands 12 mm clear of
-every control shown before its confirm step and since, never in the pager's row, and, while it
-pages, its pager stands above the body. It fails if the rail
+every control shown before its confirm step and since, never in the pager's row, with no
+microphone on Yes or Cancel, and, while it pages, its pager stands above the body. It fails if the rail
 reaches more than 24 degrees from its middle, runs past its ends, puts two buttons closer than
 12 mm, has a target under 60 dp (48 compact) or a word under the caption's size, or comes within a
 degree of a character's body or label. It opens Settings from the rail, with the sections the room

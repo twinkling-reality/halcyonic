@@ -389,4 +389,80 @@ public class WorkspaceScreensTests
         Assert.That(Titles(model), Is.EqualTo(new[] { "Question 1 of 2 · Colour scheme: Dark", "Question 2 of 2 · Pages: Sign in, Settings" }));
         Assert.That((model.Confirm!.Question, model.Confirm.Yes.Label), Is.EqualTo(("Send these answers?", "Yes, send answer")));
     }
+
+    /// <summary>Every action, its confirmation's Yes and Cancel, the heading's Refresh and a row's hold to talk.</summary>
+    private static IEnumerable<PanelAction> ActionsOf(PanelModel model)
+    {
+        foreach (var action in model.Actions.All) yield return action;
+        if (model.Confirm != null)
+        {
+            yield return model.Confirm.Yes;
+            yield return model.Confirm.Cancel;
+        }
+        if (model.HeadingAction != null) yield return model.HeadingAction;
+        foreach (var row in model.Rows)
+        {
+            if (row.Side != null) yield return row.Side;
+        }
+    }
+
+    [Test]
+    public void EachActionShowsItsIconBesideItsWordsAndOnlyHoldToTalkTheMicrophone()
+    {
+        var steering = new WorkspaceSteering(factory);
+        var all = new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt, WorkspaceAction.Instruct };
+        var waiting = Screen(Offering(new WaitingWork().Present(), all), steering, new WorkspaceScreen { Speak = true }).Actions;
+        Assert.That(waiting.All.Select(action => (action.Label, action.Icon)), Is.EqualTo(new (string, GlazeIcon?)[]
+        {
+            ("Stop", GlazeIcon.Stop), ("Deny", GlazeIcon.Deny), ("Tell it", GlazeIcon.TellIt), ("Approve", GlazeIcon.Approve),
+        }));
+        var instructable = Offering(Running().Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct);
+        var running = Screen(instructable, steering, new WorkspaceScreen { Speak = true }).Actions;
+        Assert.That(running.All.Select(action => (action.Label, action.Icon)), Is.EqualTo(new (string, GlazeIcon?)[]
+        {
+            ("Stop", GlazeIcon.Stop), ("Hold to talk", GlazeIcon.HoldToTalk), ("Tell it", GlazeIcon.TellIt),
+        }));
+
+        // Each confirmation's Yes shows its own action's icon, or the lock while the request is unread, and Cancel the close icon.
+        var models = new List<PanelModel>();
+        var work = new WaitingWork();
+        var request = new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, RequestParts = new[] { "bash: Run the ", "migration" }, RequestLines = 5 };
+        steering.Press(WorkspaceAction.Approve, work.Present());
+        models.Add(Screen(work.Present(), steering, request));
+        Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Read to part 2 first", (GlazeIcon?)GlazeIcon.Locked)));
+        steering.RequestShown(2, 2);
+        request.RequestPart = 1;
+        models.Add(Screen(work.Present(), steering, request));
+        Assert.That(models[^1].Confirm!.Yes.Icon, Is.EqualTo(GlazeIcon.Approve));
+        steering.Cancel();
+        steering.Press(WorkspaceAction.Deny, work.Present());
+        models.Add(Screen(work.Present(), steering, request));
+        Assert.That(models[^1].Confirm!.Yes.Icon, Is.EqualTo(GlazeIcon.Deny));
+        steering.Cancel();
+        var stopping = new WorkspaceSteering(factory);
+        stopping.Press(WorkspaceAction.Interrupt, Running().Present());
+        models.Add(Screen(Running().Present(), stopping));
+        Assert.That(models[^1].Confirm!.Yes.Icon, Is.EqualTo(GlazeIcon.Stop));
+        var hearing = new WorkspaceSteering(factory);
+        Assert.That(hearing.Spoken("Add a test", instructable).Step, Is.EqualTo(SteeringStep.Confirm));
+        models.Add(Screen(instructable, hearing, new WorkspaceScreen { Speak = true }));
+        Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Yes, tell it", (GlazeIcon?)GlazeIcon.TellIt)),
+            "an instruction the Mac heard is confirmed with Tell it's icon, not the microphone");
+        foreach (var model in models) Assert.That(model.Confirm!.Cancel.Icon, Is.EqualTo(GlazeIcon.Close));
+
+        // The microphone only on hold to talk, which is always held, and on nothing that approves, denies, stops or confirms.
+        var asking = new AskingWork();
+        models.Add(Screen(Offering(asking.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt, WorkspaceAction.Instruct), new WorkspaceSteering(factory),
+            new WorkspaceScreen { Question = WorkspaceQuestion.NeedFromYou, Speak = true }));
+        models.Add(Screen(Offering(Running().Present(), WorkspaceAction.Interrupt, WorkspaceAction.Instruct), new WorkspaceSteering(factory),
+            new WorkspaceScreen { Question = WorkspaceQuestion.Understand, Speak = true }));
+        Assert.That(models[^1].HeadingAction!.Icon, Is.EqualTo(GlazeIcon.Refresh));
+        var actions = models.SelectMany(ActionsOf).Concat(waiting.All).Concat(running.All).ToList();
+        Assert.That(actions.Where(action => action.Holds), Is.Not.Empty);
+        foreach (var action in actions)
+        {
+            Assert.That(action.Icon == GlazeIcon.HoldToTalk, Is.EqualTo(action.Holds), action.Label);
+            Assert.That(action.Label, Is.Not.Empty, "an icon never stands in for the words");
+        }
+    }
 }

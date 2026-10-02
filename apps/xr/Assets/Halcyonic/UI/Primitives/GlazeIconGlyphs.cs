@@ -25,10 +25,36 @@ namespace Halcyonic.XR.UI
             GlazeIcon.LastKnown => "\uE28E", // history
             GlazeIcon.Practice => "\uEA4B", // science
             GlazeIcon.Recording => "\uE02C", // movie
+            GlazeIcon.Approve => "\uE5CA", // check
+            GlazeIcon.Deny => "\uE033", // block
+            GlazeIcon.Stop => "\uEF71", // stop_circle
+            GlazeIcon.TellIt => "\uE0B7", // chat
+            GlazeIcon.SendAnswer => "\uE163", // send
+            GlazeIcon.HoldToTalk => "\uE029", // mic
+            GlazeIcon.Type => "\uE312", // keyboard
+            GlazeIcon.StartBuilding => "\uE037", // play_arrow
+            GlazeIcon.StartOver => "\uF053", // restart_alt
+            GlazeIcon.Refresh => "\uE5D5", // refresh
+            GlazeIcon.Change => "\uE150", // edit
+            GlazeIcon.ConnectProjects => "\uE157", // link
+            GlazeIcon.CreateProject => "\uE145", // add
+            GlazeIcon.AddTask => "\uF23A", // add_task
+            GlazeIcon.OpenNow => "\uF1CE", // open_in_full
+            GlazeIcon.KeepCreating => "\uE745", // edit_note
+            GlazeIcon.NotNow => "\uE192", // schedule
+            GlazeIcon.Close => "\uE14C", // close
+            GlazeIcon.Back => "\uE5C4", // arrow_back
+            GlazeIcon.Next => "\uE5C8", // arrow_forward
+            GlazeIcon.Move => "\uF71E", // drag_pan
+            GlazeIcon.ResetPosition => "\uE3B4", // center_focus_strong
+            GlazeIcon.ShowAll => "\uE417", // visibility
+            GlazeIcon.Settings => "\uE8B8", // settings
+            GlazeIcon.UsageLeft => "\uE9E4", // speed
+            GlazeIcon.Locked => "\uE88D", // lock
             _ => throw new ArgumentOutOfRangeException(nameof(icon), icon, "Unhandled icon."),
         };
 
         /// <summary>Every glyph the font holds, in code point order: what the atlas is built from.</summary>
-        public const string All = "\uE02C\uE153\uE28E\uE5C9\uE769\uE836\uE85F\uE887\uE9D0\uEA4B\uEA5B\uEF71\uF0C5";
+        public const string All = "\uE029\uE02C\uE033\uE037\uE0B7\uE145\uE14C\uE150\uE153\uE157\uE163\uE192\uE28E\uE312\uE3B4\uE417\uE5C4\uE5C8\uE5C9\uE5CA\uE5D5\uE745\uE769\uE836\uE85F\uE887\uE88D\uE8B8\uE9D0\uE9E4\uEA4B\uEA5B\uEF71\uF053\uF0C5\uF1CE\uF23A\uF71E";
     }
 }

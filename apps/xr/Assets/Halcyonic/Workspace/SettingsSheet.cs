@@ -227,9 +227,9 @@ namespace Halcyonic.XR.Workspace
             var y = -padding;
 
             // The title, and Close at the right end of its row.
-            var closeWidth = close.Measure(SettingsText.Close);
+            var closeWidth = close.Measure(SettingsText.Close, null, GlazeIcon.Close);
             var rowHeight = GlazeButton.HeightOf(true);
-            close.Show(SettingsText.Close, new Vector2(width / 2f - padding - closeWidth / 2f, y - rowHeight / 2f), closeWidth);
+            close.Show(SettingsText.Close, new Vector2(width / 2f - padding - closeWidth / 2f, y - rowHeight / 2f), closeWidth, withIcon: GlazeIcon.Close);
             GlazeText.Lay(title, inner - closeWidth - gap, 1);
             var titleLine = GlazeText.LineHeight(title);
             title.transform.localPosition = new Vector3(left, y - (rowHeight - titleLine) / 2f, -0.0005f);

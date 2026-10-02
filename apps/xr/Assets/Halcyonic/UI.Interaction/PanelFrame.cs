@@ -257,6 +257,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public IReadOnlyList<Rect> Recorded => recorded;
 
+        /// <summary>Whether the bar shows its actions' icons: false where they would not all fit, and each says its word alone.</summary>
+        public bool BarIcons { get; private set; } = true;
+
         /// <summary>The bar's buttons showing, or the confirm step's, for the editor's checks that the right end never moves.</summary>
         public IEnumerable<GlazeButton> BarButtons
         {
@@ -404,7 +407,7 @@ namespace Halcyonic.XR.UI
             {
                 y -= Units(SectionGapDegrees);
                 var middle = y - compact / 2f;
-                var end = PutRight(close, PanelModel.Close, model.CloseLabel, right, middle);
+                var end = PutRight(close, PanelModel.Close, model.CloseLabel, right, middle, icon: model.CloseIcon);
                 laidOut.Add(RectOf(close));
                 if (pagerOnTop) LayTopPager(model, left, middle);
                 else LayTabs(model, left, end, middle);
@@ -535,13 +538,13 @@ namespace Halcyonic.XR.UI
             var headerHeight = GlazeButton.HeightOf(true);
             var middle = top - headerHeight / 2f;
             var x = right;
-            x = PutRight(close, PanelModel.Close, model.CloseLabel, x, middle);
+            x = PutRight(close, PanelModel.Close, model.CloseLabel, x, middle, icon: model.CloseIcon);
             reset.Hide();
             move.Hide();
             if (model.Movable)
             {
-                x = PutRight(reset, PanelModel.ResetPosition, EntryText.ResetPosition, x, middle);
-                x = PutRight(move, PanelModel.Move, EntryText.Move, x, middle);
+                x = PutRight(reset, PanelModel.ResetPosition, EntryText.ResetPosition, x, middle, icon: PanelModel.ResetPositionIcon);
+                x = PutRight(move, PanelModel.Move, EntryText.Move, x, middle, icon: PanelModel.MoveIcon);
             }
             foreach (var button in new[] { close, reset, move })
             {
@@ -657,7 +660,7 @@ namespace Halcyonic.XR.UI
             if (model.HeadingAction is PanelAction action)
             {
                 height = GlazeButton.HeightOf(true);
-                var x = PutRight(headingAction, action.Id, action.Label, right, top - height / 2f, available: action.Available);
+                var x = PutRight(headingAction, action.Id, action.Label, right, top - height / 2f, available: action.Available, icon: action.Icon);
                 laidOut.Add(RectOf(headingAction));
                 width = x - left;
                 if (model.CustomBody) notch = RectOf(headingAction);
@@ -683,7 +686,7 @@ namespace Halcyonic.XR.UI
                 var action = model.Actions[index];
                 var button = buttons[index];
                 button.Role = RoleOf(action.Role);
-                x = PutRight(button, action.Id, action.Label, x, middle, available: action.Available);
+                x = PutRight(button, action.Id, action.Label, x, middle, available: action.Available, icon: action.Icon);
             }
             GlazeText.SetLiteral(bannerText, model.Text);
             bannerText.color = GlazeTokens.ColorOf(tone.Foreground);
@@ -725,18 +728,24 @@ namespace Halcyonic.XR.UI
             var gap = TargetGap;
             if (model.Confirm is ConfirmStep step)
             {
-                var cancelLeft = PutRight(cancel, step.Cancel.Id, step.Cancel.Label, right, middle, minimum: Units(RightEndDegrees)) + gap;
+                BarIcons = true;
+                var cancelLeft = PutRight(cancel, step.Cancel.Id, step.Cancel.Label, right, middle, minimum: Units(RightEndDegrees), icon: step.Cancel.Icon) + gap;
                 laidOut.Add(RectOf(cancel));
                 return PlaceYes(step, left, right, cancelLeft, bottom, middle);
             }
             var actions = model.Actions;
+            // Each action's icon beside its words where every one fits so, 12 mm apart; else the bar's words stand alone.
+            var icons = FitsWithIcons(actions, left, right);
+            BarIcons = icons;
+            GlazeIcon? IconOf(PanelAction action) => icons ? action.Icon : null;
             var start = left;
-            if (actions.Back != null) start = PutLeft(back, actions.Back, start, middle) + gap;
-            if (actions.Destructive != null) start = PutLeft(destructive, actions.Destructive, start, middle) + gap;
+            if (actions.Back != null) start = PutLeft(back, actions.Back, start, middle, IconOf(actions.Back)) + gap;
+            if (actions.Destructive != null) start = PutLeft(destructive, actions.Destructive, start, middle, IconOf(actions.Destructive)) + gap;
             var x = right;
             if (actions.Primary != null)
             {
-                x = PutRight(primary, actions.Primary.Id, actions.Primary.Label, x, middle, available: actions.Primary.Available, minimum: Units(RightEndDegrees));
+                x = PutRight(primary, actions.Primary.Id, actions.Primary.Label, x, middle, available: actions.Primary.Available, minimum: Units(RightEndDegrees),
+                    icon: IconOf(actions.Primary));
             }
             var secondaries = new[] { secondaryFirst, secondarySecond };
             for (var index = actions.Secondary.Count - 1; index >= 0; index--)
@@ -744,7 +753,7 @@ namespace Halcyonic.XR.UI
                 var action = actions.Secondary[index];
                 var button = secondaries[index];
                 button.Holds = action.Holds;
-                x = PutRight(button, action.Id, action.Label, x, middle, available: action.Available);
+                x = PutRight(button, action.Id, action.Label, x, middle, available: action.Available, icon: IconOf(action));
             }
             foreach (var button in BarButtons) laidOut.Add(RectOf(button));
             // What the screen notes at the bar's left, else why the action it leads to can't be taken now.
@@ -757,6 +766,25 @@ namespace Halcyonic.XR.UI
                 label.gameObject.SetActive(true);
             }
             return (bottom + barHeight, actions.All.GetEnumerator().MoveNext());
+        }
+
+        /// <summary>
+        /// Whether the bar's actions fit between <paramref name="left"/> and <paramref name="right"/>
+        /// with their icons, Back and the destructive action at the left and the rest at the right,
+        /// 12 mm apart.
+        /// </summary>
+        private bool FitsWithIcons(ActionSet actions, float left, float right)
+        {
+            float Width(GlazeButton button, PanelAction action, float minimum = 0f) => Mathf.Max(minimum, button.Measure(action.Label, null, action.Icon));
+            var leftEnd = left;
+            if (actions.Back != null) leftEnd += Width(back, actions.Back) + TargetGap;
+            if (actions.Destructive != null) leftEnd += Width(destructive, actions.Destructive) + TargetGap;
+            var rightEnd = right;
+            if (actions.Primary != null) rightEnd -= Width(primary, actions.Primary, Units(RightEndDegrees)) + TargetGap;
+            var secondaries = new[] { secondaryFirst, secondarySecond };
+            for (var index = 0; index < actions.Secondary.Count; index++) rightEnd -= Width(secondaries[index], actions.Secondary[index]) + TargetGap;
+            // Each end carries a gap past its last button: 12 mm between the two ends, or none needed past the left edge.
+            return rightEnd + TargetGap >= leftEnd - 1e-5f;
         }
 
         /// <summary>
@@ -773,7 +801,7 @@ namespace Halcyonic.XR.UI
             yes.Role = RoleOf(step.Yes.Role);
             // The confirmation of what can't be taken back is solid red; its first step was only outlined.
             yes.On = step.Yes.Role == PanelActionRole.Destructive;
-            var width = yes.Measure(step.Yes.Label);
+            var width = yes.Measure(step.Yes.Label, null, step.Yes.Icon);
             var why = step.Yes.Reason ?? step.Question;
 
             // In the bar's row, where the question fits whole to Yes's left.
@@ -802,7 +830,7 @@ namespace Halcyonic.XR.UI
         private void ShowYes(ConfirmStep step, float center, float middle, float width)
         {
             yes.Available = step.Yes.Available;
-            yes.Show(step.Yes.Label, new Vector2(center, middle), width);
+            yes.Show(step.Yes.Label, new Vector2(center, middle), width, withIcon: step.Yes.Icon);
             pressing[yes] = (step.Yes.Id, null);
         }
 
@@ -1006,9 +1034,9 @@ namespace Halcyonic.XR.UI
                             var side = SideButton(usedSides++);
                             side.Holds = row.Side.Holds;
                             side.Available = row.Side.Available;
-                            var sideWidth = side.Measure(row.Side.Label);
+                            var sideWidth = side.Measure(row.Side.Label, null, row.Side.Icon);
                             width = cellWidth - sideWidth - gap;
-                            side.Show(row.Side.Label, new Vector2(cellLeft + cellWidth - sideWidth / 2f, y - cellHeight / 2f), sideWidth);
+                            side.Show(row.Side.Label, new Vector2(cellLeft + cellWidth - sideWidth / 2f, y - cellHeight / 2f), sideWidth, withIcon: row.Side.Icon);
                             pressing[side] = (row.Side.Id, row.Key);
                             laidOut.Add(RectOf(side));
                         }
@@ -1189,7 +1217,7 @@ namespace Halcyonic.XR.UI
         {
             if (row.Side == null) return cellWidth;
             var side = SideButton(0);
-            return cellWidth - side.Measure(row.Side.Label) - TargetGap;
+            return cellWidth - side.Measure(row.Side.Label, null, row.Side.Icon) - TargetGap;
         }
 
         /// <summary>How tall a line is at <paramref name="width"/>, measured once for the same words.</summary>
@@ -1346,27 +1374,28 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Shows a button with its right edge at <paramref name="right"/>; returns where its left edge is, less the gap.</summary>
-        private float PutRight(GlazeButton button, string id, string label, float right, float middle, bool available = true, float minimum = 0f)
+        private float PutRight(GlazeButton button, string id, string label, float right, float middle, bool available = true, float minimum = 0f,
+            GlazeIcon? icon = null)
         {
-            var width = Mathf.Max(minimum, button.Measure(label));
+            var width = Mathf.Max(minimum, button.Measure(label, null, icon));
             button.Available = available;
-            button.Show(label, new Vector2(right - width / 2f, middle), width);
+            button.Show(label, new Vector2(right - width / 2f, middle), width, withIcon: icon);
             if (id.Length > 0) pressing[button] = (id, null);
             return right - width - TargetGap;
         }
 
-        private float PutLeft(GlazeButton button, PanelAction action, float left, float middle)
+        private float PutLeft(GlazeButton button, PanelAction action, float left, float middle, GlazeIcon? icon)
         {
             button.Holds = action.Holds;
-            return PutLeft(button, action.Id, action.Label, left, middle, action.Available);
+            return PutLeft(button, action.Id, action.Label, left, middle, action.Available, icon);
         }
 
         /// <summary>Shows a button with its left edge at <paramref name="left"/>; returns where its right edge is.</summary>
-        private float PutLeft(GlazeButton button, string id, string label, float left, float middle, bool available)
+        private float PutLeft(GlazeButton button, string id, string label, float left, float middle, bool available, GlazeIcon? icon = null)
         {
-            var width = button.Measure(label);
+            var width = button.Measure(label, null, icon);
             button.Available = available;
-            button.Show(label, new Vector2(left + width / 2f, middle), width);
+            button.Show(label, new Vector2(left + width / 2f, middle), width, withIcon: icon);
             pressing[button] = (id, null);
             return left + width;
         }

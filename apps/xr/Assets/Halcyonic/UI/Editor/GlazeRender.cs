@@ -22,8 +22,8 @@ namespace Halcyonic.XR.UI.Editor
     /// 60 dp (48 compact), nothing of ours cut short, every badge's whole word, each button's label
     /// contrasting with its own fill as drawn, at least 4.5:1, and each meter filled to its share, or
     /// not at all while waiting; and every icon the client core names in the icon atlas and on a
-    /// badge or mark, each on its own beside words, and no label of words drawing from the atlas. A
-    /// token changed shows here everywhere at once. It saves the gallery at a Quest
+    /// badge, a mark or a button, each on its own beside words, and no label of words drawing from
+    /// the atlas. A token changed shows here everywhere at once. It saves the gallery at a Quest
     /// 3's 25 pixels per degree in apps/xr/Builds/GlazeRenders, which git ignores. In the editor:
     /// Halcyonic > Render Every Component. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md;
     /// it exits with 1 when a check fails.
@@ -95,7 +95,6 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(Check(folder, "gallery.png", camera, texture, root, eyes, buttons));
                 failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, "component render"));
                 failures.AddRange(GlazeChecks.IconAtlasHoldsEveryIcon("component render"));
-                failures.AddRange(EveryIconShows(badges, marks));
                 failures.AddRange(MetersFilled(meters));
 
                 // A panel's list rows on a page of their own, in the middle of the view.
@@ -103,7 +102,18 @@ namespace Halcyonic.XR.UI.Editor
                 {
                     if (holder != behind) holder.gameObject.SetActive(false);
                 }
+                var second = new List<Transform>();
                 failures.AddRange(Check(folder, "gallery-rows.png", camera, texture, root, eyes, Rows()));
+                foreach (Transform holder in gallery)
+                {
+                    if (holder != behind && holder.gameObject.activeSelf) second.Add(holder);
+                }
+
+                // Every action's icon, on a button beside its words.
+                foreach (var holder in second) holder.gameObject.SetActive(false);
+                var actions = Actions();
+                failures.AddRange(Check(folder, "gallery-actions.png", camera, texture, root, eyes, actions.ConvertAll(action => (action.Button, action.What))));
+                failures.AddRange(EveryIconShows(badges, marks, actions));
             }
             catch (Exception error)
             {
@@ -306,11 +316,11 @@ namespace Halcyonic.XR.UI.Editor
             return rows;
         }
 
-        private static float Place(GlazeButton button, string label, string? detail, GlazeTone? tone, float x, float y)
+        private static float Place(GlazeButton button, string label, string? detail, GlazeTone? tone, float x, float y, GlazeIcon? icon = null)
         {
-            var width = button.Measure(label, detail);
+            var width = button.Measure(label, detail, icon);
             var degrees = GlazeTokens.DegreesOf(width);
-            button.Show(label, Vector2.zero, width, detail, tone);
+            button.Show(label, Vector2.zero, width, detail, tone, icon);
             Aim(button.transform.parent, x + degrees / 2f, y);
             return x + degrees + 1.5f;
         }
@@ -384,17 +394,27 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
-        /// Every icon the client core names shows in the gallery, on a badge or a mark, each as its own
-        /// glyph: a state, a mark or the last known one never borrows another's icon.
+        /// Every icon the client core names shows in the gallery, on a badge, a mark or a button, each
+        /// as its own glyph. No two states or marks share a glyph, so a state never borrows another's
+        /// icon, and no two actions do; an action may share a state's, as Stop shares Stopped's.
         /// </summary>
-        private static IEnumerable<string> EveryIconShows(List<StateBadgeView> badges, List<MarkTag> marks)
+        private static IEnumerable<string> EveryIconShows(List<StateBadgeView> badges, List<MarkTag> marks, List<(GlazeButton Button, string What, GlazeIcon Icon)> actions)
         {
-            var byGlyph = new Dictionary<string, GlazeIcon>();
-            foreach (GlazeIcon icon in Enum.GetValues(typeof(GlazeIcon)))
+            var stateIcons = new HashSet<GlazeIcon> { GlazeIcon.LastKnown };
+            foreach (WorkState state in Enum.GetValues(typeof(WorkState))) stateIcons.Add(StateLanguage.Look(state).Icon);
+            foreach (var (synthetic, recorded) in new[] { (true, false), (true, true), (false, true) })
             {
-                var glyph = GlazeIconGlyphs.Of(icon);
-                if (byGlyph.TryGetValue(glyph, out var other)) yield return "component render: " + icon + " and " + other + " share a glyph.";
-                else byGlyph[glyph] = icon;
+                foreach (var mark in StateLanguage.MarksOf(Character(CharacterActivity.Working, AttentionLevel.None, synthetic: synthetic, recorded: recorded))) stateIcons.Add(mark.Icon);
+            }
+            foreach (var group in new[] { stateIcons, new HashSet<GlazeIcon>(Enum.GetValues(typeof(GlazeIcon)).Cast<GlazeIcon>().Where(icon => !stateIcons.Contains(icon))) })
+            {
+                var byGlyph = new Dictionary<string, GlazeIcon>();
+                foreach (var icon in group)
+                {
+                    var glyph = GlazeIconGlyphs.Of(icon);
+                    if (byGlyph.TryGetValue(glyph, out var other)) yield return "component render: " + icon + " and " + other + " share a glyph.";
+                    else byGlyph[glyph] = icon;
+                }
             }
             var shown = new HashSet<GlazeIcon>();
             foreach (var badge in badges)
@@ -405,13 +425,80 @@ namespace Halcyonic.XR.UI.Editor
             }
             foreach (var mark in marks)
             {
-                if (byGlyph.TryGetValue(mark.Icon.text, out var icon)) shown.Add(icon);
+                var icon = stateIcons.FirstOrDefault(each => GlazeIconGlyphs.Of(each) == mark.Icon.text);
+                if (GlazeIconGlyphs.Of(icon) == mark.Icon.text) shown.Add(icon);
                 else yield return "component render: the " + mark.Word.text + " mark shows no icon of the set.";
+            }
+            foreach (var (button, what, icon) in actions)
+            {
+                if (button.Icon == null || button.Icon.text != GlazeIconGlyphs.Of(icon)) yield return "component render: " + what + " shows no " + icon + " icon.";
+                else shown.Add(icon);
             }
             foreach (GlazeIcon icon in Enum.GetValues(typeof(GlazeIcon)))
             {
-                if (!shown.Contains(icon)) yield return "component render: no badge or mark shows the " + icon + " icon.";
+                if (!shown.Contains(icon)) yield return "component render: nothing in the gallery shows the " + icon + " icon.";
             }
+        }
+
+        /// <summary>
+        /// Every action's icon on a button beside its words, as the panels, the rail and Settings show
+        /// them: the bar's actions at a target's height, the header's and the rail's compact.
+        /// </summary>
+        private static List<(GlazeButton Button, string What, GlazeIcon Icon)> Actions()
+        {
+            var shown = new List<(GlazeButton, string, GlazeIcon)>();
+            var actions = new (GlazeIcon Icon, string Words, ButtonRole Role, bool Compact, bool Available)[]
+            {
+                (GlazeIcon.Approve, WorkspaceText.Label(WorkspaceAction.Approve), ButtonRole.Primary, false, true),
+                (GlazeIcon.Deny, WorkspaceText.Label(WorkspaceAction.Deny), ButtonRole.Secondary, false, true),
+                (GlazeIcon.Stop, WorkspaceText.Label(WorkspaceAction.Interrupt), ButtonRole.Destructive, false, true),
+                (GlazeIcon.TellIt, WorkspaceText.Label(WorkspaceAction.Instruct), ButtonRole.Secondary, false, true),
+                (GlazeIcon.SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), ButtonRole.Primary, false, true),
+                (GlazeIcon.HoldToTalk, VoiceText.HoldToTalk, ButtonRole.Secondary, false, true),
+                (GlazeIcon.Type, ProjectIdea.Questions[0].TypeLabel, ButtonRole.Secondary, false, true),
+                (GlazeIcon.StartBuilding, EntryText.StartBuilding, ButtonRole.Primary, false, true),
+                (GlazeIcon.StartOver, EntryText.StartOver, ButtonRole.Destructive, false, true),
+                (GlazeIcon.Refresh, WorkspaceText.Refresh, ButtonRole.Secondary, true, true),
+                (GlazeIcon.Refresh, EntryText.TryAgain, ButtonRole.Primary, false, true),
+                (GlazeIcon.Change, EntryText.Change, ButtonRole.Secondary, false, true),
+                (GlazeIcon.ConnectProjects, EntryText.ConnectProjects, ButtonRole.Secondary, false, true),
+                (GlazeIcon.CreateProject, EntryText.CreateProject, ButtonRole.Secondary, false, true),
+                (GlazeIcon.AddTask, EntryText.AddTask, ButtonRole.Secondary, false, true),
+                (GlazeIcon.OpenNow, EntryText.OpenNow, ButtonRole.Attention, true, true),
+                (GlazeIcon.KeepCreating, EntryText.KeepCreating, ButtonRole.Secondary, true, true),
+                (GlazeIcon.NotNow, EntryText.NotNow, ButtonRole.Secondary, true, true),
+                (GlazeIcon.Close, EntryText.Close, ButtonRole.Secondary, true, true),
+                (GlazeIcon.Close, EntryText.Cancel, ButtonRole.Secondary, false, true),
+                (GlazeIcon.Back, EntryText.Back, ButtonRole.Secondary, false, true),
+                (GlazeIcon.Next, EntryText.CheckFirst, ButtonRole.Primary, false, true),
+                (GlazeIcon.Move, EntryText.Move, ButtonRole.Secondary, true, true),
+                (GlazeIcon.ResetPosition, EntryText.ResetPosition, ButtonRole.Secondary, true, true),
+                (GlazeIcon.ShowAll, EntryText.ShowAll, ButtonRole.Secondary, false, true),
+                (GlazeIcon.Settings, SettingsText.Settings, ButtonRole.Secondary, true, true),
+                (GlazeIcon.UsageLeft, UsageLeftPresenter.Title, ButtonRole.Secondary, true, true),
+                (GlazeIcon.Approve, WorkspaceText.ConfirmLabel(WorkspaceAction.Approve), ButtonRole.Primary, false, true),
+                (GlazeIcon.Stop, WorkspaceText.ConfirmLabel(WorkspaceAction.Interrupt), ButtonRole.Destructive, false, true),
+                (GlazeIcon.Locked, EntryText.ReadToPart(3), ButtonRole.Primary, false, false),
+            };
+            var x = -33f;
+            var y = 21f;
+            foreach (var (icon, words, role, compact, available) in actions)
+            {
+                var button = GlazeButton.Create(Holder("Action " + words, 0f, 0f), "Button", role, compact);
+                button.Available = available;
+                // A confirmation's Yes, as the frame draws it: solid red for what can't be taken back.
+                button.On = role == ButtonRole.Destructive && words.StartsWith("Yes", StringComparison.Ordinal);
+                var degrees = GlazeTokens.DegreesOf(button.Measure(words, null, icon));
+                if (x + degrees > 33f)
+                {
+                    x = -33f;
+                    y -= 5.5f;
+                }
+                x = Place(button, words, null, null, x, y, icon);
+                button.PaintForRender(false, false);
+                shown.Add((button, words + " with its icon", icon));
+            }
+            return shown;
         }
 
         /// <summary>Each meter is filled to its share of its track, or not at all while it waits for a read.</summary>

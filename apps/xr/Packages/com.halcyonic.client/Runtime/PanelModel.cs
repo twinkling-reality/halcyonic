@@ -24,15 +24,18 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// An action a panel offers: its words, its role, and whether it can be taken now. One that can't
-    /// stays in its place, quiet and taking no press, with why beside it, so the bar never jumps.
+    /// An action a panel offers: its words, its icon, its role, and whether it can be taken now. One
+    /// that can't stays in its place, quiet and taking no press, with why beside it, so the bar never
+    /// jumps. Its words always show; an icon only stands beside them.
     /// </summary>
     public sealed class PanelAction
     {
         /// <param name="id">What pressing it raises, for the screen to act on.</param>
         /// <param name="reason">Why it can't be taken now, said beside it; null when it says nothing more.</param>
         /// <param name="holds">Held rather than pressed, as hold to talk is.</param>
-        public PanelAction(string id, string label, PanelActionRole role, bool available = true, string? reason = null, bool holds = false)
+        /// <param name="icon">The icon beside its words, by what it does; null for words alone.</param>
+        public PanelAction(string id, string label, PanelActionRole role, bool available = true, string? reason = null, bool holds = false,
+            GlazeIcon? icon = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Label = label ?? throw new ArgumentNullException(nameof(label));
@@ -40,6 +43,7 @@ namespace Halcyonic.Client
             Available = available;
             Reason = available ? null : reason;
             Holds = holds;
+            Icon = icon;
         }
 
         public string Id { get; }
@@ -53,6 +57,8 @@ namespace Halcyonic.Client
         public string? Reason { get; }
 
         public bool Holds { get; }
+
+        public GlazeIcon? Icon { get; }
     }
 
     /// <summary>
@@ -333,6 +339,14 @@ namespace Halcyonic.Client
 
         /// <summary>The header's close button, "Close" unless the screen says otherwise.</summary>
         public string CloseLabel { get; set; } = EntryText.Close;
+
+        /// <summary>The icon beside the close button's words, as they say what it does.</summary>
+        public GlazeIcon CloseIcon { get; set; } = GlazeIcon.Close;
+
+        /// <summary>The icons beside Move's and Reset position's words.</summary>
+        public const GlazeIcon MoveIcon = GlazeIcon.Move;
+
+        public const GlazeIcon ResetPositionIcon = GlazeIcon.ResetPosition;
 
         /// <summary>The panel's tabs, under its title, when it answers more than one question.</summary>
         public IList<PanelTab> Tabs { get; } = new List<PanelTab>();

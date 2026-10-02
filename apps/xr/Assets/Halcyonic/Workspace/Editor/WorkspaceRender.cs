@@ -331,6 +331,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     if (PanelFrame.RectOf(button).yMin < area.yMin - 1e-3f) failures.Add(what + ": " + button.name + " runs below the body.");
                 }
+                if (!Frame.BarIcons) Debug.Log("Halcyonic: workspace render " + what + ": the bar has no room for its icons, so its words stand alone.");
                 return failures;
             }
         }
@@ -646,6 +647,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (pager == null) continue;
                 var rect = PanelFrame.RectOf(pager);
                 if (rect.yMax > place.yMin && rect.yMin < place.yMax) yield return what + ": Yes stands in the pager's row.";
+            }
+            // Nothing that confirms shows the microphone: hold to talk's icon is on hold to talk alone.
+            foreach (var button in new[] { yes, frame.RightEnd })
+            {
+                if (button?.Icon != null && button.Icon.text == GlazeIconGlyphs.Of(GlazeIcon.HoldToTalk)) yield return what + ": " + button.name + " shows the microphone.";
             }
             var question = frame.Labels.FirstOrDefault(label => label.name == "Question");
             if (question != null)
