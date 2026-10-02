@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using TMPro;
@@ -114,6 +115,7 @@ namespace Halcyonic.XR.UI.Editor
                 var actions = Actions();
                 failures.AddRange(Check(folder, "gallery-actions.png", camera, texture, root, eyes, actions.ConvertAll(action => (action.Button, action.What))));
                 failures.AddRange(EveryIconShows(badges, marks, actions));
+                failures.AddRange(IconAloneKeepsPresses());
             }
             catch (Exception error)
             {
@@ -391,6 +393,35 @@ namespace Halcyonic.XR.UI.Editor
                 meters.Add((meter, share, waiting));
             }
             return meters;
+        }
+
+        /// <summary>
+        /// A button whose icon alone changes keeps taking presses, as Stop must when a question arrives
+        /// while the hand reaches for it; new words make a new action, whose presses wait to settle.
+        /// Checked on when the button last took a new action, pushed far into the past first.
+        /// </summary>
+        private static IEnumerable<string> IconAloneKeepsPresses()
+        {
+            var failures = new List<string>();
+            var settled = typeof(GlazeButton).GetField("shownAt", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?? throw new MissingFieldException(nameof(GlazeButton), "shownAt");
+            const float LongAgo = -100f;
+            var holder = Holder("Settling", 0f, 0f);
+            var button = GlazeButton.Create(holder, "Button", ButtonRole.Destructive);
+            var stop = WorkspaceText.Label(WorkspaceAction.Interrupt);
+            var width = button.Measure(stop, null, GlazeIcon.Stop);
+            button.Show(stop, Vector2.zero, width, withIcon: GlazeIcon.Stop);
+            foreach (var (icon, what) in new[] { ((GlazeIcon?)null, "losing its icon"), (GlazeIcon.Stop, "taking its icon back") })
+            {
+                settled.SetValue(button, LongAgo);
+                button.Show(stop, Vector2.zero, width, withIcon: icon);
+                if ((float)settled.GetValue(button)! != LongAgo) failures.Add("component render: Stop " + what + " made it wait to settle, so a press would be dropped.");
+            }
+            settled.SetValue(button, LongAgo);
+            button.Show(WorkspaceText.Label(WorkspaceAction.Deny), Vector2.zero, width, withIcon: GlazeIcon.Deny);
+            if ((float)settled.GetValue(button)! == LongAgo) failures.Add("component render: new words in Stop's place did not wait to settle.");
+            UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            return failures;
         }
 
         /// <summary>

@@ -79,7 +79,6 @@ namespace Halcyonic.XR.UI
         private TextMeshPro? overline;
         private TextMeshPro? end;
         private TextMeshPro? icon;
-        private GlazeIcon? shownIcon;
         private PointerTarget target = null!;
         private ButtonRole role;
         private bool compact;
@@ -227,7 +226,9 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void Show(string text, Vector2 center, float width, string? detailText = null, GlazeTone? tone = null, GlazeIcon? withIcon = null)
         {
-            var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(text) || withIcon != shownIcon
+            // New words make a new action, whose presses wait to settle; a new icon alone does not, since
+            // the words, the role and whether it can be taken say what the action is.
+            var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(text)
                 || (detailText == null ? detail.gameObject.activeSelf : !detail.gameObject.activeSelf || detail.text != LabelText.ForTextMeshPro(detailText));
             GlazeText.SetLiteral(label, text);
             ShowIcon(withIcon);
@@ -268,7 +269,6 @@ namespace Halcyonic.XR.UI
         /// <summary>Shows <paramref name="which"/> before the label, or no icon.</summary>
         private void ShowIcon(GlazeIcon? which)
         {
-            shownIcon = which;
             if (which is not GlazeIcon showing)
             {
                 if (icon != null) icon.gameObject.SetActive(false);
