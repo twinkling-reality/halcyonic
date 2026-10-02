@@ -18,8 +18,8 @@
 
 ## The check on the owner's Mac
 
-`pnpm mac-setup --no-token` against `~/.halcyonic`, which reads no credential, no access token and no
-journal: it checks file modes and owners, hashes the pinned files, lists Ollama's models and asks
+`pnpm mac-setup --no-token` against `~/.halcyonic` (now the default), which reads no credential, no
+access token and no journal: it checks file modes and owners, hashes the pinned files, lists Ollama's models and asks
 only the unauthenticated `GET /api/health`.
 
 - It took 1.6 s, most of it hashing about 1 GB: the installed OpenCode 2.0.18
@@ -68,7 +68,7 @@ environment so nothing listened on the network:
 
 ## Automated checks
 
-`pnpm check` (746 tests) covers the settings file's refusals (mode, owner, link, data directory,
+`pnpm check` (746 tests at the time) covered the settings file's refusals (mode, owner, link, data directory,
 size, format, unknown and environment-only settings), the environment winning even when empty, the
 control plane starting from the file and refusing a readable one, Halcyonic's own OpenCode settings
 refusing every kind of remote default, and the setup's steps with a fake Ollama, a fake running
@@ -76,6 +76,29 @@ Halcyonic and fake pinned files: what each step says, the folders it refuses, th
 without a yes, that it never opens a credential or reads the access token with `--no-token`, and
 that every line keeps to [WORDS.md](../product/WORDS.md). The C# suite (615) holds the headset's words
 for the host, now "your computer", and all seven Unity renders passed with the longer word.
+
+## After the security review
+
+An independent review of the first version found that a hand-edited settings file could allow `/`
+or the home folder, that Halcyonic's own OpenCode settings were held to no standard, and that the
+check sent the access token to whatever answered on the port (SECURITY.md). After the fixes, on
+the same scratch data directory:
+
+- The control plane started from the file and logged both agent binaries, the clones of the pinned
+  OpenCode and Codex, as `matches`.
+- `pnpm mac-setup --with-token` and `pnpm devices list` reached it through the proof: "Halcyonic is
+  running with these settings", and "No device has paired."
+- With it stopped and a small Node server answering `GET /api/health` on its port, both refused:
+  the check said something "can't prove it holds this Mac's access token, so the token was not
+  sent", and `pnpm devices` said the same. The impostor received three health checks, none
+  carrying an `authorization` header.
+- `pnpm check` (762) covers the rest: the folder rules, including `/etc` as `/private/etc`,
+  `/private/var/db`, `/opt/homebrew`, other people's homes, whole drives and folders another user
+  owns; the control plane refusing such a root from the environment and from the file; Halcyonic's
+  own OpenCode settings refused for a link, a mode, another file beside them, an unknown key or a
+  malformed rule; a named pipe as the settings file refused without hanging; the proof refused
+  without the right token and given only by the health check; and the check's words following the
+  permissions actually in Halcyonic's own OpenCode settings.
 
 ## Not verified
 
