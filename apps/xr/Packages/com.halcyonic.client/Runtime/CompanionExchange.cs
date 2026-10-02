@@ -53,6 +53,9 @@ namespace Halcyonic.Client
         /// <summary>A reply has been asked for and not yet come back.</summary>
         public bool Waiting { get; private set; }
 
+        /// <summary>The person went on without the companion, or back; saying something again takes it up again.</summary>
+        public bool Left { get; private set; }
+
         /// <summary>Why the last request got no reply, by the Mac's code, or <see cref="Unreachable"/>; null otherwise.</summary>
         public string? Failure { get; private set; }
 
@@ -98,6 +101,7 @@ namespace Halcyonic.Client
             turns.Add(new PersonTurn { Text = words });
             characters += words.Length;
             Failure = null;
+            Left = false;
             return true;
         }
 
@@ -122,6 +126,7 @@ namespace Halcyonic.Client
             }
             Waiting = true;
             Failure = null;
+            Left = false;
             LastWant = want;
             Generation++;
             return new CompanionRepliesRequest { Start = Start, Want = want, Messages = turns.ToList() };
@@ -156,6 +161,7 @@ namespace Halcyonic.Client
         {
             if (Waiting) Generation++;
             Waiting = false;
+            Left = true;
         }
 
         /// <summary>

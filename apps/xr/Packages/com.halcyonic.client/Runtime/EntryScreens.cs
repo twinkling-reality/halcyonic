@@ -333,6 +333,8 @@ namespace Halcyonic.Client
                 TitleIsData = true,
                 TitleLines = lines,
                 Detail = idea.TaskSuggested && !compact ? CompanionText.Suggested : null,
+                // The person's own words, one press away, beside the suggestion they replace; the bar keeps its places.
+                Side = idea.TaskSuggested && idea.OwnWords != null ? new PanelAction(UseMyWords, CompanionText.UseMyWords, PanelActionRole.Secondary) : null,
                 Action = Rewrite,
                 End = EntryText.Change,
             });
@@ -367,7 +369,6 @@ namespace Halcyonic.Client
             }
             model.Actions = new ActionSet(
                 new PanelAction(StartOver, EntryText.StartOver, PanelActionRole.Destructive, icon: GlazeIcon.StartOver),
-                idea.TaskSuggested && idea.OwnWords != null ? new PanelAction(UseMyWords, CompanionText.UseMyWords, PanelActionRole.Secondary) : null,
                 new PanelAction(StartBuilding, EntryText.StartBuilding, PanelActionRole.Primary, available: problem == null, reason: problem,
                     icon: GlazeIcon.StartBuilding));
             return model;
