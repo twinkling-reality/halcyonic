@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -94,4 +94,53 @@ function sameSecret(candidate: string, secret: string): boolean {
   const a = createHash('sha256').update(candidate).digest();
   const b = createHash('sha256').update(secret).digest();
   return timingSafeEqual(a, b);
+}
+
+/** The header a loopback client sends to ask the control plane to prove it holds the token. */
+export const PROOF_CHALLENGE_HEADER = 'x-halcyonic-challenge';
+/** The header the loopback listener answers a challenge with. */
+export const PROOF_HEADER = 'x-halcyonic-proof';
+
+const PROOF_LABEL = 'halcyonic loopback proof v1\n';
+const CHALLENGE = /^[0-9a-f]{64}$/;
+
+/** Whether a challenge is 32 bytes as lowercase hex, the only kind answered. */
+export function isProofChallenge(value: unknown): value is string {
+  return typeof value === 'string' && CHALLENGE.test(value);
+}
+
+/**
+ * The proof that whoever answers holds the access token: an HMAC-SHA256 under the token of a
+ * label and the client's fresh challenge. It reveals nothing about the token, and the label keeps
+ * it from serving as anything else.
+ */
+export function loopbackProof(token: string, challenge: string): string {
+  return createHmac('sha256', token).update(PROOF_LABEL).update(challenge).digest('hex');
+}
+
+/**
+ * Whether the server at `base` proves it holds `token`, asked through the public health check
+ * with a fresh challenge, before a loopback client sends the token anywhere. While the control
+ * plane is stopped, another local account may listen on its port; it gets no token this way.
+ */
+export async function serverProvesToken(
+  fetchImpl: typeof fetch,
+  base: string,
+  token: string,
+): Promise<'proved' | 'unproved' | 'unreachable'> {
+  const challenge = randomBytes(32).toString('hex');
+  let response: Response;
+  try {
+    response = await fetchImpl(`${base}/api/health`, {
+      headers: { [PROOF_CHALLENGE_HEADER]: challenge },
+      signal: AbortSignal.timeout(3000),
+    });
+    await response.arrayBuffer();
+  } catch {
+    return 'unreachable';
+  }
+  const proof = response.headers.get(PROOF_HEADER);
+  if (proof === null || !/^[0-9a-f]{64}$/.test(proof)) return 'unproved';
+  const expected = Buffer.from(loopbackProof(token, challenge), 'hex');
+  return timingSafeEqual(Buffer.from(proof, 'hex'), expected) ? 'proved' : 'unproved';
 }

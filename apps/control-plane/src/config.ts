@@ -1,8 +1,20 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  type Stats,
+  statSync,
+} from 'node:fs';
 import { isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assessFolder, type FolderContext } from './folder-safety.ts';
 
 export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -85,14 +97,22 @@ export function defaultDataDir(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.HALCYONIC_DATA_DIR ?? join(homedir(), '.halcyonic'));
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
+/** The loopback address and port the control plane serves, as validated for the control plane. */
+export function loopbackListener(env: NodeJS.ProcessEnv = process.env): {
+  host: string;
+  port: number;
+} {
   const host = env.HALCYONIC_HOST ?? '127.0.0.1';
   if (!LOOPBACK_HOSTS.has(host)) {
     throw new ConfigError(
       `HALCYONIC_HOST=${host} is not a loopback address. Devices on the network reach the control plane through the network listener instead: set HALCYONIC_NETWORK_HOST.`,
     );
   }
-  const port = parseInteger('HALCYONIC_PORT', env.HALCYONIC_PORT, DEFAULT_PORT, 0, 65535);
+  return { host, port: parseInteger('HALCYONIC_PORT', env.HALCYONIC_PORT, DEFAULT_PORT, 0, 65535) };
+}
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
+  const { host, port } = loopbackListener(env);
   return {
     host,
     port,
@@ -110,7 +130,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
       env.HALCYONIC_MOCK_SCENARIOS_DIR ??
         fileURLToPath(new URL('../../../fixtures/scenarios', import.meta.url)),
     ),
-    projectRoots: parseProjectRoots(env.HALCYONIC_PROJECT_ROOTS),
+    projectRoots: parseProjectRoots(env.HALCYONIC_PROJECT_ROOTS, {
+      home: env.HOME ?? homedir(),
+      dataDir: defaultDataDir(env),
+      uid: process.getuid?.(),
+    }),
     claudeAgent: parseSwitch('HALCYONIC_CLAUDE_AGENT', env.HALCYONIC_CLAUDE_AGENT),
     claudeExecutable: parseExecutable(
       'HALCYONIC_CLAUDE_EXECUTABLE',
@@ -172,54 +196,200 @@ function parseExecutable(name: string, raw: string | undefined): string | null {
   return raw;
 }
 
-/** The settings file in an OpenCode configuration home. */
+/** The settings file in an OpenCode configuration home, the only file it may hold. */
 export const OPENCODE_SETTINGS_PATH = join('opencode', 'opencode.json');
 
-/** Other files OpenCode would read as settings beside it, which would escape the check below. */
-const OTHER_OPENCODE_SETTINGS = ['opencode.jsonc', 'config.json'];
+const MAX_OPENCODE_SETTINGS_BYTES = 64 * 1024;
+
+/** A rule OpenCode applies to an action: `allow`, `ask` or `deny`. */
+export interface OpenCodePermission {
+  readonly action: string;
+  readonly resource: string;
+  readonly effect: 'allow' | 'ask' | 'deny';
+}
+
+/** Halcyonic's own OpenCode settings, as `pnpm mac-setup local-model` writes them. */
+export interface OpenCodeSettings {
+  readonly model: string;
+  readonly small_model?: string;
+  readonly permissions: readonly OpenCodePermission[];
+}
 
 /**
  * A model OpenCode reaches through the Ollama on this Mac. Ollama serves a model whose tag ends in
- * `cloud` from its own hosted service (`packages/integrations/opencode/src/models.ts`).
+ * `cloud` from its own remote service (`packages/integrations/opencode/src/models.ts`).
  */
 export function isLocalOllamaModel(model: unknown): boolean {
   return typeof model === 'string' && /^ollama\/\S+$/.test(model) && !/[:-]cloud$/.test(model);
 }
 
 /**
- * Halcyonic's own OpenCode settings are refused unless their default model, and their small model
- * when they name one, is a model this Mac serves through Ollama, so a hand edit can't make a hosted
+ * Reads Halcyonic's own OpenCode settings, held to the settings file's standard (ADR 0024): the
+ * configuration home and its `opencode` folder are real folders, not links, owned by this user and
+ * closed to others, holding nothing but `opencode/opencode.json`, a regular file of mode 600 that
+ * holds only what `pnpm mac-setup local-model` writes. Its default model, and its small model when
+ * it names one, must be a model this Mac serves through Ollama, so a hand edit can't make a remote
  * model the default. A start through Halcyonic always names its model (`model_required`); the
  * default only decides what OpenCode would choose by itself.
  */
-function parseOpenCodeConfigHome(raw: string | undefined): string | null {
+export function readOpenCodeSettings(home: string): OpenCodeSettings {
   const name = 'HALCYONIC_OPENCODE_CONFIG_HOME';
-  if (raw === undefined || raw === '') return null;
-  if (!isAbsolute(raw)) throw new ConfigError(`${name} must be an absolute path, got "${raw}".`);
-  const path = join(raw, OPENCODE_SETTINGS_PATH);
-  let settings: unknown;
-  try {
-    settings = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    throw new ConfigError(`${name} ${raw} holds no readable ${OPENCODE_SETTINGS_PATH}.`);
+  if (!isAbsolute(home)) throw new ConfigError(`${name} must be an absolute path, got "${home}".`);
+  const folder = join(home, 'opencode');
+  const path = join(home, OPENCODE_SETTINGS_PATH);
+  for (const directory of [home, folder]) {
+    const stats = lstatOrNull(directory);
+    if (stats === null || !stats.isDirectory()) {
+      throw new ConfigError(`${name}: ${directory} is not a folder, or is a link.`);
+    }
+    refuseOpen(directory, stats, 'Run chmod 700 on it.');
   }
-  for (const other of OTHER_OPENCODE_SETTINGS) {
-    if (existsSync(join(raw, 'opencode', other))) {
+  const only = (directory: string, entry: string) => {
+    const others = readdirSync(directory).filter((candidate) => candidate !== entry);
+    if (others.length > 0) {
       throw new ConfigError(
-        `${name} ${raw} also holds opencode/${other}, which OpenCode would read too; remove it.`,
+        `${name}: ${directory} holds ${others.join(', ')} beside ${entry}, which OpenCode could read too; move them away.`,
       );
     }
+  };
+  only(home, 'opencode');
+  only(folder, 'opencode.json');
+  const settings = parseOpenCodeSettings(path, readPrivateFile(path, MAX_OPENCODE_SETTINGS_BYTES));
+  return settings;
+}
+
+function parseOpenCodeSettings(path: string, text: string): OpenCodeSettings {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new ConfigError(`${path} is not valid JSON.`);
   }
-  const { model, small_model: smallModel } = (settings ?? {}) as Record<string, unknown>;
-  if (!isLocalOllamaModel(model)) {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new ConfigError(`${path} must hold one JSON object.`);
+  }
+  const document = parsed as Record<string, unknown>;
+  const unknown = Object.keys(document).filter(
+    (key) => !['model', 'small_model', 'permissions', 'providers'].includes(key),
+  );
+  if (unknown.length > 0) {
+    throw new ConfigError(
+      `${path} can't set ${unknown.join(', ')}: Halcyonic's own OpenCode settings hold only what pnpm mac-setup local-model writes.`,
+    );
+  }
+  if (!isLocalOllamaModel(document.model)) {
     throw new ConfigError(
       `${path} must name a model served on this Mac through Ollama as its "model", such as "ollama/qwen3.6:35b-a3b-nvfp4".`,
     );
   }
-  if (smallModel !== undefined && !isLocalOllamaModel(smallModel)) {
+  if (document.small_model !== undefined && !isLocalOllamaModel(document.small_model)) {
     throw new ConfigError(`${path} names a "small_model" that is not served on this Mac.`);
   }
+  const permissions = document.permissions ?? [];
+  if (!Array.isArray(permissions) || !permissions.every(isPermission)) {
+    throw new ConfigError(
+      `${path} must list its "permissions" as rules of an action, a resource and an effect of allow, ask or deny.`,
+    );
+  }
+  if (document.providers !== undefined && !isOllamaLimits(document.providers)) {
+    throw new ConfigError(
+      `${path} may give "providers" only the context and output limits of Ollama's models.`,
+    );
+  }
+  return {
+    model: document.model as string,
+    ...(document.small_model === undefined ? {} : { small_model: document.small_model as string }),
+    permissions,
+  };
+}
+
+function isPermission(value: unknown): value is OpenCodePermission {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const rule = value as Record<string, unknown>;
+  return (
+    Object.keys(rule).every((key) => ['action', 'resource', 'effect'].includes(key)) &&
+    typeof rule.action === 'string' &&
+    typeof rule.resource === 'string' &&
+    (rule.effect === 'allow' || rule.effect === 'ask' || rule.effect === 'deny')
+  );
+}
+
+/** `{"ollama": {"models": {"<tag>": {"limit": {"context": n, "output": n}}}}}` and nothing else. */
+function isOllamaLimits(value: unknown): boolean {
+  const object = (candidate: unknown, keys: readonly string[]) =>
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    !Array.isArray(candidate) &&
+    Object.keys(candidate).every((key) => keys.includes(key));
+  if (!object(value, ['ollama'])) return false;
+  const ollama = (value as { ollama?: unknown }).ollama;
+  if (ollama === undefined) return true;
+  if (!object(ollama, ['models'])) return false;
+  const models = (ollama as { models?: unknown }).models ?? {};
+  if (typeof models !== 'object' || models === null || Array.isArray(models)) return false;
+  return Object.values(models).every((model) => {
+    if (!object(model, ['limit'])) return false;
+    const limit = (model as { limit?: unknown }).limit ?? {};
+    if (!object(limit, ['context', 'output'])) return false;
+    return Object.values(limit as object).every(
+      (number) => Number.isInteger(number) && (number as number) > 0,
+    );
+  });
+}
+
+function parseOpenCodeConfigHome(raw: string | undefined): string | null {
+  if (raw === undefined || raw === '') return null;
+  readOpenCodeSettings(raw);
   return raw;
+}
+
+/**
+ * A file only this user can read or change: a regular file, opened without following a link or
+ * waiting on a pipe, owned by this user, closed to others, and at most `limit` bytes.
+ */
+export function readPrivateFile(path: string, limit: number): string {
+  const first = lstatOrNull(path);
+  if (first === null) throw new ConfigError(`${path} is not there.`);
+  if (!first.isFile()) throw new ConfigError(`${path} is not a regular file, so it is not used.`);
+  refuseOpen(path, first, 'Run chmod 600 on it.');
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    throw new ConfigError(
+      `${path} can't be read (${(error as NodeJS.ErrnoException).code ?? 'unknown error'}).`,
+    );
+  }
+  try {
+    const stats = fstatSync(fd);
+    if (!stats.isFile() || stats.ino !== first.ino || stats.dev !== first.dev) {
+      throw new ConfigError(`${path} changed while it was read, so it is not used.`);
+    }
+    refuseOpen(path, stats, 'Run chmod 600 on it.');
+    if (stats.size > limit) throw new ConfigError(`${path} is larger than ${limit} bytes.`);
+    return readFileSync(fd, 'utf8');
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Refuses a file or folder another user owns, or that anyone else may read or change. */
+export function refuseOpen(path: string, stats: Stats, fix: string): void {
+  const uid = process.getuid?.();
+  if (uid !== undefined && stats.uid !== uid) {
+    throw new ConfigError(`${path} belongs to another user, so it is not used.`);
+  }
+  if ((stats.mode & 0o077) !== 0) {
+    throw new ConfigError(`${path}: other users can read or change it, so it is not used. ${fix}`);
+  }
+}
+
+function lstatOrNull(path: string): Stats | null {
+  try {
+    return lstatSync(path);
+  } catch {
+    return null;
+  }
 }
 
 const SPEECH_VARIABLES = [
@@ -260,7 +430,13 @@ function parseNames(name: string, raw: string | undefined): string[] {
   });
 }
 
-function parseProjectRoots(raw: string | undefined): string[] {
+/**
+ * The project roots, each an existing folder that may hold projects (`assessFolder`): agents may
+ * change everything in a root, so the control plane itself refuses the home folder and every
+ * folder holding it, system and shared folders, Halcyonic's data and the rest, whether a root
+ * comes from the environment or the settings file (ADR 0024).
+ */
+function parseProjectRoots(raw: string | undefined, context: FolderContext): string[] {
   if (raw === undefined || raw.trim() === '') return [];
   return raw
     .split(delimiter)
@@ -279,6 +455,12 @@ function parseProjectRoots(raw: string | undefined): string[] {
       }
       if (!isDirectory)
         throw new ConfigError(`HALCYONIC_PROJECT_ROOTS entry ${entry} is not a directory.`);
+      const assessment = assessFolder(realpathSync.native(entry), context);
+      if (assessment.verdict === 'refused') {
+        throw new ConfigError(
+          `HALCYONIC_PROJECT_ROOTS entry ${entry} can't hold projects: ${assessment.reason}`,
+        );
+      }
       return entry;
     });
 }

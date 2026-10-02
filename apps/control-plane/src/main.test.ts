@@ -282,6 +282,40 @@ describe('the control plane process', () => {
     assert.deepEqual((line.settings as { used: string[] }).used, []);
   });
 
+  test('names each agent binary and whether it is the copy Halcyonic was checked with', async (t) => {
+    let opencode = '';
+    const { ready: line } = await start(t, {}, ({ root, dataDir }) => {
+      opencode = join(root, 'opencode');
+      writeFileSync(opencode, '#!/bin/sh\n', { mode: 0o700 });
+      writeHostSettings(dataDir, { HALCYONIC_OPENCODE_BIN: opencode });
+    });
+    const expected =
+      process.platform === 'darwin' && process.arch === 'arm64' ? 'differs' : 'no_pin';
+    assert.deepEqual(line.agent_binaries, [{ app: 'opencode', path: opencode, pinned: expected }]);
+  });
+
+  for (const [why, allowed] of [
+    ['the home folder', (root: string) => root],
+    ['a folder holding it', (root: string) => join(root, '..')],
+    ['the whole disk', () => '/'],
+    ["Halcyonic's data", (root: string) => join(root, 'data')],
+  ] as const) {
+    test(`refuses to start from a settings file that allows ${why}`, async (t) => {
+      const { root, env } = environment({});
+      writeHostSettings(env.HALCYONIC_DATA_DIR, { HALCYONIC_PROJECT_ROOTS: allowed(root) });
+      const child = spawn(process.execPath, [MAIN], { env, stdio: 'pipe' });
+      const output = collect(child.stdout, child.stderr);
+      t.after(async () => {
+        child.kill('SIGKILL');
+        await until(() => exited(child), 'the control plane to be killed');
+        rmSync(root, { recursive: true, force: true });
+      });
+      await until(() => exited(child) && output.ended(), 'the control plane to stop');
+      assert.equal(child.exitCode, 1);
+      assert.match(output.stderr(), /can't hold projects/);
+    });
+  }
+
   test('refuses to start from a settings file other users can read', async (t) => {
     const { root, env } = environment({});
     mkdirSync(env.HALCYONIC_DATA_DIR, { mode: 0o700 });

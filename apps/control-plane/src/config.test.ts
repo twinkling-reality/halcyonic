@@ -1,12 +1,27 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { after, describe, test } from 'node:test';
-import { ConfigError, loadConfig } from './config.ts';
+import { ConfigError, loadConfig, readOpenCodeSettings } from './config.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'halcyonic-config-'));
 after(() => rmSync(base, { recursive: true, force: true }));
+
+let homes = 0;
+/** Halcyonic's own OpenCode settings as local-model writes them: folders 700, the file 600. */
+function openCodeHome(settings: unknown): string {
+  homes += 1;
+  const home = join(base, `opencode-home-${homes}`);
+  mkdirSync(join(home, 'opencode'), { recursive: true, mode: 0o700 });
+  chmodSync(home, 0o700);
+  if (settings !== undefined) {
+    writeFileSync(join(home, 'opencode', 'opencode.json'), JSON.stringify(settings), {
+      mode: 0o600,
+    });
+  }
+  return home;
+}
 
 describe('configuration', () => {
   test('defaults to loopback, the standard port and no project roots', () => {
@@ -125,44 +140,93 @@ describe('configuration', () => {
 
   test("Halcyonic's own OpenCode settings must name a model served on this Mac as the default", () => {
     assert.equal(loadConfig({}).opencodeConfigHome, null);
-    let count = 0;
-    const home = (settings: unknown, others: string[] = []) => {
-      count += 1;
-      const path = join(base, `opencode-home-${count}`);
-      mkdirSync(join(path, 'opencode'), { recursive: true });
-      if (settings !== undefined) {
-        writeFileSync(join(path, 'opencode', 'opencode.json'), JSON.stringify(settings));
-      }
-      for (const other of others) writeFileSync(join(path, 'opencode', other), '{}');
-      return path;
-    };
-    const local = home({ model: 'ollama/qwen3.6:35b-a3b-nvfp4' });
+    const local = openCodeHome({ model: 'ollama/qwen3.6:35b-a3b-nvfp4' });
     assert.equal(loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: local }).opencodeConfigHome, local);
-    const withSmall = home({
+    const written = openCodeHome({
       model: 'ollama/qwen3.6:35b-a3b-nvfp4',
-      small_model: 'ollama/llama3.2:1b',
+      small_model: 'ollama/qwen3.6:35b-a3b-nvfp4',
+      permissions: [
+        { action: 'shell', resource: '*', effect: 'ask' },
+        { action: 'webfetch', resource: '*', effect: 'deny' },
+      ],
+      providers: {
+        ollama: {
+          models: { 'qwen3.6:35b-a3b-nvfp4': { limit: { context: 65536, output: 16384 } } },
+        },
+      },
     });
-    assert.equal(
-      loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: withSmall }).opencodeConfigHome,
-      withSmall,
-    );
-    for (const [why, path] of [
-      ['no settings file', home(undefined)],
-      ['no default model', home({ permissions: [] })],
-      ['a remote model of OpenCode', home({ model: 'opencode/space-bunny-free' })],
-      ['a remote provider', home({ model: 'anthropic/claude-opus-5-5' })],
-      ['an Ollama cloud model', home({ model: 'ollama/gpt-oss:120b-cloud' })],
-      ['an Ollama cloud tag', home({ model: 'ollama/qwen3:cloud' })],
+    assert.deepEqual(readOpenCodeSettings(written).permissions[1], {
+      action: 'webfetch',
+      resource: '*',
+      effect: 'deny',
+    });
+    for (const [why, settings] of [
+      ['no default model', { permissions: [] }],
+      ['a remote model of OpenCode', { model: 'opencode/space-bunny-free' }],
+      ['a remote provider', { model: 'anthropic/claude-opus-5-5' }],
+      ['an Ollama cloud model', { model: 'ollama/gpt-oss:120b-cloud' }],
+      ['an Ollama cloud tag', { model: 'ollama/qwen3:cloud' }],
       [
         'a remote small model',
-        home({ model: 'ollama/llama3.2:1b', small_model: 'opencode/space-bunny-free' }),
+        { model: 'ollama/llama3.2:1b', small_model: 'opencode/space-bunny-free' },
       ],
-      ['a second settings file', home({ model: 'ollama/llama3.2:1b' }, ['opencode.jsonc'])],
-      ['an older settings file', home({ model: 'ollama/llama3.2:1b' }, ['config.json'])],
-      ['a relative path', 'opencode-home'],
+      ['a key local-model never writes', { model: 'ollama/llama3.2:1b', plugin: ['x'] }],
+      ['an MCP server', { model: 'ollama/llama3.2:1b', mcp: {} }],
+      [
+        'a malformed rule',
+        { model: 'ollama/llama3.2:1b', permissions: [{ action: 'shell', effect: 'maybe' }] },
+      ],
+      [
+        'a remote provider beside Ollama',
+        { model: 'ollama/llama3.2:1b', providers: { anthropic: {} } },
+      ],
+      [
+        'a provider setting',
+        {
+          model: 'ollama/llama3.2:1b',
+          providers: { ollama: { settings: { baseURL: 'https://x' } } },
+        },
+      ],
     ] as const) {
-      assert.throws(() => loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: path }), ConfigError, why);
+      assert.throws(
+        () => loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: openCodeHome(settings) }),
+        ConfigError,
+        why,
+      );
     }
+  });
+
+  test("Halcyonic's own OpenCode settings are refused unless only this user can read or change them", () => {
+    const settings = { model: 'ollama/llama3.2:1b' };
+    const refused = (why: string, home: string) =>
+      assert.throws(() => loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: home }), ConfigError, why);
+    refused('no settings file', openCodeHome(undefined));
+    refused('a relative path', 'opencode-home');
+    let home = openCodeHome(settings);
+    chmodSync(join(home, 'opencode', 'opencode.json'), 0o644);
+    refused('a file others can read', home);
+    home = openCodeHome(settings);
+    chmodSync(join(home, 'opencode'), 0o755);
+    refused('a folder others can read', home);
+    home = openCodeHome(settings);
+    chmodSync(home, 0o777);
+    refused('a home anyone can change', home);
+    home = openCodeHome(settings);
+    const elsewhere = openCodeHome(settings);
+    rmSync(join(home, 'opencode', 'opencode.json'));
+    symlinkSync(
+      join(elsewhere, 'opencode', 'opencode.json'),
+      join(home, 'opencode', 'opencode.json'),
+    );
+    refused('a settings file that is a link', home);
+    for (const other of ['opencode.jsonc', 'config.json', 'plugin']) {
+      home = openCodeHome(settings);
+      writeFileSync(join(home, 'opencode', other), '{}', { mode: 0o600 });
+      refused(`another file beside it: ${other}`, home);
+    }
+    home = openCodeHome(settings);
+    mkdirSync(join(home, 'git'), { mode: 0o700 });
+    refused('another app folder in the home', home);
   });
 
   test('agent environment pass-through takes variable names only', () => {

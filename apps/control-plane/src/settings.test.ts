@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   mkdirSync,
@@ -86,12 +87,23 @@ describe('the settings file', () => {
     assert.throws(() => readHostSettings(linked), /is a link/);
   });
 
-  test('is refused in a data directory other users can change', () => {
+  test('is refused in a data directory other users can read or change', () => {
     const dataDir = dataDirWith({ format: 1 });
-    chmodSync(dataDir, 0o770);
-    assert.throws(() => readHostSettings(dataDir), /chmod 700/);
+    for (const mode of [0o770, 0o750, 0o705]) {
+      chmodSync(dataDir, mode);
+      assert.throws(() => readHostSettings(dataDir), /chmod 700/, mode.toString(8));
+    }
     chmodSync(dataDir, 0o700);
     assert.deepEqual(readHostSettings(dataDir), {});
+  });
+
+  test('anything but a regular file is refused before it is opened, so a pipe cannot hold startup', () => {
+    const piped = dataDirWith();
+    execFileSync('mkfifo', ['-m', '600', join(piped, SETTINGS_FILE)]);
+    assert.throws(() => readHostSettings(piped), /not a regular file/);
+    const folder = dataDirWith();
+    mkdirSync(join(folder, SETTINGS_FILE), { mode: 0o700 });
+    assert.throws(() => readHostSettings(folder), /not a regular file/);
   });
 
   test('can never turn on Claude Agent, pass variables to agents, or set anything else it does not know', () => {

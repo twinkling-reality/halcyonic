@@ -15,14 +15,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { loadConfig } from '../config.ts';
+import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
+import type { Pins } from '../pins.ts';
 import { readHostSettings, SETTINGS_FILE, settingRoots, withSettings } from '../settings.ts';
-import {
-  assessFolder,
-  FOLDER_MEANING,
-  type MacSetupIo,
-  type Pins,
-  runMacSetup,
-} from './mac-setup.ts';
+import { FOLDER_MEANING, type MacSetupIo, runMacSetup } from './mac-setup.ts';
+
+/** The access token of the fake running Halcyonic. */
+const TOKEN = 'a'.repeat(43);
 
 /** Every line any run printed, held to the content guide at the end. */
 const everything: string[] = [];
@@ -70,6 +69,8 @@ interface Mac {
   readonly routes: Map<string, Answer>;
   firewall: { enabled: boolean; blockAll: boolean } | null;
   rg: boolean;
+  /** Whether the fake running Halcyonic proves it holds the access token. */
+  proves: boolean;
   interactive: boolean;
   env: NodeJS.ProcessEnv;
   run(...args: string[]): Promise<number>;
@@ -98,9 +99,10 @@ function mac(t: TestContext): Mac {
     requests: [],
     routes,
     firewall: { enabled: true, blockAll: false },
+    proves: true,
     rg: true,
     interactive: true,
-    env: { HALCYONIC_DATA_DIR: dataDir, HALCYONIC_PORT: '47999' },
+    env: { HOME: home, HALCYONIC_DATA_DIR: dataDir, HALCYONIC_PORT: '47999' },
     async run(...args: string[]) {
       machine.lines.length = 0;
       const io: MacSetupIo = {
@@ -124,7 +126,18 @@ function mac(t: TestContext): Mac {
           const host = url.hostname === 'ollama.test' ? 'ollama' : 'halcyonic';
           const answer = routes.get(`${host} ${url.pathname}`);
           if (answer === undefined) throw new TypeError('fetch failed');
-          return new Response(JSON.stringify(answer.body), { status: answer.status });
+          const challenge = new Headers(init?.headers).get(PROOF_CHALLENGE_HEADER);
+          const proof =
+            host === 'halcyonic' &&
+            url.pathname === '/api/health' &&
+            machine.proves &&
+            challenge !== null
+              ? { [PROOF_HEADER]: loopbackProof(TOKEN, challenge) }
+              : {};
+          return new Response(JSON.stringify(answer.body), {
+            status: answer.status,
+            headers: proof,
+          });
         }) as typeof fetch,
         ollamaUrl: 'http://ollama.test:11434',
         memoryBytes: 64 * 1024 ** 3,
@@ -176,7 +189,7 @@ function running(
   uses: { roots?: string[]; apps?: string[]; devices?: unknown; usage?: unknown } = {},
 ) {
   mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
-  writeFileSync(join(machine.dataDir, 'access-token'), 'a'.repeat(43), { mode: 0o600 });
+  writeFileSync(join(machine.dataDir, 'access-token'), TOKEN, { mode: 0o600 });
   machine.routes.set('halcyonic /api/health', { status: 200, body: { status: 'ok' } });
   machine.routes.set('halcyonic /api/locations', {
     status: 200,
@@ -306,45 +319,6 @@ describe('pnpm mac-setup', () => {
     assert.equal(existsSync(join(machine.dataDir, SETTINGS_FILE)), false);
   });
 
-  test('a folder holding macOS, its apps or other people is never allowed', () => {
-    for (const path of [
-      '/',
-      '/Users',
-      '/Volumes',
-      '/System/Library',
-      '/Library/Preferences',
-      '/Applications',
-      '/usr/local',
-      '/private/tmp',
-      '/tmp',
-      '/opt',
-    ]) {
-      assert.equal(
-        assessFolder(path, '/Users/someone', '/Users/someone/.halcyonic').verdict,
-        'refused',
-        path,
-      );
-    }
-    assert.equal(
-      assessFolder('/Volumes/Work/projects', '/Users/someone', '/Users/someone/.halcyonic').verdict,
-      'fine',
-    );
-    assert.equal(
-      assessFolder('/Users/someone/dev', '/Users/someone', '/Users/someone/.halcyonic').verdict,
-      'fine',
-    );
-    assert.equal(
-      assessFolder('/Users/someone/Documents', '/Users/someone', '/Users/someone/.halcyonic')
-        .verdict,
-      'broad',
-    );
-    assert.equal(
-      assessFolder('/Users/someone/Documents/code', '/Users/someone', '/Users/someone/.halcyonic')
-        .verdict,
-      'fine',
-    );
-  });
-
   test('allow says Documents holds much more than projects before asking', async (t) => {
     const machine = mac(t);
     mkdirSync(join(machine.home, 'Documents'));
@@ -407,6 +381,28 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /pnpm mac-setup local-model qwen3\.6:35b-a3b-nvfp4/);
   });
 
+  test("the words about Halcyonic's own OpenCode settings follow the permissions in them", async (t) => {
+    const machine = mac(t);
+    machine.install('opencode');
+    await machine.run('agent-apps');
+    await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4');
+    await machine.run();
+    assert.match(
+      text(machine),
+      /Halcyonic's own OpenCode settings: it asks you before running a shell command, and it can't fetch from the web\./,
+    );
+    const path = join(machine.dataDir, 'opencode-config', 'opencode', 'opencode.json');
+    const settings = JSON.parse(readFileSync(path, 'utf8'));
+    settings.permissions.push({ action: '*', resource: '*', effect: 'allow' });
+    writeFileSync(path, JSON.stringify(settings), { mode: 0o600 });
+    await machine.run();
+    assert.equal(status(machine, 'Agent apps'), 'Look at this');
+    assert.match(
+      text(machine),
+      /it runs some or all shell commands without asking you, so they never reach the headset to approve, and it may fetch from the web\./,
+    );
+  });
+
   test('without ripgrep, the check says OpenCode would download it', async (t) => {
     const machine = mac(t);
     machine.install('opencode');
@@ -438,6 +434,11 @@ describe('pnpm mac-setup', () => {
     assert.equal(statSync(path).mode & 0o777, 0o600);
     const settings = JSON.parse(readFileSync(path, 'utf8'));
     assert.equal(settings.model, 'ollama/qwen3.6:35b-a3b-nvfp4');
+    assert.equal(
+      settings.small_model,
+      'ollama/qwen3.6:35b-a3b-nvfp4',
+      'OpenCode never picks a small model itself',
+    );
     assert.deepEqual(settings.permissions, [
       { action: 'shell', resource: '*', effect: 'ask' },
       { action: 'webfetch', resource: '*', effect: 'deny' },
@@ -516,25 +517,42 @@ describe('pnpm mac-setup', () => {
       text(machine),
       /Restarting stops any agent at work, and its task then shows Can't tell yet\./,
     );
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Look at this');
     running(machine, { roots: [join(machine.home, 'HalcyonicProjects')] });
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Ready');
   });
 
-  test('with --no-token it neither reads the access token nor sends one', async (t) => {
+  test('by default it reads no access token; with --with-token it sends it only to a server that proves it holds it', async (t) => {
     const machine = mac(t);
     running(machine);
-    chmodSync(join(machine.dataDir, 'access-token'), 0o000);
     await machine.run();
-    assert.match(text(machine), /there is no access token/);
-    machine.requests.length = 0;
-    await machine.run('--no-token');
-    assert.match(text(machine), /Checked without its access token/);
+    assert.match(text(machine), /use pnpm mac-setup --with-token/);
     assert.ok(machine.requests.every((request) => request.authorization === null));
     assert.ok(machine.requests.some((request) => request.url.endsWith('/api/health')));
     assert.ok(!machine.requests.some((request) => request.url.endsWith('/api/snapshot')));
+
+    machine.requests.length = 0;
+    await machine.run('--with-token');
+    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Ready');
+    assert.ok(machine.requests.some((request) => request.authorization === `Bearer ${TOKEN}`));
+
+    // Something else listens on the port, as another account could while Halcyonic is stopped.
+    machine.proves = false;
+    machine.requests.length = 0;
+    await machine.run('--with-token');
+    assert.equal(status(machine, 'Halcyonic running on this Mac'), 'Look at this');
+    assert.match(
+      text(machine),
+      /can't prove it holds this Mac's access token, so the token was not sent/,
+    );
+    assert.ok(machine.requests.every((request) => request.authorization === null));
+
+    machine.proves = true;
+    chmodSync(join(machine.dataDir, 'access-token'), 0o000);
+    await machine.run('--with-token');
+    assert.match(text(machine), /there is no access token/);
   });
 
   test('it never opens a credential: it checks only that other users cannot read it', async (t) => {
@@ -544,13 +562,13 @@ describe('pnpm mac-setup', () => {
     for (const file of ['seorak-credential', 'salidium-credential']) {
       writeFileSync(join(machine.dataDir, file), 'not a real credential\n', { mode: 0o000 });
     }
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Usage left'), 'Ready');
     assert.equal(status(machine, 'What changed and why'), 'Ready');
     for (const file of ['seorak-credential', 'salidium-credential']) {
       chmodSync(join(machine.dataDir, file), 0o644);
     }
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Usage left'), 'To do');
     assert.equal(status(machine, 'What changed and why'), 'To do');
     assert.match(text(machine), /chmod 600/);
@@ -563,7 +581,7 @@ describe('pnpm mac-setup', () => {
     running(machine, {
       usage: { availability: 'unauthorized', reason: { code: 'insufficient_scope', message: 'x' } },
     });
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Usage left'), 'To do');
     assert.match(
       text(machine),
@@ -583,7 +601,7 @@ describe('pnpm mac-setup', () => {
       revoked_at: revoked,
     });
     running(machine, { devices: { devices: [], connected: [] } });
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Your headset'), 'To do');
     assert.match(text(machine), /no headset is paired yet/);
     assert.match(text(machine), /pnpm pair/);
@@ -591,12 +609,12 @@ describe('pnpm mac-setup', () => {
       devices: {
         devices: [
           device('dev-1', 'Quest 3', null),
-          device('dev-2', 'Old Quest‮', '2026-10-01T09:00:00.000Z'),
+          device('dev-2', 'Old Quest\u202e', '2026-10-01T09:00:00.000Z'),
         ],
         connected: ['dev-1'],
       },
     });
-    await machine.run();
+    await machine.run('--with-token');
     assert.equal(status(machine, 'Your headset'), 'Ready');
     assert.match(
       text(machine),
@@ -635,7 +653,7 @@ describe('pnpm mac-setup', () => {
         connected: [],
       },
     });
-    assert.equal(await machine.run(), 0, text(machine));
+    assert.equal(await machine.run('--with-token'), 0, text(machine));
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Ready');
     assert.match(
       text(machine),

@@ -10,6 +10,12 @@ import {
 import { RealtimeClient } from '../client/realtime-client.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { startTestServer, TEST_CLIENT } from '../testing/harness.ts';
+import {
+  loopbackProof,
+  PROOF_CHALLENGE_HEADER,
+  PROOF_HEADER,
+  serverProvesToken,
+} from './security.ts';
 
 const validateSnapshot = compileValidator(Snapshot);
 const APPROVAL = DEMO_WORKSTREAMS[2] as (typeof DEMO_WORKSTREAMS)[number];
@@ -86,6 +92,29 @@ describe('REST', () => {
     const snapshot = await fetch(`${server.baseUrl}/api/snapshot`, { headers: auth() });
     assert.equal(snapshot.status, 200);
     assert.ok(validateSnapshot(await snapshot.json()).ok);
+  });
+
+  test('health proves the access token to a loopback client that sends a challenge, and only then', async () => {
+    const base = `http://127.0.0.1:${server.port}`;
+    assert.equal(await serverProvesToken(fetch, base, server.token), 'proved');
+    assert.equal(await serverProvesToken(fetch, base, `${server.token}x`), 'unproved');
+    const challenge = 'ab'.repeat(32);
+    const answered = await fetch(`${base}/api/health`, {
+      headers: { [PROOF_CHALLENGE_HEADER]: challenge },
+    });
+    assert.equal(answered.headers.get(PROOF_HEADER), loopbackProof(server.token, challenge));
+    for (const headers of [
+      {},
+      { [PROOF_CHALLENGE_HEADER]: 'AB'.repeat(32) },
+      { [PROOF_CHALLENGE_HEADER]: 'ab' },
+    ]) {
+      const plain = await fetch(`${base}/api/health`, { headers });
+      assert.equal(plain.headers.get(PROOF_HEADER), null, JSON.stringify(headers));
+    }
+    const elsewhere = await fetch(`${base}/api/snapshot`, {
+      headers: { authorization: `Bearer ${server.token}`, [PROOF_CHALLENGE_HEADER]: challenge },
+    });
+    assert.equal(elsewhere.headers.get(PROOF_HEADER), null, 'only the health check answers');
   });
 
   test('foreign Hosts and browser origins are refused even with the token', async () => {

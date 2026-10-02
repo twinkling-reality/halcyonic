@@ -2,7 +2,14 @@ import websocket from '@fastify/websocket';
 import type { ErrorResponse, Principal, ValidationIssue } from '@halcyonic/contracts';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { LogLevel } from '../config.ts';
-import { checkRequest, PUBLIC_PATHS } from './security.ts';
+import {
+  checkRequest,
+  isProofChallenge,
+  loopbackProof,
+  PROOF_CHALLENGE_HEADER,
+  PROOF_HEADER,
+  PUBLIC_PATHS,
+} from './security.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -73,6 +80,11 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Fast
       return reply.code(decision.status).send(errorBody(decision.code, decision.message));
     }
     request.principal = PUBLIC_PATHS.has(path) ? null : LOCAL_PRINCIPAL;
+    // A loopback client proves who answers before it sends the token (pnpm devices, mac-setup).
+    const challenge = header(PROOF_CHALLENGE_HEADER);
+    if (path === '/api/health' && isProofChallenge(challenge)) {
+      reply.header(PROOF_HEADER, loopbackProof(options.token, challenge));
+    }
   });
 
   return app;
