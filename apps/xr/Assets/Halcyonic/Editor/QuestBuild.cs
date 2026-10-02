@@ -36,6 +36,13 @@ namespace Halcyonic.XR.Editor
         public const string MicrophonePermission = "android.permission.RECORD_AUDIO";
 
         /// <summary>
+        /// The identifier Meta's build step writes into <c>com.oculus.supportedDevices</c> for Meta VR
+        /// Glasses when the project targets them. The release build never declares them: nobody has
+        /// run Halcyonic on them (horizon-store-release.md).
+        /// </summary>
+        public const string GlassesDevice = "stanley";
+
+        /// <summary>
         /// Builds without the development option, with DevAgentSettings.asset moved out of Resources
         /// and the version code from <see cref="ReleaseVersionCode.Variable"/> when it is set, then
         /// checks the APK for Meta's development tools and the microphone permission, and deletes it
@@ -76,6 +83,12 @@ namespace Halcyonic.XR.Editor
                 {
                     File.Delete(ReleaseApkPath);
                     Fail($"Halcyonic: deleted {ReleaseApkPath}, which asks for {MicrophonePermission}: only development builds may use the microphone (ADR 0021).");
+                    return;
+                }
+                if (MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, GlassesDevice))
+                {
+                    File.Delete(ReleaseApkPath);
+                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which declares Meta VR Glasses ({GlassesDevice}): the store build claims only devices it has run on.");
                     return;
                 }
             }
