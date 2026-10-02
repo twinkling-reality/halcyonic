@@ -199,8 +199,8 @@ It saves the gallery in `apps/xr/Builds/GlazeRenders` and logs each button label
 fill (`Halcyonic: component render ...`). It fails if a word is too small or cut short, a target too
 small, a label short of 4.5:1 on its fill, a badge's word wrong, or a meter filled other than to its
 share, or at all while waiting; and if the icon atlas lacks an icon the client core names, an icon
-shows on no badge or mark, an icon is under a degree or has no words beside it, or a label of words
-draws from the icon atlas.
+shows on no badge, mark or button (`gallery-actions.png` shows every action's), an icon is under a
+degree or has no words beside it, or a label of words draws from the icon atlas.
 
 What the interface costs a Quest 3, measured off the device, **Halcyonic > Measure the Interface**,
 or in batch mode:
@@ -1066,7 +1066,8 @@ For each step write down what you saw and how it felt, in
    Checking its work, Finished this round, Couldn't finish, Can't tell yet, Stopped) say what each
    is doing without the colours? Can you make out each badge's icon, and do Starting's and Working's
    turning icons stay calm at the edge of your view? Checking its work, Finished this round and
-   Waiting for you with a count have no room for their icon on the stage: do you miss it?
+   Waiting for you with a count have no room for their icon on the stage: do you miss it? On the
+   panels, does each button's icon help you find it, or only crowd its words?
 3. **A window in front, three ways (5 minutes).** Put the browser video straight ahead. Count the
    characters it covers. In Settings (the rail's Settings, Your room), press Make room for a window:
    the lineup turns 32 degrees right, the outermost label about 67 degrees from straight ahead. Is

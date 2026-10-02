@@ -194,7 +194,7 @@ namespace Halcyonic.Client
                 case WorkspaceQuestion.Checked:
                     // The section's own lines, which the panel draws under the heading.
                     model.Heading = WorkspaceText.Question(shown);
-                    model.HeadingAction = new PanelAction(Refresh, WorkspaceText.Refresh, PanelActionRole.Secondary);
+                    model.HeadingAction = new PanelAction(Refresh, WorkspaceText.Refresh, PanelActionRole.Secondary, icon: GlazeIcon.Refresh);
                     model.CustomBody = true;
                     model.CustomBodyIsText = true;
                     break;
@@ -340,7 +340,7 @@ namespace Halcyonic.Client
                 TitleLines = 2,
                 Chosen = typed != null,
                 Action = TypeAnswer,
-                Side = speak ? new PanelAction(SpeakAnswer, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true) : null,
+                Side = speak ? new PanelAction(SpeakAnswer, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk) : null,
             };
         }
 
@@ -394,12 +394,14 @@ namespace Halcyonic.Client
         /// </summary>
         private static void Bar(PanelModel model, WorkspacePresentation workspace, WorkspaceSteering steering, WorkspaceScreen screen)
         {
-            var cancel = new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary);
+            var cancel = new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary, icon: GlazeIcon.Close);
             if (steering.Armed is WorkspaceAction armed)
             {
                 var yes = steering.CanConfirm
-                    ? new PanelAction(Yes, WorkspaceText.ConfirmLabel(armed), armed == WorkspaceAction.Interrupt ? PanelActionRole.Destructive : PanelActionRole.Primary)
-                    : new PanelAction(Yes, EntryText.ReadToPart(Math.Max(1, screen.RequestParts.Count)), PanelActionRole.Primary, available: false);
+                    ? new PanelAction(Yes, WorkspaceText.ConfirmLabel(armed), armed == WorkspaceAction.Interrupt ? PanelActionRole.Destructive : PanelActionRole.Primary,
+                        icon: WorkspaceText.IconOf(armed))
+                    : new PanelAction(Yes, EntryText.ReadToPart(Math.Max(1, screen.RequestParts.Count)), PanelActionRole.Primary, available: false,
+                        icon: GlazeIcon.Locked);
                 model.Confirm = new ConfirmStep(steering.Prompt(workspace), yes, cancel);
                 return;
             }
@@ -412,7 +414,7 @@ namespace Halcyonic.Client
             var actions = workspace.Actions;
             var waits = WorkspaceText.SomethingWaits(workspace);
             PanelAction? Offered(WorkspaceAction action, string id, PanelActionRole role) =>
-                actions.Contains(action) ? new PanelAction(id, WorkspaceText.Label(action), role) : null;
+                actions.Contains(action) ? new PanelAction(id, WorkspaceText.Label(action), role, icon: WorkspaceText.IconOf(action)) : null;
             var stop = Offered(WorkspaceAction.Interrupt, Stop, PanelActionRole.Destructive);
             var deny = Offered(WorkspaceAction.Deny, Deny, PanelActionRole.Secondary);
             // While the agent asks for something secret, nothing here invites typing or saying it
@@ -425,7 +427,7 @@ namespace Halcyonic.Client
             // Hold to talk beside Tell it, only where the bar has room for it.
             var secondaries = (deny != null ? 1 : 0) + (tell?.Role == PanelActionRole.Secondary ? 1 : 0);
             var hold = screen.Speak && tell != null && secondaries < ActionSet.MaxSecondary
-                ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true)
+                ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk)
                 : null;
             model.Actions = new ActionSet(stop, deny, hold, tell, primary);
             if (!model.Actions.All.Any()) model.BarNote = WorkspaceText.WhyNoActions(workspace);

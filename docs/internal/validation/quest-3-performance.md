@@ -26,26 +26,26 @@
 
 ### Draw calls and geometry
 
-Measured again on 2026-10-02, with the icons on the badges and marks:
+Measured again on 2026-10-02, with the icons on the badges, the marks and the actions:
 
 | Surface | Draw calls at most | Of them, the panel's | Text labels (characters) | Triangles |
 | --- | --- | --- | --- | --- |
-| The stage, rail, banner and a peek | 71 | 18 (the rail) | 37 (554) | 32,394 |
+| The stage, rail, banner and a peek | 75 | 22 (the rail) | 41 (558) | 32,410 |
 | Beside a window, another window with focus | 24 | none open | 12 (175) | 21,076 |
-| The entry panel, Connect projects | 66 | 26 | 32 (457) | 32,322 |
-| A workspace, Waiting for you | 70 | 30 | 35 (516) | 32,336 |
-| A workspace, Doing | 65 | 25 | 33 (471) | 32,252 |
-| Usage left, four windows | 67 | 27 | 30 (671) | 32,566 |
-| Settings | 57 | 17 | 28 (541) | 32,334 |
+| The entry panel, Connect projects | 72 | 32 | 38 (463) | 32,346 |
+| A workspace, Waiting for you | 75 | 35 | 40 (521) | 32,356 |
+| A workspace, Doing | 68 | 28 | 36 (474) | 32,264 |
+| Usage left, four windows | 69 | 29 | 32 (673) | 32,574 |
+| Settings | 58 | 18 | 29 (542) | 32,338 |
 
-- Every surface is far inside the budget, before any batching: at most 71 draw calls of 220 for
-  everything showing, at most 30 of 60 for a panel. Surfaces share one material with instanced
+- Every surface is far inside the budget, before any batching: at most 75 draw calls of 220 for
+  everything showing, at most 35 of 60 for a panel. Surfaces share one material with instanced
   properties, text one font material and icons the icon atlas's, so the device can only draw fewer.
 - Each icon is a label of one glyph with its own renderer, so it counts one more draw call, label
   and character and two more triangles. The icons on the characters' badges and marks added 4 to 7
-  draw calls to each surface, and 2 to a workspace's panel, its badge and mark (on 2026-10-01,
-  before the icons: 64 for the stage, 28 for a panel). A badge too long for its icon on the stage
-  draws none.
+  draw calls to each surface, and those on the actions 1 to 6 to a panel (on 2026-10-01, before
+  any icon: 64 for the stage, 28 for a panel). A badge too long for its icon on the stage, and a
+  bar too full for its actions' icons, draw none.
 - The characters are nearly all the geometry: six bodies are about 32,000 triangles, a panel about
   500 to 900. Their shader's cost is estimated in [character-rendering.md](character-rendering.md).
 

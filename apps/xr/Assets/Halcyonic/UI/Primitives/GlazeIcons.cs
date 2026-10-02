@@ -17,6 +17,9 @@ namespace Halcyonic.XR.UI
         /// <summary>An icon in a badge or a tag: its em, the 24 dp grid it is drawn on, as an angle at the eye.</summary>
         public const float BadgeDegrees = 1.2f;
 
+        /// <summary>An icon on a button (24 dp); a compact button's takes the badge's.</summary>
+        public const float ControlDegrees = 1.5f;
+
         /// <summary>No icon is drawn smaller.</summary>
         public const float MinimumDegrees = 1f;
 

@@ -42,7 +42,8 @@ POSTSCRIPT = "MaterialSymbolsRounded-Glaze"
 STYLE = {"FILL": 1, "wght": 500, "GRAD": 0, "opsz": 24}
 
 # Every GlazeIcon by meaning, and the Material Symbols glyph that shows it, from the approved spec's
-# table "Every meaning has one icon". No two states share a glyph.
+# table "Every meaning has one icon". No two states share a glyph; Stop shares Stopped's, as in the
+# table.
 ICONS = {
     "NotStarted": "radio_button_unchecked",
     "Starting": "hourglass_top",
@@ -57,6 +58,32 @@ ICONS = {
     "LastKnown": "history",
     "Practice": "science",
     "Recording": "movie",
+    "Approve": "check",
+    "Deny": "block",
+    "Stop": "stop_circle",
+    "TellIt": "chat",
+    "SendAnswer": "send",
+    "HoldToTalk": "mic",
+    "Type": "keyboard",
+    "StartBuilding": "play_arrow",
+    "StartOver": "restart_alt",
+    "Refresh": "refresh",
+    "Change": "edit",
+    "ConnectProjects": "link",
+    "CreateProject": "add",
+    "AddTask": "add_task",
+    "OpenNow": "open_in_full",
+    "KeepCreating": "edit_note",
+    "NotNow": "schedule",
+    "Close": "close",
+    "Back": "arrow_back",
+    "Next": "arrow_forward",
+    "Move": "drag_pan",
+    "ResetPosition": "center_focus_strong",
+    "ShowAll": "visibility",
+    "Settings": "settings",
+    "UsageLeft": "speed",
+    "Locked": "lock",
 }
 
 

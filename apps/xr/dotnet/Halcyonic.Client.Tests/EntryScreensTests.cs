@@ -350,6 +350,7 @@ public class EntryScreensTests
         var check = EntryScreens.Sending(unknown, null);
         Assert.That(check.Rows[0].DetailTone, Is.EqualTo(GlazeTone.Unknown));
         Assert.That(check.Actions.All.Select(action => action.Id), Is.EqualTo(new[] { EntryScreens.CheckFirst }), "only checking the work first");
+        Assert.That(check.Actions.Primary!.Icon, Is.EqualTo(GlazeIcon.Next), "it says Next, so it shows Next's icon");
     }
 
     [Test]
@@ -412,6 +413,64 @@ public class EntryScreensTests
                 Assert.That(word, Does.Not.Contain("\u2014"), "no em dash");
                 Assert.That(Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase), Is.False, screen.Title + ": " + word);
             }
+        }
+    }
+
+    [Test]
+    public void EachActionShowsItsIconBesideItsWordsAndOnlyHoldToTalkTheMicrophone()
+    {
+        var overview = Overview(out _);
+        var idea = new ProjectIdea();
+        idea.UseIdea("A recipe tracker.");
+        var guided = new ProjectIdea();
+        guided.UseIdea("A recipe tracker.");
+        guided.BeginGuide();
+        var draft = Draft(Listing(), Model("ollama/qwen", ModelServed.ThisMac));
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your Mac", "ref", "Objective");
+        review.Paginate(review.Items.Select(_ => 1).ToList(), 3);
+        var locked = EntryScreens.Review(review, problem: null);
+        review.Next();
+        review.Next();
+        var unlocked = EntryScreens.Review(review, problem: null);
+        var recap = EntryScreens.Recap(idea, draft, null, live: true, notice: null, problem: null);
+        var startingOver = EntryScreens.Recap(idea, draft, null, live: true, notice: null, problem: null, confirmingStartOver: true);
+        var connect = EntryScreens.ConnectProjects(overview, connected: true, demonstration: false);
+        var create = EntryScreens.CreateStart(idea, voice: true, said: null);
+        var guide = EntryScreens.Guide(guided);
+        var previous = EntryScreens.Previous("c-1", null, armed: false, live: true);
+        var options = EntryScreens.Options(draft, new[] { Listing() }, showModels: true, live: true);
+
+        Assert.That((EntryScreens.Welcome().CloseLabel, EntryScreens.Welcome().CloseIcon), Is.EqualTo((EntryText.NotNow, GlazeIcon.NotNow)));
+        Assert.That(recap.CloseIcon, Is.EqualTo(GlazeIcon.Close));
+        Assert.That((PanelModel.MoveIcon, PanelModel.ResetPositionIcon), Is.EqualTo((GlazeIcon.Move, GlazeIcon.ResetPosition)));
+        Assert.That(recap.Actions.All.Select(action => (action.Label, action.Icon)), Is.EqualTo(new (string, GlazeIcon?)[]
+        {
+            (EntryText.StartOver, GlazeIcon.StartOver), (EntryText.StartBuilding, GlazeIcon.StartBuilding),
+        }));
+        Assert.That((startingOver.Confirm!.Yes.Icon, startingOver.Confirm.Cancel.Icon), Is.EqualTo(((GlazeIcon?)GlazeIcon.StartOver, (GlazeIcon?)GlazeIcon.Close)));
+        Assert.That((locked.Confirm!.Yes.Icon, unlocked.Confirm!.Yes.Icon, unlocked.Confirm.Cancel.Icon),
+            Is.EqualTo(((GlazeIcon?)GlazeIcon.Locked, (GlazeIcon?)GlazeIcon.StartBuilding, (GlazeIcon?)GlazeIcon.Change)), "locked while unread, then Start building's");
+        Assert.That(guide.Actions.All.Select(action => (action.Label, action.Icon)), Does.Contain((EntryText.Back, (GlazeIcon?)GlazeIcon.Back)));
+        Assert.That(guide.Actions.All.Last().Icon, Is.EqualTo(GlazeIcon.Type));
+        Assert.That(connect.Actions.All.Select(action => (action.Label, action.Icon)), Is.EqualTo(new (string, GlazeIcon?)[]
+        {
+            (EntryText.ShowAll, GlazeIcon.ShowAll), (EntryText.Done, null),
+        }), "Done has no icon in the set, so its word stands alone");
+        Assert.That(connect.Rows.Select(row => row.Side?.Icon).OfType<GlazeIcon>().Distinct(), Is.EqualTo(new[] { GlazeIcon.AddTask }));
+        Assert.That((previous.Actions.Primary!.Label, previous.Actions.Primary.Icon), Is.EqualTo((EntryText.Clear, (GlazeIcon?)null)), "Clear has no icon in the set");
+        Assert.That(EntryScreens.WaitingBanner(Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman)).Actions.Select(action => action.Icon),
+            Is.EqualTo(new GlazeIcon?[] { GlazeIcon.OpenNow, GlazeIcon.KeepCreating }));
+
+        // The microphone only on hold to talk, which is always held, and on no confirmation.
+        var actions = new[] { recap, startingOver, locked, unlocked, connect, create, guide, previous, options }.SelectMany(screen =>
+            screen.Actions.All
+                .Concat(screen.Confirm == null ? Enumerable.Empty<PanelAction>() : new[] { screen.Confirm.Yes, screen.Confirm.Cancel })
+                .Concat(screen.Rows.Select(row => row.Side).OfType<PanelAction>())).ToList();
+        Assert.That(actions.Where(action => action.Holds).Select(action => action.Icon), Is.EqualTo(new GlazeIcon?[] { GlazeIcon.HoldToTalk }));
+        foreach (var action in actions)
+        {
+            Assert.That(action.Icon == GlazeIcon.HoldToTalk, Is.EqualTo(action.Holds), action.Label);
+            Assert.That(action.Label, Is.Not.Empty, "an icon never stands in for the words");
         }
     }
 

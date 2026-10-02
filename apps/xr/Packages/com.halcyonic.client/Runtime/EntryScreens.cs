@@ -58,7 +58,7 @@ namespace Halcyonic.Client
         /// <summary>The first live visit: two choices, and Not now in Close's place.</summary>
         public static PanelModel Welcome()
         {
-            var model = new PanelModel(EntryText.WelcomeTitle) { CloseLabel = EntryText.NotNow, Lead = EntryText.WelcomeLine, Columns = 2 };
+            var model = new PanelModel(EntryText.WelcomeTitle) { CloseLabel = EntryText.NotNow, CloseIcon = GlazeIcon.NotNow, Lead = EntryText.WelcomeLine, Columns = 2 };
             model.Rows.Add(new PanelRow { Card = true, Title = EntryText.ConnectProjects, Detail = EntryText.ConnectInvite, Action = Connect });
             model.Rows.Add(new PanelRow { Card = true, Title = EntryText.CreateProject, Detail = EntryText.CreateInvite, Action = Create });
             return model;
@@ -98,11 +98,11 @@ namespace Halcyonic.Client
                     DetailTone = project.NeedsYou > 0 ? GlazeTone.Attention : (GlazeTone?)null,
                     Action = ToggleProject,
                     Key = project.ProjectId,
-                    Side = live ? new PanelAction(AddTask, EntryText.AddTask, PanelActionRole.Secondary) : null,
+                    Side = live ? new PanelAction(AddTask, EntryText.AddTask, PanelActionRole.Secondary, icon: GlazeIcon.AddTask) : null,
                 });
             }
             model.Actions = new ActionSet(
-                overview.Projects.All(project => project.Shown) ? null : new PanelAction(ShowAll, EntryText.ShowAll, PanelActionRole.Secondary),
+                overview.Projects.All(project => project.Shown) ? null : new PanelAction(ShowAll, EntryText.ShowAll, PanelActionRole.Secondary, icon: GlazeIcon.ShowAll),
                 done);
             return model;
         }
@@ -152,7 +152,7 @@ namespace Halcyonic.Client
                 Title = EntryText.TypeIdea,
                 Detail = EntryText.TypeIdeaInvite,
                 Action = TypeIdea,
-                Side = voice ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true) : null,
+                Side = voice ? new PanelAction(HoldToTalk, VoiceText.HoldToTalk, PanelActionRole.Secondary, holds: true, icon: GlazeIcon.HoldToTalk) : null,
             });
             if (said != null) model.Rows.Add(Line(said, PanelTextSize.Caption, lines: 2));
             model.Rows.Add(new PanelRow { Title = EntryText.HelpMe, Detail = EntryText.HelpMeInvite, Action = HelpMe });
@@ -180,9 +180,9 @@ namespace Halcyonic.Client
                 model.Rows.Add(new PanelRow { Title = choice, Detail = chosen ? EntryText.Chosen : null, Chosen = chosen, Action = Answer, Key = choice });
             }
             model.Actions = new ActionSet(
-                new PanelAction(Back, EntryText.Back, PanelActionRole.Back),
+                new PanelAction(Back, EntryText.Back, PanelActionRole.Back, icon: GlazeIcon.Back),
                 question.SkipLabel == null ? null : new PanelAction(Skip, question.SkipLabel, PanelActionRole.Secondary),
-                new PanelAction(TypeAnswer, question.TypeLabel, PanelActionRole.Secondary));
+                new PanelAction(TypeAnswer, question.TypeLabel, PanelActionRole.Secondary, icon: GlazeIcon.Type));
             return model;
         }
 
@@ -255,13 +255,14 @@ namespace Halcyonic.Client
             if (confirmingStartOver)
             {
                 model.Confirm = new ConfirmStep(EntryText.StartOverQuestion,
-                    new PanelAction(ConfirmStartOver, EntryText.ConfirmStartOver, PanelActionRole.Destructive),
-                    new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary));
+                    new PanelAction(ConfirmStartOver, EntryText.ConfirmStartOver, PanelActionRole.Destructive, icon: GlazeIcon.StartOver),
+                    new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary, icon: GlazeIcon.Close));
                 return model;
             }
             model.Actions = new ActionSet(
-                new PanelAction(StartOver, EntryText.StartOver, PanelActionRole.Destructive),
-                new PanelAction(StartBuilding, EntryText.StartBuilding, PanelActionRole.Primary, available: problem == null, reason: problem));
+                new PanelAction(StartOver, EntryText.StartOver, PanelActionRole.Destructive, icon: GlazeIcon.StartOver),
+                new PanelAction(StartBuilding, EntryText.StartBuilding, PanelActionRole.Primary, available: problem == null, reason: problem,
+                    icon: GlazeIcon.StartBuilding));
             return model;
         }
 
@@ -318,7 +319,7 @@ namespace Halcyonic.Client
                         Key = each.ModelRef,
                     });
                 }
-                model.Actions = new ActionSet(new PanelAction(ChangeRuntime, EntryText.ChangeAgentApp, PanelActionRole.Secondary), done);
+                model.Actions = new ActionSet(new PanelAction(ChangeRuntime, EntryText.ChangeAgentApp, PanelActionRole.Secondary, icon: GlazeIcon.Change), done);
                 return model;
             }
             // Simulated runtimes after the real ones, named for what they do in a live session.
@@ -355,8 +356,8 @@ namespace Halcyonic.Client
             var model = new PanelModel(EntryText.FolderTitle) { Columns = 2 };
             model.Lead = notice ?? (locations?.Roots.Any(root => root.FoldersTruncated) == true ? EntryText.FolderLine + " " + EntryText.FoldersCut : EntryText.FolderLine);
             if (notice != null) model.LeadTone = GlazeTone.Failure;
-            var back = new PanelAction(Back, EntryText.Back, PanelActionRole.Back);
-            var tryAgain = new PanelAction(ReadFolders, EntryText.TryAgain, PanelActionRole.Primary);
+            var back = new PanelAction(Back, EntryText.Back, PanelActionRole.Back, icon: GlazeIcon.Back);
+            var tryAgain = new PanelAction(ReadFolders, EntryText.TryAgain, PanelActionRole.Primary, icon: GlazeIcon.Refresh);
             if (locations == null)
             {
                 model.Rows.Add(Line(problem == null ? EntryText.ReadingFolders : EntryText.FoldersUnread(problem)));
@@ -433,9 +434,10 @@ namespace Halcyonic.Client
                 Parts = (review.Page, review.PageCount),
             };
             var yes = review.CanConfirm
-                ? new PanelAction(ConfirmStart, EntryText.ConfirmStart, PanelActionRole.Primary, available: problem == null, reason: problem)
-                : new PanelAction(ConfirmStart, EntryText.ReadToPart(review.PageCount), PanelActionRole.Primary, available: false);
-            model.Confirm = new ConfirmStep(null, yes, new PanelAction(Change, EntryText.Change, PanelActionRole.Secondary));
+                ? new PanelAction(ConfirmStart, EntryText.ConfirmStart, PanelActionRole.Primary, available: problem == null, reason: problem,
+                    icon: GlazeIcon.StartBuilding)
+                : new PanelAction(ConfirmStart, EntryText.ReadToPart(review.PageCount), PanelActionRole.Primary, available: false, icon: GlazeIcon.Locked);
+            model.Confirm = new ConfirmStep(null, yes, new PanelAction(Change, EntryText.Change, PanelActionRole.Secondary, icon: GlazeIcon.Change));
             return model;
         }
 
@@ -462,7 +464,7 @@ namespace Halcyonic.Client
             if (sequence.Started)
             {
                 model.Rows.Add(Line(EntryText.Started, tone: GlazeTone.Success));
-                model.Actions = new ActionSet(new PanelAction(Close, EntryText.Close, PanelActionRole.Primary));
+                model.Actions = new ActionSet(new PanelAction(Close, EntryText.Close, PanelActionRole.Primary, icon: GlazeIcon.Close));
             }
             else if (sequence.CanRetry && sequence.StoppedAt is BuildStep stopped && EntryText.AboutFolder(stopped))
             {
@@ -472,17 +474,17 @@ namespace Halcyonic.Client
                     new PanelAction(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, PanelActionRole.Secondary),
                     taken != null && taken.IsNew
                         ? new PanelAction(UseThatFolder, EntryText.UseThatFolder, PanelActionRole.Primary)
-                        : new PanelAction(TryAgain, EntryText.TryAgain, PanelActionRole.Primary));
+                        : new PanelAction(TryAgain, EntryText.TryAgain, PanelActionRole.Primary, icon: GlazeIcon.Refresh));
             }
             else if (sequence.CanRetry)
             {
                 model.Actions = new ActionSet(
-                    new PanelAction(Change, EntryText.Change, PanelActionRole.Back),
-                    new PanelAction(TryAgain, EntryText.TryAgain, PanelActionRole.Primary));
+                    new PanelAction(Change, EntryText.Change, PanelActionRole.Back, icon: GlazeIcon.Change),
+                    new PanelAction(TryAgain, EntryText.TryAgain, PanelActionRole.Primary, icon: GlazeIcon.Refresh));
             }
             else if (sequence.Stopped || sequence.Steps.Any(step => step.Status == BuildStepStatus.Unknown))
             {
-                model.Actions = new ActionSet(new PanelAction(CheckFirst, EntryText.CheckFirst, PanelActionRole.Primary));
+                model.Actions = new ActionSet(new PanelAction(CheckFirst, EntryText.CheckFirst, PanelActionRole.Primary, icon: GlazeIcon.Next));
             }
             return model;
         }
@@ -503,7 +505,7 @@ namespace Halcyonic.Client
             {
                 model.Confirm = new ConfirmStep(null,
                     new PanelAction(ConfirmClear, EntryText.ConfirmClear, PanelActionRole.Primary),
-                    new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary));
+                    new PanelAction(Cancel, EntryText.Cancel, PanelActionRole.Secondary, icon: GlazeIcon.Close));
             }
             else model.Actions = new ActionSet(new PanelAction(Clear, EntryText.Clear, PanelActionRole.Primary));
             return model;
@@ -512,8 +514,8 @@ namespace Halcyonic.Client
         /// <summary>Work that came to wait for the person while they create: Open now, or Keep creating. It never switches by itself.</summary>
         public static PanelBanner WaitingBanner(WorkstreamView work) =>
             new PanelBanner(EntryText.WaitingNow(LabelText.Plain(work.Title)), GlazeTone.Attention,
-                new PanelAction(OpenNow, EntryText.OpenNow, PanelActionRole.Attention),
-                new PanelAction(KeepCreating, EntryText.KeepCreating, PanelActionRole.Secondary));
+                new PanelAction(OpenNow, EntryText.OpenNow, PanelActionRole.Attention, icon: GlazeIcon.OpenNow),
+                new PanelAction(KeepCreating, EntryText.KeepCreating, PanelActionRole.Secondary, icon: GlazeIcon.KeepCreating));
 
         private static GlazeTone? ToneOf(BuildStep step) => step.Status switch
         {

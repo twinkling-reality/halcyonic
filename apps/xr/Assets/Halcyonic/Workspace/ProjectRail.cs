@@ -286,11 +286,14 @@ namespace Halcyonic.XR.Workspace
             var lower = -upper;
 
             // Below: the actions from the left, the sheets' compact buttons from the right.
-            var x = Place(connect, EntryText.ConnectProjects, overview == null ? "waiting for your Mac" : EntryText.ConnectDetail(overview), null, null, left, lower);
-            Place(create, entry != null && entry.HasDraft ? EntryText.KeepCreating : EntryText.CreateProject, null, null, null, x, lower);
+            var x = Place(connect, EntryText.ConnectProjects, overview == null ? "waiting for your Mac" : EntryText.ConnectDetail(overview), null, null, left, lower,
+                GlazeIcon.ConnectProjects);
+            var drafting = entry != null && entry.HasDraft;
+            Place(create, drafting ? EntryText.KeepCreating : EntryText.CreateProject, null, null, null, x, lower,
+                drafting ? GlazeIcon.KeepCreating : GlazeIcon.CreateProject);
             var end = right;
-            end = PlaceFromRight(settingsButton, SettingsText.Settings, end, lower);
-            if (usageLeftLabel != null) PlaceFromRight(usageLeft, usageLeftLabel, end, lower);
+            end = PlaceFromRight(settingsButton, SettingsText.Settings, end, lower, GlazeIcon.Settings);
+            if (usageLeftLabel != null) PlaceFromRight(usageLeft, usageLeftLabel, end, lower, GlazeIcon.UsageLeft);
 
             // Above: equal pills, each project that matters most, and See other tasks last while some work has no character.
             var offStage = overview != null && overview.OffStage.Count > 0;
@@ -329,25 +332,25 @@ namespace Halcyonic.XR.Workspace
         private static string Fitting(GlazeButton button, string label, float width, string full, string brief) =>
             button.Measure(label, full) <= width + 1e-5f ? full : brief;
 
-        private void Show(GlazeButton button, string label, string? detail, GlazeTone? tone, float center, float y, float width)
+        private void Show(GlazeButton button, string label, string? detail, GlazeTone? tone, float center, float y, float width, GlazeIcon? icon = null)
         {
-            button.Show(label, new Vector2(center, y), width, detail, tone);
+            button.Show(label, new Vector2(center, y), width, detail, tone, icon);
             used.Add(button);
         }
 
         /// <summary>Places a button with its left edge at <paramref name="left"/>; returns where the next one's left edge goes.</summary>
-        private float Place(GlazeButton button, string label, string? detail, GlazeTone? tone, float? minWidth, float left, float y)
+        private float Place(GlazeButton button, string label, string? detail, GlazeTone? tone, float? minWidth, float left, float y, GlazeIcon? icon = null)
         {
-            var width = Mathf.Max(button.Measure(label, detail), minWidth ?? 0f);
-            Show(button, label, detail, tone, left + width / 2f, y, width);
+            var width = Mathf.Max(button.Measure(label, detail, icon), minWidth ?? 0f);
+            Show(button, label, detail, tone, left + width / 2f, y, width, icon);
             return left + width + gap;
         }
 
         /// <summary>Places a button with its right edge at <paramref name="right"/>; returns where the next one's right edge goes.</summary>
-        private float PlaceFromRight(GlazeButton button, string label, float right, float y)
+        private float PlaceFromRight(GlazeButton button, string label, float right, float y, GlazeIcon? icon = null)
         {
-            var width = button.Measure(label);
-            Show(button, label, null, null, right - width / 2f, y, width);
+            var width = button.Measure(label, null, icon);
+            Show(button, label, null, null, right - width / 2f, y, width, icon);
             return right - width - gap;
         }
 

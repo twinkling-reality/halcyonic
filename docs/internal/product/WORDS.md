@@ -24,7 +24,7 @@ can do next.
    about whether the work is right, so nothing celebrates it.
 4. **Lead with the state or the action**, in at most two short sentences.
 5. **Buttons** begin with a verb, in sentence case, in one to three words. A confirmation is
-   "Yes, {verb}" beside Cancel.
+   "Yes, {verb}" beside Cancel. An icon may stand before a button's words, never in their place.
 6. **"You" for the person, "it" for the agent, "your Mac" for the host.**
 7. **No blame, and a next step.** Every refusal ends with what to do: "Couldn't start: this project
    has no folder yet. Choose where its files live."

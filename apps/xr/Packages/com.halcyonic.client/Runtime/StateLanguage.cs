@@ -29,8 +29,9 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// An icon by what it means. The Unity layer maps each to a glyph of the one icon set (Material
-    /// Symbols Rounded, filled); no other code knows a glyph.
+    /// An icon by what it means: a state, a mark or an action. The Unity layer maps each to a glyph of
+    /// the one icon set (Material Symbols Rounded, filled); no other code knows a glyph. An icon always
+    /// stands beside the words it goes with, never in their place.
     /// </summary>
     public enum GlazeIcon
     {
@@ -47,6 +48,49 @@ namespace Halcyonic.Client
         LastKnown,
         Practice,
         Recording,
+
+        // Actions, each on the button that takes it, beside its words.
+
+        Approve,
+        Deny,
+
+        /// <summary>Stop: the Stopped state's glyph, as the spec draws both.</summary>
+        Stop,
+        TellIt,
+        SendAnswer,
+
+        /// <summary>Hold to talk, and only that: never on approving, denying, stopping or any confirmation.</summary>
+        HoldToTalk,
+
+        /// <summary>Typing an answer instead of choosing one.</summary>
+        Type,
+        StartBuilding,
+        StartOver,
+
+        /// <summary>Refresh, and Try again.</summary>
+        Refresh,
+        Change,
+        ConnectProjects,
+        CreateProject,
+        AddTask,
+        OpenNow,
+        KeepCreating,
+        NotNow,
+
+        /// <summary>Close, and Cancel.</summary>
+        Close,
+        Back,
+        Next,
+        Move,
+        ResetPosition,
+
+        /// <summary>Show every project on the stage.</summary>
+        ShowAll,
+        Settings,
+        UsageLeft,
+
+        /// <summary>A final press locked until everything it confirms has been read.</summary>
+        Locked,
     }
 
     /// <summary>How a badge is filled: outline only, a soft container of its tone, or its tone's solid fill.</summary>

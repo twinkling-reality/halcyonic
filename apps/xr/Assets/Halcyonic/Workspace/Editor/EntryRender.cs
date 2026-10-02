@@ -196,7 +196,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(name + ": the panel's center is outside the comfortable band.");
                 }
                 if (!hostile) failures.AddRange(ReviewShowsEverything(name, folder, camera, texture, panel, state));
-                if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(rail.Root.gameObject, "entry render " + name + " rail", eyes));
+                if (hostile)
+                {
+                    // The rail as it shows, which stepped aside for the panel: its icons are measured as drawn.
+                    rail.Root.gameObject.SetActive(true);
+                    failures.AddRange(WorkspaceRender.AllShowLiterally(rail.Root.gameObject, "entry render " + name + " rail", eyes));
+                    rail.Root.gameObject.SetActive(false);
+                }
             }
             finally
             {
@@ -675,6 +681,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var buttons = frame.Buttons.Where(button => !button.Static).ToList();
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, what));
             failures.AddRange(GlazeChecks.TextLargeEnough(frame.gameObject, eyes, what));
+            if (!frame.BarIcons) Debug.Log("Halcyonic: entry render " + what + ": the bar has no room for its icons, so its words stand alone.");
             var gap = TargetGap(frame);
             for (var a = 0; a < buttons.Count; a++)
             {

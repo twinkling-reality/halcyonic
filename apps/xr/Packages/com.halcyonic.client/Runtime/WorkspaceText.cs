@@ -286,6 +286,17 @@ namespace Halcyonic.Client
                 : text;
         }
 
+        /// <summary>The icon beside an action's words, and beside its confirmation's: never hold to talk's.</summary>
+        public static GlazeIcon IconOf(WorkspaceAction action) => action switch
+        {
+            WorkspaceAction.Approve => GlazeIcon.Approve,
+            WorkspaceAction.Deny => GlazeIcon.Deny,
+            WorkspaceAction.Interrupt => GlazeIcon.Stop,
+            WorkspaceAction.Instruct => GlazeIcon.TellIt,
+            WorkspaceAction.Answer => GlazeIcon.SendAnswer,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unhandled action."),
+        };
+
         public static string Label(WorkspaceAction action) => action switch
         {
             WorkspaceAction.Approve => "Approve",
