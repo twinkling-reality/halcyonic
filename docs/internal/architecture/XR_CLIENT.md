@@ -495,8 +495,10 @@ the same definition names, as the JSON Schema document:
   "Simulated checks" or "Simulated measurement" instead
   ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)),
   and a recorded answer says when it was recorded, with its relative times and staleness judged as
-  of then. Where there is no answer, the provenance line says why in words: "No understanding yet",
-  "Understanding unavailable", "unreadable" or "not allowed", with the control plane's reason. Every
+  of then. Where there is no answer, the provenance line still names the source, then says why in
+  words: "From Salidium · No understanding yet", "Understanding unavailable", "unreadable" or "not
+  allowed", with the control plane's reason, such as "No answer in time. Press Refresh in a
+  moment." Every
   claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
   explained), never upgraded. **`AnswerPages`** splits an answer that pages, keeping a line with
   its detail, never a provenance line at a page's foot, and a step's heading again at the top of a
