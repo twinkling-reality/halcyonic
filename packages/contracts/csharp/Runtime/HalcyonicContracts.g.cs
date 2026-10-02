@@ -3668,6 +3668,271 @@ namespace Halcyonic.Contracts
         protected override string Discriminator => "nothing_heard";
     }
 
+    public sealed class CompanionModel
+    {
+        [JsonProperty("name", Required = Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [JsonProperty("served", Required = Required.Always)]
+        public string Served { get; set; } = "this_mac";
+    }
+
+    [JsonConverter(typeof(CompanionStatusConverter))]
+    public abstract class CompanionStatus
+    {
+        [JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class CompanionStatusConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(CompanionStatus).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            CompanionStatus value = tag switch
+            {
+                "available" => new AvailableCompanion(),
+                "unavailable" => new UnavailableCompanion(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "CompanionStatus has no string availability."
+                    : "Unknown availability \"" + tag + "\" for CompanionStatus."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableCompanion : CompanionStatus
+    {
+        protected override string Discriminator => "available";
+
+        [JsonProperty("companion", Required = Required.Always)]
+        public CompanionModel Companion { get; set; } = default!;
+
+        [JsonProperty("max_questions", Required = Required.Always)]
+        public long MaxQuestions { get; set; }
+    }
+
+    public sealed class UnavailableCompanion : CompanionStatus
+    {
+        protected override string Discriminator => "unavailable";
+
+        [JsonProperty("reason", Required = Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CompanionStart
+    {
+        [EnumMember(Value = "idea")] Idea,
+        [EnumMember(Value = "help")] Help,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CompanionWant
+    {
+        [EnumMember(Value = "next")] Next,
+        [EnumMember(Value = "proposal")] Proposal,
+    }
+
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum CompanionView
+    {
+        [EnumMember(Value = "clear")] Clear,
+        [EnumMember(Value = "unclear")] Unclear,
+        [EnumMember(Value = "not_buildable")] NotBuildable,
+    }
+
+    public sealed class CompanionQuestion
+    {
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+
+        [JsonProperty("choices", Required = Required.Always)]
+        public List<string> Choices { get; set; } = new List<string>();
+    }
+
+    public sealed class CompanionProposal
+    {
+        [JsonProperty("project_name", Required = Required.Always)]
+        public string ProjectName { get; set; } = default!;
+
+        [JsonProperty("first_task", Required = Required.Always)]
+        public string FirstTask { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(CompanionReplyConverter))]
+    public abstract class CompanionReply
+    {
+        [JsonProperty("next", Order = -2)]
+        public string Next => Discriminator;
+
+        protected abstract string Discriminator { get; }
+
+        [JsonProperty("line", Required = Required.Always)]
+        public string Line { get; set; } = default!;
+
+        [JsonProperty("view", Required = Required.Always)]
+        public CompanionView View { get; set; }
+    }
+
+    public sealed class CompanionReplyConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(CompanionReply).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["next"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            CompanionReply value = tag switch
+            {
+                "ask" => new AskReply(),
+                "propose" => new ProposeReply(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "CompanionReply has no string next."
+                    : "Unknown next \"" + tag + "\" for CompanionReply."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but next is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AskReply : CompanionReply
+    {
+        protected override string Discriminator => "ask";
+
+        [JsonProperty("question", Required = Required.Always)]
+        public CompanionQuestion Question { get; set; } = default!;
+    }
+
+    public sealed class ProposeReply : CompanionReply
+    {
+        protected override string Discriminator => "propose";
+
+        [JsonProperty("proposal", Required = Required.Always)]
+        public CompanionProposal Proposal { get; set; } = default!;
+    }
+
+    [JsonConverter(typeof(CompanionExchangeTurnConverter))]
+    public abstract class CompanionExchangeTurn
+    {
+        [JsonProperty("from", Order = -2)]
+        public string From => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class CompanionExchangeTurnConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(CompanionExchangeTurn).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["from"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            CompanionExchangeTurn value = tag switch
+            {
+                "person" => new PersonTurn(),
+                "companion" => new CompanionTurn(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "CompanionExchangeTurn has no string from."
+                    : "Unknown from \"" + tag + "\" for CompanionExchangeTurn."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but from is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class PersonTurn : CompanionExchangeTurn
+    {
+        protected override string Discriminator => "person";
+
+        [JsonProperty("text", Required = Required.Always)]
+        public string Text { get; set; } = default!;
+    }
+
+    public sealed class CompanionTurn : CompanionExchangeTurn
+    {
+        protected override string Discriminator => "companion";
+
+        [JsonProperty("reply", Required = Required.Always)]
+        public CompanionReply Reply { get; set; } = default!;
+    }
+
+    public sealed class CompanionRepliesRequest
+    {
+        [JsonProperty("start", Required = Required.Always)]
+        public CompanionStart Start { get; set; }
+
+        [JsonProperty("want", Required = Required.Always)]
+        public CompanionWant Want { get; set; }
+
+        [JsonProperty("messages", Required = Required.Always)]
+        public List<CompanionExchangeTurn> Messages { get; set; } = new List<CompanionExchangeTurn>();
+    }
+
+    public sealed class CompanionReplyResponse
+    {
+        [JsonProperty("reply", Required = Required.Always)]
+        public CompanionReply Reply { get; set; } = default!;
+
+        [JsonProperty("provenance", Required = Required.Always)]
+        public string Provenance { get; set; } = "reported";
+
+        [JsonProperty("companion", Required = Required.Always)]
+        public CompanionModel Companion { get; set; } = default!;
+    }
+
     [JsonConverter(typeof(PairingClientMessageConverter))]
     public abstract class PairingClientMessage
     {

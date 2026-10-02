@@ -33,6 +33,9 @@ const UNIONS: Readonly<Record<string, UnionNaming>> = {
   RuntimeModelsResult: { discriminator: 'availability', suffix: 'Models' },
   UsageLimitsResponse: { discriminator: 'availability', suffix: 'UsageLimits' },
   TranscriptionResponse: { discriminator: 'outcome', suffix: 'Transcription' },
+  CompanionReply: { discriminator: 'next', suffix: 'Reply' },
+  CompanionExchangeTurn: { discriminator: 'from', suffix: 'Turn' },
+  CompanionStatus: { discriminator: 'availability', suffix: 'Companion' },
   ProjectLocationChoice: { discriminator: 'kind', suffix: 'Choice' },
 };
 
@@ -54,6 +57,9 @@ const ROOTS: readonly string[] = [
   'EvaluationResponse',
   'UsageLimitsResponse',
   'TranscriptionResponse',
+  'CompanionStatus',
+  'CompanionRepliesRequest',
+  'CompanionReplyResponse',
   'PairingClientMessage',
   'PairingServerMessage',
 ];
