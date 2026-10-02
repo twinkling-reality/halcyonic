@@ -9,12 +9,18 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
-import { compileValidator, LocationsResponse, MAX_LOCATION_FOLDERS } from '@halcyonic/contracts';
+import {
+  compileValidator,
+  LocationsResponse,
+  MAX_LOCATION_FOLDERS,
+  type ProjectId,
+} from '@halcyonic/contracts';
 import { createHostLocations, MAX_SCANNED_ENTRIES } from './locations.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-locations-')));
@@ -91,6 +97,146 @@ describe('listing where projects may live', () => {
 
   test('with no roots nothing is listed', () => {
     assert.deepEqual(createHostLocations([]).list(), { roots: [] });
+  });
+});
+
+const PROJECT_A = '01900000-0000-7000-8000-00000000000a' as ProjectId;
+const PROJECT_B = '01900000-0000-7000-8000-00000000000b' as ProjectId;
+const at = (iso: string) => new Date(iso);
+
+describe('what the listing tells about each folder', () => {
+  test('a folder with a .git folder or file is a repository; one without, or with a link by that name, is not', () => {
+    const { root, outside, locations } = layout('repositories');
+    mkdirSync(join(root, 'cloned', '.git'), { recursive: true });
+    mkdirSync(join(root, 'worktree'));
+    writeFileSync(join(root, 'worktree', '.git'), 'gitdir: elsewhere\n');
+    mkdirSync(join(root, 'linked'));
+    symlinkSync(outside, join(root, 'linked', '.git'));
+    const listed = locations.list();
+    assert.ok(validLocations(listed).ok);
+    const facts = Object.fromEntries(
+      (listed.roots[0]?.folders ?? []).map((folder) => [folder.name, folder.repository]),
+    );
+    assert.deepEqual(facts, { app: false, cloned: true, linked: false, worktree: true });
+  });
+
+  test("changed_at is the folder's own time, or for a repository the newer of it and .git's", () => {
+    const { root, locations } = layout('changed');
+    const plain = join(root, 'plain');
+    const cloned = join(root, 'cloned');
+    mkdirSync(plain);
+    mkdirSync(join(cloned, '.git'), { recursive: true });
+    utimesSync(plain, at('2026-09-01T10:00:00.000Z'), at('2026-09-01T10:00:00.000Z'));
+    utimesSync(
+      join(cloned, '.git'),
+      at('2026-09-20T08:30:00.000Z'),
+      at('2026-09-20T08:30:00.000Z'),
+    );
+    utimesSync(cloned, at('2026-09-02T00:00:00.000Z'), at('2026-09-02T00:00:00.000Z'));
+    const folders = locations.list().roots[0]?.folders ?? [];
+    const changed = (name: string) => folders.find((folder) => folder.name === name)?.changed_at;
+    assert.equal(changed('plain'), '2026-09-01T10:00:00.000Z');
+    assert.equal(changed('cloned'), '2026-09-20T08:30:00.000Z', '.git is newer');
+    utimesSync(cloned, at('2026-09-30T00:00:00.000Z'), at('2026-09-30T00:00:00.000Z'));
+    const again = locations.list().roots[0]?.folders.find((folder) => folder.name === 'cloned');
+    assert.equal(again?.changed_at, '2026-09-30T00:00:00.000Z', 'the folder itself is newer');
+  });
+
+  test('a folder that cannot be searched is listed with its facts unknown', (t) => {
+    const { root, locations } = layout('closed');
+    const closed = join(root, 'closed');
+    mkdirSync(join(closed, '.git'), { recursive: true });
+    chmodSync(closed, 0o000);
+    t.after(() => chmodSync(closed, 0o755));
+    const folder = locations.list().roots[0]?.folders.find((entry) => entry.name === 'closed');
+    assert.deepEqual(
+      { repository: folder?.repository, changed_at: folder?.changed_at },
+      { repository: null, changed_at: null },
+    );
+  });
+
+  test('each folder names the projects bound to it, as a start would find them', (t) => {
+    const { root, app, outside, locations } = layout('used');
+    mkdirSync(join(root, 'free'));
+    symlinkSync(app, join(outside, 'to-app'));
+    const listed = locations.list([
+      { project_id: PROJECT_A, path: app },
+      { project_id: PROJECT_B, path: join(outside, 'to-app') },
+    ]);
+    assert.ok(validLocations(listed).ok);
+    const usedBy = (name: string) =>
+      listed.roots[0]?.folders.find((folder) => folder.name === name)?.used_by;
+    assert.deepEqual(usedBy('app'), [PROJECT_A], 'a path that is a link names no folder');
+    assert.deepEqual(usedBy('free'), []);
+    assert.deepEqual(listed.roots[0]?.used_by, []);
+    if (!existsSync(join(root, 'APP'))) {
+      t.skip('this volume is case-sensitive');
+      return;
+    }
+    // A bound path is the real path the host recorded, so another spelling only arises when the
+    // folder was renamed since; every start in that project is then refused as moved.
+    const spelt = locations.list([{ project_id: PROJECT_B, path: join(root, 'APP') }]);
+    assert.deepEqual(
+      spelt.roots[0]?.folders.find((folder) => folder.name === 'app')?.used_by,
+      [],
+      'a project that cannot start there does not hold the folder',
+    );
+  });
+
+  test('a project bound to the root names the root, and a folder put in a bound place is the one in use', () => {
+    const { root, app, locations } = layout('replaced');
+    renameSync(app, join(root, 'old-app'));
+    mkdirSync(app);
+    const listed = locations.list([
+      { project_id: PROJECT_A, path: root },
+      { project_id: PROJECT_B, path: app },
+    ]);
+    assert.deepEqual(listed.roots[0]?.used_by, [PROJECT_A]);
+    const usedBy = (name: string) =>
+      listed.roots[0]?.folders.find((folder) => folder.name === name)?.used_by;
+    assert.deepEqual(usedBy('app'), [PROJECT_B], 'what is at the bound path now');
+    assert.deepEqual(usedBy('old-app'), [], 'the moved folder is no longer at the bound path');
+  });
+
+  test('a project whose path now leads through a link on the way names no folder', () => {
+    const top = join(base, 'linked-on-the-way');
+    const first = join(top, 'first');
+    const second = join(top, 'second');
+    mkdirSync(join(first, 'foo'), { recursive: true });
+    mkdirSync(join(second, 'foo'), { recursive: true });
+    const locations = createHostLocations([first, second]);
+    renameSync(first, join(top, 'first-moved'));
+    symlinkSync(second, first);
+    const listed = locations.list([{ project_id: PROJECT_A, path: join(first, 'foo') }]);
+    const secondRoot = listed.roots.find((root) => root.path === second);
+    assert.deepEqual(
+      secondRoot?.folders.find((folder) => folder.name === 'foo')?.used_by,
+      [],
+      'a start in that project is refused, so the folder it leads to is free',
+    );
+  });
+
+  test('a folder names at most 100 projects, the oldest first, reading its path once', () => {
+    const { app, locations } = layout('crowded-users');
+    const ids = Array.from(
+      { length: 150 },
+      (_, index) => `01900000-0000-7000-8000-${String(index).padStart(12, '0')}` as ProjectId,
+    );
+    const listed = locations.list(ids.map((project_id) => ({ project_id, path: app })));
+    assert.deepEqual(
+      listed.roots[0]?.folders.find((folder) => folder.name === 'app')?.used_by,
+      ids.slice(0, 100),
+    );
+  });
+
+  test('a missing root tells nothing about itself', () => {
+    const { root, locations } = layout('gone-facts');
+    rmSync(root, { recursive: true });
+    const [only] = locations.list([{ project_id: PROJECT_A, path: root }]).roots;
+    assert.deepEqual(
+      { repository: only?.repository, changed_at: only?.changed_at, used_by: only?.used_by },
+      { repository: null, changed_at: null, used_by: [] },
+    );
   });
 });
 

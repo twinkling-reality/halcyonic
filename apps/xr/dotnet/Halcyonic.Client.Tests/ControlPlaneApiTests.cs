@@ -258,10 +258,22 @@ public class ControlPlaneApiTests
                   "path": "/Users/you/dev",
                   "name": "dev",
                   "status": "available",
-                  "folders": [{ "name": "storefront", "path": "/Users/you/dev/storefront" }],
+                  "repository": false,
+                  "changed_at": "2026-09-30T08:00:00.000Z",
+                  "used_by": [],
+                  "folders": [
+                    {
+                      "name": "storefront",
+                      "path": "/Users/you/dev/storefront",
+                      "repository": true,
+                      "changed_at": "2026-10-01T17:45:12.250Z",
+                      "used_by": ["0192a7a0-0000-7000-8000-000000000001"]
+                    },
+                    { "name": "notes", "path": "/Users/you/dev/notes", "repository": null, "changed_at": null, "used_by": [] }
+                  ],
                   "folders_truncated": false
                 },
-                { "path": "/Volumes/Work", "name": "Work", "status": "missing", "folders": [], "folders_truncated": false }
+                { "path": "/Volumes/Work", "name": "Work", "status": "missing", "repository": null, "changed_at": null, "used_by": [], "folders": [], "folders_truncated": false }
               ]
             }
             """;
@@ -271,7 +283,12 @@ public class ControlPlaneApiTests
 
         Assert.That(handler.Requests.Single().RequestUri, Is.EqualTo(new Uri("http://127.0.0.1:47800/api/locations")));
         Assert.That(response.Roots.Select(root => root.Status), Is.EqualTo(new[] { LocationRootStatus.Available, LocationRootStatus.Missing }));
-        Assert.That(response.Roots[0].Folders.Single().Name, Is.EqualTo("storefront"));
+        var storefront = response.Roots[0].Folders[0];
+        Assert.That(storefront.Name, Is.EqualTo("storefront"));
+        Assert.That(storefront.Repository, Is.True);
+        Assert.That(storefront.ChangedAt, Is.EqualTo("2026-10-01T17:45:12.250Z"));
+        Assert.That(storefront.UsedBy, Is.EqualTo(new[] { "0192a7a0-0000-7000-8000-000000000001" }));
+        Assert.That(response.Roots[0].Folders[1].Repository, Is.Null);
         Json.AssertRoundTrips<LocationsResponse>(body);
     }
 

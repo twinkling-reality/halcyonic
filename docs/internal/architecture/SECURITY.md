@@ -140,6 +140,35 @@ What a client sees and can do about folders on the host
 - **Listing reads a bounded part of each root**: at most 10,000 entries, in the order the file
   system returns them, then sorts the folders among them and keeps 200; a root with more entries is
   marked truncated, and its folders past the first 10,000 entries are not offered.
+- **What the listing tells about a folder** comes from the folder's own entry and from one name
+  inside it, never from a file's contents: whether a `.git` folder or file sits directly inside it
+  (`repository`), the newer modification time of the folder and of that `.git` entry
+  (`changed_at`), and the projects bound to it (`used_by`): a project counts while its recorded
+  path is still its own real path, the rule every start applies, matched to the folder by device
+  and inode. Each folder costs at most three `lstat` calls, each leaving a link at the end of its
+  path unfollowed; each bound path directly inside a root is read once, and no other is read. Facts
+  are kept only when the folder is the same directory after the reads as before, and a root found
+  replaced after its folders were read lists as missing with none. A folder swapped for a link and
+  back between two reads can still have one fact read elsewhere, which only someone who can already
+  read the file system can arrange. So a paired device
+  learns which folders are repositories and roughly when each last changed at its top level, which
+  a device that can start an agent there could learn anyway; project ids it already sees in the
+  snapshot. Connect a folder in the client core (`FolderConnect`, not yet drawn on the headset)
+  offers only folders whose `used_by` is empty, and connecting one is an ordinary `project.create`
+  with an `existing_folder` choice, checked like any other; the host does
+  not refuse a folder another project already uses (ADR 0020 lets projects share one), so two
+  devices, or a listing gone stale, can still bind one folder twice. Facts are a moment's: a
+  folder replaced by another between the listing and Connect is bound with no word of the change.
+  Cost: one `lstat` per distinct bound path inside the roots, so a device that makes many projects
+  in one folder adds one read, not one per project.
+- **Folder names are someone else's words.** Anything that can write in a root (an agent working
+  there, for one) can name a folder to look like another or to read as Halcyonic's sentence. Connect
+  a folder's words (`ConnectText`) show names by `LabelText`'s rule, quote them inside Halcyonic's
+  sentences, and mark folders
+  whose shown names look alike (spacing, case, compatibility forms and invisible characters aside)
+  with "Looks like another folder's name". Letters of other scripts that look alike are not caught,
+  and the newest folders come first, so a decoy made a moment ago stands above the folder it imitates
+  with only its facts and that mark to tell them apart.
 - **A folder that changes after it was bound** is checked again at every start: gone or no longer
   a folder is `location_missing`, now leading elsewhere through a symbolic link is
   `location_missing` too, and outside the roots is `location_not_allowed`. Work already running
