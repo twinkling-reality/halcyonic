@@ -41,6 +41,21 @@ export function follow(tags: readonly string[], line: (text: string) => void): (
   };
 }
 
+/** Stops with one plain line unless exactly one headset is attached and authorized. */
+export async function requireHeadset(): Promise<void> {
+  let state = '';
+  try {
+    state = (await adb('get-state')).trim();
+  } catch {
+    state = '';
+  }
+  if (state === 'device') return;
+  console.error(
+    'No headset ready: connect it by USB (or adb over Wi-Fi) and accept USB debugging in it; `adb devices` must list it as device.',
+  );
+  process.exit(1);
+}
+
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** `--name value` from the command line, as a number, or the default. */

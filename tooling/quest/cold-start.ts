@@ -9,7 +9,7 @@
  *
  * See docs/internal/runbooks/XR_DEVELOPMENT.md, "Device measures on a Quest".
  */
-import { ACTIVITY, adb, follow, option, PACKAGE, sleep } from './adb.ts';
+import { ACTIVITY, adb, follow, option, PACKAGE, requireHeadset, sleep } from './adb.ts';
 import {
   deviceMillis,
   epochMillis,
@@ -22,6 +22,8 @@ import {
 const runs = option('runs', 5);
 
 const patience = option('timeout', 60) * 1000;
+
+await requireHeadset();
 
 const launches: number[] = [];
 const firstFrames: number[] = [];

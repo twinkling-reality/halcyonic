@@ -11,7 +11,7 @@
  */
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { adb, follow, option, sleep, textOption } from './adb.ts';
+import { adb, follow, option, requireHeadset, sleep, textOption } from './adb.ts';
 import {
   type CompositorReading,
   type FramesReading,
@@ -38,6 +38,7 @@ const COLUMNS = [
   'compositor_stale',
 ] as const;
 
+await requireHeadset();
 const minutes = option('minutes', 60);
 const every = option('every', 30);
 const folder = textOption('out', join(process.cwd(), '.private', 'm6'));
