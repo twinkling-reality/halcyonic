@@ -108,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("a4-creating", false, shot => ShelfCreating(shot)),
             ("a5-video-watching", true, shot => Folded(shot)),
             ("a5-video-opened", true, shot => ShelfBesideWindow(shot)),
-        }.Concat(MenuShots());
+        }.Concat(MenuShots()).Concat(StyledShots());
 
         // ---------------------------------------------------------------------------------------------
         // The work on the stage.
@@ -299,6 +299,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add(shot.Name + ": " + extent + " reaches past a Quest 3S's field.");
                 }
             }
+            Debug.Log("Halcyonic: directions render " + shot.Name + ": the whole scene, characters included, at most " + DrawCalls(shot.Root.gameObject)
+                + " draw calls before batching (budget 220).");
             return failures;
         }
 
