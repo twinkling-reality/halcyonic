@@ -580,7 +580,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         // ---------------------------------------------------------------------------------------------
         // The plane's own checks: one plane, upright or facing the eyes at its centre, never rolled; parts
-        // apart on it; type that only steps down in each column; text as the eyes see it.
+        // apart on it and columns aligned; one selection treatment; type that only steps down in each
+        // column; text as the eyes see it.
 
         private static IEnumerable<string> PlaneChecks(Shot shot)
         {
@@ -618,6 +619,25 @@ namespace Halcyonic.XR.Workspace.Editor
                         yield return shot.Name + ": " + parts[a].Name + " and " + parts[b].Name + " are " + (gap * 1000f).ToString("0.0", CultureInfo.InvariantCulture)
                             + " mm apart on the plane; parts keep " + (U(RowGap) * PlaneMeters * 1000f).ToString("0.0", CultureInfo.InvariantCulture) + ".";
                     }
+                }
+            }
+            // Edges aligned: the columns start on one line and end on one line.
+            var tops = columns.Select(column => Vector3.Dot(column[0].Root.position - plane.position, plane.up) + column[0].Height / 2f * PlaneMeters).ToList();
+            var bottoms = columns.Select(column => Vector3.Dot(column[column.Count - 1].Root.position - plane.position, plane.up) - column[column.Count - 1].Height / 2f * PlaneMeters).ToList();
+            if (tops.Max() - tops.Min() > 0.0005f) yield return shot.Name + ": the columns' tops are " + ((tops.Max() - tops.Min()) * 1000f).ToString("0.0", CultureInfo.InvariantCulture) + " mm apart; they start on one line.";
+            if (bottoms.Max() - bottoms.Min() > 0.0005f) yield return shot.Name + ": the columns' bottoms are " + ((bottoms.Max() - bottoms.Min()) * 1000f).ToString("0.0", CultureInfo.InvariantCulture) + " mm apart; they end on one line.";
+            // One selection treatment: what's chosen lights its own shape and what's pointed at gains a
+            // fainter frame; the accent marks only the main action's cap, and no bar or underline marks anything.
+            foreach (var part in parts)
+            {
+                foreach (var plate in part.Plates)
+                {
+                    var fill = plate.Fill;
+                    if (plate.name == "Lit" && fill != LitFill) yield return shot.Name + ": a lit shape in " + part.Name + " is filled otherwise; there is one selection treatment.";
+                    if (plate.name == "Pointed" && fill.a > 0f) yield return shot.Name + ": a pointed frame in " + part.Name + " is filled; pointed at is the frame alone.";
+                    var accent = Mathf.Abs(fill.r - Accent.r) + Mathf.Abs(fill.g - Accent.g) + Mathf.Abs(fill.b - Accent.b) < 0.05f && fill.a > 0.3f;
+                    if (accent && plate.name != "Cap") yield return shot.Name + ": " + plate.name + " in " + part.Name + " is in the accent, which marks only the main action's cap.";
+                    if (Mathf.Min(plate.Size.x, plate.Size.y) < U(0.2f) && fill.a > 0.2f) yield return shot.Name + ": " + plate.name + " in " + part.Name + " is a bar; nothing is marked by a bar or an underline.";
                 }
             }
             // Text as the eyes see it: the angle its em spans from the eyes, which shrinks where a surface
