@@ -152,6 +152,11 @@ first attempt was ended by a signal during Gradle and left `DevAgentSettings.ass
 Resources and two preloaded assets in `ProjectSettings.asset`, as the runbook warns; both were put
 back by hand before the second, successful build.
 
+Built again on this branch (after the device measures and the question) with
+`HALCYONIC_VERSION_CODE=26100201`: 71,498,397 bytes, `versionCode='26100201'`, the same permissions,
+its own check passed, and `ProjectSettings.asset` still says version code 1 afterwards, with
+`DevAgentSettings.asset` back in Resources.
+
 Before an upload, still the owner's: a release key, a version code above every earlier upload
 (now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN), whether to declare `stanley`, and
 the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
