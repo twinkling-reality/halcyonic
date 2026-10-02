@@ -982,7 +982,7 @@ hours. Follow the cues in the log, which names each cue, its place and its note,
 adb logcat -s Unity | grep --line-buffered "Halcyonic: sound"
 ```
 
-- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 81 clips rendered at 48000 Hz in
+- **Ready.** A few seconds after launch: `Halcyonic: sound ready: 87 clips rendered at 48000 Hz in
   ... ms on a worker thread, 18.1 MiB of samples, ...`. Record the milliseconds and the rate: the
   Quest 3's render time is not measured yet. `adb logcat -s VrApi` stays at 72 fps while it renders.
 - **Silence while work goes well.** With the demonstration, nothing sounds while characters work,
@@ -1128,6 +1128,8 @@ For each step write down what you saw and how it felt, in
 5. **Sounds (3 minutes).** Press a tab, the pager and a rail pill: one soft tap from the button
    each time. Press a locked Yes, or Refresh while Usage left reads: Not now, a damped step down.
    Approve a request and confirm: the confirming press sounds Approve's two notes, with no tap.
+   Answer a question and send it: Send answer's light tap falling onto a warmer note, with no tap
+   from the button.
    Make a task wait for you:
    two strikes rising from its character. Press anything just after coming back from the video:
    nothing. Are the taps welcome or too much over an hour?

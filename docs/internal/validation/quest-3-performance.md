@@ -120,7 +120,7 @@ seconds. Before this pass every label built its text mesh again each time, with 
 - **Collection.** Whether collecting the few kilobytes a screen allocates every half second ever
   shows as a pause.
 - **Heat.** Whether the device throttles over an hour beside the characters.
-- **Sound.** How long the 81 clips take to render on the device at startup (`Halcyonic: sound
+- **Sound.** How long the 87 clips take to render on the device at startup (`Halcyonic: sound
   ready ...`); 1.4 s on the Mac's .NET.
 
 The checks for a session are in [XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "The interface on a

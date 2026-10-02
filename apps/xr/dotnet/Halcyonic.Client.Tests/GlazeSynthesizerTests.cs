@@ -128,6 +128,7 @@ public class GlazeSynthesizerTests
         [SoundCue.Approve] = 650,
         [SoundCue.Deny] = 480,
         [SoundCue.TellIt] = 570,
+        [SoundCue.SendAnswer] = 530,
         [SoundCue.Stop] = 400,
         [SoundCue.Touch] = 520,
         [SoundCue.NotNow] = 480,
@@ -136,8 +137,8 @@ public class GlazeSynthesizerTests
     [Test]
     public void EveryRenderIsThePagesOwnBeforeTheRoom()
     {
-        // Every cue the page played; a control's two came after it (ADR 0023) and are checked by their limits.
-        var played = GlazeSynthesizer.Cues.Where(cue => cue != SoundCue.Touch && cue != SoundCue.NotNow);
+        // Every cue the page played; a control's two and Send answer came after it (ADR 0023) and are checked by their limits.
+        var played = GlazeSynthesizer.Cues.Where(cue => cue != SoundCue.Touch && cue != SoundCue.NotNow && cue != SoundCue.SendAnswer);
         Assert.That(Page.Select(row => (row.Cue, row.Bot)),
             Is.EquivalentTo(played.SelectMany(cue => Enumerable.Range(0, GlazeSynthesizer.VoicesOf(cue)).Select(bot => (cue, bot)))));
         foreach (var row in Page)
@@ -171,7 +172,7 @@ public class GlazeSynthesizerTests
     [Test]
     public void EveryCueHasItsOwnRenderPerBotAndTheRoomsAndAControlsCuesOne()
     {
-        Assert.That(Played.Value, Has.Count.EqualTo(13 * GlazeSynthesizer.Bots + 3));
+        Assert.That(Played.Value, Has.Count.EqualTo(14 * GlazeSynthesizer.Bots + 3));
         Assert.That(GlazeSynthesizer.VoicesOf(SoundCue.LastKnown), Is.EqualTo(1));
         Assert.That(GlazeSynthesizer.VoicesOf(SoundCue.Touch), Is.EqualTo(1), "a press belongs to no bot");
         Assert.That(GlazeSynthesizer.VoicesOf(SoundCue.NotNow), Is.EqualTo(1));
@@ -210,6 +211,7 @@ public class GlazeSynthesizerTests
             [SoundCue.Approve] = 1.2,
             [SoundCue.Deny] = 0.7,
             [SoundCue.TellIt] = 0.6,
+            [SoundCue.SendAnswer] = 0.8,
             [SoundCue.Stop] = 0.5,
             [SoundCue.Touch] = 0.6,
             [SoundCue.NotNow] = 0.7,
@@ -254,6 +256,12 @@ public class GlazeSynthesizerTests
         foreach (var cue in new[] { SoundCue.Touch, SoundCue.NotNow })
         {
             Assert.That(GlazeSynthesizer.Loudness(GlazeSynthesizer.RenderVoice(cue, 0, Rate).Dry, Rate), Is.EqualTo(targets[cue]).Within(0.01), cue.ToString());
+        }
+        Assert.That(targets[SoundCue.SendAnswer], Is.EqualTo(-27), "between Tell it's words and Approve's decision");
+        for (var bot = 0; bot < GlazeSynthesizer.Bots; bot++)
+        {
+            var voice = GlazeSynthesizer.RenderVoice(SoundCue.SendAnswer, bot, Rate);
+            Assert.That(GlazeSynthesizer.Loudness(voice.Dry, Rate), Is.EqualTo(targets[SoundCue.SendAnswer]).Within(0.01), "Send answer for bot " + bot);
         }
     }
 
