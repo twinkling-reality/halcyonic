@@ -129,6 +129,12 @@ namespace Halcyonic.Client
         public string? Unresolved { get; private set; }
 
         /// <summary>
+        /// This sequence has sent a command. One resumed after a restart has not, so it says nothing
+        /// about a command whose outcome the device still keeps as unknown, and must never clear it.
+        /// </summary>
+        public bool Sent { get; private set; }
+
+        /// <summary>
         /// A sequence whose project, and perhaps its task, the Mac already made before the app restarted
         /// (<see cref="CreationDraft"/>): stopped where it was, so Start building sends only what is left
         /// and never makes either twice. Without <paramref name="workstreamId"/> it creates the task and
@@ -265,6 +271,7 @@ namespace Halcyonic.Client
 
         private CommandEnvelope Send(CommandEnvelope command)
         {
+            Sent = true;
             Current = new NewWorkSubmission(command);
             Unresolved = command.CommandId;
             steps[index].Status = BuildStepStatus.Waiting;
