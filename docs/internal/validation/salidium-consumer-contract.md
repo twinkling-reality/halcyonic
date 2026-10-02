@@ -199,6 +199,21 @@ file by its repository path where there is one, and "(+5 −1 or more)" for a lo
   `none` are right here, and Halcyonic says nothing about commits. A live OpenCode session in a git
   working tree should carry both anchors; one that ends while watched, with the explainer set to a
   hosted CLI writer, should read `unavailable`, since no writer may explain `salidium/opencode`.
-- **Not yet verified:** a live OpenCode session read through Salidium, with anchors, changed files,
-  a check run, a waiting request or the `unavailable` explanation. That needs a new model run; null
-  anchors on a live session in a repository would be a Salidium bug to report to its coordinator.
+- **A live run, verified (2026-10-02):** Halcyonic's OpenCode adapter drove the pinned OpenCode
+  2.0.18 on a local Ollama model, with a scratch copy of Halcyonic's OpenCode settings that enables
+  Ollama alone and sets the title model to the same local model, in a scratch git repository with
+  one commit, keeping OpenCode's own session store so Salidium watched it live. The agent edited two
+  files, ran the tests and committed, with each shell command approved, in about 83 s. Read through
+  the control plane's Salidium source just after the round, 15 s later and after OpenCode closed,
+  Salidium (0.8.2 by then) answered `available`: both files by their repository paths with exact
+  line counts and checked after the change (`inferred`), the commit, whose hash begins the
+  repository's head, the test run observed passing 2 of 2 with exit 0, the agent's words
+  `reported`, and the verdict passing.
+- **Not as expected, reported to Salidium's coordinator:** both commit anchors were null on every
+  read although the session ran live in a repository, which Salidium's coordinator called a bug;
+  the explanation stayed `none` rather than `unavailable`, perhaps because nothing ended the
+  session; and while the session was live a read took up to 10 s, so the read during the approval
+  wait ran out of Halcyonic's budget (`timed_out`) and the waiting state was not seen. A read 15 s
+  after the round took 34 ms. Halcyonic shows null anchors and `none` as given.
+- **Not yet verified:** a waiting request or the `unavailable` explanation read from a live OpenCode
+  session, and commit anchors from one.
