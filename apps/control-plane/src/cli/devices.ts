@@ -90,7 +90,7 @@ async function pair(api: Api, io: CliIo): Promise<number> {
   const [first, ...others] = listener.addresses.map((address) => hostPort(address, listener.port));
   io.print(`Pairing is open until ${clock(status.expires_at)}.`);
   io.print('');
-  io.print('On the headset, choose "Pair with a Mac" and enter:');
+  io.print('On the headset, choose "Pair with a computer" and enter:');
   io.print(`  Address:  ${first ?? `(no network address found; port ${listener.port})`}`);
   for (const other of others) io.print(`            or ${other}`);
   io.print(`  Code:     ${code.slice(0, 4)} ${code.slice(4)}`);

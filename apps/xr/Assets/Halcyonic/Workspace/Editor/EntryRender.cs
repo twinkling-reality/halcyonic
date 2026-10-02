@@ -653,8 +653,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 window.Offer(window.Button("Arrangement 1", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.TurnedAside));
             }
             var mac = sheet.Section(SettingsText.YourMac, 1);
-            mac.Say(hostile ? "Pairing failed: " + WorkspaceRender.Hostile("refusal") : "Paired with the Mac at 192.168.1.23:47801. Connecting over Wi-Fi.");
-            mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this Mac");
+            mac.Say(hostile ? "Pairing failed: " + WorkspaceRender.Hostile("refusal") : "Paired with " + HostText.Your + " at 192.168.1.23:47801. Connecting over Wi-Fi.");
+            mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this " + HostText.Noun);
             sheet.OpenForRender(characters.ConvertAll(character => character.Target), surface);
             rail.Root.gameObject.SetActive(false);
             WorkspaceRender.ForceMeshes(root);

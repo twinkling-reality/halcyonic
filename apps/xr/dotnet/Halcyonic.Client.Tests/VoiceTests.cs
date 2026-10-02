@@ -126,7 +126,7 @@ public class TranscriptionTests
         {
             var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.TranscribeAsync(Second))!;
             Assert.That(refused.Code, Is.EqualTo("transcription_busy_on_mac"));
-            Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Your Mac is hearing another clip. Try again in a moment."));
+            Assert.That(VoiceText.Refusal(refused.Code), Is.EqualTo("Your computer is hearing another clip. Try again in a moment."));
         }
     }
 

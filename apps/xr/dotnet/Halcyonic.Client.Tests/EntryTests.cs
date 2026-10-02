@@ -472,7 +472,7 @@ public class BuildSequenceTests
         Assert.That(project, Is.InstanceOf<ProjectCreateCommand>());
         Assert.That(sequence.Unresolved, Is.EqualTo(project.CommandId));
         Assert.That(sequence.Advance(With()), Is.Null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent. Waiting for your Mac…"));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Sent. Waiting for your computer…"));
 
         var accepted = new CommandView { CommandId = project.CommandId, Status = CommandStatus.Accepted };
         Assert.That(sequence.Advance(With(accepted)), Is.Null, "accepted is not done");
@@ -567,7 +567,7 @@ public class BuildSequenceTests
         sequence.Begin();
         sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         sequence.Advance(null);
-        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Couldn't send: your Mac isn't connected. Try again when it is."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Couldn't send: your computer isn't connected. Try again when it is."));
         Assert.That(sequence.Unresolved, Is.Null);
         Assert.That(sequence.Retry("Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
     }
@@ -634,7 +634,7 @@ public class EntryWordsTests
         var local = new RuntimeModel { ModelRef = "ollama/qwen3.6", DisplayName = "qwen3.6 (Ollama)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared };
         draft.ChooseRuntime(listed);
         draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel> { remote, local } } });
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On your Mac"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On your computer"));
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo("Chosen for you. Change it in More options."), "chosen for the person, and said so");
 
         // An agent app that picks its own model is named, by the one rule, since where its model runs isn't known here.
@@ -698,7 +698,7 @@ public class EntryWordsTests
         words.AddRange(Enum.GetValues<ModelServed>().SelectMany(served => new[] { EntryText.Served(served), EntryText.ServedShort(served), EntryText.ServedInSentence(served) }));
         words.AddRange(Enum.GetValues<ModelToolCalling>().Select(EntryText.Tools));
         words.AddRange(new CommandStatus?[] { null, CommandStatus.Accepted, CommandStatus.Completed, CommandStatus.Rejected, CommandStatus.Failed }.Select(EntryText.Recorded));
-        var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode", "Salidium", "Seorak" };
+        var brands = new[] { "Meta", "Quest", "Oculus", "Horizon", "Unity", "Claude", "Anthropic", "Codex", "OpenAI", "OpenCode", "Salidium", "Seorak", "Mac" };
         foreach (var word in words)
         {
             foreach (var brand in brands)
@@ -708,9 +708,9 @@ public class EntryWordsTests
             Assert.That(word, Does.Not.Contain("\u2014"), "no em dash");
             Assert.That(word.Length, Is.LessThanOrEqualTo(110), word);
         }
-        Assert.That(EntryText.ConnectLine, Does.Contain("already set up on your Mac"), "Connect claims no discovery");
+        Assert.That(EntryText.ConnectLine, Does.Contain("already set up on your computer"), "Connect claims no discovery");
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
-            "the glossary's words: an agent app, a task, your Mac");
+            "the glossary's words: an agent app, a task, your computer");
         Assert.That(EntryText.GuideNote, Does.Contain("not an AI"));
     }
 

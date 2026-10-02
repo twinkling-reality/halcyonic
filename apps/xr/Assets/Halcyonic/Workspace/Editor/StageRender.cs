@@ -67,12 +67,12 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                failures.AddRange(Render("states-a", folder, StatesA(), desk: false, BannerKind.Live, "Connected to your Mac", null, peekSlot: 4));
+                failures.AddRange(Render("states-a", folder, StatesA(), desk: false, BannerKind.Live, "Connected to " + HostText.Your, null, peekSlot: 4));
                 failures.AddRange(Render("states-b", folder, StatesB(), desk: false, BannerKind.NotLive,
-                    "Last known: can't reach your Mac. Trying again… (connection refused)", null, peekSlot: 1));
+                    "Last known: can't reach " + HostText.Your + ". Trying again… (connection refused)", null, peekSlot: 1));
                 failures.AddRange(Render("demo", folder, Demo(), desk: false, BannerKind.Practice,
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
-                failures.AddRange(Render("desk", folder, StatesA(), desk: true, BannerKind.Live, "Connected to your Mac", null, peekSlot: 4));
+                failures.AddRange(Render("desk", folder, StatesA(), desk: true, BannerKind.Live, "Connected to " + HostText.Your, null, peekSlot: 4));
             }
             catch (Exception error)
             {

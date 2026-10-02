@@ -288,7 +288,7 @@ namespace Halcyonic.XR.UI.Editor
                 button.PaintForRender(pointed, pressed);
                 rows.Add((button, what));
             }
-            var choice = new PanelRow { Title = "New folder in Projects", Detail = "Your Mac makes a new, empty folder", Action = "choose" };
+            var choice = new PanelRow { Title = "New folder in Projects", Detail = HostText.YourStart + " makes a new, empty folder", Action = "choose" };
             Add("a choice at rest", choice, ButtonRole.Choice);
             Add("a choice pointed at", choice, ButtonRole.Choice, pointed: true);
             Add("a choice pressed", choice, ButtonRole.Choice, pressed: true);
@@ -297,9 +297,9 @@ namespace Halcyonic.XR.UI.Editor
                 ButtonRole.Filter, on: true);
             Add("a filter hidden", new PanelRow { Title = "Recipe tracker", Detail = "Hidden · 1 waiting", DetailTone = GlazeTone.Attention, Filter = true, Action = "toggle" },
                 ButtonRole.Filter);
-            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On your Mac", Detail = "Chosen for you. Change it in More options.", DetailLines = 2,
+            Add("a fact", new PanelRow { Overline = EntryText.HowItRuns, Title = "On " + HostText.Your, Detail = "Chosen for you. Change it in More options.", DetailLines = 2,
                 End = EntryText.MoreOptions, Action = "options" }, ButtonRole.Choice);
-            Add("an unavailable choice", new PanelRow { Title = "Code", Detail = "Not on your Mac right now", Available = false, Action = "choose" }, ButtonRole.Choice, available: false);
+            Add("an unavailable choice", new PanelRow { Title = "Code", Detail = "Not on " + HostText.Your + " right now", Available = false, Action = "choose" }, ButtonRole.Choice, available: false);
             Add("a step and how it went", new PanelRow { Title = "Create the project", Detail = "Confirmed", DetailTone = GlazeTone.Success }, ButtonRole.Choice, still: true);
             Add("a card", new PanelRow { Card = true, Title = EntryText.CreateProject, Detail = EntryText.CreateInvite, Action = "create" }, ButtonRole.Choice);
             var attention = GlazeButton.Create(Holder("Attention", 0f, 0f), "Button", ButtonRole.Attention, compact: true);
@@ -354,8 +354,8 @@ namespace Halcyonic.XR.UI.Editor
             var x = -33f;
             foreach (var (kind, text, waiting) in new[]
             {
-                (BannerKind.Live, "Connected to your Mac", (string?)null),
-                (BannerKind.NotLive, "Last known: can't reach your Mac. Trying again…", null),
+                (BannerKind.Live, "Connected to " + HostText.Your, (string?)null),
+                (BannerKind.NotLive, "Last known: can't reach " + HostText.Your + ". Trying again…", null),
                 (BannerKind.Practice, DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), EntryText.WaitingForYou(1)),
             })
             {

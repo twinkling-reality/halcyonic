@@ -2,7 +2,7 @@
 
 Halcyonic's own words on the headset: how they sound, the word for each state of a task, and what
 a person never reads. Every word lives in the client core (`apps/xr/Packages/com.halcyonic.client`),
-in `StateLanguage`, `EntryText`, `WorkspaceText`, `ConnectionText`, `VoiceText` and their kin, so
+in `StateLanguage`, `EntryText`, `WorkspaceText`, `ConnectionText`, `VoiceText`, `HostText` and their kin, so
 tests hold them to these rules and the Unity layer only lays them out
 ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
 Text from outside (titles, agent messages, tool output, server errors) is not ours: it shows as
@@ -25,7 +25,9 @@ can do next.
 4. **Lead with the state or the action**, in at most two short sentences.
 5. **Buttons** begin with a verb, in sentence case, in one to three words. A confirmation is
    "Yes, {verb}" beside Cancel. An icon may stand before a button's words, never in their place.
-6. **"You" for the person, "it" for the agent, "your Mac" for the host.**
+6. **"You" for the person, "it" for the agent, "your computer" for the host**, never a product
+   name such as Mac, which the competition rules forbid in what judges see. The word lives in one
+   place, `HostText`.
 7. **No blame, and a next step.** Every refusal ends with what to do: "Couldn't start: this project
    has no folder yet. Choose where its files live."
 8. **The agent's words are its own**, quoted, tagged ("It says: “…”" in the workspace's log, "Agent
@@ -69,7 +71,7 @@ counts, "paused" covers tasks at rest that are neither running nor waiting for y
 | request | Something the agent wants your approval for | approval as a noun, permission |
 | question | Something the agent asks you | prompt |
 | checks | Tests and other verification | tests, lint |
-| your Mac | The host and its control plane | control plane, server |
+| your computer | The host and its control plane | control plane, server, Mac |
 | folder | Where a project's files live | location, directory, path |
 | agent app | The runtime, such as OpenCode or Codex, named as data | runtime, adapter |
 | practice run | Work on the simulated runtime: nothing is built | mock, simulated |
@@ -89,7 +91,7 @@ snapshot, workstream, access token (an access code, only where the person must a
 | Confirmed | Confirmed: {what}. | Confirmed: it has your answer. |
 | Refusal | Couldn't {verb}: {cause}. {Next step}. | Couldn't start: this project has no folder yet. Choose where its files live. |
 | Unknown effect | Not sure it happened. {What to check first}. | Not sure it happened. Check the tasks on the stage before you try again. |
-| Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your Mac. Trying again… |
+| Connection | {What is true}: {plain cause}. {What happens}. | Last known: can't reach your computer. Trying again… |
 | Provenance | From {source} · {when} | From Seorak · 2 min ago |
 | Confirmation | Yes, {verb}, where no control stood a moment before; Cancel where the first press was | Yes, start building · Change; Yes, clear · Cancel |
 | Asking about what shows | {Verb} the {thing} above? | Approve the request above? |

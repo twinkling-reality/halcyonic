@@ -82,13 +82,13 @@ the same definition names, as the JSON Schema document:
   connection that delivers nothing for 30 seconds, because a silently broken network is otherwise
   noticed only by TCP. A control plane that answers the connection with 401 has refused the
   credential, so the session stops trying and its status says `AccessRefused`, with what to do in
-  `ConnectionText`'s words: for the access token (a development build, as over USB) "Your Mac
+  `ConnectionText`'s words: for the access token (a development build, as over USB) "Your computer
   refused this headset's access token: it doesn't match the Mac's. Put the Mac's current access
   token on the headset, then restart the app."; for a pairing, that the Mac no longer accepts it and
   to forget the Mac and pair again. `ClientWebSocket` reports only that it could not connect, so
   after a failed connect `ClientWebSocketTransport` asks the control plane's REST API once with the
   same token to tell a 401 from a Mac that does not answer; the pinned transport reads the status
-  itself. A Mac that does not answer reads "Can't reach your Mac; trying again", with the technical
+  itself. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
   reason after it. In the fifth headset session a stale token read as "Unable to connect to the
   remote server" ([quest-3-device.md](../validation/quest-3-device.md)).
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
@@ -227,7 +227,7 @@ the same definition names, as the JSON Schema document:
   reading, since refusing what one has not read in full can do no harm. Instruct asks for text
   first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
   the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
-  reads "Your Mac heard: ... Send it?" with the text, so a mishearing is never sent unread.
+  reads "Your computer heard: ... Send it?" with the text, so a mishearing is never sent unread.
 - **`SpeechClip`** makes a held clip of speech into what `POST /api/transcriptions` takes (ADR
   0021): the microphone's samples, at its own rate and channels, mixed to mono and resampled to
   16 kHz (the mean of the input each output sample spans going down, a straight line going up),
@@ -296,10 +296,10 @@ the same definition names, as the JSON Schema document:
   Seorak, as the provider reported", or "Simulated, not from Seorak", `Source`), and a note says the
   account is not identified, so no reading is tied to the selected runtime, account or model. Every
   setup problem, a missing credential, one without the scope, a restricted one or no source at all,
-  reads "Usage left isn't set up on your Mac yet. Set it up there to see it here.", said as plainly
+  reads "Usage left isn't set up on your computer yet. Set it up there to see it here.", said as plainly
   as any other answer; the scope details stay in the Mac runbook. Only a failure (`Failed`) is said
   in the failure colour: "Usage left can't be read right now. Try again later.", or "Couldn't reach
-  your Mac. Press Refresh to try again." When the source could read only some limits, the note
+  your computer. Press Refresh to try again." When the source could read only some limits, the note
   starts "Some limits couldn't be read this time." and no missing window is inferred. No reading
   reads "No usage reading yet.", never 0%. While the recorded demonstration plays, the rail offers no
   Usage left at all and an open panel closes; should it ever show then, it says "Usage left isn't
@@ -417,7 +417,7 @@ the same definition names, as the JSON Schema document:
 - **`EntryText`** writes every word of the rail and the entry panel: plain verbs, statuses in
   words, a model's serving place in terms of where the person's code and instructions go, and
   nothing that claims discovery (Connect lists the projects already set up on the Mac). The words
-  follow the glossary: a task, an agent app, your Mac, never a workstream, a runtime or the control
+  follow the glossary: a task, an agent app, your computer, never a workstream, a runtime or the control
   plane.
 - **`PanelModel`** is what one screen of a foreground panel shows, never where (ADR 0023): its
   title and a short context, or, on a panel that stays beside its character, the work's state badge
@@ -772,7 +772,7 @@ scripts use only long-stable core Unity APIs:
   start from the beginning, with its count, and each end it reaches, never what was answered.
 - `CharacterStage` stands the characters on an arc of fixed slots in front of the person and says
   on a banner under their labels, in the ambient strip, whether the state is live ("Connected to
-  your Mac", "Last known: can't reach your Mac. Trying again…"), or, while the demonstration is
+  your computer", "Last known: can't reach your computer. Trying again…"), or, while the demonstration is
   shown, its `DemonstrationLine`, with how many tasks wait for the person while another window has
   focus ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
   The banner steps aside while a foreground panel or the peek is where it goes (`AmbientCover`):
@@ -927,7 +927,7 @@ scripts use only long-stable core Unity APIs:
   drops no confirmation. Every other loss raises `Left`: a confirmation half done is dropped and
   must be given afresh once back (an armed approval, denial, stop or instruction says "You went to
   another window, so nothing was sent. Press it again to confirm."; a review whose final press
-  waited goes back to the recap; a first press on a model elsewhere lapses; Forget this Mac asks
+  waited goes back to the recap; a first press on a model elsewhere lapses; Forget this computer asks
   again), while the runtime's request itself stays pending. Hold to talk (`HoldToTalk`, lane B)
   stops and discards its recording when input is suspended. While panels are folded, the line
   above the stage also counts what needs the person across every project ("2 need you", in the
@@ -1026,7 +1026,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   work, each feature in a section of its own (`SettingsSection`): Your room, with the room's line,
   its switch and offer, and under them, as a part with no heading (`SettingsSheet.Continuation`),
   where the characters stand and a button for each other arrangement; and, in development builds,
-  Your Mac, with pairing. Sections stand 0.75 degrees apart, as a panel's parts do. Their news no
+  Your computer, with pairing. Sections stand 0.75 degrees apart, as a panel's parts do. Their news no
   longer comes up in front of the person: a section's line also shows on the stage's banner as a
   short notice for eight seconds (`CharacterStage.ShowNotice`). It closes when the entry panel or a
   workspace opens and folds while another window keeps focus.
@@ -1111,7 +1111,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     questions, not an AI." The recap (Check your project) shows four facts in two columns, each
     changed by pressing it: the project's name and its first task (Change), where its files live
     (Choose or Change) and how it runs (More options), which says where the work's code and
-    instructions go ("On your Mac") and what that means ("Chosen for you. Change it in More
+    instructions go ("On your computer") and what that means ("Chosen for you. Change it in More
     options.", "It runs on a remote service: your code and instructions go there."). While the
     needs-you banner shows, each fact takes one line and how it runs loses its note, so all four
     still show at once. More options lists the agent apps that can start work, real ones first and a
@@ -1145,7 +1145,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     when the person opens it, never on a timer, and lists them in two columns, a page at a time:
     for each place the Mac allows, a new folder there, the place itself (Directly in Projects), and
     each folder in it; a place not on the Mac now shows, unavailable; a listing cut at 200 folders
-    says so; and no places at all reads "Your Mac doesn't allow any folder yet", pointing to the Mac,
+    says so; and no places at all reads "Your computer doesn't allow any folder yet", pointing to the Mac,
     with Try again. A new folder's name is typed with the system keyboard, offered as one made from
     the project's name, and refused on the headset unless it keeps the host's rule, which the lead
     then says in the failure colour. A folder is needed only when the chosen agent app works in a
@@ -1516,13 +1516,13 @@ the room's and the sound's bootstraps do, so neither the scene nor the stage ref
 release build, such as the one judges run, offers no pairing
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 
-- **The panel** is a button and a line in the Your Mac section of Settings (ADR 0023); the line
+- **The panel** is a button and a line in the Your computer section of Settings (ADR 0023); the line
   shows while something is in progress or for ten seconds after it changed, and the stage's banner
   shows each line as a notice too, for a result reached with the sheet closed. Moving into Settings
   changed only where it shows and how it looks: the code entry, the confirmation and every message
-  are as they were. "Forget this Mac" and its confirmation are outlined in red. The button ignores
+  are as they were. "Forget this computer" and its confirmation are outlined in red. The button ignores
   input while `FocusGuard.InputSuspended` or the sheet is closed.
-- **Pairing.** "Pair with a Mac" opens the system keyboard for the Mac's address, as `pnpm pair`
+- **Pairing.** "Pair with a computer" opens the system keyboard for the Mac's address, as `pnpm pair`
   prints it (the last one typed is offered, and the port may be left out), then the number pad for
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
   left after a wrong code, and a refusal the app does not know, in the words of whatever answered
@@ -1530,8 +1530,8 @@ release build, such as the one judges run, offers no pairing
   is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
   again, so it connects to the paired control plane as at startup.
-- **Forgetting.** Once paired, the button reads "Forget this Mac", and a second, deliberate press
-  within six seconds ("Yes, forget this Mac") asks the Mac to revoke this headset, deletes the
+- **Forgetting.** Once paired, the button reads "Forget this computer", and a second, deliberate press
+  within six seconds ("Yes, forget this computer") asks the Mac to revoke this headset, deletes the
   pairing, and connects again as before pairing. If the Mac cannot be reached, the line says to
   revoke the headset there.
 - **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` in app-internal
@@ -1725,9 +1725,9 @@ instruction; typing always stays:
 - **Where it shows.** On Create a project's start screen, beside Type my idea, with what it is
   doing on a line across the panel under them (`PanelFrame` raises its hold by the action's id); a
   heard idea or task becomes the recap's first task, which says
-  "This is what your Mac heard. Check it before you go on.", and nothing is sent until Start building and
+  "This is what your computer heard. Check it before you go on.", and nothing is sent until Start building and
   the review. In an open workspace, at the end of the action row when the work takes
-  instructions and the row has room; a heard instruction always asks "Your Mac heard: ... Send it?".
+  instructions and the row has room; a heard instruction always asks "Your computer heard: ... Send it?".
   Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
 - **Release builds carry none of it.** The microphone code compiles only with `DEVELOPMENT_BUILD`

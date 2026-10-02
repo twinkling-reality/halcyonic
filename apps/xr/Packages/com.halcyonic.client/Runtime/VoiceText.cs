@@ -12,8 +12,8 @@ namespace Halcyonic.Client
         public const string HoldToTalk = "Hold to talk";
         public const string Listening = "Listening. Let go when you're done.";
         public const string Hearing = "Writing down what you said.";
-        public const string HeardNote = "This is what your Mac heard. Check it before you go on.";
-        public const string HeardAnswer = "This is what your Mac heard. Check it, then press Send answer.";
+        public const string HeardNote = "This is what " + HostText.Your + " heard. Check it before you go on.";
+        public const string HeardAnswer = "This is what " + HostText.Your + " heard. Check it, then press Send answer.";
 
         public const string NothingHeard = "I didn't catch anything. Hold the button while you talk, or type instead.";
         public const string TooShort = "That was too quick. Keep holding while you talk.";
@@ -22,7 +22,7 @@ namespace Halcyonic.Client
         public const string MicrophoneAllowed = "The microphone is allowed. Hold again to talk.";
         public const string NoMicrophone = "There's no microphone Halcyonic can listen with. Type instead.";
         public const string MicrophoneRefused = "Allow the microphone in the headset's settings, or type instead.";
-        public const string Unreachable = "Your Mac can't be reached right now. Type instead, or try again.";
+        public const string Unreachable = HostText.YourStart + " can't be reached right now. Type instead, or try again.";
 
         /// <summary>Every word shown beside hold to talk, for the editor's check that the longest fits.</summary>
         public static readonly string[] Shown =
@@ -33,16 +33,16 @@ namespace Halcyonic.Client
         };
 
         /// <summary>The question before a spoken instruction is sent: what the Mac heard, then whether to send it.</summary>
-        public static string SendHeard(string instruction) => "Your Mac heard: \u201C" + LabelText.Plain(instruction) + "\u201D Send it?";
+        public static string SendHeard(string instruction) => HostText.YourStart + " heard: \u201C" + LabelText.Plain(instruction) + "\u201D Send it?";
 
         /// <summary>Why the Mac turned a clip away, from the control plane's code.</summary>
         public static string Refusal(string? code) => code switch
         {
-            "transcription_unavailable" => "Voice isn't set up on your Mac. Type instead.",
+            "transcription_unavailable" => "Voice isn't set up on " + HostText.Your + ". Type instead.",
             "transcription_busy" => "Still working on your last one. Try again in a moment.",
-            "transcription_busy_on_mac" => "Your Mac is hearing another clip. Try again in a moment.",
+            "transcription_busy_on_mac" => HostText.YourStart + " is hearing another clip. Try again in a moment.",
             "rate_limited" => "Give it a moment, then try again, or type instead.",
-            "transcription_failed" => "Your Mac couldn't turn that into text. Try again, or type instead.",
+            "transcription_failed" => HostText.YourStart + " couldn't turn that into text. Try again, or type instead.",
             "invalid_audio" or "audio_too_short" or "audio_too_long" or "payload_too_large" =>
                 "That recording didn't work. Try again, or type instead.",
             null => Unreachable,

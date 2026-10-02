@@ -313,7 +313,7 @@ workstream.
   this round".
 - The replayed traces show the same states, labeled as recorded, including the failure trace's
   failed, unknown and interrupted characters, each with its reason written out.
-- Stopping the control plane shows "Last known: can't reach your Mac. Trying again…"; restarting it
+- Stopping the control plane shows "Last known: can't reach your computer. Trying again…"; restarting it
   reconnects without restarting Play mode.
 - Everything works with hands only; no controller is needed.
 - Opening the system menu hides the hands and keeps the scene rendering (VRC.Quest.Input.4).
@@ -498,10 +498,10 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 The token survives reinstalls. The control plane logs `realtime client connected` for
 `halcyonic-xr`.
 
-If the line above the stage says "Your Mac refused this headset's access token", the token on the
+If the line above the stage says "Your computer refused this headset's access token", the token on the
 headset is from an earlier data directory or was replaced on the Mac: the control plane answered
 401, and the app stopped trying. Push the current token and start the app again, as above. "Can't
-reach your Mac" instead means nothing answered: check the control plane is running and
+reach your computer" instead means nothing answered: check the control plane is running and
 `adb reverse tcp:47800 tcp:47800` is in place.
 
 - **Run the control plane without `--watch` for a headset session:**
@@ -540,18 +540,18 @@ pnpm pair        # in another terminal: prints the Mac's address and an eight-di
 
 In the headset, with hands only:
 
-1. On the rail under the stage, press **Settings**; in its Your Mac section, pinch or poke **Pair with a Mac**.
+1. On the rail under the stage, press **Settings**; in its Your computer section, pinch or poke **Pair with a computer**.
 2. The system keyboard opens: type the address `pnpm pair` printed, such as `192.168.1.23:47801`,
    and press Enter. The next time, the last address is already there.
 3. The number pad opens: type the eight digits and press Enter.
-4. The line above the button reads "Pairing with ...", then "Paired with the Mac at ... Connecting
+4. The line above the button reads "Pairing with ...", then "Paired with your computer at ... Connecting
    over Wi-Fi.", and the stage connects to the control plane. `pnpm pair` names the headset and
    ends.
 
 The pairing is kept in the app's internal storage and survives restarts and `adb install -r`; it
 takes the place of a pushed access token: with both, the app uses the pairing.
 
-- **Forget:** pinch **Forget this Mac**, then **Yes, forget this Mac** within six seconds. The Mac
+- **Forget:** pinch **Forget this computer**, then **Yes, forget this computer** within six seconds. The Mac
   stops accepting this headset (`pnpm devices` shows it revoked), and the app returns to the pushed
   token, or to the demonstration.
 - **A new address:** if the Mac's address changes, forget it and pair again.
@@ -569,7 +569,7 @@ What the Mac cannot check ([network-pairing.md](../validation/network-pairing.md
 - **Pairing:** the steps above, seated, hands only. Both keyboards appear and can be used with
   hands; the line in Settings and its notice on the banner are readable; Settings does not cover
   the stage. The Mac lists the headset with a readable label (`pnpm devices`).
-- **Live over Wi-Fi:** with the USB cable unplugged, the banner under the stage reads "Connected to your Mac", and
+- **Live over Wi-Fi:** with the USB cable unplugged, the banner under the stage reads "Connected to your computer", and
   `pnpm demo` on the Mac moves the characters. Open a workspace: its activity includes what
   happened before it opened, so REST works over the pinned connection. Approve something: the
   control plane's log shows `realtime client connected` with the device id, and `pnpm devices`
@@ -764,21 +764,21 @@ In the headset:
 1. **Welcome.** Once connected: "Welcome", one line, the Connect projects and Create a project
    cards, and Not now where Close usually is. Running work stays on the stage behind it. Once any of
    them is chosen it does not come back.
-2. **Connect projects.** It says these are the projects already set up on your Mac. Hide the project
+2. **Connect projects.** It says these are the projects already set up on your computer. Hide the project
    whose work waits for approval: its characters leave the stage, its tile and its rail chip read
    "Hidden · 1 waiting", and See other tasks lists that work first in More tasks. Press it there: it
    stands on the stage and opens; collapse it, show the project again.
 3. **Create from a typed idea.** Create a project, Type my idea, type a sentence on the system
    keyboard: the recap names the project from its first words. How it runs, More options: choose the
-   agent app, then the local model; Done; the recap reads "On your Mac". Start building stays
+   agent app, then the local model; Done; the recap reads "On your computer". Start building stays
    unavailable, saying to choose where its files live.
-4. **Choose a new folder.** Where its files live, Choose: the places your Mac allows, each with New
+4. **Choose a new folder.** Where its files live, Choose: the places your computer allows, each with New
    folder, Directly in the place and its folders. New folder, accept the offered name: the recap
    shows "A new folder, ..., in ...".
 5. **The review.** Start building: the whole request in whole words across the panel, the folder
    among it. Press where Start building was: it is Change, so nothing starts. Next to the end; Yes,
    start building, left of Change, unlocks only on the last part.
-6. **Start building.** Each step reads "Sent. Waiting for your Mac…" (the start, "Waiting for the
+6. **Start building.** Each step reads "Sent. Waiting for your computer…" (the start, "Waiting for the
    agent…"), then "Confirmed". A character appears reading Starting, and Working only once the
    runtime confirms; note how long that took. The new folder exists on the Mac, and the work runs
    there.
@@ -796,7 +796,7 @@ In the headset:
    was checked? read whole on their tabs, and What do you need from me? shows only while the approval
    waits. Approve, read the whole request, confirm: the answer counts once the runtime confirms it.
 10. **Usage left.** At the right end of the rail's lower row, Usage left: pressed, it opens a panel
-    at touch distance that says "Usage left isn't set up on your Mac yet. Set it up there to see it
+    at touch distance that says "Usage left isn't set up on your computer yet. Set it up there to see it
     here.", in white, not red, with Close at its top right and Refresh at its bottom right. It steps
     aside when the entry panel or a workspace opens.
 11. **Reset position.** Move steps the panel right, left and back. Turn in the chair and press
@@ -806,7 +806,7 @@ Throughout, note whether the rail sits over a character, its label or a system w
 anything needs leaning in to read, and whether any button pressed did nothing. Afterwards, the cases
 the journey does not reach: Add a task to a project in another folder (the recap says every later
 task uses the new folder, and the review shows the folder now and from now on), and a control plane
-without roots (the choice says your Mac doesn't allow any folder yet).
+without roots (the choice says your computer doesn't allow any folder yet).
 
 ### Hold to talk on a Quest
 
@@ -820,7 +820,7 @@ the virtual space:
    again. Allow it.
 2. **An idea.** Hold, say "A website for my bakery that shows the menu and the opening hours", let
    go: under the button, "Listening", then "Writing down what you said.", then the recap,
-   which says "This is what your Mac heard. Check it before you go on." with the sentence as the first task
+   which says "This is what your computer heard. Check it before you go on." with the sentence as the first task
    and a name from its first words. Nothing has been sent; note how long from letting go to the
    recap.
 3. **A tap and silence.** A tap says it was too quick. Hold a few seconds without speaking:
@@ -828,10 +828,10 @@ the virtual space:
    nothing was sent. Hold, then move the ray off the button while still pinching, and poke and
    pull the finger away: note whether each stops listening, which the editor cannot check.
 4. **An instruction.** Open running work: Hold to talk is at the end of the action row. Say an
-   instruction: the workspace asks "Your Mac heard: ... Send it?" with the words, and
+   instruction: the workspace asks "Your computer heard: ... Send it?" with the words, and
    only Send sends it. Let the 15 seconds lapse once: nothing is sent.
 5. **Without voice.** Stop the control plane, start it without the three `HALCYONIC_WHISPER_`
-   variables, and hold again: "Voice isn't set up on your Mac. Type instead."
+   variables, and hold again: "Voice isn't set up on your computer. Type instead."
 
 Note anything misheard as the person said it, word for word, for the next measurement with real
 voices; never record the clip itself.

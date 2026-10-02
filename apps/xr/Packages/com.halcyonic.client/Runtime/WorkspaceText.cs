@@ -276,12 +276,12 @@ namespace Halcyonic.Client
             var execution = workspace.Execution;
             if (execution == null) return new[] { ("Nothing has run yet.", false) };
             var lines = new List<(string, bool)>();
-            var gone = workspace.Runtime == null ? ", not available on your Mac now." : ".";
+            var gone = workspace.Runtime == null ? ", not available on " + HostText.Your + " now." : ".";
             if (execution.Runtime.Synthetic) lines.Add((EntryText.PracticeRun + gone, false));
             else
             {
                 var name = OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
-                lines.Add(("Agent app: " + name + (workspace.Runtime == null ? gone : ", on your Mac."), true));
+                lines.Add(("Agent app: " + name + (workspace.Runtime == null ? gone : ", on " + HostText.Your + "."), true));
                 lines.Add(execution.ModelRef == null
                     ? ("Model: chosen by the agent app. " + ModelPlaceUnknown + ".", false)
                     : ("Model: " + OneLine(execution.ModelRef) + ". " + ModelPlaceUnknown + ".", true));
@@ -395,9 +395,9 @@ namespace Halcyonic.Client
         public static string? WhyNoActions(WorkspacePresentation workspace)
         {
             if (workspace.Actions.Count > 0) return null;
-            if (workspace.Character.Stale) return "Nothing can be sent until your Mac reconnects.";
+            if (workspace.Character.Stale) return "Nothing can be sent until " + HostText.Your + " reconnects.";
             if (workspace.Execution == null) return "Nothing to send until it starts.";
-            if (workspace.Runtime == null) return "Nothing can be sent: it isn't available on your Mac now.";
+            if (workspace.Runtime == null) return "Nothing can be sent: it isn't available on " + HostText.Your + " now.";
             return workspace.Character.Activity switch
             {
                 CharacterActivity.Starting => "Nothing to send while it starts.",

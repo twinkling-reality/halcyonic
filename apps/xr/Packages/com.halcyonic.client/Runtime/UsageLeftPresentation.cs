@@ -66,7 +66,7 @@ namespace Halcyonic.Client
         /// <summary>The glance's title, and the rail's chip that opens it.</summary>
         public const string Title = "Usage left";
 
-        public const string NotSetUp = "Usage left isn't set up on your Mac yet. Set it up there to see it here.";
+        public const string NotSetUp = "Usage left isn't set up on " + HostText.Your + " yet. Set it up there to see it here.";
         public const string Reading = "Reading usage left…";
 
         /// <summary>Said while the recorded demonstration plays, which has no usage limits.</summary>
@@ -74,7 +74,7 @@ namespace Halcyonic.Client
 
         /// <summary>Said when the source read only some limits; a window not shown is unknown, never zero.</summary>
         public const string Incomplete = "Some limits couldn't be read this time.";
-        public const string Unidentified = "Account not identified: these may come from any account used on your Mac.";
+        public const string Unidentified = "Account not identified: these may come from any account used on " + HostText.Your + ".";
 
         public const string FromSeorak = "From Seorak, as the provider reported";
         public const string Simulated = "Simulated, not from Seorak";
@@ -103,7 +103,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The glance when this device could not reach the control plane at all.</summary>
-        public static UsageLeftPresentation Unreachable() => Failure("Couldn't reach your Mac. Press Refresh to try again.");
+        public static UsageLeftPresentation Unreachable() => Failure("Couldn't reach " + HostText.Your + ". Press Refresh to try again.");
 
         public static UsageLeftPresentation Message(string text) => Quiet(text);
 

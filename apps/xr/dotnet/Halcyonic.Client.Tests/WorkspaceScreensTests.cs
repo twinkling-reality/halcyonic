@@ -225,7 +225,7 @@ public class WorkspaceScreensTests
 
         var away = Screen(new WaitingWork().Present(live: false), steering);
         Assert.That(away.Actions.All, Is.Empty);
-        Assert.That(away.BarNote, Is.EqualTo("Nothing can be sent until your Mac reconnects."));
+        Assert.That(away.BarNote, Is.EqualTo("Nothing can be sent until your computer reconnects."));
         foreach (var action in waiting.All) Assert.That(WorkspaceScreens.ActionOf(action.Id), Is.Not.Null, action.Id);
         Assert.That(WorkspaceScreens.ActionOf(WorkspaceScreens.HoldToTalk), Is.Null);
     }
@@ -423,7 +423,7 @@ public class WorkspaceScreensTests
         Assert.That((details.Heading, details.HeadingAction!.Id, details.HeadingAction.Label), Is.EqualTo(("How is it running?", WorkspaceScreens.ShowLog, "Show the log")));
         Assert.That(details.Rows.Select(row => (row.Title, row.TitleIsData)), Is.EqualTo(new[]
         {
-            ("Agent app: " + work.Present().Runtime!.DisplayName + ", on your Mac.", true),
+            ("Agent app: " + work.Present().Runtime!.DisplayName + ", on your computer.", true),
             ("Model: ollama/qwen3.6. Where it runs isn't known here.", true),
             ("Folder: shop, in HalcyonicProjects.", true),
             ("Started at 09:05 on 2 Oct · Round 2.", false),

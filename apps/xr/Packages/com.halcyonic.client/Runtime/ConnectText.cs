@@ -13,11 +13,11 @@ namespace Halcyonic.Client
     public static class ConnectText
     {
         public const string ConnectFolder = "Connect a folder";
-        public const string FoldersLine = "Folders on your computer that no project uses yet. Connecting one makes a project for it and changes nothing inside it.";
-        public const string NoFreeFolders = "Every folder your computer allows is a project already. To start a new one, create a project.";
+        public const string FoldersLine = "Folders on " + HostText.Your + " that no project uses yet. Connecting one makes a project for it and changes nothing inside it.";
+        public const string NoFreeFolders = "Every folder " + HostText.Your + " allows is a project already. To start a new one, create a project.";
         public const string Connect = "Connect";
-        public const string Connecting = "Sent. Waiting for your computer…";
-        public const string NotConnectedYet = "Couldn't connect: your computer isn't connected. Try again when it is.";
+        public const string Connecting = "Sent. Waiting for " + HostText.Your + "…";
+        public const string NotConnectedYet = "Couldn't connect: " + HostText.Your + " isn't connected. Try again when it is.";
         public const string Gone = "This folder isn't offered any more: a project may use it now, or it moved. Choose another.";
         public const string LooksLikeAnother = "Looks like another folder's name";
 
@@ -37,7 +37,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string Facts(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone)
         {
-            if (folder.Repository == null) return "Your computer can't look inside it";
+            if (folder.Repository == null) return HostText.YourStart + " can't look inside it";
             var changed = folder.ChangedAt == null ? null : "changed " + Ago(folder.ChangedAt.Value, now, zone);
             if (folder.Repository == true) return changed == null ? "Repository" : "Repository · " + changed;
             return changed == null ? "Folder" : char.ToUpperInvariant(changed[0]) + changed.Substring(1);

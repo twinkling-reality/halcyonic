@@ -116,7 +116,7 @@ namespace Halcyonic.Client
             }
             catch (SessionUnavailableException)
             {
-                NotSent(command.CommandId, "your Mac isn't connected. Try again when it is.");
+                NotSent(command.CommandId, HostText.Your + " isn't connected. Try again when it is.");
             }
             catch (Exception error)
             {
@@ -266,7 +266,7 @@ namespace Halcyonic.Client
                         return Local("Couldn't send: " + Reason);
                     case SubmissionState.OutcomeUnknown:
                         // Whether it arrived can't be told, so it is never said to have gone or not.
-                        return Local("Not sure it was sent. If it was, it shows here once your Mac reconnects.");
+                        return Local("Not sure it was sent. If it was, it shows here once " + HostText.Your + " reconnects.");
                 }
                 var ack = Ack!;
                 if (ack.Command != null && ack.Disposition != CommandAckDisposition.Conflict)
@@ -275,7 +275,7 @@ namespace Halcyonic.Client
                 }
                 return ack.Disposition switch
                 {
-                    CommandAckDisposition.Rejected => Local("Couldn't do that: your Mac refused it. Check the task, then try again."),
+                    CommandAckDisposition.Rejected => Local("Couldn't do that: " + HostText.Your + " refused it. Check the task, then try again."),
                     CommandAckDisposition.Conflict => Local("Couldn't do that: it clashed with something sent before. Try again."),
                     CommandAckDisposition.Duplicate => Local("Already sent. Waiting for the agent…"),
                     _ => Local(WorkspacePresenter.Pending(CommandType)),
