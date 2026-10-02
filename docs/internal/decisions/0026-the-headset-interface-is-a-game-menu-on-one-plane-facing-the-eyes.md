@@ -74,13 +74,18 @@ today and, once built, in lane U's renders of every surface:
 1. **One plane, facing the eyes at its centre (checked).** The subject, sections, content and side
    panels of a composition are separate shapes on one flat plane, square to the line of sight at the
    composition's centre (within 0.5 degrees), 0.46 m away, never rolled; no part is angled against
-   another. Parts stand a degree apart on the plane and columns 15 mm apart; the columns start on one
-   line and end on one line. Detail slides out to the right, along the plane.
+   another. Parts stand a degree apart on the plane and columns 15 mm apart; every part of a column
+   takes its width, and the columns start on one line and end on one line, a shorter column's last
+   part reaching down to it. Detail slides out to the right, along the plane, and the whole plane
+   re-centres as one piece, eased over a short slide: what was there shifts left by half the new
+   part's width, so what was pressed travels least.
 2. **Text as the eyes see it (checked).** Each label's em is measured from the eyes, slant included,
    and no text reads under Meta's 14 dp (`Glaze.MinimumTextDegrees`). A flat plane loses size away
    from its centre, to 84 percent at the far corners of a menu and file side by side, so the smallest
    size, 15 dp, is only for small facts inside a row, and prompts are 18 dp. An upright plane stays in
-   the renders as the case this check must catch.
+   the renders as the case this check must catch. The stage's labels are held to it too: on a desk,
+   where the eyes look down on them, they lean back to face the eyes; standing upright there, their
+   badge words read at 64 percent (lane U's inventory of today's renders, 2026-10-02).
 3. **One selection treatment (checked).** Chosen, a shape lights up, white at 10 percent, and gains a
    crisp white frame; pointed at, it gains the frame alone, fainter. Places, sections, rows, answers
    and prompts all use it. Nothing is marked by an underline or a bar, and the accent marks only the
@@ -139,6 +144,10 @@ today and, once built, in lane U's renders of every surface:
   text as the eyes see it.
 - **An upright plane raised to near eye level**, where the slant costs under 7 percent within 15
   degrees. The stage would have to step up or back whenever a menu opens.
+- **A plane that stays where it was while a side panel slides out.** Rendered on 2026-10-02 for the
+  menu and a file: it ends off square to the person, the file's far text reads under 14 dp (the main
+  prompt at 73 percent), a corner falls past a Quest 3S's field, and the file's top runs into a
+  character's label.
 - **One gentle common curve**, which the owner allowed. It keeps text at the sides at its size, but
   its columns turn against each other; not needed while a composition stays within about 64 degrees.
 - **Prompts at 15 dp**, the size of facts. At the far corners of a menu and file side by side they
@@ -156,9 +165,12 @@ today and, once built, in lane U's renders of every surface:
   file alone, 38 by 24 degrees, reaches 40. Whether the low edge is comfortable is judged on the
   headset, beside the open question on panels taller than 26 degrees
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); if not, a menu shows 3 rows a page.
-- Larger text, 15 percent, must still fit: each surface keeps about 15 percent spare, and a
-  composition is checked inside a Quest 3S's field at both sizes, read with the head tipped
-  (`WorkspacePlacement.ReadingPitch`, at most 8 degrees) when it is taller than designed.
+- A Quest 3S's field holds the menu and a file at today's text size, as `FieldChecks` sees it with the
+  head turned to the composition and tipped 8 degrees (`WorkspacePlacement.ReadingPitch`): the
+  lowest point 41.8 degrees below the view's middle, of 43.5, and the widest 39.0 to the side, of
+  46.5. Larger text, 15 percent, would take the lowest point to about 46.7 by calculation, 3 degrees
+  past, so with larger text Tasks shows 3 rows a page (about 41.5); lane U's renders at both sizes
+  confirm it.
 - Contrast at 96 percent is calculated, not measured: over a white wall, as in passthrough, secondary
   text keeps 4.8:1 (`GlazeChecks.Over`). The contrast check composites every surface over white, and
   the opacity rises or the secondary colour lightens wherever text falls short.
@@ -166,7 +178,10 @@ today and, once built, in lane U's renders of every surface:
   for each column before batching; the separate shapes share one material in the product. The
   budgets are 60 a surface and 220 a scene.
 - The renders' new checks move into lane U's `GlazeChecks` for every surface: text as the eyes see
-  it, one plane facing the eyes, aligned columns and one selection treatment.
+  it, one plane facing the eyes, aligned columns and one selection treatment. Today's renders list
+  what reads under 14 dp as seen without failing on it: the labels on a desk, and captions near the
+  corners of Settings and the entry panel's Guide, both being replaced.
+- The stage's labels, upright since ADR 0023, lean back on a desk to face the eyes.
 - Without Move in the footer, moving the plane rests on holding a file's subject, and Reset position
   on Settings; both are on the headset checklist.
 - Not yet checked on a headset: reading at 0.46 m, the low edge at 50 degrees, the glass in
