@@ -224,6 +224,15 @@ from the eyes looking at it, square to that line, as the headset draws what a pe
   perpendicular distance, which is exact only where the surface faces the eyes. The level renders
   keep their image plane upright, as architecture is photographed, so an upright plane stays a
   rectangle in them and its low parts look larger than the eyes see them.
+- **A side panel sliding out.** The menu alone, facing the eyes, holds 32 by 32 degrees from 16.5 to
+  48.6 below eye level. When the file slides out and the plane stays where the menu put it, the
+  composition ends off square, the file's far text reads under 14 dp (its main prompt at 73
+  percent), a corner falls past a Quest 3S's field, and the file's top comes within -0.3 degrees of a
+  character's label. Re-centred as one plane, the same composition passes every check.
+- **A Quest 3S's field, as the product checks it.** `FieldChecks` turns the head to the composition
+  and tips it only by `WorkspacePlacement.ReadingPitch`, at most 8 degrees; the earlier renders had
+  allowed 18. So checked, the menu and a file reach 41.8 degrees below the view's middle, of the 43.5
+  the field holds less its margin, and 39.0 to the side, of 46.5; a file alone 37.7 and 23.8.
 
 ## Patterns these share
 
