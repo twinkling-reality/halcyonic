@@ -88,8 +88,10 @@ today and, once built, in lane U's renders of every surface:
 4. **Type only steps down (checked).** Three sizes on the menu's surfaces: Title, 24 dp, drawn light,
    for the subject, one a column; Body, 18 dp, for the sections, the content and the prompts; Label,
    15 dp, for small facts inside a row and the names of facts in a side panel. From the top of a
-   column to its bottom, size never grows again, so a page's source line stands last on the page, at
-   Body in the secondary colour. Only the chosen section and the main action are drawn heavier.
+   column to its bottom, size never grows again, so a page's source line, one a page, stands last on
+   the page, at Body in the secondary colour, and a detail under a part, as each Seorak part's
+   availability, coverage and freshness, is a small fact in the part's own row or a Body line in the
+   secondary colour. Only the chosen section and the main action are drawn heavier.
 5. **One grid.** An 8 dp step: 24 dp padding, 16 dp between groups, 8 dp from a label to its value.
    Words and icons start on one left content line, small facts and chevrons end on the right one, and
    icons stand in a fixed 24 dp column. A shape round words, as an answer or a well, reaches 0.7
