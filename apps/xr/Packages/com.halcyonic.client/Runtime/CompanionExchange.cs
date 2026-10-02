@@ -31,6 +31,15 @@ namespace Halcyonic.Client
         /// <summary>Room kept for the reply that follows the person's words, so a recap can still be asked for after it.</summary>
         public const int ReplyRoom = 2500;
 
+        /// <summary>
+        /// The most UTF-8 bytes the exchange holds, with room for a reply: the computer refuses an exchange
+        /// that could pass its model's context at two bytes a token, after its own instructions.
+        /// </summary>
+        public const int ByteLimit = 26000;
+
+        /// <summary>Bytes kept for the reply that follows the person's words.</summary>
+        public const int ReplyBytes = 5000;
+
         /// <summary>The questions the companion asks before it only proposes, unless the Mac said otherwise.</summary>
         public const int DefaultMaxQuestions = 4;
 
@@ -39,6 +48,7 @@ namespace Halcyonic.Client
 
         private readonly List<CompanionExchangeTurn> turns = new List<CompanionExchangeTurn>();
         private int characters;
+        private int bytes;
 
         public CompanionExchange(CompanionStart start, int maxQuestions = DefaultMaxQuestions)
         {
@@ -102,8 +112,11 @@ namespace Halcyonic.Client
             var words = (text ?? "").Trim();
             if (words.Length == 0 || words.Length > PersonLimit || !CanSay) return false;
             if (characters + words.Length + ReplyRoom > CharacterLimit) return false;
+            var size = Utf8(words);
+            if (bytes + size + ReplyBytes > ByteLimit) return false;
             turns.Add(new PersonTurn { Text = words });
             characters += words.Length;
+            bytes += size;
             Failure = null;
             Left = false;
             return true;
@@ -153,6 +166,7 @@ namespace Halcyonic.Client
             Model = response.Companion.Name;
             turns.Add(new CompanionTurn { Reply = response.Reply });
             characters += Measure(response.Reply);
+            bytes += Utf8(HalcyonicJson.Serialize(response.Reply));
             return true;
         }
 
@@ -197,9 +211,11 @@ namespace Halcyonic.Client
                     if (exchange.turns.Count + 1 > MaxMessages + (proposes ? 1 : 0)) break;
                     if (!WithinBounds(companion.Reply)) break;
                     var size = Measure(companion.Reply);
-                    if (exchange.characters + size > CharacterLimit) break;
+                    var replyBytes = Utf8(HalcyonicJson.Serialize(companion.Reply));
+                    if (exchange.characters + size > CharacterLimit || exchange.bytes + replyBytes > ByteLimit) break;
                     exchange.turns.Add(new CompanionTurn { Reply = companion.Reply });
                     exchange.characters += size;
+                    exchange.bytes += replyBytes;
                     if (proposes) break;
                 }
                 else break;
@@ -237,6 +253,8 @@ namespace Halcyonic.Client
             Newtonsoft.Json.JsonException _ => "companion_unreadable",
             _ => "companion_failed",
         };
+
+        private static int Utf8(string text) => System.Text.Encoding.UTF8.GetByteCount(text);
 
         /// <summary>A reply's size as the Mac counts it: its JSON.</summary>
         private static int Measure(CompanionReply reply) => HalcyonicJson.Serialize(reply).Length;

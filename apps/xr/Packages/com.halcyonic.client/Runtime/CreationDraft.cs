@@ -344,7 +344,7 @@ namespace Halcyonic.Client
             var others = before.Where(draft => draft.JournalId != journalId && !draft.ExpiredAt(at));
             var all = others.Concat(mine).ToList();
             // Compared without the times, so an unchanged draft is not written again.
-            var shape = JsonConvert.SerializeObject(all.Select(draft => (draft.JournalId, draft.Place, Content: Content(draft))), HalcyonicJson.Tolerant);
+            var shape = JsonConvert.SerializeObject(all.Select(draft => (draft.JournalId, draft.Place, draft.RuntimeId, draft.ModelRef, Content: Content(draft))), HalcyonicJson.Tolerant);
             if (shape == lastWritten) return false;
             store.Save(all);
             kept = all;
@@ -352,12 +352,18 @@ namespace Halcyonic.Client
             return true;
         }
 
+        /// <summary>
+        /// A draft's own content: without when it changed, and without the agent app and model, which
+        /// every draft shares, so choosing them is no change to any one draft.
+        /// </summary>
         private static string Content(CreationDraft draft)
         {
-            var changedAt = draft.ChangedAt;
+            var (changedAt, runtime, model) = (draft.ChangedAt, draft.RuntimeId, draft.ModelRef);
             draft.ChangedAt = default;
+            draft.RuntimeId = null;
+            draft.ModelRef = null;
             var content = JsonConvert.SerializeObject(draft, HalcyonicJson.Tolerant);
-            draft.ChangedAt = changedAt;
+            (draft.ChangedAt, draft.RuntimeId, draft.ModelRef) = (changedAt, runtime, model);
             return content;
         }
     }
