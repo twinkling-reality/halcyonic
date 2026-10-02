@@ -102,6 +102,19 @@ public class AccessTokenFileTests
     }
 
     [Test]
+    public void ALinkAtTheOldPlaceIsRemovedAndNeverFollowed()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var elsewhere = Path.Combine(directory, "halcyonic-pairing.json");
+        File.WriteAllText(elsewhere, "{\"credential\":\"secret\"}");
+        File.CreateSymbolicLink(legacy, elsewhere);
+        Assert.That(AccessTokenFile.Migrate(legacy, private_, OwnerOnly), Is.EqualTo(AccessTokenMigration.RemovedUnusableCopy));
+        Assert.That(File.Exists(private_), Is.False, "nothing it pointed to was copied");
+        Assert.That(File.Exists(legacy), Is.False, "the link is gone");
+        Assert.That(File.ReadAllText(elsewhere), Does.Contain("secret"), "what it pointed to is untouched");
+    }
+
+    [Test]
     public void AHalfMadeFileIsRemovedWhenTheMoveCannotFinish()
     {
         File.WriteAllText(legacy, "the-token\n");

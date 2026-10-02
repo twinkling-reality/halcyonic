@@ -23,7 +23,7 @@ namespace Halcyonic.Client
         /// <summary>App-private storage already held a token, so the copy in shared storage was removed.</summary>
         RemovedStaleCopy,
 
-        /// <summary>It was empty, or too large to be a token, and was removed.</summary>
+        /// <summary>It was empty, too large to be a token, or a link, and was removed without being followed.</summary>
         RemovedUnusableCopy,
     }
 
@@ -54,6 +54,12 @@ namespace Halcyonic.Client
                 return AccessTokenMigration.NothingToMove;
             }
             if (!File.Exists(legacyPath)) return AccessTokenMigration.NothingToMove;
+            // A link could lead anywhere, such as to the pairing: only the link itself is removed.
+            if ((File.GetAttributes(legacyPath) & FileAttributes.ReparsePoint) != 0)
+            {
+                File.Delete(legacyPath);
+                return AccessTokenMigration.RemovedUnusableCopy;
+            }
             if (File.Exists(privatePath))
             {
                 var kept = File.ReadAllText(privatePath);

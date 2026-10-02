@@ -490,7 +490,7 @@ into a chat or a command line that a log keeps.
    judges' accounts or share the channel's invite link as the competition asks.
 
 Once the release APK carries the owner's key, the headset needs an uninstall before installing it
-over a debug-signed build, and the uninstall deletes the pushed access token.
+over a debug-signed build, and the uninstall deletes the access token written to the headset.
 
 ### One-time headset setup
 
@@ -542,7 +542,8 @@ bytes, and never shows what is in it. It should survive `adb install -r`. Develo
 this kept the token on shared storage, in `/sdcard/Android/data/com.halcyonic.xr/files`; a
 development build that finds a token there moves it into private storage at its next start, before
 it reads a pairing, and removes it from shared storage (`Halcyonic: moved the access token ...` in
-the log). It reads that place only to move a token in, and a release build never reads it. A token
+the log). It reads that place only to move a token in; a release build removes a token it finds
+there without reading it. A token
 that sat on shared storage stays valid on the Mac; if the headset was ever plugged into another
 computer that could browse its files, replace it: stop the control plane, delete
 `~/.halcyonic/access-token`, start it again, and write the new token as above. The control plane
@@ -603,10 +604,10 @@ In the headset, with hands only:
    ends.
 
 The pairing is kept in the app's internal storage and survives restarts and `adb install -r`; it
-takes the place of a pushed access token: with both, the app uses the pairing.
+takes the place of an access token written to the headset: with both, the app uses the pairing.
 
 - **Forget:** pinch **Forget this computer**, then **Yes, forget this computer** within six seconds. The Mac
-  stops accepting this headset (`pnpm devices` shows it revoked), and the app returns to the pushed
+  stops accepting this headset (`pnpm devices` shows it revoked), and the app returns to the access
   token, or to the demonstration.
 - **A new address:** if the Mac's address changes, forget it and pair again.
 - **Logs:** `adb logcat -s Unity | grep --line-buffered "Halcyonic: \(pairing\|paired\|forgot\|connecting over\|connection\)"`
@@ -953,7 +954,7 @@ are set up and rooms that are not. Sit at a desk, hands only. Follow the placeme
 adb logcat -s Unity | grep --line-buffered "Halcyonic: room"
 ```
 
-To see the first launch again, clear the app's data, which also deletes the pushed access token,
+To see the first launch again, clear the app's data, which also deletes the access token written to the headset,
 the app's record of a declined room access and every remembered placement (anchors it saved stay
 on the headset, unused), and revoke the spatial data permission, which clearing the data may leave
 granted:

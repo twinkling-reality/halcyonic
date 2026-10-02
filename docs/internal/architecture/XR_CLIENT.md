@@ -1683,7 +1683,8 @@ release build, such as the one judges run, offers no pairing
   persistent data directory elsewhere. A development build that finds a token an earlier build kept
   on shared storage moves it in at startup, before it reads a pairing, the new file made mode 600
   before the token is written, and removes the shared copy (`AccessTokenFile` in the client core); it
-  reads shared storage only to move a token in, and a release build never reads it. A pairing takes
+  reads shared storage only to move a token in, and a release build removes one it finds there
+  without reading it. A pairing takes
   the place of the access token; forgetting it returns to the token.
 - **Logs.** `Halcyonic: pairing with the control plane at <address>`, `paired; connecting over the
   network`, `pairing refused: <code>` and whether forgetting revoked the headset on the Mac, never
@@ -1901,5 +1902,5 @@ start; the soundbook's softer repeat of "Waiting for you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
 the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
 and keeping the credential under an Android Keystore key. On a Quest, the control plane is
-reachable over USB with `adb reverse tcp:47800 tcp:47800` and the pushed token, or over Wi-Fi once
+reachable over USB with `adb reverse tcp:47800 tcp:47800` and the access token written to it, or over Wi-Fi once
 paired ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)).
