@@ -45,8 +45,8 @@ namespace Halcyonic.XR.Editor
         /// <summary>
         /// Builds without the development option, with DevAgentSettings.asset moved out of Resources
         /// and the version code from <see cref="ReleaseVersionCode.Variable"/> when it is set, then
-        /// checks the APK for Meta's development tools and the microphone permission, and deletes it
-        /// if either remains.
+        /// checks the APK for Meta's development tools, the microphone permission, the glance spike and
+        /// the Glasses device identifier, and deletes it if any remains.
         /// </summary>
         [MenuItem("Halcyonic/Build Quest Release APK")]
         public static void BuildReleaseApk()
@@ -85,6 +85,13 @@ namespace Halcyonic.XR.Editor
                     Fail($"Halcyonic: deleted {ReleaseApkPath}, which asks for {MicrophonePermission}: only development builds may use the microphone (ADR 0021).");
                     return;
                 }
+                var glance = GlanceInDevelopmentBuilds.FindIn(ReleaseApkPath);
+                if (glance.Count > 0)
+                {
+                    File.Delete(ReleaseApkPath);
+                    Fail($"Halcyonic: deleted {ReleaseApkPath}, which carries the glance spike, for development builds only: {string.Join("; ", glance)}.");
+                    return;
+                }
                 if (MetaDevelopmentTools.ManifestAsks(ReleaseApkPath, GlassesDevice))
                 {
                     File.Delete(ReleaseApkPath);
@@ -99,14 +106,23 @@ namespace Halcyonic.XR.Editor
         {
             // An APK, not an app bundle: adb installs APKs, and the Horizon Store takes APKs.
             EditorUserBuildSettings.buildAppBundle = false;
-            return BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            // The glance spike goes only into development builds made here (GlanceInDevelopmentBuilds).
+            GlanceInDevelopmentBuilds.Include = (options & BuildOptions.Development) != 0;
+            try
             {
-                scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
-                locationPathName = apkPath,
-                target = BuildTarget.Android,
-                targetGroup = BuildTargetGroup.Android,
-                options = options,
-            });
+                return BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                {
+                    scenes = EditorBuildSettings.scenes.Where(scene => scene.enabled).Select(scene => scene.path).ToArray(),
+                    locationPathName = apkPath,
+                    target = BuildTarget.Android,
+                    targetGroup = BuildTargetGroup.Android,
+                    options = options,
+                });
+            }
+            finally
+            {
+                GlanceInDevelopmentBuilds.Include = false;
+            }
         }
 
         private static void Finish(BuildSummary summary)
