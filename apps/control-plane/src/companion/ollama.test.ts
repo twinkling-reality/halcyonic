@@ -87,6 +87,17 @@ describe('one chat reply', () => {
     assert.deepEqual(ollama.paths, ['POST /api/chat']);
   });
 
+  test('asks for the schema when given one, and says when the engine cannot keep to it', async (t) => {
+    const ollama = await fake(t);
+    ollama.answer({ content: '{}' });
+    const schema = { type: 'object' };
+    assert.equal((await chat(request(ollama.url, { format: schema }))).kind, 'answered');
+    assert.deepEqual(ollama.requests[0]?.format, schema);
+    ollama.refuseFormat();
+    const refused = await chat(request(ollama.url, { format: schema }));
+    assert.equal(refused.kind === 'failed' && refused.reason, 'format_unavailable');
+  });
+
   test('closes the request when the first line is late, which stops the model', async (t) => {
     const ollama = await fake(t);
     ollama.answer({ content: 'late', firstLineAfterMs: 1_000 });
