@@ -148,11 +148,13 @@ restored, in `apps/xr/Builds/AmbientRenders`. It logs, for each arrangement, how
 bodies and labels the plate covers and how far out the outermost label reaches, and how far below
 eye level the banner hangs beside a window. It fails if turning the lineup aside uncovers no one;
 if beside a window the plate covers any body or label, a body or label comes within a degree of
-the window's lane or of another character's, a title shows, or the banner reaches into the lane,
+the window's lane or of another character's, a whole title shows or a short one is missing, takes
+more than one line or is wider than 10.5 degrees, or the banner reaches into the lane,
 sits under the window or a label, cuts its words short or takes a press; if a folded panel still
 shows, or the banner would not name it as still open; or if a restored panel differs by a pixel
-from before it folded. The plate is not a real window: only the headset shows what a real one
-covers.
+from before it folded. Beside a window it names in the log any two short titles cut to the same
+words, as the render's own two do. The plate is not a real window: only the headset shows what a
+real one covers.
 
 The Usage left glance renders the same way, **Halcyonic > Render Usage Left Over the Stage**, or in
 batch mode:
@@ -1075,7 +1077,7 @@ For each step write down what you saw and how it felt, in
    the lineup turns 32 degrees right, the outermost label about 67 degrees from straight ahead. Is
    turning your head that far comfortable? Count again. Then press Either side of a window: four
    characters, two each side of the window at 32 degrees, one just above eye level and one below,
-   badges without titles. Count again. Can you tell the tasks apart before peeking? Did the window
+   badges with one short line of title. Count again. Can you tell the tasks apart before peeking? Did the window
    really sit where Halcyonic assumed, straight ahead? Then Characters in front. Record the three
    counts and which arrangement you would keep.
 4. **Watching beside the characters (2 minutes).** With the workspace open, select the video. Three

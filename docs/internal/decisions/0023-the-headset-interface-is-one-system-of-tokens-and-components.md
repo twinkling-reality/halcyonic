@@ -65,7 +65,9 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   a confirmation is armed. The same day the run line found its place: Show details beside What is
   it doing? turns it to How is it running?, the agent app, the model, the folder, when it started
   and the round, its button running beside the heading's words rather than taking a row; and, as the
-  owner chose, a question screen offers one Hold to talk, the one beside the answers.)
+  owner chose, a question screen offers one Hold to talk, the one beside the answers. Beside a
+  window, where titles had hidden, the title shows as one short line under the badge, cut to 10.5
+  degrees, so the tasks can be told apart.)
 - **Words and decisions stay in the client core.** A state language maps every work state to a
   word, a tone, an icon, an edge and a motion, so no state is told by colour alone; an action set
   admits one primary, two secondary, one destructive and an overflow, and nothing more;

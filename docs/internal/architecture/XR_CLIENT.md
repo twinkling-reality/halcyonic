@@ -1023,7 +1023,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   most four characters stand either side of a window lane straight ahead (24 degrees to each side
   and 14 above and below eye level), two on each side at 32 degrees: one 4 degrees above eye level,
   one 15 below, which leaves a lower character room to rise without reaching the badge above it.
-  Their labels show only the badge and the Practice, Demo or Recorded mark, no title. The lineup has
+  Their labels show the badge, the title in one short line on a plate of its own, cut with an
+  ellipsis to the widest plate's 10.5 degrees so the tasks can be told apart (the owner's
+  coordinator chose this on 2026-10-02 over project initials, which can't tell two tasks of one
+  project apart, and the character's hue, which the body above already shows), and the Practice,
+  Demo or Recorded mark. The lineup has
   four slots then (`CharacterLineup.WithCapacity`, which keeps what it knew, kept and was asked
   for), and fills its middle two first, so what waits for the person stands in the upper places;
   work with no character waits in the rail's See other tasks. The spec's 28 and 37 degrees at eye
@@ -1038,7 +1042,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   arrangement reduces overlap and guarantees nothing: with a window of 1.4 by 0.79 m at 1.6 m
   straight ahead, the render (`AmbientRender`) counts it covering 4 of 6 characters' bodies and 4 of
   their labels in front, 2 bodies and 3 labels aside, and none beside a window, whose outermost
-  label reaches 37 degrees.
+  label reaches 37.5 degrees (37.0 before the short titles).
 - **Entry panel:** `EntryPanel`, the one foreground panel for entering work. Each screen is a
   `PanelModel` from `EntryScreens`, drawn by a `PanelFrame` 0.46 m from the eyes, 44 by 26 degrees
   (ADR 0023), opened where a foreground panel goes, clear of every character and its label
