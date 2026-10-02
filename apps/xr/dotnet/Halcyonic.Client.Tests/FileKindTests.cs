@@ -46,12 +46,14 @@ public class FileKindTests
     [Test]
     public void ANameItDoesNotKnowReadsAsADocument()
     {
-        foreach (var path in new[] { "notes.weird", "data.unknownext", ".gitignore", ".env.example.bak", "", null })
+        foreach (var path in new[] { "notes.weird", "data.unknownext", ".gitignore", ".bashrc", ".env.example.bak", "", null })
         {
             Assert.That(FileKinds.Of(path), Is.EqualTo(FileKind.Document), path ?? "null");
         }
-        Assert.That(FileKinds.Of(".env"), Is.EqualTo(FileKind.Document), "a dot file without another dot has no extension");
-        Assert.That(FileKinds.Of("config/.env"), Is.EqualTo(FileKind.Document));
+        Assert.That(FileKinds.Of(".env"), Is.EqualTo(FileKind.Data), "a name that starts with a dot is read by what follows it");
+        Assert.That(FileKinds.Of("config/.env"), Is.EqualTo(FileKind.Data));
+        Assert.That(FileKinds.Of(".eslintrc.json"), Is.EqualTo(FileKind.Data));
+        Assert.That(FileKinds.Of("src/.hidden.ts"), Is.EqualTo(FileKind.Code));
         Assert.That(FileKinds.Of("PACKAGE.JSON"), Is.EqualTo(FileKind.Package), "names are compared without case");
         Assert.That(FileKinds.Of("Photo.JPEG"), Is.EqualTo(FileKind.Image));
     }

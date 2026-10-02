@@ -51,6 +51,11 @@ namespace Halcyonic.Client
             var slash = plain.LastIndexOf('/');
             var name = (slash < 0 ? plain : plain.Substring(slash + 1)).ToLowerInvariant();
             if (Packages.Contains(name)) return FileKind.Package;
+            // A name that starts with a dot is read by what follows it: .env as env, .eslintrc.json as json.
+            if (name.Length > 1 && name[0] == '.' && name.IndexOf('.', 1) < 0)
+            {
+                return Extensions.TryGetValue(name.Substring(1), out var dotted) ? dotted : FileKind.Document;
+            }
             var dot = name.LastIndexOf('.');
             if (dot <= 0) return Bare.Contains(name) ? FileKind.Script : FileKind.Document;
             var extension = name.Substring(dot + 1);
