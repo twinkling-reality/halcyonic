@@ -181,6 +181,35 @@ describe('REST', () => {
     assert.deepEqual(authorizations, [undefined], 'only the health check, with no token');
   });
 
+  test('a request carrying the token follows no redirect, which no proof would precede', async (t) => {
+    // A server that holds the token, proves it, then redirects the request elsewhere on its origin.
+    const token = 'b'.repeat(43);
+    const leaked: (string | undefined)[] = [];
+    const redirecting = createServer((request, response) => {
+      const challenge = request.headers[PROOF_CHALLENGE_HEADER];
+      if (request.url === '/api/health' && typeof challenge === 'string') {
+        const reached = proofAddress(
+          request.socket.localAddress ?? '',
+          request.socket.localPort ?? 0,
+        );
+        response.writeHead(200, { [PROOF_HEADER]: loopbackProof(token, reached, challenge) });
+        response.end('{"status":"ok"}');
+      } else if (request.url === '/api/snapshot') {
+        response.writeHead(302, { location: '/elsewhere' });
+        response.end();
+      } else {
+        leaked.push(request.headers.authorization);
+        response.writeHead(200);
+        response.end('{}');
+      }
+    });
+    await new Promise<void>((resolve) => redirecting.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise<void>((resolve) => redirecting.close(() => resolve())));
+    const base = `http://127.0.0.1:${(redirecting.address() as AddressInfo).port}`;
+    await assert.rejects(fetchWithProof(fetch, base, token, '/api/snapshot'));
+    assert.deepEqual(leaked, [], 'nothing was asked of the redirect target');
+  });
+
   test('a loopback client dials addresses, never a name another listener could answer to', () => {
     assert.deepEqual(loopbackBases('localhost', 47800), [
       'http://127.0.0.1:47800',

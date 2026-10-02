@@ -1223,6 +1223,8 @@ class MacSetup {
     try {
       const response = await this.#io.fetch(`${base}${path}`, {
         headers: token === null ? {} : { authorization: `Bearer ${token}` },
+        // A redirect would carry the token on without a proof before it.
+        redirect: 'error',
         signal: AbortSignal.timeout(3000),
       });
       const text = await response.text();

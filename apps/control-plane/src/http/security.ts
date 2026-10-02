@@ -160,6 +160,7 @@ export async function serverProvesToken(
   try {
     response = await fetchImpl(`${base}/api/health`, {
       headers: { [PROOF_CHALLENGE_HEADER]: challenge },
+      redirect: 'error',
       signal: AbortSignal.timeout(3000),
     });
     await response.arrayBuffer();
@@ -208,7 +209,7 @@ export class TokenNotSent extends Error {
 /**
  * A request that carries the token, sent only after the server at `base` proves again, just
  * before, that it holds it: a control plane that stopped since an earlier proof, and whatever took
- * its port, gets no token. Throws `TokenNotSent` instead of sending it.
+ * its port, gets no token. It follows no redirect. Throws `TokenNotSent` instead of sending it.
  */
 export async function fetchWithProof(
   fetchImpl: typeof fetch,
@@ -221,5 +222,6 @@ export async function fetchWithProof(
   if (proof !== 'proved') throw new TokenNotSent(proof, base);
   const headers = new Headers(init.headers);
   headers.set('authorization', `Bearer ${token}`);
-  return fetchImpl(`${base}${path}`, { ...init, headers });
+  // fetch keeps the authorization header on a same-origin redirect, which no proof would precede.
+  return fetchImpl(`${base}${path}`, { ...init, headers, redirect: 'error' });
 }
