@@ -9,6 +9,7 @@ import {
   validateContractEntry,
   validateDiscovery,
   validateError,
+  validateProviders,
   type WireContractEntry,
   type WireDiscovery,
 } from './wire.ts';
@@ -16,8 +17,12 @@ import {
 export interface SalidiumOptions {
   /** Salidium's state directory, where it publishes `consumer.json`. See `defaultSalidiumHome`. */
   readonly home: string;
-  /** The consumer credential the person created for Halcyonic, or null when none is configured. */
-  readonly credential: string | null;
+  /**
+   * The consumer credential the person created for Halcyonic, or null when none is configured; or
+   * a function that reads it, called only once a request will carry it, which may say why there
+   * is none instead.
+   */
+  readonly credential: string | null | (() => string | UnderstandingFailure);
   /** How long one request may take, in milliseconds. Defaults to 5000. */
   readonly timeoutMs?: number;
 }
@@ -69,6 +74,33 @@ export interface Discovered {
 /** A Salidium daemon that proved it wrote the discovery file this client read. */
 export interface Instance extends Discovered {
   readonly origin: string;
+  /**
+   * The providers this instance says it observes now, or null when it does not say: a daemon of
+   * contract 1.0, or a document without the list.
+   */
+  readonly providers: ReadonlySet<string> | null;
+}
+
+/**
+ * The providers a verified discovery document declares, read only beside a major 1 entry of minor 1
+ * or later, as the contract adds them there; null when it declares none.
+ */
+export function declaredProviders(
+  discovered: Discovered,
+): ReadonlySet<string> | null | Failure<'incompatible'> {
+  if (discovered.contract.minor < 1) return null;
+  const listed = (discovered.discovery as { providers?: unknown }).providers;
+  if (listed === undefined) return null;
+  const providers = validateProviders(listed);
+  if (!providers.ok)
+    return invalid(
+      'discovery document',
+      providers.issues.map((issue) => ({
+        path: `/providers${issue.path === '/' ? '' : issue.path}`,
+        message: issue.message,
+      })),
+    );
+  return new Set(providers.value.map((provider) => provider.id));
 }
 
 /**
@@ -252,5 +284,7 @@ export async function connect(
   const served = readDiscovery(reply.body, 'discovery document');
   if (isFailure(served) || served.discovery.instanceId !== file.discovery.instanceId)
     return mismatch;
-  return { origin, ...served };
+  const providers = declaredProviders(served);
+  if (providers !== null && isFailure(providers)) return providers;
+  return { origin, ...served, providers };
 }

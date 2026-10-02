@@ -1,11 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
-import {
-  defaultSalidiumHome,
-  SalidiumClient,
-  salidiumProviderFor,
-} from '@halcyonic/integration-salidium';
+import { defaultSalidiumHome, SalidiumClient } from '@halcyonic/integration-salidium';
 
 /** The file in the control plane's data directory that holds the Salidium consumer credential. */
 export const SALIDIUM_CREDENTIAL_FILE = 'salidium-credential';
@@ -26,26 +22,18 @@ export interface SalidiumUnderstandingOptions {
 }
 
 /**
- * Salidium as the understanding source. The credential file is read on every request, so creating,
- * replacing or deleting it takes effect without a restart, and a file other users can read is
- * refused rather than used.
+ * Salidium as the understanding source. The credential file is read on every request that will
+ * carry it, so creating, replacing or deleting it takes effect without a restart, a file other
+ * users can read is refused rather than used, and sessions Salidium does not observe need no
+ * credential to say so.
  */
 export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): UnderstandingSource {
   return {
-    async understand(runtimeKind, nativeId) {
-      // Sessions Salidium never observes need no credential to say so.
-      if (salidiumProviderFor(runtimeKind) === null) {
-        return new SalidiumClient({ home: options.home, credential: null }).understand(
-          runtimeKind,
-          nativeId,
-        );
-      }
-      const credential = readCredential(options.credentialPath);
-      if (typeof credential !== 'string') return credential;
-      return new SalidiumClient({ home: options.home, credential }).understand(
-        runtimeKind,
-        nativeId,
-      );
+    understand(runtimeKind, nativeId) {
+      return new SalidiumClient({
+        home: options.home,
+        credential: () => readCredential(options.credentialPath),
+      }).understand(runtimeKind, nativeId);
     },
   };
 }
