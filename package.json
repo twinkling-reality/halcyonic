@@ -16,6 +16,8 @@
     "replay": "node apps/control-plane/src/cli/replay.ts",
     "fixtures:record": "node apps/control-plane/src/cli/record-fixtures.ts",
     "demonstration:record": "node apps/control-plane/src/cli/record-demonstration.ts",
+    "quest:session": "node tooling/quest/session.ts",
+    "quest:cold-start": "node tooling/quest/cold-start.ts",
     "contracts:emit": "node packages/contracts/scripts/emit.ts",
     "test:csharp": "dotnet test apps/xr/dotnet/Halcyonic.Client.Tests",
     "typecheck": "tsc -p tsconfig.json",
