@@ -123,6 +123,48 @@ describe('configuration', () => {
     }
   });
 
+  test("Halcyonic's own OpenCode settings must name a model served on this Mac as the default", () => {
+    assert.equal(loadConfig({}).opencodeConfigHome, null);
+    let count = 0;
+    const home = (settings: unknown, others: string[] = []) => {
+      count += 1;
+      const path = join(base, `opencode-home-${count}`);
+      mkdirSync(join(path, 'opencode'), { recursive: true });
+      if (settings !== undefined) {
+        writeFileSync(join(path, 'opencode', 'opencode.json'), JSON.stringify(settings));
+      }
+      for (const other of others) writeFileSync(join(path, 'opencode', other), '{}');
+      return path;
+    };
+    const local = home({ model: 'ollama/qwen3.6:35b-a3b-nvfp4' });
+    assert.equal(loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: local }).opencodeConfigHome, local);
+    const withSmall = home({
+      model: 'ollama/qwen3.6:35b-a3b-nvfp4',
+      small_model: 'ollama/llama3.2:1b',
+    });
+    assert.equal(
+      loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: withSmall }).opencodeConfigHome,
+      withSmall,
+    );
+    for (const [why, path] of [
+      ['no settings file', home(undefined)],
+      ['no default model', home({ permissions: [] })],
+      ['a remote model of OpenCode', home({ model: 'opencode/space-bunny-free' })],
+      ['a remote provider', home({ model: 'anthropic/claude-opus-5-5' })],
+      ['an Ollama cloud model', home({ model: 'ollama/gpt-oss:120b-cloud' })],
+      ['an Ollama cloud tag', home({ model: 'ollama/qwen3:cloud' })],
+      [
+        'a remote small model',
+        home({ model: 'ollama/llama3.2:1b', small_model: 'opencode/space-bunny-free' }),
+      ],
+      ['a second settings file', home({ model: 'ollama/llama3.2:1b' }, ['opencode.jsonc'])],
+      ['an older settings file', home({ model: 'ollama/llama3.2:1b' }, ['config.json'])],
+      ['a relative path', 'opencode-home'],
+    ] as const) {
+      assert.throws(() => loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: path }), ConfigError, why);
+    }
+  });
+
   test('agent environment pass-through takes variable names only', () => {
     assert.deepEqual(
       loadConfig({ HALCYONIC_AGENT_ENV: 'SSH_AUTH_SOCK, HTTPS_PROXY' }).agentEnvironment,

@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -13,6 +13,7 @@ import type { Readable } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { SETTINGS_FILE, writeHostSettings } from './settings.ts';
 import { tlsRequest } from './testing/tls-client.ts';
 
 const MAIN = fileURLToPath(new URL('./main.ts', import.meta.url));
@@ -113,8 +114,13 @@ function portOf(line: Line): number {
 }
 
 /** Starts the control plane with piped stdio, as a harness does, and waits until it serves. */
-async function start(t: TestContext, extra: Record<string, string>) {
+async function start(
+  t: TestContext,
+  extra: Record<string, string>,
+  prepare?: (paths: { root: string; dataDir: string }) => void,
+) {
   const { root, env } = environment(extra);
+  prepare?.({ root, dataDir: env.HALCYONIC_DATA_DIR });
   const child = spawn(process.execPath, [MAIN], { env, stdio: 'pipe' });
   const output = collect(child.stdout, child.stderr);
   t.after(async () => {
@@ -246,5 +252,52 @@ describe('the control plane process', () => {
     // Stopped here, before the first start's cleanup removes the directory it uses.
     again.kill('SIGTERM');
     await until(() => exited(again), 'the second control plane to exit');
+  });
+
+  test('takes what the environment leaves unset from the settings file pnpm mac-setup writes', async (t) => {
+    let projects = '';
+    const { ready: line } = await start(t, { HALCYONIC_NETWORK_PORT: '0' }, ({ root, dataDir }) => {
+      projects = join(root, 'projects');
+      mkdirSync(projects);
+      writeHostSettings(dataDir, {
+        HALCYONIC_PROJECT_ROOTS: projects,
+        HALCYONIC_NETWORK_HOST: '127.0.0.1',
+      });
+    });
+    assert.deepEqual(line.project_roots, [projects]);
+    assert.notEqual(line.network, null);
+    assert.deepEqual((line.settings as { used: string[] }).used, [
+      'HALCYONIC_PROJECT_ROOTS',
+      'HALCYONIC_NETWORK_HOST',
+    ]);
+  });
+
+  test('a variable in the environment wins over the settings file', async (t) => {
+    const { ready: line } = await start(t, { HALCYONIC_PROJECT_ROOTS: '' }, ({ root, dataDir }) => {
+      const projects = join(root, 'projects');
+      mkdirSync(projects);
+      writeHostSettings(dataDir, { HALCYONIC_PROJECT_ROOTS: projects });
+    });
+    assert.deepEqual(line.project_roots, []);
+    assert.deepEqual((line.settings as { used: string[] }).used, []);
+  });
+
+  test('refuses to start from a settings file other users can read', async (t) => {
+    const { root, env } = environment({});
+    mkdirSync(env.HALCYONIC_DATA_DIR, { mode: 0o700 });
+    const path = join(env.HALCYONIC_DATA_DIR, SETTINGS_FILE);
+    writeFileSync(path, '{"format": 1}');
+    chmodSync(path, 0o644);
+    const child = spawn(process.execPath, [MAIN], { env, stdio: 'pipe' });
+    const output = collect(child.stdout, child.stderr);
+    t.after(async () => {
+      child.kill('SIGKILL');
+      await until(() => exited(child), 'the control plane to be killed');
+      rmSync(root, { recursive: true, force: true });
+    });
+    await until(() => exited(child) && output.ended(), 'the control plane to stop');
+    assert.equal(child.exitCode, 1);
+    assert.match(output.stderr(), /chmod 600/);
+    assert.ok(!output.lines.some((entry) => entry.msg === 'control plane ready'));
   });
 });

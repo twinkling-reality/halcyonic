@@ -1,4 +1,4 @@
-import { statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { delimiter, isAbsolute, join, resolve } from 'node:path';
@@ -50,6 +50,11 @@ export interface ControlPlaneConfig {
   readonly agentEnvironment: readonly string[];
   /** The pinned OpenCode binary; the OpenCode runtime is registered only when it is set. */
   readonly opencodeBinary: string | null;
+  /**
+   * Halcyonic's own OpenCode settings: a directory OpenCode alone is given as its configuration home
+   * (`XDG_CONFIG_HOME`), holding `opencode/opencode.json`. Null leaves OpenCode the person's own.
+   */
+  readonly opencodeConfigHome: string | null;
   /**
    * The pinned Codex binary, the native one rather than the npm launcher script; the Codex runtime
    * is registered only when it is set.
@@ -113,6 +118,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     ),
     agentEnvironment: parseNames('HALCYONIC_AGENT_ENV', env.HALCYONIC_AGENT_ENV),
     opencodeBinary: parseExecutable('HALCYONIC_OPENCODE_BIN', env.HALCYONIC_OPENCODE_BIN),
+    opencodeConfigHome: parseOpenCodeConfigHome(env.HALCYONIC_OPENCODE_CONFIG_HOME),
     codexBinary: parseExecutable('HALCYONIC_CODEX_BIN', env.HALCYONIC_CODEX_BIN),
     speech: parseSpeech(env),
     exitOnStdinEnd: parseSwitch('HALCYONIC_EXIT_ON_STDIN_END', env.HALCYONIC_EXIT_ON_STDIN_END),
@@ -163,6 +169,56 @@ function parseExecutable(name: string, raw: string | undefined): string | null {
     throw new ConfigError(`${name} ${raw} does not exist.`);
   }
   if (!isFile) throw new ConfigError(`${name} ${raw} is not a file.`);
+  return raw;
+}
+
+/** The settings file in an OpenCode configuration home. */
+export const OPENCODE_SETTINGS_PATH = join('opencode', 'opencode.json');
+
+/** Other files OpenCode would read as settings beside it, which would escape the check below. */
+const OTHER_OPENCODE_SETTINGS = ['opencode.jsonc', 'config.json'];
+
+/**
+ * A model OpenCode reaches through the Ollama on this Mac. Ollama serves a model whose tag ends in
+ * `cloud` from its own hosted service (`packages/integrations/opencode/src/models.ts`).
+ */
+export function isLocalOllamaModel(model: unknown): boolean {
+  return typeof model === 'string' && /^ollama\/\S+$/.test(model) && !/[:-]cloud$/.test(model);
+}
+
+/**
+ * Halcyonic's own OpenCode settings are refused unless their default model, and their small model
+ * when they name one, is a model this Mac serves through Ollama, so a hand edit can't make a hosted
+ * model the default. A start through Halcyonic always names its model (`model_required`); the
+ * default only decides what OpenCode would choose by itself.
+ */
+function parseOpenCodeConfigHome(raw: string | undefined): string | null {
+  const name = 'HALCYONIC_OPENCODE_CONFIG_HOME';
+  if (raw === undefined || raw === '') return null;
+  if (!isAbsolute(raw)) throw new ConfigError(`${name} must be an absolute path, got "${raw}".`);
+  const path = join(raw, OPENCODE_SETTINGS_PATH);
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    throw new ConfigError(`${name} ${raw} holds no readable ${OPENCODE_SETTINGS_PATH}.`);
+  }
+  for (const other of OTHER_OPENCODE_SETTINGS) {
+    if (existsSync(join(raw, 'opencode', other))) {
+      throw new ConfigError(
+        `${name} ${raw} also holds opencode/${other}, which OpenCode would read too; remove it.`,
+      );
+    }
+  }
+  const { model, small_model: smallModel } = (settings ?? {}) as Record<string, unknown>;
+  if (!isLocalOllamaModel(model)) {
+    throw new ConfigError(
+      `${path} must name a model served on this Mac through Ollama as its "model", such as "ollama/qwen3.6:35b-a3b-nvfp4".`,
+    );
+  }
+  if (smallModel !== undefined && !isLocalOllamaModel(smallModel)) {
+    throw new ConfigError(`${path} names a "small_model" that is not served on this Mac.`);
+  }
   return raw;
 }
 
