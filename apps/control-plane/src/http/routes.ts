@@ -351,8 +351,12 @@ export function registerRoutes(
       };
       reply.raw.once('close', onClose);
       const started = performance.now();
-      const answer = await sources.companion.reply(request.principal, request.body, ended.signal);
-      reply.raw.off('close', onClose);
+      let answer: Awaited<ReturnType<Companion['reply']>>;
+      try {
+        answer = await sources.companion.reply(request.principal, request.body, ended.signal);
+      } finally {
+        reply.raw.off('close', onClose);
+      }
       const ms = Math.round(performance.now() - started);
       if (answer.kind === 'refused') {
         request.log.info({ code: answer.code, ms, ...answer.log }, 'companion refused');

@@ -455,27 +455,61 @@ function parseCompanion(env: NodeJS.ProcessEnv): CompanionConfig | null {
       `HALCYONIC_COMPANION_MODEL ${model} is one of Ollama's cloud models; the companion runs only on this computer.`,
     );
   }
+  const given = address === undefined || address === '' ? DEFAULT_OLLAMA_URL : address;
   let ollama: URL;
   try {
-    ollama = new URL(address === undefined || address === '' ? DEFAULT_OLLAMA_URL : address);
+    ollama = new URL(given);
   } catch {
-    throw new ConfigError(`HALCYONIC_COMPANION_OLLAMA_URL is not a URL, got "${address}".`);
+    throw new ConfigError('HALCYONIC_COMPANION_OLLAMA_URL is not a URL.');
   }
   const host = ollama.hostname.replace(/^\[|\]$/g, '');
   if (
     ollama.protocol !== 'http:' ||
     !LOOPBACK_HOSTS.has(host) ||
+    ollama.port === '' ||
     ollama.username !== '' ||
     ollama.password !== '' ||
     ollama.pathname !== '/' ||
     ollama.search !== '' ||
     ollama.hash !== ''
   ) {
+    // Not echoed: an address with credentials in it would print them.
     throw new ConfigError(
-      `HALCYONIC_COMPANION_OLLAMA_URL must be http:// on a loopback address with a port and nothing else, such as ${DEFAULT_OLLAMA_URL}, got "${address}".`,
+      `HALCYONIC_COMPANION_OLLAMA_URL must be http:// on a loopback address with a port and nothing else, such as ${DEFAULT_OLLAMA_URL}.`,
+    );
+  }
+  if (proxied(env, host)) {
+    throw new ConfigError(
+      "Node's environment proxy is on (NODE_USE_ENV_PROXY or --use-env-proxy with HTTP_PROXY), and NO_PROXY does not name Ollama's loopback address: the companion's requests would leave through the proxy. Add the address to NO_PROXY, or turn the proxy off.",
     );
   }
   return { model, ollama };
+}
+
+/**
+ * Whether Node would send a request to this loopback host through an HTTP proxy: its environment
+ * proxy is on, by NODE_USE_ENV_PROXY or --use-env-proxy, an HTTP proxy is named, and NO_PROXY
+ * names neither the host nor every host.
+ */
+function proxied(env: NodeJS.ProcessEnv, host: string): boolean {
+  const on =
+    (env.NODE_USE_ENV_PROXY !== undefined &&
+      env.NODE_USE_ENV_PROXY !== '' &&
+      env.NODE_USE_ENV_PROXY !== '0') ||
+    process.execArgv.includes('--use-env-proxy') ||
+    (env.NODE_OPTIONS ?? '').includes('--use-env-proxy');
+  const proxy = env.HTTP_PROXY ?? env.http_proxy;
+  if (!on || proxy === undefined || proxy === '') return false;
+  const excluded = (env.NO_PROXY ?? env.no_proxy ?? '')
+    .split(',')
+    .map((entry) =>
+      entry
+        .trim()
+        .toLowerCase()
+        .replace(/^\[|\]$/g, ''),
+    )
+    .filter((entry) => entry !== '');
+  return !excluded.some((entry) => entry === '*' || entry === host.toLowerCase());
 }
 
 function parseNames(name: string, raw: string | undefined): string[] {

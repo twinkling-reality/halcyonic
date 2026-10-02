@@ -8,6 +8,7 @@ import {
   compileValidator,
   type PairingOpenedResponse,
 } from '@halcyonic/contracts';
+import { STATUS_MS } from '../companion/companion.ts';
 import { modelReply } from '../companion/prompt.ts';
 import { pairDevice } from '../testing/device.ts';
 import { startFakeOllama } from '../testing/fake-ollama.ts';
@@ -70,6 +71,8 @@ describe('GET /api/companion', () => {
       max_questions: 4,
     });
     ollama.setModels([]);
+    // Each read stands for a moment; the next comes after it.
+    await server.time.advance(STATUS_MS);
     assert.deepEqual(await read(), {
       availability: 'unavailable',
       reason: {

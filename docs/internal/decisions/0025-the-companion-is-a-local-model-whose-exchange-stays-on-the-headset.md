@@ -209,7 +209,9 @@ competition demonstration.
    beside the same task, with `OLLAMA_MAX_LOADED_MODELS=2`: `qwen3.5:9b`, `granite4.1:8b` and
    `qwen3:4b-instruct` answered every turn, with first tokens at 0.15 to 1.0 s median and whole
    turns at 2.1 to 5.5 s median ([companion-model.md](../validation/companion-model.md)). The gate is
-   met with a model of the companion's own; which one is the owner's choice.
+   met with a model of the companion's own. The owner chose `qwen3.5:9b` (2026-10-02): every reply
+   well formed and natural, and it never repeated a claim an injection dictated; the other two
+   stay installed, unused.
 2. **Words.** The table above is approved, except that every phrase saying "your Mac" follows the
    owner's decision on the brand finding of the competition build's review; the host's wording is
    agreed with the host setup and competition build lanes before it reaches `EntryText`.

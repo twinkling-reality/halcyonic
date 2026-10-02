@@ -9,7 +9,7 @@
 
 /** A model name with a `cloud` tag, such as `gemma4:cloud` or `gpt-oss:120b-cloud`: Ollama runs it on its own service. */
 export function isCloudName(model: string): boolean {
-  const tag = model.includes(':') ? model.slice(model.lastIndexOf(':') + 1) : '';
+  const tag = model.includes(':') ? model.slice(model.lastIndexOf(':') + 1).toLowerCase() : '';
   return tag === 'cloud' || tag.endsWith('-cloud');
 }
 
@@ -44,7 +44,13 @@ export async function checkModel(base: URL, model: string, timeoutMs: number): P
     await response.body?.cancel();
     return { kind: 'failed', message: `The model list answered HTTP ${response.status}.` };
   }
-  const text = await readBounded(response, MAX_LIST_BYTES);
+  let text: string | null;
+  try {
+    text = await readBounded(response, MAX_LIST_BYTES);
+  } catch (error) {
+    // A list that stalls past its time or is cut off answers as an unreachable Ollama would.
+    return unreachable(error);
+  }
   if (text === null) return { kind: 'failed', message: 'The model list is too large.' };
   let models: unknown;
   try {

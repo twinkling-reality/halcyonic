@@ -259,7 +259,32 @@ describe('configuration', () => {
         ConfigError,
         address,
       );
-    for (const model of ['gemma4:cloud', 'gpt-oss:120b-cloud'])
+    assert.throws(
+      () =>
+        loadConfig({
+          HALCYONIC_COMPANION_MODEL: 'm:t',
+          HALCYONIC_COMPANION_OLLAMA_URL: 'http://127.0.0.1',
+        }),
+      /with a port/,
+    );
+    try {
+      loadConfig({
+        HALCYONIC_COMPANION_MODEL: 'm:t',
+        HALCYONIC_COMPANION_OLLAMA_URL: 'http://user:hunter2@127.0.0.1:11434',
+      });
+      assert.fail('an address with credentials was taken');
+    } catch (error) {
+      assert.equal(String(error).includes('hunter2'), false, 'the credentials were echoed');
+    }
+    const proxy = {
+      HALCYONIC_COMPANION_MODEL: 'm:t',
+      NODE_USE_ENV_PROXY: '1',
+      HTTP_PROXY: 'http://proxy.example:3128',
+    };
+    assert.throws(() => loadConfig(proxy), /environment proxy/);
+    assert.ok(loadConfig({ ...proxy, NO_PROXY: 'localhost,127.0.0.1' }).companion);
+    assert.ok(loadConfig({ ...proxy, NODE_USE_ENV_PROXY: '0' }).companion);
+    for (const model of ['gemma4:cloud', 'gemma4:Cloud', 'gpt-oss:120b-cloud'])
       assert.throws(() => loadConfig({ HALCYONIC_COMPANION_MODEL: model }), /cloud models/, model);
     for (const model of ['-flag', 'two words', 'x'.repeat(201)])
       assert.throws(() => loadConfig({ HALCYONIC_COMPANION_MODEL: model }), ConfigError, model);

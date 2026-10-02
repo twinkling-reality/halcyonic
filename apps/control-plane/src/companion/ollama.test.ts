@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'node:net';
 import { describe, type TestContext, test } from 'node:test';
 import { type FakeReply, startFakeOllama } from '../testing/fake-ollama.ts';
@@ -58,8 +59,34 @@ describe('the model check', () => {
     for (const model of ['gemma4:cloud', 'gpt-oss:120b-cloud'])
       assert.deepEqual(await checkModel(ollama.url, model, 1000), { kind: 'remote' }, model);
     assert.equal(ollama.tagReads, reads);
+    assert.equal(isCloudName('gemma4:Cloud'), true);
     assert.equal(isCloudName('cloud-notes:latest'), false);
     assert.equal(isCloudName('model:tag'), false);
+  });
+
+  test('answers a list that stalls or is cut off as an unreachable Ollama, never by throwing', async (t) => {
+    const server = createHttpServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.write('{"models":[');
+      setTimeout(() => response.destroy(), 50);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+    const { port } = server.address() as { port: number };
+    const check = await checkModel(new URL(`http://127.0.0.1:${port}`), 'local-model:tag', 1000);
+    assert.notEqual(check.kind, 'local');
+    const stalled = createHttpServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.write('{"models":[');
+    });
+    await new Promise<void>((resolve) => stalled.listen(0, '127.0.0.1', resolve));
+    t.after(() => {
+      stalled.closeAllConnections();
+      return new Promise<void>((resolve) => stalled.close(() => resolve()));
+    });
+    const slow = stalled.address() as { port: number };
+    const late = await checkModel(new URL(`http://127.0.0.1:${slow.port}`), 'local-model:tag', 200);
+    assert.notEqual(late.kind, 'local');
   });
 
   test('says Ollama is not running when nothing listens', async () => {
