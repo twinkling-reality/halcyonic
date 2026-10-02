@@ -468,6 +468,11 @@ namespace Halcyonic.XR.Workspace
                 case WorkspaceScreens.Refresh:
                     workspace.Sections.Refresh();
                     return;
+                case PanelModel.Prompt when WorkspaceScreens.PromptOf(key) is UnderstandPrompt asked:
+                    screen.Prompt = asked;
+                    workspace.Sections.Ask(asked);
+                    RefreshPanel();
+                    return;
                 case WorkspaceScreens.ShowDetails:
                 case WorkspaceScreens.ShowLog:
                     screen.Details = id == WorkspaceScreens.ShowDetails;
@@ -550,13 +555,21 @@ namespace Halcyonic.XR.Workspace
             workspace.Sections.Show(question);
         }
 
-        /// <summary>Steps through the whole request while a confirmation asks about it, else through the agent's question.</summary>
+        /// <summary>
+        /// Steps through the whole request while a confirmation asks about it, else through a section's
+        /// answer while one shows, else through the agent's question.
+        /// </summary>
         private static void Turn(Opened workspace, int by)
         {
             var screen = workspace.Screen;
             if (workspace.Now != null && workspace.Steering.Request(workspace.Now) != null)
             {
                 screen.RequestPart = Mathf.Clamp(screen.RequestPart + by, 0, Mathf.Max(0, screen.RequestParts.Count - 1));
+                return;
+            }
+            if (screen.Question == WorkspaceQuestion.Understand || screen.Question == WorkspaceQuestion.Checked)
+            {
+                screen.TurnAnswer(by);
                 return;
             }
             screen.Place.Turn(by);
@@ -629,7 +642,15 @@ namespace Halcyonic.XR.Workspace
                 screen.RequestPart = 0;
                 workspace.RequestText = null;
             }
-            workspace.Panel.Show(WorkspaceScreens.Screen(presentation, workspace.Steering, screen), workspace.Sections.Section);
+            // A section's answer, fitted to the rows the space under its heading holds, measured on
+            // the screen as it stands, then split into its pages.
+            if (screen.Question == WorkspaceQuestion.Understand || screen.Question == WorkspaceQuestion.Checked)
+            {
+                var provenance = workspace.Sections.Section(AnswerRoom.Unlimited)?.Provenance ?? "";
+                var room = workspace.Panel.Room(WorkspaceScreens.Screen(presentation, workspace.Steering, screen), provenance);
+                if (workspace.Sections.Section(room) is SectionPresentation section) screen.ReadAnswer(section, room);
+            }
+            workspace.Panel.Show(WorkspaceScreens.Screen(presentation, workspace.Steering, screen), screen.Answer);
         }
 
         /// <summary>Each prompt's text in parts of whole lines at the list's width, split once for each question.</summary>

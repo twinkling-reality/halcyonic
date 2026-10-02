@@ -241,6 +241,15 @@ namespace Halcyonic.Client
         /// <summary>Reads a section's source again: Understand's or Checked's.</summary>
         public const string Refresh = "Refresh";
 
+        /// <summary>Help me understand's questions, each a pill under its heading.</summary>
+        public static string PromptLabel(UnderstandPrompt prompt) => prompt switch
+        {
+            UnderstandPrompt.WhatChanged => "What changed?",
+            UnderstandPrompt.WhyChanged => "Why?",
+            UnderstandPrompt.HowBuilt => "How was it built?",
+            _ => throw new ArgumentOutOfRangeException(nameof(prompt), prompt, "Unhandled prompt."),
+        };
+
         /// <summary>Stands, taking no press, where Send answer was while the answer sent may still take effect.</summary>
         public const string Sent = "Sent…";
 

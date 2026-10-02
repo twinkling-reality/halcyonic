@@ -13,7 +13,8 @@ namespace Halcyonic.XR.UI
     /// screen puts the same things in the same places: the header along the top, the title and its
     /// context at its left and Move, Reset position and Close at its right, or Close alone on a panel
     /// that stays put, or, on a panel that stays beside its character, the work's state at its right
-    /// and under it a row of tabs that ends in Close; a banner, a heading or a lead line; the body, a
+    /// and under it a row of tabs that ends in Close; a banner, a heading with the questions it is
+    /// asked as and its action, or a lead line; the body, a
     /// list in one column or two, a page at a time, its lines with a meter at their right where they
     /// have one, with the pager at its bottom right; and the action bar along the bottom, Back and the
     /// destructive action at the left, the primary at the right end, or the confirm step in the bar's
@@ -73,6 +74,7 @@ namespace Halcyonic.XR.UI
         private readonly List<GlazeButton> rows = new List<GlazeButton>();
         private readonly List<GlazeButton> sides = new List<GlazeButton>();
         private readonly List<GlazeButton> tabs = new List<GlazeButton>();
+        private readonly List<GlazeButton> prompts = new List<GlazeButton>();
         private readonly List<TextMeshPro> lines = new List<TextMeshPro>();
         private readonly List<MarkTag> marks = new List<MarkTag>();
         private readonly Dictionary<GlazeButton, (string Id, string? Key)> pressing = new Dictionary<GlazeButton, (string, string?)>();
@@ -195,7 +197,7 @@ namespace Halcyonic.XR.UI
                 {
                     if (button.gameObject.activeSelf) yield return button;
                 }
-                foreach (var list in new[] { tabs, rows, sides })
+                foreach (var list in new[] { tabs, prompts, rows, sides })
                 {
                     foreach (var button in list)
                     {
@@ -250,6 +252,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The tabs showing, left to right, for the editor's checks.</summary>
         public IReadOnlyList<GlazeButton> Tabs => tabs.FindAll(tab => tab.gameObject.activeSelf);
+
+        /// <summary>The prompts showing in the heading's row, left to right, for the editor's checks.</summary>
+        public IReadOnlyList<GlazeButton> Prompts => prompts.FindAll(prompt => prompt.gameObject.activeSelf);
 
         /// <summary>The list's rows that show, with what each was given, for the editor's checks.</summary>
         public IReadOnlyList<(GlazeButton Button, PanelRow Row)> ShownRows => shownRows;
@@ -446,6 +451,7 @@ namespace Halcyonic.XR.UI
             lead.gameObject.SetActive(false);
             heading.gameObject.SetActive(false);
             headingAction.Hide();
+            foreach (var prompt in prompts) prompt.Hide();
             notch = null;
             banner.gameObject.SetActive(false);
             bannerText.gameObject.SetActive(false);
@@ -461,12 +467,14 @@ namespace Halcyonic.XR.UI
             {
                 if (model.Heading != null)
                 {
-                    var acts = model.HeadingAction != null;
+                    // Targets in the heading's row, its action, prompts or pager, keep 12 mm from those above.
+                    var acts = model.HeadingAction != null || model.Prompts.Count > 0 || PagesInHeading(model);
                     y -= Gap(above, acts);
                     y = LayHeading(model, left, right, y);
                     // A body the screen draws itself, or one that starts with lines, starts under the
-                    // heading's words, beside its action; any other under the action.
-                    above = acts && notch == null;
+                    // heading's words, beside its action; any other under the action, and any body a
+                    // target's gap under prompts.
+                    above = (acts && notch == null) || model.Prompts.Count > 0;
                 }
                 if (model.Lead != null)
                 {
@@ -489,7 +497,7 @@ namespace Halcyonic.XR.UI
 
             // The body: the screen's own, or the list a page at a time, with the pager's row at its
             // bottom while the screen pages it and no confirmation shows.
-            var band = !pagerOnTop && (model.Parts != null || model.PartsNote != null || model.PartsHeading != null);
+            var band = !pagerOnTop && !PagesInHeading(model) && (model.Parts != null || model.PartsNote != null || model.PartsHeading != null);
             var bandTargets = band && model.Parts is (_, var parts) && parts > 1;
             partsHeading.gameObject.SetActive(false);
             partsNote.gameObject.SetActive(false);
@@ -678,21 +686,96 @@ namespace Halcyonic.XR.UI
             var line = GlazeText.LineHeight(heading);
             var height = line;
             var middle = top - line / 2f;
-            if (model.HeadingAction is PanelAction action)
+            var end = right;
+            var paged = PagesInHeading(model);
+            if (model.HeadingAction != null || paged)
             {
                 height = GlazeButton.HeightOf(true);
-                var x = PutRight(headingAction, action.Id, action.Label, right, top - height / 2f, available: action.Available, icon: action.Icon);
-                laidOut.Add(RectOf(headingAction));
+                var row = top - height / 2f;
+                // A body the screen draws itself and pages has its pager here, at the row's right,
+                // with the heading's action left of it, rather than in a row of its own under the body.
+                var x = right;
+                Rect? controls = null;
+                void Took(GlazeButton button)
+                {
+                    laidOut.Add(RectOf(button));
+                    var rect = RectOf(button);
+                    controls = controls is Rect before ? Rect.MinMaxRect(Mathf.Min(before.xMin, rect.xMin), Mathf.Min(before.yMin, rect.yMin),
+                        Mathf.Max(before.xMax, rect.xMax), Mathf.Max(before.yMax, rect.yMax)) : rect;
+                }
+                if (paged && model.Parts is (int at, int count))
+                {
+                    x = PutRight(next, PanelModel.NextPart, EntryText.Next, x, row, available: at < count - 1);
+                    Took(next);
+                    x = PutRight(previous, PanelModel.PreviousPart, EntryText.Previous, x, row, available: at > 0);
+                    Took(previous);
+                }
+                if (model.HeadingAction is PanelAction action)
+                {
+                    x = PutRight(headingAction, action.Id, action.Label, x, row, available: action.Available, icon: action.Icon);
+                    Took(headingAction);
+                }
                 width = x - left;
-                // Beside a body the screen draws itself, or lines, which can run short of it.
-                if (model.CustomBody || (model.Rows.Count > 0 && model.Rows[0].Line)) notch = RectOf(headingAction);
-                else middle = top - height / 2f;
+                end = x;
+                // Beside a body the screen draws itself, or lines, which can run short of it; never
+                // beside prompts, which stand in the heading's row.
+                if ((model.CustomBody || (model.Rows.Count > 0 && model.Rows[0].Line)) && model.Prompts.Count == 0) notch = controls;
+                else middle = row;
             }
             GlazeText.SetLiteral(heading, model.Heading!);
-            GlazeText.Lay(heading, width, 1);
-            heading.transform.localPosition = new Vector3(left, middle + line / 2f, -0.0005f);
-            heading.gameObject.SetActive(true);
+            var words = width;
+            if (model.Prompts.Count > 0)
+            {
+                // The words' own width, measured in the room they have.
+                var (_, measured) = GlazeText.Lay(heading, width, 1);
+                words = Mathf.Min(width, measured + TargetGap);
+                height = GlazeButton.HeightOf(true);
+                middle = top - height / 2f;
+                // The prompts stand after the heading's words where all of them fit; where they don't,
+                // in the words' place, since each prompt is a whole question of its own.
+                var room = end - left;
+                if (words + PromptsWidth(model) > room + 1e-5f) words = 0f;
+                LayPrompts(model, left + words, end, middle);
+            }
+            if (words > 0f)
+            {
+                GlazeText.Lay(heading, words, 1);
+                heading.transform.localPosition = new Vector3(left, middle + line / 2f, -0.0005f);
+                heading.gameObject.SetActive(true);
+            }
             return notch != null ? top - line : top - height;
+        }
+
+        /// <summary>A body the screen draws itself pages from the heading's row: Previous and Next at its right, beside its action, and no row under the body.</summary>
+        private static bool PagesInHeading(PanelModel model) =>
+            model.CustomBody && model.Confirm == null && model.Heading != null && model.Parts is (_, int count) && count > 1;
+
+        /// <summary>How wide the prompts stand, each 12 mm from the next and the last 12 mm from what follows.</summary>
+        private float PromptsWidth(PanelModel model)
+        {
+            var width = 0f;
+            for (var index = 0; index < model.Prompts.Count; index++) width += Prompt(index).Measure(model.Prompts[index].Label) + TargetGap;
+            return width;
+        }
+
+        /// <summary>The prompts from <paramref name="left"/>, the one answered edged in the accent, 12 mm apart and clear of the heading's action.</summary>
+        private void LayPrompts(PanelModel model, float left, float end, float middle)
+        {
+            var x = left;
+            for (var index = 0; index < model.Prompts.Count; index++)
+            {
+                var prompt = model.Prompts[index];
+                var button = Prompt(index);
+                button.Role = ButtonRole.Filter;
+                button.On = prompt.Chosen;
+                button.Available = true;
+                var width = button.Measure(prompt.Label);
+                button.Show(prompt.Label, new Vector2(x + width / 2f, middle), width);
+                pressing[button] = (PanelModel.Prompt, prompt.Id);
+                laidOut.Add(RectOf(button));
+                x += width + TargetGap;
+            }
+            if (x > end + 1e-5f) Debug.LogWarning("Halcyonic: the prompts run into the heading's action.");
         }
 
         private float LayBanner(PanelBanner model, float left, float width, float top)
@@ -1347,6 +1430,17 @@ namespace Halcyonic.XR.UI
                 sides.Add(button);
             }
             return sides[index];
+        }
+
+        private GlazeButton Prompt(int index)
+        {
+            while (prompts.Count <= index)
+            {
+                var button = GlazeButton.Create(content, "Prompt " + prompts.Count, ButtonRole.Filter, compact: true);
+                Wire(button);
+                prompts.Add(button);
+            }
+            return prompts[index];
         }
 
         private GlazeButton Tab(int index)

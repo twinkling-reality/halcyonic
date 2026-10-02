@@ -159,6 +159,68 @@ public class WorkspaceScreensTests
     }
 
     [Test]
+    public void HelpMeUnderstandAsksOneOfItsQuestionsAtATimeAsPillsInTheHeadingsRow()
+    {
+        var work = new WaitingWork();
+        var screen = new WorkspaceScreen { Question = WorkspaceQuestion.Understand, Prompt = UnderstandPrompt.WhyChanged };
+        var model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
+        Assert.That(model.Prompts.Select(prompt => (prompt.Id, prompt.Label, prompt.Chosen)), Is.EqualTo(new[]
+        {
+            ("what-changed", "What changed?", false),
+            ("why-changed", "Why?", true),
+            ("how-built", "How was it built?", false),
+        }));
+        Assert.That(model.Prompts.Any(prompt => prompt.Attention), Is.False);
+        foreach (var prompt in model.Prompts) Assert.That(WorkspaceScreens.PromptOf(prompt.Id), Is.Not.Null, prompt.Id);
+        Assert.That(WorkspaceScreens.PromptOf("doing"), Is.Null);
+
+        screen.Question = WorkspaceQuestion.Checked;
+        Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Prompts, Is.Empty, "What was checked? is one answer");
+        screen.Question = WorkspaceQuestion.Doing;
+        Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Prompts, Is.Empty);
+    }
+
+    [Test]
+    public void ALongAnswerPagesAndAFlowStepsAndEachStartsAtItsFirstPage()
+    {
+        var work = new WaitingWork();
+        var screen = new WorkspaceScreen { Question = WorkspaceQuestion.Understand, Prompt = UnderstandPrompt.HowBuilt };
+        var model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
+        Assert.That((model.Parts, screen.Answer), Is.EqualTo(((ValueTuple<int, int>?)null, (SectionPresentation?)null)), "nothing to page before an answer is read");
+
+        var flow = Answers.Understand(UnderstandPrompt.HowBuilt, Intelligence.Verified);
+        screen.ReadAnswer(flow, new AnswerRoom(6));
+        screen.TurnAnswer(1);
+        model = Screen(work.Present(), new WorkspaceSteering(factory), screen);
+        Assert.That(model.Parts, Is.EqualTo((1, 7)));
+        Assert.That(model.PartsCaption, Is.Null, "the pager in the heading's row has no words");
+        Assert.That(screen.Answer!.Provenance, Is.EqualTo("Step 2 of 7 · From Salidium 0.6.0, 2 minutes ago"), "which step leads the provenance");
+        Assert.That(screen.Answer!.Lines[0].Text, Is.EqualTo("Why · explained by a model, up to date"));
+        screen.TurnAnswer(-5);
+        Assert.That(screen.AnswerPage, Is.Zero, "never before the first");
+        screen.TurnAnswer(50);
+        Assert.That(screen.AnswerPage, Is.EqualTo(6), "never past the last");
+
+        screen.ReadAnswer(Answers.Understand(UnderstandPrompt.HowBuilt, Intelligence.Verified), new AnswerRoom(6));
+        Assert.That(screen.AnswerPage, Is.EqualTo(6), "a new read of the same answer keeps the person's page");
+        screen.ReadAnswer(Answers.Understand(UnderstandPrompt.WhatChanged, Intelligence.Verified, room: new AnswerRoom(6)), new AnswerRoom(6));
+        Assert.That(screen.AnswerPages.Count, Is.EqualTo(1), "a list keeps what fits rather than page");
+        Assert.That(screen.AnswerPage, Is.Zero, "a list that fits is one page");
+
+        screen.Prompt = UnderstandPrompt.WhyChanged;
+        Assert.That(screen.AnswerPage, Is.Zero, "another question starts at its first page");
+        screen.TurnAnswer(1);
+        screen.Question = WorkspaceQuestion.Checked;
+        Assert.That(screen.AnswerPage, Is.Zero, "so does another tab");
+        screen.ReadAnswer(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
+        Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Parts, Is.EqualTo((0, 2)),
+            "what was checked pages from the checks seen to the measurement, each under its own source");
+        Assert.That(screen.AnswerPages[1].Lines[0].Text, Is.EqualTo("From Seorak, read 1 minute ago"));
+        screen.ReadAnswer(Answers.Understand(UnderstandPrompt.WhyChanged, Intelligence.Verified), new AnswerRoom(20));
+        Assert.That(Screen(work.Present(), new WorkspaceSteering(factory), screen).Parts, Is.Null, "an answer of one page shows no pager");
+    }
+
+    [Test]
     public void WhatIsItDoingAnswersThenSaysWhatWasSentThenLogsWhatItDid()
     {
         var work = Running();

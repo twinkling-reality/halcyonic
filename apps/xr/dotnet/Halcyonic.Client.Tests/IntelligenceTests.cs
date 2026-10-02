@@ -309,403 +309,8 @@ internal static class Intelligence
         section.Lines.Single(line => line.Text.StartsWith(start, StringComparison.Ordinal));
 }
 
-public class UnderstandingPresenterTests
-{
-    private static SectionPresentation Present(string json, string now = "2026-09-20T16:22:00.000Z", int maxLines = 20) =>
-        UnderstandingPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"),
-            loading: false, error: null, Intelligence.At(now), Intelligence.Utc, maxLines);
-
-    [Test]
-    public void ShowsTheSourcesConclusionsEachWithItsClassAndSaysWhereTheyCameFrom()
-    {
-        var section = Present(Intelligence.Verified);
-
-        Assert.That(section.Title, Is.EqualTo("Understanding"));
-        Assert.That(section.Provenance, Is.EqualTo("From Salidium 0.6.0, 2 minutes ago"));
-        Assert.That(section.Simulated, Is.False);
-        Assert.That(section.Lines.Select(line => (line.Tag, line.Text)), Is.EqualTo(new[]
-        {
-            ("observed", "4 files changed, unverified. 1 file changed after the last passing check (118/118 tests passed (vitest))."),
-            ("reported", "Agent says: “Fixed the double charge with one idempotency key per order.”"),
-            ("observed", "4 files changed (+43 −6) · 2 commands"),
-            ("inferred", "1 file not checked after the last change: refunds.ts"),
-            ("observed", "Tests passed: 118/118 tests passed (vitest); files changed since"),
-            ("observed", "2 items need attention: Recursive force delete; 1 file changed since the last passing check"),
-            ("explained", "Explanation: One idempotency key per order, sent with every charge."),
-            ("planned", "Planned, not done: Document refund behaviour for support"),
-        }));
-        Assert.That(Intelligence.Line(section, "Agent says").Tone, Is.EqualTo(SectionTone.Claim), "the agent's words are a quote, shown apart from facts");
-        Assert.That(Intelligence.Line(section, "Explanation").Tone, Is.EqualTo(SectionTone.Claim), "an explanation is never evidence");
-        Assert.That(Intelligence.Line(section, "4 files changed, unverified").Tone, Is.EqualTo(SectionTone.Attention));
-        Assert.That(Intelligence.Line(section, "Tests passed").Tone, Is.EqualTo(SectionTone.Good));
-    }
-
-    [Test]
-    public void EveryClassIsTheSourcesOwnAndNothingIsUpgraded()
-    {
-        var classes = new[] { "observed", "reported", "inferred", "planned", "explained" };
-        foreach (var word in classes)
-        {
-            var json = Intelligence.Edit(Intelligence.Verified, response =>
-            {
-                var understanding = Intelligence.UnderstandingOf(response);
-                understanding["verdict"]!["epistemic"] = word;
-                understanding["latest_statement"]!["epistemic"] = word;
-                understanding["verification"]!["latest_by_method"]![0]!["epistemic"] = word;
-                understanding["remaining"]!["items"]![0]!["epistemic"] = word;
-            });
-            var section = Present(json);
-            Assert.That(Intelligence.Line(section, "4 files changed, unverified").Tag, Is.EqualTo(word));
-            Assert.That(Intelligence.Line(section, "Agent says").Tag, Is.EqualTo(word), "shown as the source classed it, reported or not");
-            Assert.That(Intelligence.Line(section, "Tests passed").Tag, Is.EqualTo(word));
-            Assert.That(Intelligence.Line(section, "Planned").Tag, Is.EqualTo(word));
-        }
-        Assert.That(Present(Intelligence.Verified).Lines.All(line => line.Tag.Length == 0 || classes.Contains(line.Tag)), Is.True);
-    }
-
-    [Test]
-    public void KeepsTheMostImportantLinesWhenTheyDoNotAllFitInReadingOrder()
-    {
-        var section = Present(Intelligence.Verified, maxLines: 3);
-        Assert.That(Intelligence.Texts(section).Select(text => text.Split(':')[0]), Is.EqualTo(new[]
-        {
-            "4 files changed, unverified. 1 file changed after the last passing check (118/118 tests passed (vitest)).",
-            "Agent says",
-            "Tests passed",
-        }));
-        Assert.That(Present(Intelligence.Verified, maxLines: 0).Lines, Is.Empty);
-    }
-
-    [Test]
-    public void WhatTheSourceDoesNotHaveIsLeftOutOrSaidToBeUnknownNeverBlank()
-    {
-        var json = Intelligence.Edit(Intelligence.Verified, response =>
-        {
-            var understanding = Intelligence.UnderstandingOf(response);
-            understanding["verdict"]!["because"] = null;
-            understanding["latest_statement"] = null;
-            var run = understanding["verification"]!["latest_by_method"]![0]!;
-            run["outcome"] = "unknown";
-            run["counts"] = null;
-            run["stale"] = false;
-            run["later_unreadable"] = 2;
-            understanding["explanation"] = JObject.Parse(
-                "{\"status\":\"none\",\"current\":false,\"based_on_sequence\":null,\"generated_at\":null,\"model\":null,\"epistemic\":\"explained\",\"content\":null}");
-        });
-        var section = Present(json);
-        Assert.That(Intelligence.Texts(section)[0], Is.EqualTo("4 files changed, unverified"));
-        Assert.That(Intelligence.Texts(section).Any(text => text.StartsWith("Agent says", StringComparison.Ordinal)), Is.False);
-        Assert.That(Intelligence.Texts(section).Any(text => text.StartsWith("Explanation", StringComparison.Ordinal)), Is.False);
-        var unknown = Intelligence.Line(section, "Tests outcome unknown");
-        Assert.That(unknown.Text, Is.EqualTo("Tests outcome unknown: 118/118 tests passed (vitest); 2 later runs unreadable"));
-        Assert.That(unknown.Tone, Is.EqualTo(SectionTone.Secondary));
-
-        var noChecks = Intelligence.Edit(Intelligence.Verified, response =>
-        {
-            var verification = (JObject)Intelligence.UnderstandingOf(response)["verification"]!;
-            verification["latest_by_method"] = new JArray();
-            verification["summary"] = "No checks ran";
-        });
-        var line = Intelligence.Line(Present(noChecks), "No checks ran");
-        Assert.That(line.Tag, Is.Empty, "the source's summary carries no class of its own");
-    }
-
-    [Test]
-    public void WhatTheSourceSaysTwiceIsShownOnce()
-    {
-        var json = Intelligence.Edit(Intelligence.Verified, response =>
-        {
-            var understanding = Intelligence.UnderstandingOf(response);
-            var run = understanding["verification"]!["latest_by_method"]![0]!;
-            run["outcome"] = "fail";
-            run["label"] = "3 of 118 tests failed (vitest)";
-            understanding["verdict"]!["headline"] = "3 tests failing";
-            understanding["verdict"]!["because"] = "3 of 118 tests failed (vitest)";
-            understanding["remaining"]!["items"] = JArray.Parse(
-                "[{\"text\":\"3 of 118 tests failed (vitest)\",\"status\":\"failing\",\"source\":\"verification\",\"epistemic\":\"observed\"},"
-                + "{\"text\":\"Document refund behaviour for support\",\"status\":\"pending\",\"source\":\"plan\",\"epistemic\":\"planned\"}]");
-        });
-        var texts = Intelligence.Texts(Present(json));
-        Assert.That(texts[0], Is.EqualTo("3 tests failing"), "the reason is the run's own label, said on the run's line");
-        Assert.That(texts.Count(text => text.Contains("3 of 118 tests failed", StringComparison.Ordinal)), Is.EqualTo(1));
-        Assert.That(texts, Does.Contain("Planned, not done: Document refund behaviour for support"));
-
-        var waiting = Intelligence.Edit(Intelligence.Verified, response =>
-        {
-            var understanding = Intelligence.UnderstandingOf(response);
-            understanding["verdict"]!["headline"] = "Waiting for you";
-            understanding["verdict"]!["because"] = "Run: git push origin main";
-            understanding["waiting"] = JObject.Parse(
-                "{\"kind\":\"permission\",\"summary\":\"Run: git push origin main\",\"since\":\"2026-09-20T16:05:25.000Z\",\"epistemic\":\"observed\"}");
-        });
-        var shown = Intelligence.Texts(Present(waiting));
-        Assert.That(shown[0], Is.EqualTo("Waiting for you. Run: git push origin main"));
-        Assert.That(shown.Any(text => text.StartsWith("Waiting for permission", StringComparison.Ordinal)), Is.False);
-        var question = Intelligence.Edit(waiting, response => Intelligence.UnderstandingOf(response)["waiting"]!["kind"] = "question");
-        Assert.That(Intelligence.Texts(Present(Intelligence.Edit(question, response =>
-            Intelligence.UnderstandingOf(response)["waiting"]!["summary"] = "Which branch?"))), Does.Contain("Waiting for an answer: Which branch?"));
-    }
-
-    [Test]
-    public void AnExplanationThatIsNotCurrentSaysSoAndOneBeingWrittenIsNotShownAsContent()
-    {
-        var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
-        Assert.That(Intelligence.Line(Present(older), "Explanation").Text, Does.EndWith("(from before the latest evidence)"));
-        var writing = Intelligence.Edit(Intelligence.Verified, response =>
-        {
-            var explanation = Intelligence.UnderstandingOf(response)["explanation"]!;
-            explanation["status"] = "generating";
-            explanation["content"] = null;
-        });
-        var line = Intelligence.Line(Present(writing), "An explanation is being written");
-        Assert.That(line.Tag, Is.EqualTo("explained"));
-    }
-
-    [Test]
-    public void EachAvailabilityIsSaidInWords()
-    {
-        var cases = new Dictionary<string, (string Json, string Provenance)>
-        {
-            ["not_found"] = (Intelligence.Failure("not_found", "not_observed", "Salidium has not observed this session."),
-                "No understanding yet: Salidium has not observed this session."),
-            ["unavailable"] = (Intelligence.Failure("unavailable", "not_running", "Salidium is not running: it has not published its discovery file."),
-                "Understanding unavailable: Salidium is not running: it has not published its discovery file."),
-            ["incompatible"] = (Intelligence.Failure("incompatible", "invalid_document", "The session report does not match Salidium consumer contract v1."),
-                "Understanding unreadable: The session report does not match Salidium consumer contract v1."),
-            ["unauthorized"] = (Intelligence.Failure("unauthorized", "credential_missing", "No Salidium credential is configured."),
-                "Understanding not allowed: No Salidium credential is configured."),
-        };
-        foreach (var (availability, (json, provenance)) in cases)
-        {
-            var section = Present(json);
-            Assert.That(section.Provenance, Is.EqualTo(provenance), availability);
-            Assert.That(section.Lines, Is.Empty, availability);
-            Assert.That(section.Simulated, Is.False);
-        }
-    }
-
-    [Test]
-    public void ReadingAndFailedReadsAreSaidInWords()
-    {
-        var now = Intelligence.At("2026-09-20T16:22:00.000Z");
-        Assert.That(UnderstandingPresenter.Present(null, null, false, null, now, Intelligence.Utc, 7).Provenance,
-            Is.EqualTo("Nothing to understand until work starts."));
-        Assert.That(UnderstandingPresenter.Present(Intelligence.ExecutionId, null, true, null, now, Intelligence.Utc, 7).Provenance,
-            Is.EqualTo("Asking what the understanding source concluded…"));
-        var failed = UnderstandingPresenter.Present(Intelligence.ExecutionId, null, false, "The control plane could not be reached: refused", now, Intelligence.Utc, 7);
-        Assert.That(failed.Provenance, Is.EqualTo("Could not read the understanding: The control plane could not be reached: refused"));
-        Assert.That(failed.ProvenanceTone, Is.EqualTo(SectionTone.Problem));
-
-        var read = Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z");
-        Assert.That(UnderstandingPresenter.Present(Intelligence.ExecutionId, read, true, null, now, Intelligence.Utc, 7).Provenance,
-            Is.EqualTo("From Salidium 0.6.0, 2 minutes ago · reading again…"), "the last answer stays while a new one is read");
-        Assert.That(UnderstandingPresenter.Present(Intelligence.ExecutionId, read, false, "timed out", now, Intelligence.Utc, 7).Provenance,
-            Is.EqualTo("From Salidium 0.6.0, 2 minutes ago · could not read it again: timed out"));
-    }
-
-    [Test]
-    public void HowLongAgoIsSaidInWords()
-    {
-        string Ago(string now) => Present(Intelligence.Verified, now).Provenance;
-        Assert.That(Ago("2026-09-20T16:20:40.000Z"), Does.EndWith(", just now"));
-        Assert.That(Ago("2026-09-20T16:19:00.000Z"), Does.EndWith(", just now"), "a source clock ahead of this one is not in the future");
-        Assert.That(Ago("2026-09-20T16:21:05.000Z"), Does.EndWith(", 1 minute ago"));
-        Assert.That(Ago("2026-09-20T19:30:00.000Z"), Does.EndWith(", 3 hours ago"));
-        Assert.That(Ago("2026-09-23T09:00:00.000Z"), Does.EndWith(", on 20 Sep at 16:20"));
-    }
-
-    [Test]
-    public void ASimulatedAnswerSaysSoAndWhenItWasRecorded()
-    {
-        var recording = Demonstration.Recording();
-        var directed = recording.Understanding.Keys.Single(id => recording.Evaluation[id].Count > 20);
-        var answered = Demonstration.AtQuestion().Node;
-        var approval = Demonstration.Answered().Events.Count;
-        var answer = recording.UnderstandingAt(directed, answered, approval)!;
-        var read = new IntelligenceRead<UnderstandingResponse>(answer.Response, answer.ReadAt, recorded: true);
-
-        var section = UnderstandingPresenter.Present(directed, read, false, null, Intelligence.At("2026-11-20T10:00:00.000Z"), Intelligence.Utc, 7);
-
-        Assert.That(section.Provenance, Is.EqualTo("Simulated, not from Salidium · recorded at 09:00:09"));
-        Assert.That(section.Simulated, Is.True);
-        Assert.That(section.ProvenanceTone, Is.EqualTo(SectionTone.Attention));
-        Assert.That(Intelligence.Texts(section)[0], Is.EqualTo("Waiting for you. Run make migrate to add the sign-in attempts table to the development database"));
-        Assert.That(section.Lines[0].Tag, Is.EqualTo("observed"));
-    }
-
-    [Test]
-    public void TextFromTheSourceIsShownAsItIsWrittenAndNeverAsMarkupOrControl()
-    {
-        var hostile = "<color=#f00>Done</color>\u202E <sprite=0>\u200B\nnext\tline \\u003Cb\\u003E";
-        var json = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["verdict"]!["headline"] = hostile);
-        var text = Intelligence.Texts(Present(json))[0];
-        Assert.That(text, Does.StartWith("<color=#f00>Done</color>‹U+202E› <sprite=0>‹U+200B› next line \\u003Cb\\u003E."), "markup characters stay as written, and what would not show as itself shows its code");
-        Assert.That(text.Any(character => char.IsControl(character) || char.GetUnicodeCategory(character) == System.Globalization.UnicodeCategory.Format), Is.False);
-    }
-}
-
-public class EvaluationPresenterTests
-{
-    private static SectionPresentation Present(string json, string now = "2026-09-26T18:02:00.000Z", bool recorded = false) =>
-        EvaluationPresenter.Present(Intelligence.ExecutionId,
-            new IntelligenceRead<EvaluationResponse>(Intelligence.Evaluation(json), Intelligence.At("2026-09-26T18:01:00.000Z"), recorded),
-            loading: false, error: null, Intelligence.At(now), Intelligence.Utc);
-
-    [Test]
-    public void ShowsEachPartWithItsOwnAvailabilityCoverageAndFreshnessNeverCombined()
-    {
-        var section = Present(ControlPlaneApiTests.Available);
-
-        Assert.That(section.Title, Is.EqualTo("Evaluation"));
-        Assert.That(section.Provenance, Is.EqualTo("From Seorak, read 1 minute ago"));
-        Assert.That(section.Lines.Select(line => (line.Tag, line.Text, line.Detail)), Is.EqualTo(new[]
-        {
-            ("Cost", "About $1.37. Estimated from token counts at list prices. Not a bill.", false),
-            ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true),
-            ("Outcome", "commits landed unknown · no tool errors · ended: the person exited", false),
-            ("", "uncommitted: known once it ends · 3-day line survival: pending", false),
-            ("", "partly available: not yet computed · 0 of 1 session, incomplete: still being computed, a gap not named · recomputing, no data yet", true),
-            ("Checks", "test: 4 passed of 5 runs (80%)", false),
-            ("", "available · 1 of 1 session, complete · fresh, data to 17:58:12", true),
-        }));
-        Assert.That(section.Lines.Count(line => line.Detail), Is.EqualTo(3), "one statement per part");
-        Assert.That(section.Lines.Where(line => line.Detail).Select(line => line.Tone),
-            Is.EqualTo(new[] { SectionTone.Secondary, SectionTone.Attention, SectionTone.Secondary }));
-        Assert.That(Intelligence.Texts(section).Any(text => text.IndexOf("score", StringComparison.OrdinalIgnoreCase) >= 0), Is.False);
-    }
-
-    [Test]
-    public void APartReadsStaleOnceItsStaleAtHasPassedWhateverItsStateSaid()
-    {
-        var section = Present(ControlPlaneApiTests.Available, now: "2026-09-26T18:06:00.000Z");
-        var statuses = section.Lines.Where(line => line.Detail).ToList();
-        Assert.That(statuses.Select(line => line.Text), Has.All.EndWith("stale since 18:05"));
-        Assert.That(statuses.Select(line => line.Tone), Has.All.EqualTo(SectionTone.Attention));
-    }
-
-    [Test]
-    public void ARecordedAnswerIsDescribedAsOfWhenItWasRecorded()
-    {
-        var section = Present(ControlPlaneApiTests.Available, now: "2026-11-20T10:00:00.000Z", recorded: true);
-        Assert.That(section.Provenance, Is.EqualTo("From Seorak, recorded at 18:01:00"));
-        Assert.That(section.Lines[1].Text, Does.EndWith("fresh, data to 17:58:12"), "not stale on this device's later clock");
-    }
-
-    [Test]
-    public void WhatTheSourceDoesNotHaveReadsAsUnknownOrPendingNeverZero()
-    {
-        var json = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
-        {
-            var evaluation = Intelligence.EvaluationOf(response);
-            evaluation["cost"]!["estimated_usd"] = null;
-            evaluation["outcome"]!["availability"] = JObject.Parse("{\"state\":\"unavailable\",\"reason\":\"not_captured\"}");
-            evaluation["outcome"]!["measure"] = null;
-            evaluation["verification"]!["lens"]!["by_kind"] = JArray.Parse("[{\"label\":\"test\",\"runs\":null,\"passed\":null,\"pass_rate\":null}]");
-        });
-        var section = Present(json);
-        Assert.That(Intelligence.Line(section, "Unknown").Text, Is.EqualTo("Unknown: unpriced, or not measured yet."));
-        Assert.That(Intelligence.Line(section, "Unknown").Tag, Is.EqualTo("Cost"));
-        Assert.That(Intelligence.Texts(section), Does.Contain("Nothing measured yet."));
-        Assert.That(Intelligence.Texts(section)[3], Does.StartWith("unavailable: not captured"));
-        Assert.That(Intelligence.Texts(section), Does.Contain("test: passes unknown of runs unknown (no pass rate)"));
-
-        var measured = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
-        {
-            var measure = Intelligence.EvaluationOf(response)["outcome"]!["measure"]!;
-            measure["commits_landed"] = 0;
-            measure["error_count"] = 2;
-            measure["first_error_at"] = "2026-09-26T17:44:10.000Z";
-            measure["end_reason"] = null;
-            measure["uncommitted"] = JObject.Parse("{\"files_touched\":3,\"lines_added\":41,\"lines_removed\":7,\"generated_lines_excluded\":120}");
-            measure["line_survival"] = JObject.Parse(
-                "{\"rung\":\"3d\",\"fate\":\"retained\",\"rate\":0.9,\"lines_authored\":40,\"lines_surviving\":36,\"commits_checked\":2}");
-        });
-        var outcome = Present(measured);
-        Assert.That(Intelligence.Texts(outcome)[2], Is.EqualTo("no commits landed · 2 tool errors, the first at 17:44 · not ended, or its end not captured"));
-        Assert.That(outcome.Lines[2].Tone, Is.EqualTo(SectionTone.Attention));
-        Assert.That(Intelligence.Texts(outcome)[3],
-            Is.EqualTo("uncommitted: 3 files, +41 −7 (120 generated lines apart) · lines kept after 3 days: 90% (36 of 40 lines)"));
-
-        var noLens = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
-            Intelligence.EvaluationOf(response)["verification"]!["lens"] = null);
-        Assert.That(Intelligence.Texts(Present(noLens)), Does.Contain("No verification lens."));
-        var empty = Intelligence.Edit(ControlPlaneApiTests.Available, response =>
-            Intelligence.EvaluationOf(response)["verification"]!["lens"] = JObject.Parse("{\"by_kind\":[],\"empty_reason\":\"No verification result was captured.\"}"));
-        Assert.That(Intelligence.Texts(Present(empty)), Does.Contain("No verification result was captured."));
-    }
-
-    [Test]
-    public void TheCostIsAlwaysTheSourcesEstimateWithItsNote()
-    {
-        foreach (var (usd, amount) in new[] { (0.0, "less than $0.01"), (0.004, "less than $0.01"), (0.387, "$0.39"), (12.5, "$12.50") })
-        {
-            var json = Intelligence.Edit(ControlPlaneApiTests.Available, response => Intelligence.EvaluationOf(response)["cost"]!["estimated_usd"] = usd);
-            Assert.That(Present(json).Lines[0].Text, Is.EqualTo("About " + amount + ". Estimated from token counts at list prices. Not a bill."));
-        }
-    }
-
-    [Test]
-    public void EachAvailabilityIsSaidInWords()
-    {
-        var cases = new Dictionary<string, string>
-        {
-            ["not_found"] = "No evaluation yet: Seorak has not captured this session.",
-            ["unavailable"] = "Evaluation unavailable: Seorak has not captured this session.",
-            ["incompatible"] = "Evaluation unreadable: Seorak has not captured this session.",
-            ["unauthorized"] = "Evaluation not allowed: Seorak has not captured this session.",
-        };
-        foreach (var (availability, provenance) in cases)
-        {
-            var section = Present(Intelligence.Failure(availability, "some_code", "Seorak has not captured this session."));
-            Assert.That(section.Provenance, Is.EqualTo(provenance));
-            Assert.That(section.Lines, Is.Empty);
-        }
-        var now = Intelligence.At("2026-09-26T18:02:00.000Z");
-        Assert.That(EvaluationPresenter.Present(null, null, false, null, now, Intelligence.Utc).Provenance, Is.EqualTo("Nothing to evaluate until work starts."));
-        Assert.That(EvaluationPresenter.Present(Intelligence.ExecutionId, null, true, null, now, Intelligence.Utc).Provenance,
-            Is.EqualTo("Asking what the evaluation source measured…"));
-    }
-
-    [Test]
-    public void ASimulatedAnswerSaysSo()
-    {
-        var json = Intelligence.Edit(ControlPlaneApiTests.Available, response => Intelligence.EvaluationOf(response)["source"]!["synthetic"] = true);
-        var section = Present(json, recorded: true);
-        Assert.That(section.Provenance, Is.EqualTo("Simulated, not from Seorak · recorded at 18:01:00"));
-        Assert.That(section.Simulated, Is.True);
-    }
-}
-
 public class IntelligenceWordsTests
 {
-    [Test]
-    public void TheSectionsAreNamedForWhatTheyDoAndOnlyTheProvenanceNamesAProduct()
-    {
-        Assert.That(IntelligenceText.TitleOf(SectionKind.Understanding), Is.EqualTo("Understanding"));
-        Assert.That(IntelligenceText.TitleOf(SectionKind.Evaluation), Is.EqualTo("Evaluation"));
-        var now = Intelligence.At("2026-09-26T18:02:00.000Z");
-        var sections = new[]
-        {
-            UnderstandingPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
-                false, null, now, Intelligence.Utc, 20),
-            EvaluationPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Evaluation(ControlPlaneApiTests.Available), "2026-09-26T18:01:00.000Z"),
-                false, null, now, Intelligence.Utc),
-        };
-        var products = new[] { "Salidium", "Seorak" };
-        foreach (var section in sections)
-        {
-            Assert.That(products.Any(product => section.Provenance.Contains(product, StringComparison.Ordinal)), Is.True, section.Title);
-            foreach (var line in section.Lines)
-            {
-                foreach (var product in products) Assert.That(line.Text + line.Tag, Does.Not.Contain(product), section.Title);
-            }
-            foreach (var brand in new[] { "Meta", "Quest", "Claude", "Anthropic", "Codex", "OpenAI" })
-            {
-                Assert.That(section.Title + section.Provenance, Does.Not.Contain(brand));
-            }
-        }
-    }
-
     /// <summary>
     /// Source text follows the one rule for text Halcyonic did not write (<see cref="LabelTextTests"/>):
     /// line breaks as spaces, what would not show as itself shown as its code point, markup as written.
@@ -931,8 +536,8 @@ public class DemonstrationReadsTests
             ((AvailableUnderstanding)answer!.Response.Result).Understanding.Verdict.Headline;
 
         Assert.That(recording.UnderstandingAt(directed, 0, 1), Is.Null, "before the work starts there is no answer");
-        // At the agent's question the stand-in still says Working: it reads approvals as waiting, not questions.
-        Assert.That(Headline(recording.UnderstandingAt(directed, 0, beginning.Events.Count)), Is.EqualTo("Working"));
+        // At the agent's question the stand-in waits for the person, as it does at an approval.
+        Assert.That(Headline(recording.UnderstandingAt(directed, 0, beginning.Events.Count)), Is.EqualTo("Waiting for you"));
         var answered = Demonstration.Answered();
         Assert.That(Headline(recording.UnderstandingAt(directed, Demonstration.AtQuestion().Node, answered.Events.Count)), Is.EqualTo("Waiting for you"));
 
@@ -1022,26 +627,30 @@ public class DemonstrationReadsTests
 
         var understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
         Assert.That(understanding.Recorded, Is.True);
-        var section = UnderstandingPresenter.Present(execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc, 7);
-        Assert.That(section.Provenance, Does.StartWith("Simulated, not from Salidium · recorded at 09:00:0"));
-        Assert.That(section.Lines[0].Text, Does.StartWith("Waiting for you. Run make migrate"));
+        var section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
+        Assert.That(section.Provenance, Does.StartWith("Simulated explanation · recorded at 09:00:0"));
+        Assert.That(section.Lines[0].Text, Is.EqualTo("2 files changed: 2 new"));
         var evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
-        var measured = EvaluationPresenter.Present(execution.ExecutionId, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(measured.Provenance, Does.StartWith("Simulated, not from Seorak · recorded at"));
+        var measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
+        var source = measured.Lines.Single(line => line.Source);
+        Assert.That(source.Text, Does.StartWith("Simulated measurement · recorded at"));
         Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("Nothing measured yet."), "the outcome waits for the turn to end");
-        Assert.That(measured.Lines[3].Text, Does.StartWith("unavailable: not yet computed"), "the outcome's own statement about itself");
+        Assert.That(measured.Lines.Last().Text, Does.StartWith("unavailable: not yet computed"), "the outcome's own statement about itself");
 
         var approve = Demonstration.AtApproval(DemonstrationAnswerKind.Approve);
         await session.SubmitAsync(new CommandFactory(Samples.Client).RespondToApproval(approve.Answer.ExecutionId, approve.Answer.ApprovalId!, ApprovalDecision.Approve));
         await Pumping.Until(session, s => Demonstration.DirectedExecution(s)?.Status == ExecutionStatus.Completed, "the approved turn ends");
 
         understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
-        section = UnderstandingPresenter.Present(execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc, 7);
-        Assert.That(section.Lines[0].Text, Does.StartWith("1 test failing"));
-        Assert.That(section.Lines.Select(line => line.Tag), Does.Contain("explained"));
+        section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
+        Assert.That(section.Lines.Select(line => line.Text), Does.Contain("New: rate-limit.ts (+57 −0)"));
+        var flow = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
+        Assert.That(flow.Steps, Is.True, "a judge can step through how it was built once the first round ends");
+        Assert.That(flow.Lines.Select(line => line.Tag), Does.Contain("explained"));
         evaluation = await reads.ReadEvaluationAsync(execution.ExecutionId, CancellationToken.None);
-        measured = EvaluationPresenter.Present(execution.ExecutionId, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
+        measured = CheckedPresenter.Present(execution.ExecutionId, understanding, false, null, evaluation, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
         Assert.That(measured.Lines.Select(line => line.Text), Does.Contain("test: 0 passed of 1 run (0%)"));
+        Assert.That(measured.Lines[0].Text, Does.StartWith("Tests failed at "));
 
         Assert.That(await AssertNothingRecorded(reads, "01a0dcf1-5a80-7000-8000-0000000000e9"), Is.EqualTo(DemonstrationReads.NothingRecorded));
     }

@@ -14,8 +14,65 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class WorkspaceScreen
     {
-        /// <summary>The tab chosen: the person's question it answers.</summary>
-        public WorkspaceQuestion Question { get; set; } = WorkspaceQuestion.Doing;
+        private WorkspaceQuestion question = WorkspaceQuestion.Doing;
+        private UnderstandPrompt prompt = UnderstandPrompt.WhatChanged;
+
+        /// <summary>The tab chosen: the person's question it answers. Another tab's answer starts at its first page.</summary>
+        public WorkspaceQuestion Question
+        {
+            get => question;
+            set
+            {
+                if (value != question) AnswerPage = 0;
+                question = value;
+            }
+        }
+
+        /// <summary>What Help me understand answers. Another starts at its first page.</summary>
+        public UnderstandPrompt Prompt
+        {
+            get => prompt;
+            set
+            {
+                if (value != prompt) AnswerPage = 0;
+                prompt = value;
+            }
+        }
+
+        /// <summary>The pages of the section's answer, as <see cref="ReadAnswer"/> split it last.</summary>
+        public IReadOnlyList<SectionPresentation> AnswerPages { get; private set; } = Array.Empty<SectionPresentation>();
+
+        /// <summary>The page of the answer showing, from 0.</summary>
+        public int AnswerPage { get; private set; }
+
+        /// <summary>
+        /// The page of the answer to draw, or null before one is read: of several, its provenance line
+        /// starts with which it is, "Step 2 of 7", as the pager beside the heading has no words.
+        /// </summary>
+        public SectionPresentation? Answer
+        {
+            get
+            {
+                if (AnswerPages.Count == 0) return null;
+                var page = AnswerPages[AnswerPage];
+                if (AnswerPages.Count == 1) return page;
+                return new SectionPresentation(page.Kind, Client.AnswerPages.Caption(page, AnswerPage, AnswerPages.Count) + " · " + page.Provenance,
+                    page.ProvenanceTone, page.Lines, page.Simulated, page.Steps);
+            }
+        }
+
+        /// <summary>
+        /// Splits the section's answer into the pages <paramref name="room"/> holds under the heading,
+        /// keeping the page the person is on where it still exists.
+        /// </summary>
+        public void ReadAnswer(SectionPresentation section, AnswerRoom room)
+        {
+            AnswerPages = Client.AnswerPages.Split(section, room);
+            AnswerPage = Math.Min(AnswerPage, AnswerPages.Count - 1);
+        }
+
+        /// <summary>Turns the answer's pages by <paramref name="by"/>, never past its first or last.</summary>
+        public void TurnAnswer(int by) => AnswerPage = Math.Max(0, Math.Min(AnswerPage + by, AnswerPages.Count - 1));
 
         /// <summary>What something the person just did came to, or what hold to talk is doing, for a few seconds; null when nothing.</summary>
         public string? Notice { get; set; }
@@ -152,6 +209,25 @@ namespace Halcyonic.Client
             _ => throw new ArgumentOutOfRangeException(nameof(question), question, "Unhandled question."),
         };
 
+        /// <summary>The key a prompt under Help me understand raises.</summary>
+        public static string PromptKey(UnderstandPrompt prompt) => prompt switch
+        {
+            UnderstandPrompt.WhatChanged => "what-changed",
+            UnderstandPrompt.WhyChanged => "why-changed",
+            UnderstandPrompt.HowBuilt => "how-built",
+            _ => throw new ArgumentOutOfRangeException(nameof(prompt), prompt, "Unhandled prompt."),
+        };
+
+        /// <summary>The prompt a key names, or null.</summary>
+        public static UnderstandPrompt? PromptOf(string? key)
+        {
+            foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
+            {
+                if (PromptKey(prompt) == key) return prompt;
+            }
+            return null;
+        }
+
         /// <summary>The question a tab's key names, or null.</summary>
         public static WorkspaceQuestion? QuestionOf(string? key)
         {
@@ -201,16 +277,41 @@ namespace Halcyonic.Client
                     break;
                 case WorkspaceQuestion.Understand:
                 case WorkspaceQuestion.Checked:
-                    // The section's own lines, which the panel draws under the heading.
-                    model.Heading = WorkspaceText.Question(shown);
-                    model.HeadingAction = new PanelAction(Refresh, WorkspaceText.Refresh, PanelActionRole.Secondary, icon: GlazeIcon.Refresh);
-                    model.CustomBody = true;
-                    model.CustomBodyIsText = true;
+                    Section(model, screen, shown);
                     break;
                 default:
                     Doing(model, workspace, screen, confirming);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Help me understand and What was checked?: the section's own lines, which the panel draws
+        /// under the heading, a page at a time. Help me understand asks one of its questions at a time,
+        /// each a pill in the heading's row; a flow pages a step at a time.
+        /// </summary>
+        private static void Section(PanelModel model, WorkspaceScreen screen, WorkspaceQuestion shown)
+        {
+            model.Heading = WorkspaceText.Question(shown);
+            var pages = screen.AnswerPages;
+            // Help me understand reads again by itself as the work changes, so while its flow pages,
+            // the pager takes Refresh's place beside its questions, where all three don't fit.
+            if (shown != WorkspaceQuestion.Understand || pages.Count <= 1)
+            {
+                model.HeadingAction = new PanelAction(Refresh, WorkspaceText.Refresh, PanelActionRole.Secondary, icon: GlazeIcon.Refresh);
+            }
+            if (shown == WorkspaceQuestion.Understand)
+            {
+                foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
+                {
+                    model.Prompts.Add(new PanelTab(PromptKey(prompt), WorkspaceText.PromptLabel(prompt), prompt == screen.Prompt));
+                }
+            }
+            model.CustomBody = true;
+            model.CustomBodyIsText = true;
+            // The pager stands in the heading's row, without words: which page shows leads the
+            // provenance line (WorkspaceScreen.Answer).
+            if (pages.Count > 1) model.Parts = (screen.AnswerPage, pages.Count);
         }
 
         /// <summary>

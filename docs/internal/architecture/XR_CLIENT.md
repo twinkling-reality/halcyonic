@@ -451,34 +451,59 @@ the same definition names, as the JSON Schema document:
   is in an agent's question, a step at a time across its prompts: each part of a prompt's text, as
   the panel measured it, then each further page of its answers; a prompt counts as shown whole once
   the last part of its text has shown, and another draft starts from its first step.
-- **Understanding and Evaluation**, the workspace's two sections, named for the capabilities and
-  never for the products. **`IntelligenceFeed`** decides, on the main thread, when a section reads:
-  when it is shown for an execution it holds no answer about, and when the person refreshes; the
-  Understanding section also reads again once the execution changed and two seconds have passed,
-  while the Evaluation section never reads by itself again. The last answer stays while a new one is
-  read, and a failed read says why, "did not answer in time" for a timeout.
-  **`UnderstandingPresenter`** and **`EvaluationPresenter`** write every word a section shows, as a
-  provenance line and lines with a tag. The provenance line is the only place that names Salidium
-  or Seorak ("From Salidium 0.6.0, 2 minutes ago", "From Seorak, read just now"); an answer from a
-  synthetic source says "Simulated, not from Salidium" or "Simulated, not from Seorak" instead
+- **Help me understand and What was checked?**, the workspace's two sections, answered from what
+  the understanding source (Salidium) concluded and what the evaluation source (Seorak) measured,
+  and named for the person's questions, never for the products. **`IntelligenceFeed`** decides, on
+  the main thread, when a source is read: when a section shows for an execution it holds no answer
+  about, and when the person refreshes; the understanding is read again once the execution changed
+  and two seconds have passed, the evaluation never by itself. The last answer stays while a new one
+  is read, and a failed read says why, "did not answer in time" for a timeout. Help me understand
+  asks one of three questions at a time (`UnderstandPrompt`); What was checked? reads both sources.
+  **`UnderstandingPresenter`**, **`CheckedPresenter`** and **`EvaluationPresenter`**
+  (`WorkAnswers.cs`, `IntelligencePresentation.cs`) write every word, as a provenance line and lines
+  with a tag, fitted to an **`AnswerRoom`**: the rows a page holds and how many rows each line takes,
+  which the headset measures on its labels.
+  - *What changed?* says how many files changed and how ("4 files changed: 1 new, 2 edited, 1
+    removed"), then each file, most recently changed first, as the source observed it: "New:
+    rate-limit.ts (+57 −0)", Edited, Removed, Moved, "Moved and edited", or each way it changed;
+    a path keeps as many folders as tell two files of one name apart. As many as fit show and the
+    rest are counted ("And 4 more files"), then whether a check ran after the changes (inferred),
+    and, where there is room, the commits and what is not done yet.
+  - *Why?* quotes what the agent said before each change, in the order it said it, "Agent says:
+    “…”", leaning, with "Said before it changed …" under it: the source binds a reason to a file by
+    time, so the words never claim the reason is the file's. Files with no reason are named.
+  - *How was it built?* steps through the source's explanation only when one was generated, a page a
+    step: what it is about, why, each of its Why lanes, how, a change of approach, then the evidence
+    (the changes and checks, observed). Each step's first line names it and says it was explained by
+    a model and whether it is "up to date" or written "before the latest evidence"; every line of it
+    is tagged explained and leans. Without an explanation it says why ("No explanation was written
+    for this work.", "Explanations are turned off on your computer, …", "An explanation is being
+    written. …") and shows the evidence. Nothing here asks for an explanation to be written.
+  - *What was checked?* lists the checks the understanding source saw run, the earliest first, each
+    with its outcome and time ("Tests failed at 05:00: …") and the change it ran after, from the
+    observed times ("Ran after the last change, to tally.js at 05:00", "Then refunds.ts changed, so
+    it no longer covers it"), then whether a check ran after every change, what needs a look and what
+    the agent said about its checks. The evaluation follows on a page of its own under its own
+    provenance line: the checks by kind, the cost as "About $0.39." with the source's note
+    "Estimated from token counts at list prices. Not a bill.", and the outcome, each with its own
+    availability, coverage and freshness, never combined, read as stale once its `stale_at` has
+    passed. A value the source does not have reads as unknown, pending or "known once it ends",
+    never as zero.
+
+  A provenance line is the only place that names Salidium or Seorak ("From Salidium 0.6.1, 2
+  minutes ago", "From Seorak, read just now"); a synthetic source's says "Simulated explanation",
+  "Simulated checks" or "Simulated measurement" instead
   ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)),
   and a recorded answer says when it was recorded, with its relative times and staleness judged as
   of then. Where there is no answer, the provenance line says why in words: "No understanding yet",
-  "Understanding unavailable", "unreadable" or "not allowed", with the control plane's reason, or
-  that it is being read, or could not be. Understanding shows each claim with the source's own
-  epistemic class as its tag (observed, reported, inferred, planned, explained), never upgraded:
-  the verdict, what the session waits for, the agent's latest statement quoted as "Agent says: “…”",
-  the changes, which files no passing check covers (inferred), the latest check of each kind, what
-  needs attention, a model's explanation (explained, never evidence, and marked when it predates
-  the latest evidence) and what remains. When they do not all fit, the most important stay, and
-  what the source says twice (a reason that is a check's label, a failing check listed as remaining)
-  is shown once. Evaluation shows the cost as "About $0.39." with the source's note "Estimated
-  from token counts at list prices. Not a bill.", the outcome and the checks, each followed by its
-  own availability, coverage and freshness, never combined, and read as stale once its `stale_at`
-  has passed. A value the source does not have reads as unknown, pending or "known once it ends",
-  never as zero; a measured zero reads as one ("no tool errors"). **`IntelligenceText`** makes
-  every text from a source plain by `LabelText`'s rule, so a bidirectional override or a zero width
-  character in it shows as its code point and markup as written.
+  "Understanding unavailable", "unreadable" or "not allowed", with the control plane's reason. Every
+  claim keeps the source's own epistemic class as its tag (observed, reported, inferred, planned,
+  explained), never upgraded. **`AnswerPages`** splits an answer that pages, keeping a line with
+  its detail, never a provenance line at a page's foot, and a step's heading again at the top of a
+  step that goes on; the page showing is named at the head of the provenance line ("Step 2 of 7 ·
+  …"). **`IntelligenceText`** makes every text from a source plain by `LabelText`'s rule, so a
+  bidirectional override or a zero width character in it shows as its code point and markup as
+  written.
 - **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
   bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
   ([quest-3-device.md](../validation/quest-3-device.md)), over `ws://`, the USB path. It cannot pin
@@ -967,8 +992,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   eight seconds. Under them, the person's questions as tabs in short names, each whole question
   heading its answer: Waiting for you (What do you need from me?), first and in the attention colour,
   only while an approval or an agent's question waits; Doing (What is it doing?); Understand (Help me
-  understand, the understanding section) and Checked (What was checked?, the evaluation section),
-  with Refresh beside their heading; and Close at the row's end. The workspace offers no Move or
+  understand, its three questions What changed?, Why? and How was it built? as pills in the
+  heading's row) and Checked (What was checked?), with Refresh, and Previous and Next while an
+  answer pages, at the heading row's right; and Close at the row's end. The workspace offers no Move or
   Reset position: it stays beside its character. Doing answers in one plain answer, what needs the
   person, else that nothing does and what it did last; what this headset sent and how it went,
   newest first, or "Nothing sent from here yet."; and Recent activity, a log whose newest line is
@@ -1196,10 +1222,14 @@ provenance line, never on a tab. Look and pinch opens a character, never a tab. 
 reads the sections for the tab chosen through the director's `IIntelligenceReader`: the
 demonstration's `DemonstrationReads` while it is shown, else `ControlPlaneApi` for the configured
 control plane (`ControlPlaneSettings.Api()`, the same instance that reads history, made again when
-pairing, forgetting or a new token changes the control plane). `SectionView` draws a section under
-its heading in the space the frame leaves, its first lines beside Refresh: the provenance line,
-wrapping to two rows, then each line with its tag in a column beside it, a part's availability,
-coverage and freshness in at most two rows; six lines of Understanding fit under the provenance.
+pairing, forgetting or a new token changes the control plane). `SectionView` draws a page of a
+section's answer under its heading in the space the frame leaves, its first lines beside the
+heading row's controls on What was checked?, under the pills on Help me understand: the provenance
+line, wrapping to two rows, then each line with its tag in a column beside it, on as many rows as
+it may take. Before each draw the director measures that space and each line's rows on the labels
+(`SectionView.Room`, cached by text and width), so lists keep what fits and count the rest, and only
+How was it built? and What was checked? page, from the heading row: the frame lays Previous and Next
+there, Refresh left of them, and no row under the body.
 Every label shows its text by the one rule, as every workspace label does (under "Words" below), so
 it shows exactly what the source wrote, and a claim leans. Viewing a section sounds nothing.
 

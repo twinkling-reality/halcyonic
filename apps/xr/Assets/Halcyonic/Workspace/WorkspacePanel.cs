@@ -59,6 +59,17 @@ namespace Halcyonic.XR.Workspace
             return panel;
         }
 
+        /// <summary>
+        /// The rows a page of a section's answer holds under <paramref name="model"/>'s heading, as
+        /// the frame lays the screen out, under <paramref name="provenance"/> with the longest name a
+        /// page has before it.
+        /// </summary>
+        public AnswerRoom Room(PanelModel model, string provenance)
+        {
+            frame.Show(model);
+            return section.Room(frame.CustomBody, frame.Notch, "Step 10 of 10 · " + provenance);
+        }
+
         /// <summary>Draws a screen, and the section under its heading while it shows one.</summary>
         public void Show(PanelModel model, SectionPresentation? shownSection)
         {
