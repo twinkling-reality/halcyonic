@@ -229,6 +229,13 @@ does not lean, or stand upright, as soon as it is drawn after becoming the agent
 Halcyonic's. Its times are a Mac's; what only the
 headset tells is in [quest-3-performance.md](../validation/quest-3-performance.md).
 
+Every render, and the measure, runs twice: at the standard text size, then with reading text a step
+larger, as a person may choose in Settings' Comfort section (`Comfort.LargerTextScale`), and fails
+if either pass does. The second pass logs `Halcyonic: the same again with reading text a step
+larger.` before it starts, its failures begin "at the larger text size", and its pictures go to a
+`Larger` folder inside the render's own, such as `apps/xr/Builds/EntryRenders/Larger`. A run takes
+about twice as long as before.
+
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during
 shutdown, as macOS's crash reports show. It happens after the work is done and saved; read the
@@ -1077,7 +1084,7 @@ did not happen as written. A step not tried stays unverified.
 ### The interface on a Quest
 
 The whole redesign of [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)
-in one session of 20 minutes, the checks that matter most first, so a short session still answers
+in one session of 22 minutes, the checks that matter most first, so a short session still answers
 them. Seated at the desk, hands only, in passthrough, with a development build (Settings shows Your
 Mac and Hold to talk works), `pnpm demo` running against the control plane so something waits for
 you, and a browser video to hand. Follow the log while you go:
@@ -1135,6 +1142,13 @@ For each step write down what you saw and how it felt, in
 9. **The same places (1 minute).** Through Connect projects, Create a project, a question and the
    review: Close stays at the top right, Back at the bottom left, the button the screen leads to at
    the bottom right, the pager above it at the right. Does your hand learn where to go?
+10. **Comfort (2 minutes).** In Settings' Comfort section press Make text larger: the sheet grows
+    where it stands, and the characters' titles, the peek and the banner grow a step. Open the
+    character that waits for you: the workspace is a step larger and opens lower, to stay under the
+    titles. Can you read its bottom row, and press its bar, without bending your neck? Press Keep
+    badges still: Starting's and Working's icons stop turning and Waiting for you stops breathing.
+    Press Make sounds quieter, then Turn sounds off, and make a task wait: half as loud, then
+    nothing. Quit Halcyonic and start it again: the settings stay. Put them back as they were.
 
 If time remains: the stage's banner when the control plane stops (Last known, every badge grey and
 dotted, still readable); the peek, which never covers another label; a desk, its labels resting on

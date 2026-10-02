@@ -53,6 +53,7 @@ namespace Halcyonic.XR.UI
         private string shownTitle = "";
         private string shownMark = "";
         private float shownBadgeWidth = -1f;
+        private int shownScale = -1;
         private float topDegrees = TopDegrees;
         private CharacterLabel? shown;
         private float plateWidth;
@@ -97,7 +98,7 @@ namespace Halcyonic.XR.UI
             get
             {
                 var face = TMP_Settings.defaultFontAsset.faceInfo;
-                var line = GlazeTokens.Units(Glaze.TitleDegrees) * face.lineHeight / face.pointSize;
+                var line = GlazeTokens.Units(GlazeText.ScaledDegreesOf(GlazeType.Title)) * face.lineHeight / face.pointSize;
                 return -(GlazeTokens.Units(TopDegrees) + StateBadgeView.Height + GlazeTokens.Units(TitleGapDegrees) + TitleLines * line
                     + GlazeTokens.Units(MarkRoomDegrees) + MarkTag.Height);
             }
@@ -109,14 +110,24 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var view = go.AddComponent<CharacterLabelView>();
             view.plate = Surface.Create(go.transform, "Plate", 0);
-            view.title = GlazeText.Create(go.transform, "Title", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
-            view.shortTitle = GlazeText.Create(go.transform, "Short title", GlazeType.Caption, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
+            view.title = GlazeText.Create(go.transform, "Title", GlazeType.Title, GlazeTokens.Text, TextAlignmentOptions.Top, 2, scaled: true);
+            view.shortTitle = GlazeText.Create(go.transform, "Short title", GlazeType.Caption, GlazeTokens.Text, TextAlignmentOptions.Top, 2, scaled: true);
             view.shortTitle.gameObject.SetActive(false);
             view.badge = StateBadgeView.Create(go.transform, "Badge", 1);
             // No wider with its icon than the widest plate, so a badge never reaches a neighbour's; a
             // longer one shows its word alone.
             view.badge.MaxWidth = GlazeTokens.Units(MaxWidthDegrees);
             return view;
+        }
+
+        private void OnEnable() => GlazeText.ScaleChanged += OnScaleChanged;
+
+        private void OnDisable() => GlazeText.ScaleChanged -= OnScaleChanged;
+
+        /// <summary>The text's size changed: the plate fits the title again.</summary>
+        private void OnScaleChanged()
+        {
+            if (shown != null) Show(shown);
         }
 
         /// <summary>
@@ -138,7 +149,8 @@ namespace Halcyonic.XR.UI
             badge.Show(label.Badge);
             var mark = label.Marks.Count > 0 ? label.Marks[0].Word : "";
             // The plate is as wide as the badge on its edge, so a new state can widen it.
-            if (label.Title == shownTitle && mark == shownMark && Mathf.Approximately(badge.Width, shownBadgeWidth)) return;
+            if (label.Title == shownTitle && mark == shownMark && Mathf.Approximately(badge.Width, shownBadgeWidth) && shownScale == GlazeText.Version) return;
+            shownScale = GlazeText.Version;
             shownTitle = label.Title;
             shownMark = mark;
             shownBadgeWidth = badge.Width;

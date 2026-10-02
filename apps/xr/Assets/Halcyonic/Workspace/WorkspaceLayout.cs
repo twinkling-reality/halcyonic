@@ -14,7 +14,7 @@ namespace Halcyonic.XR.Workspace
     {
         /// <summary>A frame's size as placement takes it: at touch distance, half its width and height in meters.</summary>
         public static PanelSize FrameSize =>
-            new PanelSize(PanelFrame.Distance, PanelFrame.UnitSize.x / 2f * PanelFrame.Distance, PanelFrame.UnitSize.y / 2f * PanelFrame.Distance);
+            new PanelSize(PanelFrame.Distance, PanelFrame.UnitSize.x / 2f * PanelFrame.Scale, PanelFrame.UnitSize.y / 2f * PanelFrame.Scale);
 
         /// <summary>
         /// The workspace's pose for <paramref name="opened"/>, with the person's eyes at

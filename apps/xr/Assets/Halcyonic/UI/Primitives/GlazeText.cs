@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using Halcyonic.Client;
 using TMPro;
@@ -42,6 +43,23 @@ namespace Halcyonic.XR.UI
 
         private static readonly Dictionary<TMP_FontAsset, Material> strongMaterials = new Dictionary<TMP_FontAsset, Material>();
 
+        /// <summary>Every label made to follow <see cref="Scale"/>, with its role, so a change reaches the ones that show.</summary>
+        private static readonly List<(WeakReference<TMP_Text> Label, GlazeType Type)> made = new List<(WeakReference<TMP_Text>, GlazeType)>();
+
+        /// <summary>
+        /// How much larger than designed reading text is drawn (<see cref="Comfort.TextScale"/>). On the
+        /// stage, labels made to follow it (<see cref="Create"/>'s scaled) take it, every role but the
+        /// badge's, whose words stand where space is fixed; a foreground panel grows whole by it
+        /// instead, so its layout stays as designed (<c>PanelFrame.Zoom</c>).
+        /// </summary>
+        public static float Scale { get; private set; } = 1f;
+
+        /// <summary>Counts each change of <see cref="Scale"/>, so what keeps a measure can tell it no longer holds.</summary>
+        public static int Version { get; private set; }
+
+        /// <summary>The scale changed, and every label took it: what lays labels out does so again.</summary>
+        public static event Action? ScaleChanged;
+
         public static float DegreesOf(GlazeType type) => type switch
         {
             GlazeType.Display => Glaze.DisplayDegrees,
@@ -51,14 +69,38 @@ namespace Halcyonic.XR.UI
             _ => Glaze.CaptionDegrees,
         };
 
+        /// <summary>A role's size as an angle at the eye for a label that follows <see cref="Scale"/>.</summary>
+        public static float ScaledDegreesOf(GlazeType type) => type == GlazeType.Badge ? DegreesOf(type) : DegreesOf(type) * Scale;
+
+        /// <summary>
+        /// Draws reading text <paramref name="scale"/> times as large as designed, from now on and on
+        /// every label already made to follow it, then raises <see cref="ScaleChanged"/>.
+        /// </summary>
+        public static void SetScale(float scale)
+        {
+            if (Mathf.Approximately(scale, Scale)) return;
+            Scale = scale;
+            Version++;
+            Forget();
+            foreach (var (reference, type) in made)
+            {
+                if (reference.TryGetTarget(out var label)) label.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(ScaledDegreesOf(type)));
+            }
+            ScaleChanged?.Invoke();
+        }
+
+        /// <summary>Drops the labels destroyed since they were made from <see cref="made"/>.</summary>
+        private static void Forget() => made.RemoveAll(entry => !entry.Label.TryGetTarget(out var label) || label == null);
+
         public static bool IsStrong(GlazeType type) => type == GlazeType.Display || type == GlazeType.Title || type == GlazeType.Badge;
 
         /// <summary>
         /// A label of a type role, in units of the distance from the eyes, its box's top centre on its
-        /// transform. It reads seen along its parent's forward axis.
+        /// transform. It reads seen along its parent's forward axis. A <paramref name="scaled"/> label,
+        /// on the stage, follows <see cref="Scale"/>.
         /// </summary>
         public static TextMeshPro Create(Transform parent, string name, GlazeType type, Color color, TextAlignmentOptions alignment, int order,
-            bool? strong = null)
+            bool? strong = null, bool scaled = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -67,7 +109,13 @@ namespace Halcyonic.XR.UI
             text.rectTransform.pivot = new Vector2(0.5f, 1f);
             text.richText = false;
             text.parseCtrlCharacters = true;
-            text.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(DegreesOf(type)));
+            text.fontSize = GlazeTokens.FontSize(GlazeTokens.Units(scaled ? ScaledDegreesOf(type) : DegreesOf(type)));
+            if (scaled)
+            {
+                // Now and then the labels destroyed since are forgotten, so the list stays as long as the labels there are.
+                if (made.Count > 0 && made.Count % 64 == 0) Forget();
+                made.Add((new WeakReference<TMP_Text>(text), type));
+            }
             text.color = color;
             text.alignment = alignment;
             text.textWrappingMode = TextWrappingModes.Normal;
@@ -164,6 +212,12 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Forgets cached objects when play mode starts without a domain reload.</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset() => strongMaterials.Clear();
+        private static void Reset()
+        {
+            strongMaterials.Clear();
+            made.Clear();
+            Scale = 1f;
+            ScaleChanged = null;
+        }
     }
 }

@@ -14,6 +14,9 @@ internal static class Lineups
     /// <summary>The workspace 0.6 m from the eyes, scaled from its 0.80 by 0.62 m design at 1.3 m.</summary>
     public static readonly PanelSize Workspace = new(0.6f, 0.40f * 0.6f / 1.3f, 0.31f * 0.6f / 1.3f);
 
+    /// <summary>A foreground panel (ADR 0023): 44 by 26 degrees at 0.46 m.</summary>
+    public static readonly PanelSize Frame = new(0.46f, 0.46f * MathF.Tan(22f * MathF.PI / 180f), 0.46f * MathF.Tan(13f * MathF.PI / 180f));
+
     /// <summary>
     /// Bodies at a horizontal distance, their centers a drop below the eyes, reaching 0.075 of the
     /// stage's scale around their centers; the scale is the distance.
@@ -49,13 +52,14 @@ internal static class Lineups
 
     /// <summary>
     /// The raised stage (ADR 0023): bodies 0.17 m below the eyes 2.4 m away, their plates at most
-    /// 10.5 degrees tall under them and 10.5 wide, as the stage's scale makes them at that distance.
+    /// <paramref name="plateDegrees"/> tall under them, 10.5 as designed, and 10.5 wide, as the
+    /// stage's scale makes them at that distance.
     /// </summary>
-    public static List<BodyInView> RaisedArc()
+    public static List<BodyInView> RaisedArc(float plateDegrees = 10.5f)
     {
         const float distance = 2.4f;
         const float radians = MathF.PI / 180f;
-        return Slots.Select(yaw => Labeled(yaw, distance, 0.17f, 0.075f * distance, 10.5f * radians * distance, 5.25f * radians * distance)).ToList();
+        return Slots.Select(yaw => Labeled(yaw, distance, 0.17f, 0.075f * distance, plateDegrees * radians * distance, 5.25f * radians * distance)).ToList();
     }
 
     /// <summary>Whether the workspace, centered at a direction, covers any part of a character's label.</summary>
@@ -91,7 +95,7 @@ public class WorkspacePlacementTests
 
             Assert.That(panel.Clear, Is.True, $"slot {slot}");
             Assert.That(panel.Above, Is.False);
-            Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.LowestDegrees, WorkspacePlacement.HighestDegrees));
+            Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.Lowest(Lineups.Workspace), WorkspacePlacement.HighestDegrees));
             Assert.That(bodies.Any(body => Lineups.Covers(panel, body)), Is.False, "every body stays in view");
             Assert.That(panel.Yaw, Is.EqualTo(opened.Yaw));
         }
@@ -109,7 +113,7 @@ public class WorkspacePlacementTests
 
             Assert.That(panel.Clear, Is.True, $"slot {slot}");
             Assert.That(panel.Above, Is.False);
-            Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.LowestDegrees, WorkspacePlacement.HighestDegrees));
+            Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.Lowest(Lineups.Workspace), WorkspacePlacement.HighestDegrees));
             Assert.That(characters.Any(character => Lineups.CoversLabel(panel, character)), Is.False, "every title and badge stays readable");
         }
     }
@@ -170,7 +174,7 @@ public class WorkspacePlacementTests
 
                 Assert.That(panel.Clear, Is.True, $"slot {slot}");
                 Assert.That(panel.Above, Is.True);
-                Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.LowestDegrees, WorkspacePlacement.HighestDegrees));
+                Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.Lowest(Lineups.Workspace), WorkspacePlacement.HighestDegrees));
                 Assert.That(bodies.Any(body => Lineups.Covers(panel, body)), Is.False, "every body stays in view");
                 Assert.That(WorkspacePlacement.BottomEdge(Lineups.Workspace, panel.Elevation), Is.GreaterThan(-desk + WorkspacePlacement.SurfaceClearance - 1e-3f),
                     "above the desk");
@@ -212,7 +216,39 @@ public class WorkspacePlacementTests
 
         Assert.That(panel.Clear, Is.False);
         Assert.That(panel.Above, Is.False);
-        Assert.That(panel.Elevation, Is.EqualTo(WorkspacePlacement.LowestDegrees));
+        Assert.That(panel.Elevation, Is.EqualTo(WorkspacePlacement.Lowest(Lineups.Workspace)));
+    }
+
+    [Test]
+    public void ATallerPanelMayGoLowerByAsMuchAsItIsTaller()
+    {
+        Assert.That(WorkspacePlacement.Lowest(Lineups.Frame), Is.EqualTo(WorkspacePlacement.LowestDegrees).Within(1e-3f), "a panel as tall as designed stays in the band");
+        var larger = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth * 1.15f, Lineups.Frame.HalfHeight * 1.15f);
+        var taller = 2f * larger.HalfHeightDegrees - WorkspacePlacement.DesignedHeightDegrees;
+        Assert.That(taller, Is.InRange(3.5f, 4f), "text a step larger makes a panel nearly 4 degrees taller");
+        Assert.That(WorkspacePlacement.Lowest(larger), Is.EqualTo(WorkspacePlacement.LowestDegrees - taller).Within(1e-3f));
+        var shorter = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth, Lineups.Frame.HalfHeight * 0.7f);
+        Assert.That(WorkspacePlacement.Lowest(shorter), Is.EqualTo(WorkspacePlacement.LowestDegrees), "a shorter panel goes no lower than the band");
+    }
+
+    [Test]
+    public void WithTextAStepLargerAPanelStillOpensUnderEveryLabel()
+    {
+        // The panel grows whole by the text's step, and the titles above it reach a little deeper.
+        var larger = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth * 1.15f, Lineups.Frame.HalfHeight * 1.15f);
+        var characters = Lineups.RaisedArc(plateDegrees: 11f);
+        foreach (var slot in new[] { 2, 3, 0, 5 })
+        {
+            var opened = characters[slot];
+            var panel = WorkspacePlacement.Place(opened.Yaw, opened, characters, larger);
+
+            Assert.That(panel.Clear, Is.True, $"slot {slot}");
+            Assert.That(panel.Above, Is.False);
+            Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.Lowest(larger), WorkspacePlacement.HighestDegrees));
+            Assert.That(panel.Elevation, Is.LessThan(WorkspacePlacement.LowestDegrees), "it fits only below the designed band");
+            var corners = WorkspacePlacement.CornerElevation(panel.Elevation + larger.HalfHeightDegrees, larger.HalfWidthDegrees);
+            Assert.That(corners, Is.LessThanOrEqualTo(characters.Min(character => character.Lowest) - 1f), "a degree or more under every label");
+        }
     }
 
     [Test]
@@ -262,6 +298,9 @@ public class PanelDragTests
         var floor = Math.Max(WorkspacePlacement.LowestDegrees, WorkspacePlacement.LowestAboveSurface(Size, 0.3f));
         Assert.That(desk.Follow(0f, -80f).Elevation, Is.EqualTo(floor).Within(1e-4f));
         Assert.That(floor, Is.GreaterThan(WorkspacePlacement.LowestDegrees), "a desk 0.3 m below the eyes holds the panel higher");
+        var larger = new PanelSize(Size.Distance, Size.HalfWidth * 1.15f, Size.HalfHeight * 1.15f);
+        Assert.That(new PanelDrag(0f, -15f, 0f, -15f, larger).Follow(0f, -80f).Elevation, Is.EqualTo(WorkspacePlacement.Lowest(larger)).Within(1e-4f),
+            "a panel grown with the text goes as low as it opens");
     }
 
     [Test]

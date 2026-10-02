@@ -41,7 +41,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             var previous = EditorSceneManager.GetActiveScene().path;
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             if (!string.IsNullOrEmpty(previous)) EditorSceneManager.OpenScene(previous, OpenSceneMode.Single);
             EditorUtility.DisplayDialog("Usage left render", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
         }
@@ -49,13 +49,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
         public static void Check()
         {
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> Run()
+        /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
+        private static List<string> Run(string variant)
         {
-            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "UsageLeftRenders"));
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "UsageLeftRenders", variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
             try
@@ -275,13 +276,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 near.Add(WorkspaceRender.BodyExtent(view, eyes));
             }
             failures.AddRange(GlazeChecks.Apart(near).Where(failure => failure.Contains("the Usage left panel")).Select(failure => what + ": " + failure));
-            var reach = PanelFrame.HeightDegrees / 2f;
+            var reach = WorkspaceLayout.FrameSize.HalfHeightDegrees;
             var half = frame.Size.y / 2f * glance.Panel.lossyScale.y;
             var top = Elevation(glance.Panel.position + glance.Panel.up * half - eyes);
             var bottom = Elevation(glance.Panel.position - glance.Panel.up * half - eyes);
             Debug.Log("Halcyonic: usage left render " + what + ": the panel spans " + WorkspaceRender.Degrees(-top) + " to "
                 + WorkspaceRender.Degrees(-bottom) + " degrees below eye level.");
-            if (bottom < WorkspacePlacement.LowestDegrees - reach - 0.01f || top > WorkspacePlacement.HighestDegrees + reach + 0.01f)
+            if (bottom < WorkspacePlacement.Lowest(WorkspaceLayout.FrameSize) - reach - 0.01f || top > WorkspacePlacement.HighestDegrees + reach + 0.01f)
             {
                 failures.Add(what + ": the panel reaches outside the space the workspace may take.");
             }

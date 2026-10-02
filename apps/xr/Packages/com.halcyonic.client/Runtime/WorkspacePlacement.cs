@@ -95,9 +95,12 @@ namespace Halcyonic.Client
         /// The workspace's center stays between these elevations, in degrees from eye level: the
         /// comfortable middle of the view for a seated person. 31 below leaves a tall panel room under
         /// the deepest labels, a practice task's of two lines with its mark (ADR 0023); to be judged on
-        /// the headset.
+        /// the headset. A panel taller than designed goes lower (<see cref="Lowest"/>).
         /// </summary>
         public const float LowestDegrees = -31f;
+
+        /// <summary>The tallest panel whose center goes no lower than <see cref="LowestDegrees"/>: a foreground panel's 26 degrees (ADR 0023).</summary>
+        public const float DesignedHeightDegrees = 26f;
 
         public const float HighestDegrees = 2f;
 
@@ -153,7 +156,7 @@ namespace Halcyonic.Client
             var above = bottom + halfHeight;
 
             // Never into the surface: the lowest the center may go.
-            var floor = LowestDegrees;
+            var floor = Lowest(size);
             if (surfaceDrop.HasValue) floor = Math.Max(floor, LowestAboveSurface(size, surfaceDrop.Value));
 
             bool Fits(float elevation) => elevation >= floor - 1e-3f && elevation <= HighestDegrees + 1e-3f;
@@ -180,16 +183,21 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The lowest the center of a panel of <paramref name="size"/> may go, in degrees from eye
-        /// level: <see cref="LowestDegrees"/>, raised so that every corner stays
-        /// <see cref="ViewField.EdgeMarginDegrees"/> inside <paramref name="field"/> when the person
-        /// looks toward it with the head level (<see cref="ViewField.LowestCenter"/>), but never above
-        /// <see cref="HighestDegrees"/>. Without a field, <see cref="LowestDegrees"/>.
+        /// level. <see cref="LowestDegrees"/> for one as tall as designed; a taller one, grown whole for
+        /// the person's larger text or holding more, as Settings does, would not fit under the deepest
+        /// labels above that, so its center may go lower by as much as it is taller: half of that keeps
+        /// its upper edge where a designed panel's goes, and the other half leaves room for labels whose
+        /// titles grew with the text (to be judged on the headset). With a measured
+        /// <paramref name="field"/>, raised so that every corner stays
+        /// <see cref="ViewField.EdgeMarginDegrees"/> inside it when the person looks toward it with the
+        /// head level (<see cref="ViewField.LowestCenter"/>), but never above <see cref="HighestDegrees"/>.
         /// </summary>
-        public static float Lowest(PanelSize size, ViewField? field)
+        public static float Lowest(PanelSize size, ViewField? field = null)
         {
-            if (field is not ViewField known) return LowestDegrees;
+            var band = LowestDegrees - Math.Max(0f, 2f * size.HalfHeightDegrees - DesignedHeightDegrees);
+            if (field is not ViewField known) return band;
             var inside = known.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees);
-            return Math.Min(HighestDegrees, Math.Max(LowestDegrees, inside));
+            return Math.Min(HighestDegrees, Math.Max(band, inside));
         }
 
         /// <summary>

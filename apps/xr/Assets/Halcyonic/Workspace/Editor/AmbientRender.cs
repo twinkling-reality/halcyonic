@@ -43,7 +43,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             var previous = EditorSceneManager.GetActiveScene().path;
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             if (!string.IsNullOrEmpty(previous)) EditorSceneManager.OpenScene(previous, OpenSceneMode.Single);
             EditorUtility.DisplayDialog("Ambient render", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
         }
@@ -51,13 +51,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
         public static void Check()
         {
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> Run()
+        /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
+        private static List<string> Run(string variant)
         {
-            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AmbientRenders"));
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "AmbientRenders", variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
             try

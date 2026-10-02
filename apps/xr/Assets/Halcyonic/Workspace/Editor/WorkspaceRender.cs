@@ -64,7 +64,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             var previous = EditorSceneManager.GetActiveScene().path;
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             if (!string.IsNullOrEmpty(previous)) EditorSceneManager.OpenScene(previous, OpenSceneMode.Single);
             EditorUtility.DisplayDialog("Workspace render", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
         }
@@ -72,13 +72,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
         public static void Check()
         {
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> Run()
+        /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
+        private static List<string> Run(string variant)
         {
-            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "WorkspaceRenders"));
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "WorkspaceRenders", variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
             try
@@ -127,7 +128,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var holder = new GameObject("Workspace");
                 holder.transform.SetParent(root.transform, false);
                 holder.transform.SetPositionAndRotation(pose.position, pose.rotation);
-                holder.transform.localScale = Vector3.one * PanelFrame.Distance;
+                holder.transform.localScale = Vector3.one * PanelFrame.Scale;
                 var panel = WorkspacePanel.Create(holder.transform);
                 var view = new View(name, folder, camera, texture, root, panel, characters, eyes);
 
@@ -165,7 +166,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (passedOver == 0) failures.Add(name + ": nothing of the stage is behind the workspace, so the render checks nothing; move the camera or the stage.");
                 if (changed > 0) failures.Add(name + ": " + changed + " pixels of the workspace change when the stage behind it is drawn.");
                 if (!direction.Clear) failures.Add(name + ": the workspace covers a character or its label.");
-                if (direction.Elevation < WorkspacePlacement.LowestDegrees - 0.01f || direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
+                if (direction.Elevation < WorkspacePlacement.Lowest(WorkspaceLayout.FrameSize) - 0.01f || direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
                 {
                     failures.Add(name + ": the workspace's center is outside the comfortable band.");
                 }

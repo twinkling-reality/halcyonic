@@ -47,6 +47,9 @@ namespace Halcyonic.XR.UI
 
         public static float Height => GlazeTokens.Units(HeightDegrees);
 
+        /// <summary>Badges stand still, as the person's comfort settings ask (<see cref="Comfort.Still"/>): no icon turns and nothing breathes.</summary>
+        public static bool Still { get; set; }
+
         /// <summary>The badge's width, in its parent's units.</summary>
         public float Width => size.x;
 
@@ -182,6 +185,16 @@ namespace Halcyonic.XR.UI
         private void Update()
         {
             if (shown == null) return;
+            if (Still)
+            {
+                // Settled once where it stands at rest, then nothing each frame.
+                if (turning == 0f && breathing == 0f) return;
+                turning = 0f;
+                breathing = 0f;
+                icon.transform.localRotation = Quaternion.identity;
+                Draw(0f);
+                return;
+            }
             if (shown.Turns && icon.gameObject.activeSelf)
             {
                 // Clockwise, one turn in the busy turn's time.
@@ -201,6 +214,10 @@ namespace Halcyonic.XR.UI
             icon.alpha = value;
             pill.Fade(value);
         }
+
+        /// <summary>Forgets the setting when play mode starts without a domain reload.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void Reset() => Still = false;
 
         /// <summary>Draws the pill, brighter by <paramref name="breath"/>, from 0 to 1, of the breath's depth.</summary>
         private void Draw(float breath)

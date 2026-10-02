@@ -9,6 +9,7 @@ using System.Reflection;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
 using TMPro;
 using Unity.Profiling;
 using UnityEditor;
@@ -76,7 +77,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             var previous = EditorSceneManager.GetActiveScene().path;
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(_ => Run());
             if (!string.IsNullOrEmpty(previous)) EditorSceneManager.OpenScene(previous, OpenSceneMode.Single);
             EditorUtility.DisplayDialog("Interface measure", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
         }
@@ -84,7 +85,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
         public static void Check()
         {
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(_ => Run());
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
@@ -204,6 +205,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var mac = sheet.Section(SettingsText.YourMac, 1);
                 mac.Say("Paired with " + HostText.Your + " at 192.168.1.23:47801. Connecting over Wi-Fi.");
                 mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this " + HostText.Noun);
+                ComfortControls.ForRender(rail.gameObject, new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard });
                 sheet.OpenForRender(characters.ConvertAll(character => character.Target), null);
                 rail.Root.gameObject.SetActive(false);
                 return (sheet.Root.gameObject, null);
@@ -245,7 +247,7 @@ namespace Halcyonic.XR.Workspace.Editor
             holder.SetParent(root.transform, false);
             var forward = Quaternion.Euler(25f, 0f, 0f) * Vector3.forward;
             holder.SetPositionAndRotation(new Vector3(0f, EyeHeight, 0f) + forward * PanelFrame.Distance, Quaternion.LookRotation(forward, Vector3.up));
-            holder.localScale = Vector3.one * PanelFrame.Distance;
+            holder.localScale = Vector3.one * PanelFrame.Scale;
             var panel = WorkspacePanel.Create(holder);
             panel.Show(WorkspaceScreens.Screen(workspace, WorkspaceRender.Steering(), new WorkspaceScreen()), null);
             return panel;
@@ -340,7 +342,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 holder.SetParent(root.transform, false);
                 var forward = Quaternion.Euler(18f, 0f, 0f) * Vector3.forward;
                 holder.SetPositionAndRotation(eyes + forward * PanelFrame.Distance, Quaternion.LookRotation(forward, Vector3.up));
-                holder.localScale = Vector3.one * PanelFrame.Distance;
+                holder.localScale = Vector3.one * PanelFrame.Scale;
                 var frame = PanelFrame.Create(holder, "Frame");
                 foreach (var claim in new[] { true, false, true })
                 {

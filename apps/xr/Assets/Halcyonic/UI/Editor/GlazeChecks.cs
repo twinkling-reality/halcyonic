@@ -223,6 +223,27 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// Runs a render at the standard text size and again with reading text a step larger
+        /// (<see cref="Comfort.LargerTextScale"/>), as the person's comfort settings may ask, the second
+        /// pass's renders in a folder of their own ("Larger"): every rule holds at both sizes.
+        /// </summary>
+        public static List<string> AtEachTextSize(Func<string, List<string>> run)
+        {
+            var failures = run("");
+            Debug.Log("Halcyonic: the same again with reading text a step larger.");
+            GlazeText.SetScale(Comfort.LargerTextScale);
+            try
+            {
+                failures.AddRange(run("Larger").Select(failure => "at the larger text size, " + failure));
+            }
+            finally
+            {
+                GlazeText.SetScale(1f);
+            }
+            return failures;
+        }
+
+        /// <summary>
         /// Every icon that shows stands on its own label (<see cref="GlazeIcons"/>): exactly one glyph
         /// of the icon set, drawn from the icon atlas, an em of at least
         /// <see cref="GlazeIcons.MinimumDegrees"/> as seen from <paramref name="eyes"/>, and a word

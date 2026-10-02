@@ -145,6 +145,7 @@ namespace Halcyonic.XR
         private string? shownNotice;
         private string? shownNotShown;
         private string? shownStillOpen;
+        private int shownScale = -1;
         private string? notice;
         private float noticeUntil;
         private StageVisibility visibility = new StageVisibility();
@@ -646,7 +647,9 @@ namespace Halcyonic.XR
         private void ShowBanner(string text, BannerKind kind, string? waiting, string? notShown, string? stillOpen)
         {
             if (text == shownBanner && kind == shownKind && waiting == shownWaiting && notice == shownNotice
-                && notShown == shownNotShown && stillOpen == shownStillOpen) return;
+                && notShown == shownNotShown && stillOpen == shownStillOpen && shownScale == GlazeText.Version) return;
+            // The text's size changes the banner and how deep the labels above it reach.
+            shownScale = GlazeText.Version;
             shownBanner = text;
             shownKind = kind;
             shownWaiting = waiting;

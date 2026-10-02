@@ -86,7 +86,13 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
 - **Zones from the eyes.** The virtual stage rises so bodies stand about 4° below eye level;
   foreground panels open below every plate there and above every body on a desk; the rail, peek,
   ambient strip and, in a window mode the person chooses, a lane for a 2D window each have a zone,
-  and nothing Halcyonic draws pops up in front of the person.
+  and nothing Halcyonic draws pops up in front of the person. (On 2026-10-02 Settings took a
+  Comfort section: reading text a step larger, by 15 percent, which grows every foreground panel
+  whole and the stage's titles, peek and banner, but not the badges' words or the rail; badges that
+  stand still; and sounds quieter or off, with one button stepping through them. A panel taller
+  than 26 degrees, grown for larger text or holding more, as Settings with all its sections, would
+  not fit under the labels above the band's floor, so its center may go lower by as much as it is
+  taller; to be judged on the headset.)
 - **One icon set.** Material Symbols Rounded (Apache-2.0), filled, weight 500, as a static
   TextMeshPro SDF atlas of only the glyphs used, made with fontTools, named by meaning in the
   client core. (On 2026-10-02 the badges and marks took their icons: 13 glyphs of version 2.972,

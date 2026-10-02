@@ -44,7 +44,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             var previous = EditorSceneManager.GetActiveScene().path;
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             if (!string.IsNullOrEmpty(previous)) EditorSceneManager.OpenScene(previous, OpenSceneMode.Single);
             EditorUtility.DisplayDialog("Entry render", failures.Count == 0 ? "Every check passed." : string.Join("\n", failures), "OK");
         }
@@ -52,13 +52,14 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The batch entry point: exits with 0 when every check passes, 1 otherwise.</summary>
         public static void Check()
         {
-            var failures = Run();
+            var failures = GlazeChecks.AtEachTextSize(Run);
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
         }
 
-        private static List<string> Run()
+        /// <param name="variant">A folder of its own for the renders of a pass, such as the larger text's; empty for the standard pass.</param>
+        private static List<string> Run(string variant)
         {
-            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "EntryRenders"));
+            var folder = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "EntryRenders", variant));
             Directory.CreateDirectory(folder);
             var failures = new List<string>();
             try
@@ -202,13 +203,13 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 failures.AddRange(PlacesHold(name, places));
                 if (!hostile) failures.AddRange(MovesByHand(name, panel, eyes, state));
-                var size = new PanelSize(PanelFrame.Distance, panel.Frame.Size.x / 2f * PanelFrame.Distance, panel.Frame.Size.y / 2f * PanelFrame.Distance);
+                var size = new PanelSize(PanelFrame.Distance, panel.Frame.Size.x / 2f * PanelFrame.Scale, panel.Frame.Size.y / 2f * PanelFrame.Scale);
                 var (_, direction) = WorkspaceLayout.PlaceForeground(targets, eyes, camera.transform.forward, surface, new List<BodyInView>(), size);
                 Debug.Log("Halcyonic: entry render " + name + ": the panel's center is " + WorkspaceRender.Degrees(direction.Elevation)
                     + " degrees from eye level, " + (direction.Above ? "above" : "below") + " the characters it passes, "
                     + (direction.Clear ? "clear of every body." : "over a body."));
                 if (!direction.Clear) failures.Add(name + ": the panel covers a character's body.");
-                if (direction.Elevation < WorkspacePlacement.LowestDegrees - 0.01f || direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
+                if (direction.Elevation < WorkspacePlacement.Lowest(size) - 0.01f || direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
                 {
                     failures.Add(name + ": the panel's center is outside the comfortable band.");
                 }
@@ -652,6 +653,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 window.Offer(window.Button("Arrangement 0", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.InFront));
                 window.Offer(window.Button("Arrangement 1", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.TurnedAside));
             }
+            // The comfort settings, as the text's size stands in this pass.
+            ComfortControls.ForRender(rail.gameObject, new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard });
             var mac = sheet.Section(SettingsText.YourMac, 1);
             mac.Say(hostile ? "Pairing failed: " + WorkspaceRender.Hostile("refusal") : "Paired with " + HostText.Your + " at 192.168.1.23:47801. Connecting over Wi-Fi.");
             mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this " + HostText.Noun);
@@ -682,7 +685,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
             Debug.Log("Halcyonic: entry render " + name + ": Settings opens " + WorkspaceRender.Degrees(-elevation) + " degrees below eye level, "
                 + WorkspaceRender.Degrees(GlazeTokens.DegreesOf(sheet.Size.x)) + " by " + WorkspaceRender.Degrees(GlazeTokens.DegreesOf(sheet.Size.y)) + " degrees.");
-            if (elevation < WorkspacePlacement.LowestDegrees - 0.01f || elevation > WorkspacePlacement.HighestDegrees + 0.01f)
+            if (elevation < WorkspacePlacement.Lowest(sheet.PanelSize) - 0.01f || elevation > WorkspacePlacement.HighestDegrees + 0.01f)
             {
                 failures.Add(name + ": Settings opens outside the comfortable band.");
             }

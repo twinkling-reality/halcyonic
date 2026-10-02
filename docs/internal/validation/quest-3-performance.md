@@ -27,7 +27,7 @@
 ### Draw calls and geometry
 
 Measured again on 2026-10-02, with the icons on the badges, the marks and the actions, the run's
-details beside What is it doing?, and the short titles beside a window:
+details beside What is it doing?, the short titles beside a window, and Settings' Comfort section:
 
 | Surface | Draw calls at most | Of them, the panel's | Text labels (characters) | Triangles |
 | --- | --- | --- | --- | --- |
@@ -37,11 +37,15 @@ details beside What is it doing?, and the short titles beside a window:
 | A workspace, Waiting for you | 77 | 37 | 41 (533) | 32,382 |
 | A workspace, Doing | 70 | 30 | 37 (486) | 32,290 |
 | Usage left, four windows | 69 | 29 | 32 (673) | 32,574 |
-| Settings | 58 | 18 | 29 (542) | 32,338 |
+| Settings, with Comfort | 66 | 26 | 34 (659) | 32,556 |
 
 - Every surface is far inside the budget, before any batching: at most 77 draw calls of 220 for
   everything showing, at most 37 of 60 for a panel. Surfaces share one material with instanced
   properties, text one font material and icons the icon atlas's, so the device can only draw fewer.
+- Text a step larger (Settings' Comfort) draws no more: a panel grows whole, and labels grow
+  without adding a part, so the measure, which runs at both sizes, counts the same draw calls for
+  every surface at each; only the characters shown shift a little, as titles wrap differently.
+  Comfort's line and three buttons add 8 draw calls to Settings.
 - Each icon is a label of one glyph with its own renderer, so it counts one more draw call, label
   and character and two more triangles. The icons on the characters' badges and marks added 4 to 7
   draw calls to each surface, and those on the actions 1 to 6 to a panel (on 2026-10-01, before

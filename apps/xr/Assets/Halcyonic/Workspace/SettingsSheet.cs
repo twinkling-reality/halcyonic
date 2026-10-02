@@ -28,8 +28,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The sheet's width, every foreground panel's 44 degrees (ADR 0023): room for each section's
-        /// buttons in one row and its line in few rows, which keeps it short enough to open under every
-        /// label; and the least height it keeps.
+        /// buttons in one row and its line in few rows, which keeps it short; and the least height it
+        /// keeps. With every section it stands taller than a panel, and opens lower to stay under every
+        /// label (<see cref="WorkspacePlacement.Lowest"/>).
         /// </summary>
         public const float WidthDegrees = 44f;
 
@@ -72,6 +73,11 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The sheet's size, in units of its distance.</summary>
         public Vector2 Size => size;
+
+        /// <summary>The sheet's size as placement takes it: grown whole with the reading text's step, as every foreground panel is (<see cref="PanelFrame.Zoom"/>).</summary>
+        public PanelSize PanelSize => new PanelSize(Distance, size.x / 2f * Scale, size.y / 2f * Scale);
+
+        private static float Scale => Distance * PanelFrame.Zoom;
 
         /// <summary>The sections in their order, for the editor's renders.</summary>
         public IReadOnlyList<SettingsSection> Sections => sections;
@@ -163,6 +169,15 @@ namespace Halcyonic.XR.Workspace
             director = GetComponent<WorkspaceDirector>();
             stage = GetComponent<CharacterStage>();
             Build();
+            GlazeText.ScaleChanged += OnScaleChanged;
+        }
+
+        private void OnDestroy() => GlazeText.ScaleChanged -= OnScaleChanged;
+
+        /// <summary>The text's size changed, from this sheet's own Comfort section: the sheet grows with it where it opens.</summary>
+        private void OnScaleChanged()
+        {
+            if (open) Place(director != null ? director.Targets : Array.Empty<CharacterTarget>(), stage != null ? stage.SurfaceHeight : null);
         }
 
         private void Build()
@@ -206,10 +221,9 @@ namespace Halcyonic.XR.Workspace
             // Laid out first, showing, so it is placed at the height it has.
             root.gameObject.SetActive(true);
             Layout();
-            var panel = new PanelSize(Distance, GlazeTokens.Units(WidthDegrees / 2f) * Distance, size.y / 2f * Distance);
-            var (pose, _) = WorkspaceLayout.PlaceForeground(characters, eyes, looking, surfaceHeight, scratch, panel);
+            var (pose, _) = WorkspaceLayout.PlaceForeground(characters, eyes, looking, surfaceHeight, scratch, PanelSize);
             root.SetPositionAndRotation(pose.position, pose.rotation);
-            root.localScale = Vector3.one * Distance;
+            root.localScale = Vector3.one * Scale;
         }
 
         /// <summary>
