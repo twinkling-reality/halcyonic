@@ -41,6 +41,13 @@ const GOOD = recording([
   { from: 'companion', reply: PROPOSE },
 ]);
 
+/** A turn of the good recording, which has four. */
+function at(index: number): CompanionDemonstration['turns'][number] {
+  const turn = GOOD.turns[index];
+  assert.ok(turn);
+  return turn;
+}
+
 describe("the companion's recorded exchange", () => {
   test('keeps to its rules: the idea, answers that were offered, and a proposal at the end', () => {
     assert.deepEqual(recordingProblems(GOOD), []);
@@ -53,20 +60,15 @@ describe("the companion's recorded exchange", () => {
   });
 
   test('refuses an answer that was not offered, a proposal before the end, or no proposal', () => {
-    const typed = recording([
-      GOOD.turns[0]!,
-      GOOD.turns[1]!,
-      { from: 'person', text: 'Someone else' },
-      GOOD.turns[3]!,
-    ]);
+    const typed = recording([at(0), at(1), { from: 'person', text: 'Someone else' }, at(3)]);
     assert.ok(
       recordingProblems(typed).some((problem) => problem.includes('not one of the choices')),
     );
     const early = recording([
-      GOOD.turns[0]!,
+      at(0),
       { from: 'companion', reply: PROPOSE },
       { from: 'person', text: 'x' },
-      GOOD.turns[3]!,
+      at(3),
     ]);
     assert.ok(recordingProblems(early).length > 0);
     const unfinished = recording(GOOD.turns.slice(0, 3));
@@ -77,18 +79,18 @@ describe("the companion's recorded exchange", () => {
 
   test('refuses a brand a judge may not read, wherever it appears', () => {
     const branded = recording([
-      GOOD.turns[0]!,
+      at(0),
       { from: 'companion', reply: { ...ASK, line: 'A Google Sheet would do, or a page.' } },
-      GOOD.turns[2]!,
-      GOOD.turns[3]!,
+      at(2),
+      at(3),
     ]);
     assert.deepEqual(recordingProblems(branded), ['it names Google']);
     // A word that only contains one is not the brand.
     const word = recording([
-      GOOD.turns[0]!,
+      at(0),
       { from: 'companion', reply: { ...ASK, line: 'Machines and macaroni are fine.' } },
-      GOOD.turns[2]!,
-      GOOD.turns[3]!,
+      at(2),
+      at(3),
     ]);
     assert.deepEqual(recordingProblems(word), []);
   });
