@@ -21,8 +21,8 @@ import type { UnderstandingSource } from '../intelligence/understanding.ts';
  * They observe a demonstration session through the control plane's journal of it, the mock
  * runtime's events, as the products observe a Claude Code session through its hooks and files, and
  * derive what the products would conclude and measure from them, with the story adding what the
- * mock's events do not carry: how many lines each edit changes, the agent's plan, and the
- * explanations a model would write. Nothing here is Salidium's or Seorak's: every answer the
+ * mock's events do not carry: how many lines each edit changes, the other files an edit removes or
+ * moves, the agent's plan, and the explanations a model would write. Nothing here is Salidium's or Seorak's: every answer the
  * stand-ins give is marked synthetic, the stand-in for Salidium reports the version "simulated"
  * and an instance id of zeros, and a client says "simulated" wherever it names them.
  */
@@ -35,12 +35,27 @@ export interface StoryEdit {
   readonly removed: number;
   /** The edit creates the file. */
   readonly creates: boolean;
+  /** Other files the same edit removes or moves, as one patch can; a moved file by its new path. */
+  readonly also?: readonly StoryOtherFile[];
+}
+
+/** A file an edit removes or moves besides the one it names. */
+export interface StoryOtherFile {
+  readonly path: string;
+  readonly kind: 'delete' | 'move';
+  readonly added: number;
+  readonly removed: number;
 }
 
 /** An explanation as the understanding source's model would write one once a turn has ended. */
 export interface StoryExplanation {
   readonly what: { readonly summary: string; readonly currently: string | null };
-  readonly why: { readonly summary: string; readonly chain: readonly string[] };
+  readonly why: {
+    readonly summary: string;
+    /** What each part involved did, in order, as lanes a person steps through. */
+    readonly lanes: readonly { readonly title: string; readonly steps: readonly string[] }[];
+    readonly chain: readonly string[];
+  };
   readonly how: {
     readonly summary: string;
     readonly root: string | null;
@@ -70,6 +85,13 @@ export interface SourceStory {
 const SIGN_IN_BEFORE = 'Sign-in accepted any number of failed attempts.';
 const SIGN_IN_WHY = {
   summary: 'Nothing counted failed attempts, so guessing a password cost nothing.',
+  lanes: [
+    {
+      title: 'Someone guessing',
+      steps: ['Tries one password after another', 'Is never slowed down'],
+    },
+    { title: 'Sign-in route', steps: ['Checks each password', 'Forgets every failure'] },
+  ],
   chain: ['Unlimited failed attempts', 'Passwords can be guessed'],
 };
 
@@ -77,7 +99,12 @@ const SIGN_IN_WHY = {
 export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
   order_history_pagination: {
     edits: {
-      'call-2': { added: 38, removed: 9, creates: false },
+      'call-2': {
+        added: 38,
+        removed: 9,
+        creates: false,
+        also: [{ path: 'src/routes/orders-all.ts', kind: 'delete', added: 0, removed: 24 }],
+      },
       'call-3': { added: 52, removed: 0, creates: false },
     },
     planned: ['Document the cursor parameter in the API reference'],
@@ -91,6 +118,16 @@ export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
           },
           why: {
             summary: 'The route read the whole order table for every request.',
+            lanes: [
+              {
+                title: 'Order history page',
+                steps: ['Asks for every order', 'Waits for all of them'],
+              },
+              {
+                title: 'Orders route',
+                steps: ['Reads the whole order table', 'Sends it in one response'],
+              },
+            ],
             chain: ['Every order in one response', 'Slow pages for long histories'],
           },
           how: {
@@ -105,7 +142,12 @@ export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
   },
   order_confirmation_email: {
     edits: {
-      'call-1': { added: 46, removed: 0, creates: true },
+      'call-1': {
+        added: 46,
+        removed: 0,
+        creates: true,
+        also: [{ path: 'templates/mail/receipt.html', kind: 'move', added: 0, removed: 0 }],
+      },
       'call-2': { added: 11, removed: 2, creates: false },
     },
     planned: [],
@@ -115,6 +157,10 @@ export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
         what: { summary: 'Customers heard nothing after a successful checkout.', currently: null },
         why: {
           summary: 'Checkout finished without handing anything to the mail queue.',
+          lanes: [
+            { title: 'Checkout', steps: ['Places the order', 'Finishes without a message'] },
+            { title: 'Mail queue', steps: ['Never hears about the order'] },
+          ],
           chain: ['No message after checkout', 'Customers unsure their order went through'],
         },
         how: {
@@ -248,12 +294,14 @@ const FRESH_MS = 5 * 60_000;
 /** The stand-in for Seorak covers the 90 days that end on the day of the answer. */
 const COVERAGE_DAYS = 90;
 
+type FileKind = 'add' | 'update' | 'delete' | 'move';
+
 interface FileChange {
   readonly path: string;
   changeCount: number;
   added: number;
   removed: number;
-  readonly kinds: ('add' | 'update')[];
+  readonly kinds: FileKind[];
   lastChangedAt: string;
   reason: Statement | null;
 }
@@ -295,7 +343,11 @@ interface Observed {
   commands: number;
   toolCalls: number;
   readonly runs: TestRun[];
-  waiting: { readonly summary: string; readonly since: string } | null;
+  waiting: {
+    readonly kind: 'permission' | 'question';
+    readonly summary: string;
+    readonly since: string;
+  } | null;
   approvalsAnswered: number;
   toolErrors: number;
   firstErrorAt: string | null;
@@ -364,7 +416,8 @@ function observe(events: readonly EventEnvelope[], story: SourceStory): Observed
         if (tool.name === 'edit' && tool.title !== null) {
           const edit = story.edits[id];
           if (edit === undefined) throw new Error(`the story says nothing about edit ${id}`);
-          change(observed, tool.title, edit, at);
+          change(observed, tool.title, edit, edit.creates ? 'add' : 'update', at);
+          for (const other of edit.also ?? []) change(observed, other.path, other, other.kind, at);
           spend(TOKENS.edit);
         } else if (tool.name === 'read') {
           spend(TOKENS.read);
@@ -387,8 +440,27 @@ function observe(events: readonly EventEnvelope[], story: SourceStory): Observed
         evidence(at);
         break;
       case 'runtime.approval.requested':
-        observed.waiting = { summary: event.payload.subject.summary, since: at };
+        observed.waiting = {
+          kind: 'permission',
+          summary: event.payload.subject.summary,
+          since: at,
+        };
         spend(TOKENS.approval);
+        evidence(at);
+        break;
+      case 'runtime.question.asked':
+        // A question the agent asks through the runtime's question tool: observed, as Salidium
+        // records a question tool call.
+        observed.waiting = {
+          kind: 'question',
+          summary: event.payload.prompts[0]?.text ?? 'A question',
+          since: at,
+        };
+        spend(TOKENS.approval);
+        evidence(at);
+        break;
+      case 'runtime.question.resolved':
+        observed.waiting = null;
         evidence(at);
         break;
       case 'runtime.approval.resolved':
@@ -434,10 +506,17 @@ function testLabel(events: readonly EventEnvelope[], id: string): string {
   return 'tests';
 }
 
-function change(observed: Observed, path: string, edit: StoryEdit, at: string): void {
+function change(
+  observed: Observed,
+  path: string,
+  edit: { readonly added: number; readonly removed: number },
+  as: FileKind,
+  at: string,
+): void {
   const reason = [...observed.statements].reverse().find((statement) => statement.at <= at);
   const existing = observed.files.get(path);
-  const kind = edit.creates && existing === undefined ? 'add' : 'update';
+  // A file created once is edited after.
+  const kind = as === 'add' && existing !== undefined ? 'update' : as;
   if (existing === undefined) {
     observed.files.set(path, {
       path,
@@ -597,9 +676,13 @@ function salidiumReport(nativeId: string, observed: Observed, story: SourceStory
 
   const groups: Json[] = [];
   if (observed.waiting !== null) {
+    const label =
+      observed.waiting.kind === 'question'
+        ? 'Waiting for your answer'
+        : 'Waiting for your permission';
     groups.push(
-      group('waiting-permission', 'Waiting for your permission', 'high', observed.waiting.since, {
-        label: 'Waiting for your permission',
+      group(`waiting-${observed.waiting.kind}`, label, 'high', observed.waiting.since, {
+        label,
         instance: observed.waiting.summary,
         provenance: 'observed',
       }),
@@ -685,7 +768,7 @@ function salidiumReport(nativeId: string, observed: Observed, story: SourceStory
       observed.waiting === null
         ? null
         : {
-            kind: 'permission',
+            kind: observed.waiting.kind,
             summary: observed.waiting.summary,
             since: observed.waiting.since,
             provenance: 'observed',
@@ -763,7 +846,10 @@ function salidiumReport(nativeId: string, observed: Observed, story: SourceStory
               what: explanation.what,
               why: {
                 summary: explanation.why.summary,
-                lanes: [],
+                lanes: explanation.why.lanes.map((lane) => ({
+                  title: lane.title,
+                  steps: [...lane.steps],
+                })),
                 chain: [...explanation.why.chain],
               },
               how: { ...explanation.how, steps: [...explanation.how.steps] },
