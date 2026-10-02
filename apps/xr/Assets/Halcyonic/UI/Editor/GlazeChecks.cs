@@ -333,6 +333,53 @@ namespace Halcyonic.XR.UI.Editor
             if (bottoms.Max() - bottoms.Min() > 0.0005f) yield return what + ": the columns' bottoms are " + Millimetres(bottoms.Max() - bottoms.Min()) + " mm apart; they end on one line.";
         }
 
+        /// <summary>
+        /// Type only steps down in each column of a composition (ADR 0026): its labels of words, icons
+        /// left out, grouped into rows where they overlap along the plane's up, a row's size its
+        /// largest em in degrees at its plane's distance; from the top, no row more than a hundredth
+        /// of a degree larger than the row above.
+        /// </summary>
+        public static IEnumerable<string> TypeStepsDown(IReadOnlyList<IReadOnlyList<PlaneShape>> columns, Vector3 eyes, string what)
+        {
+            foreach (var column in columns)
+            {
+                if (column.Count == 0) continue;
+                var plane = column[0].Root;
+                var labels = new List<(string Name, float Top, float Bottom, float Size)>();
+                foreach (var label in column.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false)))
+                {
+                    if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label)) continue;
+                    if (label.textInfo == null || label.textInfo.characterCount == 0) label.ForceMeshUpdate();
+                    if (label.textInfo == null || label.textInfo.characterCount == 0) continue;
+                    var bounds = label.textBounds;
+                    float Up(float y) => Vector3.Dot(label.transform.TransformPoint(new Vector3(bounds.center.x, y, 0f)) - plane.position, plane.up);
+                    var size = Glaze.DegreesOf(label.fontSize * 0.1f * label.transform.lossyScale.y, PlaneDistance(eyes, label.transform));
+                    labels.Add((PathOf(label.transform), Up(bounds.max.y), Up(bounds.min.y), size));
+                }
+                var rows = new List<(string Name, float Top, float Bottom, float Size)>();
+                foreach (var label in labels.OrderByDescending(label => label.Top))
+                {
+                    var row = rows.FindIndex(existing => label.Top > existing.Bottom && label.Bottom < existing.Top);
+                    if (row < 0)
+                    {
+                        rows.Add(label);
+                        continue;
+                    }
+                    var was = rows[row];
+                    rows[row] = (was.Size >= label.Size ? was.Name : label.Name, Mathf.Max(was.Top, label.Top), Mathf.Min(was.Bottom, label.Bottom), Mathf.Max(was.Size, label.Size));
+                }
+                rows.Sort((a, b) => b.Top.CompareTo(a.Top));
+                for (var index = 1; index < rows.Count; index++)
+                {
+                    if (rows[index].Size > rows[index - 1].Size + 0.01f)
+                    {
+                        yield return what + ": " + rows[index].Name + " (" + rows[index].Size.ToString("0.000", CultureInfo.InvariantCulture) + " degrees) stands under the smaller "
+                            + rows[index - 1].Name + " (" + rows[index - 1].Size.ToString("0.000", CultureInfo.InvariantCulture) + "); type only steps down.";
+                    }
+                }
+            }
+        }
+
         private static string Millimetres(float meters) => (meters * 1000f).ToString("0.0", CultureInfo.InvariantCulture);
 
         /// <summary>
