@@ -163,6 +163,85 @@ namespace Halcyonic.XR.UI.Editor
             }
         }
 
+        /// <summary>A label's em as the eyes see it, in degrees, and the share of its designed size that is.</summary>
+        public readonly struct SeenText
+        {
+            public SeenText(string name, float degrees, float share)
+            {
+                Name = name;
+                Degrees = degrees;
+                Share = share;
+            }
+
+            public string Name { get; }
+
+            public float Degrees { get; }
+
+            public float Share { get; }
+        }
+
+        /// <summary>
+        /// Every label of words under <paramref name="root"/> as the eyes see it (ADR 0026): the angle
+        /// from <paramref name="eyes"/> between the top and the bottom of its em, at its text's middle,
+        /// slant included. Where a surface faces the eyes it is the size <see cref="TextLargeEnough"/>
+        /// measures; where the eyes meet a surface at a slant, as an upright one below them, it is less,
+        /// down to its size times the square of the slant's cosine. Icons are left to
+        /// <see cref="IconBesideWord"/>. Smallest first.
+        /// </summary>
+        public static List<SeenText> TextSeen(GameObject root, Vector3 eyes)
+        {
+            var seen = new List<SeenText>();
+            foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
+            {
+                if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label)) continue;
+                if (label.textInfo == null || label.textInfo.characterCount == 0) label.ForceMeshUpdate();
+                if (label.textInfo == null || label.textInfo.characterCount == 0) continue;
+                var em = label.fontSize * 0.1f * label.transform.lossyScale.y;
+                var middle = label.transform.TransformPoint(label.textBounds.center);
+                var half = label.transform.up * (em / 2f);
+                var degrees = Vector3.Angle(middle + half - eyes, middle - half - eyes);
+                seen.Add(new SeenText(PathOf(label.transform), degrees, degrees / Glaze.DegreesOf(em, PlaneDistance(eyes, label.transform))));
+            }
+            seen.Sort((a, b) => a.Degrees.CompareTo(b.Degrees));
+            return seen;
+        }
+
+        /// <summary>
+        /// No text reads under Meta's 14 dp (<see cref="Glaze.MinimumTextDegrees"/>) as the eyes see it
+        /// (<see cref="TextSeen"/>), each label failing with how large it looks and what share of its
+        /// size that is. <see cref="TextLargeEnough"/> stays beside it: it holds each role to its
+        /// size, this holds what the eyes get.
+        /// </summary>
+        public static IEnumerable<string> TextAsSeen(GameObject root, Vector3 eyes, string what)
+        {
+            var seen = TextSeen(root, eyes);
+            if (seen.Count > 0)
+            {
+                var shrunk = seen.OrderBy(label => label.Share).First();
+                Debug.Log("Halcyonic: " + what + ": as the eyes see it, the smallest text is " + seen[0].Name + " at " + seen[0].Degrees.ToString("0.000", CultureInfo.InvariantCulture)
+                    + " degrees; the most shrunk is " + shrunk.Name + " at " + Mathf.RoundToInt(shrunk.Share * 100f) + " percent of its size.");
+            }
+            foreach (var label in seen)
+            {
+                if (label.Degrees >= Glaze.MinimumTextDegrees - 0.0005f) break;
+                yield return what + ": " + label.Name + " is " + label.Degrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees as the eyes see it ("
+                    + Mathf.RoundToInt(label.Share * 100f) + " percent of its size), under 14 dp, " + Glaze.MinimumTextDegrees.ToString("0.000", CultureInfo.InvariantCulture) + ".";
+            }
+        }
+
+        /// <summary>
+        /// For a surface ADR 0026 replaces, which may read under 14 dp as the eyes see it until it is
+        /// rebuilt: logs <see cref="TextAsSeen"/>'s failures as a list (<c>Halcyonic: text as seen ...</c>)
+        /// and fails nothing, as the owner chose on 2026-10-02. New surfaces call
+        /// <see cref="TextAsSeen"/> itself.
+        /// </summary>
+        public static void ListTextAsSeen(GameObject root, Vector3 eyes, string what)
+        {
+            var under = TextAsSeen(root, eyes, what).ToList();
+            if (under.Count == 0) return;
+            Debug.Log("Halcyonic: text as seen, listed, not failed: " + what + ": " + under.Count + " labels under 14 dp: " + string.Join(" | ", under));
+        }
+
         /// <summary>
         /// Every button is at least as tall and as wide as its size asks, 60 dp, or 48 dp compact, as
         /// seen from <paramref name="eyes"/>, and so is the target a hand points at.

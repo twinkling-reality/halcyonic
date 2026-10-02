@@ -118,6 +118,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(EveryIconShows(badges, marks, actions));
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
                 failures.AddRange(IconAloneKeepsPresses());
+                failures.AddRange(TextAsSeenCatchesASlant());
             }
             catch (Exception error)
             {
@@ -150,6 +151,7 @@ namespace Halcyonic.XR.UI.Editor
             var render = Render(camera, texture);
             File.WriteAllBytes(Path.Combine(folder, file), render.EncodeToPNG());
             failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, "component render"));
+            GlazeChecks.ListTextAsSeen(root, eyes, "component render");
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons.Where(button => !button.Button.Static).Select(button => button.Button), eyes, "component render"));
             failures.AddRange(GlazeChecks.NothingCut(root.GetComponentsInChildren<TMP_Text>(false), "component render"));
             failures.AddRange(GlazeChecks.IconsBesideWords(root, eyes, "component render"));
@@ -395,6 +397,36 @@ namespace Halcyonic.XR.UI.Editor
                 meters.Add((meter, share, waiting));
             }
             return meters;
+        }
+
+        /// <summary>
+        /// The check of text as the eyes see it catches what <see cref="GlazeChecks.TextLargeEnough"/>
+        /// cannot (ADR 0026): body text on an upright plate 40 degrees below eye level, which the eyes
+        /// meet at a slant, reads under 14 dp, about two thirds of its size, while the same plate tipped
+        /// back to face the eyes reads at its size. Fails if the check misses the first or fails the second.
+        /// </summary>
+        private static IEnumerable<string> TextAsSeenCatchesASlant()
+        {
+            var failures = new List<string>();
+            var direction = Quaternion.Euler(40f, 0f, 0f) * Vector3.forward;
+            foreach (var upright in new[] { true, false })
+            {
+                var holder = new GameObject(upright ? "Upright under the eyes" : "Facing the eyes").transform;
+                holder.SetParent(gallery, false);
+                holder.localScale = Vector3.one * Distance;
+                holder.SetPositionAndRotation(galleryEyes + direction * Distance, upright ? Quaternion.identity : Quaternion.LookRotation(direction, Vector3.up));
+                var words = GlazeText.Create(holder, "Words", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Top, 12);
+                GlazeText.SetLiteral(words, "Approve the request above?");
+                GlazeText.Lay(words, GlazeTokens.Units(20f), 1);
+                var seen = GlazeChecks.TextAsSeen(holder.gameObject, galleryEyes, "component render: " + holder.name).ToList();
+                if (upright && seen.Count == 0)
+                {
+                    failures.Add("component render: body text on an upright plate 40 degrees under the eyes should read under 14 dp as the eyes see it, and the check missed it.");
+                }
+                if (!upright) failures.AddRange(seen);
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            }
+            return failures;
         }
 
         /// <summary>

@@ -615,6 +615,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var eyes = camera.transform.position;
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, name + " rail"));
             failures.AddRange(GlazeChecks.TextLargeEnough(rail.Root.gameObject, eyes, name + " rail"));
+            GlazeChecks.ListTextAsSeen(rail.Root.gameObject, eyes, name + " rail");
             // How far to the side, as the angle from the rail's middle as seen from the eyes, whatever its height.
             var widest = 0f;
             var center = rail.Root.position - eyes;
@@ -680,6 +681,7 @@ namespace Halcyonic.XR.Workspace.Editor
             failures.AddRange(GlazeChecks.Apart(others).Where(failure => failure.Contains("the Settings sheet")).Select(failure => name + ": " + failure));
             failures.AddRange(GlazeChecks.TargetsLargeEnough(sheet.Root.GetComponentsInChildren<GlazeButton>(false), eyes, name + " settings"));
             failures.AddRange(GlazeChecks.TextLargeEnough(sheet.Root.gameObject, eyes, name + " settings"));
+            GlazeChecks.ListTextAsSeen(sheet.Root.gameObject, eyes, name + " settings");
             if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(sheet.Root.gameObject, name + " settings", eyes));
             else failures.AddRange(NothingOfOursCut(sheet.Root.GetComponentsInChildren<TMP_Text>(false).Cast<Component>()
                 .Concat(sheet.Root.GetComponentsInChildren<GlazeButton>(false)), name + " settings"));
@@ -753,6 +755,7 @@ namespace Halcyonic.XR.Workspace.Editor
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, what));
             failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(buttons, what));
             failures.AddRange(GlazeChecks.TextLargeEnough(frame.gameObject, eyes, what));
+            GlazeChecks.ListTextAsSeen(frame.gameObject, eyes, what);
             if (!frame.BarIcons) Debug.Log("Halcyonic: entry render " + what + ": the bar has no room for its icons, so its words stand alone.");
             var gap = TargetGap(frame);
             for (var a = 0; a < buttons.Count; a++)
