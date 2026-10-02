@@ -58,6 +58,12 @@ export interface SalidiumFeedOptions extends Omit<SalidiumOptions, 'credential'>
   readonly onEvent: (event: SalidiumFeedEvent) => void;
   /** Silence after which the connection is presumed dead: three missed heartbeats by default. */
   readonly silenceMs?: number;
+  /**
+   * Starts the silence timer and returns what stops it: the system's timer unless a test drives
+   * one by hand, so that whether a connection is kept never rests on how promptly a loaded
+   * machine runs the test.
+   */
+  readonly silenceTimer?: (onSilence: () => void, ms: number) => () => void;
   /** The first reconnection delay, doubled after each failed attempt up to `maxDelayMs`. */
   readonly initialDelayMs?: number;
   readonly maxDelayMs?: number;
@@ -129,6 +135,11 @@ async function run(options: SalidiumFeedOptions, signal: AbortSignal): Promise<v
   }
 }
 
+function systemSilenceTimer(onSilence: () => void, ms: number): () => void {
+  const timer = setTimeout(onSilence, ms);
+  return () => clearTimeout(timer);
+}
+
 /** One connection, from the instance check to its end. Resolves with why it ended. */
 async function follow(
   options: SalidiumFeedOptions,
@@ -149,7 +160,8 @@ async function follow(
     silent = true;
     connection.abort();
   };
-  let timer = setTimeout(onSilence, silenceMs);
+  const startTimer = options.silenceTimer ?? systemSilenceTimer;
+  let stopTimer = startTimer(onSilence, silenceMs);
   const lost = () =>
     silent
       ? fail(
@@ -198,8 +210,8 @@ async function follow(
         return lost();
       }
       if (chunk.done) break;
-      clearTimeout(timer);
-      timer = setTimeout(onSilence, silenceMs);
+      stopTimer();
+      stopTimer = startTimer(onSilence, silenceMs);
       let events: string[];
       try {
         events = parser.push(decoder.decode(chunk.value, { stream: true }));
@@ -262,7 +274,7 @@ async function follow(
       return fail('unavailable', 'shutting_down', 'Salidium is stopping and closed the feed.');
     return fail('unavailable', 'connection_closed', 'Salidium closed the feed without saying why.');
   } finally {
-    clearTimeout(timer);
+    stopTimer();
     signal.removeEventListener('abort', stop);
     connection.abort();
   }

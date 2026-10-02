@@ -36,6 +36,30 @@ function follow(
   return events;
 }
 
+/** A silence timer the test moves by hand: it fires only when `advance` passes its time. */
+class HandTimer {
+  #now = 0;
+  readonly #pending = new Set<{ readonly at: number; readonly fire: () => void }>();
+  /** How many times a silence has been started, as each read does. */
+  started = 0;
+
+  readonly start = (fire: () => void, ms: number): (() => void) => {
+    const entry = { at: this.#now + ms, fire };
+    this.#pending.add(entry);
+    this.started += 1;
+    return () => this.#pending.delete(entry);
+  };
+
+  advance(ms: number): void {
+    this.#now += ms;
+    for (const entry of [...this.#pending].sort((a, b) => a.at - b.at)) {
+      if (entry.at > this.#now) continue;
+      this.#pending.delete(entry);
+      entry.fire();
+    }
+  }
+}
+
 const count = (events: SalidiumFeedEvent[], type: SalidiumFeedEvent['type']) =>
   events.filter((event) => event.type === type).length;
 
@@ -129,14 +153,23 @@ describe("following Salidium's change feed", () => {
 
   test('keeps a quiet connection that still receives heartbeats', async (t) => {
     const fake = await start(t);
-    const events = follow(t, fake, { silenceMs: 150 });
+    // Time moves only when the test says, so a stalled test process can't fake a silence.
+    const timer = new HandTimer();
+    const events = follow(t, fake, { silenceMs: 150, silenceTimer: timer.start });
     await until(() => count(events, 'resync') === 1, 'resync');
     for (let beat = 0; beat < 6; beat++) {
-      await sleep(50);
+      timer.advance(100);
+      const started = timer.started;
       fake.send(fixture('session-feed-heartbeat'));
+      // Reading anything starts the silence again.
+      await until(() => timer.started > started, `heartbeat ${beat + 1} to be read`);
     }
+    // 600 ms have passed, four silences' worth, but never 150 without a heartbeat.
     assert.equal(fake.feedConnections, 1);
     assert.deepEqual(disconnections(events), []);
+    timer.advance(150);
+    await until(() => count(events, 'resync') === 2, 'reconnection once the heartbeats stop');
+    assert.deepEqual(disconnections(events), ['unavailable/heartbeats_missed']);
   });
 
   test('treats a malformed message as incompatibility, and resyncs on a new connection', async (t) => {
