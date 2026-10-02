@@ -299,10 +299,13 @@ describe('reading an understanding from Salidium', () => {
       response.setHeader('Content-Type', 'application/json');
       response.end(`{"pad":"${'x'.repeat(9 * 1024 * 1024)}"}`);
     });
-    assert.deepEqual(reason(await understand(huge, VERIFIED)), [
-      'incompatible',
-      'answer_too_large',
-    ]);
+    const tooLarge = await understand(huge, VERIFIED);
+    assert.deepEqual(reason(tooLarge), ['incompatible', 'answer_too_large']);
+    assert.equal(
+      'reason' in tooLarge ? tooLarge.reason.message : '',
+      'The session report answer ran past 8192 KiB, the most Halcyonic reads of it, so it was not read.',
+      "the limit is said to be Halcyonic's own, not the contract's",
+    );
   });
 
   test('stops asking about a provider a daemon that lists its providers leaves out', async (t) => {
