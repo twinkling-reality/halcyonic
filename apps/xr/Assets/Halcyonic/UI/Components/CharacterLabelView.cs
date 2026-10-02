@@ -55,13 +55,24 @@ namespace Halcyonic.XR.UI
         private float shownBadgeWidth = -1f;
         private int shownScale = -1;
         private float topDegrees = TopDegrees;
+        private float leanDegrees;
         private CharacterLabel? shown;
         private float plateWidth;
         private float bottom;
         private bool badgeOnly;
 
-        /// <summary>How far below its origin the label reaches, its mark included: a negative height, in its parent's units.</summary>
-        public float Bottom => bottom;
+        /// <summary>
+        /// How far below its origin the label reaches, its mark included: a negative height, in its
+        /// parent's units, as it hangs, leaned back or not (<see cref="ViewFrom"/>).
+        /// </summary>
+        public float Bottom
+        {
+            get
+            {
+                var top = -GlazeTokens.Units(topDegrees);
+                return top + (bottom - top) * Mathf.Cos(leanDegrees * Mathf.Deg2Rad);
+            }
+        }
 
         /// <summary>Half the width of the label's widest part, in its parent's units.</summary>
         public float HalfWidth { get; private set; }
@@ -133,13 +144,22 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Lowers the label as much as being seen from <paramref name="elevationDegrees"/> above or
         /// below eye level shortens the drop from the body to it, so its body never covers its badge,
-        /// as on a desk seen from above.
+        /// as on a desk seen from above. With <paramref name="faceEyes"/>, as on a desk, it also leans
+        /// back about its top edge to face the eyes, so its words read at their size: upright, seen
+        /// from above, they read at about two thirds of it (ADR 0026, 2026-10-02).
         /// </summary>
-        public void ViewFrom(float elevationDegrees)
+        public void ViewFrom(float elevationDegrees, bool faceEyes = false)
         {
             var top = TopDegrees / Mathf.Max(Mathf.Cos(elevationDegrees * Mathf.Deg2Rad), 0.5f);
-            if (Mathf.Abs(top - topDegrees) < 0.01f) return;
+            var lean = faceEyes ? -elevationDegrees : 0f;
+            if (Mathf.Abs(top - topDegrees) < 0.01f && Mathf.Abs(lean - leanDegrees) < 0.01f) return;
             topDegrees = top;
+            leanDegrees = lean;
+            // Tipped about its top edge's middle, so its badge stays where the body leaves room for it.
+            var pivot = new Vector3(0f, -GlazeTokens.Units(topDegrees), 0f);
+            var rotation = Quaternion.Euler(leanDegrees, 0f, 0f);
+            transform.localRotation = rotation;
+            transform.localPosition = pivot - rotation * pivot;
             if (shown != null) Layout(shown);
         }
 

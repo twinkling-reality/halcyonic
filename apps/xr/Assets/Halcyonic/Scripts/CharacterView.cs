@@ -145,8 +145,11 @@ namespace Halcyonic.XR
             set => label.BadgeOnly = value;
         }
 
-        /// <summary>How far below or above eye level the person sees the character, in degrees, which sets how low its label hangs.</summary>
-        public void ViewedFrom(float elevationDegrees) => label.ViewFrom(elevationDegrees);
+        /// <summary>
+        /// How far below or above eye level the person sees the character, in degrees, which sets how
+        /// low its label hangs, and whether its label leans back to face the eyes, as on a desk.
+        /// </summary>
+        public void ViewedFrom(float elevationDegrees, bool faceEyes = false) => label.ViewFrom(elevationDegrees, faceEyes);
 
         public static CharacterView Create(Transform parent, string workstreamId)
         {

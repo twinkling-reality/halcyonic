@@ -77,7 +77,9 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   a state badge on its top edge, and marks for practice, demonstration and recorded work on its
   bottom edge; the reason shows only in the peek. (On 2026-10-01 the marks moved from beside the
   badge to the plate's bottom edge: beside it, a badge and a mark reach 11 to 13.5 degrees, and
-  neighbours stand 12 apart.)
+  neighbours stand 12 apart. On 2026-10-02, as the coordinator and the owner approved, a label on
+  a desk leans back to face the eyes: upright, seen from above, its badge's words read at about two
+  thirds of their size as the eyes see it, under Meta's 14 dp.)
 - **One word per state.** Not started, Starting, Working, Checking its work, Waiting for you,
   Finished this round, Checks failed, Couldn't finish, Stopped and Can't tell yet, kept once in the
   client core (`StateLanguage`). A badge says the short word; a sentence says the same state in

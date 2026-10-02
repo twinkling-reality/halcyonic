@@ -238,10 +238,13 @@ about twice as long as before.
 
 Every render also measures each label's text as the eyes see it, slant included
 (`GlazeChecks.TextAsSeen`): text on a surface the eyes meet at a slant, such as an upright one below
-them, reads smaller than its size. Today's surfaces only list what reads under 14 dp that way
-(`Halcyonic: text as seen, listed, not failed ...`), as the owner chose on 2026-10-02, until the
-redesign replaces them; the component render proves the check fails on an upright plate under the
-eyes and passes the same plate facing them.
+them, reads smaller than its size. The stage render holds it, its labels leaning back on a desk;
+today's panels only list what reads under 14 dp that way (`Halcyonic: text as seen, listed, not
+failed ...`), as the owner chose on 2026-10-02, until the redesign replaces them. The component
+render proves the check fails on an upright plate under the eyes and passes the same plate facing
+them, and proves the redesign's other checks catch what they must: parts off one plane facing the
+eyes (`OnePlane`), type that rises down a column (`TypeStepsDown`), and a second selection treatment
+or an accent bar (`OneSelectionTreatment`).
 
 Batch runs can end with exit status 134 after `Exiting batchmode successfully now!`: the
 Interaction SDK's telemetry library (`ISDKEngineTelemetry.dylib`) aborts on a mutex during

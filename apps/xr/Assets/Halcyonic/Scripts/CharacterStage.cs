@@ -612,7 +612,7 @@ namespace Halcyonic.XR
         /// height, its label resting on the surface at the arc's origin, with the eyes
         /// <paramref name="eyesAbove"/> over it. It scales with its distance from the eyes, so it keeps
         /// its apparent size near or far, above or below, and its label hangs as low as being seen
-        /// from above needs (<see cref="CharacterView.ViewedFrom"/>).
+        /// from above needs and, on a surface, leans back to face the eyes (<see cref="CharacterView.ViewedFrom"/>).
         /// </summary>
         public static (float Height, float Scale) Stance(CharacterView view, float radius, float eyesAbove, float? heightFromEyes)
         {
@@ -622,7 +622,8 @@ namespace Halcyonic.XR
             for (var pass = 0; pass < 3; pass++)
             {
                 var below = height - eyesAbove;
-                view.ViewedFrom(Mathf.Atan2(below, radius) * Mathf.Rad2Deg);
+                // On a surface, below the eyes, the label leans back to face them.
+                view.ViewedFrom(Mathf.Atan2(below, radius) * Mathf.Rad2Deg, faceEyes: heightFromEyes == null);
                 scale = Mathf.Sqrt(radius * radius + below * below);
                 height = heightFromEyes ?? (SurfaceClearance - view.Footing) * scale;
             }

@@ -181,7 +181,8 @@ namespace Halcyonic.XR.Workspace.Editor
             }
 
             failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, name));
-            GlazeChecks.ListTextAsSeen(root, eyes, name);
+            // The stage's labels face the eyes, leaning back on a desk, so every word reads at 14 dp or more as the eyes see it.
+            failures.AddRange(GlazeChecks.TextAsSeen(root, eyes, name));
             var plates = characters.Select(character => character.View.Label.Plate).ToList();
             plates.Add(banner.Plate);
             if (peek != null) plates.Add(peek.Card);
