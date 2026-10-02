@@ -151,7 +151,7 @@ namespace Halcyonic.Client
                     var at = read.Recorded ? read.ReadAt : now;
                     var lines = new List<SectionLine>
                     {
-                        Source(IntelligenceText.EvaluationProvenance(read, synthetic, now, zone) + status, synthetic ? SectionTone.Attention : SectionTone.Secondary),
+                        Source(IntelligenceText.EvaluationProvenance(read, synthetic, now, zone) + status, SectionTone.Secondary),
                     };
                     lines.AddRange(Lines(evaluation, at, zone));
                     return lines;
@@ -166,7 +166,7 @@ namespace Halcyonic.Client
                 case IncompatibleEvaluation incompatible:
                     return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unreadable: " + IntelligenceText.Plain(incompatible.Reason.Message) + status, SectionTone.Problem) };
                 case UnauthorizedEvaluation unauthorized:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation not allowed: " + IntelligenceText.Plain(unauthorized.Reason.Message) + status, SectionTone.Attention) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation not allowed: " + IntelligenceText.Plain(unauthorized.Reason.Message) + status, SectionTone.Secondary) };
                 default:
                     return new[] { Source("The evaluation came back in a form this app does not know.", SectionTone.Secondary) };
             }
@@ -207,7 +207,7 @@ namespace Halcyonic.Client
             else
             {
                 lines.Add(new SectionLine("Outcome", Commits(measure.CommitsLanded) + " · " + Errors(measure, zone) + " · " + End(measure.EndReason),
-                    measure.ErrorCount > 0 ? SectionTone.Attention : SectionTone.Normal));
+                    SectionTone.Normal));
                 lines.Add(new SectionLine("", Uncommitted(measure.Uncommitted) + " · " + Survival(measure.LineSurvival), SectionTone.Normal));
             }
             lines.Add(Status(outcome.Availability, outcome.Coverage, outcome.Freshness, now, zone));
@@ -217,7 +217,8 @@ namespace Halcyonic.Client
         /// <summary>One part's own statement about itself: whether it is available, what it covers, and how current it is.</summary>
         public static SectionLine Status(EvaluationAvailability availability, EvaluationCoverage coverage, EvaluationFreshness freshness, DateTimeOffset now, TimeZoneInfo zone)
         {
-            var tone = SectionTone.Secondary;
+            // Amber is for what waits for the person only; the words say partial, stale or unavailable.
+            const SectionTone tone = SectionTone.Secondary;
             string state;
             switch (availability.State)
             {
@@ -226,11 +227,9 @@ namespace Halcyonic.Client
                     break;
                 case EvaluationAvailabilityState.Partial:
                     state = "partly available" + (availability.Reason is EvaluationAvailabilityReason partly ? ": " + Reason(partly) : "");
-                    tone = SectionTone.Attention;
                     break;
                 default:
                     state = "unavailable" + (availability.Reason is EvaluationAvailabilityReason reason ? ": " + Reason(reason) : "");
-                    tone = SectionTone.Attention;
                     break;
             }
             var covers = coverage.IncludedSessions.ToString(CultureInfo.InvariantCulture) + " of "
@@ -242,14 +241,12 @@ namespace Halcyonic.Client
             else
             {
                 covers += ", incomplete" + (coverage.Omissions.Count == 0 ? "" : ": " + string.Join(", ", coverage.Omissions.Select(Omission)));
-                tone = SectionTone.Attention;
             }
             string current;
             if (IntelligenceText.TryParse(freshness.StaleAt, out var staleAt) && now >= staleAt)
             {
                 // After this instant the part must read as stale, whatever its state said when read.
                 current = "stale since " + IntelligenceText.Clock(staleAt, zone, seconds: false);
-                tone = SectionTone.Attention;
             }
             else
             {
@@ -262,7 +259,6 @@ namespace Halcyonic.Client
                 current += freshness.DataThrough != null && IntelligenceText.TryParse(freshness.DataThrough, out var through)
                     ? ", data to " + IntelligenceText.Clock(through, zone, seconds: true)
                     : ", no data yet";
-                if (freshness.State == EvaluationFreshnessState.Stale) tone = SectionTone.Attention;
             }
             return new SectionLine("", state + " · " + covers + " · " + current, tone, detail: true);
         }
