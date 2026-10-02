@@ -34,11 +34,6 @@ namespace Halcyonic.Client
         /// <summary>The key of the row that says why no folder is listed.</summary>
         public const string ProblemKey = "folders";
 
-        /// <summary>
-        /// How many rows a page holds at a text size, a line that wraps counting its rows: 4 as designed,
-        /// 3 a step larger, where a 4-row page reaches past a Quest 3S's field (ADR 0026).
-        /// </summary>
-        public static int Rows(TextSize size) => size == TextSize.Larger ? 3 : 4;
 
         /// <summary>What Projects shows now, gathered by the menu from the session, the listing and the person's choices.</summary>
         public sealed class State
@@ -67,7 +62,7 @@ namespace Halcyonic.Client
             /// <summary>The row that says why no folder is listed is chosen.</summary>
             public bool ChosenProblem { get; set; }
 
-            /// <summary>The person's reading size (<see cref="Comfort.Text"/>), which sets the rows a page.</summary>
+            /// <summary>The person's reading size (<see cref="Comfort.Text"/>), which sets the rows a page (<see cref="MenuFrame.RowsAPage"/>).</summary>
             public TextSize TextSize { get; set; }
 
             /// <summary>The connection sent last, for whichever folder.</summary>
@@ -97,7 +92,7 @@ namespace Halcyonic.Client
             var problemChosen = project == null && folder == null && state.ChosenProblem && problem != null;
             var lines = Lines(state, projects, offers, project, folder, problemChosen);
 
-            var pages = Paginate(lines, Rows(state.TextSize));
+            var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize));
             var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));
