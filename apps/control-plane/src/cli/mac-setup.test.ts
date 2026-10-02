@@ -56,6 +56,13 @@ const OLLAMA_MODELS = [
   },
 ];
 
+/** The companion's own model, as Ollama lists it once pulled. */
+const COMPANION = {
+  name: 'qwen3.5:9b',
+  size: 6_600_000_000,
+  capabilities: ['completion', 'tools'],
+};
+
 type Answer = { readonly status: number; readonly body: unknown };
 
 interface Mac {
@@ -126,7 +133,8 @@ function mac(t: TestContext): Mac {
           const url = new URL(String(input));
           const authorization = new Headers(init?.headers).get('authorization');
           machine.requests.push({ url: url.href, authorization });
-          const host = url.hostname === 'ollama.test' ? 'ollama' : 'halcyonic';
+          // Ollama answers on its own port, as on the Mac; everything else is Halcyonic.
+          const host = url.port === '11434' ? 'ollama' : 'halcyonic';
           const answer = routes.get(`${host} ${url.pathname}`);
           if (answer === undefined) throw new TypeError('fetch failed');
           const challenge = new Headers(init?.headers).get(PROOF_CHALLENGE_HEADER);
@@ -143,7 +151,7 @@ function mac(t: TestContext): Mac {
             headers: proof,
           });
         }) as typeof fetch,
-        ollamaUrl: 'http://ollama.test:11434',
+        ollamaUrl: 'http://127.0.0.1:11434',
         memoryBytes: 64 * 1024 ** 3,
         which: (command) => (command === 'rg' && machine.rg ? '/opt/homebrew/bin/rg' : null),
         firewall: () => machine.firewall,
@@ -190,7 +198,13 @@ function status(machine: Mac, title: string): string | undefined {
 /** A running Halcyonic answering with what it uses. */
 function running(
   machine: Mac,
-  uses: { roots?: string[]; apps?: string[]; devices?: unknown; usage?: unknown } = {},
+  uses: {
+    roots?: string[];
+    apps?: string[];
+    devices?: unknown;
+    usage?: unknown;
+    companion?: unknown;
+  } = {},
 ) {
   mkdirSync(machine.dataDir, { recursive: true, mode: 0o700 });
   writeFileSync(join(machine.dataDir, 'access-token'), TOKEN, { mode: 0o600 });
@@ -211,6 +225,13 @@ function running(
   machine.routes.set('halcyonic /api/devices', {
     status: 200,
     body: uses.devices ?? { devices: [], connected: [] },
+  });
+  machine.routes.set('halcyonic /api/companion', {
+    status: 200,
+    body: uses.companion ?? {
+      availability: 'unavailable',
+      reason: { code: 'companion_not_set_up', message: 'x' },
+    },
   });
   machine.routes.set('halcyonic /api/usage-limits', {
     status: 200,
@@ -728,6 +749,119 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /only the environment sets it/);
     assert.equal(await machine.run('allow', '--yes'), 1);
     assert.match(text(machine), /Halcyonic's settings can't be changed/);
+  });
+
+  test("the companion's step recommends a model of its own and says what it needs beside the agents'", async (t) => {
+    const machine = mac(t);
+    await machine.run();
+    assert.equal(status(machine, 'Companion'), 'Optional');
+    assert.match(
+      text(machine),
+      /“The companion isn't set up on your computer\. Type your idea, or answer a few fixed questions\.”/,
+    );
+    assert.match(text(machine), /OLLAMA_MAX_LOADED_MODELS=2/);
+    assert.match(
+      text(machine),
+      /This Mac keeps nothing of what you tell it; the headset keeps the draft\./,
+    );
+    assert.match(text(machine), /ollama pull qwen3\.5:9b pnpm mac-setup companion qwen3\.5:9b/);
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: { models: [...OLLAMA_MODELS, COMPANION] },
+    });
+    await machine.run();
+    assert.doesNotMatch(text(machine), /ollama pull qwen3\.5:9b/, 'already on this Mac');
+    assert.match(text(machine), /pnpm mac-setup companion qwen3\.5:9b/);
+  });
+
+  test('companion records a model this Mac serves, and refuses a remote or missing one', async (t) => {
+    const machine = mac(t);
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: {
+        models: [
+          ...OLLAMA_MODELS,
+          COMPANION,
+          {
+            name: 'shared:latest',
+            size: 1,
+            capabilities: ['completion'],
+            remote_host: 'https://elsewhere:443',
+          },
+        ],
+      },
+    });
+    for (const [name, why] of [
+      ['gpt-oss:120b-cloud', /runs on a remote service of Ollama's/],
+      ['qwen3:CLOUD', /runs on a remote service of Ollama's/],
+      ['shared', /runs on a remote service of Ollama's/],
+      [
+        'qwen3.8:27b-nvfp4',
+        /doesn't have qwen3\.8:27b-nvfp4\. Downloading it is for you to run: ollama pull qwen3\.8:27b-nvfp4/,
+      ],
+    ] as const) {
+      assert.equal(await machine.run('companion', name), 1, name);
+      assert.match(text(machine), why, name);
+    }
+    assert.equal(machine.settings().HALCYONIC_COMPANION_MODEL, undefined);
+
+    assert.equal(await machine.run('companion', 'qwen3.5:9b'), 0);
+    assert.equal(machine.settings().HALCYONIC_COMPANION_MODEL, 'qwen3.5:9b');
+    assert.equal(
+      loadConfig(withSettings(machine.env, machine.settings())).companion?.model,
+      'qwen3.5:9b',
+    );
+    await machine.run();
+    assert.equal(status(machine, 'Companion'), 'Ready');
+    assert.match(text(machine), /The companion asks qwen3\.5:9b on this Mac\./);
+
+    machine.routes.delete('ollama /api/tags');
+    await machine.run();
+    assert.equal(status(machine, 'Companion'), 'To do');
+    assert.match(text(machine), /“The companion can't run on your computer right now\./);
+
+    assert.equal(await machine.run('companion', 'off'), 0);
+    assert.equal(machine.settings().HALCYONIC_COMPANION_MODEL, undefined);
+    assert.match(text(machine), /Nothing is removed from Ollama\./);
+  });
+
+  test("a companion that shares the agents' model is told to wait for their steps", async (t) => {
+    const machine = mac(t);
+    machine.install('opencode');
+    await machine.run('agent-apps');
+    await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4');
+    assert.equal(await machine.run('companion', 'qwen3.6:35b-a3b-nvfp4'), 0);
+    assert.match(text(machine), /is also the agents' model/);
+    await machine.run();
+    assert.equal(status(machine, 'Companion'), 'Look at this');
+    assert.match(text(machine), /A model of its own, such as qwen3\.5:9b, answers sooner\./);
+  });
+
+  test("the companion's step says what the running Halcyonic answers about it", async (t) => {
+    const machine = mac(t);
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: { models: [...OLLAMA_MODELS, COMPANION] },
+    });
+    await machine.run('companion', 'qwen3.5:9b');
+    running(machine, {
+      companion: {
+        availability: 'unavailable',
+        reason: { code: 'companion_not_set_up', message: 'x' },
+      },
+    });
+    await machine.run('--with-token');
+    assert.equal(status(machine, 'Companion'), 'To do');
+    assert.match(text(machine), /restart Halcyonic to use these settings/);
+    running(machine, {
+      companion: {
+        availability: 'available',
+        companion: { model: 'qwen3.5:9b' },
+        max_questions: 4,
+      },
+    });
+    await machine.run('--with-token');
+    assert.equal(status(machine, 'Companion'), 'Ready');
   });
 
   test('unknown commands and flags print how to use it', async (t) => {

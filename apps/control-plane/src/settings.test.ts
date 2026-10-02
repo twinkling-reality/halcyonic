@@ -165,6 +165,33 @@ describe('the settings file', () => {
     );
   });
 
+  test("may name the companion's local model, but never one Ollama runs elsewhere", () => {
+    const local = { HALCYONIC_COMPANION_MODEL: 'qwen3.5:9b' };
+    assert.equal(loadConfig(withSettings({}, local)).companion?.model, 'qwen3.5:9b');
+    assert.equal(
+      loadConfig(
+        withSettings({}, { ...local, HALCYONIC_COMPANION_OLLAMA_URL: 'http://127.0.0.1:11500' }),
+      ).companion?.ollama.port,
+      '11500',
+    );
+    for (const settings of [
+      { HALCYONIC_COMPANION_MODEL: 'gpt-oss:120b-cloud' },
+      { HALCYONIC_COMPANION_MODEL: 'qwen3:Cloud' },
+      { ...local, HALCYONIC_COMPANION_OLLAMA_URL: 'http://192.168.1.20:11434' },
+      { ...local, HALCYONIC_COMPANION_OLLAMA_URL: 'https://127.0.0.1:11434' },
+      { ...local, HALCYONIC_COMPANION_OLLAMA_URL: 'http://127.0.0.1' },
+      { HALCYONIC_COMPANION_OLLAMA_URL: 'http://127.0.0.1:11434' },
+    ]) {
+      assert.throws(
+        () => loadConfig(withSettings({}, settings)),
+        ConfigError,
+        JSON.stringify(settings),
+      );
+    }
+    const dataDir = dataDirWith({ format: 1, HALCYONIC_COMPANION_MODEL: 'qwen3.5:9b' });
+    assert.equal(readHostSettings(dataDir).HALCYONIC_COMPANION_MODEL, 'qwen3.5:9b');
+  });
+
   test('fills in only what the environment leaves unset; a variable in the environment wins, even empty', () => {
     const projects = folder('env-wins');
     const settings = { HALCYONIC_PROJECT_ROOTS: projects, HALCYONIC_NETWORK_HOST: '0.0.0.0' };

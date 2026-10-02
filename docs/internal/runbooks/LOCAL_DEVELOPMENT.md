@@ -77,9 +77,13 @@ which only you can read or change, and Halcyonic reads it when it starts
    are left as they are. Codex follows your own Codex settings: to keep it on the Mac, see
    [Codex](#codex). Claude Agent runs only on Anthropic's remote service and is paid with your API
    key, so the setup never turns it on; see [Run real agents](#run-real-agents).
-4. **Optional: voice, Usage left, and what changed and why.** Voice turns Hold to talk into a draft on
-   the Mac: build it as in [Turn on voice](#turn-on-voice), then `pnpm mac-setup voice`, which records
-   the files once their checksums match. Usage left needs Seorak and a credential, and the Understand
+4. **Optional: voice, the companion, Usage left, and what changed and why.** Voice turns Hold to talk
+   into a draft on the Mac: build it as in [Turn on voice](#turn-on-voice), then `pnpm mac-setup
+   voice`, which records the files once their checksums match. Create's companion asks a model of its
+   own on the Mac: `ollama pull qwen3.5:9b` (6.6 GB), start Ollama with
+   `OLLAMA_MAX_LOADED_MODELS=2` so it stays loaded beside the agents' model, then `pnpm mac-setup
+   companion qwen3.5:9b`, which records it only if Ollama lists it as running on this Mac; `pnpm
+   mac-setup companion off` turns it off ([Turn on Create's companion](#turn-on-creates-companion)). Usage left needs Seorak and a credential, and the Understand
    tab's explanations need Salidium and a credential ([Connect Seorak](#connect-seorak),
    [Connect Salidium](#connect-salidium)). Credentials move only as files with mode 600, never
    through the clipboard, a prompt or a chat; the setup checks that they exist and that no one else
@@ -136,8 +140,8 @@ logs. Use `pnpm start` for a run without file watching.
 
 Every `HALCYONIC_` variable below can be set in the environment. `pnpm mac-setup` keeps the ones a
 person sets up once (`HALCYONIC_PROJECT_ROOTS`, `HALCYONIC_OPENCODE_BIN`,
-`HALCYONIC_OPENCODE_CONFIG_HOME`, `HALCYONIC_CODEX_BIN`, the three `HALCYONIC_WHISPER_` files and
-`HALCYONIC_NETWORK_HOST`) in `settings.json` in the data directory, mode 600, which the control
+`HALCYONIC_OPENCODE_CONFIG_HOME`, `HALCYONIC_CODEX_BIN`, the three `HALCYONIC_WHISPER_` files,
+`HALCYONIC_COMPANION_MODEL` and `HALCYONIC_COMPANION_OLLAMA_URL`, and `HALCYONIC_NETWORK_HOST`) in `settings.json` in the data directory, mode 600, which the control
 plane reads for whatever its environment leaves unset; a variable present in the environment wins,
 even empty. The file can never hold `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE` or
 `HALCYONIC_AGENT_ENV`, so paid model use and pass-through variables stay in the environment
@@ -537,7 +541,9 @@ generates on the agents' model, where the agents' own model would make it wait f
 task's steps ([record](../validation/companion-model.md)). Ollama must be able to keep two models
 loaded (`OLLAMA_MAX_LOADED_MODELS=2`). The name is the model's as `ollama list` shows it; one with a
 `cloud` tag is refused. Ollama's address defaults to `http://127.0.0.1:11434`; set
-`HALCYONIC_COMPANION_OLLAMA_URL` only for another loopback port. Check that it can be asked, without
+`HALCYONIC_COMPANION_OLLAMA_URL` only for another loopback port. `pnpm mac-setup companion
+qwen3.5:9b` keeps the model in the Mac's settings file instead, once Ollama lists it as running on
+this Mac, and `pnpm mac-setup` says whether the companion can run. Check that it can be asked, without
 asking the model:
 
 ```bash

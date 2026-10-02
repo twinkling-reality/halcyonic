@@ -23,10 +23,12 @@ const MAX_SETTINGS_BYTES = 64 * 1024;
 
 /**
  * The variables a settings file may hold: which folders agents may use, the pinned agent apps,
- * Halcyonic's own OpenCode settings, voice, and the listener for paired devices. Nothing that
- * spends model credit or widens what reaches an agent can be set there: the Claude Agent runtime,
- * its executable and the variables passed through to agents stay in the environment alone, and no
- * setting names a model.
+ * Halcyonic's own OpenCode settings, voice, Create's companion and the listener for paired devices.
+ * Nothing that spends model credit or widens what reaches an agent can be set there: the Claude
+ * Agent runtime, its executable and the variables passed through to agents stay in the environment
+ * alone, and no setting names a model that can run on a remote service. The companion's model is
+ * refused at startup when its name has a `cloud` tag, its Ollama must answer on loopback, and a
+ * model Ollama would pass to another host is refused when the companion is asked (ADR 0025).
  */
 export const SETTING_NAMES = [
   'HALCYONIC_PROJECT_ROOTS',
@@ -36,6 +38,8 @@ export const SETTING_NAMES = [
   'HALCYONIC_WHISPER_BIN',
   'HALCYONIC_WHISPER_MODEL',
   'HALCYONIC_WHISPER_VAD_MODEL',
+  'HALCYONIC_COMPANION_MODEL',
+  'HALCYONIC_COMPANION_OLLAMA_URL',
   'HALCYONIC_NETWORK_HOST',
 ] as const;
 export type SettingName = (typeof SETTING_NAMES)[number];

@@ -48,10 +48,17 @@ Facts that shaped the decision:
    data directory that user owns and that is closed to others (mode 700), says `"format": 1`, and
    holds only known settings with well-formed values.
 4. **It can never start paid model use.** It may hold only the project roots, the two pinned agent
-   binaries, Halcyonic's own OpenCode settings, the three voice files and the network listener's
-   address. `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE` and `HALCYONIC_AGENT_ENV` are
-   refused there by name, so the Claude Agent runtime and anything passed through to agents stay a
-   deliberate choice made in the environment. No setting names a model.
+   binaries, Halcyonic's own OpenCode settings, the three voice files, Create's companion and the
+   network listener's address. `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE` and
+   `HALCYONIC_AGENT_ENV` are refused there by name, so the Claude Agent runtime and anything passed
+   through to agents stay a deliberate choice made in the environment. No setting names a model that
+   can run on a remote service. Amended 2026-10-02: the companion's model
+   (`HALCYONIC_COMPANION_MODEL`) and its Ollama (`HALCYONIC_COMPANION_OLLAMA_URL`) may be set there,
+   since the companion is local by construction ([ADR 0025](0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)):
+   startup refuses a model name with a `cloud` tag and any address but http on a loopback address
+   with a port, and the companion refuses a model Ollama lists with `remote_host` or `remote_model`
+   whenever it is asked. `pnpm mac-setup companion <name>` records only a model Ollama lists as
+   running on this Mac.
 5. **Halcyonic's own OpenCode settings are local by construction.** `HALCYONIC_OPENCODE_CONFIG_HOME`
    names a directory given to OpenCode alone as its `XDG_CONFIG_HOME`, so the person's own OpenCode
    settings and every other process keep theirs. The control plane holds it to the settings file's
