@@ -538,6 +538,9 @@ HALCYONIC_NETWORK_HOST=0.0.0.0 pnpm dev
 pnpm pair        # in another terminal: prints the Mac's address and an eight-digit code
 ```
 
+Or keep the listener on in the Mac's settings with `pnpm mac-setup pairing on`, which says what it
+opens and asks first, and start the control plane as usual.
+
 In the headset, with hands only:
 
 1. On the rail under the stage, press **Settings**; in its Your computer section, pinch or poke **Pair with a computer**.

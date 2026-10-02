@@ -61,7 +61,15 @@ inherits. Its configuration decides the rest, and its defaults do not keep work 
 configured model it uses a free hosted model of its own service (OpenCode Zen) even when local
 models are listed, and it runs every tool without asking, `webfetch` and `websearch` included,
 unless its permissions say otherwise. Halcyonic does not yet impose permission rules on OpenCode
-sessions ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+sessions ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). When `HALCYONIC_OPENCODE_CONFIG_HOME`
+is set, as `pnpm mac-setup local-model` sets it, OpenCode alone gets that directory as its
+`XDG_CONFIG_HOME`: Halcyonic's own OpenCode settings, which ask before every shell command, refuse
+`webfetch` and `websearch`, and name a model the Mac serves through Ollama as the default. The
+control plane refuses to start unless their `model`, and their `small_model` when they name one, is
+such a model and no other OpenCode settings file sits beside them. They are a setting the person
+chose, not rules imposed on each session: a project's own `opencode.json` may still change them for
+its folder (seen for model settings, [local-models.md](../validation/local-models.md); assumed for
+permissions).
 
 A runtime's list of models (`GET /api/runtimes/:runtime_id/models`,
 [ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)) is read from
@@ -112,6 +120,7 @@ logged or passed to launched agents:
 | Input validation | Every command, client message and query is validated against the contracts |
 | Size limits | 1 MiB request bodies; 960,044 bytes for a clip of speech, refused with 413 from its declared length before the body is read, or as soon as a chunked body passes it; 256 KiB WebSocket messages; slow WebSocket clients are disconnected |
 | Data at rest | Data directory mode 0700; journal, WAL and SHM files mode 0600 |
+| Host settings | `<data dir>/settings.json`, written by `pnpm mac-setup`, fills in the `HALCYONIC_` variables the environment leaves unset ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)). Startup is refused unless it is a regular file opened without following a link, owned by the user running the control plane, mode 0600, at most 64 KiB, in a data directory that user owns and no one else can write to, with `"format": 1` and only known settings. It may hold the project roots, the pinned OpenCode and Codex binaries, Halcyonic's own OpenCode settings, the voice files and the network listener's address, never `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE`, `HALCYONIC_AGENT_ENV` or a model, so a hand edit cannot start paid model use or pass a variable to agents. Its values are checked like the environment's, and the ready log names the settings taken from it |
 | Logging | Log context carries identifiers only, never tokens, pairing codes, device credentials or their hashes, keys, instructions, agent text, clips of speech or their transcripts |
 | Agent working directories | Every real execution runs in its project's folder, and a client never sends a path ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). A project is bound to a folder a client chooses by naming one of the host's project roots (`HALCYONIC_PROJECT_ROOTS`) and a folder directly inside it: the host composes the path, refuses a symbolic link, a hidden name or `..`, and records the real path the file system itself gives (`realpath(3)`), so one folder has one recorded spelling whatever case or Unicode form the client used. Before each start the control plane, then the adapter before it launches anything, and the adapter again right before it hands the folder to the runtime (OpenCode's before each model read that sends the folder, and Codex's before it resumes a thread after a relaunch) ask the directory policy again: only real paths under a root, so `..` and symbolic links cannot escape it, and a path that now resolves elsewhere is refused. With no roots configured, no real runtime can start |
 | Project folders | The host makes a new folder only directly inside a root, with a one-segment name of letters, digits, `.`, `_` and `-` that does not start with `.`, and a non-recursive `mkdir` that fails rather than follow or reuse anything already at the path. Right before it binds or makes anything, it checks that the root is still the folder it found at startup (same real path, no symbolic link along it, same device and inode); a root replaced since, by a link or another folder, is refused until the control plane restarts. A folder it made that then fails the policy is left in place and reported, with effect `unknown` and the folder's real path. One race remains: a root swapped for a link between that check and the `mkdir`, which takes a path, gets the new, empty folder made where the link leads; the failure then names it. It deletes no folder |
@@ -176,6 +185,41 @@ What a client sees and can do about folders on the host
 - **Two executions can share a folder**: parallel workstreams of one project, or two projects bound
   to one folder. Nothing isolates them from each other's edits
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+
+## Setting up the Mac
+
+`pnpm mac-setup` checks the Mac's setup and writes the settings file
+([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md),
+[mac-host-setup.md](../validation/mac-host-setup.md)). What it touches:
+
+- **Credentials.** It never opens the Seorak, Salidium or Anthropic credential files: it checks only
+  that each exists and that other users cannot read it. A credential still moves only as a file
+  with mode 600, never through the clipboard, a prompt or an AI. Whether Seorak accepts its
+  credential it learns from the running control plane (`GET /api/usage-limits`).
+- **The access token.** It reads it only to ask the running control plane, on loopback, which
+  folders, agent apps and paired devices it has, as `pnpm devices` does; with `--no-token` it reads
+  nothing and asks only the unauthenticated `GET /api/health`.
+- **The person's own files.** With Codex set up, it reads the top-level `model_provider` line of
+  `$CODEX_HOME/config.toml` (`~/.codex` by default) and prints only a provider id that matches
+  `[A-Za-z0-9._-]{1,64}`; no other part of the file is parsed or shown. It never reads the person's
+  own OpenCode settings, which may hold provider keys.
+- **Binaries and models.** It records the pinned OpenCode and Codex binaries and the voice models only
+  when their SHA-256 matches the pins Halcyonic was checked with on Apple silicon; elsewhere it says
+  it cannot check them. It downloads nothing: what needs a download it shows as a command.
+- **Folders.** Allowing a folder says what it allows and asks first. The setup refuses the home
+  folder and every folder holding it, system and shared folders (`/`, `/Users`, `/Volumes`,
+  `/private`, `/tmp`, `/opt`, and everything in `/System`, `/Library`, `/Applications`, `/usr` and
+  the like), Halcyonic's data directory and anything holding it or in it, hidden folders and Library
+  in the home folder, and any folder every user can write to. The control plane itself does not
+  refuse these: a root set in the environment, or in a hand-edited file, is taken as it is
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- **Pairing.** It turns the network listener on only on `pnpm mac-setup pairing on`, after saying
+  what it opens (an encrypted listener for every device on the network, the macOS firewall prompt,
+  that anyone on the network can try to pair while `pnpm pair` runs) and asking. Nothing else turns
+  it on.
+- **What it writes.** The settings file, and Halcyonic's own OpenCode settings in
+  `<data dir>/opencode-config`, each mode 0600 in directories of mode 0700, through a new file
+  renamed into place.
 
 ## Authorization
 
