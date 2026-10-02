@@ -644,6 +644,21 @@ the same definition names, as the JSON Schema document:
   (`StartProblem`, the recap's checks in their order); the whole request (`ReviewOf`, given names as
   they are, so the review spells each once); Yes, start building locked until the last part; the
   next action a step's outcome allows; and the two presses that clear a start that may have run.
+- **`NewProjectScreens`** builds New project (ADR 0026) as `MenuFrame`s, from the same models
+  and checks as `EntryScreens`, which it replaces: the steps as a row of shapes (Your idea,
+  Questions, Recap, Start building), each reached once there is something there, the chosen one lit
+  and an earlier one the way back; every footer Close, one other prompt and the main action, the
+  most an 18 dp footer holds. Your idea offers typing the idea and one way to figure it out, the
+  companion or the fixed questions. Questions is the companion's turn: its line and question quoted
+  as its own in two rows, the line dropping first so the question is never cut; its view only when
+  it thinks the idea can't be built; its suggestions, the person's own answer and Go on without it
+  as answers that choosing only lights, the main action following the one chosen (Send answer, Make
+  the recap, Make the recap from my words); Hold to talk as the secondary prompt; and the note that
+  it is an AI as the source line of any page showing its words. The Recap shows each fact as a row,
+  Suggested beside what the companion suggested, opening a side panel with the whole of it; the
+  chosen fact's change stands beside Close (Start over while none is chosen, confirmed in place),
+  and changing a suggested first task, the folder or how it runs is a page of answers with Done.
+  Start building shows each step and the next action its outcome allows.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
   tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or
