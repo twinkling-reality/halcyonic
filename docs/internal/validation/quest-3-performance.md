@@ -7,7 +7,7 @@
 - **Date:** 2026-10-01.
 - **Environment:** Unity 6000.3.25f1 on an Apple M5 Max with macOS 26.7, the editor in batch mode
   on Metal, the Android build target, the project at the lane U head after ADR 0023's fifth step;
-  the client core on .NET 10. No headset.
+  the client core on .NET 10; the control plane on Node 24.15. No headset.
 - **Method:** `MeasureRender` (**Halcyonic > Measure the Interface**, in batch mode as the runbook
   says) builds each surface as the person meets it, with the stage's own lineup, presenter and
   frame, and measures it after a first pass that lets the editor settle. Draw calls are counted as
@@ -105,6 +105,22 @@ seconds. Before this pass every label built its text mesh again each time, with 
   presence, the peek's choice, the stage's placement in front of the person, and a section's read
   once it has its answer.
 
+### What the headset receives on connecting
+
+Measured on 2026-10-02 by `apps/control-plane/src/core/snapshot-scale.test.ts`, with the machine's
+load average about 75, each time the least of 20 tries (3 for the restart):
+
+- With 30 projects and 200 tasks, each after its first round on the mock runtime (eight scenarios:
+  finished, checks failed, waiting for an approval or an answer, couldn't run), the journal holds
+  3,040 events, and the snapshot message the headset receives on connecting is 328 KiB, 189 KiB of
+  it the executions.
+- The control plane builds the snapshot in 0.1 ms, and builds and serializes it in 0.5 ms; Node
+  parses it in 0.5 ms. A restart rebuilds every projection from the journal in 32 ms.
+- The snapshot grows with every task and every round; its commands stay at the pending ones and the
+  last 50 finished. A task here has one round, and one that has run for days, with many rounds,
+  questions and approvals, holds more. The test fails if the message passes an eighth of the 16 MiB
+  the headset's client takes in one message.
+
 ## What only the headset tells
 
 - **Frame time.** Whether 72 frames a second hold with six characters, a panel and the peek, on the
@@ -120,6 +136,8 @@ seconds. Before this pass every label built its text mesh again each time, with 
 - **Collection.** Whether collecting the few kilobytes a screen allocates every half second ever
   shows as a pause.
 - **Heat.** Whether the device throttles over an hour beside the characters.
+- **A large snapshot.** How long the headset's client takes to parse a 328 KiB snapshot and build
+  its state from it on connecting, under IL2CPP, and whether that shows as a pause.
 - **Sound.** How long the 87 clips take to render on the device at startup (`Halcyonic: sound
   ready ...`); 1.4 s on the Mac's .NET.
 
