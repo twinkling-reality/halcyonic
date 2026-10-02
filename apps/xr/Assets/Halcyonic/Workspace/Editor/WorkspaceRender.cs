@@ -1447,8 +1447,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 section.Lines.Select(line => InStaticAtlas(line, font, swapped)).ToList(), section.Simulated, section.Steps);
 
         private static SectionLine InStaticAtlas(SectionLine line, TMP_FontAsset font, SortedSet<char> swapped) =>
-            new SectionLine(Swap(line.Tag, font, swapped), Swap(line.Text, font, swapped), line.Tone, line.Detail, line.Rows, line.Source, line.StartsPage,
-                line.Repeats);
+            line.With(Swap(line.Tag, font, swapped), Swap(line.Text, font, swapped), Swap(line.Words, font, swapped),
+                line.Chip == null ? null : Swap(line.Chip, font, swapped));
 
         private static string Swap(string text, TMP_FontAsset font, SortedSet<char> swapped)
         {

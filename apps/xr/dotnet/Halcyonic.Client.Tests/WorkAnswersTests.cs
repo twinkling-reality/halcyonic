@@ -974,6 +974,28 @@ public class EvidenceTests
     }
 
     [Test]
+    public void ACopiedLineKeepsItsEvidenceItsWordsAndItsChip()
+    {
+        var quote = Brief(UnderstandPrompt.WhyChanged, Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            foreach (var file in (JArray)Intelligence.UnderstandingOf(response)["changes"]!["files"]!)
+            {
+                if (file["reason"] is JObject reason) reason["author"] = "subagent";
+            }
+        })).Lines[0];
+        var copy = quote.With(startsPage: true, repeats: true);
+        Assert.That((copy.Evidence, copy.Chip, copy.Words, copy.Text), Is.EqualTo((quote.Evidence, quote.Chip, quote.Words, quote.Text)));
+        Assert.That((copy.Chip, copy.StartsPage, copy.Repeats), Is.EqualTo(("Subagent says", true, true)), "never back to Agent says");
+        var swapped = quote.With(text: "x", words: "y");
+        Assert.That((swapped.Text, swapped.Words, swapped.Chip, swapped.Evidence), Is.EqualTo(("x", "y", "Subagent says", Evidence.Reported)));
+
+        var paged = AnswerPages.Split(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
+        var measured = paged[1].Lines[0];
+        Assert.That((measured.Source, measured.Evidence, measured.Chip), Is.EqualTo((true, Evidence.Halcyonic, (string?)null)),
+            "the measurement's provenance line, copied to start its page, keeps what it was");
+    }
+
+    [Test]
     public void EveryPageNamesOneSourceAndItIsHalcyonicsOwnLine()
     {
         foreach (var section in Answers.Everything())

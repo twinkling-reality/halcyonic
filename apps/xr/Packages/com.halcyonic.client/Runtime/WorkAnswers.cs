@@ -676,9 +676,7 @@ namespace Halcyonic.Client
             }
             // The measurement starts a page of its own, its provenance line heading each of its pages,
             // so every page has one source, even when the understanding source had no answer.
-            var paged = measurement.Select((line, index) => index == 0
-                ? new SectionLine(line.Tag, line.Text, line.Tone, line.Detail, line.Rows, line.Source, startsPage: true, repeats: true)
-                : line);
+            var paged = measurement.Select((line, index) => index == 0 ? line.With(startsPage: true, repeats: true) : line);
             return new SectionPresentation(SectionKind.Checked, runs.Provenance, runs.ProvenanceTone, runs.Lines.Concat(paged).ToList(),
                 runs.Simulated || simulated);
         }

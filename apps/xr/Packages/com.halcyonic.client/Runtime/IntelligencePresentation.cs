@@ -117,6 +117,15 @@ namespace Halcyonic.Client
         };
 
         /// <summary>
+        /// The same line with some of it changed, keeping its evidence, its words and its chip as they
+        /// are: a subagent's quote copied stays "Subagent says".
+        /// </summary>
+        public SectionLine With(string? tag = null, string? text = null, string? words = null, string? chip = null, bool? startsPage = null,
+            bool? repeats = null) =>
+            new SectionLine(tag ?? Tag, text ?? Text, Tone, Detail, Rows, Source, startsPage ?? StartsPage, repeats ?? Repeats, Evidence, words ?? Words,
+                chip ?? Chip);
+
+        /// <summary>
         /// The claim's epistemic class in the source's own word ("observed", "reported", "inferred",
         /// "planned", "explained"), the part a measurement belongs to ("Cost"), or empty.
         /// </summary>
