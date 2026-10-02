@@ -228,7 +228,11 @@ coordinator's first-visit words:
   every page. A row at the end, "More answers, 2 of 2", takes them on, as a confirmation's parts
   do, since Hold to talk holds the place beside Send answer. Paging clears what was chosen, so Send
   answer only sends what is on the page in view, and answers chosen together are chosen on one
-  page. No answer the agent offered is left out.
+  page. No answer the agent offered is left out. A cut question counts as read whole, as ADR 0022
+  requires before sending, only once its side panel has shown. A question of several prompts shows
+  one at a time, each ending with a row, "Next question, 2 of 2", which keeps the earlier prompts'
+  choices; after the last, a row "Your answers" opens a page listing each prompt's answer as a row
+  back to it, and only there does Send answer send, so nothing sent is ever out of view.
 - **A side panel's fact names its value above it at 18 dp**, in the secondary colour, the value at
   18 dp under it. At 15 dp the name would stand above larger type, which type stepping down
   forbids; the render caught it on Usage's side panel.
