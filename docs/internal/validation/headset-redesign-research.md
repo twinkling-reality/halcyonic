@@ -130,6 +130,49 @@ Sources: ShapesXR's [shape tool](https://learn.shapesxr.com/objects-creation/sha
   Sketch opens two small quick-menu grids from a wrist turn and hides other tools while one is open;
   Freeform keeps one window with a bottom toolbar and a sidebar.
 
+### Game interfaces
+
+Added the same day, after the owner asked for the organisation of a game's menus and detective case
+files. Read through public articles, interviews and wikis (wikis labelled); no game image was copied.
+
+- **Dead Space.** The suit carries the interface: health on its spine, ammo on the weapon, and no
+  heads-up display, to remove the "wall of safety" a HUD puts between player and game
+  ([Game Developer](https://www.gamedeveloper.com/design/video-designing-i-dead-space-i-s-immersive-user-interface),
+  2013-06-12, on Dino Ignacio's GDC 2013 talk). Inventory and map are holograms projected into
+  the world, and the game keeps running while they are open
+  ([Game Informer](https://gameinformer.com/interview/2023/02/22/dead-spaces-new-and-original-creative-directors-reflect-on-the-remake),
+  2023-02-22). An independent case study names the remake's low-contrast, blurred text as a
+  weakness ([Quest for UX](https://questforux.beehiiv.com/p/game-ux-case-study-dead-space-remake-422b),
+  2025-12-17). The holographic menus' internal layout is unverified.
+- **Destiny 2.** A handful of named top-level pages (Clan, Collections, Journey, Character,
+  Inventory; Bungie Help, seen in search only). The Director, a map of destinations, became hard
+  for new players, so activities were grouped into categories
+  ([Destructoid](https://www.destructoid.com/destiny-2s-new-portal-ui-could-help-new-players-make-sense-of-the-game/),
+  2024-09-10); the two later merged, the map above and the categories along the bottom
+  ([Destinypedia](https://www.destinypedia.com/Director), a wiki). Bungie tuned by hand how strongly
+  each item holds the pointer ([Game Developer](https://www.gamedeveloper.com/art/video-building-the-user-interface-for-bungie-s-i-destiny-i-),
+  2016-06-17, about Destiny 1). Nothing opened documents where Destiny's button prompts sit or a
+  rule of one focus area: those are the common convention, not a cited lesson.
+- **Detective case files.** Return of the Obra Dinn's logbook uses a contents page, chapters and
+  bookmarks so that it teaches itself
+  ([Game Developer](https://www.gamedeveloper.com/business/road-to-the-igf-lucas-pope-s-i-return-of-the-obra-dinn-i-),
+  2019-03-15). Alan Wake 2's first free-form case board overwhelmed playtesters; the shipped board
+  follows the story in order, and the world keeps running in the Mind Place
+  ([Game Developer](https://www.gamedeveloper.com/design/true-detective-meets-hearthstone-unlocking-the-metaphysical-mind-place-of-alan-wake-ii),
+  2023-12-06). L.A. Noire files each clue in the notebook as it is found
+  ([Game Informer](https://gameinformer.com/games/la_noire/b/ps3/archive/2011/05/12/everything-you-need-to-know-about-l-a-noire.aspx),
+  2011-05-12). Disco Elysium's journal keeps open and done tasks apart, with short titles
+  ([Disco Elysium wiki](https://discoelysium.wiki.gg/wiki/Tasks), a wiki, edited 2026-09-20).
+- **VR games.** Lone Echo's arm display fades in when the wrist nears a point about 45 cm in front
+  of the face; a deliberate swipe opens a tablet whose list leads to a detail with a back arrow;
+  text works best larger and bold, light on medium dark
+  ([Road to VR](https://www.roadtovr.com/designing-lone-echo-echo-arena-virtual-touchscreen-interfaces-robert-duncan/2/),
+  2018-03-16). Half-Life: Alyx shows health on the back of the glove (Combine OverWiki, a wiki);
+  Valve made the arms invisible
+  ([Game Informer](https://gameinformer.com/interview/2020/03/23/valve-talks-half-life-alyx-and-why-arms-dont-work-in-vr),
+  2020-03-23). Red Matter 2 keeps information on the tools in the hand, with no floating UI
+  ([Road to VR](https://roadtovr.com/these-clever-tools-make-vr-way-more-immersive-inside-xr-design/)).
+
 ## Patterns these share
 
 1. A content surface holds content; persistent controls sit in one attached bar.
@@ -141,9 +184,20 @@ Sources: ShapesXR's [shape tool](https://learn.shapesxr.com/objects-creation/sha
 5. Navigation strips are few and short; actions are not navigation.
 6. What a person acts on is near the hands; what a person reads for long is at least 0.5 m away.
 
+7. A few sections named in the person's words, one on screen at a time, and every button in one
+   fixed place, as game menus and case files are organised.
+8. State lives on the object it describes, and a file opens out of that object; the world keeps
+   running while it is open.
+
 ## Consequences
 
-- Lane V proposes three directions for the owner, each rendered at the same five moments by
+- The owner rejected the first round's three directions on 2026-10-02 (too many kinds of thing on
+  one surface, buttons in many places) and asked for a game menu's organisation. Lane V's second
+  round proposes D, a game menu: a task's file with four plainly named sections across its top, one
+  section at a time, and every button in a footer; and E, a case file the task's character projects,
+  an index of the sections with a line each beside one page. Both are rendered by
+  `DirectionsRender` beside the first round's A.
+- Lane V proposed three directions for the owner in its first round, each rendered at the same five moments by
   `DirectionsRender` (lane-v-redesign): a card and its shelf with answers beside it (patterns 1, 2
   and 4), a story ending in what the task needs with a composer under it (the agent tools' thread),
   and one step at a time in a smaller panel (pattern 3). The owner chooses; the chosen direction

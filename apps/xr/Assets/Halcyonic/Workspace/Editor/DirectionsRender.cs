@@ -26,7 +26,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// character, label and other surface. The words are proposals and follow WORDS.md. Saved in
     /// apps/xr/Builds/DirectionRenders, which git ignores. Halcyonic > Render the Redesign Directions.
     /// </summary>
-    public static class DirectionsRender
+    public static partial class DirectionsRender
     {
         private const float EyeHeight = 1.2f;
 
@@ -108,17 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("a4-creating", false, shot => ShelfCreating(shot)),
             ("a5-video-watching", true, shot => Folded(shot)),
             ("a5-video-opened", true, shot => ShelfBesideWindow(shot)),
-            ("b1-arriving", false, shot => ShelfDock(shot, story: true)),
-            ("b2-waiting", false, shot => StoryQuestion(shot)),
-            ("b3-understanding", false, shot => StoryUnderstanding(shot)),
-            ("b4-creating", false, shot => StoryCreating(shot)),
-            ("b5-video-opened", true, shot => StoryBesideWindow(shot)),
-            ("c1-arriving", false, shot => StepsRail(shot)),
-            ("c2-waiting", false, shot => StepsQuestion(shot)),
-            ("c3-understanding", false, shot => StepsBrief(shot, Stage.Checked)),
-            ("c4-creating", false, shot => StepsCreating(shot)),
-            ("c5-video-opened", true, shot => StepsBesideWindow(shot)),
-        };
+        }.Concat(MenuShots());
 
         // ---------------------------------------------------------------------------------------------
         // The work on the stage.
@@ -273,12 +263,26 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var surfaces = shot.Boards.Select(board => GlazeChecks.Of(board.Name, eyes, board.Plates.Select(plate => (Renderer)plate.Renderer))).ToList();
             foreach (var floating in shot.Floating) surfaces.Add(GlazeChecks.Of(floating.name, eyes, floating));
-            var all = new List<GlazeChecks.Extent>(surfaces);
-            all.AddRange(extents);
-            foreach (var failure in GlazeChecks.Apart(all))
+            // Surfaces keep a degree from each other, by their boxes as seen from the eyes.
+            failures.AddRange(GlazeChecks.Apart(surfaces).Select(failure => shot.Name + ": " + failure));
+            // And from every label and body, by their outlines: a surface tipped to face the eyes from
+            // below them is a trapezoid there, narrow where the labels are and wide only at its low corners.
+            foreach (var board in shot.Boards)
             {
-                // Labels and bodies are the stage's own; only what a surface comes near is the direction's.
-                if (surfaces.Any(surface => failure.Contains(surface.Name + " ("))) failures.Add(shot.Name + ": " + failure);
+                var outline = Outline(board, eyes);
+                foreach (var extent in extents)
+                {
+                    var apart = OutlineApart(outline, extent);
+                    if (apart < GlazeChecks.GapDegrees - 1e-3f) failures.Add(shot.Name + ": " + board.Name + "'s outline and " + extent + " are " + GlazeChecks.Degrees(apart) + " degrees apart, under 1.0.");
+                }
+            }
+            foreach (var floating in shot.Floating)
+            {
+                var box = GlazeChecks.Of(floating.name, eyes, floating);
+                foreach (var failure in GlazeChecks.Apart(new List<GlazeChecks.Extent>(extents.Where(extent => extent.Name.EndsWith("label", StringComparison.Ordinal))) { box }))
+                {
+                    if (failure.Contains(box.Name + " (")) failures.Add(shot.Name + ": " + failure);
+                }
             }
             foreach (var board in shot.Boards)
             {
@@ -296,6 +300,44 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
             return failures;
+        }
+
+        /// <summary>A surface's plates' outlines as seen from the eyes, sampled along every edge, in yaw and elevation.</summary>
+        private static List<Vector2> Outline(Board board, Vector3 eyes)
+        {
+            var points = new List<Vector2>();
+            foreach (var plate in board.Plates)
+            {
+                if (!plate.gameObject.activeInHierarchy || plate.Size.x < U(4f)) continue;
+                for (var step = 0; step <= 24; step++)
+                {
+                    var t = step / 24f - 0.5f;
+                    foreach (var local in new[] { new Vector3(t, -0.5f, 0f), new Vector3(t, 0.5f, 0f), new Vector3(-0.5f, t, 0f), new Vector3(0.5f, t, 0f) })
+                    {
+                        var toward = plate.transform.TransformPoint(local) - eyes;
+                        var level = Mathf.Max(new Vector2(toward.x, toward.z).magnitude, 1e-4f);
+                        points.Add(new Vector2(Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg, Mathf.Atan2(toward.y, level) * Mathf.Rad2Deg));
+                    }
+                }
+            }
+            return points;
+        }
+
+        /// <summary>How far an outline keeps from a box: the least, over the outline's points, of how far each stands outside it; negative when the box is inside.</summary>
+        private static float OutlineApart(List<Vector2> outline, GlazeChecks.Extent box)
+        {
+            if (outline.Count == 0) return float.MaxValue;
+            var least = float.MaxValue;
+            foreach (var point in outline)
+            {
+                var outside = Mathf.Max(Mathf.Max(box.Left - point.x, point.x - box.Right), Mathf.Max(box.Bottom - point.y, point.y - box.Top));
+                least = Mathf.Min(least, outside);
+            }
+            // A box wholly inside the outline: its middle lies between the outline's points at its height.
+            var middle = new Vector2((box.Left + box.Right) / 2f, (box.Bottom + box.Top) / 2f);
+            var row = outline.Where(point => Mathf.Abs(point.y - middle.y) < 0.6f).ToList();
+            if (row.Count > 1 && middle.x > row.Min(point => point.x) && middle.x < row.Max(point => point.x)) return -1f;
+            return least;
         }
 
         /// <summary>Every two targets on a surface stand 12 mm apart or more, edge to edge.</summary>
@@ -524,8 +566,13 @@ namespace Halcyonic.XR.Workspace.Editor
         /// corners, which look nearer eye level than its top edge's middle, a degree and a little
         /// under the lowest label.
         /// </summary>
-        private static void PlaceUnderLabels(Shot shot, Board board, float yaw)
+        private static void PlaceUnderLabels(Shot shot, Board board, float yaw, float? fixedTop = null)
         {
+            if (fixedTop is float set)
+            {
+                PlaceByTop(board, shot.Eyes, yaw, set);
+                return;
+            }
             var limit = shot.LabelsBottom - 1.15f;
             var top = limit - 0.4f;
             for (var attempt = 0; attempt < 6; attempt++)
@@ -538,20 +585,35 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>A card at <paramref name="cardYaw"/> and an answer beside it on <paramref name="side"/>, their tops level, 1.6 degrees apart.</summary>
-        private static void PlaceBeside(Shot shot, Board card, Board sheet, float cardYaw, int side)
+        private static void PlaceBeside(Shot shot, Board card, Board sheet, float cardYaw, int side, float? fixedTop = null, bool centered = false)
         {
-            PlaceUnderLabels(shot, card, cardYaw);
-            var sheetYaw = cardYaw + side * 34f;
-            for (var attempt = 0; attempt < 8; attempt++)
+            for (var pass = 0; pass < (centered ? 3 : 1); pass++)
             {
-                PlaceUnderLabels(shot, sheet, sheetYaw);
-                var c = ExtentOf(shot, card);
-                var a = ExtentOf(shot, sheet);
-                // Apart measures the larger of the two gaps; beside each other, the horizontal one, at the lower corners.
-                var gap = side < 0 ? c.Left - a.Right : a.Left - c.Right;
-                if (Mathf.Abs(gap - 1.6f) < 0.05f) break;
-                sheetYaw += side * (1.6f - gap) * 0.9f;
+                PlaceUnderLabels(shot, card, cardYaw, fixedTop);
+                var sheetYaw = cardYaw + side * 34f;
+                for (var attempt = 0; attempt < 8; attempt++)
+                {
+                    PlaceUnderLabels(shot, sheet, sheetYaw, fixedTop);
+                    var c = ExtentOf(shot, card);
+                    var a = ExtentOf(shot, sheet);
+                    // Apart measures the larger of the two gaps; beside each other, the horizontal one, at the lower corners.
+                    var gap = side < 0 ? c.Left - a.Right : a.Left - c.Right;
+                    if (Mathf.Abs(gap - 1.6f) < 0.05f) break;
+                    sheetYaw += side * (1.6f - gap) * 0.9f;
+                }
+                if (!centered) break;
+                // The pair centred on straight ahead, by its top corners.
+                var left = Mathf.Min(TopCorner(shot, card, -1f), TopCorner(shot, sheet, -1f));
+                var right = Mathf.Max(TopCorner(shot, card, 1f), TopCorner(shot, sheet, 1f));
+                cardYaw -= (left + right) / 2f;
             }
+        }
+
+        /// <summary>The yaw of a surface's top left (-1) or top right (1) corner as seen from the eyes.</summary>
+        private static float TopCorner(Shot shot, Board board, float side)
+        {
+            var corner = board.Root.TransformPoint(new Vector3(side * board.Width / 2f, board.Height / 2f, 0f)) - shot.Eyes;
+            return Mathf.Atan2(corner.x, corner.z) * Mathf.Rad2Deg;
         }
 
         /// <summary>Stands a surface laid out <paramref name="height"/> tall with its top edge at <paramref name="topPitch"/>, facing the eyes.</summary>
@@ -586,9 +648,9 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>A label whose box's top-left corner is at (<paramref name="left"/>, <paramref name="top"/>); says how tall its lines are.</summary>
         private static (TextMeshPro Label, float Height) Text(Board board, string name, string text, GlazeType type, Color color, float left, float top, float width,
-            int maxLines = 1, TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft, bool lean = false, int order = 56)
+            int maxLines = 1, TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft, bool lean = false, int order = 56, bool? strong = null)
         {
-            var label = GlazeText.Create(board.Content, name, type, color, alignment, order);
+            var label = GlazeText.Create(board.Content, name, type, color, alignment, order, strong);
             label.rectTransform.pivot = alignment == TextAlignmentOptions.TopRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
             label.transform.localPosition = new Vector3(left, top, -U(0.05f));
             if (lean) label.OnPreRenderText += GlazeText.Lean;
@@ -1040,337 +1102,6 @@ namespace Halcyonic.XR.Workspace.Editor
             var sendButton = Button(board, "Send answer", ButtonRole.Primary, "Send answer", right - send / 2f, y - tall / 2f, send, GlazeIcon.SendAnswer);
             sendButton.Available = false;
             y -= tall + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceByTop(board, shot.Eyes, 0f, -15.5f);
-            Tether(shot, board, slot);
-        }
-
-        // ---------------------------------------------------------------------------------------------
-        // Direction B: the story. An opened task reads as what happened, in order, ending in what it
-        // needs now; you ask a question and its answer joins the story; a composer sits underneath.
-
-        private static void StoryHeader(Board board, float left, float right, ref float y, CharacterPresentation who, string identity)
-        {
-            y = Header(board, left, right, y, OpenedTitle, who, identity, false, ("Close", GlazeIcon.Close)) - U(Section);
-        }
-
-        private static float Moment(Board board, string time, string text, float left, float right, float y)
-        {
-            Text(board, "Time " + time, time, GlazeType.Caption, GlazeTokens.TextSecondary, left, y - U(0.1f), U(4f));
-            return Text(board, "Moment " + time, text, GlazeType.Body, GlazeTokens.TextSecondary, left + U(4.2f), y, right - left - U(4.2f)).Height + U(LineGap);
-        }
-
-        private static void StoryQuestion(Shot shot)
-        {
-            var slot = shot.SlotOf(OpenedTitle);
-            var who = shot.Characters[slot].View.Presentation!;
-            var board = shot.Board("Story");
-            var width = U(36f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = -U(Pad);
-            StoryHeader(board, left, right, ref y, who, shot.Characters[slot].View.WorkstreamId);
-            y -= Moment(board, "09:00", "It edited src/auth/rate-limit.ts", left, right, y);
-            y -= Moment(board, "09:01", "It added 0012_sign_in_attempts.sql", left, right, y) + U(Section) - U(LineGap);
-            // The newest moment: what it needs now, a card inside the story.
-            var top = y;
-            var il = left + U(1f);
-            var ir = right - U(1f);
-            y -= U(1f);
-            y -= Text(board, "Asks", "It asks: “How long should a sign-in lockout last?”", GlazeType.Title, GlazeTokens.Text, il, y, ir - il, 2, lean: true).Height + U(Section);
-            var tall = U(GlazeButton.HeightDegrees);
-            var send = Measure(board, ButtonRole.Primary, "Send answer", GlazeIcon.SendAnswer);
-            var choice = (ir - il - send - 2f * board.TargetGap) / 2f;
-            var chosen = Row(board, "15 minutes", ButtonRole.Choice, new PanelRow { Title = "15 minutes", Chosen = true }, il, y, choice);
-            chosen.On = true;
-            Row(board, "1 hour", ButtonRole.Choice, new PanelRow { Title = "1 hour" }, il + choice + board.TargetGap, y, choice);
-            Button(board, "Send answer", ButtonRole.Primary, "Send answer", ir - send / 2f, y - tall / 2f, send, GlazeIcon.SendAnswer);
-            y -= tall + U(1f);
-            Plate(board, "Needs you", 0f, (top + y) / 2f, right - left, top - y, U(Glaze.RowRadiusDegrees), GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Container),
-                GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Strong, 0.6f), U(0.1f), 51);
-            y -= U(Section);
-            var talk = Measure(board, ButtonRole.Secondary, "Hold to talk", GlazeIcon.HoldToTalk);
-            Field(board, "Or type your own answer", left, y, right - left - talk - board.TargetGap);
-            Button(board, "Hold to talk", ButtonRole.Secondary, "Hold to talk", right - talk / 2f, y - tall / 2f, talk, GlazeIcon.HoldToTalk);
-            y -= tall + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceUnderLabels(shot, board, CardYaw(shot, slot, 18f, 0f));
-            Tether(shot, board, slot);
-        }
-
-        private static void StoryUnderstanding(Shot shot)
-        {
-            var slot = shot.SlotOf(OpenedTitle);
-            var who = shot.Characters[slot].View.Presentation!;
-            var board = shot.Board("Story");
-            var width = U(38f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = -U(Pad);
-            StoryHeader(board, left, right, ref y, who, shot.Characters[slot].View.WorkstreamId);
-            y -= Moment(board, "09:02", "Its checks ran: 1 failed, 23 passed", left, right, y) + U(Section) - U(LineGap);
-            // Your question, and its answer, joined to the story.
-            var top = y;
-            var il = left + U(1f);
-            var ir = right - U(1f);
-            y -= U(0.9f);
-            y -= Text(board, "You asked", "You asked: What changed?", GlazeType.Caption, GlazeTokens.TextSecondary, il, y, ir - il).Height + U(LineGap);
-            y -= Text(board, "Lead", "2 files changed, both new.", GlazeType.Body, GlazeTokens.Text, il, y, ir - il).Height + U(LineGap);
-            foreach (var (file, lines) in new[] { ("New · 0012_sign_in_attempts.sql", "+14"), ("New · src/auth/rate-limit.ts", "+57") })
-            {
-                var h = Text(board, "File " + file, file, GlazeType.Body, GlazeTokens.Text, il, y, ir - il - U(4f)).Height;
-                Text(board, "Lines " + file, lines, GlazeType.Body, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Success).Foreground), ir, y, U(4f), alignment: TextAlignmentOptions.TopRight);
-                y -= h + U(LineGap);
-            }
-            var chip = Chip(board, "Inferred", GlazeTone.Unknown, il, y - U(0.75f));
-            y -= Text(board, "Inferred line", "Nothing checked these files after the last change.", GlazeType.Body, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground),
-                il + chip + U(0.6f), y, ir - il - chip - U(0.6f)).Height + U(LineGap);
-            y -= Text(board, "Source", "From Salidium · 2 minutes ago", GlazeType.Caption, GlazeTokens.TextSecondary, il, y, ir - il).Height + U(0.9f);
-            Plate(board, "Answer", 0f, (top + y) / 2f, right - left, top - y, U(Glaze.RowRadiusDegrees), GlazeTokens.ColorOf(Glaze.Raised), order: 51);
-            y -= U(Section);
-            // Questions to ask, attached to the composer.
-            var compact = U(GlazeButton.CompactHeightDegrees);
-            var x = left;
-            foreach (var ask in new[] { "What changed?", "Was it checked?", "Why?" })
-            {
-                var w = Measure(board, ButtonRole.Secondary, ask, compact: true);
-                var b = Button(board, ask, ButtonRole.Secondary, ask, x + w / 2f, y - compact / 2f, w, compact: true);
-                if (ask == "What changed?") b.On = true;
-                x += w + board.TargetGap;
-            }
-            y -= compact + board.TargetGap;
-            var tall = U(GlazeButton.HeightDegrees);
-            var talk = Measure(board, ButtonRole.Secondary, "Hold to talk", GlazeIcon.HoldToTalk);
-            Field(board, "Tell it what to do next", left, y, right - left - talk - board.TargetGap);
-            Button(board, "Hold to talk", ButtonRole.Secondary, "Hold to talk", right - talk / 2f, y - tall / 2f, talk, GlazeIcon.HoldToTalk);
-            y -= tall + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceUnderLabels(shot, board, CardYaw(shot, slot, 19f, 0f));
-            Tether(shot, board, slot);
-        }
-
-        private static void StoryCreating(Shot shot)
-        {
-            var board = shot.Board("Create a project");
-            var width = U(44f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = Header(board, left, right, -U(Pad), "Create a project", null, true, ("Close", GlazeIcon.Close)) - U(Section);
-            // Your words on the right, the companion's on the left, as a conversation reads.
-            var yours = "A page for my running club's race times";
-            var yw = Mathf.Min(WidthOf(board, yours, GlazeType.Body) + U(2f), right - left - U(8f));
-            var yh = Text(board, "Your words", yours, GlazeType.Body, GlazeTokens.Text, right - yw + U(1f), y - U(0.5f), yw - U(2f)).Height + U(1f);
-            Plate(board, "Your bubble", right - yw / 2f, y - yh / 2f, yw, yh, U(Glaze.RowRadiusDegrees), GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Accent).Container), order: 51);
-            y -= yh + U(Section);
-            y -= Text(board, "Companion says", "The companion says: “A running club could use a page that keeps everyone's race times in one place.”",
-                GlazeType.Body, GlazeTokens.Text, left, y, right - left - U(6f), 2, lean: true).Height + U(LineGap);
-            y -= Text(board, "Question", "Who enters the times after each race?", GlazeType.Title, GlazeTokens.Text, left, y, right - left).Height + U(Section);
-            var compact = U(GlazeButton.CompactHeightDegrees);
-            var x = left;
-            foreach (var answer in new[] { "Each runner", "One organiser", "Both", "Not sure yet" })
-            {
-                var w = Measure(board, ButtonRole.Choice, answer, compact: true);
-                Button(board, answer, ButtonRole.Choice, answer, x + w / 2f, y - compact / 2f, w, compact: true);
-                x += w + board.TargetGap;
-            }
-            y -= compact + board.TargetGap;
-            var tall = U(GlazeButton.HeightDegrees);
-            var recap = Measure(board, ButtonRole.Primary, "Make the recap", GlazeIcon.Next);
-            var talk = Measure(board, ButtonRole.Secondary, "Hold to talk", GlazeIcon.HoldToTalk);
-            Field(board, "Answer, or tell it more", left, y, right - left - talk - recap - 2f * board.TargetGap);
-            Button(board, "Hold to talk", ButtonRole.Secondary, "Hold to talk", right - recap - board.TargetGap - talk / 2f, y - tall / 2f, talk, GlazeIcon.HoldToTalk);
-            Button(board, "Make the recap", ButtonRole.Primary, "Make the recap", right - recap / 2f, y - tall / 2f, recap, GlazeIcon.Next);
-            y -= tall + U(Section);
-            y -= Text(board, "Disclaimer", "The companion is an AI on your computer. It can be wrong, and you can change everything before you start.",
-                GlazeType.Caption, GlazeTokens.TextSecondary, left, y, right - left, 2).Height + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceUnderLabels(shot, board, 0f);
-        }
-
-        private static void StoryBesideWindow(Shot shot)
-        {
-            var slot = shot.SlotOf(OpenedTitle);
-            var who = shot.Characters[slot].View.Presentation!;
-            var board = shot.Board("Story");
-            var width = U(36f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = -U(Pad);
-            StoryHeader(board, left, right, ref y, who, shot.Characters[slot].View.WorkstreamId);
-            y -= Moment(board, "09:01", "It added 0012_sign_in_attempts.sql", left, right, y) + U(Section) - U(LineGap);
-            var top = y;
-            var il = left + U(1f);
-            var ir = right - U(1f);
-            y -= U(1f);
-            y -= Text(board, "Asks", "It asks: “How long should a sign-in lockout last?”", GlazeType.Title, GlazeTokens.Text, il, y, ir - il, 2, lean: true).Height + U(Section);
-            var tall = U(GlazeButton.HeightDegrees);
-            var send = Measure(board, ButtonRole.Primary, "Send answer", GlazeIcon.SendAnswer);
-            var choice = (ir - il - send - 2f * board.TargetGap) / 2f;
-            Row(board, "15 minutes", ButtonRole.Choice, new PanelRow { Title = "15 minutes" }, il, y, choice);
-            Row(board, "1 hour", ButtonRole.Choice, new PanelRow { Title = "1 hour" }, il + choice + board.TargetGap, y, choice);
-            var sendButton = Button(board, "Send answer", ButtonRole.Primary, "Send answer", ir - send / 2f, y - tall / 2f, send, GlazeIcon.SendAnswer);
-            sendButton.Available = false;
-            y -= tall + U(1f);
-            Plate(board, "Needs you", 0f, (top + y) / 2f, right - left, top - y, U(Glaze.RowRadiusDegrees), GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Container),
-                GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Strong, 0.6f), U(0.1f), 51);
-            y -= U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceByTop(board, shot.Eyes, 0f, -15.5f);
-            Tether(shot, board, slot);
-        }
-
-        // ---------------------------------------------------------------------------------------------
-        // Direction C: one step at a time. A smaller panel lists what is true in plain sentences; each
-        // opens in its place, with Back; the rail stays as it is.
-
-        private static void StepsRail(Shot shot)
-        {
-            var board = shot.Board("Rail");
-            var width = U(48f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = -U(Pad);
-            var tall = U(GlazeButton.HeightDegrees);
-            var x = left;
-            foreach (var (project, detail, tone) in new (string, string, GlazeTone?)[]
-            {
-                ("Storefront API", "1 task waiting", GlazeTone.Attention),
-                ("Docs site", "2 tasks running", null),
-            })
-            {
-                var w = Measure(board, ButtonRole.Filter, project, detail: detail);
-                var pill = Button(board, project, ButtonRole.Filter, project, x + w / 2f, y - tall / 2f, w, detail: detail, tone: tone);
-                pill.On = true;
-                x += w + board.TargetGap;
-            }
-            y -= tall + board.TargetGap;
-            var compact = U(GlazeButton.CompactHeightDegrees);
-            x = left;
-            foreach (var (text, icon) in new (string, GlazeIcon)[] { ("Connect projects", GlazeIcon.ConnectProjects), ("Create a project", GlazeIcon.CreateProject) })
-            {
-                var w = Measure(board, ButtonRole.Secondary, text, icon);
-                Button(board, text, ButtonRole.Secondary, text, x + w / 2f, y - tall / 2f, w, icon);
-                x += w + board.TargetGap;
-            }
-            var end = right;
-            foreach (var (text, icon) in new (string, GlazeIcon)[] { ("Settings", GlazeIcon.Settings), ("Usage left", GlazeIcon.UsageLeft) })
-            {
-                var w = Measure(board, ButtonRole.Secondary, text, icon, compact: true);
-                Button(board, text, ButtonRole.Secondary, text, end - w / 2f, y - tall / 2f, w, icon, compact: true);
-                end -= w + board.TargetGap;
-            }
-            y -= tall + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceByTop(board, shot.Eyes, 0f, -29f);
-            Hint(shot, shot.SlotOf(OpenedTitle));
-        }
-
-        /// <summary>The step a question opens to: Back at its top left, the question, its answers, Send answer.</summary>
-        private static void StepsQuestion(Shot shot)
-        {
-            var slot = shot.SlotOf(OpenedTitle);
-            var who = shot.Characters[slot].View.Presentation!;
-            var board = shot.Board("Panel");
-            var width = U(34f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = -U(Pad);
-            var compact = U(GlazeButton.CompactHeightDegrees);
-            var back = Measure(board, ButtonRole.Secondary, "Back", GlazeIcon.Back, compact: true);
-            Button(board, "Back", ButtonRole.Secondary, "Back", left + back / 2f, y - compact / 2f, back, GlazeIcon.Back, compact: true);
-            var close = Measure(board, ButtonRole.Secondary, "Close", GlazeIcon.Close, compact: true);
-            Button(board, "Close", ButtonRole.Secondary, "Close", right - close / 2f, y - compact / 2f, close, GlazeIcon.Close, compact: true);
-            Text(board, "Where", "Waiting for you", GlazeType.Caption, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground), left + back + U(1f), y - (compact - U(Glaze.CaptionDegrees) * 1.15f) / 2f, U(14f));
-            y -= compact + U(Section);
-            y -= Text(board, "Asks", "It asks: “How long should a sign-in lockout last?”", GlazeType.Title, GlazeTokens.Text, left, y, right - left, 2, lean: true).Height + U(Section);
-            var half = (right - left - board.TargetGap) / 2f;
-            var tall = U(GlazeButton.HeightDegrees);
-            var chosen = Row(board, "15 minutes", ButtonRole.Choice, new PanelRow { Title = "15 minutes", Chosen = true, End = "Chosen" }, left, y, half);
-            chosen.On = true;
-            Row(board, "1 hour", ButtonRole.Choice, new PanelRow { Title = "1 hour" }, left + half + board.TargetGap, y, half);
-            y -= tall + board.TargetGap;
-            var type = Measure(board, ButtonRole.Secondary, "Type my own", GlazeIcon.Type);
-            Button(board, "Type my own", ButtonRole.Secondary, "Type my own", left + type / 2f, y - tall / 2f, type, GlazeIcon.Type);
-            var send = Measure(board, ButtonRole.Primary, "Send answer", GlazeIcon.SendAnswer);
-            Button(board, "Send answer", ButtonRole.Primary, "Send answer", right - send / 2f, y - tall / 2f, send, GlazeIcon.SendAnswer);
-            y -= tall + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            _ = who;
-            PlaceUnderLabels(shot, board, CardYaw(shot, slot, 17f, 0f));
-            Tether(shot, board, slot);
-        }
-
-        /// <summary>The first step of an opened task: what is true, in a few plain sentences, each opening in place.</summary>
-        private static void StepsBrief(Shot shot, Stage stage)
-        {
-            var slot = shot.SlotOf(OpenedTitle);
-            var who = shot.Characters[slot].View.Presentation!;
-            var board = shot.Board("Panel");
-            var width = U(34f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = Header(board, left, right, -U(Pad), OpenedTitle, who, shot.Characters[slot].View.WorkstreamId, false, ("Close", GlazeIcon.Close)) - U(Section);
-            var rowWidth = right - left;
-            var rows = stage == Stage.Waiting
-                ? new[] { ("It asks you a question", "Answer", ButtonRole.Attention), ("2 files changed so far", "See", ButtonRole.Choice), ("Tell it something", "Type", ButtonRole.Choice) }
-                : new[] { ("2 files changed, both new", "See", ButtonRole.Choice), ("Tests failed after the last change", "See", ButtonRole.Choice), ("Tell it what to do next", "Type", ButtonRole.Choice) };
-            foreach (var (title, end, role) in rows)
-            {
-                y -= Row(board, title, role, new PanelRow { Title = title, End = end }, left, y, rowWidth).Size.y + board.TargetGap;
-            }
-            y -= U(Pad) - board.TargetGap;
-            Finish(board, width, y, Glaze.Panel);
-            PlaceUnderLabels(shot, board, CardYaw(shot, slot, 17f, 0f));
-            Tether(shot, board, slot);
-        }
-
-        private static void StepsCreating(Shot shot)
-        {
-            var board = shot.Board("Create a project");
-            var width = U(40f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = -U(Pad);
-            var compact = U(GlazeButton.CompactHeightDegrees);
-            var back = Measure(board, ButtonRole.Secondary, "Back", GlazeIcon.Back, compact: true);
-            Button(board, "Back", ButtonRole.Secondary, "Back", left + back / 2f, y - compact / 2f, back, GlazeIcon.Back, compact: true);
-            var close = Measure(board, ButtonRole.Secondary, "Close", GlazeIcon.Close, compact: true);
-            Button(board, "Close", ButtonRole.Secondary, "Close", right - close / 2f, y - compact / 2f, close, GlazeIcon.Close, compact: true);
-            Text(board, "Where", "Create a project · step 2 of 4", GlazeType.Caption, GlazeTokens.TextSecondary, left + back + U(1f), y - (compact - U(Glaze.CaptionDegrees) * 1.15f) / 2f, U(20f));
-            y -= compact + U(Section);
-            y -= Text(board, "Companion says", "The companion says: “A running club could use a page that keeps everyone's race times in one place.”",
-                GlazeType.Body, GlazeTokens.Text, left, y, right - left, 2, lean: true).Height + U(LineGap);
-            y -= Text(board, "Question", "Who enters the times after each race?", GlazeType.Title, GlazeTokens.Text, left, y, right - left).Height + U(Section);
-            var tall = U(GlazeButton.HeightDegrees);
-            var half = (right - left - board.TargetGap) / 2f;
-            Row(board, "Each runner", ButtonRole.Choice, new PanelRow { Title = "Each runner" }, left, y, half);
-            Row(board, "One organiser", ButtonRole.Choice, new PanelRow { Title = "One organiser" }, left + half + board.TargetGap, y, half);
-            y -= tall + board.TargetGap;
-            var recap = Measure(board, ButtonRole.Primary, "Make the recap", GlazeIcon.Next);
-            var more = Measure(board, ButtonRole.Secondary, "More answers", compact: true);
-            Button(board, "More answers", ButtonRole.Secondary, "More answers", left + more / 2f, y - tall / 2f, more, compact: true);
-            Button(board, "Make the recap", ButtonRole.Primary, "Make the recap", right - recap / 2f, y - tall / 2f, recap, GlazeIcon.Next);
-            y -= tall + U(Section);
-            y -= Text(board, "Disclaimer", "The companion is an AI on your computer. It can be wrong, and you can change everything before you start.",
-                GlazeType.Caption, GlazeTokens.TextSecondary, left, y, right - left, 2).Height + U(Pad);
-            Finish(board, width, y, Glaze.Panel);
-            PlaceUnderLabels(shot, board, 0f);
-        }
-
-        private static void StepsBesideWindow(Shot shot)
-        {
-            var slot = shot.SlotOf(OpenedTitle);
-            var who = shot.Characters[slot].View.Presentation!;
-            var board = shot.Board("Panel");
-            var width = U(34f);
-            var left = -width / 2f + U(Pad);
-            var right = width / 2f - U(Pad);
-            var y = Header(board, left, right, -U(Pad), OpenedTitle, who, shot.Characters[slot].View.WorkstreamId, false, ("Close", GlazeIcon.Close)) - U(Section);
-            foreach (var (title, end, role) in new[] { ("It asks you a question", "Answer", ButtonRole.Attention), ("2 files changed so far", "See", ButtonRole.Choice) })
-            {
-                y -= Row(board, title, role, new PanelRow { Title = title, End = end }, left, y, right - left).Size.y + board.TargetGap;
-            }
-            y -= U(Pad) - board.TargetGap;
             Finish(board, width, y, Glaze.Panel);
             PlaceByTop(board, shot.Eyes, 0f, -15.5f);
             Tether(shot, board, slot);
