@@ -137,11 +137,12 @@ namespace Halcyonic.Client
             {
                 return new[]
                 {
-                    new SectionLine("", "No reason given before it changed " + Names(files.Select(file => file.Path)), SectionTone.Secondary, rows: 2),
+                    new SectionLine("", "No reason given before it changed " + Names(files.Select(file => file.Path)), SectionTone.Secondary, rows: 2,
+                        evidence: Evidence.Observed),
                 };
             }
             var latest = reasons[reasons.Count - 1];
-            var lines = new List<SectionLine> { new SectionLine(Word(latest.Epistemic), Quote(latest), SectionTone.Claim, rows: 2) };
+            var lines = new List<SectionLine> { QuoteLine(latest, rows: 2) };
             if (reasons.Count > 1)
             {
                 lines.Add(new SectionLine("", "And " + IntelligenceText.Plural(reasons.Count - 1, "more reason") + " it gave", SectionTone.Secondary));
@@ -157,7 +158,7 @@ namespace Halcyonic.Client
         {
             var explanation = understanding.Explanation;
             var content = Flow(explanation);
-            if (content == null) return new[] { new SectionLine("explained", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2) };
+            if (content == null) return new[] { new SectionLine("", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed) };
             return new[]
             {
                 new SectionLine("explained", IntelligenceText.Plain(content.How.Summary), SectionTone.Claim, rows: 2),
@@ -219,15 +220,16 @@ namespace Halcyonic.Client
                     var statement = reason.First().Reason!;
                     return (IReadOnlyList<SectionLine>)new[]
                     {
-                        new SectionLine(Word(statement.Epistemic), Quote(statement), SectionTone.Claim, rows: 2),
-                        new SectionLine("", "Said before it changed " + Names(reason.Select(file => file.Path)), SectionTone.Secondary, detail: true, rows: 1),
+                        QuoteLine(statement, rows: 2),
+                        new SectionLine("", "Said before it changed " + Names(reason.Select(file => file.Path)), SectionTone.Secondary, detail: true, rows: 1,
+                            evidence: Evidence.Observed),
                     };
                 })
                 .ToList();
             var unexplained = files.Where(file => file.Reason == null).Select(file => file.Path).ToList();
             var none = unexplained.Count == 0
                 ? null
-                : new SectionLine("", "No reason given before it changed " + Names(unexplained), SectionTone.Secondary, rows: 2);
+                : new SectionLine("", "No reason given before it changed " + Names(unexplained), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed);
             page.AddCounted(reasons, more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more reason") + " it gave", SectionTone.Secondary),
                 reserve: none);
             if (none != null) page.Add(none);
@@ -248,9 +250,9 @@ namespace Halcyonic.Client
             if (content == null)
             {
                 var page = room.Page();
-                page.Add(new SectionLine("explained", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2));
+                page.Add(new SectionLine("", NoFlow(explanation.Status), SectionTone.Secondary, rows: 2, evidence: Evidence.Observed));
                 page.Add(new SectionLine("", "The evidence", SectionTone.Normal));
-                Evidence(page, understanding, zone);
+                AddEvidence(page, understanding, zone);
                 return page.Lines;
             }
             // Each step's heading says what it is, that a model wrote it, and whether it covers the
@@ -297,7 +299,7 @@ namespace Halcyonic.Client
 
             var evidence = room.Page();
             evidence.Add(new SectionLine("", "The evidence", SectionTone.Normal, startsPage: true, repeats: true));
-            Evidence(evidence, understanding, zone);
+            AddEvidence(evidence, understanding, zone);
             lines.AddRange(evidence.Lines);
             return lines;
         }
@@ -320,13 +322,16 @@ namespace Halcyonic.Client
         /// What was observed, set beside an explanation and never as proof of it, on one page: the
         /// changes, whether a check ran after them, and the checks, as many as fit and the rest counted.
         /// </summary>
-        private static void Evidence(AnswerPage page, Understanding understanding, TimeZoneInfo zone)
+        private static void AddEvidence(AnswerPage page, Understanding understanding, TimeZoneInfo zone)
         {
             page.Add(new SectionLine("observed", Count(understanding.Changes), SectionTone.Normal));
             var coverage = Coverage(understanding);
             if (coverage != null) page.Add(coverage);
             var runs = Runs(understanding);
-            if (runs.Count == 0) page.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary));
+            if (runs.Count == 0)
+            {
+                page.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary, evidence: Evidence.Observed));
+            }
             page.AddCounted(runs.Select(run => Run(run, zone)).ToList(),
                 more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more check"), SectionTone.Secondary));
         }
@@ -517,7 +522,8 @@ namespace Halcyonic.Client
                 after = "Ran before any file changed";
             }
             if (run.LaterUnreadable > 0) after += "; " + IntelligenceText.Plural(run.LaterUnreadable, "later run") + " couldn't be read";
-            yield return new SectionLine("", after, tone, detail: true);
+            // From the times the source observed.
+            yield return new SectionLine("", after, tone, detail: true, evidence: Evidence.Observed);
         }
 
         /// <summary>The files that changed after a check ran, by the times the source observed.</summary>
@@ -553,12 +559,36 @@ namespace Halcyonic.Client
             var text = IntelligenceText.Plain(item.Text);
             return item.Status switch
             {
-                UnderstandingRemainingItemStatus.Reported => new SectionLine(Word(item.Epistemic), "Still to do, the agent says: “" + text + "”", SectionTone.Claim),
+                UnderstandingRemainingItemStatus.Reported => new SectionLine(Word(item.Epistemic), "Still to do, the agent says: “" + text + "”", SectionTone.Claim,
+                    words: SectionLine.EvidenceOf(Word(item.Epistemic)) == Evidence.Reported ? "Still to do: “" + text + "”" : null),
                 UnderstandingRemainingItemStatus.Failing => new SectionLine(Word(item.Epistemic), "Failing: " + text, SectionTone.Problem),
                 UnderstandingRemainingItemStatus.InProgress => new SectionLine(Word(item.Epistemic), "In progress: " + text, SectionTone.Normal),
                 _ => new SectionLine(Word(item.Epistemic),
-                    (item.Source == UnderstandingRemainingItemSource.Plan ? "Planned, not done: " : "To do: ") + text, SectionTone.Normal),
+                    (item.Source == UnderstandingRemainingItemSource.Plan ? "Planned, not done: " : "To do: ") + text, SectionTone.Normal,
+                    words: item.Source == UnderstandingRemainingItemSource.Plan && SectionLine.EvidenceOf(Word(item.Epistemic)) == Evidence.Planned
+                        ? "Not done: " + text
+                        : null),
             };
+        }
+
+        /// <summary>
+        /// A statement as a line: quoted, leaning, its class kept. A reported statement's chip says who
+        /// said it, and its words are the quote alone; one the source observed goes without a chip.
+        /// </summary>
+        internal static SectionLine QuoteLine(UnderstandingStatement statement, int rows, string? lead = null)
+        {
+            var quoted = "“" + IntelligenceText.Plain(statement.Text) + "”";
+            var evidence = SectionLine.EvidenceOf(Word(statement.Epistemic));
+            var chip = evidence == Evidence.Reported
+                ? statement.Author switch
+                {
+                    UnderstandingStatementAuthor.Agent => "Agent says",
+                    UnderstandingStatementAuthor.Subagent => "Subagent says",
+                    _ => "Quoted",
+                }
+                : SectionLine.ChipOf(evidence);
+            return new SectionLine(Word(statement.Epistemic), (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
+                words: (lead ?? "") + quoted, chip: chip);
         }
 
         internal static string Quote(UnderstandingStatement statement)
@@ -664,7 +694,7 @@ namespace Halcyonic.Client
             var source = understanding.Source;
             var runs = UnderstandingPresenter.Runs(understanding);
             var lines = new List<SectionLine>();
-            if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary));
+            if (runs.Count == 0) lines.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary, evidence: Evidence.Observed));
             else
             {
                 var run = runs[runs.Count - 1];
@@ -690,7 +720,7 @@ namespace Halcyonic.Client
             var runs = UnderstandingPresenter.Runs(understanding);
             if (runs.Count == 0)
             {
-                page.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary));
+                page.Add(new SectionLine("", IntelligenceText.Plain(understanding.Verification.Summary), SectionTone.Secondary, evidence: Evidence.Observed));
             }
             var coverage = UnderstandingPresenter.Coverage(understanding);
             page.AddCounted(runs.Select(run => (IReadOnlyList<SectionLine>)UnderstandingPresenter.Run(run, understanding.Changes.Files, zone).ToList()).ToList(),
@@ -706,7 +736,7 @@ namespace Halcyonic.Client
             var statement = understanding.Verification.Statements.LastOrDefault();
             if (statement != null)
             {
-                page.AddIfRoom(new SectionLine(UnderstandingPresenter.Word(statement.Epistemic), UnderstandingPresenter.Quote(statement), SectionTone.Claim, rows: 2));
+                page.AddIfRoom(UnderstandingPresenter.QuoteLine(statement, rows: 2));
             }
             return new SectionPresentation(SectionKind.Checked, IntelligenceText.UnderstandingProvenance(read, source, now, zone, checks: true) + status,
                 SectionTone.Secondary, page.Lines, source.Synthetic);
