@@ -114,6 +114,86 @@ namespace Halcyonic.Client
         /// <summary>What was checked, from both sources; null while still being read.</summary>
         public FileAnswer? Checked { get; set; }
 
+        /// <summary>Where the person is in the agent's question.</summary>
+        public QuestionPlace Place { get; } = new QuestionPlace();
+
+        /// <summary>The rows each prompt's text wraps to at the page's width, in the prompts' order, as the layout measured them.</summary>
+        public IReadOnlyList<int> QuestionRows { get; private set; } = Array.Empty<int>();
+
+        /// <summary>
+        /// Reads <paramref name="draft"/>'s question, each prompt's text taking <paramref name="rows"/>
+        /// rows at the page's width: from its first step when it is another question, else where the
+        /// person was. Each part of a prompt's text shows <see cref="FileScreens.QuestionRows"/> rows.
+        /// </summary>
+        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<int> rows)
+        {
+            Place.Show(draft);
+            QuestionRows = rows;
+            var parts = new List<int>();
+            foreach (var each in rows) parts.Add(PartsOf(each, FileScreens.QuestionRows));
+            Place.Measured(parts);
+        }
+
+        private int armingRead = -1;
+
+        /// <summary>The rows the whole request an armed approval or denial answers wraps to, as the layout measured it.</summary>
+        public int RequestRows { get; private set; }
+
+        /// <summary>The rows of the request each part shows.</summary>
+        public int RequestPartRows { get; private set; } = 1;
+
+        /// <summary>The part of the request showing, from 0.</summary>
+        public int RequestPart { get; private set; }
+
+        /// <summary>How many parts the request takes.</summary>
+        public int RequestParts => PartsOf(RequestRows, RequestPartRows);
+
+        /// <summary>
+        /// The request the armed approval or denial answers wraps to <paramref name="rows"/> rows, and a
+        /// part holds <paramref name="partRows"/>: it shows from its first part, which
+        /// <paramref name="steering"/> records as shown. Measured again at the same size, the part
+        /// showing is kept.
+        /// </summary>
+        public void ReadRequest(int rows, int partRows, WorkspaceSteering steering)
+        {
+            // A part is kept only within the confirmation it was read for: armed again, even for the
+            // same request, it starts from the first part, so no earlier reading counts.
+            var again = steering.Armings == armingRead && Math.Max(1, rows) == RequestRows && Math.Max(1, partRows) == RequestPartRows;
+            armingRead = steering.Armings;
+            RequestRows = Math.Max(1, rows);
+            RequestPartRows = Math.Max(1, partRows);
+            if (!again) RequestPart = 0;
+            steering.RequestShown(RequestPart + 1, RequestParts);
+        }
+
+        /// <summary>
+        /// The person pressed the part's last row: the next part shows, or from the last the first again,
+        /// which <paramref name="steering"/> records, so the whole request has shown once the last part
+        /// has, and going back to the first takes nothing away. A request of one part has no such row.
+        /// </summary>
+        public void NextRequestPart(WorkspaceSteering steering)
+        {
+            if (steering.Armings != armingRead || RequestParts < 2) return;
+            RequestPart = (RequestPart + 1) % RequestParts;
+            steering.RequestShown(RequestPart + 1, RequestParts);
+        }
+
+        /// <summary>The person pressed the question's part row: its next step shows, or from the last its first again.</summary>
+        public void NextQuestionPart()
+        {
+            if (Place.Steps < 2) return;
+            Place.Turn(Place.Step + 1 < Place.Steps ? 1 : -Place.Step);
+        }
+
+        /// <summary>Forgets the request's parts, as when its confirmation is answered or dropped.</summary>
+        public void ForgetRequest()
+        {
+            armingRead = -1;
+            RequestRows = 0;
+            RequestPartRows = 1;
+            RequestPart = 0;
+        }
+
         internal static int PartsOf(int rows, int perPart) => Math.Max(1, (Math.Max(0, rows) + Math.Max(1, perPart) - 1) / Math.Max(1, perPart));
     }
 }
