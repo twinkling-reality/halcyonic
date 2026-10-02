@@ -54,6 +54,11 @@ centre, which keeps every word at its size.
   icons, the agent's reasons, the checks), holding no action but its own Close. The file opens on
   Waiting when something waits, else on Activity, out of its character, with a light line from the
   character's body to the file's top corners.
+- **The split header, should the owner take it** (rendered on 2026-10-02): a file's subject carries
+  its character's state pill on its top edge, at its left, as the character's label on the stage
+  does, its word at the content's 18 dp, so the file reads as that label opened up. Every column's
+  subject keeps the pill's room, so the plates and titles stay level. The section tabs stay a row of
+  separate shapes.
 - **New project** shows its steps as a row of shapes, as a file shows its sections: Your idea,
   Questions, Recap, Start building. The companion's turn is the Questions page; the recap and the
   paged review before Yes, start building keep their rules.
@@ -97,7 +102,9 @@ today and, once built, in lane U's renders of every surface:
    the page, at Body in the secondary colour, and a detail under a part, as each Seorak part's
    availability, coverage and freshness, is its own Body line in the secondary colour. Partial, stale
    or unavailable, it stays in the secondary colour and its words say so: amber means waiting for you
-   and nothing else. Only the chosen section and the main action are drawn heavier.
+   and nothing else. Only the chosen section and the main action are drawn heavier. With the split
+   header, should the owner take it, a state pill on a subject's top edge reads with that subject:
+   the one exception, which the type check makes once the split header is chosen.
 5. **One grid.** An 8 dp step: 24 dp padding, 16 dp between groups, 8 dp from a label to its value.
    Words and icons start on one left content line, small facts and chevrons end on the right one, and
    icons stand in a fixed 24 dp column. A shape round words, as an answer or a well, reaches 0.7
