@@ -542,6 +542,8 @@ public class CreationDraftTests
 
         var resumed = BuildSequence.Resume(new NewWorkDraft(commands), commands, projectId, "01a0dcf1-5a80-7000-8000-0000000000b9");
         Assert.That(resumed.CanRetry, Is.True);
+        Assert.That(resumed.Sent, Is.False, "a resumed sequence has sent nothing, so it never clears a kept unknown outcome");
+        Assert.That(sequence.Sent, Is.True);
         Assert.That(resumed.StoppedAt!.Kind, Is.EqualTo(BuildStepKind.StartWork));
         var fresh = BuildSequence.Resume(new NewWorkDraft(commands), commands, projectId, null);
         Assert.That(fresh.StoppedAt!.Kind, Is.EqualTo(BuildStepKind.CreateWorkstream));
