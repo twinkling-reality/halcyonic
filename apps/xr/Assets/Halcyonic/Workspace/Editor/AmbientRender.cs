@@ -200,7 +200,7 @@ namespace Halcyonic.XR.Workspace.Editor
             holder.SetPositionAndRotation(eyes + new Vector3(0f, CharacterStage.BannerTopBesideWindow(radius), radius), Quaternion.identity);
             holder.localScale = Vector3.one * radius;
             var banner = StageBanner.Create(holder);
-            banner.Show("Connected to your Mac", BannerKind.Live, AmbientText.NeedsYouLine(AmbientText.NeedsYou(work.State)), null,
+            banner.Show("Connected to " + HostText.Your, BannerKind.Live, AmbientText.NeedsYouLine(AmbientText.NeedsYou(work.State)), null,
                 AmbientText.NotShown(work.State.Workstreams.Count - work.Shown.Count), AmbientText.StillOpen("Add rate limiting to the sign-in endpoint"));
             return banner;
         }

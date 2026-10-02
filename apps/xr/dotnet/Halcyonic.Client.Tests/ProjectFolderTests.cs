@@ -109,9 +109,9 @@ public class ProjectFolderTests
     [Test]
     public void TheReviewShowsTheFolderAndAMoveInFull()
     {
-        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", "Objective", folder: "recipes in Projects");
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "recipes in Projects");
         Assert.That(review.Items.Select(item => item.Text), Has.Some.EqualTo("Where its files live: recipes in Projects"));
-        var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your Mac", "ref", "Objective", folder: "shop in Projects", folderBefore: "none");
+        var move = new NewWorkReview("Project", "Title", "Runtime", "Model", "on your computer", "ref", "Objective", folder: "shop in Projects", folderBefore: "none");
         Assert.That(move.Items.Select(item => item.Text).Take(3), Is.EqualTo(new[] { "Project: Project", "Folder now: none", "Folder from now on: shop in Projects" }));
     }
 }
@@ -178,7 +178,7 @@ public class FolderRefusalTests
         var step = sequence.StoppedAt!;
         Assert.That(step.Refusal, Is.EqualTo(RejectionCode.LocationRequired));
         Assert.That(EntryText.AboutFolder(step), Is.True);
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: This project has no folder on your Mac yet. Choose where its files live, then try again."),
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: This project has no folder on your computer yet. Choose where its files live, then try again."),
             "the next action comes from the code, not the message");
 
         var bind = sequence.Retry(folder: Folder("recipes"));

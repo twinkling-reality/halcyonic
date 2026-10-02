@@ -476,7 +476,7 @@ namespace Halcyonic.XR.Workspace
             {
                 // Listing may start the runtime, so it is read when the person chooses it, never on a timer.
                 var api = ControlPlaneSettings.Api();
-                if (api == null) draft.ModelReadFailed("No Mac is connected.");
+                if (api == null) draft.ModelReadFailed("No " + HostText.Noun + " is connected.");
                 else
                 {
                     modelRuntimeId = runtime.RuntimeId;
@@ -514,7 +514,7 @@ namespace Halcyonic.XR.Workspace
             var api = ControlPlaneSettings.Api();
             if (api == null)
             {
-                locationsProblem = "No Mac is connected.";
+                locationsProblem = "No " + HostText.Noun + " is connected.";
                 return;
             }
             locationsCancellation = new CancellationTokenSource();

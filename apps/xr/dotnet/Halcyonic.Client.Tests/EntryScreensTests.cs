@@ -168,7 +168,7 @@ public class EntryScreensTests
             (EntryText.FolderTitle, EntryScreens.ChooseWhere, EntryText.ChooseFolder),
             (EntryText.HowItRuns, EntryScreens.MoreOptions, EntryText.MoreOptions),
         }));
-        Assert.That(recap.Rows[3].Title, Is.EqualTo("On your Mac"));
+        Assert.That(recap.Rows[3].Title, Is.EqualTo("On your computer"));
         Assert.That(recap.Rows[3].Detail, Is.EqualTo("Chosen for you. Change it in More options."));
         var start = recap.Actions.Primary!;
         Assert.That((start.Id, start.Available, start.Reason), Is.EqualTo((EntryScreens.StartBuilding, false, EntryText.ChooseWhereFilesLive)),
@@ -232,7 +232,7 @@ public class EntryScreensTests
         var models = EntryScreens.Options(draft, new[] { Listing() }, showModels: true, live: true);
         Assert.That(models.Rows.Select(row => row.Line ? "line" : row.Key), Is.EqualTo(new[] { "ollama/qwen", "line", "hosted/x" }));
         Assert.That(models.Rows[1].Title, Is.EqualTo("Runs on a remote service: your code and instructions go there."));
-        Assert.That(models.Rows[0].Detail, Does.StartWith(EntryText.ChosenForYou + " · Runs on your Mac"));
+        Assert.That(models.Rows[0].Detail, Does.StartWith(EntryText.ChosenForYou + " · Runs on your computer"));
         Assert.That(models.Rows[0].Chosen, Is.True);
         Assert.That(draft.ChooseModel(remote), Is.False);
         var pending = EntryScreens.Options(draft, new[] { Listing() }, showModels: true, live: true);
@@ -295,7 +295,7 @@ public class EntryScreensTests
             "Task name: Add a search page.",
             "Agent app: Local\\u{200B} agent",
             "Model: ollama/qwen",
-            "Where the model runs: on your Mac; can use tools",
+            "Where the model runs: on your computer; can use tools",
             "Model id: ollama/qwen",
             "First task: Add a search page.",
         }), "every name spelled once, by the review");
@@ -304,7 +304,7 @@ public class EntryScreensTests
     [Test]
     public void YesStartBuildingIsLockedUntilTheLastPartAndNeverStandsWhereStartBuildingDid()
     {
-        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your Mac", "ref", "Objective");
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
         review.Paginate(review.Items.Select(_ => 1).ToList(), 3);
         var first = EntryScreens.Review(review, problem: null);
         Assert.That(first.Parts, Is.EqualTo((0, 3)));
@@ -388,7 +388,7 @@ public class EntryScreensTests
         idea.UseIdea("A recipe tracker.");
         idea.BeginGuide();
         var draft = Draft(Listing(), Model("ollama/qwen", ModelServed.ThisMac), Model("hosted/x", ModelServed.Remote));
-        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your Mac", "ref", "Objective");
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
         review.Paginate(review.Items.Select(_ => 1).ToList(), 20);
         var screens = new[]
         {
@@ -426,7 +426,7 @@ public class EntryScreensTests
         guided.UseIdea("A recipe tracker.");
         guided.BeginGuide();
         var draft = Draft(Listing(), Model("ollama/qwen", ModelServed.ThisMac));
-        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your Mac", "ref", "Objective");
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
         review.Paginate(review.Items.Select(_ => 1).ToList(), 3);
         var locked = EntryScreens.Review(review, problem: null);
         review.Next();

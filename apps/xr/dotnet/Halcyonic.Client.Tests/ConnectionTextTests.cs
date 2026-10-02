@@ -15,7 +15,7 @@ public class ConnectionTextTests
             if (phase != ConnectionPhase.Live) Assert.That(words, Is.Not.EqualTo(phase.ToString()), phase + " shows as its enum name");
             Assert.That(words, Does.Not.Contain("WaitingToRetry").And.Not.Contain("Synchronizing"), "no identifier reads as words");
         }
-        Assert.That(ConnectionText.Phase(new ConnectionStatus(ConnectionPhase.Synchronizing)), Is.EqualTo("Catching up with your Mac…"));
-        Assert.That(ConnectionText.Phase(new ConnectionStatus(ConnectionPhase.Connecting)), Is.EqualTo("Connecting to your Mac…"));
+        Assert.That(ConnectionText.Phase(new ConnectionStatus(ConnectionPhase.Synchronizing)), Is.EqualTo("Catching up with your computer…"));
+        Assert.That(ConnectionText.Phase(new ConnectionStatus(ConnectionPhase.Connecting)), Is.EqualTo("Connecting to your computer…"));
     }
 }

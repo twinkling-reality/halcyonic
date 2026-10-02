@@ -207,7 +207,7 @@ public class NewWorkDraftTests
         Assert.That(draft.Models.Skip(3).Select(model => model.ModelRef), Has.Member("gateway/unknown").And.Member("opencode/zen-0"));
         Assert.That(draft.Model!.ModelRef, Is.EqualTo("ollama/qwen3.6:35b-a3b-nvfp4"), "tool calling declared, then the larger context");
         Assert.That(draft.ModelPreselected, Is.True);
-        Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere)), Does.StartWith("These may not run on your Mac"));
+        Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere)), Does.StartWith("These may not run on your computer"));
         Assert.That(EntryText.ElsewhereDivider(draft.Models.Skip(draft.Elsewhere).Where(model => model.Served == ModelServed.Remote)),
             Is.EqualTo("Runs on a remote service: your code and instructions go there."));
     }

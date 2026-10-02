@@ -16,7 +16,7 @@ namespace Halcyonic.Client
         public const string YourRoom = "Your room";
 
         /// <summary>The section for pairing this headset with the Mac, in development builds.</summary>
-        public const string YourMac = "Your Mac";
+        public const string YourMac = HostText.YourStart;
 
         /// <summary>Turns the characters to the person's right.</summary>
         public const string MakeRoomForWindow = "Make room for a window";

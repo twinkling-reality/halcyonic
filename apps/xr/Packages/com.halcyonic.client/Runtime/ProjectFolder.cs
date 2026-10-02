@@ -118,10 +118,10 @@ namespace Halcyonic.Client
                 var name = LabelText.Plain(root.Name);
                 if (root.Status != LocationRootStatus.Available)
                 {
-                    options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on your Mac right now"));
+                    options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on " + HostText.Your + " right now"));
                     continue;
                 }
-                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, "New folder in " + name, "Your Mac makes a new, empty folder"));
+                options.Add(new FolderOption(root, null, FolderOptionKind.NewFolder, "New folder in " + name, HostText.YourStart + " makes a new, empty folder"));
                 options.Add(new FolderOption(root, null, FolderOptionKind.Root, "Directly in " + name, "Files go straight into " + name));
                 foreach (var folder in root.Folders)
                 {

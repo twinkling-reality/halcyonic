@@ -689,7 +689,7 @@ namespace Halcyonic.XR
         /// <summary>The banner shows unless a panel or the peek is where it goes (<see cref="AmbientCover"/>).</summary>
         private void ShowBannerUncovered() => banner.gameObject.SetActive(!AmbientCover.Any);
 
-        private const string NotConnected = "Not connected to your Mac";
+        private const string NotConnected = "Not connected to " + HostText.Your;
 
         /// <summary>
         /// The height of the banner's top edge from the eyes, in meters, with the characters
@@ -717,9 +717,9 @@ namespace Halcyonic.XR
             switch (status.Phase)
             {
                 case ConnectionPhase.Live:
-                    return "Connected to your Mac" + origin;
+                    return "Connected to " + HostText.Your + origin;
                 case ConnectionPhase.WaitingToRetry:
-                    return "Last known: can't reach your Mac. Trying again…" + (string.IsNullOrEmpty(status.Detail) ? "" : " " + status.Detail);
+                    return "Last known: can't reach " + HostText.Your + ". Trying again…" + (string.IsNullOrEmpty(status.Detail) ? "" : " " + status.Detail);
                 case ConnectionPhase.Refused:
                     return ConnectionText.WhyNotLive(status);
                 default:

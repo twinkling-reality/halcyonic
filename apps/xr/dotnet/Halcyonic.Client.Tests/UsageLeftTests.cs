@@ -58,7 +58,7 @@ public class UsageLeftTests
     {
         var glance = Present(Available);
         Assert.That(glance.Source, Is.EqualTo("From Seorak, as the provider reported"));
-        Assert.That(glance.Note, Is.EqualTo("Account not identified: these may come from any account used on your Mac."));
+        Assert.That(glance.Note, Is.EqualTo("Account not identified: these may come from any account used on your computer."));
     }
 
     [Test]
@@ -76,7 +76,7 @@ public class UsageLeftTests
     {
         var glance = Present(Available.Replace("\"complete\": true", "\"complete\": false"));
         Assert.That(glance.Rows, Has.Count.EqualTo(2), "only the readings returned, nothing inferred");
-        Assert.That(glance.Note, Is.EqualTo("Some limits couldn't be read this time. Account not identified: these may come from any account used on your Mac."));
+        Assert.That(glance.Note, Is.EqualTo("Some limits couldn't be read this time. Account not identified: these may come from any account used on your computer."));
         Assert.That(Present(Available).Note, Does.Not.Contain("couldn't be read"));
     }
 
@@ -142,7 +142,7 @@ public class UsageLeftTests
         var glance = Present(Failure(availability, code));
         Assert.That(glance.Rows, Is.Empty);
         Assert.That(glance.Failed, Is.False, "not being set up is said plainly, not as a failure");
-        Assert.That(glance.Note, Is.EqualTo("Usage left isn't set up on your Mac yet. Set it up there to see it here."));
+        Assert.That(glance.Note, Is.EqualTo("Usage left isn't set up on your computer yet. Set it up there to see it here."));
     }
 
     [Test]
@@ -171,7 +171,7 @@ public class UsageLeftTests
         var glance = UsageLeftPresenter.Unreachable();
         Assert.That(glance.Failed, Is.True);
         Assert.That(glance.Rows, Is.Empty);
-        Assert.That(glance.Note, Is.EqualTo("Couldn't reach your Mac. Press Refresh to try again."));
+        Assert.That(glance.Note, Is.EqualTo("Couldn't reach your computer. Press Refresh to try again."));
     }
 
     [Test]

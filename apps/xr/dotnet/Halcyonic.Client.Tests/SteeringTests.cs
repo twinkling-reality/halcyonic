@@ -93,14 +93,14 @@ public class WorkspaceTextTests
         var replayed = Samples.Snapshot(9, new[] { work.Workstream }, new[] { work.Execution });
         replayed.Runtimes.Clear();
         work.State.ApplySnapshot(replayed, new StateChanges());
-        Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + ", not available on your Mac now."));
-        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent: it isn't available on your Mac now."),
+        Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + ", not available on your computer now."));
+        Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent: it isn't available on your computer now."),
             "a recording carries no runtime, as in a replay or the demonstration");
 
         var real = Samples.Snapshot(10, new[] { work.Workstream }, new[] { work.Execution });
         real.Executions[0].Runtime.Synthetic = false;
         work.State.ApplySnapshot(real, new StateChanges());
-        Assert.That(Lines(work.Present())[0], Is.EqualTo("Agent app: Mock runtime, on your Mac."), "a real agent app by its own name");
+        Assert.That(Lines(work.Present())[0], Is.EqualTo("Agent app: Mock runtime, on your computer."), "a real agent app by its own name");
 
         var idle = WorkspacePresenter.Present(Samples.Workstream("w2"), work.State, work.Activity, live: true);
         Assert.That(Lines(idle), Is.EqualTo(new[] { "Nothing has run yet." }));
@@ -196,7 +196,7 @@ public class WorkspaceTextTests
     {
         var work = new WaitingWork();
         Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.Null);
-        Assert.That(WorkspaceText.WhyNoActions(work.Present(live: false)), Is.EqualTo("Nothing can be sent until your Mac reconnects."));
+        Assert.That(WorkspaceText.WhyNoActions(work.Present(live: false)), Is.EqualTo("Nothing can be sent until your computer reconnects."));
 
         work.Change(execution =>
         {
@@ -355,12 +355,12 @@ public class CommandSubmissionsTests
 
         work.State.ApplyEvent(Carrying(2, Record(byAnotherClient, CommandStatus.Rejected)), new StateChanges());
         submissions.Sending(mine, "e1");
-        submissions.NotSent(mine.CommandId, "your Mac isn't connected. Try again when it is.");
+        submissions.NotSent(mine.CommandId, "your computer isn't connected. Try again when it is.");
         submissions.Sending(elsewhere, "e2");
 
         Assert.That(submissions.FeedbackFor("e1", work.State, 5).Select(feedback => feedback.Text), Is.EqualTo(new[]
         {
-            "Couldn't send: your Mac isn't connected. Try again when it is.",
+            "Couldn't send: your computer isn't connected. Try again when it is.",
             "Couldn't do that: Nothing is running.",
         }));
         Assert.That(submissions.FeedbackFor("e1", work.State, 1), Has.Count.EqualTo(1));
@@ -454,7 +454,7 @@ public class CommandSubmissionsSessionTests
         connection.Send(new CommandAckMessage { CommandId = command.CommandId, Disposition = CommandAckDisposition.Rejected, Command = null });
         await submitting;
 
-        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Couldn't do that: your Mac refused it. Check the task, then try again."));
+        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Couldn't do that: your computer refused it. Check the task, then try again."));
     }
 
     [Test]
@@ -471,7 +471,7 @@ public class CommandSubmissionsSessionTests
 
         Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.OutcomeUnknown));
         Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo(
-            "Not sure it was sent. If it was, it shows here once your Mac reconnects."));
+            "Not sure it was sent. If it was, it shows here once your computer reconnects."));
     }
 
     [Test]
@@ -481,7 +481,7 @@ public class CommandSubmissionsSessionTests
         var command = new CommandFactory(Samples.Client).Interrupt("e1");
         await submissions.SubmitAsync(c => session.SubmitAsync(c), command, "e1");
         Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.NotSent));
-        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Couldn't send: your Mac isn't connected. Try again when it is."));
+        Assert.That(submissions.FeedbackFor("e1", session.State, 5).Single().Text, Is.EqualTo("Couldn't send: your computer isn't connected. Try again when it is."));
     }
 }
 
@@ -657,7 +657,7 @@ public class WorkspaceSteeringTests
         var steering = Steering();
         var offline = steering.Press(WorkspaceAction.Approve, work.Present(live: false));
         Assert.That(offline.Step, Is.EqualTo(SteeringStep.Explain));
-        Assert.That(offline.Message, Is.EqualTo("Nothing can be sent until your Mac reconnects."));
+        Assert.That(offline.Message, Is.EqualTo("Nothing can be sent until your computer reconnects."));
 
         var instruct = steering.Press(WorkspaceAction.Instruct, work.Present());
         Assert.That(instruct.Step, Is.EqualTo(SteeringStep.Explain), "the mock runtime takes no instruction while a turn runs");
@@ -735,7 +735,7 @@ public class WorkspaceSteeringTests
         steering.Press(WorkspaceAction.Instruct, work.Present());
         var offline = steering.Typed("Add another test.", work.Present(live: false));
         Assert.That(offline.Step, Is.EqualTo(SteeringStep.Explain), "the connection dropped while typing");
-        Assert.That(offline.Message, Is.EqualTo("Nothing can be sent until your Mac reconnects."));
+        Assert.That(offline.Message, Is.EqualTo("Nothing can be sent until your computer reconnects."));
     }
 
     [Test]
@@ -770,7 +770,7 @@ public class WorkspaceSteeringTests
 
         Assert.That(steering.Spoken("  Add a test for the expiry.  ", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Heard, Is.True);
-        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Your Mac heard: “Add a test for the expiry.” Send it?"));
+        Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Your computer heard: “Add a test for the expiry.” Send it?"));
         var command = (ExecutionSendInstructionCommand)steering.Confirm(work.Present()).Command!;
         Assert.That(command.Payload.Text, Is.EqualTo("Add a test for the expiry."));
         Assert.That(steering.Heard, Is.False);

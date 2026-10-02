@@ -698,7 +698,7 @@ namespace Halcyonic.XR.Workspace
             var execution = workspace.Now?.Execution;
             if (session == null || execution == null)
             {
-                Notify(workspace, "Couldn't send: your Mac isn't connected. Try again when it is.");
+                Notify(workspace, "Couldn't send: " + HostText.Your + " isn't connected. Try again when it is.");
                 return;
             }
             workspace.Notice = null;

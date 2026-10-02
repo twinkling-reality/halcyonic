@@ -110,7 +110,7 @@ public class LiveControlPlaneTests
         await Until(s => s.Status.Phase == ConnectionPhase.Refused, "the stale token is refused", seconds: 20);
         Assert.That(session.Status.AccessRefused, Is.True);
         Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.AccessTokenRefused));
-        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Your Mac refused this headset's access token"));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Your computer refused this headset's access token"));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.Unreachable, session.Status),
             Does.EndWith(ConnectionText.AccessTokenRefused));
         await session.StopAsync();

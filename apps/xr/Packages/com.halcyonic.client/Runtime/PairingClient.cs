@@ -47,7 +47,7 @@ namespace Halcyonic.Client
             }
             catch (Exception error) when (!cancellationToken.IsCancellationRequested)
             {
-                throw new PairingException("unreachable", "No control plane answered at " + endpoint.Authority + ". Check the address, and that the Mac and this device share a network.", null, error);
+                throw new PairingException("unreachable", "Nothing answered at " + endpoint.Authority + ". Check the address, and that " + HostText.Your + " and this device share a network.", null, error);
             }
             using (connection)
             using (connection.CloseOn(token))
@@ -170,8 +170,8 @@ namespace Halcyonic.Client
         /// <summary>The control plane's words, with what the person can do where it helps.</summary>
         private static string Explain(string? code, string message) => code switch
         {
-            "pairing_closed" => "Pairing is not open on the Mac. Run pnpm pair there, then try again.",
-            "wrong_code" => "The code was not accepted. Check it on the Mac and type it again.",
+            "pairing_closed" => "Pairing is not open on " + HostText.Your + ". Run pnpm pair there, then try again.",
+            "wrong_code" => "The code was not accepted. Check it on " + HostText.Your + " and type it again.",
             _ => message,
         };
     }

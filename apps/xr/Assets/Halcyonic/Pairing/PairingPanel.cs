@@ -12,7 +12,7 @@ namespace Halcyonic.XR.Pairing
 {
     /// <summary>
     /// Pairs this headset with a control plane over the network (ADR 0017): one button and a line in
-    /// the Your Mac section of the Settings sheet (ADR 0023). "Pair with a Mac" asks on the system
+    /// the Your computer section of the Settings sheet (ADR 0023). "Pair with a computer" asks on the system
     /// keyboard for the address and the eight-digit code <c>pnpm pair</c> shows on the Mac, pairs in
     /// the background, keeps the pairing through <see cref="ControlPlaneSettings.PairingStore"/>, and
     /// connects again. Once paired, the same button forgets the Mac, after a second, deliberate
@@ -112,14 +112,14 @@ namespace Halcyonic.XR.Pairing
             if (confirmUntil <= 0f)
             {
                 confirmUntil = Time.unscaledTime + ConfirmSeconds;
-                Say("Forget the Mac at " + paired.Address + "? This headset then needs pairing again to reach it.");
+                Say("Forget the " + HostText.Noun + " at " + paired.Address + "? This headset then needs pairing again to reach it.");
                 return;
             }
             confirmUntil = 0f;
             step = Step.Forgetting;
             var forgotten = paired;
             forgetting = Task.Run(() => PairingClient.RevokeAsync(forgotten));
-            Say("Forgetting the Mac…");
+            Say("Forgetting the " + HostText.Noun + "…");
         }
 
         private void BeginPairing()
@@ -131,8 +131,8 @@ namespace Halcyonic.XR.Pairing
             }
             step = Step.Address;
             keyboard = FocusGuard.Track(TouchScreenKeyboard.Open(PlayerPrefs.GetString(AddressPreference, ""), TouchScreenKeyboardType.URL,
-                false, false, false, false, "The Mac's address, as pnpm pair shows it"));
-            Say("Type the Mac's address, as pnpm pair shows it, such as 192.168.1.23:47801.");
+                false, false, false, false, HostText.YourStart + "'s address, as pnpm pair shows it"));
+            Say("Type " + HostText.Your + "'s address, as pnpm pair shows it, such as 192.168.1.23:47801.");
         }
 
         /// <summary>Reads the keyboard once it closes: first the address, then the code.</summary>
@@ -161,7 +161,7 @@ namespace Halcyonic.XR.Pairing
                 step = Step.Code;
                 keyboard = FocusGuard.Track(TouchScreenKeyboard.Open("", TouchScreenKeyboardType.NumberPad, false, false, false, false,
                     "The eight-digit code pnpm pair shows"));
-                Say("Type the eight-digit code pnpm pair shows on the Mac.");
+                Say("Type the eight-digit code pnpm pair shows on " + HostText.Your + ".");
                 return;
             }
             if (step != Step.Code) return;
@@ -188,7 +188,7 @@ namespace Halcyonic.XR.Pairing
                 }
                 ControlPlaneSettings.PairingStore.Save(outcome.Paired);
                 paired = outcome.Paired;
-                Say("Paired with the Mac at " + paired.Address + ". Connecting over Wi-Fi.");
+                Say("Paired with " + HostText.Your + " at " + paired.Address + ". Connecting over Wi-Fi.");
                 Log("paired; connecting over the network");
                 Reconnect();
             }
@@ -200,8 +200,8 @@ namespace Halcyonic.XR.Pairing
                 ControlPlaneSettings.PairingStore.Forget();
                 paired = null;
                 Say(revoked
-                    ? "Forgot the Mac, which no longer accepts this headset."
-                    : "Forgot the Mac on this headset. It could not be reached, so revoke this headset there with pnpm devices.");
+                    ? "Forgot the " + HostText.Noun + ", which no longer accepts this headset."
+                    : "Forgot the " + HostText.Noun + " on this headset. It could not be reached, so revoke this headset there with pnpm devices.");
                 Log(revoked ? "forgot the control plane, which revoked this headset" : "forgot the control plane, which could not be reached to revoke this headset");
                 Reconnect();
             }
@@ -252,7 +252,7 @@ namespace Halcyonic.XR.Pairing
             if (step == Step.Idle)
             {
                 var confirming = paired != null && confirmUntil > 0f;
-                var text = paired == null ? "Pair with a Mac" : confirming ? "Yes, forget this Mac" : "Forget this Mac";
+                var text = paired == null ? "Pair with a " + HostText.Noun : confirming ? "Yes, forget this " + HostText.Noun : "Forget this " + HostText.Noun;
                 button.Role = paired == null ? ButtonRole.Secondary : ButtonRole.Destructive;
                 section.Offer(button, text);
             }

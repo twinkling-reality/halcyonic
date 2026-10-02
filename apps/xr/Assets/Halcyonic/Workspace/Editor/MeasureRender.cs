@@ -202,8 +202,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 arrangement.Offer(arrangement.Button("Arrangement 0", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.TurnedAside));
                 arrangement.Offer(arrangement.Button("Arrangement 1", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.BesideAWindow));
                 var mac = sheet.Section(SettingsText.YourMac, 1);
-                mac.Say("Paired with the Mac at 192.168.1.23:47801. Connecting over Wi-Fi.");
-                mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this Mac");
+                mac.Say("Paired with " + HostText.Your + " at 192.168.1.23:47801. Connecting over Wi-Fi.");
+                mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this " + HostText.Noun);
                 sheet.OpenForRender(characters.ConvertAll(character => character.Target), null);
                 rail.Root.gameObject.SetActive(false);
                 return (sheet.Root.gameObject, null);
@@ -235,7 +235,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var top = besideWindow ? CharacterStage.BannerTopBesideWindow(radius) : CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes);
             holder.SetPositionAndRotation(new Vector3(0f, EyeHeight + top, radius), Quaternion.identity);
             holder.localScale = Vector3.one * radius;
-            StageBanner.Create(holder).Show("Connected to your Mac", BannerKind.Live, waiting, null, notShown, stillOpen);
+            StageBanner.Create(holder).Show("Connected to " + HostText.Your, BannerKind.Live, waiting, null, notShown, stillOpen);
         }
 
         /// <summary>A workspace at touch distance in front of the eyes, its screen as the director builds it.</summary>

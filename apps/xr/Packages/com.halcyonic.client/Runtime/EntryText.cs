@@ -26,18 +26,18 @@ namespace Halcyonic.Client
         public const string SeeOtherTasks = "See other tasks";
 
         public const string WelcomeTitle = "Welcome";
-        public const string WelcomeLine = "Show projects from your Mac, or make a new one. Work already running keeps going.";
+        public const string WelcomeLine = "Show projects from " + HostText.Your + ", or make a new one. Work already running keeps going.";
         public const string ConnectInvite = "Choose which projects show";
         public const string CreateInvite = "Start from an idea";
         public const string NotNow = "Not now";
 
-        public const string ConnectLine = "Projects already set up on your Mac. Choose which ones show on the stage.";
-        public const string NoProjects = "No projects on your Mac yet. Create one here, or start one from your Mac.";
-        public const string LastKnownProjects = "Last known: your Mac isn't connected right now.";
+        public const string ConnectLine = "Projects already set up on " + HostText.Your + ". Choose which ones show on the stage.";
+        public const string NoProjects = "No projects on " + HostText.Your + " yet. Create one here, or start one from " + HostText.Your + ".";
+        public const string LastKnownProjects = "Last known: " + HostText.Your + " isn't connected right now.";
         public const string ExampleProjects = "Demo projects. Nothing here reaches an agent.";
         public const string ShowAll = "Show all";
         public const string AddTask = "Add a task";
-        public const string WaitingForMac = "Waiting for your Mac.";
+        public const string WaitingForMac = "Waiting for " + HostText.Your + ".";
 
         public const string MoreTasksLine = "Tasks that aren't on the stage right now. Anything waiting for you is at the top. Choose one to open it.";
         public const string AllOnStage = "Every task is on the stage.";
@@ -74,10 +74,10 @@ namespace Halcyonic.Client
         public const string WhatFirstTask = "What should the first task be?";
 
         public const string FolderTitle = "Where its files live";
-        public const string FolderLine = "Folders your Mac allows for projects. A new folder starts empty.";
-        public const string ReadingFolders = "Reading the folders your Mac allows…";
-        public const string NoFolders = "Your Mac doesn't allow any folder yet. Allow one on your Mac, then press Try again.";
-        public const string FoldersCut = "Your Mac lists only the first 200 folders in a place.";
+        public const string FolderLine = "Folders " + HostText.Your + " allows for projects. A new folder starts empty.";
+        public const string ReadingFolders = "Reading the folders " + HostText.Your + " allows…";
+        public const string NoFolders = HostText.YourStart + " doesn't allow any folder yet. Allow one on " + HostText.Your + ", then press Try again.";
+        public const string FoldersCut = HostText.YourStart + " lists only the first 200 folders in a place.";
         public const string NewFolderPrompt = "Name the new folder";
         public const string NewFolderRule = "Use up to 64 letters, digits, dots, dashes or underscores. Start with a letter or digit.";
         public const string ChooseFolder = "Choose";
@@ -86,7 +86,7 @@ namespace Halcyonic.Client
         public const string RebindWarning = "Every later task in this project uses the new folder. Tasks already running keep theirs.";
 
         /// <summary>The folders couldn't be read: what went wrong, as it arrived, and what to do.</summary>
-        public static string FoldersUnread(string reason) => "Couldn't read your Mac's folders: " + LabelText.Plain(reason) + " Press Try again.";
+        public static string FoldersUnread(string reason) => "Couldn't read " + HostText.Your + "'s folders: " + LabelText.Plain(reason) + " Press Try again.";
 
         /// <summary>
         /// Where the project's files live, for the recap, under its own heading: the folder chosen, the
@@ -108,16 +108,16 @@ namespace Halcyonic.Client
         public static string? FolderProblem(RejectionCode? refusal, string? failure)
         {
             if (refusal == RejectionCode.LocationRequired || failure == "location_required")
-                return "This project has no folder on your Mac yet. Choose where its files live, then try again.";
+                return "This project has no folder on " + HostText.Your + " yet. Choose where its files live, then try again.";
             if (refusal == RejectionCode.LocationMissing || failure == "location_missing")
                 // The host also answers this for a folder or place that is there but cannot be read.
-                return "Your Mac can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your Mac.";
+                return HostText.YourStart + " can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on " + HostText.Your + ".";
             if (refusal == RejectionCode.LocationNotAllowed || failure == "location_not_allowed")
-                return "Your Mac doesn't let agents work there. Choose a folder it lists.";
+                return HostText.YourStart + " doesn't let agents work there. Choose a folder it lists.";
             if (refusal == RejectionCode.LocationExists || failure == "location_exists")
                 return "There's already a folder with that name. Use that folder, or choose another name.";
             if (failure == "location_not_created")
-                return "Your Mac couldn't make that folder, so nothing was created. Choose another name or place.";
+                return HostText.YourStart + " couldn't make that folder, so nothing was created. Choose another name or place.";
             return null;
         }
 
@@ -126,7 +126,7 @@ namespace Halcyonic.Client
 
         public const string OptionsTitle = "How it runs";
         public const string OptionsLine = "Choose the agent app that does the work, then its model. Each model says where it runs.";
-        public const string NoRuntimes = "No agent app on your Mac can start work right now. Set one up on your Mac, then open this again.";
+        public const string NoRuntimes = "No agent app on " + HostText.Your + " can start work right now. Set one up on " + HostText.Your + ", then open this again.";
         public const string ChangeAgentApp = "Change agent app";
         public const string ListsModels = "You choose its model";
         public const string ChoosesModel = "It chooses its model";
@@ -179,12 +179,12 @@ namespace Halcyonic.Client
         /// <summary>What the Mac recorded of a start whose outcome is unknown, in words: a failure may still have changed something.</summary>
         public static string Recorded(CommandStatus? status) => status switch
         {
-            null => "Your Mac hasn't confirmed it yet.",
-            CommandStatus.Accepted => "Your Mac took it, but it isn't confirmed yet.",
+            null => HostText.YourStart + " hasn't confirmed it yet.",
+            CommandStatus.Accepted => HostText.YourStart + " took it, but it isn't confirmed yet.",
             CommandStatus.Completed => "Confirmed: it went through.",
-            CommandStatus.Rejected => "Your Mac refused it, so it didn't happen.",
+            CommandStatus.Rejected => HostText.YourStart + " refused it, so it didn't happen.",
             CommandStatus.Failed => "It didn't go through, but it may have changed something. Check the tasks on the stage.",
-            _ => "Your Mac answered in a way this app didn't expect. Check the tasks on the stage.",
+            _ => HostText.YourStart + " answered in a way this app didn't expect. Check the tasks on the stage.",
         };
 
         public const string OpenNow = "Open now";
@@ -195,11 +195,11 @@ namespace Halcyonic.Client
         public const string Close = "Close";
 
         /// <summary>Why Start building can't go ahead, for each check the recap makes, in its order.</summary>
-        public const string DemoCannotStart = "The demo can't start new work. Connect your Mac to start real work.";
+        public const string DemoCannotStart = "The demo can't start new work. Real work runs on " + HostText.Your + ".";
         public const string ChooseHowItRuns = "Choose how it runs in More options.";
         public const string ChooseAgain = "What you chose in More options isn't available now. Choose again.";
         public const string FinishChoosing = "Finish choosing how it runs in More options.";
-        public const string ProjectGone = "This project isn't on your Mac any more. Close this, then choose a project in Connect projects.";
+        public const string ProjectGone = "This project isn't on " + HostText.Your + " any more. Close this, then choose a project in Connect projects.";
         public const string ChooseWhereFilesLive = "Choose where its files live.";
 
         public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New task in " + existingProject;
@@ -324,21 +324,21 @@ namespace Halcyonic.Client
         public static string StepStatus(BuildStep step) => step.Status switch
         {
             BuildStepStatus.NotYet => "Not sent yet",
-            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent. Waiting for the agent…" : "Sent. Waiting for your Mac…",
+            BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent. Waiting for the agent…" : "Sent. Waiting for " + HostText.Your + "…",
             BuildStepStatus.Confirmed => "Confirmed",
             BuildStepStatus.Refused => "Couldn't do that: " + (FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
             // A failure that may have had an effect is never put in words that say nothing happened.
             BuildStepStatus.Failed when step.EffectUnknown => NotSureItHappened,
             BuildStepStatus.Failed => "Couldn't do that: " + (FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
             BuildStepStatus.Unknown => NotSureItHappened,
-            BuildStepStatus.NotSent => "Couldn't send: your Mac isn't connected. Try again when it is.",
+            BuildStepStatus.NotSent => "Couldn't send: " + HostText.Your + " isn't connected. Try again when it is.",
             _ => NotSureItHappened,
         };
 
         /// <summary>Where a model runs, which decides where the person's code and instructions go.</summary>
         public static string Served(ModelServed served) => served switch
         {
-            ModelServed.ThisMac => "Runs on your Mac",
+            ModelServed.ThisMac => "Runs on " + HostText.Your,
             ModelServed.Remote => "Runs on a remote service: your code and instructions go there",
             _ => "Where it runs isn't known: your code and instructions may go elsewhere",
         };
@@ -350,7 +350,7 @@ namespace Halcyonic.Client
         public static string ElsewhereDivider(IEnumerable<RuntimeModel> elsewhere) =>
             elsewhere.All(model => model.Served == ModelServed.Remote)
                 ? "Runs on a remote service: your code and instructions go there."
-                : "These may not run on your Mac: your code and instructions may go elsewhere.";
+                : "These may not run on " + HostText.Your + ": your code and instructions may go elsewhere.";
 
         /// <summary>The first press on a model that runs elsewhere, under its name: what choosing it means, and how.</summary>
         public static string ConfirmElsewhere(RuntimeModel model) => Served(model.Served) + ". Press again to use it.";
@@ -358,7 +358,7 @@ namespace Halcyonic.Client
         /// <summary>Where a model runs, in a model's row.</summary>
         public static string ServedShort(ModelServed served) => served switch
         {
-            ModelServed.ThisMac => "Runs on your Mac",
+            ModelServed.ThisMac => "Runs on " + HostText.Your,
             ModelServed.Remote => "Runs on a remote service",
             _ => "Where it runs isn't known",
         };
@@ -366,7 +366,7 @@ namespace Halcyonic.Client
         /// <summary>Where a model runs, inside a sentence of the whole request.</summary>
         public static string ServedInSentence(ModelServed served) => served switch
         {
-            ModelServed.ThisMac => "on your Mac",
+            ModelServed.ThisMac => "on " + HostText.Your,
             ModelServed.Remote => "on a remote service",
             _ => "not known",
         };
@@ -420,9 +420,9 @@ namespace Halcyonic.Client
             if (model == null) return "Not finished choosing";
             return model.Served switch
             {
-                ModelServed.ThisMac => "On your Mac",
+                ModelServed.ThisMac => "On " + HostText.Your,
                 ModelServed.Remote => "On a remote service",
-                _ => "Not known if on your Mac",
+                _ => "Not known if on " + HostText.Your,
             };
         }
 
@@ -442,7 +442,7 @@ namespace Halcyonic.Client
             if (draft.ModelPreselected) return "Chosen for you. Change it in More options.";
             return model.Served switch
             {
-                ModelServed.ThisMac => "It runs on your Mac.",
+                ModelServed.ThisMac => "It runs on " + HostText.Your + ".",
                 ModelServed.Remote => "It runs on a remote service: your code and instructions go there.",
                 _ => "Where it runs isn't known: your code and instructions may go elsewhere.",
             };

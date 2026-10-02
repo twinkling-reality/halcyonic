@@ -312,7 +312,7 @@ namespace Halcyonic.XR.Workspace
             var lower = -upper;
 
             // Below: the actions from the left, the sheets' compact buttons from the right.
-            var x = Place(connect, EntryText.ConnectProjects, overview == null ? "waiting for your Mac" : EntryText.ConnectDetail(overview), null, null, left, lower,
+            var x = Place(connect, EntryText.ConnectProjects, overview == null ? "waiting for " + HostText.Your : EntryText.ConnectDetail(overview), null, null, left, lower,
                 GlazeIcon.ConnectProjects);
             var drafting = entry != null && entry.HasDraft;
             Place(create, drafting ? EntryText.KeepCreating : EntryText.CreateProject, null, null, null, x, lower,

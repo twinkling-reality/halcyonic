@@ -33,7 +33,7 @@ public class JudgeWordsTests
     /// docs/internal/validation/competition-judge-build.md). Remove each one once its words change;
     /// this list must only shrink.
     /// </summary>
-    private static readonly string[] AwaitingTheOwner = { "Salidium", "Seorak", "Mac" };
+    private static readonly string[] AwaitingTheOwner = { "Salidium", "Seorak" };
 
     [Test]
     public void NoBrandIsShownAlongAnyPathOfTheDemonstration()

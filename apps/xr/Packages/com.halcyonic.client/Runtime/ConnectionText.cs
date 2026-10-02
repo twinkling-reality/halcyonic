@@ -10,28 +10,28 @@ namespace Halcyonic.Client
     public static class ConnectionText
     {
         /// <summary>The credential was refused, when how this device reaches the Mac is not known.</summary>
-        public const string AccessRefused = "Your Mac refused this headset's credential.";
+        public const string AccessRefused = HostText.YourStart + " refused this headset's credential.";
 
         /// <summary>A development build that reaches the Mac with the access token, as over USB.</summary>
         public const string AccessTokenRefused =
-            "Your Mac refused this headset's access token: it doesn't match the Mac's. "
-            + "Put the Mac's current access token on the headset, then restart the app.";
+            HostText.YourStart + " refused this headset's access token: it doesn't match " + HostText.Your + "'s. "
+            + "Put " + HostText.Your + "'s current access token on the headset, then restart the app.";
 
         /// <summary>A paired headset whose pairing the Mac no longer accepts, as after it was revoked.</summary>
-        public const string PairingRefused = "Your Mac no longer accepts this headset's pairing. Forget the Mac on the headset and pair again.";
+        public const string PairingRefused = HostText.YourStart + " no longer accepts this headset's pairing. Forget the " + HostText.Noun + " on the headset and pair again.";
 
         /// <summary>The connection's phase in plain words, never the phase's own name.</summary>
         public static string Phase(ConnectionStatus status) => status.Phase switch
         {
             ConnectionPhase.Live => "Live",
-            ConnectionPhase.Connecting => "Connecting to your Mac…",
-            ConnectionPhase.Synchronizing => "Catching up with your Mac…",
+            ConnectionPhase.Connecting => "Connecting to " + HostText.Your + "…",
+            ConnectionPhase.Synchronizing => "Catching up with " + HostText.Your + "…",
             ConnectionPhase.WaitingToRetry => Unreachable,
             ConnectionPhase.Refused => WhyNotLive(status),
             _ => "Not connected",
         };
 
-        public const string Unreachable = "Can't reach your Mac; trying again. Check that the control plane is running and this headset can reach it.";
+        public const string Unreachable = "Can't reach " + HostText.Your + "; trying again. Check that Halcyonic is running there and this headset can reach it.";
 
         /// <summary>
         /// Why the control plane is not shown: refused, with the next step; refused for another reason,
@@ -43,7 +43,7 @@ namespace Halcyonic.Client
             if (status != null && status.Phase == ConnectionPhase.Refused)
             {
                 if (status.AccessRefused) return detail ?? AccessRefused;
-                return "Your Mac refused this app." + (detail == null ? "" : " " + detail);
+                return HostText.YourStart + " refused this app." + (detail == null ? "" : " " + detail);
             }
             return Unreachable + (detail == null ? "" : " (" + detail + ")");
         }
