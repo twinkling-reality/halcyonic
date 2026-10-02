@@ -1,6 +1,7 @@
 # ADR 0025: Create's companion is a local model the control plane asks one reply at a time, and its exchange stays on the headset
 
-- Status: Proposed
+- Status: Accepted on 2026-10-02 by the owner, with the 7-day draft retention and the two
+  amendments at the end.
 - Date: 2026-10-02
 
 ## Context
@@ -188,3 +189,17 @@ competition demonstration.
   `format`), when another local model resists injection better, when people want the companion for
   Add a task, when real ideas show four questions are too few or too many, if the owner wants the
   exchange kept on the Mac, or if Ollama gains authentication.
+
+## Amendments at acceptance
+
+1. **Contention is a gate.** The companion shares the agents' model, and Ollama keeps one model
+   loaded and serves one request per model at a time. Creating while other tasks run is the
+   product's own promise, so a companion that often says it took too long would break it. Before
+   the companion is called done, its turn times (to the first token and whole, median and 95th
+   percentile) are measured with one agent task generating, on the validated Ollama settings, and
+   recorded in [companion-model.md](../validation/companion-model.md) and here. If the 30 s bound
+   to the first token is often reached, `OLLAMA_NUM_PARALLEL=2` is evaluated with its memory cost
+   measured, rather than a small model, which obeyed the injection.
+2. **Words.** The table above is approved, except that every phrase saying "your Mac" follows the
+   owner's decision on the brand finding of the competition build's review; the host's wording is
+   agreed with the host setup and competition build lanes before it reaches `EntryText`.
