@@ -891,6 +891,21 @@ public class AnswerPagesTests
     }
 
     [Test]
+    public void WhatWasCheckedHasOneSourceOnEveryPageEvenWhenTheUnderstandingSourceHadNoAnswer()
+    {
+        var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
+        var pages = AnswerPages.Split(Answers.Checked(unobserved, ControlPlaneApiTests.Available), new AnswerRoom(20));
+        Assert.That(pages.Count, Is.EqualTo(2));
+        Assert.That(pages[0].Lines, Is.Empty, "the understanding source's page holds only why it has no answer");
+        Assert.That(pages[0].Provenance, Does.StartWith("From Salidium · Understanding unavailable"));
+        Assert.That(pages[1].Lines[0].Text, Is.EqualTo("From Seorak, read 1 minute ago"));
+        Assert.That(pages.Select(page => page.Lines.Count(line => line.Source)), Is.EqualTo(new[] { 0, 1 }));
+
+        var both = AnswerPages.Split(Answers.Checked(Intelligence.Verified, ControlPlaneApiTests.Available), new AnswerRoom(20));
+        Assert.That(both.Select(page => page.Lines.Count(line => line.Source)), Is.EqualTo(new[] { 0, 1 }), "the checks seen, then the measurement");
+    }
+
+    [Test]
     public void AnEmptyAnswerIsOnePageAndEveryPageKeepsTheProvenance()
     {
         var pages = AnswerPages.Split(new SectionPresentation(SectionKind.Understanding, "Not read yet.", SectionTone.Secondary, Array.Empty<SectionLine>(), false), new AnswerRoom(6));

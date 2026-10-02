@@ -634,8 +634,9 @@ namespace Halcyonic.Client
                     ? Runs(available.Understanding, understanding, status, now, zone, room)
                     : UnderstandingPresenter.Failure(SectionKind.Checked, understanding.Response.Result, status);
             }
-            // The measurement starts a page of its own, its provenance line heading each of its pages.
-            var paged = measurement.Select((line, index) => index == 0 && runs.Lines.Count > 0
+            // The measurement starts a page of its own, its provenance line heading each of its pages,
+            // so every page has one source, even when the understanding source had no answer.
+            var paged = measurement.Select((line, index) => index == 0
                 ? new SectionLine(line.Tag, line.Text, line.Tone, line.Detail, line.Rows, line.Source, startsPage: true, repeats: true)
                 : line);
             return new SectionPresentation(SectionKind.Checked, runs.Provenance, runs.ProvenanceTone, runs.Lines.Concat(paged).ToList(),
@@ -705,7 +706,8 @@ namespace Halcyonic.Client
     /// An answer split into the pages a section shows one at a time: as many rows as fit, never a
     /// line apart from the detail under it, never a provenance line at a page's foot, and a new page
     /// at every step of a flow, a step that takes more than one showing its heading again on the
-    /// next. Every page keeps the answer's provenance, so where it comes from is always in view.
+    /// next. Every page keeps the answer's provenance, so where it comes from is always in view, and
+    /// a second source's provenance line always starts a page, so no page has two sources.
     /// </summary>
     public static class AnswerPages
     {
@@ -727,6 +729,9 @@ namespace Halcyonic.Client
             var used = 0;
             foreach (var group in groups)
             {
+                // Another source never shares a page with the section's own: where nothing of the
+                // section's own source comes first, its provenance stands on a page of its own.
+                if (group[0].Source && group[0].StartsPage && pages.Count == 0 && current.Count == 0) pages.Add(new List<SectionLine>());
                 if (group[0].StartsPage) heads.Clear();
                 var size = group.Sum(room.RowsOf);
                 if (current.Count > 0 && (group[0].StartsPage || used + size > rows))
