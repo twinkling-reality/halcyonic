@@ -64,6 +64,12 @@ namespace Halcyonic.Client
         /// <summary>Under a name or first task the companion proposed, until the person changes it.</summary>
         public const string Suggested = "Suggested by the companion";
 
+        /// <summary>The small fact beside a recap fact the companion suggested, while its suggestion stands (ADR 0026).</summary>
+        public const string SuggestedShort = "Suggested";
+
+        /// <summary>The person's own words, beside the first task the companion suggested in its place.</summary>
+        public const string YourOwnWords = "Your own words";
+
         public const string NotSetUp = "The companion isn't set up on " + HostText.Your + ". Type your idea, or answer a few fixed questions.";
         public const string CantRun = "The companion can't run on " + HostText.Your + " right now. Type your idea, or answer a few fixed questions.";
         public const string TooSlow = "The companion took too long. " + HostText.YourStart + "'s model may be busy with a task. Try again, or go on without it.";

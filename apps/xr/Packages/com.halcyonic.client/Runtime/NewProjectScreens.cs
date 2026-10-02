@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -22,6 +23,15 @@ namespace Halcyonic.Client
     /// the page's source line, and its suggestions as answers that choosing only lights, so nothing
     /// reaches it but Send answer. What to show, never where.
     /// </summary>
+    /// <summary>The recap's facts, top to bottom.</summary>
+    public enum RecapFact
+    {
+        Name,
+        FirstTask,
+        Folder,
+        HowItRuns,
+    }
+
     /// <summary>The rows of Your idea the person can choose.</summary>
     public enum IdeaRow
     {
@@ -68,6 +78,36 @@ namespace Halcyonic.Client
 
         public const string TryAgain = "companion-retry";
         public const string HoldToTalk = "hold-to-talk";
+
+        /// <summary>What choosing one of the recap's facts raises, with <see cref="FactKey"/> as the key.</summary>
+        public const string ChooseFact = "recap-fact";
+
+        public const string StartOver = "start-over";
+        public const string ConfirmStartOver = "confirm-start-over";
+        public const string Cancel = "cancel";
+        public const string Rename = "rename";
+
+        /// <summary>Change for a first task: the keyboard, or for a suggested one the page of its answers.</summary>
+        public const string ChangeTask = "change-task";
+
+        public const string ChooseWhere = "choose-where";
+        public const string MoreOptions = "more-options";
+        public const string StartBuilding = "start-building";
+
+        /// <summary>Done: back to the recap's facts from a page that changes one.</summary>
+        public const string Done = "done";
+
+        public const string UseSuggestedTask = "use-suggested-task";
+        public const string UseMyWords = "use-my-words";
+        public const string TypeTask = "type-task";
+
+        /// <summary>What choosing a folder raises, with its place in <see cref="ProjectFolder.Options"/> as the key.</summary>
+        public const string ChooseFolder = "choose-folder";
+
+        public const string ReadFolders = "read-folders";
+        public const string ChooseRuntime = "choose-runtime";
+        public const string ChooseModel = "choose-model";
+        public const string ChangeRuntime = "change-runtime";
 
         /// <summary>
         /// The characters a row of the content holds, about: ADR 0026's subject line holds 36 at 24 dp
@@ -303,6 +343,244 @@ namespace Halcyonic.Client
 
         /// <summary>The rows <paramref name="text"/> takes at the content's size, about.</summary>
         private static int Rows(string text) => (text.Length + RowCharacters - 1) / RowCharacters;
+
+        /// <summary>The key a recap fact's row raises with <see cref="ChooseFact"/>.</summary>
+        public static string FactKey(RecapFact fact) => fact switch
+        {
+            RecapFact.Name => "name",
+            RecapFact.FirstTask => "first-task",
+            RecapFact.Folder => "folder",
+            _ => "how-it-runs",
+        };
+
+        /// <summary>The fact a row's key names, or null for a key that names none.</summary>
+        public static RecapFact? FactOf(string? key)
+        {
+            foreach (RecapFact fact in System.Enum.GetValues(typeof(RecapFact)))
+            {
+                if (FactKey(fact) == key) return fact;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// The recap: the companion's proposal, quoted as its own, while what it suggested stands, else
+        /// what this page is for; then each fact as a row, its value with Suggested beside it while the
+        /// companion's suggestion stands. Choosing a fact lights it, slides out its side panel with the
+        /// whole of it, and puts its change beside Close: Change, Choose a folder or More options; with
+        /// no fact chosen, Start over stands there, confirmed in place. Start building is the main
+        /// action, and while something is missing it stays, unavailable, saying what.
+        /// </summary>
+        /// <param name="currentFolder">An existing project's folder as its computer bound it, or null.</param>
+        /// <param name="notice">A line for the recap only, such as what the computer heard, shown first.</param>
+        /// <param name="problem">Why Start building can't go ahead now (<see cref="EntryScreens.StartProblem"/>), or null.</param>
+        /// <param name="chosen">The fact chosen, whose side panel shows; null for none.</param>
+        /// <param name="confirmingStartOver">Start over was pressed once: Cancel stands in its place and Yes, start over in the middle.</param>
+        public static MenuFrame Recap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem,
+            RecapFact? chosen = null, bool confirmingStartOver = false)
+        {
+            var existing = idea.ExistingProjectId != null;
+            var suggested = idea.NameSuggested || idea.TaskSuggested;
+            var proposal = suggested ? idea.Companion?.Proposal : null;
+            // An existing project's name is not changed here, so its row takes no press.
+            if (existing && chosen == RecapFact.Name) chosen = null;
+            var lines = new List<PageLine>();
+            if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 2));
+            else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), wordsAreData: true, claim: true, rows: 2));
+            else lines.Add(new PageLine(idea.Folder != null && existing ? EntryText.RebindWarning : EntryText.RecapLine, tone: LineTone.Secondary, rows: 2));
+            var named = idea.Name.Length > 0;
+            lines.Add(existing
+                ? new PageLine(LabelText.Plain(idea.Name), wordsAreData: true)
+                : new PageLine(named ? LabelText.Plain(idea.Name) : EntryText.NotNamedYet, wordsAreData: named,
+                    fact: idea.NameSuggested ? CompanionText.SuggestedShort : null,
+                    action: ChooseFact, key: FactKey(RecapFact.Name), opens: true, chosen: chosen == RecapFact.Name));
+            lines.Add(new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, fact: idea.TaskSuggested ? CompanionText.SuggestedShort : null,
+                action: ChooseFact, key: FactKey(RecapFact.FirstTask), opens: true, chosen: chosen == RecapFact.FirstTask));
+            var nothingChosen = idea.Folder == null && currentFolder == null;
+            lines.Add(new PageLine(EntryText.FolderFact(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true), wordsAreData: !nothingChosen,
+                action: ChooseFact, key: FactKey(RecapFact.Folder), opens: true, chosen: chosen == RecapFact.Folder));
+            lines.Add(new PageLine(EntryText.RunsWith(draft, live), wordsAreData: RuntimeIsData(draft, live),
+                action: ChooseFact, key: FactKey(RecapFact.HowItRuns), opens: true, chosen: chosen == RecapFact.HowItRuns));
+            var change = chosen switch
+            {
+                RecapFact.Name => new Prompt(Rename, EntryText.Change, GlazeIcon.Change),
+                RecapFact.FirstTask => new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change),
+                RecapFact.Folder => new Prompt(ChooseWhere, EntryText.ChooseAnotherFolder, GlazeIcon.Change),
+                RecapFact.HowItRuns => new Prompt(MoreOptions, EntryText.MoreOptions, GlazeIcon.Change),
+                _ => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver),
+            };
+            var footer = new Footer(Close(), rare: change,
+                farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem));
+            if (confirmingStartOver && chosen == null)
+            {
+                lines.Add(new PageLine(EntryText.StartOverQuestion, rows: 2));
+                footer = Footer.Confirm(footer, PromptSlot.Rare,
+                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes),
+                    new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
+            }
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, problem == null), lines: lines,
+                source: suggested ? CompanionText.Note : null, side: chosen is RecapFact fact ? Side(fact, idea, draft, currentFolder, live) : null);
+        }
+
+        /// <summary>
+        /// Changing a first task the companion suggested: its suggestion and the person's own words,
+        /// each as it was written, and Type my own. Choosing one makes it the first task, here on the
+        /// headset; Done goes back to the facts.
+        /// </summary>
+        public static MenuFrame RecapTask(ProjectIdea idea, bool startReached)
+        {
+            var proposal = idea.Companion?.Proposal?.Proposal;
+            var lines = new List<PageLine> { new PageLine(EntryText.FirstTask, tone: LineTone.Secondary) };
+            if (proposal != null)
+            {
+                lines.Add(new PageLine(LabelText.Plain(proposal.FirstTask), wordsAreData: true, claim: true, fact: CompanionText.SuggestedShort,
+                    action: UseSuggestedTask, choice: true, chosen: idea.TaskSuggested, rows: 3));
+            }
+            if (idea.OwnWords != null)
+            {
+                lines.Add(new PageLine(LabelText.Plain(idea.OwnWords), wordsAreData: true, action: UseMyWords, choice: true,
+                    chosen: !idea.TaskSuggested && idea.FirstTask == idea.OwnWords, rows: 3));
+            }
+            var typed = !idea.TaskSuggested && idea.FirstTask != idea.OwnWords;
+            lines.Add(new PageLine(typed ? LabelText.Plain(idea.FirstTask) : EntryText.TypeMyOwn, wordsAreData: typed, icon: GlazeIcon.Type,
+                action: TypeTask, choice: true, chosen: typed, rows: typed ? 3 : 1));
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)), subjectIsData: isData,
+                sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines, source: proposal != null ? CompanionText.Note : null);
+        }
+
+        /// <summary>
+        /// Where its files live: what the computer lists, place by place, a new folder, the place itself
+        /// and each folder in it, each an answer; a place not on the computer now shows and takes no
+        /// press. Choosing one makes it the folder, here on the headset, and Done goes back to the facts;
+        /// nothing is sent. While the folders can't be read, why, and Try again.
+        /// </summary>
+        /// <param name="problem">Why the folders couldn't be read, as it arrived, or null while reading.</param>
+        /// <param name="notice">A line for this page only, such as why a new folder's name was refused.</param>
+        public static MenuFrame RecapFolder(ProjectIdea idea, bool startReached, LocationsResponse? locations, string? problem, string? notice)
+        {
+            var lines = new List<PageLine>();
+            var main = new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true);
+            var tryAgain = new Prompt(ReadFolders, EntryText.TryAgain, GlazeIcon.Refresh, main: true);
+            if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Problem, rows: 2));
+            if (locations == null)
+            {
+                lines.Add(new PageLine(problem == null ? EntryText.ReadingFolders : EntryText.FoldersUnread(problem), rows: 3));
+                if (problem != null) main = tryAgain;
+            }
+            else if (locations.Roots.Count == 0)
+            {
+                lines.Add(new PageLine(EntryText.NoFolders, rows: 3));
+                main = tryAgain;
+            }
+            else
+            {
+                if (notice == null)
+                {
+                    var cut = locations.Roots.Any(root => root.FoldersTruncated);
+                    lines.Add(new PageLine(cut ? EntryText.FolderLine + " " + EntryText.FoldersCut : EntryText.FolderLine, tone: LineTone.Secondary, rows: 2));
+                }
+                var options = ProjectFolder.Options(locations);
+                var current = idea.Folder;
+                for (var index = 0; index < options.Count; index++)
+                {
+                    var option = options[index];
+                    var chosen = current != null && current.RootPath == option.Root.Path
+                        && (option.Kind == FolderOptionKind.NewFolder ? current.IsNew
+                            : !current.IsNew && (option.Kind == FolderOptionKind.Root ? current.FolderName == null
+                                : option.Kind == FolderOptionKind.Folder && current.FolderName == option.Folder!.Name));
+                    lines.Add(new PageLine(option.Label, wordsAreData: true, fact: option.Detail, action: ChooseFolder,
+                        key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, available: option.Choosable));
+                }
+            }
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), farRight: main), subjectIsData: isData,
+                sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
+        }
+
+        /// <summary>
+        /// How it runs: the agent apps that can start work, each an answer, or the chosen one's own
+        /// models with where each runs, Change agent app beside Close. Choosing is all this does; nothing
+        /// but a model on the computer is chosen for the person, which says so, and a model that runs
+        /// elsewhere is chosen only by a second press, after its row says where it runs.
+        /// </summary>
+        public static MenuFrame RecapOptions(ProjectIdea idea, bool startReached, NewWorkDraft draft, IEnumerable<RuntimeDescriptor> runtimes,
+            bool showModels, bool live)
+        {
+            var lines = new List<PageLine> { new PageLine(EntryText.OptionsLine, tone: LineTone.Secondary, rows: 2) };
+            Prompt? rare = null;
+            if (showModels && draft.Runtime?.ModelChoice == ModelChoice.Listed)
+            {
+                if (draft.Models.Count == 0) lines.Add(new PageLine(draft.ModelProblem ?? EntryText.NoModels, rows: 2));
+                var elsewhere = draft.Elsewhere;
+                for (var index = 0; index < draft.Models.Count; index++)
+                {
+                    if (index == elsewhere) lines.Add(new PageLine(EntryText.ElsewhereDivider(draft.Models.Skip(elsewhere)), tone: LineTone.Secondary, rows: 2));
+                    var each = draft.Models[index];
+                    var chosen = draft.Model?.ModelRef == each.ModelRef;
+                    var pending = draft.PendingModel == each;
+                    lines.Add(new PageLine(LabelText.Plain(each.DisplayName), wordsAreData: true,
+                        fact: pending ? EntryText.ConfirmElsewhere(each)
+                            : (chosen && draft.ModelPreselected ? EntryText.ChosenForYou + " · " : "") + EntryText.ServedShort(each.Served),
+                        action: ChooseModel, key: each.ModelRef, choice: true, chosen: chosen));
+                }
+                rare = new Prompt(ChangeRuntime, EntryText.ChangeAgentApp, GlazeIcon.Change);
+            }
+            else
+            {
+                var choices = EntryText.RuntimeChoices(runtimes);
+                if (choices.Count == 0) lines.Add(new PageLine(EntryText.NoRuntimes, rows: 3));
+                foreach (var runtime in choices)
+                {
+                    var fact = runtime.Synthetic ? (live ? EntryText.PracticeDetail : EntryText.Practice)
+                        : runtime.ModelChoice == ModelChoice.Listed ? EntryText.ListsModels : EntryText.ChoosesModel;
+                    lines.Add(new PageLine(EntryText.RuntimeName(runtime, live), wordsAreData: !(runtime.Synthetic && live), fact: fact,
+                        action: ChooseRuntime, key: runtime.RuntimeId, choice: true, chosen: draft.Runtime?.RuntimeId == runtime.RuntimeId));
+                }
+            }
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), rare: rare, farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)),
+                subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
+        }
+
+        /// <summary>A chosen fact's side panel: its name, then the whole of it; a suggested first task with the person's own words below.</summary>
+        private static SidePanel Side(RecapFact fact, ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live)
+        {
+            switch (fact)
+            {
+                case RecapFact.Name:
+                    var named = idea.Name.Length > 0;
+                    return new SidePanel(EntryText.ProjectName,
+                        lines: new[] { new PageLine(named ? LabelText.Plain(idea.Name) : EntryText.NotNamedYet, wordsAreData: named, rows: 2) },
+                        source: idea.NameSuggested ? CompanionText.Note : null);
+                case RecapFact.FirstTask when idea.TaskSuggested && idea.OwnWords != null:
+                    return new SidePanel(EntryText.FirstTask, facts: new[]
+                    {
+                        new SideFact(CompanionText.Suggested, LabelText.Plain(idea.FirstTask), valueIsData: true),
+                        new SideFact(CompanionText.YourOwnWords, LabelText.Plain(idea.OwnWords), valueIsData: true),
+                    }, source: CompanionText.Note);
+                case RecapFact.FirstTask:
+                    return new SidePanel(EntryText.FirstTask, lines: new[] { new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, rows: 8) },
+                        source: idea.TaskSuggested ? CompanionText.Note : null);
+                case RecapFact.Folder:
+                    var folderLines = new List<PageLine>
+                    {
+                        new PageLine(EntryText.FolderFact(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true),
+                            wordsAreData: idea.Folder != null || currentFolder != null, rows: 3),
+                    };
+                    if (idea.Folder != null && idea.ExistingProjectId != null) folderLines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 3));
+                    return new SidePanel(EntryText.FolderTitle, lines: folderLines);
+                default:
+                    var runLines = new List<PageLine> { new PageLine(EntryText.RunsWith(draft, live), wordsAreData: RuntimeIsData(draft, live), rows: 2) };
+                    if (EntryText.ModelLine(draft) is string model && model.Length > 0) runLines.Add(new PageLine(model, tone: LineTone.Secondary, rows: 3));
+                    return new SidePanel(EntryText.HowItRuns, lines: runLines);
+            }
+        }
+
+        /// <summary>A runtime's own name, where it is shown, comes from outside; the practice agent's words in a live session are ours.</summary>
+        private static bool RuntimeIsData(NewWorkDraft draft, bool live) =>
+            draft.Runtime is RuntimeDescriptor runtime && (!runtime.Synthetic || !live) && (runtime.Synthetic || runtime.ModelChoice != ModelChoice.Listed);
 
         private static Prompt Close() => new Prompt(Footer.Close, EntryText.Close, GlazeIcon.Close, PromptKind.Close);
     }
