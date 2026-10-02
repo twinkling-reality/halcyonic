@@ -658,7 +658,19 @@ the same definition names, as the JSON Schema document:
   Suggested beside what the companion suggested, opening a side panel with the whole of it; the
   chosen fact's change stands beside Close (Start over while none is chosen, confirmed in place),
   and changing a suggested first task, the folder or how it runs is a page of answers with Done.
-  Start building shows each step and the next action its outcome allows.
+  The fixed questions go forward only: choosing an answer, the person's own or the skip only
+  lights it (`ProjectIdea.ChooseGuideAnswer`, `WriteGuideAnswer`, `ChooseGuideSkip`), and Next
+  question gives it (`NextQuestion`), Make the recap on the last. Changing a first task composed
+  from them walks them again with every answer chosen (`ChangeFor`, `TaskFromAnswers`); words the
+  person wrote are never composed over. A name, a first task in the person's own words and a new
+  folder's name are given on a words page: the words as a row that opens the keyboard, Hold to talk
+  beside Done, and Done unavailable, saying the rule, while they break it. Hold to talk stands
+  beside the main action wherever words are given, and heard words land chosen with the note to
+  check them. Start building's review shows the whole request a part at a time as the Unity layer
+  measured it, each part from the wrapped row where it was split, never cut, with Next part as the
+  last row of every part but the last; Yes, start building appears in the middle only once the
+  last part has shown, with Cancel where Start building was pressed. Start building then shows
+  each step and the next action its outcome allows.
 - **`WorkspaceScreens`** builds every screen of the open workspace as a `PanelModel` from its
   presentation, the steering and what the workspace is in the middle of (`WorkspaceScreen`: the
   tab chosen, a notice, the instructions offered where no keyboard is, and the agent's question or

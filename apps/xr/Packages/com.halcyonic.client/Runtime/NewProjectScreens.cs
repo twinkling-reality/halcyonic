@@ -32,6 +32,27 @@ namespace Halcyonic.Client
         HowItRuns,
     }
 
+    /// <summary>What the words page is for.</summary>
+    public enum WordsFor
+    {
+        Name,
+        FirstTask,
+        FolderName,
+    }
+
+    /// <summary>What Change does for a first task (<see cref="NewProjectScreens.ChangeFor"/>).</summary>
+    public enum TaskChange
+    {
+        /// <summary>The page of its answers: the companion's suggestion, the person's own words, Type my own.</summary>
+        Answers,
+
+        /// <summary>The fixed questions again, each answer chosen.</summary>
+        Questions,
+
+        /// <summary>The words page.</summary>
+        Words,
+    }
+
     /// <summary>The rows of Your idea the person can choose.</summary>
     public enum IdeaRow
     {
@@ -108,6 +129,18 @@ namespace Halcyonic.Client
         public const string ChooseRuntime = "choose-runtime";
         public const string ChooseModel = "choose-model";
         public const string ChangeRuntime = "change-runtime";
+
+        /// <summary>What choosing an offered answer to a fixed question raises, with its place among the answers as the key.</summary>
+        public const string ChooseFixedAnswer = "fixed-answer";
+
+        public const string TypeFixedAnswer = "fixed-type";
+        public const string SkipFixedQuestion = "fixed-skip";
+
+        /// <summary>Next question, or on the last question Make the recap: gives the chosen answer.</summary>
+        public const string NextQuestion = "next-question";
+
+        /// <summary>The words page's row: the keyboard, with the words as they stand.</summary>
+        public const string TypeWords = "type-words";
 
         /// <summary>The review's row to the next part; only once the last part has shown is Yes, start building offered.</summary>
         public const string NextPart = "next-part";
@@ -461,9 +494,11 @@ namespace Halcyonic.Client
         /// <summary>
         /// Changing a first task the companion suggested: its suggestion and the person's own words,
         /// each as it was written, and Type my own. Choosing one makes it the first task, here on the
-        /// headset; Done goes back to the facts.
+        /// headset; Done goes back to the facts. Hold to talk gives the person's own, which lands in Type
+        /// my own, chosen, for them to check.
         /// </summary>
-        public static MenuFrame RecapTask(ProjectIdea idea, bool startReached)
+        /// <param name="said">A line for this page only, such as hold to talk's words or that the task is what the computer heard.</param>
+        public static MenuFrame RecapTask(ProjectIdea idea, bool startReached, bool voice = false, string? said = null)
         {
             var proposal = idea.Companion?.Proposal?.Proposal;
             var lines = new List<PageLine> { new PageLine(EntryText.FirstTask, tone: LineTone.Secondary) };
@@ -480,8 +515,11 @@ namespace Halcyonic.Client
             var typed = !idea.TaskSuggested && idea.FirstTask != idea.OwnWords;
             lines.Add(new PageLine(typed ? LabelText.Plain(idea.FirstTask) : EntryText.TypeMyOwn, wordsAreData: typed, icon: GlazeIcon.Type,
                 action: TypeTask, choice: true, chosen: typed, rows: typed ? 3 : 1));
+            if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
+            var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
             var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)), subjectIsData: isData,
+            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)),
+                subjectIsData: isData,
                 sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines, source: proposal != null ? CompanionText.Note : null);
         }
 
@@ -611,6 +649,97 @@ namespace Halcyonic.Client
                     if (EntryText.ModelLine(draft) is string model && model.Length > 0) runLines.Add(new PageLine(model, tone: LineTone.Secondary, rows: 3));
                     return new SidePanel(EntryText.HowItRuns, lines: runLines);
             }
+        }
+
+        /// <summary>
+        /// One fixed question, forward only: the question with which of how many it is, its answers,
+        /// the person's own answer typed or heard, and its skip where it can be skipped. Choosing only
+        /// lights an answer; Next question gives it, and on the last question Make the recap does,
+        /// composing the first task. Coming back to a question finds its answer chosen. The note that
+        /// these are fixed questions, not an AI, is the source line.
+        /// </summary>
+        public static MenuFrame FixedQuestion(ProjectIdea idea, bool startReached, bool voice, string? said)
+        {
+            if (idea.Question >= ProjectIdea.Questions.Count) throw new System.ArgumentException("Every fixed question is answered.", nameof(idea));
+            var question = ProjectIdea.Questions[idea.Question];
+            var asked = idea.ExistingProjectId != null ? ProjectIdea.Questions.Count - 1 : ProjectIdea.Questions.Count;
+            var stands = idea.GuideAnswer;
+            var lines = new List<PageLine> { new PageLine(question.Prompt, fact: EntryText.Question(idea.Question, asked), rows: 2) };
+            var choices = idea.Choices;
+            for (var index = 0; index < choices.Count; index++)
+            {
+                lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: index.ToString(CultureInfo.InvariantCulture), choice: true,
+                    chosen: stands == choices[index]));
+            }
+            var written = idea.GuideWritten ?? (stands != null && !choices.Contains(stands) ? stands : null);
+            lines.Add(new PageLine(written == null ? question.TypeLabel : LabelText.Plain(written), wordsAreData: written != null, icon: GlazeIcon.Type,
+                action: TypeFixedAnswer, choice: true, chosen: written != null && stands == written, rows: written == null ? 1 : 2));
+            if (question.SkipLabel != null) lines.Add(new PageLine(question.SkipLabel, action: SkipFixedQuestion, choice: true, chosen: idea.GuideSkipChosen));
+            if (idea.GuideWrittenHeard && written != null && stands == written) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
+            if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
+            var next = new Prompt(NextQuestion, idea.LastQuestion ? CompanionText.MakeTheRecap : EntryText.NextQuestion, GlazeIcon.Next, main: true,
+                available: idea.CanGoOn, reason: EntryText.ChooseOrTypeFirst);
+            var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: next), subjectIsData: isData,
+                sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines, source: EntryText.GuideNote);
+        }
+
+        /// <summary>
+        /// What Change does for the first task: the page of its answers once the companion proposed one,
+        /// the fixed questions again for a task composed from their answers and unchanged since, and
+        /// otherwise the words page, so the person's own words are never composed over.
+        /// </summary>
+        public static TaskChange ChangeFor(ProjectIdea idea) =>
+            idea.Companion?.Proposal != null ? TaskChange.Answers : idea.TaskFromAnswers ? TaskChange.Questions : TaskChange.Words;
+
+        /// <summary>
+        /// Giving words where there are no answers to choose: the project's name, a first task in the
+        /// person's own words, or a new folder's name. A line names what is written; the words, as they
+        /// stand, are a row that opens the keyboard; Hold to talk says them instead. Done keeps them, and
+        /// while they break a rule it stays, unavailable, saying the rule. The steps are the way back
+        /// without keeping them.
+        /// </summary>
+        /// <param name="written">The words given on this page, typed or heard, not yet kept; null for none yet.</param>
+        /// <param name="heard"><paramref name="written"/> is what the computer heard, for the person to check.</param>
+        /// <param name="root">For a new folder, the place it goes in.</param>
+        public static MenuFrame Words(ProjectIdea idea, bool startReached, WordsFor what, string? written, bool heard, bool voice, string? said,
+            LocationRoot? root = null)
+        {
+            if (what == WordsFor.FolderName && root == null) throw new System.ArgumentException("A new folder goes in a place.", nameof(root));
+            var current = what switch
+            {
+                WordsFor.Name => idea.Name.Length > 0 ? idea.Name : null,
+                WordsFor.FirstTask => idea.FirstTask.Length > 0 ? idea.FirstTask : null,
+                _ => idea.Folder is ProjectFolder folder && folder.IsNew && folder.RootPath == root!.Path ? folder.FolderName : null,
+            };
+            var words = written ?? current;
+            var problem = what switch
+            {
+                WordsFor.Name => string.IsNullOrWhiteSpace(words) || words!.Trim().Length > ProjectIdea.NameLimit ? EntryText.NameRule : null,
+                WordsFor.FirstTask => string.IsNullOrWhiteSpace(words) ? EntryText.DescribeTask : words!.Trim().Length > ProjectIdea.TaskLimit ? EntryText.ShortenTask : null,
+                _ => words == null || ProjectFolder.New(root!, words) == null ? EntryText.NewFolderRule : null,
+            };
+            // Blank words show as the row's invitation; Done says what is missing.
+            var shown = string.IsNullOrWhiteSpace(words) ? null : LabelText.Plain(words);
+            var lines = new List<PageLine>
+            {
+                new PageLine(what switch
+                {
+                    WordsFor.Name => EntryText.ProjectName,
+                    WordsFor.FirstTask => EntryText.FirstTask,
+                    _ => EntryText.NewFolderIn(root!),
+                }, wordsAreData: what == WordsFor.FolderName),
+                new PageLine(shown ?? (what == WordsFor.FirstTask ? EntryText.TypeMyOwn : EntryText.TypeName), wordsAreData: shown != null,
+                    icon: GlazeIcon.Type, action: TypeWords, choice: true, chosen: shown != null && written != null, rows: what == WordsFor.FirstTask ? 4 : 1),
+            };
+            if (heard && written != null) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
+            if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
+            var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
+            var done = new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true, available: problem == null, reason: problem);
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: done), subjectIsData: isData,
+                sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
         }
 
         /// <summary>

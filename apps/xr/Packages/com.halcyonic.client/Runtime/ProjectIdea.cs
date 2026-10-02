@@ -76,7 +76,7 @@ namespace Halcyonic.Client
             new GuidedQuestion("What kind of thing is it?", Kinds, "Something else", null),
             new GuidedQuestion("Who is it for?", Audiences, "Someone else", null),
             new GuidedQuestion("What should it do first?", Array.Empty<string>(), "Type it myself", null),
-            new GuidedQuestion("What should it be called?", Array.Empty<string>(), "Type a name", "Name it later"),
+            new GuidedQuestion("What should it be called?", Array.Empty<string>(), EntryText.TypeName, "Name it later"),
         };
 
         private readonly string?[] answers = new string?[Fixed.Count];
@@ -213,6 +213,80 @@ namespace Halcyonic.Client
         {
             Guided = true;
             Question = 0;
+            Unchoose();
+        }
+
+        /// <summary>
+        /// The answer chosen for the fixed question being asked, not yet given (ADR 0026): one offered,
+        /// or the person's own words; null while none is. Choosing only lights an answer, and
+        /// <see cref="NextQuestion"/> gives it.
+        /// </summary>
+        public string? GuideChosen { get; private set; }
+
+        /// <summary>The person's own answer to the question being asked, typed or heard; it stays while an offered one is chosen.</summary>
+        public string? GuideWritten { get; private set; }
+
+        /// <summary><see cref="GuideWritten"/> is what the computer heard, for the person to check.</summary>
+        public bool GuideWrittenHeard { get; private set; }
+
+        /// <summary>The question's skip is chosen, on a question that can be skipped.</summary>
+        public bool GuideSkipChosen { get; private set; }
+
+        /// <summary>
+        /// The answer that stands for the question being asked: the one chosen, else, coming back to it,
+        /// the one given before; null for none, or while the skip is chosen.
+        /// </summary>
+        public string? GuideAnswer => GuideSkipChosen || Question >= Fixed.Count ? null : GuideChosen ?? answers[Question];
+
+        /// <summary>Next question can be pressed: an answer stands for the question being asked, or its skip is chosen.</summary>
+        public bool CanGoOn => Question < Fixed.Count && (GuideSkipChosen || GuideAnswer != null);
+
+        /// <summary>The question being asked is the last one asked: the name, or for a project that exists, its first step.</summary>
+        public bool LastQuestion => Question == Fixed.Count - 1 || (ExistingProjectId != null && Question == NameQuestion - 1);
+
+        /// <summary>Lights one of the answers offered for the question being asked; nothing is given yet.</summary>
+        public bool ChooseGuideAnswer(string? answer)
+        {
+            if (Question >= Fixed.Count || answer == null || !Choices.Contains(answer)) return false;
+            GuideChosen = answer;
+            GuideSkipChosen = false;
+            return true;
+        }
+
+        /// <summary>Keeps the person's own answer, typed or <paramref name="heard"/>, and lights it; a blank or overlong one is refused.</summary>
+        public bool WriteGuideAnswer(string? text, bool heard = false)
+        {
+            var words = (text ?? "").Trim();
+            if (Question >= Fixed.Count || words.Length == 0 || words.Length > TaskLimit) return false;
+            GuideWritten = words;
+            GuideWrittenHeard = heard;
+            GuideChosen = words;
+            GuideSkipChosen = false;
+            return true;
+        }
+
+        /// <summary>Lights the skip, on a question that can be skipped.</summary>
+        public bool ChooseGuideSkip()
+        {
+            if (Question >= Fixed.Count || Fixed[Question].SkipLabel == null) return false;
+            GuideChosen = null;
+            GuideSkipChosen = true;
+            return true;
+        }
+
+        /// <summary>Next question: gives the answer that stands, or the skip, and moves on; refused while none is chosen.</summary>
+        public bool NextQuestion()
+        {
+            if (!CanGoOn) return false;
+            return GuideSkipChosen ? Skip() : Answer(GuideAnswer);
+        }
+
+        private void Unchoose()
+        {
+            GuideChosen = null;
+            GuideWritten = null;
+            GuideWrittenHeard = false;
+            GuideSkipChosen = false;
         }
 
         /// <summary>
@@ -228,6 +302,7 @@ namespace Halcyonic.Client
             // A new kind changes the first steps offered, so an earlier first step no longer fits.
             if (Question == KindQuestion && answers[KindQuestion] != text) answers[FirstStepQuestion] = null;
             answers[Question] = text.Length == 0 ? null : text;
+            Unchoose();
             Question++;
             // The name is asked only when creating a project.
             if (Question == NameQuestion && ExistingProjectId != null) Question++;
@@ -242,6 +317,7 @@ namespace Halcyonic.Client
         public bool Back()
         {
             if (Question == 0) return false;
+            Unchoose();
             Question--;
             if (Question == NameQuestion && ExistingProjectId != null) Question--;
             return true;
@@ -274,9 +350,9 @@ namespace Halcyonic.Client
         {
             get
             {
-                if (ExistingProjectId == null && (Name.Length == 0 || Name.Length > NameLimit)) return "Name the project in at most 200 characters.";
-                if (FirstTask.Length == 0) return "Describe the first task.";
-                if (FirstTask.Length > TaskLimit) return "Shorten the first task to at most 4,000 characters.";
+                if (ExistingProjectId == null && (Name.Length == 0 || Name.Length > NameLimit)) return EntryText.NameRule;
+                if (FirstTask.Length == 0) return EntryText.DescribeTask;
+                if (FirstTask.Length > TaskLimit) return EntryText.ShortenTask;
                 return null;
             }
         }
@@ -399,7 +475,29 @@ namespace Halcyonic.Client
         /// The recap from the answers: for example "Make a website for my team. First, show one page
         /// that says what it is." Typed answers go in as typed.
         /// </summary>
+        /// <summary>
+        /// The first task is the one composed from the fixed answers, unchanged since: its Change walks
+        /// the questions again rather than letting the person's own words be composed over.
+        /// </summary>
+        public bool TaskFromAnswers => Guided && Question >= Fixed.Count && FirstTask.Length > 0 && FirstTask == ComposedTask();
+
         private void Compose()
+        {
+            FirstTask = ComposedTask();
+            TaskSuggested = false;
+            if (ExistingProjectId != null || NameTyped) return;
+            NameSuggested = false;
+            Name = answers[NameQuestion] ?? (answers[KindQuestion] ?? "something") switch
+            {
+                "A website" => "New website",
+                "An app" => "New app",
+                "A tool or script" => "New tool",
+                _ => "New project",
+            };
+        }
+
+        /// <summary>The first task the fixed answers make.</summary>
+        private string ComposedTask()
         {
             var kind = answers[KindQuestion] ?? "something";
             var audience = answers[AudienceQuestion] switch
@@ -420,17 +518,7 @@ namespace Halcyonic.Client
                 var offered = FirstSteps.Values.Any(steps => steps.Contains(first));
                 task.Append(" First, ").Append(offered ? LowerFirst(first) : first.TrimEnd('.')).Append('.');
             }
-            FirstTask = task.ToString();
-            TaskSuggested = false;
-            if (ExistingProjectId != null || NameTyped) return;
-            NameSuggested = false;
-            Name = answers[NameQuestion] ?? kind switch
-            {
-                "A website" => "New website",
-                "An app" => "New app",
-                "A tool or script" => "New tool",
-                _ => "New project",
-            };
+            return task.ToString();
         }
 
         private static string LowerFirst(string text) => char.ToLowerInvariant(text[0]) + text.Substring(1);

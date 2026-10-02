@@ -53,6 +53,21 @@ namespace Halcyonic.Client
         public const string AnswerQuestions = "Answer a few questions";
         public const string StartQuestions = "Start the questions";
 
+        /// <summary>The fixed questions' main action, and why it can't be pressed before an answer is chosen (the coordinator, 2026-10-02).</summary>
+        public const string NextQuestion = "Next question";
+        public const string ChooseOrTypeFirst = "Choose or type an answer first.";
+
+        /// <summary>Typing a name: the fixed name question's own answer, and the words page's row before there is one.</summary>
+        public const string TypeName = "Type a name";
+
+        /// <summary>What a name or first task must be, said where it can't be kept as it is.</summary>
+        public const string NameRule = "Name the project in at most 200 characters.";
+        public const string DescribeTask = "Describe the first task.";
+        public const string ShortenTask = "Shorten the first task to at most 4,000 characters.";
+
+        /// <summary>The words page's line for a new folder: the folder list's own words for it.</summary>
+        public static string NewFolderIn(LocationRoot root) => ProjectFolder.NewFolderLabel(root);
+
         /// <summary>Typing a first task of one's own in place of the companion's suggestion and one's earlier words.</summary>
         public const string TypeMyOwn = "Type my own";
         public const string NothingStartsYet = "Nothing starts until you choose Start building.";
