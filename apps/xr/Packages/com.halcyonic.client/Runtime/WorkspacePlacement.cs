@@ -102,6 +102,9 @@ namespace Halcyonic.Client
         /// <summary>The tallest panel whose center goes no lower than <see cref="LowestDegrees"/>: a foreground panel's 26 degrees (ADR 0023).</summary>
         public const float DesignedHeightDegrees = 26f;
 
+        /// <summary>The most the head is taken to tip down to read a panel taller than designed (<see cref="ReadingPitch"/>).</summary>
+        public const float MostReadingPitchDegrees = 8f;
+
         public const float HighestDegrees = 2f;
 
         /// <summary>The workspace opens no farther than this to the side of where the person looks.</summary>
@@ -189,16 +192,33 @@ namespace Halcyonic.Client
         /// its upper edge where a designed panel's goes, and the other half leaves room for labels whose
         /// titles grew with the text (to be judged on the headset). With a measured
         /// <paramref name="field"/>, raised so that every corner stays
-        /// <see cref="ViewField.EdgeMarginDegrees"/> inside it when the person looks toward it with the
-        /// head level (<see cref="ViewField.LowestCenter"/>), but never above <see cref="HighestDegrees"/>.
+        /// <see cref="ViewField.EdgeMarginDegrees"/> inside it when the person looks toward it, the head
+        /// level for a designed panel and tipped down by <see cref="ReadingPitch"/> for a taller one
+        /// (<see cref="ViewField.LowestCenter"/>), but never above <see cref="HighestDegrees"/>.
         /// </summary>
         public static float Lowest(PanelSize size, ViewField? field = null)
         {
-            var band = LowestDegrees - Math.Max(0f, 2f * size.HalfHeightDegrees - DesignedHeightDegrees);
+            var band = LowestDegrees - TallerBy(size);
             if (field is not ViewField known) return band;
-            var inside = known.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees);
+            // A plate facing the eyes, seen with the head tipped down, is the plate that much higher seen with it level.
+            var inside = known.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees) - ReadingPitch(size);
             return Math.Min(HighestDegrees, Math.Max(band, inside));
         }
+
+        /// <summary>How much taller than designed a panel of <paramref name="size"/> is, in degrees; 0 for one no taller.</summary>
+        public static float TallerBy(PanelSize size) => Math.Max(0f, 2f * size.HalfHeightDegrees - DesignedHeightDegrees);
+
+        /// <summary>
+        /// How far the person tips their head down to read a panel of <paramref name="size"/>, in degrees,
+        /// as the headset's field of view takes it (ADR 0023, 2026-10-02). A panel as tall as designed is
+        /// read with the head level. A taller one, under the far lineup's labels, reaches past the
+        /// bottom of a narrow field, a Quest 3S's, with the head level: by about 4.4 degrees with text a
+        /// step larger, 3.7 degrees taller. So it is taken to be read with the head tipped down by half
+        /// again as much as it is taller, about 5.6 degrees then, and never more than
+        /// <see cref="MostReadingPitchDegrees"/>; a panel that would need more does not fit the field. To
+        /// be judged on the headset.
+        /// </summary>
+        public static float ReadingPitch(PanelSize size) => Math.Min(MostReadingPitchDegrees, 1.5f * TallerBy(size));
 
         /// <summary>
         /// Where a flat panel's corners look, in degrees from eye level, when the middle of its edge is at

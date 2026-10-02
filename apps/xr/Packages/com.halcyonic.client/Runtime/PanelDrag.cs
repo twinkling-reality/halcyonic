@@ -7,8 +7,9 @@ namespace Halcyonic.Client
     /// A foreground panel moved by hand (ADR 0023): while Move is held, the panel turns round the eyes
     /// with the point the hand took hold of, keeping its distance, so it stays at touch distance and
     /// facing the person, and its center stays in the comfortable band, inside the headset's measured
-    /// field and above any surface under the characters (<see cref="WorkspacePlacement"/>). Angles are in degrees from the eyes: yaw to the
-    /// right, elevation up.
+    /// field and above any surface under the characters (<see cref="WorkspacePlacement"/>), but never
+    /// higher than where it was for want of room: a panel that opened lower, under the labels, may stay
+    /// there. Angles are in degrees from the eyes: yaw to the right, elevation up.
     /// </summary>
     public sealed class PanelDrag
     {
@@ -30,6 +31,8 @@ namespace Halcyonic.Client
             this.grabYaw = grabYaw;
             this.grabElevation = grabElevation;
             floor = WorkspacePlacement.Lowest(size, field);
+            // Holding Move never lifts a panel that opened lower, under the labels, up into them.
+            floor = Math.Min(floor, panelElevation);
             if (surfaceDrop.HasValue) floor = Math.Max(floor, WorkspacePlacement.LowestAboveSurface(size, surfaceDrop.Value));
         }
 

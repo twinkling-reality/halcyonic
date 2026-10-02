@@ -138,8 +138,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 Backdrop(characters[3].View.transform, eyes, pose);
                 if (ViewField.Current is ViewField field)
                 {
-                    // Read with the head level and turned toward it, over a desk as well: it opens above the lineup.
-                    failures.AddRange(FieldChecks.Inside(name + ": the workspace", FieldChecks.Corners(view.Frame), eyes, pose.position, 0f, field));
+                    // Read with the head turned toward it, over a desk as well, where it opens above the lineup: level,
+                    // or tipped down a little for a workspace taller than designed (WorkspacePlacement.ReadingPitch).
+                    failures.AddRange(FieldChecks.Inside(name + ": the workspace", FieldChecks.Corners(view.Frame), eyes, pose.position,
+                        WorkspacePlacement.ReadingPitch(WorkspaceLayout.FrameSize), field));
                 }
 
                 var both = Render(camera, texture);

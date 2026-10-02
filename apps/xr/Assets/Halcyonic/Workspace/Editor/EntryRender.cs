@@ -173,8 +173,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(PanelFits(what, frame, characters, eyes));
                     if (ViewField.Current is ViewField shownField)
                     {
-                        // A panel is read with the head level and turned toward it, over a desk as well: it opens above the lineup.
-                        failures.AddRange(FieldChecks.Inside(what + ": the panel", FieldChecks.Corners(frame), eyes, frame.transform.position, 0f, shownField));
+                        // A panel is read with the head turned toward it, over a desk as well, where it opens above the
+                        // lineup: level, or tipped down a little for one taller than designed (WorkspacePlacement.ReadingPitch).
+                        var pitch = WorkspacePlacement.ReadingPitch(new PanelSize(PanelFrame.Distance, frame.Size.x / 2f * PanelFrame.Scale, frame.Size.y / 2f * PanelFrame.Scale));
+                        failures.AddRange(FieldChecks.Inside(what + ": the panel", FieldChecks.Corners(frame), eyes, frame.transform.position, pitch, shownField));
                     }
                     if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what, frame));
                     failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));

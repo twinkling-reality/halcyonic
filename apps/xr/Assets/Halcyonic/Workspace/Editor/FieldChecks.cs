@@ -10,7 +10,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// <summary>
     /// Whether what matters stays inside a headset's field of view (<see cref="ViewField"/>) less its
     /// margin, as the person looks at it: the head turned toward it and level, or, over a desk, pitched
-    /// down to the lineup. The renders run a pass with a Quest 3S's field, which Meta gives as 96 by
+    /// down to the lineup, and for a panel taller than designed tipped down a little to read it
+    /// (<see cref="WorkspacePlacement.ReadingPitch"/>). The renders run a pass with a Quest 3S's field, which Meta gives as 96 by
     /// 90 degrees, split evenly about forward until a device measures the split.
     /// </summary>
     internal static class FieldChecks
