@@ -10,7 +10,14 @@ import {
 import { createVirtualTime } from '@halcyonic/runtime-core';
 import { startFakeOllama } from '../testing/fake-ollama.ts';
 import { Companion, type CompanionAnswer, REPLIES_PER_MINUTE } from './companion.ts';
-import { HELP_NOTE, modelReply, PROPOSE_NOTE, readReply, SYSTEM_PROMPT } from './prompt.ts';
+import {
+  HELP_NOTE,
+  modelReply,
+  PROPOSE_NOTE,
+  REPLY_SCHEMA,
+  readReply,
+  SYSTEM_PROMPT,
+} from './prompt.ts';
 
 const ASK: CompanionReply = {
   next: 'ask',
@@ -105,6 +112,7 @@ describe('a reply', () => {
     });
     assert.deepEqual(answer.log, {
       attempts: 1,
+      schema: true,
       first_token_ms: answer.log.first_token_ms,
       prompt_tokens: 571,
       output_tokens: 99,
@@ -128,6 +136,29 @@ describe('a reply', () => {
       { role: 'user', content: '<person>One organiser</person>' },
     ]);
     assert.equal(sent?.model, 'local-model:tag');
+  });
+
+  test("asks the model's engine to keep to the reply's schema, and stops asking once it says it cannot", async (t) => {
+    const { ollama, companion } = await setUp(t);
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)) });
+    const first = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
+    assert.equal(first.kind, 'answered');
+    assert.equal(first.log.schema, true);
+    assert.deepEqual(ollama.requests[0]?.format, REPLY_SCHEMA);
+    ollama.refuseFormat();
+    ollama.answer(
+      { content: JSON.stringify(modelReply(ASK)) },
+      { content: JSON.stringify(modelReply(ASK)) },
+    );
+    const second = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
+    assert.equal(second.kind, 'answered');
+    assert.equal(second.log.attempts, 1);
+    assert.equal(second.log.schema, false);
+    assert.equal(ollama.requests[2]?.format, undefined);
+    const third = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
+    assert.equal(third.kind, 'answered');
+    assert.equal(ollama.requests.length, 4);
+    assert.equal(ollama.requests[3]?.format, undefined);
   });
 
   test('begins with a question when the person asked for help and said nothing yet', async (t) => {

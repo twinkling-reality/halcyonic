@@ -88,6 +88,11 @@ export interface ChatRequest {
   readonly maxCharacters: number;
   /** Ends the request early, as when the person's headset goes away. */
   readonly signal?: AbortSignal;
+  /**
+   * A JSON schema the reply must match, which Ollama enforces as it generates on engines that can
+   * (its llama.cpp engine); one that cannot refuses the request with HTTP 501.
+   */
+  readonly format?: object;
 }
 
 export type ChatResult =
@@ -100,7 +105,14 @@ export type ChatResult =
     }
   | {
       readonly kind: 'failed';
-      readonly reason: 'not_running' | 'missing' | 'too_slow' | 'too_long' | 'cancelled' | 'error';
+      readonly reason:
+        | 'not_running'
+        | 'missing'
+        | 'format_unavailable'
+        | 'too_slow'
+        | 'too_long'
+        | 'cancelled'
+        | 'error';
       readonly message: string;
       readonly firstTokenMs: number | null;
     };
@@ -141,6 +153,7 @@ export async function chat(request: ChatRequest): Promise<ChatResult> {
           messages: request.messages,
           stream: true,
           think: false,
+          ...(request.format === undefined ? {} : { format: request.format }),
           options: {
             num_ctx: request.contextTokens,
             num_predict: request.outputTokens,
@@ -154,6 +167,10 @@ export async function chat(request: ChatRequest): Promise<ChatResult> {
       return check.kind === 'not_running'
         ? failed('not_running', 'Ollama is not running.')
         : failed('error', (check as { message: string }).message);
+    }
+    if (response.status === 501 && request.format !== undefined) {
+      await response.body?.cancel();
+      return failed('format_unavailable', 'This model cannot keep to a schema.');
     }
     if (response.status === 404) {
       await response.body?.cancel();

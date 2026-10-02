@@ -42,6 +42,8 @@ export async function startFakeOllama(
     requests: [] as ChatBody[],
     tagReads: 0,
     closedEarly: 0,
+    /** Refuse a request that asks for a schema, as the MLX engine does. */
+    refuseFormat: false,
     paths: [] as string[],
   };
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
@@ -56,7 +58,14 @@ export async function startFakeOllama(
       const chunks: Buffer[] = [];
       request.on('data', (chunk: Buffer) => chunks.push(chunk));
       request.on('end', () => {
-        state.requests.push(JSON.parse(Buffer.concat(chunks).toString('utf8')) as ChatBody);
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as ChatBody;
+        state.requests.push(body);
+        if (state.refuseFormat && body.format !== undefined) {
+          response.statusCode = 501;
+          response.setHeader('content-type', 'application/json');
+          response.end(JSON.stringify({ error: 'structured output is unavailable' }));
+          return;
+        }
         void answer(response, state.replies.shift() ?? { content: '{}' }).catch(() => undefined);
       });
       return;
@@ -123,6 +132,10 @@ export async function startFakeOllama(
     /** Queues how the next chat requests are answered, in order. */
     answer(...replies: FakeReply[]) {
       state.replies.push(...replies);
+    },
+    /** Refuses every request that asks for a schema from now on, as Ollama's MLX engine does. */
+    refuseFormat() {
+      state.refuseFormat = true;
     },
     setModels(models: Record<string, unknown>[]) {
       state.models = models;

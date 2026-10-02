@@ -14,7 +14,7 @@ import type { Clock } from '@halcyonic/runtime-core';
 import type { CompanionConfig } from '../config.ts';
 import { WindowCounter } from '../network/limits.ts';
 import { type ChatResult, chat, checkModel, type ModelCheck } from './ollama.ts';
-import { chatMessages, proposalOnly, readReply } from './prompt.ts';
+import { chatMessages, proposalOnly, REPLY_SCHEMA, readReply } from './prompt.ts';
 
 const validateRequest = compileValidator(CompanionRepliesRequest);
 const validateReply = compileValidator(CompanionReply);
@@ -65,6 +65,8 @@ export type CompanionAnswer =
 /** What may be logged of a turn: counts and times, never the person's words or the reply. */
 export interface CompanionLog {
   readonly attempts: number;
+  /** Ollama enforced the reply's shape as it generated, rather than only the prompt asking for it. */
+  readonly schema: boolean;
   readonly first_token_ms: number | null;
   readonly prompt_tokens: number | null;
   readonly output_tokens: number | null;
@@ -72,6 +74,7 @@ export interface CompanionLog {
 
 const NO_LOG: CompanionLog = {
   attempts: 0,
+  schema: false,
   first_token_ms: null,
   prompt_tokens: null,
   output_tokens: null,
@@ -92,6 +95,8 @@ export class Companion {
   readonly #perMinute: WindowCounter;
   readonly #inFlight = new Set<string>();
   #busy = false;
+  /** Whether the model's engine keeps to a schema: unknown until a request says, then remembered. */
+  #schema = true;
 
   constructor(options: {
     readonly config: CompanionConfig | null;
@@ -170,6 +175,7 @@ export class Companion {
       for (let attempt = 1; attempt <= 2; attempt++) {
         const left = Math.round(deadline - performance.now());
         if (left <= 0) break;
+        const schema = this.#schema;
         const result: ChatResult = await chat({
           base: config.ollama,
           model: config.model,
@@ -180,15 +186,24 @@ export class Companion {
           firstTokenMs: Math.min(this.#bounds.firstTokenMs, left),
           totalMs: left,
           maxCharacters: this.#bounds.maxCharacters,
+          ...(schema ? { format: REPLY_SCHEMA } : {}),
           ...(signal === undefined ? {} : { signal }),
         });
         log = {
           attempts: attempt,
+          schema,
           first_token_ms: result.firstTokenMs,
           prompt_tokens: result.kind === 'answered' ? result.promptTokens : null,
           output_tokens: result.kind === 'answered' ? result.outputTokens : null,
         };
         if (result.kind === 'failed') {
+          // An engine that cannot keep to a schema says so at once: asked again with the prompt
+          // alone, which is not counted as a try, and remembered.
+          if (result.reason === 'format_unavailable') {
+            this.#schema = false;
+            attempt--;
+            continue;
+          }
           // A reply too long is unreadable, so it may be asked for once more; nothing else is.
           if (result.reason === 'too_long' && attempt === 1) continue;
           return { ...refused(...failureOf(result)), log };
@@ -264,6 +279,7 @@ function failureOf(
     case 'cancelled':
       return [503, { code: 'companion_cancelled', message: 'The request ended before the reply.' }];
     case 'too_long':
+    case 'format_unavailable':
       return [502, UNREADABLE];
     default:
       return [502, { code: 'companion_failed', message: result.message }];
