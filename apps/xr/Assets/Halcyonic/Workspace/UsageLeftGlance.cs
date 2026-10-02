@@ -257,7 +257,7 @@ namespace Halcyonic.XR.Workspace
             var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : Vector3.forward;
             var (pose, _) = WorkspaceLayout.PlaceForeground(characters, eyes, looking, surfaceHeight, scratch, WorkspaceLayout.FrameSize);
             root.SetPositionAndRotation(pose.position, pose.rotation);
-            root.localScale = Vector3.one * PanelFrame.Distance;
+            root.localScale = Vector3.one * PanelFrame.Scale;
         }
 
         /// <summary>The panel, when open, drawn from what was read.</summary>

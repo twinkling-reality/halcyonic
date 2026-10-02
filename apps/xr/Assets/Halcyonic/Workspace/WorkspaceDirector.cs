@@ -160,6 +160,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (GetComponent<ProjectRail>() == null) gameObject.AddComponent<ProjectRail>();
             if (GetComponent<UsageLeftGlance>() == null) gameObject.AddComponent<UsageLeftGlance>();
+            if (GetComponent<ComfortControls>() == null) gameObject.AddComponent<ComfortControls>();
             gaze = GazeHover.Create(transform, () => (peekChoice.PinchTarget, peekChoice.PinchBlock));
             if (gaze == null)
             {
@@ -589,8 +590,8 @@ namespace Halcyonic.XR.Workspace
             var eyes = WorkspaceVisuals.HeadPosition;
             var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : target.BodyPosition - eyes;
             var (pose, _) = WorkspaceLayout.Place(target, targets.Values, eyes, looking, stage.SurfaceHeight, bodies);
-            // The frame is built in units of its distance.
-            return (pose, PanelFrame.Distance);
+            // The frame is built in units of its distance, and grows with the reading text's step.
+            return (pose, PanelFrame.Scale);
         }
 
         private void Close(bool immediately)

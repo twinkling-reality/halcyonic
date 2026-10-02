@@ -326,7 +326,7 @@ namespace Halcyonic.XR.Workspace
         private bool Live => connected() && demonstration() == null;
 
         /// <summary>The panel's size as placement takes it: at touch distance, half its width and height in meters.</summary>
-        private PanelSize PanelSize => new PanelSize(PanelFrame.Distance, frame.Size.x / 2f * PanelFrame.Distance, frame.Size.y / 2f * PanelFrame.Distance);
+        private PanelSize PanelSize => new PanelSize(PanelFrame.Distance, frame.Size.x / 2f * PanelFrame.Scale, frame.Size.y / 2f * PanelFrame.Scale);
 
         /// <summary>
         /// Where a foreground panel opens, clear of every character and its label, facing the eyes, at
@@ -347,7 +347,7 @@ namespace Halcyonic.XR.Workspace
         {
             var turn = Quaternion.Euler(0f, side * MoveDegrees, 0f);
             root.SetPositionAndRotation(placedEyes + turn * (placedPose.position - placedEyes), turn * placedPose.rotation);
-            root.localScale = Vector3.one * PanelFrame.Distance;
+            root.localScale = Vector3.one * PanelFrame.Scale;
         }
 
         private void Move()

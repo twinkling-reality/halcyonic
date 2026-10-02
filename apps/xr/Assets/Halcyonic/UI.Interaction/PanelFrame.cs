@@ -40,6 +40,16 @@ namespace Halcyonic.XR.UI
         public const float WidthDegrees = 44f;
         public const float HeightDegrees = 26f;
 
+        /// <summary>
+        /// How much larger than designed a foreground panel is drawn: the reading text's step
+        /// (<see cref="GlazeText.Scale"/>, the person's comfort setting), the whole panel growing with
+        /// it at the same distance, so its layout, pages and parts stay as designed.
+        /// </summary>
+        public static float Zoom => GlazeText.Scale;
+
+        /// <summary>A foreground panel's scale in the world: built in units of its distance, at its zoom.</summary>
+        public static float Scale => Distance * Zoom;
+
         /// <summary>Every frame's size, in units of its distance.</summary>
         public static Vector2 UnitSize => new Vector2(2f * GlazeTokens.Units(WidthDegrees / 2f), 2f * GlazeTokens.Units(HeightDegrees / 2f));
 

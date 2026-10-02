@@ -65,12 +65,12 @@ namespace Halcyonic.XR.UI
             go.transform.SetParent(parent, false);
             var banner = go.AddComponent<StageBanner>();
             banner.plate = Surface.Create(go.transform, "Plate", 0);
-            banner.line = GlazeText.Create(go.transform, "Line", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2);
-            banner.notice = GlazeText.Create(go.transform, "Notice", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Top, 2);
+            banner.line = GlazeText.Create(go.transform, "Line", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2, scaled: true);
+            banner.notice = GlazeText.Create(go.transform, "Notice", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Top, 2, scaled: true);
             banner.waiting = GlazeText.Create(go.transform, "Waiting", GlazeType.Body, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground),
-                TextAlignmentOptions.Top, 2, strong: true);
-            banner.notShown = GlazeText.Create(go.transform, "Not shown", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2);
-            banner.stillOpen = GlazeText.Create(go.transform, "Still open", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2);
+                TextAlignmentOptions.Top, 2, strong: true, scaled: true);
+            banner.notShown = GlazeText.Create(go.transform, "Not shown", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2, scaled: true);
+            banner.stillOpen = GlazeText.Create(go.transform, "Still open", GlazeType.Body, GlazeTokens.TextSecondary, TextAlignmentOptions.Top, 2, scaled: true);
             return banner;
         }
 

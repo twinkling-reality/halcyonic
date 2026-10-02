@@ -29,6 +29,7 @@ namespace Halcyonic.XR.UI
         private TextMeshPro markLine = null!;
         private TextMeshPro next = null!;
         private PeekCard? shown;
+        private int shownScale = -1;
         private float opacity = 1f;
 
         public static float Width => GlazeTokens.Units(WidthDegrees);
@@ -49,17 +50,18 @@ namespace Halcyonic.XR.UI
             var view = go.AddComponent<PeekCardView>();
             view.card = Surface.Create(go.transform, "Card", 0);
             view.badge = StateBadgeView.Create(go.transform, "Badge", 1);
-            view.reason = GlazeText.Create(go.transform, "Reason", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 2);
+            view.reason = GlazeText.Create(go.transform, "Reason", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.TopLeft, 2, scaled: true);
             view.markLine = GlazeText.Create(go.transform, "Mark line", GlazeType.Caption, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Simulated).Foreground),
-                TextAlignmentOptions.TopLeft, 2);
-            view.next = GlazeText.Create(go.transform, "Next", GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 2);
+                TextAlignmentOptions.TopLeft, 2, scaled: true);
+            view.next = GlazeText.Create(go.transform, "Next", GlazeType.Caption, GlazeTokens.TextSecondary, TextAlignmentOptions.TopLeft, 2, scaled: true);
             return view;
         }
 
         public void Show(PeekCard peek)
         {
-            if (shown != null && shown.Equals(peek)) return;
+            if (shown != null && shown.Equals(peek) && shownScale == GlazeText.Version) return;
             shown = peek;
+            shownScale = GlazeText.Version;
             var width = Width;
             var side = GlazeTokens.Units(SideDegrees);
             var gap = GlazeTokens.Units(GapDegrees);

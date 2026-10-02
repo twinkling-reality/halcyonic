@@ -253,7 +253,12 @@ the same definition names, as the JSON Schema document:
   the characters stand on. It keeps 1.5 degrees from bodies, which move, and 1.2 from labels, which
   do not, measured at the panel's corners: a flat panel's corners are farther than its edges'
   middles, so below eye level they look higher (`CornerElevation`). Where neither side clears, it
-  moves the least into the band and may cover a character. Once the headset's field of view is
+  moves the least into the band and may cover a character. The band's floor is for a panel 26
+  degrees tall: a taller one, grown whole for the person's larger text or holding more, as Settings
+  does, would not fit under the deepest labels above it, so its center may go lower by as much as it
+  is taller (`WorkspacePlacement.Lowest`), half of that for its own upper half and the rest for
+  titles grown with the text; a panel moved by hand stops at the same floor. To be judged on the
+  headset. Once the headset's field of view is
   measured (`ViewField.Current`), the side that keeps every corner 1.5 degrees inside it with the
   head level wins when both sides clear, and where neither clears it moves into the band no lower
   than that (`Lowest`, which a dragged panel's limit can use too); the field never pushes a panel
@@ -1048,16 +1053,33 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   projects show is kept on the device for each journal (`StageVisibility`); hiding a project hides
   its characters only.
 - **Settings:** `SettingsSheet`, which the rail's Settings opens, is one foreground panel, 44
-  degrees wide like every foreground panel and as tall as its sections, at most about 26 degrees, at
-  0.46 m, placed where the entry panel would be, clear of every character and label, with Close and
-  its icon at its top right. It holds the controls that change how Halcyonic is arranged rather than act on
-  work, each feature in a section of its own (`SettingsSection`): Your room, with the room's line,
-  its switch and offer, and under them, as a part with no heading (`SettingsSheet.Continuation`),
-  where the characters stand and a button for each other arrangement; and, in development builds,
-  Your computer, with pairing. Sections stand 0.75 degrees apart, as a panel's parts do. Their news no
-  longer comes up in front of the person: a section's line also shows on the stage's banner as a
-  short notice for eight seconds (`CharacterStage.ShowNotice`). It closes when the entry panel or a
-  workspace opens and folds while another window keeps focus.
+  degrees wide like every foreground panel and as tall as its sections, at 0.46 m, placed where the
+  entry panel would be, clear of every character and label, with Close and its icon at its top
+  right. It holds the controls that change how Halcyonic is arranged rather than act on work, each
+  feature in a section of its own (`SettingsSection`): Your room, with the room's line, its switch
+  and offer, and under them, as a part with no heading (`SettingsSheet.Continuation`), where the
+  characters stand and a button for each other arrangement; in development builds, Your computer,
+  with pairing; and Comfort. Sections stand 0.75 degrees apart, as a panel's parts do. With all four
+  parts the sheet stands about 33 degrees tall, taller than a panel, so with the characters 2.4 m
+  away it opens lower, its center about 34 degrees below eye level and its lower edge about 51
+  (`WorkspacePlacement.Lowest`); a release build, without Your computer, has it about 7 degrees
+  shorter. Their news no longer comes up in front of the person: a section's line also shows on the
+  stage's banner as a short notice for eight seconds (`CharacterStage.ShowNotice`). It closes when
+  the entry panel or a workspace opens and folds while another window keeps focus.
+- **Comfort:** Settings' Comfort section (`ComfortControls`, the words and choices in the client
+  core's `Comfort`) offers three settings, kept on the device and taking effect the moment they
+  change and as the stage starts. Make text larger draws reading text a step larger, by 15 percent
+  (`Comfort.LargerTextScale`, body text 18 dp to about 21): every foreground panel, the workspace,
+  the entry panel, Usage left and Settings, grows whole by it at the same distance
+  (`PanelFrame.Zoom`), so its layout, pages and parts stay as designed and it opens lower to stay
+  under the titles; on the stage the titles, the peek and the banner take it (`GlazeText.Scale`,
+  only for labels made with it), while the badges' words and the rail's buttons, which stand where
+  space is fixed, keep their size. Keep badges still stops Starting's and Working's icons turning and
+  Waiting for you breathing (`StateBadgeView.Still`). One button steps the sounds from on to quieter
+  (half their amplitude, 6 dB down), to off and on again, named for the level it steps to
+  (`AudioListener.volume`: Halcyonic's cues are the only sounds the app plays). The section's line
+  says how all three stand ("Text is the standard size. Badges move, and sounds are on."). Every
+  render runs at both text sizes.
 - **Usage left:** `UsageLeftGlance` offers its "Usage left" chip to the project rail, which places it
   at its lower row's right end (`ProjectRail.OfferUsageLeft`), and nothing anywhere else: no
   floating control. Pressing it opens a panel on the frame, 44 by 26 degrees at 0.46 m, where the
@@ -1283,7 +1305,8 @@ within 15 degrees of where the person looks, and between 31 degrees below and 2 
 level, so all of it, controls included, sits in the middle of a narrower field of view than the
 Quest 3's (as on a Quest 3S), never at an edge; with the characters 2.4 m away, its actions row
 is about 20 degrees below them, and its activity lines, at the bottom, may need the head tilted
-down a little. The peek is a card of at most five short lines, and the hint three words.
+down a little. With text a step larger it spans about 51 by 30 degrees and its center goes to about
+33 degrees below eye level, so its bottom row is about 48 degrees down. The peek is a card of at most five short lines, and the hint three words.
 
 **Hands first.** Everything works with hands alone: pointing, pinching and poking, looking and
 pinching, and typing on the system keyboard. The rig supports controllers, but nothing needs one.
