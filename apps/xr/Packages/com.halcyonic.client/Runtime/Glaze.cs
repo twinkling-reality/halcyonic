@@ -306,10 +306,23 @@ namespace Halcyonic.Client
             /// <summary>Pointed at: the frame alone, fainter.</summary>
             public const float PointedFrameOpacity = 0.42f;
 
-            /// <summary>A prompt's round key cap, and the icon inside it.</summary>
+            /// <summary>How thick the lit frame and the pointed frame are drawn.</summary>
+            public const float LitFrameDegrees = 0.08f;
+
+            public const float PointedFrameDegrees = 0.06f;
+
+            /// <summary>A plain prompt's cap: an outline, white at this opacity and this thick; the main action's is filled with the accent.</summary>
+            public const float CapOutlineOpacity = 0.6f;
+
+            public const float CapOutlineDegrees = 0.07f;
+
+            /// <summary>Round a prompt, before its cap and after its words, so its frame holds both: footers reach this far past the content lines.</summary>
+            public const float PromptMarginDegrees = 0.6f;
+
+            /// <summary>A prompt's round key cap, and the icon inside it: a degree, the least any icon is drawn (ADR 0023).</summary>
             public const float PromptCapDegrees = 1.45f;
 
-            public const float PromptIconDegrees = 0.95f;
+            public const float PromptIconDegrees = 1f;
 
             /// <summary>
             /// Quiet words, of a prompt or a line that can't be taken now: the secondary colour, never

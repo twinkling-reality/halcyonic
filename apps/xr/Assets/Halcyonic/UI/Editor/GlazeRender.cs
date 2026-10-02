@@ -128,6 +128,19 @@ namespace Halcyonic.XR.UI.Editor
                 SplitHeaderSample();
                 failures.AddRange(Check(folder, "gallery-files.png", camera, texture, root, eyes, new List<(GlazeButton, string)>()));
                 failures.AddRange(GlassLightsFromItsTop(camera, texture, glass));
+
+                // The menu's controls, a page of their own: prompts, rows and answers in each state.
+                var fourth = new List<Transform>();
+                foreach (Transform holder in gallery)
+                {
+                    if (holder != behind && holder.gameObject.activeSelf) fourth.Add(holder);
+                }
+                foreach (var holder in fourth) holder.gameObject.SetActive(false);
+                var controls = MenuControls();
+                failures.AddRange(Check(folder, "gallery-menu.png", camera, texture, root, eyes, controls.ConvertAll(control => (control.Button, control.What))));
+                failures.AddRange(GlazeChecks.OneSelectionTreatment(root.GetComponentsInChildren<Surface>(false), eyes, "component render: the menu's controls"));
+                failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(controls.Select(control => control.Button), "component render"));
+                foreach (var holder in fourth) holder.gameObject.SetActive(true);
                 foreach (var holder in third) holder.gameObject.SetActive(true);
                 failures.AddRange(EveryIconShows(badges, marks, actions, files));
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
@@ -177,6 +190,9 @@ namespace Halcyonic.XR.UI.Editor
             foreach (var label in root.GetComponentsInChildren<TMP_Text>(false)) failures.AddRange(GlazeChecks.NotFromIcons(label, "component render"));
             foreach (var (button, what) in buttons)
             {
+                // A row or an answer has no words of its own; the view lays them on it, and the token
+                // tests hold every word to its contrast on a lit shape over white.
+                if (!button.Label.gameObject.activeInHierarchy) continue;
                 var contrast = LabelContrast(camera, render, button);
                 Debug.Log("Halcyonic: component render: " + what + "'s label reaches " + contrast.ToString("0.0", CultureInfo.InvariantCulture) + ":1 on its fill.");
                 if (contrast < 4.5f) failures.Add("component render: " + what + "'s label reaches only " + contrast.ToString("0.0", CultureInfo.InvariantCulture) + ":1 on its fill.");
@@ -781,6 +797,67 @@ namespace Halcyonic.XR.UI.Editor
             {
                 if (!shown.Contains(icon)) yield return "component render: nothing in the gallery shows the " + icon + " icon.";
             }
+        }
+
+        /// <summary>
+        /// The menu's controls (ADR 0026), each in every state it shows: prompts plain, the main action,
+        /// one unavailable, held, pointed at and pressed; rows and answers at rest, pointed at and chosen.
+        /// </summary>
+        private static List<(GlazeButton Button, string What)> MenuControls()
+        {
+            var shown = new List<(GlazeButton, string)>();
+            var prompts = new (string Words, GlazeIcon Icon, bool Main, bool Available, bool Holds, bool Pointed, bool Pressed)[]
+            {
+                ("Close", GlazeIcon.Close, false, true, false, false, false),
+                ("Hold to talk", GlazeIcon.HoldToTalk, false, true, true, false, false),
+                ("Send answer", GlazeIcon.SendAnswer, true, true, false, false, false),
+                ("Make the recap", GlazeIcon.Next, true, false, false, false, false),
+                ("Stop", GlazeIcon.Stop, false, true, false, true, false),
+                ("Approve", GlazeIcon.Approve, true, true, false, true, true),
+            };
+            var x = -30f;
+            var y = 14f;
+            foreach (var (words, icon, main, available, holds, pointed, pressed) in prompts)
+            {
+                var button = GlazeButton.Create(Holder("Prompt " + words, 0f, 0f), "Prompt", ButtonRole.Prompt);
+                button.Holds = holds;
+                button.Available = available;
+                var width = button.MeasurePrompt(words, main);
+                button.ShowPrompt(words, icon, Vector2.zero, width, main);
+                var degrees = GlazeTokens.DegreesOf(width);
+                if (x + degrees > 30f)
+                {
+                    x = -30f;
+                    y -= 5f;
+                }
+                Aim(button.transform.parent, x + degrees / 2f, y);
+                x += degrees + 1.5f;
+                button.PaintForRender(pointed, pressed);
+                shown.Add((button, "the prompt " + words + (main ? ", the main action" : "") + (available ? "" : ", unavailable")));
+            }
+            var area = new Vector2(GlazeTokens.Units(11f), GlazeTokens.Units(Glaze.MinimumTargetDegrees)) * 2f / 2f;
+            area.x = 2f * GlazeTokens.Units(6f);
+            var states = new (string State, bool Chosen, bool Pointed)[] { ("at rest", false, false), ("pointed at", false, true), ("chosen", true, false) };
+            for (var kind = 0; kind < 2; kind++)
+            {
+                var role = kind == 0 ? ButtonRole.Row : ButtonRole.Answer;
+                for (var index = 0; index < states.Length; index++)
+                {
+                    var (state, chosen, pointed) = states[index];
+                    var holder = Holder((kind == 0 ? "Row " : "Answer ") + state, -16f + 16f * index, kind == 0 ? -1f : -7f);
+                    var button = GlazeButton.Create(holder, "Area", role);
+                    button.On = chosen;
+                    button.ShowArea(Vector2.zero, area);
+                    button.PaintForRender(pointed, false);
+                    var words = GlazeText.Create(holder, "Words", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 13, strong: chosen && role == ButtonRole.Answer);
+                    words.rectTransform.pivot = new Vector2(0f, 0.5f);
+                    GlazeText.SetLiteral(words, (kind == 0 ? "A row " : "An answer ") + state);
+                    GlazeText.Lay(words, area.x - GlazeTokens.Units(Glaze.Menu.InsetDegrees) * 2f, 1);
+                    words.transform.localPosition = new Vector3(-area.x / 2f + GlazeTokens.Units(Glaze.Menu.InsetDegrees), 0f, -0.0008f);
+                    shown.Add((button, (kind == 0 ? "a row " : "an answer ") + state));
+                }
+            }
+            return shown;
         }
 
         /// <summary>The menu's glass (ADR 0026): a subject's plate, 16 by 8 degrees, to the right of the file kinds.</summary>

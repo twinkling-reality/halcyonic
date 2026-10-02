@@ -26,6 +26,20 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Goes to work that waits for the person, and only that: filled in the attention colour.</summary>
         Attention,
+
+        /// <summary>
+        /// A footer's prompt on the menu (ADR 0026): a round key cap holding its icon, then its words,
+        /// with no plate and an unseen 60 dp hit area; the main action's cap filled with the accent
+        /// (<see cref="GlazeButton.On"/>), its words heavier in the accent. Pointed at, the pointed frame
+        /// round it; pressed, its cap sinks.
+        /// </summary>
+        Prompt,
+
+        /// <summary>A page line's place to press on the menu (ADR 0026): nothing drawn at rest, lit when chosen (<see cref="GlazeButton.On"/>); the line's words stand on it.</summary>
+        Row,
+
+        /// <summary>An answer to choose on the menu (ADR 0026): a hairline shape at rest, lit when chosen (<see cref="GlazeButton.On"/>); its words stand on it.</summary>
+        Answer,
     }
 
     /// <summary>
@@ -74,6 +88,7 @@ namespace Halcyonic.XR.UI
         private const float AwayOpacity = 0.45f;
 
         private Surface plate = null!;
+        private Surface? cap;
         private TextMeshPro label = null!;
         private TextMeshPro detail = null!;
         private TextMeshPro? overline;
@@ -260,8 +275,67 @@ namespace Halcyonic.XR.UI
             Place(center, changed);
         }
 
-        /// <summary>An icon's em on this button: 24 dp, or a badge's on a compact button.</summary>
-        private float IconEm => GlazeTokens.Units(compact ? GlazeIcons.BadgeDegrees : GlazeIcons.ControlDegrees);
+        /// <summary>An icon's em on this button: 24 dp, or a badge's on a compact button, or a prompt's inside its cap.</summary>
+        private float IconEm => GlazeTokens.Units(role == ButtonRole.Prompt ? Glaze.Menu.PromptIconDegrees : compact ? GlazeIcons.BadgeDegrees : GlazeIcons.ControlDegrees);
+
+        /// <summary>How wide a prompt is with these words: its margin, its cap, a grid step, its words, heavier for the main action, and its margin again.</summary>
+        public float MeasurePrompt(string words, bool main)
+        {
+            GlazeText.SetStrong(label, main);
+            return GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees) + GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) + GlazeTokens.Units(Glaze.Menu.GridDegrees)
+                + label.GetPreferredValues(LabelText.ForTextMeshPro(words)).x + GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees);
+        }
+
+        /// <summary>
+        /// Shows the button as a footer's prompt (<see cref="ButtonRole.Prompt"/>), centred at
+        /// <paramref name="center"/>, as wide as <paramref name="width"/> and a target's height: its cap
+        /// holding <paramref name="withIcon"/>, then <paramref name="words"/>, the main action's when
+        /// <paramref name="main"/>.
+        /// </summary>
+        public void ShowPrompt(string words, GlazeIcon withIcon, Vector2 center, float width, bool main)
+        {
+            var changed = !gameObject.activeSelf || label.text != LabelText.ForTextMeshPro(words);
+            role = ButtonRole.Prompt;
+            On = main;
+            GlazeText.SetStrong(label, main);
+            GlazeText.SetLiteral(label, words);
+            ShowIcon(withIcon);
+            detail.gameObject.SetActive(false);
+            size = new Vector2(width, HeightOf(false));
+            if (cap == null) cap = Surface.Create(transform, "Cap", plate.Renderer.sortingOrder + 1);
+            var margin = GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees);
+            var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees);
+            var capX = -width / 2f + margin + capSize / 2f;
+            cap.transform.localPosition = new Vector3(capX, 0f, -0.0003f);
+            if (icon != null)
+            {
+                icon.transform.localPosition = new Vector3(capX, 0f, -0.0006f);
+                icon.sortingOrder = plate.Renderer.sortingOrder + 2;
+            }
+            label.rectTransform.pivot = new Vector2(0f, 0.5f);
+            label.alignment = TextAlignmentOptions.Left;
+            var wordsLeft = capX + capSize / 2f + GlazeTokens.Units(Glaze.Menu.GridDegrees);
+            GlazeText.Lay(label, width / 2f - margin - wordsLeft, 1);
+            label.transform.localPosition = new Vector3(wordsLeft, 0f, -0.0005f);
+            Place(center, changed);
+        }
+
+        /// <summary>
+        /// Shows the button as a place to press with no words of its own, a page line's
+        /// (<see cref="ButtonRole.Row"/>) or an answer's (<see cref="ButtonRole.Answer"/>), centred at
+        /// <paramref name="center"/> and <paramref name="area"/> in its parent's units; the words are
+        /// laid out on it by the view.
+        /// </summary>
+        public void ShowArea(Vector2 center, Vector2 area)
+        {
+            if (role != ButtonRole.Row && role != ButtonRole.Answer) throw new InvalidOperationException("Only a row or an answer is shown as an area.");
+            var changed = !gameObject.activeSelf || area != size;
+            label.gameObject.SetActive(false);
+            detail.gameObject.SetActive(false);
+            ShowIcon(null);
+            size = area;
+            Place(center, changed);
+        }
 
         /// <summary>What an icon and its gap add before the words; nothing without one.</summary>
         private float IconRoom(GlazeIcon? which) => which == null ? 0f : IconEm + GlazeTokens.Units(IconGapDegrees);
@@ -536,6 +610,60 @@ namespace Halcyonic.XR.UI
             Paint(hoveredNow, pressedNow);
         }
 
+        /// <summary>
+        /// The menu's roles (ADR 0026), by the one selection treatment: chosen, the lit fill with its
+        /// frame; pointed at, the frame alone; the accent only on the main action's cap.
+        /// </summary>
+        private void PaintOnTheMenu(bool hovered, bool pressed, bool away)
+        {
+            var white = Color.white;
+            var radius = GlazeTokens.Units(Glaze.Menu.RadiusDegrees);
+            var litFill = new Color(1f, 1f, 1f, Glaze.Menu.LitFillOpacity);
+            var litFrame = new Color(1f, 1f, 1f, Glaze.Menu.LitFrameOpacity);
+            var pointedFrame = new Color(1f, 1f, 1f, Glaze.Menu.PointedFrameOpacity);
+            var opacity = away ? AwayOpacity : 1f;
+            var lit = on && role != ButtonRole.Prompt;
+            if (lit)
+            {
+                plate.Draw(size, radius, litFill, litFrame, GlazeTokens.Units(Glaze.Menu.LitFrameDegrees));
+                plate.Selection = SurfaceSelection.Lit;
+            }
+            else if (hovered)
+            {
+                var framed = role == ButtonRole.Prompt ? new Vector2(size.x, size.y - GlazeTokens.Units(0.4f)) : size;
+                plate.Draw(framed, radius, Color.clear, pointedFrame, GlazeTokens.Units(Glaze.Menu.PointedFrameDegrees));
+                plate.Selection = SurfaceSelection.Pointed;
+            }
+            else if (role == ButtonRole.Answer)
+            {
+                plate.Draw(size, radius, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.HairlineOpacity), GlazeTokens.Units(Glaze.Menu.HairlineDegrees));
+                plate.Selection = SurfaceSelection.None;
+            }
+            else
+            {
+                plate.Draw(Vector2.zero, 0f, Color.clear);
+                plate.Selection = SurfaceSelection.None;
+            }
+            plate.Fade(opacity);
+            if (role != ButtonRole.Prompt || cap == null) return;
+
+            // The prompt's cap: the main action's filled with the accent, any other an outline; it sinks when pressed.
+            var accent = Glaze.Tone(GlazeTone.Accent);
+            var main = on && available;
+            var capSize = GlazeTokens.Units(Glaze.Menu.PromptCapDegrees) * (pressed ? 0.92f : 1f);
+            if (main) cap.Draw(Vector2.one * capSize, capSize / 2f, GlazeTokens.ColorOf(accent.Strong));
+            else cap.Draw(Vector2.one * capSize, capSize / 2f, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.CapOutlineOpacity), GlazeTokens.Units(Glaze.Menu.CapOutlineDegrees));
+            cap.Selection = main ? SurfaceSelection.MainCap : SurfaceSelection.None;
+            cap.Fade(opacity);
+            var words = !available ? GlazeTokens.ColorOf(Glaze.Menu.QuietText) : main ? GlazeTokens.ColorOf(accent.Foreground) : GlazeTokens.Text;
+            label.color = new Color(words.r, words.g, words.b, opacity);
+            if (icon != null)
+            {
+                var glyph = main ? GlazeTokens.ColorOf(accent.OnStrong) : available ? white : GlazeTokens.ColorOf(Glaze.Menu.QuietText);
+                icon.color = new Color(glyph.r, glyph.g, glyph.b, opacity);
+            }
+        }
+
         /// <summary>Paints the state it is in now, only when that changed.</summary>
         private void Paint() => Paint(target.Hovered, flash > 0f || holding);
 
@@ -547,6 +675,12 @@ namespace Halcyonic.XR.UI
             var state = (pressed ? 1 : 0) | (hovered ? 2 : 0) | (away ? 4 : 0);
             if (state == paintedState) return;
             paintedState = state;
+
+            if (role == ButtonRole.Prompt || role == ButtonRole.Row || role == ButtonRole.Answer)
+            {
+                PaintOnTheMenu(hovered, pressed, away);
+                return;
+            }
 
             Color fill, text, edge = Color.clear;
             var edgeWidth = 0f;
