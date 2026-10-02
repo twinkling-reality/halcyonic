@@ -220,6 +220,15 @@ coordinator's first-visit words:
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
   from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
   tasks.
+- **A question whose answers don't fit pages them by a row.** The question, quoted, heads every
+  page in at most 2 rows; a longer one is cut, and its line opens a side panel with all of it.
+  Answers keep the agent's order, short ones two a row, long ones one a row in at most 2 rows of
+  words; a longer answer is cut, and choosing it slides out its side panel with all its words, so
+  what Send answer sends can be read first. The row for the person's own answer stands last on
+  every page. A row at the end, "More answers, 2 of 2", takes them on, as a confirmation's parts
+  do, since Hold to talk holds the place beside Send answer. Paging clears what was chosen, so Send
+  answer only sends what is on the page in view, and answers chosen together are chosen on one
+  page. No answer the agent offered is left out.
 - **A side panel's fact names its value above it at 18 dp**, in the secondary colour, the value at
   18 dp under it. At 15 dp the name would stand above larger type, which type stepping down
   forbids; the render caught it on Usage's side panel.
