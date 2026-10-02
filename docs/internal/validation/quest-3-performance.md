@@ -15,8 +15,12 @@
   since the editor's render statistics are not kept in batch mode. A screen shown again is counted
   by TextMeshPro's own event for every text mesh it builds (`TMPro_EventManager.TEXT_CHANGED_EVENT`).
   Allocations are Unity's own count of what the managed heap hands out ("GC Allocated In Frame",
-  read before and after a stretch, the least of twelve repeats a moment apart), because Unity's Mono
-  counts no thread's allocations and its heap's size moves only when it collects; the measure first
+  read before and after a stretch, the least of twelve repeats a moment apart; a part still above
+  nothing is measured twice more, half a second apart, and fails only if it allocates every time),
+  because Unity's Mono counts no thread's allocations and its heap's size moves only when it
+  collects. On 2026-10-02, with the Mac's load average at 50 to 75, single runs failed on a
+  different part each time, and on none the next run: probably the editor's other threads, whose
+  bursts run longer on a loaded machine, allocating through all twelve repeats. The measure first
   checks that a 256-byte array counts (288 bytes). The client core's per-frame code is measured by
   `PerFrameTests` on .NET.
 - **Status:** Measured off the device: draw calls at most, text, triangles, text meshes built again,

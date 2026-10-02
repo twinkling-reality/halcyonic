@@ -56,6 +56,17 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private const int Repeats = 12;
 
+        /// <summary>
+        /// A part whose least count over <see cref="Repeats"/> is still above nothing is measured
+        /// again, up to this many times in all, <see cref="AttemptPause"/> apart, and fails only if it
+        /// allocates every time: what a part allocates each frame shows in every stretch, while the
+        /// editor's other threads, whose bursts run longer on a loaded machine, sometimes cover all
+        /// twelve of one attempt.
+        /// </summary>
+        private const int Attempts = 3;
+
+        private const int AttemptPause = 500;
+
         /// <summary>The bytes the managed heap has handed out this frame so far: read before and after a stretch, what it allocated.</summary>
         private static ProfilerRecorder allocations;
 
@@ -457,15 +468,26 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var (name, count, frame) in kinds)
             {
                 var bytes = long.MaxValue;
-                for (var repeat = 0; repeat < Repeats; repeat++)
+                var attempts = 0;
+                while (attempts < Attempts && bytes > 0)
                 {
-                    var before = Allocated();
-                    for (var index = 0; index < Frames; index++) frame();
-                    bytes = Math.Min(bytes, Allocated() - before);
-                    System.Threading.Thread.Sleep(2);
+                    if (attempts > 0) System.Threading.Thread.Sleep(AttemptPause);
+                    attempts++;
+                    for (var repeat = 0; repeat < Repeats; repeat++)
+                    {
+                        var before = Allocated();
+                        for (var index = 0; index < Frames; index++) frame();
+                        bytes = Math.Min(bytes, Allocated() - before);
+                        System.Threading.Thread.Sleep(2);
+                    }
                 }
-                report.Add(name + " ×" + count + " " + (bytes / (double)Frames).ToString("0.#", CultureInfo.InvariantCulture) + " B");
-                if (bytes > 0) failures.Add(what + ": " + name + ", on " + count + " parts, allocates " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes over " + Frames + " frames.");
+                report.Add(name + " ×" + count + " " + (bytes / (double)Frames).ToString("0.#", CultureInfo.InvariantCulture) + " B"
+                    + (attempts > 1 ? " (measured " + attempts + " times)" : ""));
+                if (bytes > 0)
+                {
+                    failures.Add(what + ": " + name + ", on " + count + " parts, allocates " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes over "
+                        + Frames + " frames, every one of " + Attempts + " times.");
+                }
             }
             if (log) Debug.Log("Halcyonic: interface measure: " + what + ", each frame: " + string.Join(", ", report) + ".");
             return failures;
