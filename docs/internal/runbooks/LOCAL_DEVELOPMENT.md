@@ -24,7 +24,9 @@ pnpm mac-setup
 ```
 
 It checks each step below, says what is ready, what each step allows, and the next command, and
-changes nothing. Every command that changes something says what it will do first; the ones that
+changes nothing. It reads no access token unless you add `--with-token`, which asks the running
+Halcyonic which folders, agent apps and headsets it has; the token is then sent only after
+Halcyonic proves it holds it, so nothing else listening on its port gets it. Every command that changes something says what it will do first; the ones that
 open something (a folder, pairing) ask before they do it. They write `~/.halcyonic/settings.json`,
 which only you can read or change, and Halcyonic reads it when it starts
 ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)). A
@@ -40,10 +42,11 @@ which only you can read or change, and Halcyonic reads it when it starts
    ```
 
    makes `~/HalcyonicProjects`, empty, once you say yes. `pnpm mac-setup allow <folder>` allows a
-   folder that is already there; it refuses your home folder and any folder holding it, macOS's and
-   other people's folders, Halcyonic's own data, the hidden folders and Library in your home folder,
-   and a folder any user can change. `pnpm mac-setup disallow <folder>` takes one back; nothing in it
-   is deleted.
+   folder that is already there; it refuses your home folder and any folder holding it, macOS's,
+   its apps' and other people's folders, a whole drive, Halcyonic's own data, the hidden folders and
+   Library in your home folder, and a folder another user owns or any user can change. Halcyonic
+   itself refuses to start with such a folder, however it was allowed. `pnpm mac-setup disallow
+   <folder>` takes one back; nothing in it is deleted.
 2. **Get an agent app ready.** Halcyonic runs only the OpenCode and Codex versions it was checked
    with. Installing them downloads them from npm, without running their install scripts:
 
@@ -125,8 +128,10 @@ pnpm dev
 
 This listens on `127.0.0.1:47800`, stores its journal in `~/.halcyonic/control-plane.db`, and
 creates the access token `~/.halcyonic/access-token` on first start. Logs are JSON on stdout; the
-`control plane ready` line shows the address, the journal id, the registered runtimes and which
-settings it took from `~/.halcyonic/settings.json` (`settings.used`). The token never appears in
+`control plane ready` line shows the address, the journal id, the registered runtimes, which
+settings it took from `~/.halcyonic/settings.json` (`settings.used`), and each OpenCode and Codex
+binary with whether it is the pinned copy (`agent_binaries`: `matches`, `differs`, or `no_pin` where
+Halcyonic has no checksum for the processor). The token never appears in
 logs. Use `pnpm start` for a run without file watching.
 
 Every `HALCYONIC_` variable below can be set in the environment. `pnpm mac-setup` keeps the ones a
@@ -647,6 +652,10 @@ all history and the access token; clients need the new token afterwards.
   https://<address>:47801/api/health` from another machine answers `{"status":"ok"}`.
 - **`EADDRINUSE`**: another control plane or replay is running on the port. Stop it or set
   `HALCYONIC_PORT`.
+- **`pnpm devices` or `pnpm pair` says something "can't prove it holds this Mac's access token"**:
+  what answers on the port is not this data directory's control plane, so the token was not sent.
+  `lsof -nP -iTCP:47800 -sTCP:LISTEN` shows what listens; start the control plane, or run the
+  command with the same `HALCYONIC_DATA_DIR` and `HALCYONIC_PORT` as it.
 - **Executions show `unknown` after a restart**: intended. Their runtime sessions did not survive
   the restart, so their true state cannot be known.
 - **`runtime reused a native event id` in the log**: a runtime adapter gave a different record the

@@ -42,10 +42,11 @@ Facts that shaped the decision:
 2. **The environment wins.** A variable present in the environment, even empty, is used instead of
    the file's. Every existing command line, test harness and scratch control plane behaves as
    before, and `HALCYONIC_PROJECT_ROOTS= pnpm start` runs with no roots whatever the file says.
-3. **Only its owner can write it.** The control plane refuses to start, saying why, unless the file
-   is a regular file opened without following a link, owned by the user running it, mode 600, at
-   most 64 KiB, in a data directory that user owns and no one else can write to, says
-   `"format": 1`, and holds only known settings with well-formed values.
+3. **Only its owner can read or write it.** The control plane refuses to start, saying why, unless
+   the file is a regular file (checked before it is opened, so a named pipe cannot hold startup),
+   opened without following a link, owned by the user running it, mode 600, at most 64 KiB, in a
+   data directory that user owns and that is closed to others (mode 700), says `"format": 1`, and
+   holds only known settings with well-formed values.
 4. **It can never start paid model use.** It may hold only the project roots, the two pinned agent
    binaries, Halcyonic's own OpenCode settings, the three voice files and the network listener's
    address. `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE` and `HALCYONIC_AGENT_ENV` are
@@ -53,19 +54,30 @@ Facts that shaped the decision:
    deliberate choice made in the environment. No setting names a model.
 5. **Halcyonic's own OpenCode settings are local by construction.** `HALCYONIC_OPENCODE_CONFIG_HOME`
    names a directory given to OpenCode alone as its `XDG_CONFIG_HOME`, so the person's own OpenCode
-   settings and every other process keep theirs. The control plane refuses it unless its
-   `opencode/opencode.json` names a model this Mac serves through Ollama as `model`, and as
-   `small_model` when it names one (`ollama/...`, never a `cloud` tag), and no second OpenCode
-   settings file sits beside it. `pnpm mac-setup local-model <name>` writes it: that model, a
-   question before every shell command, and no `webfetch` or `websearch`.
-6. **The setup checks and explains; it never acts behind the person's back.** `pnpm mac-setup`
+   settings and every other process keep theirs. The control plane holds it to the settings file's
+   standard: real folders, not links, owned by the user and closed to others, holding nothing but
+   `opencode/opencode.json`, mode 600, which may hold only `model`, `small_model`, `permissions` and
+   Ollama's context limits. Both models must be served on this Mac through Ollama (`ollama/...`,
+   never a `cloud` tag). `pnpm mac-setup local-model <name>` writes it: that model as the default and
+   the small model, a question before every shell command, and no `webfetch` or `websearch`; the
+   check reads the permissions actually there and says what they allow.
+6. **Project roots are checked by the control plane, wherever they come from.** A root from the
+   environment or the file must be an existing folder that may hold projects: never the disk, a
+   shared or system folder (in the forms `realpath(3)` gives, so `/etc` is `/private/etc`), a whole
+   drive, another person's home, the home folder or a folder holding it, Halcyonic's data, a hidden
+   folder or Library in the home folder, a folder another user owns, or one any user can change
+   (`apps/control-plane/src/folder-safety.ts`). The setup refuses the same folders before it asks.
+7. **The startup log names each agent binary** and whether its SHA-256 is the pinned one, with a
+   warning when it is not, whoever named it.
+8. **The setup checks and explains; it never acts behind the person's back.** `pnpm mac-setup`
    checks every step and says, in the words of [WORDS.md](../product/WORDS.md), what is ready, what
    each step allows, and the next command. Allowing a folder and turning pairing on each say what
    they open and ask before changing anything. It never opens a credential (it checks only that a
-   file exists and that other users cannot read it), reads the access token only to ask the running
-   control plane what it uses, downloads nothing, and checks the pinned binaries and voice models
-   against their SHA-256 before recording them.
-7. **Changes take effect at the next start.** Settings are read once, as the environment was.
+   file exists and that other users cannot read it), downloads nothing, and checks the pinned
+   binaries and voice models against their SHA-256 before recording them. By default it reads no
+   access token; with `--with-token` it sends the token only to a server that first proves it holds
+   it, as `pnpm devices` now does too ([SECURITY.md](../architecture/SECURITY.md)).
+9. **Changes take effect at the next start.** Settings are read once, as the environment was.
 
 ## Alternatives considered
 
@@ -88,13 +100,14 @@ Facts that shaped the decision:
 
 - A person can set up a Mac with `pnpm mac-setup` and start Halcyonic with `pnpm start`, and the
   check tells them what is missing in the same words the headset uses.
+- An independent security review on 2026-10-02 found the first version let a hand-edited file allow
+  `/` or the home folder, held Halcyonic's own OpenCode settings to no standard, and sent the access
+  token to whatever answered on the port; decisions 3, 5, 6, 7 and 8 above are its fixes.
 - The settings file is a new place that decides what agents may change. It is held to the same
   standard as the access token, and the control plane logs which settings it took from it
   (`control plane ready`, `settings.used`).
-- The folders the setup refuses (the home folder and any folder holding it, system and shared
-  folders, Halcyonic's data, hidden folders and Library in the home folder, a folder any user can
-  change) are refused by the setup only. The control plane still accepts any existing directory as
-  a root, from the environment or a hand-edited file.
+- The control plane now refuses some roots it used to accept from the environment, such as the
+  home folder itself. A developer who relied on one chooses a folder inside it instead.
 - A root that is missing at startup still stops the control plane, as an environment root does; the
   check says so and offers `disallow`.
 - Changing a setting needs a restart, which stops any agent at work.
