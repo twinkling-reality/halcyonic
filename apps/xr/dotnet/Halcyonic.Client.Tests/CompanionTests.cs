@@ -90,6 +90,19 @@ public class CompanionExchangeTests
         exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose()));
         Assert.That(exchange.Proposal, Is.Not.Null);
         Assert.That(exchange.CanAskForRecap, Is.False, "it has proposed already");
+        Assert.That(exchange.CanSay, Is.False, "once it has proposed, the recap is where things change");
+        // The recap asked for right after a question: the companion's two turns in a row come back as they were.
+        var askedThenProposed = new CompanionExchange(CompanionStart.Help);
+        askedThenProposed.Ask(CompanionWant.Next);
+        askedThenProposed.Replied(askedThenProposed.Generation, Companions.Response(Companions.Ask()));
+        askedThenProposed.Say("Each runner");
+        askedThenProposed.Ask(CompanionWant.Next);
+        askedThenProposed.Replied(askedThenProposed.Generation, Companions.Response(Companions.Ask("Where should it run?")));
+        askedThenProposed.Ask(CompanionWant.Proposal);
+        askedThenProposed.Replied(askedThenProposed.Generation, Companions.Response(Companions.Propose()));
+        var back = CompanionExchange.Restore(CompanionStart.Help, 4, askedThenProposed.Turns);
+        Assert.That(back.Turns, Has.Count.EqualTo(askedThenProposed.Turns.Count));
+        Assert.That(back.Proposal, Is.Not.Null);
     }
 
     [Test]

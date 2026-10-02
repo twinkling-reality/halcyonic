@@ -259,6 +259,21 @@ describe('a reply', () => {
 });
 
 describe('what a request may carry', () => {
+  test('takes the proposal the person asked for right after a question as the only reply twice in a row', async (t) => {
+    const { ollama, companion } = await setUp(t);
+    ollama.answer({ content: JSON.stringify(modelReply(PROPOSE)) });
+    const messages: CompanionExchangeTurn[] = [
+      IDEA,
+      { from: 'companion', reply: ASK },
+      { from: 'companion', reply: PROPOSE },
+      { from: 'person', text: 'Call it Club Times' },
+    ];
+    assert.equal(
+      (await ask(companion, { start: 'idea', want: 'next', messages })).kind,
+      'answered',
+    );
+  });
+
   test('refuses anything outside the contract or out of order, before asking any model', async (t) => {
     const { ollama, companion } = await setUp(t);
     const bodies: [object, string][] = [
