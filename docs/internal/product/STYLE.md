@@ -138,6 +138,10 @@ One treatment for places, sections, rows, answers and prompts:
   side panel, and what fixes it is the footer's main action while it is chosen.
 - **An answer** is a shape round its words. Choosing it lights it, and the footer's main action
   sends or records it.
+- **Answers that don't fit** page by a row at the end, "More answers, 2 of 2", under the question,
+  which heads every page. Paging clears what was chosen, so what is sent is always in view. An
+  answer longer than 2 rows is cut, and choosing it slides out its side panel with all its words.
+  No answer the agent offered is left out.
 - **A claim keeps its evidence class's chip**: "Agent says", "Subagent says", "Inferred", "Planned",
   "Author unknown" or "Model explains". Observed and measured facts, and Halcyonic's own words, take
   none.
@@ -147,7 +151,8 @@ One treatment for places, sections, rows, answers and prompts:
 - **Places** (`PromptSlot`): Close far left; one rare action beside it, as Stop; the free middle,
   which only a confirmation's Yes takes; a secondary prompt beside the main action; and the main
   action far right.
-- **A prompt** is a round key cap, 1.45 degrees, holding its icon, then its words at 18 dp, with no
+- **A prompt** is a round key cap, 1.45 degrees, holding its icon at a degree (ADR 0023's floor for
+  icons), then its words at 18 dp, with no
   plate. Hit areas are 60 dp tall, unseen, 12 mm apart. Pointed at, it shows the selection frame;
   pressed, its cap sinks and Touch plays.
 - **The main action**, one a page and only at the far right: its cap filled with the accent, its
