@@ -140,9 +140,24 @@ cases, on the validated Ollama settings (`OLLAMA_NUM_PARALLEL` 1).
 So with one agent task generating, the median turn reached the 30 s bound and was refused; the
 gate is not met at one request per model. Each of Codex's steps on this task wrote long file
 contents, so a companion turn waited for a step of more than 30 s; the four answered turns came at
-the end of a step. The answered turns read 624 to 634 prompt tokens and wrote 55 to 62. Not yet
-measured: `OLLAMA_NUM_PARALLEL=2`, which would let a turn run beside the agent's step, and what it
-costs in memory.
+the end of a step. The answered turns read 624 to 634 prompt tokens and wrote 55 to 62.
+
+**Two requests at once do not help on the MLX engine.** The shared server was then restarted with
+`OLLAMA_NUM_PARALLEL=2` (its startup line says `OLLAMA_NUM_PARALLEL:2`), all else unchanged, while
+another session's Codex task generated on the same model:
+
+- A 5-token request waited 39.3 s: the log shows it began ("cache miss total=15") 170 ms after the
+  other task's 38.6 s request ended. The queueing test above waited 92 s, behind the long request
+  and the other task's next steps. Requests to the one MLX runner ran one at a time.
+- A request with `num_ctx` 8,192 started no new runner (one `starting mlx runner subprocess` line
+  since the restart), its `load_duration` was 70 ms, and `/api/ps` kept `context_length` 65,536:
+  the MLX engine ignores a request's context, as it ignored the server's in
+  [local-models.md](local-models.md). So a different context does not reload the model here.
+- Ollama logged 23.45 GiB held and 23.80 GiB at peak, against 22.23 and 22.49 GiB before the
+  restart; the other task's longer context also grew, so the difference is not the setting's.
+
+Two requests to one model at once are therefore not available on this engine; a turn that must not
+wait for an agent's step needs a runner of its own, which means a second model.
 
 ## Speed
 
