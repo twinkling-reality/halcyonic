@@ -1,19 +1,14 @@
 import {
   chmodSync,
-  closeSync,
-  constants,
-  fstatSync,
+  lstatSync,
   mkdirSync,
-  openSync,
-  readFileSync,
   renameSync,
   rmSync,
   type Stats,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { ConfigError } from './config.ts';
+import { ConfigError, readPrivateFile, refuseOpen } from './config.ts';
 
 /**
  * The file in the data directory that holds the settings `pnpm mac-setup` writes, read by the
@@ -62,53 +57,25 @@ function isSettingName(name: string): name is SettingName {
 /**
  * Reads the settings file of a data directory; empty when there is none. The file is refused,
  * and the control plane does not start, unless only this user can read or change it: a regular
- * file, not a link, owned by this user with mode 600, in a data directory this user owns and no
- * one else can write to. Whoever can change it decides which folders agents may change and which
- * binaries run.
+ * file, not a link or a pipe, owned by this user with mode 600, in a data directory this user owns
+ * that is closed to others (mode 700). Whoever can change it decides which folders agents may
+ * change and which binaries run.
  */
 export function readHostSettings(dataDir: string): HostSettings {
   const path = join(dataDir, SETTINGS_FILE);
-  let fd: number;
+  let stats: Stats;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    stats = lstatSync(path);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') return {};
-    if (code === 'ELOOP') throw new ConfigError(`${path} is a link, so it is not used.`);
-    throw new ConfigError(`${path} can't be read (${code ?? 'unknown error'}).`);
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    throw new ConfigError(`${path} can't be read (${(error as NodeJS.ErrnoException).code}).`);
   }
-  let text: string;
-  try {
-    const stats = fstatSync(fd);
-    if (!stats.isFile()) throw new ConfigError(`${path} is not a file, so it is not used.`);
-    refuseShared(
-      path,
-      stats,
-      0o077,
-      'Other users can read or change it, so it is not used. Run chmod 600 on it.',
-    );
-    refuseShared(
-      dataDir,
-      statSync(dataDir),
-      0o022,
-      'Other users can change what is in it, so its settings are not used. Run chmod 700 on it.',
-    );
-    if (stats.size > MAX_SETTINGS_BYTES) {
-      throw new ConfigError(`${path} is larger than ${MAX_SETTINGS_BYTES} bytes.`);
-    }
-    text = readFileSync(fd, 'utf8');
-  } finally {
-    closeSync(fd);
-  }
-  return parseHostSettings(path, text);
-}
-
-function refuseShared(path: string, stats: Stats, forbidden: number, problem: string): void {
-  const uid = process.getuid?.();
-  if (uid !== undefined && stats.uid !== uid) {
-    throw new ConfigError(`${path} belongs to another user, so the settings are not used.`);
-  }
-  if ((stats.mode & forbidden) !== 0) throw new ConfigError(`${path}: ${problem}`);
+  if (stats.isSymbolicLink()) throw new ConfigError(`${path} is a link, so it is not used.`);
+  if (!stats.isFile()) throw new ConfigError(`${path} is not a regular file, so it is not used.`);
+  const folder = lstatSync(dataDir);
+  if (!folder.isDirectory()) throw new ConfigError(`${dataDir} is not a folder, or is a link.`);
+  refuseOpen(dataDir, folder, 'Run chmod 700 on it.');
+  return parseHostSettings(path, readPrivateFile(path, MAX_SETTINGS_BYTES));
 }
 
 /** Parses the file's text; `path` only names it in errors. */

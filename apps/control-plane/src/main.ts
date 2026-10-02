@@ -5,7 +5,12 @@ import type { NetworkListener } from '@halcyonic/contracts';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
 import type { FastifyInstance } from 'fastify';
-import { defaultDataDir, loadConfig, type NetworkListenerConfig } from './config.ts';
+import {
+  type ControlPlaneConfig,
+  defaultDataDir,
+  loadConfig,
+  type NetworkListenerConfig,
+} from './config.ts';
 import { ControlPlane } from './core/control-plane.ts';
 import { registerDeviceRoutes } from './http/device-routes.ts';
 import { registerRealtime } from './http/realtime.ts';
@@ -21,6 +26,7 @@ import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
 import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
+import { matchesPin, pinsForThisMac } from './pins.ts';
 import { createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
@@ -48,6 +54,11 @@ async function main(): Promise<void> {
   const speech = config.speech === null ? null : await WhisperEngine.open(config.speech);
 
   const app = await createHttpServer({ logLevel: config.logLevel, token: access.token });
+  // Whether each agent binary is the copy Halcyonic was checked with, whoever named it (ADR 0024).
+  const agentBinaries = await checkAgentBinaries(config);
+  for (const binary of agentBinaries.filter((entry) => entry.pinned === 'differs')) {
+    app.log.warn(binary, 'an agent binary is not the copy Halcyonic was checked with');
+  }
   for (const stale of await stopStaleRuntimeServers(adapters)) {
     app.log.warn(stale, 'a runtime server from an earlier run was still recorded');
   }
@@ -149,6 +160,7 @@ async function main(): Promise<void> {
         file: join(config.dataDir, SETTINGS_FILE),
         used: settingsInUse(process.env, settings),
       },
+      agent_binaries: agentBinaries,
     },
     'control plane ready',
   );
@@ -197,6 +209,39 @@ async function main(): Promise<void> {
     process.stdin.on('error', stdinEnded);
     process.stdin.resume();
   }
+}
+
+/**
+ * Each configured OpenCode and Codex binary's path, and whether its SHA-256 is the pinned one:
+ * `matches`, `differs`, or `no_pin` where Halcyonic has no pin for this processor.
+ */
+async function checkAgentBinaries(
+  config: ControlPlaneConfig,
+): Promise<{ app: string; path: string; pinned: 'matches' | 'differs' | 'no_pin' }[]> {
+  const pins = pinsForThisMac();
+  const binaries = [
+    ...(config.opencodeBinary === null
+      ? []
+      : [{ app: 'opencode', path: config.opencodeBinary, pin: pins?.opencode ?? null }]),
+    ...(config.codexBinary === null
+      ? []
+      : [{ app: 'codex', path: config.codexBinary, pin: pins?.codex ?? null }]),
+  ];
+  return Promise.all(
+    binaries.map(async ({ app, path, pin }) => {
+      const matches = await matchesPin(path, pin);
+      return {
+        app,
+        path,
+        pinned:
+          matches === null
+            ? ('no_pin' as const)
+            : matches
+              ? ('matches' as const)
+              : ('differs' as const),
+      };
+    }),
+  );
 }
 
 /**

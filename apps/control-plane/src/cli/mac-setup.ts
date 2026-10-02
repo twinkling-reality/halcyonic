@@ -12,16 +12,15 @@
  *   pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it
  *
  * It never opens a credential: of the Seorak, Salidium and Anthropic files it reads only whether
- * they exist and who may read them. It reads the access token only to ask the running Halcyonic
- * what it uses, as pnpm devices does, and not at all with --no-token. It never turns on an agent
- * app that spends model credit, never names a hosted model, and downloads nothing: what needs a
- * download it shows as a command for the person to run.
+ * they exist and who may read them. By default it reads no access token and asks the running
+ * Halcyonic only its public health check; with --with-token it reads the token and sends it only
+ * after the server proves it holds it. It never turns on an agent app that spends model credit,
+ * never names a remote model, and downloads nothing: what needs a download it shows as a command
+ * for the person to run.
  */
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
   chmodSync,
-  createReadStream,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -32,22 +31,26 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { arch, homedir, platform, totalmem } from 'node:os';
-import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { homedir, platform, totalmem } from 'node:os';
+import { delimiter, dirname, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
 import {
   ConfigError,
   DEFAULT_NETWORK_PORT,
-  DEFAULT_PORT,
   defaultDataDir,
   isLocalOllamaModel,
   loadConfig,
+  loopbackListener,
   OPENCODE_SETTINGS_PATH,
+  type OpenCodeSettings,
+  readOpenCodeSettings,
 } from '../config.ts';
-import { ACCESS_TOKEN_FILE } from '../http/security.ts';
+import { assessFolder, type FolderContext, realOrSelf } from '../folder-safety.ts';
+import { ACCESS_TOKEN_FILE, serverProvesToken } from '../http/security.ts';
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
+import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
 import { ANTHROPIC_KEY_FILE } from '../runtimes.ts';
 import {
   type HostSettings,
@@ -63,43 +66,6 @@ export interface Firewall {
   readonly enabled: boolean;
   readonly blockAll: boolean;
 }
-
-/** A file Halcyonic was checked with, by its path under the data directory and its SHA-256. */
-export interface PinnedFile {
-  readonly path: string;
-  readonly sha256: string;
-}
-
-export interface Pins {
-  readonly opencode: PinnedFile;
-  readonly codex: PinnedFile;
-  readonly whisperModel: PinnedFile;
-  readonly whisperVadModel: PinnedFile;
-}
-
-/**
- * The binaries and models Halcyonic was checked with on an Apple silicon Mac, as the runbook
- * installs them under the data directory: OpenCode 2.0.18 (opencode-capabilities.md), Codex 0.157.0
- * (codex-capabilities.md) and the voice models (voice-transcription.md).
- */
-export const APPLE_SILICON_PINS: Pins = {
-  opencode: {
-    path: 'runtimes/opencode-2.0.18/node_modules/@opencode/cli-darwin-arm64/bin/opencode',
-    sha256: '6759c7f86f807d63d3984ca1970f9fa663ee303a35bb344eb223c71e200a96bf',
-  },
-  codex: {
-    path: 'runtimes/codex-0.157.0/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex',
-    sha256: 'ad0be20d04e2ba6146ecdb51d7f8b7b0fe15420a15dc9b0057518d858f1f3714',
-  },
-  whisperModel: {
-    path: 'speech/models/ggml-large-v3-turbo-q5_0.bin',
-    sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
-  },
-  whisperVadModel: {
-    path: 'speech/models/ggml-silero-v6.2.0.bin',
-    sha256: '2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987',
-  },
-};
 
 /** whisper.cpp is built on the Mac from its pinned source, so its binary has no checksum. */
 const WHISPER_BINARY = 'speech/whisper.cpp-1.9.4/bin/whisper-cli';
@@ -166,9 +132,14 @@ const RESTART_WARNING =
 export async function runMacSetup(args: readonly string[], io: MacSetupIo): Promise<number> {
   const flags = new Set(args.filter((arg) => arg.startsWith('--')));
   const [command = 'check', argument, ...rest] = args.filter((arg) => !arg.startsWith('--'));
-  const unknownFlag = [...flags].find((flag) => flag !== '--yes' && flag !== '--no-token');
+  const unknownFlag = [...flags].find(
+    (flag) => flag !== '--yes' && flag !== '--no-token' && flag !== '--with-token',
+  );
   if (unknownFlag !== undefined || rest.length > 0) return usage(io);
-  const setup = new MacSetup(io, { useToken: !flags.has('--no-token'), yes: flags.has('--yes') });
+  const setup = new MacSetup(io, {
+    useToken: flags.has('--with-token') && !flags.has('--no-token'),
+    yes: flags.has('--yes'),
+  });
   switch (command) {
     case 'check':
       return argument === undefined ? setup.check() : usage(io);
@@ -199,113 +170,12 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup local-model <name>   give OpenCode settings of its own on an Ollama model',
     '  pnpm mac-setup voice                record the checked voice files',
     '  pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it',
-    'Add --no-token to check without reading the access token.',
+    'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
+    'token, and sends it only after Halcyonic proves it holds it.',
   ]) {
     io.print(line);
   }
   return 2;
-}
-
-/** What `assessFolder` found: a folder that can't be allowed, one to think twice about, or fine. */
-export type FolderAssessment =
-  | { readonly verdict: 'refused'; readonly reason: string }
-  | { readonly verdict: 'broad'; readonly reason: string }
-  | { readonly verdict: 'fine' };
-
-/** Folders whose whole content belongs to macOS or its apps. */
-const SYSTEM_TREES = [
-  '/System',
-  '/Library',
-  '/Applications',
-  '/usr',
-  '/bin',
-  '/sbin',
-  '/etc',
-  '/cores',
-  '/dev',
-];
-/** Folders that hold every user's or every drive's files. */
-const SHARED_ROOTS = [
-  '/',
-  '/Users',
-  '/Volumes',
-  '/private',
-  '/private/var',
-  '/private/tmp',
-  '/var',
-  '/tmp',
-  '/opt',
-];
-/** Folders in a home folder that hold much more than projects. */
-const PERSONAL_FOLDERS = [
-  'Desktop',
-  'Documents',
-  'Downloads',
-  'Pictures',
-  'Movies',
-  'Music',
-  'Public',
-];
-
-/**
- * Whether a folder can be allowed for agents. Refused: the whole disk, a shared or system folder,
- * the home folder or one that holds it, Halcyonic's own data, a hidden folder or Library in the
- * home folder, where apps keep settings and keys, and a folder any user can change. Broad: a
- * personal folder such as Documents, which holds much more than projects. `real` is the folder's
- * real path.
- */
-export function assessFolder(real: string, home: string, dataDir: string): FolderAssessment {
-  const realHome = realOrSelf(home);
-  const realData = realOrSelf(dataDir);
-  if (SHARED_ROOTS.includes(real) || SYSTEM_TREES.some((tree) => within(tree, real))) {
-    return refused('It holds files of macOS, its apps or other people, not your projects.');
-  }
-  if (within(real, realHome)) {
-    return refused('It holds your whole home folder, so agents could change everything you have.');
-  }
-  if (within(real, realData) || within(realData, real)) {
-    return refused("It holds Halcyonic's own data, such as its access token and history.");
-  }
-  if (within(realHome, real)) {
-    const [first = ''] = relative(realHome, real).split(sep);
-    if (first.startsWith('.') || first === 'Library') {
-      return refused('Apps keep their settings and keys there.');
-    }
-    if (PERSONAL_FOLDERS.includes(first) && relative(realHome, real) === first) {
-      return {
-        verdict: 'broad',
-        reason: `It holds much more than projects, and agents could change any of it.${first === 'Desktop' || first === 'Documents' ? ' If iCloud keeps your Desktop and Documents, what agents change there also goes to iCloud.' : ''}`,
-      };
-    }
-  }
-  let mode = 0;
-  try {
-    mode = statSync(real).mode;
-  } catch {
-    return { verdict: 'fine' };
-  }
-  if ((mode & 0o002) !== 0) {
-    return refused('Any user of this Mac can change what is in it.');
-  }
-  return { verdict: 'fine' };
-}
-
-function refused(reason: string): FolderAssessment {
-  return { verdict: 'refused', reason };
-}
-
-/** Whether `candidate` is `root` or lies inside it. */
-function within(root: string, candidate: string): boolean {
-  const path = relative(root, candidate);
-  return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path));
-}
-
-function realOrSelf(path: string): string {
-  try {
-    return realpathSync.native(path);
-  } catch {
-    return resolve(path);
-  }
 }
 
 interface Running {
@@ -316,8 +186,8 @@ interface Running {
   readonly agentApps: readonly string[] | null;
   readonly devices: DevicesResponse | null;
   readonly usageLeft: { readonly availability: string; readonly code: string | null } | null;
-  /** Its access token was refused, or none could be read, though something answers. */
-  readonly tokenProblem: 'missing' | 'refused' | null;
+  /** No access token could be read, or what answers could not prove it holds it. */
+  readonly tokenProblem: 'missing' | 'unproved' | null;
 }
 
 interface OllamaModel {
@@ -427,7 +297,7 @@ class MacSetup {
         );
         continue;
       }
-      const assessment = assessFolder(realOrSelf(root), this.#io.home, this.#dataDir);
+      const assessment = assessFolder(realOrSelf(root), this.#folders());
       if (assessment.verdict === 'refused') {
         status = 'todo';
         lines.push(`${shown} should not be allowed. ${assessment.reason}`);
@@ -441,7 +311,7 @@ class MacSetup {
     const disallow = roots
       .filter((root) => {
         if (!isDirectory(root)) return true;
-        return assessFolder(realOrSelf(root), this.#io.home, this.#dataDir).verdict !== 'fine';
+        return assessFolder(realOrSelf(root), this.#folders()).verdict !== 'fine';
       })
       .map((root) => `pnpm mac-setup disallow ${quote(this.#tilde(root))}`);
     return {
@@ -466,19 +336,37 @@ class MacSetup {
       if (report.state === 'look') look = true;
     }
     if (env.HALCYONIC_OPENCODE_BIN !== undefined && env.HALCYONIC_OPENCODE_BIN !== '') {
-      if (
-        env.HALCYONIC_OPENCODE_CONFIG_HOME === undefined ||
-        env.HALCYONIC_OPENCODE_CONFIG_HOME === ''
-      ) {
+      const home = env.HALCYONIC_OPENCODE_CONFIG_HOME;
+      let own: OpenCodeSettings | null = null;
+      try {
+        own = home === undefined || home === '' ? null : readOpenCodeSettings(home);
+      } catch {
+        own = null;
+      }
+      if (own === null) {
         look = true;
         lines.push(
           "OpenCode uses your own OpenCode settings. With OpenCode's defaults it runs every command without asking you, so nothing reaches the headset to approve, and it may fetch from the web. Halcyonic doesn't read your settings, so it can't tell whether yours ask first.",
         );
         next.push(`pnpm mac-setup local-model ${this.#suggestedModel(ollama) ?? '<model name>'}`);
       } else {
+        const shell = effectOf(own, 'shell');
+        const web = [effectOf(own, 'webfetch'), effectOf(own, 'websearch')];
+        const asks = shell === 'ask' || shell === 'deny';
+        const offline = web.every((effect) => effect === 'deny');
+        if (!asks || !offline) look = true;
         lines.push(
-          `OpenCode uses Halcyonic's own OpenCode settings: it asks you before running a shell command, and it can't fetch from the web.`,
+          `OpenCode uses Halcyonic's own OpenCode settings: ${
+            shell === 'ask'
+              ? 'it asks you before running a shell command'
+              : shell === 'deny'
+                ? 'it never runs a shell command'
+                : 'it runs some or all shell commands without asking you, so they never reach the headset to approve'
+          }, and ${offline ? "it can't fetch from the web" : 'it may fetch from the web'}.`,
         );
+        if (!asks || !offline) {
+          next.push(`pnpm mac-setup local-model ${own.model.replace(/^ollama\//, '')}`);
+        }
       }
       if (this.#io.which('rg') === null) {
         look = true;
@@ -734,7 +622,7 @@ class MacSetup {
         title,
         status: 'unknown',
         lines: [
-          'A Seorak credential is saved. Whether Seorak accepts it shows once Halcyonic runs and this check can ask it.',
+          'A Seorak credential is saved. Whether Seorak accepts it shows when Halcyonic runs and you check with pnpm mac-setup --with-token.',
           about,
         ],
       };
@@ -798,7 +686,7 @@ class MacSetup {
         lines: [
           running.tokenProblem === 'missing'
             ? `Something answers on Halcyonic's port, but there is no access token in ${this.#tilde(this.#dataDir)}. Another copy of Halcyonic, with other data, may be running.`
-            : "Something answers on Halcyonic's port, but it refuses this Mac's access token. Another copy of Halcyonic, with other data, may be running.",
+            : "Something answers on Halcyonic's port but can't prove it holds this Mac's access token, so the token was not sent. Another copy of Halcyonic with other data, or another program or account on this Mac, may be listening there.",
         ],
       };
     }
@@ -807,7 +695,7 @@ class MacSetup {
         title,
         status: 'ready',
         lines: [
-          "Halcyonic is running. Checked without its access token, so this can't say which settings it runs with.",
+          'Halcyonic is running. To check which folders and agent apps it runs with, use pnpm mac-setup --with-token: it reads the access token and sends it only after Halcyonic proves it holds it.',
         ],
       };
     }
@@ -873,7 +761,7 @@ class MacSetup {
     const devices = running.devices;
     if (devices === null) {
       lines.push(
-        'Pairing over Wi-Fi is on. Whether a headset is paired shows once Halcyonic runs and this check can ask it.',
+        'Pairing over Wi-Fi is on. Whether a headset is paired shows when Halcyonic runs and you check with pnpm mac-setup --with-token, or with pnpm devices.',
       );
     } else {
       const kept = devices.devices.filter((device) => device.revoked_at === null);
@@ -937,7 +825,7 @@ class MacSetup {
     const real = exists
       ? realpathSync.native(target)
       : join(realpathSync.native(dirname(target)), DEFAULT_PROJECTS_FOLDER);
-    const assessment = assessFolder(real, io.home, this.#dataDir);
+    const assessment = assessFolder(real, this.#folders());
     if (assessment.verdict === 'refused') {
       io.print(`${this.#tilde(real)} can't be allowed. ${assessment.reason}`);
       io.print('Allow a folder you keep for projects instead, such as ~/HalcyonicProjects.');
@@ -1086,6 +974,7 @@ class MacSetup {
     }
     const document = {
       model: `ollama/${model.name}`,
+      small_model: `ollama/${model.name}`,
       permissions: [
         { action: 'shell', resource: '*', effect: 'ask' },
         { action: 'webfetch', resource: '*', effect: 'deny' },
@@ -1278,9 +1167,16 @@ class MacSetup {
     } catch {
       return { ...answering, tokenProblem: 'missing' };
     }
+    // Another account could listen on the port while Halcyonic is stopped: the token goes only to
+    // a server that first proves it holds it.
+    const base = this.#base();
+    if (base === null || (await serverProvesToken(this.#io.fetch, base, token)) !== 'proved') {
+      return { ...answering, tokenProblem: 'unproved' };
+    }
     const locations = await this.#get('/api/locations', token);
-    if (locations === null || locations.status === 401)
-      return { ...answering, tokenProblem: 'refused' };
+    if (locations === null || locations.status !== 200) {
+      return { ...answering, tokenProblem: 'unproved' };
+    }
     const snapshot = await this.#get('/api/snapshot', token);
     const devices = await this.#get('/api/devices', token);
     const usage = await this.#get('/api/usage-limits', token);
@@ -1309,9 +1205,10 @@ class MacSetup {
     path: string,
     token: string | null,
   ): Promise<{ status: number; body: unknown } | null> {
-    const port = this.#io.env.HALCYONIC_PORT ?? String(DEFAULT_PORT);
+    const base = this.#base();
+    if (base === null) return null;
     try {
-      const response = await this.#io.fetch(`http://127.0.0.1:${port}${path}`, {
+      const response = await this.#io.fetch(`${base}${path}`, {
         headers: token === null ? {} : { authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(3000),
       });
@@ -1326,6 +1223,20 @@ class MacSetup {
     } catch {
       return null;
     }
+  }
+
+  /** Where Halcyonic listens on loopback, as the control plane validates it; null when invalid. */
+  #base(): string | null {
+    try {
+      const { host, port } = loopbackListener(this.#io.env);
+      return `http://${host === '::1' ? '[::1]' : host}:${port}`;
+    } catch {
+      return null;
+    }
+  }
+
+  #folders(): FolderContext {
+    return { home: this.#io.home, dataDir: this.#dataDir, uid: process.getuid?.() };
   }
 
   /** The models Ollama lists, or null when it doesn't answer on this Mac. */
@@ -1408,7 +1319,7 @@ class MacSetup {
     if (pin === null) return 'unknown';
     let hash = this.#hashes.get(path);
     if (hash === undefined) {
-      hash = sha256(path);
+      hash = sha256File(path);
       this.#hashes.set(path, hash);
     }
     const value = await hash;
@@ -1421,6 +1332,29 @@ class MacSetup {
     if (path === home) return '~';
     return path.startsWith(`${home}${sep}`) ? `~${path.slice(home.length)}` : path;
   }
+}
+
+/**
+ * What OpenCode does with an action under these settings, for every resource: the last rule for
+ * the action or for every action wins, as OpenCode applies them, and with no rule it allows. A
+ * rule that allows only some resources makes the answer `some`.
+ */
+export function effectOf(
+  settings: OpenCodeSettings,
+  action: string,
+): 'allow' | 'ask' | 'deny' | 'some' {
+  let effect: 'allow' | 'ask' | 'deny' = 'allow';
+  let someAllowed = false;
+  for (const rule of settings.permissions) {
+    if (rule.action !== action && rule.action !== '*') continue;
+    if (rule.resource === '*') {
+      effect = rule.effect;
+      someAllowed = false;
+    } else if (rule.effect === 'allow') {
+      someAllowed = true;
+    }
+  }
+  return someAllowed && effect !== 'allow' ? 'some' : effect;
 }
 
 function usageLeftProblem(code: string | null): string {
@@ -1443,16 +1377,6 @@ function usageLeftProblem(code: string | null): string {
     default:
       return `Usage left can't be read right now${code === null ? '' : ` (${code})`}.`;
   }
-}
-
-async function sha256(path: string): Promise<string | null> {
-  const hash = createHash('sha256');
-  try {
-    for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer);
-  } catch {
-    return null;
-  }
-  return hash.digest('hex');
 }
 
 /** Writes a file mode 600 through a new file renamed into place. */
@@ -1553,7 +1477,7 @@ if (import.meta.main) {
     memoryBytes: totalmem(),
     which,
     firewall: platform() === 'darwin' ? readFirewall : () => null,
-    pins: platform() === 'darwin' && arch() === 'arm64' ? APPLE_SILICON_PINS : null,
+    pins: pinsForThisMac(),
   })
     .then((status) => process.exit(status))
     .catch((error: unknown) => {

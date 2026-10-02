@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
@@ -50,6 +52,35 @@ function target(server: Server) {
   assert.ok(server.network);
   return server.network.target;
 }
+
+describe('pnpm devices before it sends the token', () => {
+  test('sends it only to a server that proves it holds it, never to whatever listens on the port', async (t) => {
+    const authorizations: (string | undefined)[] = [];
+    const impostor = createServer((request, response) => {
+      authorizations.push(request.headers.authorization);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        request.url === '/api/health' ? '{"status":"ok"}' : '{"devices":[],"connected":[]}',
+      );
+    });
+    await new Promise<void>((resolve) => impostor.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise<void>((resolve) => impostor.close(() => resolve())));
+    const dataDir = mkdtempSync(join(tmpdir(), 'halcyonic-cli-'));
+    t.after(() => rmSync(dataDir, { recursive: true, force: true }));
+    writeFileSync(join(dataDir, 'access-token'), `${'a'.repeat(43)}\n`);
+    const port = (impostor.address() as AddressInfo).port;
+    const { status } = run({ HALCYONIC_DATA_DIR: dataDir, HALCYONIC_PORT: String(port) }, ['list']);
+    await assert.rejects(
+      status,
+      /can't prove it holds this Mac's access token, so the token was not sent/,
+    );
+    assert.ok(authorizations.length >= 1, 'it asked the health check');
+    assert.ok(
+      authorizations.every((value) => value === undefined),
+      'no request carried the token',
+    );
+  });
+});
 
 describe('pnpm pair and pnpm devices', () => {
   test('pair shows the address and the code, tells of a refused code, and ends when a device pairs', async (t) => {
