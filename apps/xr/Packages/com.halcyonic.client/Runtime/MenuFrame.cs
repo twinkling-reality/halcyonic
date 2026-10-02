@@ -121,8 +121,9 @@ namespace Halcyonic.Client
         /// <param name="wordsAreData">The words are text from outside, which may end in an ellipsis where they don't fit; Halcyonic's own never do.</param>
         /// <param name="fact">A small fact at the line's right, in the Label size, as a time or what a task needs.</param>
         /// <param name="chip">
-        /// The claim's evidence class in its source's own word, as "reported" or "inferred", drawn as
-        /// a chip; null for an observed fact, which takes none.
+        /// The claim's evidence class, drawn as a chip: "Agent says", "Subagent says", "Inferred",
+        /// "Planned", "Author unknown" or "Model explains". Null for an observed or measured fact and
+        /// for Halcyonic's own words, which take none.
         /// </param>
         /// <param name="claim">The agent's own words: quoted and leaning, never read as Halcyonic's or as fact.</param>
         /// <param name="action">What pressing it raises, with <paramref name="key"/>; null for a line that only says something.</param>
@@ -134,7 +135,7 @@ namespace Halcyonic.Client
             bool chosen = false, bool available = true, int rows = 1)
         {
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
-            if (chip == "observed") throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
+            if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
             if (chip != null && string.IsNullOrWhiteSpace(chip)) throw new ArgumentException("A chip has its word, or is null.", nameof(chip));
             if (opens && action == null) throw new ArgumentException("A line that opens a side panel raises an action.", nameof(opens));
             if (choice && action == null) throw new ArgumentException("An answer to choose raises an action.", nameof(choice));
@@ -289,8 +290,10 @@ namespace Halcyonic.Client
     /// An action in a frame's footer (ADR 0026): a round key cap holding its icon, then its words. A
     /// prompt always has an icon. One that can't be taken now keeps its place, drawn quiet, with why on
     /// the page's last content line. Only the main action is drawn as one, its cap filled with the
-    /// accent and its words heavier in the accent; it stands only at the far right. The microphone only
-    /// on a held prompt, as Hold to talk, never on approving, denying, stopping or a confirmation.
+    /// accent and its words heavier in the accent; it stands only at the far right, and a confirmation's
+    /// Yes, whose own words carry it, is drawn plain. Paging that can't be taken, at the first or last
+    /// page, stays in its place, quiet, with no reason. The microphone only on a held prompt, as Hold
+    /// to talk, never on approving, denying, stopping or a confirmation.
     /// </summary>
     public sealed class Prompt
     {
@@ -306,6 +309,10 @@ namespace Halcyonic.Client
             if (icon == GlazeIcon.HoldToTalk && !holds) throw new ArgumentException("Only a held prompt shows the microphone.", nameof(icon));
             if (main && kind != PromptKind.Action) throw new ArgumentException("Only an action is ever the main action: never paging, Close or a confirmation.", nameof(main));
             if (holds && (main || kind != PromptKind.Action)) throw new ArgumentException("A held prompt is a plain action.", nameof(holds));
+            if (!available && string.IsNullOrWhiteSpace(reason) && (kind == PromptKind.Action || kind == PromptKind.Yes))
+            {
+                throw new ArgumentException("An action that can't be taken now says why, on the page's last content line; only paging is quiet without a reason.", nameof(reason));
+            }
             Id = id;
             Words = words;
             Icon = icon;
@@ -355,10 +362,11 @@ namespace Halcyonic.Client
 
         public Footer(Prompt? close = null, Prompt? rare = null, Prompt? secondary = null, Prompt? farRight = null)
         {
+            // The far right first: whether Next page may be the secondary prompt depends on it.
             Put(PromptSlot.Close, close);
             Put(PromptSlot.Rare, rare);
-            Put(PromptSlot.Secondary, secondary);
             Put(PromptSlot.FarRight, farRight);
+            Put(PromptSlot.Secondary, secondary);
         }
 
         private Footer(Footer copy) => Array.Copy(copy.slots, slots, slots.Length);
