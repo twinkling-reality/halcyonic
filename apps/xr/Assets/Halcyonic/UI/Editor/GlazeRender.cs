@@ -121,6 +121,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(TextAsSeenCatchesASlant());
                 failures.AddRange(OnePlaneCatchesEachBreak());
                 failures.AddRange(TypeStepsDownCatchesARise());
+                failures.AddRange(OneSelectionTreatmentCatchesEachBreak());
             }
             catch (Exception error)
             {
@@ -445,6 +446,58 @@ namespace Halcyonic.XR.UI.Editor
                 if (upper == GlazeType.Title) failures.AddRange(found);
                 else if (!found.Any(failure => failure.Contains("type only steps down"))) failures.Add("component render: the type check missed body text above a larger title.");
                 else Debug.Log("Halcyonic: component render: the type check caught type " + name + ": " + string.Join(" ", found));
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// The selection check passes a row with one chosen shape, lit and framed, one pointed at,
+        /// framed alone, and a footer whose main action's cap takes the accent; and catches an accent
+        /// bar under the chosen shape (as a bar and as the accent, exactly those two), a second chosen
+        /// shape lit otherwise, and a pointed shape filled (ADR 0026).
+        /// </summary>
+        private static IEnumerable<string> OneSelectionTreatmentCatchesEachBreak()
+        {
+            var failures = new List<string>();
+            var accent = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Accent).Strong);
+            var litFill = new Color(1f, 1f, 1f, 0.10f);
+            var litEdge = new Color(1f, 1f, 1f, 0.78f);
+            var pointedEdge = new Color(1f, 1f, 1f, 0.42f);
+            var frame = GlazeTokens.Units(0.1f);
+            Surface Shape(Transform part, string name, Vector2 size, Vector2 at, Color fill, Color edge, SurfaceSelection selection)
+            {
+                var shape = Surface.Create(part, name, 1);
+                shape.Draw(GlazeTokens.Units(1f) * size, GlazeTokens.Units(0.75f), fill, edge, edge.a > 0f ? frame : 0f);
+                shape.transform.localPosition = new Vector3(GlazeTokens.Units(at.x), GlazeTokens.Units(at.y), -0.001f);
+                shape.Selection = selection;
+                return shape;
+            }
+            var cases = new (string Name, string[] Caught, Action<Transform> Break)[]
+            {
+                ("as drawn", Array.Empty<string>(), _ => { }),
+                ("with an accent bar under the chosen shape", new[] { "is a bar", "filled with the accent" },
+                    row => Shape(row, "Bar", new Vector2(8f, 0.1f), new Vector2(-6f, -1.8f), accent, Color.clear, SurfaceSelection.None)),
+                ("with a second chosen shape lit otherwise", new[] { "lit otherwise" },
+                    row => Shape(row, "Chosen too", new Vector2(5f, 3f), new Vector2(8f, 0f), new Color(1f, 1f, 1f, 0.3f), litEdge, SurfaceSelection.Lit)),
+                ("with a pointed shape filled", new[] { "more than a frame" },
+                    row => Shape(row, "Pointed and filled", new Vector2(5f, 3f), new Vector2(8f, 0f), litFill, pointedEdge, SurfaceSelection.Pointed)),
+            };
+            foreach (var (name, caught, change) in cases)
+            {
+                var (holder, column) = OneColumn("Selection " + name, 5f, 6f);
+                Shape(column[0].Root, "Chosen", new Vector2(8f, 3f), new Vector2(-6f, 0f), litFill, litEdge, SurfaceSelection.Lit);
+                Shape(column[0].Root, "Pointed", new Vector2(5f, 3f), new Vector2(2f, 0f), Color.clear, pointedEdge, SurfaceSelection.Pointed);
+                Shape(column[1].Root, "Cap", new Vector2(3f, 3f), new Vector2(8f, -1f), accent, Color.clear, SurfaceSelection.MainCap);
+                change(column[0].Root);
+                var found = GlazeChecks.OneSelectionTreatment(holder.GetComponentsInChildren<Surface>(false), galleryEyes, "component render: a row " + name).ToList();
+                if (caught.Length == 0) failures.AddRange(found);
+                else if (found.Count != caught.Length || !caught.All(words => found.Any(failure => failure.Contains(words))))
+                {
+                    failures.Add("component render: the selection check found " + found.Count + " things wrong with a row " + name + ", not " + string.Join(" and ", caught) + ": "
+                        + string.Join(" ", found));
+                }
+                else Debug.Log("Halcyonic: component render: the selection check caught a row " + name + ": " + string.Join(" ", found));
                 UnityEngine.Object.DestroyImmediate(holder.gameObject);
             }
             return failures;

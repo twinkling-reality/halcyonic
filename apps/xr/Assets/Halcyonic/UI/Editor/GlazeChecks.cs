@@ -380,6 +380,48 @@ namespace Halcyonic.XR.UI.Editor
             }
         }
 
+        /// <summary>
+        /// One selection treatment (ADR 0026), by the role each shape's component gives it
+        /// (<see cref="Surface.Selection"/>): what is chosen is a lit fill with its frame, and every lit
+        /// shape the same; what is pointed at is a frame alone, every one the same; no shape is filled
+        /// with the accent but the main action's cap; and no shape thinner than 0.2 degrees is drawn
+        /// over 20 percent opaque, which rules out bars and underlines marking anything.
+        /// </summary>
+        public static IEnumerable<string> OneSelectionTreatment(IEnumerable<Surface> shapes, Vector3 eyes, string what)
+        {
+            var accent = GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Accent).Strong);
+            Color? lit = null, litEdge = null, pointedEdge = null;
+            foreach (var shape in shapes)
+            {
+                if (!shape.isActiveAndEnabled) continue;
+                var name = PathOf(shape.transform);
+                var framed = shape.EdgeWidth > 0f && shape.Edge.a > 0f;
+                switch (shape.Selection)
+                {
+                    case SurfaceSelection.Lit:
+                        if (!framed || shape.Fill.a <= 0f) yield return what + ": " + name + " is chosen without its lit fill and frame; there is one selection treatment.";
+                        if ((lit.HasValue && lit.Value != shape.Fill) || (litEdge.HasValue && litEdge.Value != shape.Edge))
+                        {
+                            yield return what + ": " + name + " is lit otherwise than the other chosen shapes; there is one selection treatment.";
+                        }
+                        lit ??= shape.Fill;
+                        litEdge ??= shape.Edge;
+                        break;
+                    case SurfaceSelection.Pointed:
+                        if (!framed || shape.Fill.a > 0f) yield return what + ": " + name + " is pointed at with more than a frame; pointed at is the frame alone.";
+                        if (pointedEdge.HasValue && pointedEdge.Value != shape.Edge) yield return what + ": " + name + " is framed otherwise than the other pointed shapes.";
+                        pointedEdge ??= shape.Edge;
+                        break;
+                }
+                var fill = shape.Fill;
+                var accented = Mathf.Abs(fill.r - accent.r) + Mathf.Abs(fill.g - accent.g) + Mathf.Abs(fill.b - accent.b) < 0.05f && fill.a > 0.3f;
+                if (accented && shape.Selection != SurfaceSelection.MainCap) yield return what + ": " + name + " is filled with the accent, which marks only the main action's cap.";
+                var scale = shape.transform.lossyScale;
+                var thinnest = Glaze.DegreesOf(Mathf.Min(scale.x, scale.y), PlaneDistance(eyes, shape.transform));
+                if (thinnest < 0.2f && fill.a > 0.2f) yield return what + ": " + name + " is a bar, " + thinnest.ToString("0.00", CultureInfo.InvariantCulture) + " degrees thin; nothing is marked by a bar or an underline.";
+            }
+        }
+
         private static string Millimetres(float meters) => (meters * 1000f).ToString("0.0", CultureInfo.InvariantCulture);
 
         /// <summary>
