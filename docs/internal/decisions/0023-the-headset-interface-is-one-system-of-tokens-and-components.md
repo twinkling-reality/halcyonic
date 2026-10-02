@@ -80,7 +80,13 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   and nothing Halcyonic draws pops up in front of the person.
 - **One icon set.** Material Symbols Rounded (Apache-2.0), filled, weight 500, as a static
   TextMeshPro SDF atlas of only the glyphs used, made with fontTools, named by meaning in the
-  client core.
+  client core. (On 2026-10-02 the badges and marks took their icons: 13 glyphs of version 2.972,
+  at grade 0 and optical size 24, in a 256 pixel atlas that carries no font file and falls back to
+  nothing, each on a label of its own beside the words it goes with, never in their text. Text
+  from outside shows every Private Use Area character as its code point, so only Halcyonic draws
+  an icon. Starting and Working turn theirs. On the stage a badge shows its icon only while it
+  stays within the plate's 10.5 degrees, so Checking its work, Finished this round and Waiting for
+  you with a count show their word alone there, and their icon in the peek and the workspace.)
 - **The renders enforce the rules.** Every render checks overlap between zones, target size and
   spacing, text size, contrast, that no state is told by colour alone, that navigation and the
   primary action stand in the same place on every screen, and Halcyonic's own words. A stage
@@ -113,7 +119,10 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   lanes working in the same files. `PointerTarget` moves assembly.
 - Larger targets and gaps mean fewer rows per page: lists show four a page.
 - Fonts (Liberation Sans Bold and Liberation Mono, SIL OFL) and the icon atlas (Apache-2.0) are
-  committed with their licences, and NOTICE names them.
+  committed with their licences, and NOTICE names them. (On 2026-10-02 NOTICE named the two fonts
+  the app includes, Material Symbols Rounded and Liberation Sans. Neither Liberation Sans Bold nor
+  Liberation Mono was added: strong text is drawn thicker by its material, and no text is set in a
+  monospaced font yet.)
 - Two quiet Glaze cues are proposed for presses that register and presses refused; they need the
   owner's approval. (Approved on 2026-10-01 and added as Touch and Not now, with every cue renamed
   to the words the person reads.)

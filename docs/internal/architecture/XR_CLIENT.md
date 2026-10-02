@@ -786,7 +786,10 @@ scripts use only long-stable core Unity APIs:
   ending in an ellipsis, and the mark on the plate's bottom edge, whose edge is then dashed. The
   plate is at most 10.5 degrees wide, 1.5 less than the 12 between slots, and 96 percent opaque;
   the reason a task needs the person is not on the stage, only in the peek. Beside a badge, a mark
-  would reach a neighbour's. `Body` is the moving visual root, and `LookAtPerson` turns the
+  would reach a neighbour's. The badge shows its state's icon before its word only while it stays
+  within those 10.5 degrees (`StateBadgeView.MaxWidth`): Checking its work, Finished this round and
+  Waiting for you with a count are longer, so on the stage they show their word alone, and their
+  icon in the peek and the workspace. `Body` is the moving visual root, and `LookAtPerson` turns the
   character to the person for the workspace; the label stays where it is. Per-character values go
   through `MaterialPropertyBlock`s, so nothing allocates per frame.
 - `Assets/Halcyonic/UI` is the interface's own assembly (`Halcyonic.XR.UI`), which the stage and
@@ -797,10 +800,17 @@ scripts use only long-stable core Unity APIs:
   Sans, rich text off, escape parsing on, every text through `LabelText.ForTextMeshPro`, strong text
   thickened by its material, never TextMeshPro's bold, which finds no ellipsis in this font; a
   label's mesh is built again only when its words, look or box change, since panels lay every label
-  out again every half second), and
-  the components without input: `StateBadgeView`, `MarkTag`, `CharacterLabelView`, `PeekCardView`
-  and `StageBanner`. Components are built in units of their distance from the eyes and scaled by it,
-  so every size is an angle.
+  out again every half second), icons (`GlazeIcons`: Material Symbols Rounded, filled, weight 500,
+  drawn from the static atlas `UI/Resources/HalcyonicUI/GlazeIcons`, 13 glyphs in 256 by 256
+  pixels with no font file and no fallback, each on a label of its own beside the words it goes
+  with and never in their text, its em 1.2 degrees in a badge or tag and never under 1; only the
+  generated `GlazeIconGlyphs` knows a code point, and `GlazeIconAtlas` builds the atlas from the
+  font `apps/xr/tools/glaze_icons.py` makes, [material-symbols.md](../validation/material-symbols.md)),
+  and the components without input: `StateBadgeView` (its state's icon, then its word; Starting's
+  and Working's icon turns clockwise once every 1.2 seconds; with a `MaxWidth` it shows its word
+  alone where the icon would take it past that), `MarkTag` (a flask for Practice, a film for Demo
+  and Recorded), `CharacterLabelView`, `PeekCardView` and `StageBanner`. Components are built in
+  units of their distance from the eyes and scaled by it, so every size is an angle.
 - `Assets/Halcyonic/UI.Interaction` (`Halcyonic.XR.UI.Interaction`) holds what takes input, on the
   Interaction SDK, for the workspace, the entry panel, the rail and the room and pairing controls;
   the stage never references it. `PointerTarget` lives here: a ray, poke and gaze target whose
@@ -1520,9 +1530,12 @@ label that shows text from outside, through the code that shows it: markup, back
 an end of text character, a carriage return and a line break, a bidirectional override, a zero
 width space, a tag character and half a surrogate pair. It fails if any label interprets markup or
 parses no escapes, uses italics or bold, shows text that did not go through the rule exactly once,
-lays out other characters than that text or cuts it short without an ellipsis; if a claim does not
-lean, or leans and loses its ellipsis; and it checks a character's label and the peek card the
-same way, their TextMeshPro labels by the same rule.
+lays out other characters than that text or cuts it short without an ellipsis, or draws any of it
+from the icon atlas; if a claim does not lean, or leans and loses its ellipsis; and it checks a
+character's label and the peek card the same way, their TextMeshPro labels by the same rule. An
+icon is no text, so it is checked on its own: one glyph of the icon set, drawn from the atlas, an
+em of at least a degree as seen from the eyes, and words of its own beside it, level with it and
+no more than an em away; every render that checks labels this way does the same.
 
 `GlazeRender` (**Halcyonic > Render Every Component**, also runnable in batch mode) renders every
 component in every state on a panel at touch distance, 0.46 m, each facing the eyes: every state's
@@ -1532,7 +1545,11 @@ colour showing, and the banner's kinds,
 saved at a Quest 3's 25 pixels per degree in `apps/xr/Builds/GlazeRenders`. It fails if a word is
 under the caption's size, a button under 60 dp (48 compact), anything of ours cut short, a badge
 missing its word, or a button's label under 4.5:1 on its own fill as drawn, as an off filter's grey
-word was on its lighter fill when pointed at, before it brightened.
+word was on its lighter fill when pointed at, before it brightened. Its marks are the client core's
+(`StateLanguage.MarksOf`). It fails if the icon atlas lacks a glyph for an icon the client core
+names, is not static, keeps its font file, falls back to another font or is a fallback of one;
+if two icons share a glyph, or an icon shows on no badge or mark; if an icon stands alone or under
+a degree; or if a label of words draws from the icon atlas.
 
 `StageRender` (**Halcyonic > Render Every State on the Stage**, also runnable in batch mode) renders
 every state of a task on a character at the stage's default distance and height, practice, demo and
@@ -1547,7 +1564,11 @@ every word at least the caption's 0.94 degrees, at the distance of the plane it 
 are; every plate at least 96 percent
 opaque; every badge showing its whole word; a plate's pixel in its token's color; and a title's
 strokes at 7:1 or more on its plate as drawn. It fails if the banner still shows while the peek is
-where it goes, or does not come back when the peek leaves.
+where it goes, or does not come back when the peek leaves; or unless every label's badge has the
+plate's 10.5 degrees as its room and shows its icon exactly when the badge with it fits there, and
+it logs each badge's width and whether its icon shows. With their icons, badges run from 6.2
+degrees (Starting) to 10.7 (Checking its work), 11.0 (Waiting for you with a count) and 11.3
+(Finished this round), which is why those three show their word alone.
 
 `MeasureRender` (**Halcyonic > Measure the Interface**, also runnable in batch mode) measures what
 the interface costs a Quest 3, off the device, for the stage with the rail, the stage beside a

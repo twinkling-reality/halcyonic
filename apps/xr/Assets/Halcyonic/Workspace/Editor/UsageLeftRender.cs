@@ -210,7 +210,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.AddRange(ClearOfTheStage(what, camera, glance, characters, eyes));
                     failures.AddRange(Fits(what, glance, eyes));
                     if (!answer.Hostile) failures.AddRange(EntryRender.NothingOfOursCut(glance.Shown, what, frame));
-                    else failures.AddRange(WorkspaceRender.AllShowLiterally(glance.Panel.gameObject, "usage left render " + what));
+                    else failures.AddRange(WorkspaceRender.AllShowLiterally(glance.Panel.gameObject, "usage left render " + what, eyes));
                     failures.AddRange(Says(what, frame, shown, answer));
                     failures.AddRange(MetersPictureTheirWords(what, frame, answer.Reading));
                     if (shown.Rows.Count > 2 * 2)

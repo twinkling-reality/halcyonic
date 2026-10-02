@@ -1,2 +1,18 @@
 Halcyonic
 Copyright 2026 Twinkling Reality
+
+The headset app includes these fonts, each under its own licence:
+
+Material Symbols Rounded, version 2.972
+Copyright 2026 Google LLC
+Licensed under the Apache License, Version 2.0:
+apps/xr/Assets/Halcyonic/UI/Icons/LICENSE.txt
+Changed for Halcyonic: pinned to one style (filled, weight 500, grade 0, optical size 24) and cut
+to the glyphs the headset uses, as apps/xr/Assets/Halcyonic/UI/Icons/MaterialSymbolsRounded-Glaze.ttf,
+and drawn into the icon atlas apps/xr/Assets/Halcyonic/UI/Resources/HalcyonicUI/GlazeIcons.asset.
+
+Liberation Sans
+Copyright (c) 2012 Red Hat, Inc., with digitized data copyright (c) 2010 Google Corporation
+Licensed under the SIL Open Font License, Version 1.1:
+apps/xr/Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt
+As TextMeshPro's essential resources include it.

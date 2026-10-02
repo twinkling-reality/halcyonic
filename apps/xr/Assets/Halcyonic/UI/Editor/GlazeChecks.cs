@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -11,8 +12,9 @@ namespace Halcyonic.XR.UI.Editor
     /// <summary>
     /// The interface's rules (ADR 0023), checked on what a render built: nothing overlaps as seen
     /// from the eyes, every word is large enough at its own distance, plates are opaque enough to
-    /// read over a bright room, every state badge shows its whole word, and colours reach the
-    /// render as authored, with text that contrasts with its plate. Each check returns its failures
+    /// read over a bright room, every state badge shows its whole word, every icon is one glyph of
+    /// the icon atlas with words beside it and no label of words draws from that atlas, and colours
+    /// reach the render as authored, with text that contrasts with its plate. Each check returns its failures
     /// as sentences; a render fails when any does. The token tests in the client core hold the
     /// colours to their contrast; these hold what is drawn to the tokens.
     /// </summary>
@@ -221,6 +223,129 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// Every icon that shows stands on its own label (<see cref="GlazeIcons"/>): exactly one glyph
+        /// of the icon set, drawn from the icon atlas, an em of at least
+        /// <see cref="GlazeIcons.MinimumDegrees"/> as seen from <paramref name="eyes"/>, and a word
+        /// beside it, so an icon never says anything alone.
+        /// </summary>
+        public static IEnumerable<string> IconsBesideWords(GameObject root, Vector3 eyes, string what)
+        {
+            var failures = new List<string>();
+            var count = 0;
+            foreach (var icon in root.GetComponentsInChildren<TMP_Text>(false))
+            {
+                if (!GlazeIcons.IsIcon(icon)) continue;
+                count++;
+                failures.AddRange(IconBesideWord(icon, eyes, what));
+            }
+            Debug.Log("Halcyonic: " + what + ": checked " + count + " icons, " + failures.Count + " failing.");
+            return failures;
+        }
+
+        /// <summary>One icon label: one glyph of the set from the atlas, large enough, with a word beside it.</summary>
+        public static IEnumerable<string> IconBesideWord(TMP_Text icon, Vector3 eyes, string what)
+        {
+            var name = what + ": the icon " + PathOf(icon.transform);
+            if (icon.text.Length != 1 || GlazeIconGlyphs.All.IndexOf(icon.text[0]) < 0)
+            {
+                yield return name + " shows " + Codes(icon.text) + ", not one glyph of the icon set.";
+                yield break;
+            }
+            icon.ForceMeshUpdate();
+            var info = icon.textInfo;
+            if (info.characterCount != 1 || !info.characterInfo[0].isVisible || info.characterInfo[0].fontAsset != GlazeIcons.Font)
+            {
+                yield return name + " does not draw its glyph from the icon atlas.";
+            }
+            var em = icon.fontSize * 0.1f * icon.transform.lossyScale.y;
+            var degrees = Glaze.DegreesOf(em, PlaneDistance(eyes, icon.transform));
+            if (degrees < GlazeIcons.MinimumDegrees - 0.005f)
+            {
+                yield return name + "'s em is " + degrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees, under "
+                    + GlazeIcons.MinimumDegrees.ToString("0.000", CultureInfo.InvariantCulture) + ".";
+            }
+            // A word beside it: a label of its own parent that shows words, level with it and no more than an em away.
+            var seen = Of("the icon", eyes, new[] { icon.GetComponent<Renderer>() });
+            var beside = false;
+            foreach (Transform sibling in icon.transform.parent)
+            {
+                if (sibling == icon.transform || !sibling.gameObject.activeInHierarchy) continue;
+                if (!sibling.TryGetComponent<TMP_Text>(out var word) || GlazeIcons.IsIcon(word) || string.IsNullOrWhiteSpace(word.text)) continue;
+                var words = Of("its words", eyes, new[] { word.GetComponent<Renderer>() });
+                if (words.IsEmpty) continue;
+                var level = words.Bottom < seen.Top && seen.Bottom < words.Top;
+                var near = Mathf.Max(words.Left - seen.Right, seen.Left - words.Right) <= degrees;
+                if (level && near) beside = true;
+            }
+            if (!beside) yield return name + " has no words beside it.";
+        }
+
+        /// <summary>
+        /// No label of words draws a character from the icon atlas or shows an icon's glyph, so only an
+        /// icon's own label ever draws an icon.
+        /// </summary>
+        public static IEnumerable<string> NotFromIcons(TMP_Text label, string what)
+        {
+            if (GlazeIcons.IsIcon(label)) yield break;
+            if (GlazeIcons.Font != null && label.font == GlazeIcons.Font)
+            {
+                yield return what + ": " + PathOf(label.transform) + " is set in the icon font.";
+                yield break;
+            }
+            var info = label.textInfo;
+            for (var index = 0; index < info.characterCount; index++)
+            {
+                var character = info.characterInfo[index];
+                if (character.fontAsset == GlazeIcons.Font || GlazeIconGlyphs.All.IndexOf(character.character) >= 0)
+                {
+                    yield return what + ": " + PathOf(label.transform) + " draws " + Codes(character.character.ToString()) + " from the icon atlas.";
+                    yield break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The icon atlas holds every icon the client core names (<see cref="GlazeIcon"/>), stays static,
+        /// keeps no font file and falls back to nothing, and no font of words falls back to it.
+        /// </summary>
+        public static IEnumerable<string> IconAtlasHoldsEveryIcon(string what)
+        {
+            var atlas = GlazeIcons.Font;
+            if (atlas == null)
+            {
+                yield return what + ": there is no icon atlas at Resources/" + GlazeIcons.ResourcePath + ".";
+                yield break;
+            }
+            foreach (GlazeIcon icon in Enum.GetValues(typeof(GlazeIcon)))
+            {
+                var glyph = GlazeIconGlyphs.Of(icon);
+                if (glyph.Length != 1 || !atlas.characterLookupTable.TryGetValue(glyph[0], out var character) || character.glyph == null
+                    || character.glyph.glyphRect.width == 0 || character.glyph.glyphRect.height == 0)
+                {
+                    yield return what + ": the icon atlas has no glyph for " + icon + ".";
+                }
+            }
+            if (atlas.atlasPopulationMode != AtlasPopulationMode.Static) yield return what + ": the icon atlas is not static.";
+            if (atlas.sourceFontFile != null) yield return what + ": the icon atlas refers to its font file.";
+            if (atlas.fallbackFontAssetTable != null && atlas.fallbackFontAssetTable.Count > 0) yield return what + ": the icon atlas falls back to another font.";
+            if (TMP_Settings.fallbackFontAssets != null && TMP_Settings.fallbackFontAssets.Contains(atlas)) yield return what + ": every font falls back to the icon atlas.";
+            if (TMP_Settings.defaultFontAsset == atlas) yield return what + ": the icon atlas is the default font.";
+            var fallbacks = new Stack<TMP_FontAsset>();
+            var seen = new HashSet<TMP_FontAsset>();
+            fallbacks.Push(TMP_Settings.defaultFontAsset);
+            while (fallbacks.Count > 0)
+            {
+                var font = fallbacks.Pop();
+                if (font == null || !seen.Add(font) || font.fallbackFontAssetTable == null) continue;
+                foreach (var fallback in font.fallbackFontAssetTable)
+                {
+                    if (fallback == atlas) yield return what + ": " + font.name + " falls back to the icon atlas.";
+                    fallbacks.Push(fallback);
+                }
+            }
+        }
+
+        /// <summary>
         /// A pixel of a render shows a token as authored, drawn at <paramref name="alpha"/> over black:
         /// colours reach the render unchanged by the colour space or the shader.
         /// </summary>
@@ -274,6 +399,17 @@ namespace Halcyonic.XR.UI.Editor
             var path = transform.name;
             for (var parent = transform.parent; parent != null && parent.parent != null; parent = parent.parent) path = parent.name + "/" + path;
             return path;
+        }
+
+        /// <summary>Text for a failure's message, every character that is not printable ASCII as its code.</summary>
+        private static string Codes(string text)
+        {
+            var result = new System.Text.StringBuilder();
+            foreach (var character in text.Take(100))
+            {
+                result.Append(character >= 0x20 && character < 0x7F ? character.ToString() : "[U+" + ((int)character).ToString("X4", CultureInfo.InvariantCulture) + "]");
+            }
+            return result.ToString();
         }
     }
 }

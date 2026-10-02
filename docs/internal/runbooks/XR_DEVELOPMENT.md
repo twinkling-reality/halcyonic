@@ -184,9 +184,9 @@ Stage**, or in batch mode:
 
 It saves every state at the stage's default distance and height, with the banner and with a peek,
 the demonstration's marked stage, and a desk, each with close-ups at a Quest 3's pixels per degree,
-in `apps/xr/Builds/StageRenders`, and logs how far down the labels end and the smallest text
-(`Halcyonic: stage render ...`). The interface's rules it checks are in
-[XR_CLIENT.md](../architecture/XR_CLIENT.md).
+in `apps/xr/Builds/StageRenders`, and logs how far down the labels end, each badge's width and
+whether its icon shows, and the smallest text (`Halcyonic: stage render ...`). The interface's
+rules it checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md).
 
 Every component of the interface renders in every state, **Halcyonic > Render Every Component**, or
 in batch mode:
@@ -198,7 +198,9 @@ in batch mode:
 It saves the gallery in `apps/xr/Builds/GlazeRenders` and logs each button label's contrast on its
 fill (`Halcyonic: component render ...`). It fails if a word is too small or cut short, a target too
 small, a label short of 4.5:1 on its fill, a badge's word wrong, or a meter filled other than to its
-share, or at all while waiting.
+share, or at all while waiting; and if the icon atlas lacks an icon the client core names, an icon
+shows on no badge or mark, an icon is under a degree or has no words beside it, or a label of words
+draws from the icon atlas.
 
 What the interface costs a Quest 3, measured off the device, **Halcyonic > Measure the Interface**,
 or in batch mode:
@@ -227,6 +229,37 @@ verdict from the log (`Halcyonic: workspace render: ...`, `Halcyonic: stage inte
 Text in the workspace is TextMeshPro. Its essential resources are committed in
 `Assets/TextMesh Pro`, imported from the builtin `com.unity.ugui` package, without the EmojiOne
 sprites and the HDRP and URP shader graphs, which the stage does not use.
+
+### The icons
+
+The icons are Material Symbols Rounded, cut to the glyphs the headset uses
+([material-symbols.md](../validation/material-symbols.md)). To add or change one, or to take a new
+release:
+
+1. Change the client core's `GlazeIcon` (in `StateLanguage.cs`) and the `ICONS` list in
+   `apps/xr/tools/glaze_icons.py` together; the script stops while they differ.
+2. Make the icon font and its code point table (`GlazeIconGlyphs`) from Google's variable font,
+   `variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf` in google/material-design-icons,
+   kept outside the repository and never committed, with fontTools installed:
+
+   ```bash
+   python3 apps/xr/tools/glaze_icons.py "/path/to/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf"
+   ```
+
+   It prints the source's version and SHA-256 and the font it wrote. Record a new source in
+   material-symbols.md.
+3. Build the atlas from that font: in the editor, **Halcyonic > Build the Icon Atlas**, or in batch
+   mode, without `-quit`, since it exits by itself, with status 1 when a glyph is missing:
+
+   ```bash
+   /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.UI.Editor.GlazeIconAtlas.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-icon-atlas.log
+   ```
+
+   It writes `apps/xr/Assets/Halcyonic/UI/Resources/HalcyonicUI/GlazeIcons.asset` in place, keeping its meta file, and logs
+   its size (`Halcyonic: icon atlas: ...`). Every build gives the texture and material inside it
+   new identifiers, so an atlas built again from an unchanged font is not worth committing.
+4. Run the component render, which fails if the atlas lacks an icon the client core names, then the
+   other renders.
 
 ## Run against the control plane
 
@@ -1031,7 +1064,9 @@ For each step write down what you saw and how it felt, in
    about 4 degrees below your eyes. Without lifting your chin, can you see every body and read every
    badge and title? Do neighbours' labels ever touch? Do the badge words (Waiting for you, Working,
    Checking its work, Finished this round, Couldn't finish, Can't tell yet, Stopped) say what each
-   is doing without the colours?
+   is doing without the colours? Can you make out each badge's icon, and do Starting's and Working's
+   turning icons stay calm at the edge of your view? Checking its work, Finished this round and
+   Waiting for you with a count have no room for their icon on the stage: do you miss it?
 3. **A window in front, three ways (5 minutes).** Put the browser video straight ahead. Count the
    characters it covers. In Settings (the rail's Settings, Your room), press Make room for a window:
    the lineup turns 32 degrees right, the outermost label about 67 degrees from straight ahead. Is
