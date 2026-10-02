@@ -130,6 +130,10 @@ public class MenuFrameTests
         Assert.That(confirming.Reason, Is.EqualTo("Read to part 3 first"), "the locked Yes says why, as the page's last content line");
         Assert.That(confirming.All.Count(each => each.Prompt.DrawnAsMain), Is.Zero, "nothing in a confirmation is drawn as the main action");
 
+        var reading = Footer.Confirm(waiting, PromptSlot.FarRight, null, Cancel);
+        Assert.That(reading.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.FarRight }),
+            "before the last part has shown: Close and Cancel, no Yes");
+        Assert.That(reading.Confirming, Is.True, "armed while the parts are read");
         var stopping = Footer.Confirm(waiting, PromptSlot.Rare, Yes(), Cancel);
         Assert.That(stopping[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Stop was pressed");
         Assert.Throws<ArgumentException>(() => Footer.Confirm(new Footer(Close), PromptSlot.FarRight, Yes(), Cancel), "no press there to undo");
@@ -173,6 +177,9 @@ public class MenuFrameTests
         Assert.That((opens.Pressable, opens.Opens, opens.Chip), Is.EqualTo((true, true, "Agent says")));
         var answer = new PageLine("Use Postgres", wordsAreData: true, action: "answer", key: "0", choice: true, chosen: true);
         Assert.That(answer.Choice, Is.True);
+        var part = new PageLine("Write and apply a migration that moves sessions into their own table.", wordsAreData: true, rows: 3, fromRow: 3);
+        Assert.That((part.Rows, part.FromRow), Is.EqualTo((3, 3)), "a part of a long request shows from where the one before ended");
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new PageLine("x", fromRow: -1));
         var recorded = new PageLine("Add a test for the limit", wordsAreData: true, action: "tell-it", key: "1", available: false);
         Assert.That(recorded.Pressable, Is.False, "shown but taking no press, as an answer the recording doesn't hold");
 
