@@ -52,6 +52,9 @@ namespace Halcyonic.Client
         /// <summary>New project's row for the fixed questions, and the main action while it is chosen (ADR 0026).</summary>
         public const string AnswerQuestions = "Answer a few questions";
         public const string StartQuestions = "Start the questions";
+
+        /// <summary>Typing a first task of one's own in place of the companion's suggestion and one's earlier words.</summary>
+        public const string TypeMyOwn = "Type my own";
         public const string NothingStartsYet = "Nothing starts until you choose Start building.";
         public const string GuideNote = "Fixed questions, not an AI. You can change every answer.";
         public const string Back = "Back";

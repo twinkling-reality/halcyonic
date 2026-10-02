@@ -258,12 +258,224 @@ public class NewProjectScreensTests
         foreach (var words in new[]
                  {
                      CompanionText.TalkItThroughShort, CompanionText.AnswerFirst, CompanionText.MakeTheRecapFromMyWords, CompanionText.RecapFromMyWords,
-                     EntryText.AnswerQuestions, EntryText.StartQuestions,
+                     EntryText.AnswerQuestions, EntryText.StartQuestions, EntryText.TypeMyOwn, CompanionText.SuggestedShort, CompanionText.YourOwnWords,
                  })
         {
             Assert.That(words, Does.Not.Contain("—").And.Not.Contain("!"), words);
             foreach (var brand in new[] { "Mac", "Ollama", "qwen", "OpenCode", "Codex", "Claude" })
                 Assert.That(words, Does.Not.Contain(brand), words);
         }
+    }
+}
+
+public class NewProjectRecapTests
+{
+    private static readonly CommandFactory Commands = new(Samples.Client);
+
+    private static RuntimeDescriptor Listing()
+    {
+        var runtime = Samples.MockRuntime();
+        runtime.RuntimeId = "local";
+        runtime.DisplayName = "Local agent";
+        runtime.Synthetic = false;
+        runtime.ModelChoice = ModelChoice.Listed;
+        runtime.UsesProjectLocation = true;
+        return runtime;
+    }
+
+    private static RuntimeModel Model(string reference, ModelServed served) =>
+        new() { ModelRef = reference, DisplayName = reference, Served = served, ToolCalling = ModelToolCalling.Declared };
+
+    private static NewWorkDraft Draft(params RuntimeModel[] models)
+    {
+        var draft = new NewWorkDraft(Commands);
+        draft.ChooseRuntime(Listing());
+        if (models.Length > 0)
+        {
+            draft.SetModels(new RuntimeModelsResponse { RuntimeId = "local", Result = new AvailableModels { Models = models.ToList() } });
+        }
+        return draft;
+    }
+
+    private static ProjectIdea Proposed()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        var exchange = idea.BeginCompanion(CompanionStart.Idea);
+        exchange.Ask(CompanionWant.Proposal);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose()));
+        idea.UseProposal(exchange.Proposal!.Proposal);
+        return idea;
+    }
+
+    private static void HoldsThreePrompts(MenuFrame frame)
+    {
+        var prompts = frame.Footer.All.ToList();
+        Assert.That(prompts, Has.Count.InRange(1, 3), "Close, one other prompt and the main action");
+        Assert.That(prompts[0].Prompt.Kind, Is.EqualTo(PromptKind.Close));
+    }
+
+    private static PageLine Fact(MenuFrame frame, RecapFact fact) =>
+        frame.Lines.Single(line => line.Key == NewProjectScreens.FactKey(fact));
+
+    [Test]
+    public void EachFactIsARowWithSuggestedBesideWhatTheCompanionSuggested()
+    {
+        var idea = Proposed();
+        var frame = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: EntryText.ChooseWhereFilesLive);
+        HoldsThreePrompts(frame);
+        Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Recap"));
+        Assert.That(frame.Sections.Last().Reached, Is.False, "something is missing, so Start building can't be chosen");
+        Assert.That(frame.Lines[0].Claim && frame.Lines[0].WordsAreData, Is.True, "the companion's proposal, quoted as its own");
+        Assert.That(frame.Lines[0].Words, Does.Contain("The companion says: “That is clear enough to start.”"));
+        Assert.That(frame.Source, Is.EqualTo(CompanionText.Note), "its words show, so the note that it is an AI is the source");
+        Assert.That(Fact(frame, RecapFact.Name).Words, Is.EqualTo("Race Times"));
+        Assert.That(Fact(frame, RecapFact.Name).Fact, Is.EqualTo(CompanionText.SuggestedShort));
+        Assert.That(Fact(frame, RecapFact.FirstTask).Fact, Is.EqualTo(CompanionText.SuggestedShort));
+        Assert.That(Fact(frame, RecapFact.Folder).Fact, Is.Null);
+        Assert.That(frame.Lines.Where(line => line.Key != null).All(line => line.Opens && !line.Choice), Is.True, "each fact opens its side panel");
+        Assert.That(frame.Side, Is.Null, "no fact chosen");
+        Assert.That(frame.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.StartOver));
+        var start = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((start.Id, start.Main, start.Available), Is.EqualTo((NewProjectScreens.StartBuilding, true, false)));
+        Assert.That(frame.Reason, Is.EqualTo(EntryText.ChooseWhereFilesLive), "the reason is the page's last line");
+
+        idea.UseOwnWords();
+        frame = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: null);
+        Assert.That(frame.Lines.Any(line => line.Fact == CompanionText.SuggestedShort), Is.False, "nothing once the value is the person's own");
+        Assert.That(frame.Source, Is.Null);
+        Assert.That(frame.Lines[0].Words, Is.EqualTo(EntryText.RecapLine));
+        Assert.That(frame.Sections.Last().Reached, Is.True);
+    }
+
+    [Test]
+    public void ChoosingAFactShowsItWholeBesideAndPutsItsChangeBesideClose()
+    {
+        var idea = Proposed();
+        var frame = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.FirstTask);
+        HoldsThreePrompts(frame);
+        Assert.That(Fact(frame, RecapFact.FirstTask).Chosen, Is.True);
+        Assert.That(frame.Side!.Subject, Is.EqualTo(EntryText.FirstTask));
+        Assert.That(frame.Side.Facts.Select(fact => (fact.Name, fact.Value)), Is.EqualTo(new[]
+        {
+            (CompanionText.Suggested, idea.FirstTask), (CompanionText.YourOwnWords, "something for my running club"),
+        }));
+        Assert.That(frame.Side.Source, Is.EqualTo(CompanionText.Note));
+        Assert.That(frame.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.ChangeTask));
+        Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "no prompt beyond Close, the change and Start building");
+
+        var changes = new Dictionary<RecapFact, (string Id, string Words)>
+        {
+            [RecapFact.Name] = (NewProjectScreens.Rename, EntryText.Change),
+            [RecapFact.Folder] = (NewProjectScreens.ChooseWhere, EntryText.ChooseAnotherFolder),
+            [RecapFact.HowItRuns] = (NewProjectScreens.MoreOptions, EntryText.MoreOptions),
+        };
+        foreach (var (fact, change) in changes)
+        {
+            var chosen = NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: null, chosen: fact);
+            Assert.That((chosen.Footer[PromptSlot.Rare]!.Id, chosen.Footer[PromptSlot.Rare]!.Words), Is.EqualTo(change), fact.ToString());
+            Assert.That(chosen.Side, Is.Not.Null, fact.ToString());
+            Assert.That(NewProjectScreens.FactOf(NewProjectScreens.FactKey(fact)), Is.EqualTo(fact));
+        }
+
+        var task = new ProjectIdea("proj_1", "Race Times");
+        task.UseIdea("Add a page of results.");
+        var forTask = NewProjectScreens.Recap(task, Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.Name);
+        Assert.That(forTask.Lines.Single(line => line.Words == "Race Times").Action, Is.Null, "an existing project's name is not changed here");
+        Assert.That(forTask.Side, Is.Null);
+        Assert.That(forTask.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.StartOver));
+    }
+
+    [Test]
+    public void StartOverIsConfirmedInPlaceWithYesWhereNothingStood()
+    {
+        var frame = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, confirmingStartOver: true);
+        HoldsThreePrompts(frame);
+        Assert.That(frame.Footer.Confirming, Is.True);
+        Assert.That(frame.Footer[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Start over was pressed");
+        Assert.That(frame.Footer[PromptSlot.Free]!.Id, Is.EqualTo(NewProjectScreens.ConfirmStartOver));
+        Assert.That(frame.Footer[PromptSlot.FarRight], Is.Null, "Start building steps aside until it is answered");
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo(EntryText.StartOverQuestion));
+    }
+
+    [Test]
+    public void ASuggestedFirstTaskChangesAmongItsAnswers()
+    {
+        var idea = Proposed();
+        var frame = NewProjectScreens.RecapTask(idea, startReached: false);
+        HoldsThreePrompts(frame);
+        var answers = frame.Lines.Where(line => line.Choice).ToList();
+        Assert.That(answers.Select(line => line.Action), Is.EqualTo(new[] { NewProjectScreens.UseSuggestedTask, NewProjectScreens.UseMyWords, NewProjectScreens.TypeTask }));
+        Assert.That(answers[0].Claim && answers[0].Chosen, Is.True, "the companion's suggestion stands, quoted as its own");
+        Assert.That(answers[1].Words, Is.EqualTo("something for my running club"));
+        Assert.That(answers[2].Words, Is.EqualTo(EntryText.TypeMyOwn));
+        Assert.That(frame.Source, Is.EqualTo(CompanionText.Note));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Done));
+
+        idea.UseOwnWords();
+        Assert.That(NewProjectScreens.RecapTask(idea, startReached: false).Lines.Single(line => line.Chosen).Action, Is.EqualTo(NewProjectScreens.UseMyWords));
+        idea.Rewrite("Make one page of race times.");
+        var typed = NewProjectScreens.RecapTask(idea, startReached: false).Lines.Single(line => line.Chosen);
+        Assert.That((typed.Action, typed.Words, typed.WordsAreData), Is.EqualTo((NewProjectScreens.TypeTask, "Make one page of race times.", true)));
+    }
+
+    [Test]
+    public void FoldersAreAnswersAndAPlaceNotThereTakesNoPress()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = new List<LocationFolder> { new() { Name = "shop", Path = "/Users/person/Projects/shop" } },
+        };
+        var listing = new LocationsResponse
+        {
+            Roots = new List<LocationRoot>
+            {
+                root,
+                new() { Path = "/Volumes/Old", Name = "Old", Status = LocationRootStatus.Missing, Folders = new List<LocationFolder>(), FoldersTruncated = false },
+            },
+        };
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        idea.ChooseFolder(ProjectFolder.Existing(root, root.Folders[0]));
+        var frame = NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: null);
+        HoldsThreePrompts(frame);
+        Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Recap"), "changing a fact stays on the recap");
+        Assert.That(frame.Lines.Where(line => line.Choice).Select(line => (line.Words, line.Chosen, line.Available)), Is.EqualTo(new[]
+        {
+            ("New folder in Projects", false, true), ("Directly in Projects", false, true), ("shop", true, true), ("Old", false, false),
+        }));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.Done));
+        var unread = NewProjectScreens.RecapFolder(idea, startReached: false, null, problem: "timeout", notice: null);
+        Assert.That(unread.Lines.Single().Words, Does.Contain("timeout"));
+        Assert.That(unread.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.ReadFolders));
+        var refused = NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: EntryText.NewFolderRule);
+        Assert.That((refused.Lines[0].Words, refused.Lines[0].Tone), Is.EqualTo((EntryText.NewFolderRule, LineTone.Problem)));
+    }
+
+    [Test]
+    public void HowItRunsListsAgentAppsThenModelsAndAModelElsewhereTakesASecondPress()
+    {
+        var local = Model("ollama/qwen", ModelServed.ThisMac);
+        var remote = Model("hosted/x", ModelServed.Remote);
+        var draft = Draft(remote, local);
+        var idea = new ProjectIdea();
+        var models = NewProjectScreens.RecapOptions(idea, startReached: false, draft, new[] { Listing() }, showModels: true, live: true);
+        HoldsThreePrompts(models);
+        Assert.That(models.Lines.Where(line => line.Choice).Select(line => line.Key), Is.EqualTo(new[] { "ollama/qwen", "hosted/x" }));
+        Assert.That(models.Lines.Single(line => line.Chosen).Fact, Does.StartWith(EntryText.ChosenForYou));
+        Assert.That(models.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.ChangeRuntime));
+        Assert.That(draft.ChooseModel(remote), Is.False);
+        var pending = NewProjectScreens.RecapOptions(idea, startReached: false, draft, new[] { Listing() }, showModels: true, live: true);
+        Assert.That(pending.Lines.Single(line => line.Key == "hosted/x").Fact, Is.EqualTo(EntryText.ConfirmElsewhere(remote)));
+        Assert.That(pending.Lines.Single(line => line.Chosen).Key, Is.EqualTo("ollama/qwen"), "the first press chooses nothing");
+
+        var runtimes = NewProjectScreens.RecapOptions(idea, startReached: false, new NewWorkDraft(Commands), new[] { Samples.MockRuntime(), Listing() },
+            showModels: false, live: true);
+        Assert.That(runtimes.Lines.Where(line => line.Choice).Select(line => (line.Words, line.Fact)), Is.EqualTo(new[]
+        {
+            ("Local agent", EntryText.ListsModels), (EntryText.PracticeRun, EntryText.PracticeDetail),
+        }));
+        Assert.That(runtimes.Footer[PromptSlot.Rare], Is.Null);
     }
 }
