@@ -413,7 +413,7 @@ the same definition names, as the JSON Schema document:
   the bar's place, whose Yes stands where no control of the screen stood a moment before. Each
   `PanelAction` may name its icon by meaning (`GlazeIcon`, from the spec's table): Approve, Deny,
   Stop, Tell it, Send answer and their Yes the same icon, Hold to talk the microphone and nothing
-  else, Cancel and Close a cross, a locked Yes a lock, and words with no icon in the table, such as
+  else (a `PanelAction` refuses the microphone unless it is held), Cancel and Close a cross, a locked Yes a lock, and words with no icon in the table, such as
   Done, Skip and Clear, none. The header's Close says its icon (`CloseIcon`, a clock for the
   welcome's Not now). Text from outside comes in as `LabelText.Plain` shows it and says it is data,
   which alone may end in an ellipsis.
@@ -1535,7 +1535,8 @@ demonstration's short request must fit one part and be confirmable at once, and 
 reading. Every confirmation, reached by showing its screen and then pressing (Approve, Deny, Stop
 beside Hold to talk and without it, a spoken instruction, and answers a policy reviews), fails unless
 Yes stands 12 mm clear of every control shown before its confirm step and since, never in the
-pager's row, its question whole, and neither Yes nor Cancel shows the microphone; the log names
+pager's row, its question whole, and neither Yes nor Cancel shows the microphone, nor any other
+button of the panel that is not held; the log names
 every screen whose bar had no room for its actions' icons. Hold to talk must show beside Stop and Tell it and be left out where
 Deny and Tell it fill the bar. Last, it puts hostile text on every
 label that shows text from outside, through the code that shows it: markup, backslash sequences,
@@ -1613,7 +1614,8 @@ confirmation's pager, which stands at the top, apart). Every confirmation, reach
 screen and then pressing (Start building on the recap, then Next through every part; Start over;
 the second press that clears a start that may have run), fails unless Yes stands 12 mm clear of
 every control shown before its confirm step and since, never in the pager's row, with no
-microphone on Yes or Cancel, and, while it pages, its pager stands above the body. It fails if the rail
+microphone on Yes or Cancel or on any button that is not held, and, while it pages, its pager
+stands above the body. It fails if the rail
 reaches more than 24 degrees from its middle, runs past its ends, puts two buttons closer than
 12 mm, has a target under 60 dp (48 compact) or a word under the caption's size, or comes within a
 degree of a character's body or label. It opens Settings from the rail, with the sections the room

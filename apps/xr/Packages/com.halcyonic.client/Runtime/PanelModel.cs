@@ -33,10 +33,14 @@ namespace Halcyonic.Client
         /// <param name="id">What pressing it raises, for the screen to act on.</param>
         /// <param name="reason">Why it can't be taken now, said beside it; null when it says nothing more.</param>
         /// <param name="holds">Held rather than pressed, as hold to talk is.</param>
-        /// <param name="icon">The icon beside its words, by what it does; null for words alone.</param>
+        /// <param name="icon">
+        /// The icon beside its words, by what it does; null for words alone. The microphone only on an
+        /// action that is held, as hold to talk is: never on approving, denying, stopping or a confirmation.
+        /// </param>
         public PanelAction(string id, string label, PanelActionRole role, bool available = true, string? reason = null, bool holds = false,
             GlazeIcon? icon = null)
         {
+            if (icon == GlazeIcon.HoldToTalk && !holds) throw new ArgumentException("Only a held action shows the microphone.", nameof(icon));
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Label = label ?? throw new ArgumentNullException(nameof(label));
             Role = role;

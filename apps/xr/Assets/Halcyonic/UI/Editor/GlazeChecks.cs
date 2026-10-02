@@ -283,6 +283,20 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// The microphone shows only on a button that is held, as hold to talk is: never on one that
+        /// approves, denies, stops, confirms or does anything else with a single press.
+        /// </summary>
+        public static IEnumerable<string> MicrophoneOnlyWhereHeld(IEnumerable<GlazeButton> buttons, string what)
+        {
+            var microphone = GlazeIconGlyphs.Of(GlazeIcon.HoldToTalk);
+            foreach (var button in buttons)
+            {
+                if (!button.gameObject.activeInHierarchy || button.Holds || button.Icon == null || button.Icon.text != microphone) continue;
+                yield return what + ": " + PathOf(button.transform) + ", \"" + button.Label.text + "\", shows the microphone but takes a single press.";
+            }
+        }
+
+        /// <summary>
         /// No label of words draws a character from the icon atlas or shows an icon's glyph, so only an
         /// icon's own label ever draws an icon.
         /// </summary>

@@ -288,6 +288,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var frame = glance.Frame;
             var buttons = frame.Buttons.Where(button => !button.Static).ToList();
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, what));
+            failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(buttons, what));
             failures.AddRange(GlazeChecks.TextLargeEnough(glance.Panel.gameObject, eyes, what));
             var gap = Glaze.TargetGapMeters / PanelFrame.Distance;
             for (var a = 0; a < buttons.Count; a++)

@@ -680,6 +680,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // A row that only says something takes no press, so it is no target.
             var buttons = frame.Buttons.Where(button => !button.Static).ToList();
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, what));
+            failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(buttons, what));
             failures.AddRange(GlazeChecks.TextLargeEnough(frame.gameObject, eyes, what));
             if (!frame.BarIcons) Debug.Log("Halcyonic: entry render " + what + ": the bar has no room for its icons, so its words stand alone.");
             var gap = TargetGap(frame);
