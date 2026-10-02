@@ -44,7 +44,7 @@ public class PairingLiveTests
 
     private async Task<ControlPlaneProcess> StartAsync(int networkPort, string? dataDir = null)
     {
-        var process = await ControlPlaneProcess.StartAsync(dataDir ?? TemporaryDirectory(), ControlPlaneProcess.FreePort(), networkPort);
+        var process = await ControlPlaneProcess.StartAsync(dataDir ?? TemporaryDirectory(), networkPort: networkPort);
         processes.Add(process);
         return process;
     }
