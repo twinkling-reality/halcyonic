@@ -34,6 +34,8 @@ namespace Halcyonic.XR
         /// </summary>
         public static ControlPlaneTarget? Target()
         {
+            // Before the pairing, which would otherwise leave a token on shared storage as long as it lasts.
+            MigrateAccessToken();
             var pairing = ReadPairing();
             if (pairing != null) return ControlPlaneTarget.Paired(pairing);
             var token = ReadAccessToken();
@@ -116,24 +118,28 @@ namespace Halcyonic.XR
 
         /// <summary>
         /// Moves a token an earlier build read from shared storage into private storage, once a run,
-        /// and removes the old copy. Only Android kept it on shared storage. The token never reaches
-        /// the log.
+        /// and removes the old copy. Only Android kept it on shared storage, and only development
+        /// builds, which reach the computer over USB, look there: a release build never reads shared
+        /// storage for a token. The token never reaches the log.
         /// </summary>
         private static void MigrateAccessToken()
         {
             if (tokenMigrated) return;
             tokenMigrated = true;
 #if UNITY_ANDROID && !UNITY_EDITOR
-            var legacy = Path.Combine(Application.persistentDataPath, TokenFileName);
+            if (!Debug.isDebugBuild) return;
             try
             {
+                // Where earlier builds kept it. Should Unity ever put persistentDataPath in private
+                // storage, the two name one file, which the move keeps.
+                var legacy = Path.Combine(Application.persistentDataPath, TokenFileName);
                 var outcome = AccessTokenFile.Migrate(legacy, PrivatePath(TokenFileName), OwnerOnly);
                 if (outcome == AccessTokenMigration.Moved) Debug.Log("Halcyonic: moved the access token from shared storage into app-private storage.");
+                else if (outcome == AccessTokenMigration.MovedUnrestricted) Debug.LogWarning("Halcyonic: moved the access token from shared storage into app-private storage, but could not set its mode to 600.");
                 else if (outcome == AccessTokenMigration.RemovedStaleCopy) Debug.Log("Halcyonic: removed the access token from shared storage; the one in app-private storage is used.");
-                else if (outcome == AccessTokenMigration.RemovedEmptyCopy) Debug.Log("Halcyonic: removed an empty access token file from shared storage.");
-                else if (outcome == AccessTokenMigration.NotMoved) Debug.LogWarning("Halcyonic: the access token in shared storage could not be moved into private storage, so it is not used.");
+                else if (outcome == AccessTokenMigration.RemovedUnusableCopy) Debug.Log("Halcyonic: removed an access token file from shared storage that held no token.");
             }
-            catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
+            catch (Exception error)
             {
                 Debug.LogWarning("Halcyonic: the access token in shared storage could not be moved: " + error.GetType().Name);
             }

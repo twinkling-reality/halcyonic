@@ -529,17 +529,25 @@ Write the token into the app's private storage and start the app again:
 
 ```bash
 adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token' < ~/.halcyonic/access-token
+adb shell run-as com.halcyonic.xr ls -l files/access-token
 adb shell am force-stop com.halcyonic.xr
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
 ```
 
 The token goes from the Mac's own file straight into `files/access-token` in the app's private
-storage, mode 600, with no copy anywhere in between; no other app can read it there, and `run-as`
-reaches it only on a development build, which is debuggable. It survives `adb install -r`. Builds
-before this kept the token on shared storage, in `/sdcard/Android/data/com.halcyonic.xr/files`;
-the app moves a token it finds there into private storage at its next start and removes it from
-shared storage (`Halcyonic: moved the access token ...` in the log), and never reads shared storage
-for it again. The control plane logs `realtime client connected` for `halcyonic-xr`.
+storage, with no copy anywhere in between; no other app can read it there, and `run-as` reaches it
+only on a development build, which is debuggable. `adb exec-in` says nothing when `run-as` fails,
+as on a release build, so the second line checks: it should list the file with `-rw-------` and 44
+bytes, and never shows what is in it. It should survive `adb install -r`. Development builds before
+this kept the token on shared storage, in `/sdcard/Android/data/com.halcyonic.xr/files`; a
+development build that finds a token there moves it into private storage at its next start, before
+it reads a pairing, and removes it from shared storage (`Halcyonic: moved the access token ...` in
+the log). It reads that place only to move a token in, and a release build never reads it. A token
+that sat on shared storage stays valid on the Mac; if the headset was ever plugged into another
+computer that could browse its files, replace it: stop the control plane, delete
+`~/.halcyonic/access-token`, start it again, and write the new token as above. The control plane
+logs `realtime client connected` for `halcyonic-xr`. None of this has been run on a headset yet
+([headset-token-storage.md](../validation/headset-token-storage.md)).
 
 If the line above the stage says "Your computer refused this headset's access token", the token on the
 headset is from an earlier data directory or was replaced on the Mac: the control plane answered
