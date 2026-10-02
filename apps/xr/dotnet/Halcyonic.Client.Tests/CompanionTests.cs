@@ -332,13 +332,23 @@ public class CompanionScreensTests
     }
 
     [Test]
-    public void TheRecordedExchangeSaysSoAndOffersOnlyItsChoices()
+    public void TheRecordedExchangeSaysSoAndOffersOnlyTheRecordedAnswer()
     {
-        var model = EntryScreens.Companion(Asked(out _), voice: true, said: null, waitedSeconds: 0, recorded: true);
+        var recording = CompanionRecording.Parse(CompanionRecordingTests.Sample);
+        var idea = new ProjectIdea();
+        var exchange = recording.Begin(idea);
+        var model = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 0, recording: recording);
         Assert.That(model.Lead, Is.EqualTo(CompanionText.Recorded));
         Assert.That(model.Rows.Any(row => row.Action == EntryScreens.CompanionType), Is.False);
         Assert.That(model.Rows.Any(row => row.Side != null), Is.False);
         Assert.That(model.Actions.Secondary, Is.Empty);
+        var pressable = model.Rows.Where(row => row.Action == EntryScreens.CompanionChoice).Select(row => row.Title);
+        Assert.That(pressable, Is.EqualTo(new[] { "One organiser" }));
+        Assert.That(model.Rows.Count(row => row.Key != null && !row.Available), Is.EqualTo(1));
+        Assert.That(model.Actions.Primary!.Available, Is.False, "the recording asks for the recap later");
+        recording.Press(exchange, "One organiser");
+        model = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 0, recording: recording);
+        Assert.That(model.Actions.Primary!.Available, Is.True, "here the recording asked for the recap");
     }
 
     [Test]
@@ -536,6 +546,65 @@ public class CreationDraftTests
         var fresh = BuildSequence.Resume(new NewWorkDraft(commands), commands, projectId, null);
         Assert.That(fresh.StoppedAt!.Kind, Is.EqualTo(BuildStepKind.CreateWorkstream));
         Assert.That(fresh.Steps.Any(step => step.Kind == BuildStepKind.CreateProject), Is.False);
+    }
+}
+
+public class CompanionRecordingTests
+{
+    /// <summary>A recording as pnpm companion:record writes it: the idea, two questions answered and the recap asked for after the second.</summary>
+    internal const string Sample = """
+        {
+          "version": 1,
+          "source": "Recorded once from the companion on the owner computer; replayed on the headset, never asked.",
+          "model": "local-model:tag",
+          "recorded_at": "2026-10-02T12:00:00.000Z",
+          "start": "idea",
+          "turns": [
+            { "from": "person", "text": "A page where my running club keeps everyone's race times" },
+            { "from": "companion", "reply": { "next": "ask", "line": "A page of race times fits well.", "view": "unclear",
+              "question": { "text": "Who enters the times?", "choices": ["Each runner", "One organiser"] } } },
+            { "from": "person", "text": "One organiser" },
+            { "from": "companion", "reply": { "next": "ask", "line": "One organiser keeps it simple.", "view": "unclear",
+              "question": { "text": "How should the times be sorted?", "choices": ["Fastest first", "By date"] } } },
+            { "from": "companion", "reply": { "next": "propose", "line": "That is clear enough to start.", "view": "clear",
+              "proposal": { "project_name": "Club Race Times", "first_task": "Create one web page where an organiser adds a runner's name and time." } } }
+          ]
+        }
+        """;
+
+    [Test]
+    public void PlaysOnlyWhatWasRecordedInItsOrder()
+    {
+        var recording = CompanionRecording.Parse(Sample);
+        var idea = new ProjectIdea();
+        var exchange = recording.Begin(idea);
+        Assert.That(idea.FirstTask, Is.EqualTo("A page where my running club keeps everyone's race times"));
+        Assert.That(((AskReply)exchange.Latest!).Question.Text, Is.EqualTo("Who enters the times?"));
+        Assert.That(recording.RecordedAnswer(exchange), Is.EqualTo("One organiser"));
+        Assert.That(recording.Press(exchange, "Each runner"), Is.False, "an answer that was not recorded plays nothing");
+        Assert.That(recording.RecapHere(exchange), Is.False);
+        Assert.That(recording.Press(exchange, "One organiser"), Is.True);
+        Assert.That(((AskReply)exchange.Latest!).Question.Text, Is.EqualTo("How should the times be sorted?"));
+        Assert.That(recording.RecordedAnswer(exchange), Is.Null);
+        Assert.That(recording.AskForRecap(exchange), Is.True);
+        Assert.That(exchange.Proposal!.Proposal.ProjectName, Is.EqualTo("Club Race Times"));
+        Assert.That(exchange.Model, Is.EqualTo(CompanionRecording.RecordedModel), "the model's name is never played");
+        idea.UseProposal(exchange.Proposal.Proposal);
+        Assert.That(idea.Name, Is.EqualTo(recording.Proposal.ProjectName));
+    }
+
+    [Test]
+    public void RefusesARecordingThatBreaksItsRules()
+    {
+        var broken = new[]
+        {
+            Sample.Replace("\"version\": 1", "\"version\": 2"),
+            Sample.Replace("{ \"from\": \"person\", \"text\": \"One organiser\" }", "{ \"from\": \"person\", \"text\": \"Someone else\" }"),
+            Sample.Replace("\"next\": \"propose\"", "\"next\": \"ask\"").Replace("\"proposal\": {", "\"question\": { \"text\": \"x\", \"choices\": [] }, \"x\": {"),
+            "{ not json",
+        };
+        foreach (var json in broken)
+            Assert.Throws<FormatException>(() => CompanionRecording.Parse(json), json.Length > 60 ? json.Substring(0, 60) : json);
     }
 }
 
