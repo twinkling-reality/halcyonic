@@ -25,12 +25,17 @@ async function start(t: TestContext): Promise<FakeSalidium> {
 async function understand(
   fake: FakeSalidium,
   session: { kind: string; id: string },
-  options: UnderstandOptions & { credential?: string | null; timeoutMs?: number } = {},
+  options: UnderstandOptions & {
+    credential?: string | null;
+    timeoutMs?: number;
+    budgetMs?: number;
+  } = {},
 ): Promise<UnderstandingResult> {
   const client = new SalidiumClient({
     home: fake.home,
     credential: options.credential === undefined ? fake.token : options.credential,
     timeoutMs: options.timeoutMs ?? 2_000,
+    ...(options.budgetMs !== undefined && { budgetMs: options.budgetMs }),
   });
   const result = await client.understand(session.kind, session.id, options);
   const checked = validateResult(result);
@@ -382,11 +387,41 @@ describe('reading an understanding from Salidium', () => {
     assert.deepEqual(reason(result), ['unauthorized', 'credential_rejected']);
   });
 
-  test('gives up on a request Salidium does not answer in time', async (t) => {
+  test('gives up on a request Salidium does not answer in time, and says so apart from no answer', async (t) => {
     const fake = await start(t);
     fake.overrides.set('/consumer/v1/discovery', () => {});
     const result = await understand(fake, VERIFIED, { timeoutMs: 100 });
-    assert.deepEqual(reason(result), ['unavailable', 'unreachable']);
+    assert.deepEqual(reason(result), ['unavailable', 'timed_out']);
+    const message = 'reason' in result ? result.reason.message : '';
+    assert.equal(
+      message,
+      'No answer in time: it may still be catching up after an update. Press Refresh in a moment.',
+    );
+    assert.doesNotMatch(message, /Salidium/, 'the provenance line names the source');
+  });
+
+  test('waits several seconds for a late answer, within one budget for the whole read', async (t) => {
+    const fake = await start(t);
+    const report = fake.reports.get(VERIFIED_SESSION);
+    // A report that comes late, as one replayed on Salidium's main thread after an upgrade.
+    fake.overrides.set(VERIFIED_REPORT, (response) => {
+      setTimeout(() => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify(report));
+      }, 300);
+    });
+    assert.equal(
+      (await understand(fake, VERIFIED, { timeoutMs: 1_000 })).availability,
+      'available',
+    );
+
+    const begun = Date.now();
+    const late = await understand(fake, VERIFIED, { timeoutMs: 1_000, budgetMs: 150 });
+    assert.deepEqual(reason(late), ['unavailable', 'timed_out']);
+    assert.ok(
+      Date.now() - begun < 900,
+      'the whole read ends with its budget, not the request timeout',
+    );
   });
 
   test('rejects when the caller aborts, which is not a state of Salidium', async (t) => {

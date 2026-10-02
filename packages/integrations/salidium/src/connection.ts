@@ -23,11 +23,33 @@ export interface SalidiumOptions {
    * is none instead.
    */
   readonly credential: string | null | (() => string | UnderstandingFailure);
-  /** How long one request may take, in milliseconds. Defaults to 5000. */
+  /** How long one request may take, in milliseconds. Defaults to 10,000. */
   readonly timeoutMs?: number;
+  /**
+   * How long one whole read may take, its requests together, in milliseconds. Defaults to 12,000,
+   * so a read always answers inside a headset's 15 seconds.
+   */
+  readonly budgetMs?: number;
 }
 
-export const DEFAULT_TIMEOUT_MS = 5_000;
+/**
+ * Generous, because a Salidium catching up, as after an upgrade replaying an older session on its
+ * main thread for 5 to 8 seconds, answers late rather than not at all.
+ */
+export const DEFAULT_TIMEOUT_MS = 10_000;
+export const DEFAULT_BUDGET_MS = 12_000;
+
+/** What `get` gives back when Salidium did not answer in time, as distinct from not at all. */
+export const TIMED_OUT = 'timed-out';
+
+/** Salidium did not answer in time. Said without the product's name, which the provenance line gives. */
+export function timedOut(): Failure<'unavailable'> {
+  return fail(
+    'unavailable',
+    'timed_out',
+    'No answer in time: it may still be catching up after an update. Press Refresh in a moment.',
+  );
+}
 
 /** Where Salidium keeps its state, resolved as Salidium resolves it: `$SALIDIUM_HOME`, else `~/.salidium`. */
 export function defaultSalidiumHome(
@@ -136,17 +158,23 @@ export interface Reply {
 }
 
 /**
- * One GET. Resolves to null when Salidium cannot be reached or does not answer in time. Rejects
- * only when the caller's own signal aborts, because that is the caller's decision rather than a
- * state of Salidium.
+ * One GET. Resolves to null when Salidium cannot be reached, and to `TIMED_OUT` when it does not
+ * answer within `timeoutMs` or before `deadline`, the whole read's budget. Rejects only when the
+ * caller's own signal aborts, because that is the caller's decision rather than a state of
+ * Salidium.
  */
 export async function get(
   url: URL,
   credential: string | null,
   timeoutMs: number,
   signal: AbortSignal | undefined,
-): Promise<Reply | null> {
-  const signals = [AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])];
+  deadline?: AbortSignal,
+): Promise<Reply | typeof TIMED_OUT | null> {
+  const signals = [
+    AbortSignal.timeout(timeoutMs),
+    ...(deadline ? [deadline] : []),
+    ...(signal ? [signal] : []),
+  ];
   try {
     const response = await fetch(url, {
       headers: {
@@ -161,8 +189,8 @@ export async function get(
     return { status: response.status, body: parseJson(text) };
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
-    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'TypeError'))
-      return null;
+    if (error instanceof Error && error.name === 'TimeoutError') return TIMED_OUT;
+    if (error instanceof Error && error.name === 'TypeError') return null;
     throw error;
   }
 }
@@ -245,6 +273,7 @@ export async function connect(
   home: string,
   timeoutMs: number,
   signal: AbortSignal | undefined,
+  deadline?: AbortSignal,
 ): Promise<Instance | Failure<'unavailable' | 'incompatible'>> {
   let text: string;
   try {
@@ -268,7 +297,8 @@ export async function connect(
   }
 
   const url = new URL(`${CONSUMER_BASE_PATH}/discovery`, origin);
-  const reply = await get(url, null, timeoutMs, signal);
+  const reply = await get(url, null, timeoutMs, signal, deadline);
+  if (reply === TIMED_OUT) return timedOut();
   if (reply === null)
     return fail(
       'unavailable',
