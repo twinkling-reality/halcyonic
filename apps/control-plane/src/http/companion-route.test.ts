@@ -8,6 +8,7 @@ import {
   compileValidator,
   type PairingOpenedResponse,
 } from '@halcyonic/contracts';
+import { modelReply } from '../companion/prompt.ts';
 import { pairDevice } from '../testing/device.ts';
 import { startFakeOllama } from '../testing/fake-ollama.ts';
 import { startTestServer, type TestServerOptions } from '../testing/harness.ts';
@@ -97,7 +98,7 @@ describe('GET /api/companion', () => {
 describe('POST /api/companion/replies', () => {
   test('answers with a reported reply in the contract, and journals nothing', async (t) => {
     const { server, ollama } = await start(t);
-    ollama.answer({ content: JSON.stringify(ASK) });
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)) });
     const head = server.controlPlane.journal.head();
     const response = await post(server, BODY);
     assert.equal(response.status, 200);
@@ -130,7 +131,7 @@ describe('POST /api/companion/replies', () => {
       logged += chunk.toString('utf8');
     });
     const { server, ollama } = await start(t, { logLevel: 'trace', logStream: lines });
-    ollama.answer({ content: JSON.stringify(ASK) });
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)) });
     assert.equal((await post(server, BODY)).status, 200);
     ollama.answer(
       { content: 'not a reply about zanthoxylum' },
@@ -146,7 +147,7 @@ describe('POST /api/companion/replies', () => {
 
   test('a headset that goes away ends the turn, which closes the request to the model', async (t) => {
     const { server, ollama } = await start(t);
-    ollama.answer({ content: JSON.stringify(ASK), firstLineAfterMs: 1_500 });
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)), firstLineAfterMs: 1_500 });
     const gone = new AbortController();
     const sent = post(server, BODY, gone.signal).catch((error: unknown) => error);
     await waitFor(() => ollama.requests.length === 1);
@@ -154,7 +155,7 @@ describe('POST /api/companion/replies', () => {
     await sent;
     await waitFor(() => ollama.closedEarly === 1);
     // The companion is free again at once.
-    ollama.answer({ content: JSON.stringify(ASK) });
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)) });
     assert.equal((await post(server, BODY)).status, 200);
   });
 
@@ -177,7 +178,7 @@ describe('POST /api/companion/replies', () => {
         pin: network.identity.certificateSha256,
       });
     assert.equal((await send({})).status, 401);
-    ollama.answer({ content: JSON.stringify(ASK), firstLineAfterMs: 300 });
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)), firstLineAfterMs: 300 });
     const device = send({ authorization: `Bearer ${paired.credential}` });
     await waitFor(() => ollama.requests.length === 1);
     const local = await post(server, BODY);
