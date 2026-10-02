@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -30,11 +31,12 @@ internal sealed class ControlPlaneProcess : IDisposable
     private readonly StringBuilder output = new();
     private bool disposed;
 
-    private ControlPlaneProcess(Process process, string dataDir, int port)
+    private ControlPlaneProcess(Process process, string dataDir, int port, int? networkPort)
     {
         this.process = process;
         DataDir = dataDir;
         Port = port;
+        NetworkPort = networkPort;
         process.OutputDataReceived += (_, line) => Append(line.Data);
         process.ErrorDataReceived += (_, line) => Append(line.Data);
         process.BeginOutputReadLine();
@@ -45,6 +47,12 @@ internal sealed class ControlPlaneProcess : IDisposable
 
     /// <summary>The loopback port it serves, the one it chose itself when started with port 0.</summary>
     public int Port { get; private set; }
+
+    /// <summary>
+    /// The network listener's port, the one it chose itself when started with network port 0; null
+    /// when the listener is off.
+    /// </summary>
+    public int? NetworkPort { get; private set; }
 
     public Uri RealtimeEndpoint => new($"ws://127.0.0.1:{Port}/realtime");
 
@@ -64,7 +72,10 @@ internal sealed class ControlPlaneProcess : IDisposable
     /// process before the control plane binds it, which a loaded machine makes likelier; name one
     /// only to start a control plane again where an earlier one served.
     /// </param>
-    /// <param name="networkPort">With a port, the network listener for paired devices serves on 127.0.0.1 there.</param>
+    /// <param name="networkPort">
+    /// With a port, the network listener for paired devices serves on 127.0.0.1 there; with 0 it
+    /// chooses a free one itself, which <see cref="NetworkPort"/> then reports, for the same reason.
+    /// </param>
     /// <param name="projectRoot">With a directory, projects may live there (HALCYONIC_PROJECT_ROOTS).</param>
     /// <param name="environment">More variables for the control plane, such as those that turn voice on.</param>
     public static async Task<ControlPlaneProcess> StartAsync(
@@ -87,7 +98,7 @@ internal sealed class ControlPlaneProcess : IDisposable
         start.Environment["HALCYONIC_DATA_DIR"] = dataDir;
         start.Environment["HALCYONIC_PORT"] = port.ToString(CultureInfo.InvariantCulture);
         // At info the control plane logs the port it chose in its ready line, read below.
-        start.Environment["HALCYONIC_LOG_LEVEL"] = port == 0 ? "info" : "warn";
+        start.Environment["HALCYONIC_LOG_LEVEL"] = port == 0 || networkPort == 0 ? "info" : "warn";
         start.Environment["HALCYONIC_EXIT_ON_STDIN_END"] = "1";
         if (projectRoot != null) start.Environment["HALCYONIC_PROJECT_ROOTS"] = projectRoot;
         foreach (var variable in environment ?? new Dictionary<string, string>()) start.Environment[variable.Key] = variable.Value;
@@ -105,7 +116,7 @@ internal sealed class ControlPlaneProcess : IDisposable
         {
             throw new InvalidOperationException("The control plane tests need Node.js 24 on PATH.", error);
         }
-        var controlPlane = new ControlPlaneProcess(process, dataDir, port);
+        var controlPlane = new ControlPlaneProcess(process, dataDir, port, networkPort);
         try
         {
             await controlPlane.WaitUntilHealthyAsync();
@@ -164,13 +175,17 @@ internal sealed class ControlPlaneProcess : IDisposable
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
         var deadline = DateTime.UtcNow.AddSeconds(30);
-        // A control plane that chose its own port says which in its ready line, and only then is it
+        // A control plane that chose its own ports says which in its ready line, and only then is it
         // asked for its health, so the answer can come from no other process.
-        while (Port == 0)
+        while (Port == 0 || NetworkPort == 0)
         {
             if (process.HasExited) throw new InvalidOperationException("The control plane exited:\n" + Output);
-            Port = ReadyPort() ?? 0;
-            if (Port != 0) break;
+            if (ReadyPorts() is var (loopback, network))
+            {
+                if (Port == 0) Port = loopback;
+                if (NetworkPort == 0) NetworkPort = network ?? throw new InvalidOperationException("The control plane started without its network listener:\n" + Output);
+                break;
+            }
             if (DateTime.UtcNow > deadline) throw new TimeoutException("The control plane did not say it was ready:\n" + Output);
             await Task.Delay(50);
         }
@@ -191,8 +206,11 @@ internal sealed class ControlPlaneProcess : IDisposable
         }
     }
 
-    /// <summary>The port in the control plane's `control plane ready` line, once it has written one.</summary>
-    private int? ReadyPort()
+    /// <summary>
+    /// The loopback and network ports in the control plane's `control plane ready` line, once it has
+    /// written one; the network port is null when its listener is off.
+    /// </summary>
+    private (int Loopback, int? Network)? ReadyPorts()
     {
         string[] lines;
         lock (output) lines = output.ToString().Split('\n');
@@ -200,10 +218,11 @@ internal sealed class ControlPlaneProcess : IDisposable
         {
             if (!line.Contains("\"control plane ready\"", StringComparison.Ordinal)) continue;
             using var ready = System.Text.Json.JsonDocument.Parse(line);
-            foreach (var address in ready.RootElement.GetProperty("addresses").EnumerateArray())
-            {
-                if (address.GetProperty("address").GetString() == "127.0.0.1") return address.GetProperty("port").GetInt32();
-            }
+            var loopback = ready.RootElement.GetProperty("addresses").EnumerateArray()
+                .First(address => address.GetProperty("address").GetString() == "127.0.0.1")
+                .GetProperty("port").GetInt32();
+            var network = ready.RootElement.GetProperty("network");
+            return (loopback, network.ValueKind == System.Text.Json.JsonValueKind.Null ? null : network.GetProperty("port").GetInt32());
         }
         return null;
     }
