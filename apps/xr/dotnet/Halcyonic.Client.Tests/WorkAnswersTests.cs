@@ -748,6 +748,100 @@ public class CheckedTests
     }
 }
 
+public class BriefAnswersTests
+{
+    private static SectionPresentation Brief(UnderstandPrompt prompt, string json) =>
+        UnderstandingPresenter.Present(prompt, Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"),
+            false, null, Intelligence.At(Answers.Now), Intelligence.Utc, depth: AnswerDepth.Brief);
+
+    private static SectionPresentation CheckedBrief(string json) =>
+        CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(json), "2026-09-20T16:21:30.000Z"), false, null,
+            Intelligence.Live(Intelligence.Evaluation(ControlPlaneApiTests.Available), "2026-09-26T18:01:00.000Z"), false, null,
+            Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: AnswerDepth.Brief);
+
+    [Test]
+    public void EachAnswerLeadsWithALineOrTwoEachKeepingItsOwnClass()
+    {
+        Assert.That(Answers.Pairs(Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified).Lines), Is.EqualTo(new[]
+        {
+            ("observed", "4 files changed: 4 edited"),
+            ("inferred", "1 file not checked after the last change"),
+        }), "the count, and whether a check ran after: never blended into one sentence");
+
+        var why = Brief(UnderstandPrompt.WhyChanged, Intelligence.Verified);
+        Assert.That(Answers.Pairs(why.Lines), Is.EqualTo(new[]
+        {
+            ("reported", "Agent says: “I will add an idempotency key in ChargeService so a retried charge returns the first one.”"),
+        }));
+        Assert.That(why.Lines[0].Tone, Is.EqualTo(SectionTone.Claim));
+
+        var how = Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified);
+        Assert.That(Answers.Pairs(how.Lines), Is.EqualTo(new[]
+        {
+            ("explained", "One idempotency key per order, sent with every charge."),
+            ("", "Explained by a model, up to date"),
+        }));
+        Assert.That(how.Steps, Is.False, "a brief answer never pages");
+
+        var checks = CheckedBrief(Intelligence.Verified);
+        Assert.That(checks.Provenance, Is.EqualTo("From Salidium 0.6.0, on 20 Sep at 16:20"));
+        Assert.That(Answers.Pairs(checks.Lines), Is.EqualTo(new[]
+        {
+            ("observed", "Tests passed at 15:40: 118/118 tests passed (vitest)"),
+            ("", "Then refunds.ts changed, so it no longer covers it"),
+        }), "the latest check and what changed since; the measurement is detail");
+        Assert.That(checks.Lines.Any(line => line.Source), Is.False);
+
+        foreach (var section in new[] { Brief(UnderstandPrompt.WhatChanged, Intelligence.Verified), why, how, checks })
+        {
+            Assert.That(section.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(3), "a line or two");
+        }
+    }
+
+    [Test]
+    public void ABriefAnswerSaysWhatItLacksAsPlainlyAsTheFullOne()
+    {
+        var none = Answers.Files(Intelligence.Verified, "[]");
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhatChanged, Intelligence.Edit(none, response =>
+            Intelligence.UnderstandingOf(response)["changes"]!["summary"] = "No files changed"))), Is.EqualTo(new[] { "No files changed" }));
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, none)), Is.EqualTo(new[] { "No files changed, so there are no reasons to show." }));
+
+        var unexplained = Answers.Files(Intelligence.Verified, "[" + Answers.File("src/a.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:00.000Z") + "]");
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, unexplained)), Is.EqualTo(new[] { "No reason given before it changed a.ts" }));
+
+        var several = Answers.Files(Intelligence.Verified, "[" + string.Join(",",
+            Answers.File("b.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:00.000Z", reason: "Later."),
+            Answers.File("a.ts", "[\"update\"]", 1, 0, "2026-09-20T15:40:10.000Z", reason: "Earlier.")) + "]");
+        several = Intelligence.Edit(several, response =>
+            Intelligence.UnderstandingOf(response)["changes"]!["files"]![1]!["reason"]!["at"] = "2026-09-20T15:38:00.000Z");
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhyChanged, several)), Is.EqualTo(new[] { "Agent says: “Later.”", "And 1 more reason it gave" }));
+
+        var off = Answers.Explanation(Intelligence.Verified, "disabled");
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.HowBuilt, off)), Is.EqualTo(new[] { "Explanations are turned off on your computer, so there's none for this work." }));
+        var older = Intelligence.Edit(Intelligence.Verified, response => Intelligence.UnderstandingOf(response)["explanation"]!["current"] = false);
+        var stale = Brief(UnderstandPrompt.HowBuilt, older).Lines[1];
+        Assert.That((stale.Text, stale.Tone), Is.EqualTo(("Explained by a model before the latest evidence", SectionTone.Attention)));
+
+        var allChecked = Intelligence.Edit(Intelligence.Verified, response =>
+            Intelligence.UnderstandingOf(response)["verification"]!["unverified_files"] = new JArray());
+        Assert.That(Intelligence.Texts(Brief(UnderstandPrompt.WhatChanged, allChecked))[1], Is.EqualTo("All checked after the last change"));
+
+        var noRuns = Intelligence.Edit(Intelligence.Verified, response =>
+        {
+            var verification = (JObject)Intelligence.UnderstandingOf(response)["verification"]!;
+            verification["latest_by_method"] = new JArray();
+            verification["summary"] = "No checks yet";
+        });
+        Assert.That(Intelligence.Texts(CheckedBrief(noRuns)), Is.EqualTo(new[] { "No checks yet" }));
+
+        var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
+        Assert.That(Brief(UnderstandPrompt.WhatChanged, unobserved).Provenance,
+            Is.EqualTo("From Salidium · Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
+        Assert.That(CheckedBrief(unobserved).Provenance,
+            Is.EqualTo("From Salidium · Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
+    }
+}
+
 public class AnswerPagesTests
 {
     private static SectionLine Line(string text, int rows = 0, bool detail = false, bool source = false, bool startsPage = false, bool repeats = false) =>

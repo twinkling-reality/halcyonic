@@ -475,7 +475,12 @@ the same definition names, as the JSON Schema document:
   **`UnderstandingPresenter`**, **`CheckedPresenter`** and **`EvaluationPresenter`**
   (`WorkAnswers.cs`, `IntelligencePresentation.cs`) write every word, as a provenance line and lines
   with a tag, fitted to an **`AnswerRoom`**: the rows a page holds and how many rows each line takes,
-  which the headset measures on its labels.
+  which the headset measures on its labels. Each gives two depths (`AnswerDepth`): `Brief`, a line
+  or two a person reads first (What changed?: the count, and whether a check ran after the changes;
+  Why?: the latest reason, quoted, and how many more; How was it built?: the explanation's own "how",
+  said to be a model's and whether it is up to date, or why there is none; What was checked?: the
+  latest check and any files changed since), and `Full`, everything below, for the panel that opens
+  on request. Every line keeps its own class at both depths; nothing is blended into one sentence.
   - *What changed?* says how many files changed and how ("4 files changed: 1 new, 2 edited, 1
     removed"), the commits the work started from and stands at where the source watched them
     ("From commit 3f9a2c1 to 8b1e4d7 on main"), then each file, most recently changed first, as the
