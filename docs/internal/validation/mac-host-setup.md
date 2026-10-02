@@ -104,6 +104,21 @@ the same scratch data directory:
   without the right token and given only by the health check; and the check's words following the
   permissions actually in Halcyonic's own OpenCode settings.
 
+## The companion's step
+
+On main 7c7d363 with lane C's companion, in a fresh scratch data directory, against the Mac's
+Ollama, which listed `qwen3.5:9b` among ten models:
+
+- `pnpm mac-setup` showed the Companion step as optional, quoting the headset's "The companion isn't
+  set up on your computer." and recommending `qwen3.5:9b` with `OLLAMA_MAX_LOADED_MODELS=2`; since the
+  model was already there, it offered only `pnpm mac-setup companion qwen3.5:9b`.
+- That command wrote `HALCYONIC_COMPANION_MODEL` to the settings file. A control plane started from
+  it logged the setting among `settings.used`, and `GET /api/companion` answered `available`, served
+  on this Mac, without asking the model. `pnpm mac-setup --with-token` then read the step as ready.
+- The tests cover the refusals: a `cloud` tag in any case, a model Ollama lists with `remote_host`, a
+  model Ollama doesn't have (the setup shows `ollama pull` for the person), an Ollama address that
+  is not http on loopback with a port, and a companion sharing the agents' model.
+
 ## Not verified
 
 - **A person new to Halcyonic** following the runbook's "First run on a Mac" without help. Words

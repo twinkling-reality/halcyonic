@@ -9,6 +9,7 @@
  *   pnpm mac-setup agent-apps           record the pinned OpenCode and Codex, once checked
  *   pnpm mac-setup local-model <name>   give OpenCode Halcyonic's own settings on an Ollama model
  *   pnpm mac-setup voice                record the voice files, once checked
+ *   pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac
  *   pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it
  *
  * It never opens a credential: of the Seorak, Salidium and Anthropic files it reads only whether
@@ -35,9 +36,11 @@ import { platform, totalmem, userInfo } from 'node:os';
 import { delimiter, dirname, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/contracts';
+import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
   DEFAULT_NETWORK_PORT,
+  DEFAULT_OLLAMA_URL,
   defaultDataDir,
   isLocalOllamaModel,
   loadConfig,
@@ -83,6 +86,12 @@ const CHECKED_MODELS = [
   { name: 'qwen3.6:35b-a3b-nvfp4', bytes: 23.6e9 },
   { name: 'qwen3.8:27b-nvfp4', bytes: 18.2e9 },
 ] as const;
+
+/**
+ * The companion's own model, the owner's choice after lane C's trial (companion-model.md): a model
+ * of its own answers beside a task on the agents' model, where sharing theirs waits for each step.
+ */
+const COMPANION_MODEL = { name: 'qwen3.5:9b', download: '6.6 GB', memory: 'about 5.7 GB' } as const;
 
 /** The context Ollama is told to give a model, and OpenCode to expect (local-models.md). */
 const OLLAMA_CONTEXT = 65_536;
@@ -158,6 +167,8 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return argument === undefined ? usage(io) : setup.localModel(argument);
     case 'voice':
       return argument === undefined ? setup.voice() : usage(io);
+    case 'companion':
+      return argument === undefined ? usage(io) : setup.companion(argument);
     case 'pairing':
       return argument === 'on' || argument === 'off' ? setup.pairing(argument) : usage(io);
     default:
@@ -174,6 +185,7 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup agent-apps           record the checked copies of OpenCode and Codex',
     '  pnpm mac-setup local-model <name>   give OpenCode settings of its own on an Ollama model',
     '  pnpm mac-setup voice                record the checked voice files',
+    "  pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac",
     '  pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it',
     'Add --with-token to ask the running Halcyonic what it uses: the check then reads its access',
     'token, and sends it only after Halcyonic proves it holds it.',
@@ -191,6 +203,8 @@ interface Running {
   readonly agentApps: readonly string[] | null;
   readonly devices: DevicesResponse | null;
   readonly usageLeft: { readonly availability: string; readonly code: string | null } | null;
+  /** Whether the running Halcyonic can ask the companion now, as `GET /api/companion` says. */
+  readonly companion: { readonly availability: string; readonly code: string | null } | null;
   /** No access token could be read, or what answers could not prove it holds it. */
   readonly tokenProblem: 'missing' | 'unproved' | null;
 }
@@ -238,6 +252,7 @@ class MacSetup {
     steps.push(this.#modelsStep(ollama));
     steps.push(this.#costStep(env, ollama));
     steps.push(await this.#voiceStep(env));
+    steps.push(await this.#companionStep(env, ollama, running));
     steps.push(this.#usageLeftStep(running));
     steps.push(this.#understandStep());
     steps.push(this.#runningStep(env, running));
@@ -594,6 +609,102 @@ class MacSetup {
       ],
       ...(standard === null ? {} : { next: ['pnpm mac-setup voice'] }),
     };
+  }
+
+  async #companionStep(
+    env: NodeJS.ProcessEnv,
+    ollama: OllamaModel[] | null,
+    running: Running,
+  ): Promise<Step> {
+    const title = 'Companion';
+    const about =
+      "The companion helps shape an idea into a project and its first task in Create, on a model this Mac's Ollama serves. This Mac keeps nothing of what you tell it; the headset keeps the draft.";
+    const alongside = `Start Ollama with OLLAMA_MAX_LOADED_MODELS=2, so the companion's model can stay loaded beside the agents' and answer while a task works; with one, they unload each other and the headset says “The companion took too long. Your computer's model may be busy with a task. Try again, or go on without it.” This check can't read Ollama's own settings, so it only recommends this.`;
+    const proxy =
+      present(this.#io.env.http_proxy) || present(this.#io.env.HTTP_PROXY)
+        ? [
+            "A proxy is set in this environment. If Node's environment proxy is on (NODE_USE_ENV_PROXY), name Ollama's address in NO_PROXY, or Halcyonic won't start with the companion.",
+          ]
+        : [];
+    const named = env.HALCYONIC_COMPANION_MODEL;
+    if (!present(named)) {
+      const pulled =
+        ollama?.some((model) => model.local && model.name === COMPANION_MODEL.name) === true;
+      return {
+        title,
+        status: 'optional',
+        lines: [
+          "The companion isn't set up. The headset then offers typing your idea or a few fixed questions, and says “The companion isn't set up on your computer. Type your idea, or answer a few fixed questions.”",
+          about,
+          `Halcyonic's companion was tried with ${COMPANION_MODEL.name}, a model of its own: a ${COMPANION_MODEL.download} download that uses ${COMPANION_MODEL.memory} of memory while it is loaded.`,
+          alongside,
+          ...proxy,
+        ],
+        next: [
+          ...(pulled ? [] : [`ollama pull ${COMPANION_MODEL.name}`]),
+          `pnpm mac-setup companion ${COMPANION_MODEL.name}`,
+        ],
+      };
+    }
+    const address = present(env.HALCYONIC_COMPANION_OLLAMA_URL)
+      ? env.HALCYONIC_COMPANION_OLLAMA_URL
+      : DEFAULT_OLLAMA_URL;
+    const listed =
+      address.replace(/\/$/, '') === this.#io.ollamaUrl.replace(/\/$/, '')
+        ? ollama
+        : await this.#ollama(address);
+    const cantRun =
+      "The headset says “The companion can't run on your computer right now. Type your idea, or answer a few fixed questions.”";
+    const wanted = named.includes(':') ? [named] : [named, `${named}:latest`];
+    const model = listed?.find((candidate) => wanted.includes(candidate.name));
+    const lines: string[] = [];
+    let status: Status = 'ready';
+    let next: string[] = [];
+    if (listed === null) {
+      status = 'todo';
+      lines.push(`Ollama isn't answering at ${address}, so the companion can't run. ${cantRun}`);
+    } else if (model === undefined) {
+      status = 'todo';
+      lines.push(
+        `Ollama on this Mac doesn't have ${named}, so the companion can't run. ${cantRun}`,
+      );
+      next = [`ollama pull ${named}`];
+    } else if (!model.local) {
+      status = 'todo';
+      lines.push(
+        `${named} runs on a remote service of Ollama's, not on this Mac, so the companion won't use it. ${cantRun}`,
+      );
+      next = [`pnpm mac-setup companion ${COMPANION_MODEL.name}`];
+    } else {
+      lines.push(`The companion asks ${named} on this Mac.`);
+    }
+    const agents = this.#agentsModel(env);
+    if (agents !== null && wanted.includes(agents)) {
+      if (status === 'ready') status = 'look';
+      lines.push(
+        `${named} is also the agents' model, so the companion waits for each step of a task that works on it. A model of its own, such as ${COMPANION_MODEL.name}, answers sooner.`,
+      );
+    }
+    const reading = running.companion;
+    if (reading !== null && reading.availability !== 'available' && status === 'ready') {
+      status = 'todo';
+      lines.push(
+        `Halcyonic as it runs says the companion can't be asked: ${companionProblem(reading.code)}`,
+      );
+    }
+    lines.push(about, alongside, ...proxy);
+    return { title, status, lines, next };
+  }
+
+  /** The Ollama model Halcyonic's own OpenCode settings name as the agents' default, if any. */
+  #agentsModel(env: NodeJS.ProcessEnv): string | null {
+    const home = env.HALCYONIC_OPENCODE_CONFIG_HOME;
+    if (!present(home)) return null;
+    try {
+      return readOpenCodeSettings(home).model.replace(/^ollama\//, '');
+    } catch {
+      return null;
+    }
   }
 
   #usageLeftStep(running: Running): Step {
@@ -1033,6 +1144,74 @@ class MacSetup {
     return 0;
   }
 
+  async companion(name: string): Promise<number> {
+    const io = this.#io;
+    const settings = this.#settingsOrPrint();
+    if (settings === null) return 1;
+    const next: Record<string, string | undefined> = { ...settings };
+    if (name === 'off') {
+      next.HALCYONIC_COMPANION_MODEL = undefined;
+      next.HALCYONIC_COMPANION_OLLAMA_URL = undefined;
+      this.#save(next);
+      io.print(
+        'The companion turns off when Halcyonic restarts. The headset then offers typing your idea or a few fixed questions. Nothing is removed from Ollama.',
+      );
+      await this.#afterChange(next);
+      return 0;
+    }
+    if (isCloudName(name)) {
+      io.print(
+        `${name} runs on a remote service of Ollama's, not on this Mac, so the companion can't use it.`,
+      );
+      return 1;
+    }
+    const address = present(settings.HALCYONIC_COMPANION_OLLAMA_URL)
+      ? settings.HALCYONIC_COMPANION_OLLAMA_URL
+      : DEFAULT_OLLAMA_URL;
+    const ollama = await this.#ollama(address);
+    if (ollama === null) {
+      io.print(
+        `Ollama isn't answering at ${address}, so Halcyonic can't check the model. Start Ollama, then try again.`,
+      );
+      return 1;
+    }
+    const wanted = name.includes(':') ? [name] : [name, `${name}:latest`];
+    const model = ollama.find((candidate) => wanted.includes(candidate.name));
+    if (model === undefined) {
+      io.print(
+        `Ollama on this Mac doesn't have ${name}. Downloading it is for you to run: ollama pull ${name}`,
+      );
+      return 1;
+    }
+    if (!model.local) {
+      io.print(
+        `${model.name} runs on a remote service of Ollama's, not on this Mac, so the companion can't use it.`,
+      );
+      return 1;
+    }
+    next.HALCYONIC_COMPANION_MODEL = model.name;
+    this.#save(next);
+    for (const line of [
+      `The companion asks ${model.name} on this Mac once Halcyonic restarts. This Mac keeps nothing of what you tell it; the headset keeps the draft.`,
+      "Start Ollama with OLLAMA_MAX_LOADED_MODELS=2, so the companion's model can stay loaded beside the agents' and answer while a task works.",
+      ...(model.name !== COMPANION_MODEL.name
+        ? [
+            `Halcyonic's companion was tried with ${COMPANION_MODEL.name}; another model may answer differently.`,
+          ]
+        : []),
+    ]) {
+      for (const wrapped of wrap(line, 0)) io.print(wrapped);
+    }
+    const agents = this.#agentsModel(withSettings(io.env, next as HostSettings));
+    if (agents !== null && agents === model.name) {
+      io.print(
+        `${model.name} is also the agents' model, so the companion waits for each step of a task that works on it.`,
+      );
+    }
+    await this.#afterChange(next);
+    return 0;
+  }
+
   async pairing(state: 'on' | 'off'): Promise<number> {
     const io = this.#io;
     const settings = this.#settingsOrPrint();
@@ -1159,6 +1338,7 @@ class MacSetup {
       agentApps: null,
       devices: null,
       usageLeft: null,
+      companion: null,
       tokenProblem: null,
     };
     if (!(await this.#answers())) return none;
@@ -1186,9 +1366,15 @@ class MacSetup {
     const snapshot = await get('/api/snapshot');
     const devices = await get('/api/devices');
     const usage = await get('/api/usage-limits');
-    const usageBody = usage?.body as
-      | { availability?: string; reason?: { code?: string } }
-      | undefined;
+    const companion = await get('/api/companion');
+    const availabilityOf = (answer: { status: number; body: unknown } | null) => {
+      const body = answer?.body as
+        | { availability?: string; reason?: { code?: string } }
+        | undefined;
+      return answer?.status === 200 && typeof body?.availability === 'string'
+        ? { availability: body.availability, code: body.reason?.code ?? null }
+        : null;
+    };
     return {
       answering: true,
       tokenProblem: null,
@@ -1200,10 +1386,8 @@ class MacSetup {
               .map((runtime) => runtime.runtime_id)
           : null,
       devices: devices?.status === 200 ? (devices.body as DevicesResponse) : null,
-      usageLeft:
-        usage?.status === 200 && typeof usageBody?.availability === 'string'
-          ? { availability: usageBody.availability, code: usageBody.reason?.code ?? null }
-          : null,
+      usageLeft: availabilityOf(usage),
+      companion: availabilityOf(companion),
     };
   }
 
@@ -1255,9 +1439,9 @@ class MacSetup {
   }
 
   /** The models Ollama lists, or null when it doesn't answer on this Mac. */
-  async #ollama(): Promise<OllamaModel[] | null> {
+  async #ollama(url: string = this.#io.ollamaUrl): Promise<OllamaModel[] | null> {
     try {
-      const response = await this.#io.fetch(`${this.#io.ollamaUrl}/api/tags`, {
+      const response = await this.#io.fetch(`${url.replace(/\/$/, '')}/api/tags`, {
         signal: AbortSignal.timeout(3000),
       });
       if (!response.ok) return null;
@@ -1272,8 +1456,9 @@ class MacSetup {
           remote_model?: unknown;
         };
         if (typeof model.name !== 'string' || !/^[\w.:/-]{1,200}$/.test(model.name)) return [];
+        // The companion's own rule (companion/ollama.ts): a cloud tag, or a host it passes requests to.
         const remote =
-          /[:-]cloud$/.test(model.name) ||
+          isCloudName(model.name) ||
           model.remote_host !== undefined ||
           model.remote_model !== undefined;
         return [
@@ -1385,6 +1570,21 @@ function globMatches(pattern: string, name: string): boolean {
     )
     .join('');
   return new RegExp(`^${source}$`, 's').test(name);
+}
+
+function companionProblem(code: string | null): string {
+  switch (code) {
+    case 'companion_not_running':
+      return "its model isn't running on this Mac. Start Ollama.";
+    case 'companion_model_missing':
+      return 'its model is not on this Mac.';
+    case 'companion_model_not_local':
+      return "its model would run on another computer, so it isn't used.";
+    case 'companion_not_set_up':
+      return 'Halcyonic runs without it: restart Halcyonic to use these settings.';
+    default:
+      return `it can't be asked right now${code === null ? '' : ` (${code})`}.`;
+  }
 }
 
 function usageLeftProblem(code: string | null): string {
