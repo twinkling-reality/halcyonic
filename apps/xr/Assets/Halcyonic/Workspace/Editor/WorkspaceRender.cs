@@ -606,6 +606,20 @@ namespace Halcyonic.XR.Workspace.Editor
             if (!view.Frame.ShownLines.Any(line => !line.Row.Droppable)) failures.Add(view.Name + " doing-stop: the answer gives way to Yes.");
             Debug.Log("Halcyonic: workspace render " + view.Name + " doing-stop: " + view.Frame.ShownLines.Count + " lines show beside the confirmation, "
                 + view.Frame.Dropped + " give way.");
+
+            // How is it running?: the run's details in place of the log, Show the log beside the question.
+            var detailed = Work.Running();
+            detailed.Execution.Runtime.Synthetic = false;
+            detailed.Execution.ModelRef = "ollama/qwen3.6";
+            detailed.Execution.Directory = "/Users/person/HalcyonicProjects/rate-limiter";
+            detailed.Execution.StartedAt = Time;
+            detailed.Execution.TurnCount = 2;
+            view.Show(detailed.Present(), new WorkspaceScreen { Zone = TimeZoneInfo.Utc, Details = true }, Steering());
+            failures.AddRange(view.Opaque("doing-details"));
+            view.CloseUp("doing-details");
+            failures.AddRange(view.Fits("doing-details"));
+            if (view.Frame.ButtonFor(WorkspaceScreens.ShowLog) == null) failures.Add(view.Name + " doing-details: Show the log does not stand beside the question.");
+            if (view.Frame.ShownLines.Count != 4 || view.Frame.Dropped > 0) failures.Add(view.Name + " doing-details: " + view.Frame.ShownLines.Count + " of the run's 4 lines show.");
             return failures;
         }
 
@@ -1128,6 +1142,16 @@ namespace Halcyonic.XR.Workspace.Editor
             view.Show(running.Present(), new WorkspaceScreen { Question = WorkspaceQuestion.Understand }, Steering(), HostileSection());
             failures.AddRange(AllShowLiterally(root, name + " section", view.Eyes));
             failures.AddRange(Carry(root, name + " section", "Provenance", "Class 0", "Line 0"));
+
+            // The run's details: the model and the folder are the runtime's words.
+            var run = Work.Running();
+            run.Execution.Runtime.Synthetic = false;
+            run.Execution.ModelRef = Hostile("model");
+            // A folder's name holds no slash; the rest of the hostile text stays in it.
+            run.Execution.Directory = "/Users/person/" + Hostile("folder").Replace("/", "");
+            view.Show(run.Present(), new WorkspaceScreen { Zone = TimeZoneInfo.Utc, Details = true }, Steering());
+            failures.AddRange(AllShowLiterally(root, name + " details", view.Eyes));
+            failures.AddRange(Carry(root, name + " details", "Line 1", "Line 2"));
 
             failures.AddRange(CharacterShowsLiterally(root, name, view.Camera));
             UnityEngine.Object.DestroyImmediate(peek.gameObject);

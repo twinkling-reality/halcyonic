@@ -67,6 +67,13 @@ namespace Halcyonic.Client
     public static class WorkspaceText
     {
         public const string WhatIsItDoing = "What is it doing?";
+
+        /// <summary>What is it doing?, turned to the run's details in place of its log.</summary>
+        public const string HowIsItRunning = "How is it running?";
+
+        public const string ShowDetails = "Show details";
+
+        public const string ShowLog = "Show the log";
         public const string HelpMeUnderstand = "Help me understand";
         public const string WhatWasChecked = "What was checked?";
         public const string WhatDoYouNeed = "What do you need from me?";
@@ -259,18 +266,55 @@ namespace Halcyonic.Client
             string.IsNullOrWhiteSpace(workspace.Objective) ? "No goal was given." : OneLine(workspace.Objective!);
 
         /// <summary>
-        /// What runs the work and how far it got, for example "Agent app: OpenCode 2.0.18 · Round 2",
-        /// or "Practice run: builds nothing · Round 1" for simulated work.
+        /// The run's details, a line each: the agent app and whether it is on the Mac now, the model it
+        /// was given, the folder it works in, and when it started with the round it is in. Only what
+        /// the workspace already knows; where a model runs it does not, and says so. Each line says
+        /// whether it holds text from outside.
         /// </summary>
-        public static string Execution(WorkspacePresentation workspace)
+        public static IReadOnlyList<(string Line, bool IsData)> RunDetails(WorkspacePresentation workspace, TimeZoneInfo zone)
         {
             var execution = workspace.Execution;
-            if (execution == null) return "Nothing has run yet.";
-            var line = execution.Runtime.Synthetic ? EntryText.PracticeRun : "Agent app: " + OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
-            if (execution.TurnCount > 0) line += " · Round " + execution.TurnCount.ToString(CultureInfo.InvariantCulture);
-            // Gone from the control plane, or never there, as in a recording.
-            if (workspace.Runtime == null) line += " · not available on your Mac now";
-            return line;
+            if (execution == null) return new[] { ("Nothing has run yet.", false) };
+            var lines = new List<(string, bool)>();
+            var gone = workspace.Runtime == null ? ", not available on your Mac now." : ".";
+            if (execution.Runtime.Synthetic) lines.Add((EntryText.PracticeRun + gone, false));
+            else
+            {
+                var name = OneLine(workspace.Runtime?.DisplayName ?? execution.Runtime.DisplayName);
+                lines.Add(("Agent app: " + name + (workspace.Runtime == null ? gone : ", on your Mac."), true));
+                lines.Add(execution.ModelRef == null
+                    ? ("Model: chosen by the agent app. " + ModelPlaceUnknown + ".", false)
+                    : ("Model: " + OneLine(execution.ModelRef) + ". " + ModelPlaceUnknown + ".", true));
+            }
+            lines.Add(FolderOf(execution.Directory) is string folder ? ("Folder: " + folder + ".", true) : ("Folder: none given to it.", false));
+            var started = StartedAt(execution.StartedAt, zone);
+            var round = execution.TurnCount > 0 ? "Round " + execution.TurnCount.ToString(CultureInfo.InvariantCulture) : null;
+            lines.Add((started != null ? "Started at " + started + " · " + (round ?? "No round yet") + "." : round != null ? round + "." : "Not started yet.", false));
+            return lines;
+        }
+
+        /// <summary>Said under the model: the workspace is not told where it runs.</summary>
+        public const string ModelPlaceUnknown = "Where it runs isn't known here";
+
+        /// <summary>
+        /// A folder by its name and the folder it is in, "shop, in Projects"; null for none. The path is
+        /// the Mac's, so only a slash divides it: a backslash may be part of a folder's name.
+        /// </summary>
+        private static string? FolderOf(string? directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory)) return null;
+            var parts = directory!.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return OneLine(directory);
+            return parts.Length == 1 ? OneLine(parts[0]) : OneLine(parts[parts.Length - 1]) + ", in " + OneLine(parts[parts.Length - 2]);
+        }
+
+        /// <summary>When it started, in the local time and day: "09:00 on 2 Oct"; null when it hasn't or the time can't be read.</summary>
+        private static string? StartedAt(string? startedAt, TimeZoneInfo zone)
+        {
+            if (startedAt == null || !DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)) return null;
+            var local = TimeZoneInfo.ConvertTime(at, zone);
+            return local.ToString("HH:mm", CultureInfo.InvariantCulture) + " on " + local.Day.ToString(CultureInfo.InvariantCulture) + " "
+                + local.ToString("MMM", CultureInfo.InvariantCulture);
         }
 
         /// <summary>What needs the person or went wrong, one line per reason; empty when nothing does.</summary>

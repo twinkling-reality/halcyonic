@@ -469,14 +469,14 @@ public class DemonstrationSessionTests
         var workspace = WorkspacePresenter.Present(directed, session!.State, activity, session.Status.IsLive, submissions);
         Assert.That(workspace.Actions, Is.EquivalentTo(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt }));
         Assert.That(workspace.Character.Recorded && workspace.Character.Synthetic && !workspace.Character.Stale, Is.True);
-        Assert.That(WorkspaceText.Execution(workspace), Does.StartWith("Practice run: builds nothing"));
+        Assert.That(WorkspaceText.RunDetails(workspace, TimeZoneInfo.Utc)[0].Line, Does.StartWith("Practice run: builds nothing"));
         Assert.That(WorkspaceText.Attention(workspace).Single(), Does.StartWith("It wants to run: Run make migrate"));
         foreach (var watched in session.State.Workstreams.Values.Where(w => w.Title != Demonstration.Directed))
         {
             var beside = WorkspacePresenter.Present(watched, session.State, activity, true, submissions);
             Assert.That(beside.Actions, Is.Empty, watched.Title);
             Assert.That(beside.Character.Activity, Is.EqualTo(CharacterActivity.TurnFinished), watched.Title);
-            Assert.That(WorkspaceText.Execution(beside), Does.StartWith("Practice run: builds nothing"));
+            Assert.That(WorkspaceText.RunDetails(beside, TimeZoneInfo.Utc)[0].Line, Does.StartWith("Practice run: builds nothing"));
             Assert.That(beside.Character.Recorded, Is.True, "watched work reads as recorded");
         }
 

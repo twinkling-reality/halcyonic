@@ -468,6 +468,11 @@ namespace Halcyonic.XR.Workspace
                 case WorkspaceScreens.Refresh:
                     workspace.Sections.Refresh();
                     return;
+                case WorkspaceScreens.ShowDetails:
+                case WorkspaceScreens.ShowLog:
+                    screen.Details = id == WorkspaceScreens.ShowDetails;
+                    RefreshPanel();
+                    return;
                 case PanelModel.PreviousPart:
                 case PanelModel.NextPart:
                     Turn(workspace, id == PanelModel.NextPart ? 1 : -1);
@@ -540,6 +545,8 @@ namespace Halcyonic.XR.Workspace
         private static void Choose(Opened workspace, WorkspaceQuestion question)
         {
             workspace.Screen.Question = question;
+            // Another tab, or the same one chosen again, opens on its answer, the log rather than the details.
+            workspace.Screen.Details = false;
             workspace.Sections.Show(question);
         }
 

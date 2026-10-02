@@ -168,8 +168,8 @@ the same definition names, as the JSON Schema document:
   short on their tabs (Waiting for you, Doing, Understand, Checked), the goal, one plain answer
   (what needs the person, else "Nothing is waiting for you." and the latest activity), the answer to
   What do you need from me? (`NeedAnswer`: what it wants, the oldest request as the runtime reported
-  it and what each answer does), the run line (`Execution`, which no surface shows until a Details
-  screen exists), what needs the person, activity lines with the local time and the agent's words
+  it and what each answer does), the run's details (`RunDetails`, for Doing's details), what needs
+  the person, activity lines with the local time and the agent's words
   quoted as "It says: “…”", action labels, a confirmation question that names exactly what would be
   sent (for approving or denying, "Approve the request above?" over the whole request, `Request`:
   the tool and what it would do, never shortened), and why no action is offered. Text
@@ -855,7 +855,10 @@ scripts use only long-stable core Unity APIs:
   than paged, with the pager in the body's bottom right cell, or a screen's own pager in a row under
   the body with its heading and note at the left; and the bar, Back and the destructive
   action at the left and the primary at a right end at least 14 degrees wide, or the confirm step in
-  its place. Every action shows its model's icon beside its words, Move, Reset position and Close
+  its place. A heading's action stands at the heading row's right; over a body the screen draws
+  itself, or one that starts with lines, the body starts under the heading's words, its first lines
+  running short of the action (`Notch`), so the action costs the body no row of its own. Every
+  action shows its model's icon beside its words, Move, Reset position and Close
   included; a bar whose actions would not all fit 12 mm apart with their icons shows each word
   alone (`BarIcons`). Since a question's bar gave up its own Hold to talk, no screen the renders
   show needs that; they log any that does.
@@ -936,7 +939,12 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   Reset position: it stays beside its character. Doing answers in one plain answer, what needs the
   person, else that nothing does and what it did last; what this headset sent and how it went,
   newest first, or "Nothing sent from here yet."; and Recent activity, a log whose newest line is
-  last, the agent's words quoted and leaning, its older lines giving way where there is no room. For
+  last, the agent's words quoted and leaning, its older lines giving way where there is no room.
+  Show details beside its heading turns it to How is it running?, the run's details a line each
+  (`WorkspaceText.RunDetails`): the agent app and whether it is on the Mac now, the model it was
+  given and that where the model runs isn't known here, the folder it works in, and when it started
+  with the round it is in; Show the log turns it back, as does choosing a tab. Only what the
+  presentation carries: where a model runs would need the server to say. For
   an approval, Waiting for you says what it wants ("It wants to run a command:", or "It wants to use
   {tool}:" for a tool it does not know), the oldest request as the runtime reported it over up to
   three lines, and what each answer does. For a question (and only while no approval waits, as the

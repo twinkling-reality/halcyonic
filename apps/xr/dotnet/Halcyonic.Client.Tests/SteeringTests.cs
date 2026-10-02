@@ -81,28 +81,29 @@ public class WorkspaceTextTests
     }
 
     [Test]
-    public void TheExecutionLineNamesItsRuntimeAndSaysWhenItIsGone()
+    public void TheRunsDetailsNameItsAgentAppAndSayWhenItIsGone()
     {
+        static string[] Lines(WorkspacePresentation workspace) => WorkspaceText.RunDetails(workspace, TimeZoneInfo.Utc).Select(line => line.Line).ToArray();
         var work = new WaitingWork();
-        Assert.That(WorkspaceText.Execution(work.Present()), Is.EqualTo(EntryText.PracticeRun + " · Round 1"), "simulated work is named for what it does");
+        Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + "."), "simulated work is named for what it does");
 
         work.Change(execution => execution.TurnCount = 3);
-        Assert.That(WorkspaceText.Execution(work.Present()), Is.EqualTo(EntryText.PracticeRun + " · Round 3"));
+        Assert.That(Lines(work.Present()).Last(), Does.Contain("Round 3"));
 
         var replayed = Samples.Snapshot(9, new[] { work.Workstream }, new[] { work.Execution });
         replayed.Runtimes.Clear();
         work.State.ApplySnapshot(replayed, new StateChanges());
-        Assert.That(WorkspaceText.Execution(work.Present()), Is.EqualTo(EntryText.PracticeRun + " · Round 3 · not available on your Mac now"));
+        Assert.That(Lines(work.Present())[0], Is.EqualTo(EntryText.PracticeRun + ", not available on your Mac now."));
         Assert.That(WorkspaceText.WhyNoActions(work.Present()), Is.EqualTo("Nothing can be sent: it isn't available on your Mac now."),
             "a recording carries no runtime, as in a replay or the demonstration");
 
         var real = Samples.Snapshot(10, new[] { work.Workstream }, new[] { work.Execution });
         real.Executions[0].Runtime.Synthetic = false;
         work.State.ApplySnapshot(real, new StateChanges());
-        Assert.That(WorkspaceText.Execution(work.Present()), Is.EqualTo("Agent app: Mock runtime · Round 3"), "a real agent app by its own name");
+        Assert.That(Lines(work.Present())[0], Is.EqualTo("Agent app: Mock runtime, on your Mac."), "a real agent app by its own name");
 
         var idle = WorkspacePresenter.Present(Samples.Workstream("w2"), work.State, work.Activity, live: true);
-        Assert.That(WorkspaceText.Execution(idle), Is.EqualTo("Nothing has run yet."));
+        Assert.That(Lines(idle), Is.EqualTo(new[] { "Nothing has run yet." }));
         Assert.That(WorkspaceText.Objective(idle), Is.EqualTo("No goal was given."));
     }
 
