@@ -388,6 +388,15 @@ the same definition names, as the JSON Schema document:
   project ids mean nothing in another one, and read back as every project when damaged. A
   presentation choice, never journaled and never an authorization boundary: every authenticated
   client still receives all work.
+- **`FolderConnect`**, **`FolderConnection`**, **`ConnectScreens`** and **`ConnectText`** are Connect
+  a folder in the client core, not yet drawn on the headset: from `GET /api/locations` they offer
+  the folders directly inside the allowed roots that no project uses (`used_by` empty), and a root
+  itself only when it is a repository no project uses, the latest changed first, with what the
+  computer saw of each ("Repository · changed 3 days ago") and look-alike names marked; Connect sends
+  one `project.create` with `{kind: 'existing_folder', root, folder_name}` exactly as listed and the
+  folder's own name as the project's, counted as connected only once its record completed with the
+  project, never sent again while its outcome may have run. Names are quoted inside Halcyonic's
+  sentences and shown by `LabelText`'s rule.
 - **`WorkOverview`** counts every project and workstream for the rail, Connect projects and More
   work from the projection alone: per project its work, active, needs you and to check counts by
   the lineup's tiers, whether it shows, and how much has no character; and every workstream
