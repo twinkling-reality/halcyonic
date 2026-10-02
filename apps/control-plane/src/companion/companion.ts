@@ -288,7 +288,8 @@ function failureOf(
 
 /**
  * What is wrong with the exchange's order, or null: it holds at most so many characters in all; an
- * idea starts with the person's words; the companion never speaks twice in a row; and a new reply
+ * idea starts with the person's words; the companion speaks twice in a row only to propose, when the
+ * person asked for the recap right after a question; and a new reply
  * follows the person's words, unless the person asked for the recap or Help me figure it out has
  * only just begun.
  */
@@ -309,8 +310,14 @@ export function exchangeProblem(
     return 'An exchange about an idea starts with the idea.';
   }
   for (let index = 1; index < messages.length; index++) {
-    if (messages[index]?.from === 'companion' && messages[index - 1]?.from === 'companion') {
-      return 'The companion never replies twice in a row.';
+    const message = messages[index];
+    // Twice in a row only when the person asked for the recap right after a question.
+    if (
+      message?.from === 'companion' &&
+      messages[index - 1]?.from === 'companion' &&
+      message.reply.next !== 'propose'
+    ) {
+      return 'The companion never replies twice in a row but to propose.';
     }
   }
   const last = messages.at(-1);

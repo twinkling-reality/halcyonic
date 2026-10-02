@@ -80,10 +80,11 @@ namespace Halcyonic.Client
         public bool PersonSpoke => turns.Any(turn => turn is PersonTurn);
 
         /// <summary>
-        /// The person may say something now: nothing is on its way, the companion spoke last (or
-        /// nothing has been said yet), and the exchange has room for the words and a reply after them.
+        /// The person may say something now: nothing is on its way, the companion asked a question last
+        /// (or nothing has been said yet), and the exchange has room for the words and a reply after
+        /// them. Once it has proposed, the recap is where the person changes things.
         /// </summary>
-        public bool CanSay => !Waiting && (turns.Count == 0 || turns[turns.Count - 1] is CompanionTurn) && turns.Count + 1 <= MaxMessages - 1;
+        public bool CanSay => !Waiting && (turns.Count == 0 || turns[turns.Count - 1] is CompanionTurn { Reply: AskReply }) && turns.Count + 1 <= MaxMessages - 1;
 
         /// <summary>The person may ask for the recap now: they have said something, and nothing is on its way.</summary>
         public bool CanAskForRecap => !Waiting && PersonSpoke && turns.Count <= MaxMessages && Proposal == null;
@@ -181,7 +182,8 @@ namespace Halcyonic.Client
                 else if (turn is CompanionTurn companion && companion.Reply != null)
                 {
                     var last = exchange.turns.LastOrDefault();
-                    if (last is CompanionTurn || (last == null && start == CompanionStart.Idea)) break;
+                    // Twice in a row only to propose, as when the person asked for the recap after a question.
+                    if ((last is CompanionTurn && !(companion.Reply is ProposeReply)) || (last == null && start == CompanionStart.Idea)) break;
                     if (exchange.turns.Count + 1 > MaxMessages) break;
                     exchange.turns.Add(new CompanionTurn { Reply = companion.Reply });
                     exchange.characters += Measure(companion.Reply);
