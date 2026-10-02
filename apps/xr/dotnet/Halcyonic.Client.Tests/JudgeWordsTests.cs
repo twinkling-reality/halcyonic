@@ -127,19 +127,25 @@ public class JudgeWordsTests
                         Add(WorkspaceScreens.Screen(workspace, new WorkspaceSteering(factory), new WorkspaceScreen { Question = question, Presets = presets }));
                     }
                     if (executionId == null) continue;
+                    // Every answer whole, with room for every line, so no word a judge could page to escapes.
                     var understanding = recording.UnderstandingAt(executionId, index, played);
-                    if (understanding != null)
+                    var understood = understanding == null
+                        ? null
+                        : new IntelligenceRead<UnderstandingResponse>(understanding.Response, understanding.ReadAt, recorded: true);
+                    if (understood != null)
                     {
-                        Add(UnderstandingPresenter.Present(executionId,
-                            new IntelligenceRead<UnderstandingResponse>(understanding.Response, understanding.ReadAt, recorded: true),
-                            false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, 6));
+                        foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
+                        {
+                            Add(UnderstandingPresenter.Present(prompt, executionId, understood, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc));
+                        }
                     }
                     var evaluation = recording.EvaluationAt(executionId, index, played);
-                    if (evaluation != null)
+                    var measured = evaluation == null
+                        ? null
+                        : new IntelligenceRead<EvaluationResponse>(evaluation.Response, evaluation.ReadAt, recorded: true);
+                    if (understood != null || measured != null)
                     {
-                        Add(EvaluationPresenter.Present(executionId,
-                            new IntelligenceRead<EvaluationResponse>(evaluation.Response, evaluation.ReadAt, recorded: true),
-                            false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc));
+                        Add(CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc));
                     }
                 }
             }

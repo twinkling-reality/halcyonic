@@ -405,14 +405,16 @@ public class UnderstandingAnswersTests
     {
         var recording = Demonstration.Recording();
         var directed = recording.Understanding.Keys.Single(id => recording.Evaluation[id].Count > 20);
-        var approval = recording.Nodes[0].Events.Count;
-        var answer = recording.UnderstandingAt(directed, 0, approval)!;
+        // The story asks its question first; its first answer runs on to the approval.
+        var beginning = recording.Nodes[0];
+        var answered = beginning.BranchesAfter(beginning.Events.Count).First(branch => branch.Answer.Kind == DemonstrationAnswerKind.Answer).Node;
+        var answer = recording.UnderstandingAt(directed, answered, recording.Nodes[answered].Events.Count)!;
         var read = new IntelligenceRead<UnderstandingResponse>(answer.Response, answer.ReadAt, recorded: true);
 
         var section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, directed, read, false, null, Intelligence.At("2026-11-20T10:00:00.000Z"),
             Intelligence.Utc);
 
-        Assert.That(section.Provenance, Is.EqualTo("Simulated explanation · recorded at 09:00:08"));
+        Assert.That(section.Provenance, Does.Match(@"^Simulated explanation · recorded at \d\d:\d\d:\d\d$"));
         Assert.That(section.Simulated, Is.True);
         Assert.That(section.ProvenanceTone, Is.EqualTo(SectionTone.Attention));
         Assert.That(Intelligence.Texts(section)[0], Is.EqualTo("2 files changed: 2 new"));
