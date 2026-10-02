@@ -202,6 +202,99 @@ public class CompanionExchangeTests
         };
         Assert.That(CompanionExchange.Restore(CompanionStart.Help, 4, kept).Turns, Has.Count.EqualTo(2), "a kept exchange comes back up to that reply");
     }
+
+    private static CompanionExchange Questioned()
+    {
+        var exchange = new CompanionExchange(CompanionStart.Help);
+        exchange.Ask(CompanionWant.Next);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
+        return exchange;
+    }
+
+    [Test]
+    public void ChoosingASuggestionOnlyLightsItAndSendAnswerSendsIt()
+    {
+        var exchange = Questioned();
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.None));
+        Assert.That(exchange.Answer, Is.Null);
+        Assert.That(exchange.Choose(1), Is.True);
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.Suggestion));
+        Assert.That(exchange.ChosenSuggestion, Is.EqualTo(1));
+        Assert.That(exchange.Answer, Is.EqualTo("One organiser"));
+        Assert.That(exchange.Turns, Has.Count.EqualTo(1), "choosing sends nothing");
+        Assert.That(exchange.Waiting, Is.False);
+        Assert.That(exchange.Choose(0), Is.True, "another suggestion lights instead");
+        Assert.That(exchange.Choose(2) || exchange.Choose(-1), Is.False, "no such suggestion");
+        Assert.That(exchange.Answer, Is.EqualTo("Each runner"), "a refused choice changes nothing");
+        var request = exchange.SendAnswer()!;
+        Assert.That(request.Want, Is.EqualTo(CompanionWant.Next));
+        Assert.That(request.Messages.Last(), Is.InstanceOf<PersonTurn>().With.Property("Text").EqualTo("Each runner"));
+        Assert.That(exchange.Waiting, Is.True);
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.None), "the question's rows are done with once it is answered");
+        Assert.That(exchange.Choose(0) || exchange.Write("Only me"), Is.False, "nothing to answer while the reply is on its way");
+        Assert.That(exchange.SendAnswer(), Is.Null);
+    }
+
+    [Test]
+    public void WrittenWordsStayWhileAnotherRowIsChosenAndAreSentOnlyWhenTheyAre()
+    {
+        var exchange = Questioned();
+        Assert.That(exchange.Write(" Only me ", heard: true), Is.True);
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.Written));
+        Assert.That(exchange.Written, Is.EqualTo("Only me"));
+        Assert.That(exchange.WrittenHeard, Is.True, "what the computer heard is the person's to check before it is sent");
+        Assert.That(exchange.Answer, Is.EqualTo("Only me"));
+        exchange.Choose(0);
+        Assert.That(exchange.Answer, Is.EqualTo("Each runner"));
+        Assert.That(exchange.Written, Is.EqualTo("Only me"), "the written answer stays while a suggestion is chosen");
+        exchange.ChooseWithoutIt();
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.WithoutIt));
+        Assert.That(exchange.Answer, Is.Null);
+        Assert.That(exchange.SendAnswer(), Is.Null, "Go on without it sends nothing");
+        Assert.That(exchange.Turns, Has.Count.EqualTo(1));
+        Assert.That(exchange.Write("   "), Is.False);
+        Assert.That(exchange.Write(new string('x', CompanionExchange.PersonLimit + 1)), Is.False);
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.WithoutIt), "refused words change nothing");
+        Assert.That(exchange.Write("Only me, and one helper"), Is.True);
+        Assert.That(exchange.WrittenHeard, Is.False, "typed over, they are the person's own");
+        Assert.That(exchange.SendAnswer()!.Messages.Last(), Is.InstanceOf<PersonTurn>().With.Property("Text").EqualTo("Only me, and one helper"));
+        Assert.That(exchange.Written, Is.Null);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask("Where should it run?")));
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.None), "a new question starts with nothing chosen");
+    }
+
+    [Test]
+    public void NothingCanBeChosenOnceTheCompanionHasProposed()
+    {
+        var exchange = Questioned();
+        exchange.Choose(0);
+        exchange.SendAnswer();
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask("Where should it run?")));
+        exchange.Write("Only me");
+        Assert.That(exchange.Ask(CompanionWant.Proposal), Is.Not.Null);
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.Written), "asking for the recap sends no written words");
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose()));
+        Assert.That(exchange.Written, Is.Null);
+        Assert.That(exchange.Choose(0) || exchange.Write("Only me"), Is.False);
+        Assert.That(exchange.SendAnswer(), Is.Null);
+    }
+
+    [Test]
+    public void ComingBackAfterGoingOnWithoutItFindsTheWrittenAnswerChosen()
+    {
+        var exchange = Questioned();
+        exchange.Write("Only me");
+        exchange.ChooseWithoutIt();
+        exchange.Leave();
+        Assert.That(exchange.Left, Is.True);
+        Assert.That(exchange.Chosen, Is.EqualTo(CompanionAnswerRow.Written));
+        Assert.That(exchange.SendAnswer()!.Messages.Last(), Is.InstanceOf<PersonTurn>().With.Property("Text").EqualTo("Only me"));
+        Assert.That(exchange.Left, Is.False, "answering takes the companion up again");
+        var unwritten = Questioned();
+        unwritten.Choose(1);
+        unwritten.Leave();
+        Assert.That(unwritten.Chosen, Is.EqualTo(CompanionAnswerRow.None));
+    }
 }
 
 public class CompanionRecapTests
