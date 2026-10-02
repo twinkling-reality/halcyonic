@@ -224,9 +224,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(Checks(shot));
                 if (name.StartsWith("r", StringComparison.Ordinal))
                 {
-                    // An upright plane, rendered upright.
+                    // A plane: level and upright, as architecture is photographed, then as the eyes see it.
                     Save(folder, name, WideUpright(eyes, root.transform));
-                    Save(folder, name + "-closeup", CloseUpUpright(shot));
+                    if (facing == Facing.Upright) Save(folder, name + "-closeup", CloseUpUpright(shot));
+                    Save(folder, name + "-eye", EyeView(shot, wide: true));
+                    Save(folder, name + "-eye-closeup", EyeView(shot, wide: false));
                     return failures;
                 }
                 Save(folder, name, Wide(eyes, root.transform));
