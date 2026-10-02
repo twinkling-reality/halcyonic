@@ -85,9 +85,10 @@ namespace Halcyonic.Client
             var page = room.Page();
             // The source observes paths, counts and kinds.
             page.Add(new SectionLine("observed", Count(changes), SectionTone.Normal));
-            var tails = PathTails(changes.Files.Select(file => file.Path).ToList());
+            if (Revision(understanding.Revision) is string revision) page.Add(new SectionLine("observed", revision, SectionTone.Secondary));
+            var shown = Shown(changes.Files);
             var files = changes.Files.Select((file, index) =>
-                new SectionLine("observed", KindOf(file.Kinds) + ": " + tails[index] + " " + LinesOf(file), SectionTone.Normal)).ToList();
+                new SectionLine("observed", KindOf(file.Kinds) + ": " + shown[index] + " " + LinesOf(file), SectionTone.Normal)).ToList();
             var coverage = Coverage(understanding);
             page.AddCounted(files, more => new SectionLine("", "And " + IntelligenceText.Plural(more, "more file"), SectionTone.Secondary),
                 reserve: coverage);
@@ -286,8 +287,44 @@ namespace Halcyonic.Client
         private static string Lower(string word) => word.Length == 0 ? word : char.ToLowerInvariant(word[0]) + word.Substring(1);
 
         /// <summary>A file's lines, "(+38 −9)", with the minus sign the source's summaries use.</summary>
+        /// <summary>
+        /// A file's lines, "(+38 −9)", with the minus sign the source's summaries use; "(+38 −9 or
+        /// more)" where the source saw a change replace the file without what it held.
+        /// </summary>
         private static string LinesOf(UnderstandingChangedFile file) =>
-            "(+" + file.LinesAdded.ToString(CultureInfo.InvariantCulture) + " −" + file.LinesRemoved.ToString(CultureInfo.InvariantCulture) + ")";
+            "(+" + file.LinesAdded.ToString(CultureInfo.InvariantCulture) + " −" + file.LinesRemoved.ToString(CultureInfo.InvariantCulture)
+            + (file.LinesRemovedExact == false ? " or more" : "") + ")";
+
+        /// <summary>
+        /// Each changed file as the person reads it: by its path in its repository where the source
+        /// resolved one, else by its name with as many folders as tell it apart from the others.
+        /// </summary>
+        private static IReadOnlyList<string> Shown(IReadOnlyList<UnderstandingChangedFile> files)
+        {
+            var tails = PathTails(files.Select(file => file.Path).ToList());
+            return files.Select((file, index) => file.RepositoryPath is string inRepository ? IntelligenceText.Plain(inRepository) : tails[index]).ToList();
+        }
+
+        /// <summary>
+        /// Which commit the work started from and stands at, as the source saw it at the session's
+        /// boundaries: "From commit 3f9a2c1 to 8b1e4d7 on main". Null when the source saw neither.
+        /// </summary>
+        internal static string? Revision(UnderstandingRevision revision)
+        {
+            var start = revision.AtStart;
+            var latest = revision.AtLatestTurnEnd;
+            string Commit(UnderstandingRevisionAnchor anchor) => anchor.Head == null ? "a repository with no commits yet" : "commit " + ShortSha(anchor.Head);
+            string On(UnderstandingRevisionAnchor anchor) => anchor.Branch == null ? "" : " on " + IntelligenceText.Plain(anchor.Branch);
+            if (start != null && latest != null)
+            {
+                if (start.Head == latest.Head) return "At " + Commit(latest) + On(latest) + ", where it started";
+                var startBranch = start.Branch == latest.Branch ? "" : On(start);
+                return "From " + Commit(start) + startBranch + " to " + (latest.Head == null ? Commit(latest) : ShortSha(latest.Head)) + On(latest);
+            }
+            if (latest != null) return "At " + Commit(latest) + On(latest);
+            if (start != null) return "Started at " + Commit(start) + On(start);
+            return null;
+        }
 
         /// <summary>
         /// Each path by its file name, with as many of its folders as tell it apart from the others',

@@ -135,6 +135,24 @@ export const UnderstandingVerificationRun = Type.Object(
 
 const Step = Text(200);
 
+/**
+ * Which commit a repository stood at at one boundary of the session, as the source read it from
+ * the session's working directory when the boundary happened. Halcyonic carries the commit and the
+ * branch, never the host's path to the repository.
+ */
+export const UnderstandingRevisionAnchor = Type.Object(
+  {
+    /** The full commit id, or null for a repository with no commits yet. */
+    head: Nullable(Type.String({ pattern: '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' })),
+    /** The checked-out branch, or null for a detached HEAD. */
+    branch: Nullable(Text(256)),
+    /** When the source read it. */
+    at: Timestamp,
+    epistemic: Type.Literal('observed'),
+  },
+  strict,
+);
+
 export const UnderstandingExplanation = Type.Object(
   {
     status: Type.Union([
@@ -228,6 +246,18 @@ export const Understanding = Type.Object(
         strict,
       ),
     ),
+    /**
+     * Which commit the work started from and stands at. Each anchor is null when the source did not
+     * watch that boundary as it happened, or does not say (Salidium before contract 1.1).
+     */
+    revision: Type.Object(
+      {
+        at_start: Nullable(UnderstandingRevisionAnchor),
+        /** When the latest round ended. Commits made since are in `changes.commits`. */
+        at_latest_turn_end: Nullable(UnderstandingRevisionAnchor),
+      },
+      strict,
+    ),
     changes: Type.Object(
       {
         summary: Text(300),
@@ -236,9 +266,21 @@ export const Understanding = Type.Object(
           Type.Object(
             {
               path: Text(4096),
+              /**
+               * The file's path within the repository that held it, with / separators, as the
+               * source resolved it when the change happened. Null when no repository held it, when
+               * the source could not tell, or when it does not say (Salidium before contract 1.1).
+               */
+              repository_path: Nullable(Text(4096)),
               change_count: Count,
               lines_added: Count,
               lines_removed: Count,
+              /**
+               * Whether `lines_removed` counts every removed line. False when a change replaced the
+               * file without the source seeing what it held, so the count is a lower bound; null
+               * when the source does not say.
+               */
+              lines_removed_exact: Nullable(Type.Boolean()),
               kinds: Type.Array(
                 Type.Union([
                   Type.Literal('add'),

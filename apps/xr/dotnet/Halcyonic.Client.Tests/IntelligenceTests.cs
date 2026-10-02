@@ -52,14 +52,20 @@ internal static class Intelligence
                 "epistemic": "reported"
               },
               "waiting": null,
+              "revision": {
+                "at_start": null,
+                "at_latest_turn_end": null
+              },
               "changes": {
                 "summary": "4 files changed (+43 −6) · 2 commands",
                 "files": [
                   {
                     "path": "src/payments/refunds.ts",
+                    "repository_path": null,
                     "change_count": 1,
                     "lines_added": 5,
                     "lines_removed": 1,
+                    "lines_removed_exact": null,
                     "kinds": [
                       "update"
                     ],
@@ -78,9 +84,11 @@ internal static class Intelligence
                   },
                   {
                     "path": "src/payments/ChargeService.test.ts",
+                    "repository_path": null,
                     "change_count": 1,
                     "lines_added": 6,
                     "lines_removed": 0,
+                    "lines_removed_exact": null,
                     "kinds": [
                       "update"
                     ],
@@ -94,9 +102,11 @@ internal static class Intelligence
                   },
                   {
                     "path": "src/checkout/RetryWorker.ts",
+                    "repository_path": null,
                     "change_count": 1,
                     "lines_added": 8,
                     "lines_removed": 2,
+                    "lines_removed_exact": null,
                     "kinds": [
                       "update"
                     ],
@@ -115,9 +125,11 @@ internal static class Intelligence
                   },
                   {
                     "path": "src/payments/ChargeService.ts",
+                    "repository_path": null,
                     "change_count": 1,
                     "lines_added": 24,
                     "lines_removed": 3,
+                    "lines_removed_exact": null,
                     "kinds": [
                       "update"
                     ],
@@ -643,7 +655,8 @@ public class DemonstrationReadsTests
 
         understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
         section = UnderstandingPresenter.Present(UnderstandPrompt.WhatChanged, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
-        Assert.That(section.Lines.Select(line => line.Text), Does.Contain("New: rate-limit.ts (+57 −0)"));
+        Assert.That(section.Lines.Select(line => line.Text), Does.Contain("New: src/middleware/rate-limit.ts (+57 −0)"), "by its path in its repository");
+        Assert.That(section.Lines[1].Text, Is.EqualTo("At commit 3e7b0c2 on sign-in-rate-limit, where it started"));
         var flow = UnderstandingPresenter.Present(UnderstandPrompt.HowBuilt, execution.ExecutionId, understanding, false, null, DateTimeOffset.UtcNow, Intelligence.Utc);
         Assert.That(flow.Steps, Is.True, "a judge can step through how it was built once the first round ends");
         Assert.That(flow.Lines.Select(line => line.Tag), Does.Contain("explained"));

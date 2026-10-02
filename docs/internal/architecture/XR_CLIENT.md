@@ -477,9 +477,12 @@ the same definition names, as the JSON Schema document:
   with a tag, fitted to an **`AnswerRoom`**: the rows a page holds and how many rows each line takes,
   which the headset measures on its labels.
   - *What changed?* says how many files changed and how ("4 files changed: 1 new, 2 edited, 1
-    removed"), then each file, most recently changed first, as the source observed it: "New:
-    rate-limit.ts (+57 −0)", Edited, Removed, Moved, "Moved and edited", or each way it changed;
-    a path keeps as many folders as tell two files of one name apart. As many as fit show and the
+    removed"), the commits the work started from and stands at where the source watched them
+    ("From commit 3f9a2c1 to 8b1e4d7 on main"), then each file, most recently changed first, as the
+    source observed it: "New: src/middleware/rate-limit.ts (+57 −0)", Edited, Removed, Moved,
+    "Moved and edited", or each way it changed, "(+5 −1 or more)" where the removed lines are a
+    lower bound. A file shows by its path in its repository where the source resolved one, else by
+    its name with as many folders as tell two files of one name apart. As many as fit show and the
     rest are counted ("And 4 more files"), then whether a check ran after the changes (inferred),
     and, where there is room, the commits and what is not done yet.
   - *Why?* quotes what the agent said before each change, in the order it said it, "Agent says:

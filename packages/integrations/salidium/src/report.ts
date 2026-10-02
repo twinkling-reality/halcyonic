@@ -93,13 +93,20 @@ export function toUnderstanding(
       since: report.waiting.since,
       epistemic: report.waiting.provenance,
     },
+    // Contract 1.1's anchors and per-file repository, without the host's paths; null from 1.0.
+    revision: {
+      at_start: anchor(report.revision?.atStart ?? null),
+      at_latest_turn_end: anchor(report.revision?.atLatestTurnEnd ?? null),
+    },
     changes: {
       summary: changes.glance,
       files: changes.files.map((file) => ({
         path: file.path,
+        repository_path: file.repository?.path ?? null,
         change_count: file.changeCount,
         lines_added: file.linesAdded,
         lines_removed: file.linesRemoved,
+        lines_removed_exact: file.linesRemovedExact ?? null,
         kinds: [...file.kinds],
         last_changed_at: file.lastChangedAt,
         coverage: {
@@ -174,4 +181,13 @@ export function toUnderstanding(
       },
     },
   };
+}
+
+type WireAnchor = NonNullable<NonNullable<WireReport['revision']>['atStart']>;
+
+/** One revision anchor, the commit and branch only: the repository's path on the host stays there. */
+function anchor(value: WireAnchor | null): Understanding['revision']['at_start'] {
+  return (
+    value && { head: value.head, branch: value.branch, at: value.at, epistemic: value.provenance }
+  );
 }

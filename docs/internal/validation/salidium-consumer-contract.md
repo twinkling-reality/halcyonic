@@ -157,3 +157,25 @@ and the discovery document may list at most 32 contract versions; TypeBox gather
 a document it refuses, so these bounds, not a cap on the issues kept, bound the work. Tested with a
 stand-in that answers late, floods, or names another instance
 (`packages/integrations/salidium/src/client.test.ts`).
+
+## Contract 1.1: commits and repository paths (2026-10-02)
+
+Salidium 0.7.0 serves `salidium.consumer` 1.1, and the owner's service runs it. Its discovery
+document lists the providers (above) and an `experimental` list this client ignores. A session
+report adds, all observed and resolved when the change or boundary happened, without running git:
+`revision.atStart` and `revision.atLatestTurnEnd` (the repository root, the full commit, the branch
+and when, or null where Salidium did not watch that boundary live), per changed file `repository`
+(the root of the working tree that held it, the file's path in it, the main repository when it is a
+linked worktree, or null) and `linesRemovedExact`, false when a change replaced a file without
+Salidium seeing what it held, so `linesRemoved` is a lower bound.
+
+Halcyonic's understanding now carries, provider-neutrally, each anchor's commit, branch and time
+(`revision.at_start`, `revision.at_latest_turn_end`), each file's `repository_path` and
+`lines_removed_exact`. No repository root or worktree path crosses into Halcyonic's contract: the
+headset needs the commit and the path within the repository, not where it lies on the host. A 1.0
+report maps them all to null. The reader takes them as optional, so 1.0 and 1.1 daemons both read.
+Tested against the 1.1 fixtures copied from Salidium at `5b53b77` (`fixtures/v1/1.1/`; see its
+README), including a file in a linked worktree (its path in the worktree) and one outside any
+repository (null); `@salidium/consumer-contract@1.1.0` was staged, not yet published, when they were
+copied. What changed? now says "From commit 3f9a2c1 to 8b1e4d7 on main" under its count, shows each
+file by its repository path where there is one, and "(+5 −1 or more)" for a lower bound.

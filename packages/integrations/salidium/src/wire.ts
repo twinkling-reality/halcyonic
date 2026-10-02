@@ -103,6 +103,26 @@ export type WireError = Static<typeof WireError>;
 
 const NativeIdentity = Type.Object({ provider: Id, sessionId: Id });
 
+/**
+ * Which commit a repository stood at at one boundary of the session (contract 1.1). Optional in
+ * the reader, since a 1.0 report has none; when present it is checked as 1.1 states it.
+ */
+const RevisionAnchor = Type.Object({
+  root: Nullable(Text(4096)),
+  head: Nullable(Type.String({ pattern: '^(?:[0-9a-f]{40}|[0-9a-f]{64})$' })),
+  branch: Nullable(Text(256)),
+  at: Timestamp,
+  provenance: Type.Literal('observed'),
+});
+
+/** Where a changed file sits in Git, resolved when it changed (contract 1.1). */
+const FileRepository = Type.Object({
+  root: Text(4096),
+  path: Text(4096),
+  mainRoot: Nullable(Text(4096)),
+  provenance: Type.Literal('observed'),
+});
+
 export const WireLookup = Type.Object({
   format: Type.Literal('salidium.session-lookup'),
   version: Type.Literal(1),
@@ -168,14 +188,22 @@ export const WireReport = Type.Object({
       provenance: WireEpistemic,
     }),
   ),
+  revision: Type.Optional(
+    Type.Object({
+      atStart: Nullable(RevisionAnchor),
+      atLatestTurnEnd: Nullable(RevisionAnchor),
+    }),
+  ),
   changes: Type.Object({
     glance: Text(300),
     files: Type.Array(
       Type.Object({
         path: Text(4096),
+        repository: Type.Optional(Nullable(FileRepository)),
         changeCount: Count,
         linesAdded: Count,
         linesRemoved: Count,
+        linesRemovedExact: Type.Optional(Type.Boolean()),
         kinds: Type.Array(Type.Enum(['add', 'update', 'delete', 'move'])),
         lastChangedAt: Timestamp,
         coverage: Type.Object({
