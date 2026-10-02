@@ -86,7 +86,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The chip a surface shows before or beside it: "Inferred", "Agent says", "Planned",
-        /// "Explanation"; null for an observed fact, a measurement or Halcyonic's own words, which
+        /// "Model explains"; null for an observed fact, a measurement or Halcyonic's own words, which
         /// stand on a page that names their source.
         /// </summary>
         public string? Chip { get; }
@@ -112,7 +112,7 @@ namespace Halcyonic.Client
             Client.Evidence.Reported => "Agent says",
             Client.Evidence.Inferred => "Inferred",
             Client.Evidence.Planned => "Planned",
-            Client.Evidence.Explained => "Explanation",
+            Client.Evidence.Explained => "Model explains",
             _ => null,
         };
 

@@ -584,7 +584,7 @@ namespace Halcyonic.Client
                 {
                     UnderstandingStatementAuthor.Agent => "Agent says",
                     UnderstandingStatementAuthor.Subagent => "Subagent says",
-                    _ => "Quoted",
+                    _ => "Author unknown",
                 }
                 : SectionLine.ChipOf(evidence);
             return new SectionLine(Word(statement.Epistemic), (lead ?? "") + Quote(statement), SectionTone.Claim, rows: rows, evidence: evidence,
@@ -597,7 +597,7 @@ namespace Halcyonic.Client
             {
                 UnderstandingStatementAuthor.Agent => "Agent says",
                 UnderstandingStatementAuthor.Subagent => "Subagent says",
-                _ => "Quoted, author unknown",
+                _ => "Author unknown",
             };
             return who + ": “" + IntelligenceText.Plain(statement.Text) + "”";
         }
