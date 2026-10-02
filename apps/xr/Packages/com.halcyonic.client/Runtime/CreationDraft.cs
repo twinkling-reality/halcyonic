@@ -219,6 +219,14 @@ namespace Halcyonic.Client
 
         [JsonProperty("turns")]
         public List<CompanionExchangeTurn> Turns { get; set; } = new List<CompanionExchangeTurn>();
+
+        /// <summary>The person's own answer to the companion's question, typed or heard and not yet sent; null when none.</summary>
+        [JsonProperty("answer")]
+        public string? Answer { get; set; }
+
+        /// <summary><see cref="Answer"/> is what the computer heard, still for the person to check.</summary>
+        [JsonProperty("answer_heard")]
+        public bool AnswerHeard { get; set; }
     }
 
     /// <summary>Where the device keeps its Create drafts. The Unity layer chooses the place: app-internal storage on the headset.</summary>

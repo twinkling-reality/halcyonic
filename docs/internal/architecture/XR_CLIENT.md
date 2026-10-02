@@ -602,7 +602,8 @@ the same definition names, as the JSON Schema document:
   with a next step. `EntryScreens.Companion` is its screen as a model; the headset's panel does
   not show it yet (below).
 - **`CreationDraft`** and **`CreationDrafts`** keep every Create draft on the device across an
-  app restart: the idea or answers, the recap, the exchange, the folder, agent app and model
+  app restart: the idea or answers, the recap, the exchange with an answer written for it but not
+  yet sent (it comes back chosen, never sent), the folder, agent app and model
   chosen, and what the computer already made of it (a project, a task), for the journal it was
   made with, for 7 days without a change, in one JSON file in the app's private storage that is
   written only when something changed. A project the computer already made comes back as a task
