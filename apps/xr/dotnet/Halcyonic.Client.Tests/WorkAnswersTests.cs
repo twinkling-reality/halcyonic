@@ -917,7 +917,7 @@ public class EvidenceTests
         }), "the quote alone beside its chip");
         Assert.That(Classes(Brief(UnderstandPrompt.HowBuilt, Intelligence.Verified)), Is.EqualTo(new[]
         {
-            (Evidence.Explained, (string?)"Explanation", "One idempotency key per order, sent with every charge."),
+            (Evidence.Explained, (string?)"Model explains", "One idempotency key per order, sent with every charge."),
             (Evidence.Halcyonic, null, "Explained by a model, up to date"),
         }));
         var checks = CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
@@ -940,7 +940,7 @@ public class EvidenceTests
             var bare = line.Evidence == Evidence.Observed || line.Evidence == Evidence.Measured || line.Evidence == Evidence.Halcyonic;
             Assert.That(line.Chip == null, Is.EqualTo(bare), line.Evidence + ": " + line.Text);
             if (line.Evidence == Evidence.Inferred) Assert.That(line.Chip, Is.EqualTo("Inferred"), line.Text);
-            if (line.Evidence == Evidence.Explained) Assert.That(line.Chip, Is.EqualTo("Explanation"), line.Text);
+            if (line.Evidence == Evidence.Explained) Assert.That(line.Chip, Is.EqualTo("Model explains"), line.Text);
             if (classWords.Contains(line.Tag)) Assert.That(line.Evidence, Is.EqualTo(SectionLine.EvidenceOf(line.Tag)), "the source's class, never upgraded: " + line.Text);
             if (line.Chip != null) Assert.That(line.Words, Does.Not.StartWith(line.Chip), "the words do not say the chip again: " + line.Words);
             if (line.Source) Assert.That(line.Evidence, Is.EqualTo(Evidence.Halcyonic), "a provenance line is Halcyonic's own");
@@ -967,7 +967,7 @@ public class EvidenceTests
         });
         var subagent = Brief(UnderstandPrompt.WhyChanged, With("subagent", "reported")).Lines[0];
         Assert.That((subagent.Chip, subagent.Tone), Is.EqualTo(("Subagent says", SectionTone.Claim)));
-        Assert.That(Brief(UnderstandPrompt.WhyChanged, With("null", "reported")).Lines[0].Chip, Is.EqualTo("Quoted"));
+        Assert.That(Brief(UnderstandPrompt.WhyChanged, With("null", "reported")).Lines[0].Chip, Is.EqualTo("Author unknown"));
         var observed = Brief(UnderstandPrompt.WhyChanged, With("subagent", "observed")).Lines[0];
         Assert.That((observed.Evidence, observed.Chip, observed.Tone), Is.EqualTo((Evidence.Observed, (string?)null, SectionTone.Claim)),
             "a subagent's description the source observed keeps its class, and still leans as someone's words");

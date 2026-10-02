@@ -81,6 +81,21 @@ counts, "paused" covers tasks at rest that are neither running nor waiting for y
 A person never reads: execution, journal, command, principal, scenario, capability, projection,
 snapshot, workstream, access token (an access code, only where the person must act on one).
 
+### The chip beside an answer line
+
+Each line of an answer says how it is known with a chip; an observed fact, a measurement and
+Halcyonic's own words go without one. The words below were settled by the coordinator on
+2026-10-02; the old words are kept beside them so no surface goes back to them.
+
+| The line is | Chip | Instead of |
+| --- | --- | --- |
+| The agent's own words | Agent says | |
+| A subagent's own words | Subagent says | |
+| Words whose author the source does not know | Author unknown | Quoted |
+| A model's account of the work, after it | Model explains | Explanation |
+| Halcyonic's reading of what it observed | Inferred | |
+| What the agent planned to do | Planned | |
+
 ## Sentence patterns
 
 | Kind | Pattern | Example |
