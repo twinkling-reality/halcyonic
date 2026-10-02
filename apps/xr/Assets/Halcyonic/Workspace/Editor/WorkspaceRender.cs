@@ -1368,13 +1368,16 @@ namespace Halcyonic.XR.Workspace.Editor
             var asset = Resources.Load<TextAsset>("HalcyonicDemonstration");
             if (asset == null) throw new InvalidOperationException("The demonstration is missing from Resources.");
             var recording = DemonstrationRecording.Parse(asset.text);
+            // The beginning holds at the agent's question; its first option runs on to the approval.
             var beginning = recording.Nodes[0];
-            var approve = beginning.BranchesAfter(beginning.Events.Count).First(branch => branch.Answer.Kind == DemonstrationAnswerKind.Approve);
+            var answered = beginning.BranchesAfter(beginning.Events.Count).First(branch => branch.Answer.Kind == DemonstrationAnswerKind.Answer).Node;
+            var atApproval = recording.Nodes[answered];
+            var approve = atApproval.BranchesAfter(atApproval.Events.Count).First(branch => branch.Answer.Kind == DemonstrationAnswerKind.Approve);
             var executionId = approve.Answer.ExecutionId;
             var now = DateTimeOffset.UtcNow;
             var points = new[]
             {
-                ("", 0, beginning.Events.Count),
+                ("", answered, atApproval.Events.Count),
                 ("-after-approving", approve.Node, recording.Nodes[approve.Node].Events.Count),
             };
             foreach (var (suffix, node, played) in points)
