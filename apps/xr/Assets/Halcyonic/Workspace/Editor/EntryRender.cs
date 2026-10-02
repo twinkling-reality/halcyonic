@@ -185,6 +185,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 failures.AddRange(PlacesHold(name, places));
+                if (!hostile) failures.AddRange(MovesByHand(name, panel, eyes, state));
                 var size = new PanelSize(PanelFrame.Distance, panel.Frame.Size.x / 2f * PanelFrame.Distance, panel.Frame.Size.y / 2f * PanelFrame.Distance);
                 var (_, direction) = WorkspaceLayout.PlaceForeground(targets, eyes, camera.transform.forward, surface, new List<BodyInView>(), size);
                 Debug.Log("Halcyonic: entry render " + name + ": the panel's center is " + WorkspaceRender.Degrees(direction.Elevation)
@@ -294,6 +295,55 @@ namespace Halcyonic.XR.Workspace.Editor
                 panel.ShowForRender(EntryPanel.Screen.Previous, unresolvedCommand: "0192f3c1-7e2a-7b3c-8d4e-5f6a7b8c9d0e");
                 panel.PressForRender(EntryScreens.Clear);
             });
+        }
+
+        /// <summary>
+        /// Move held and dragged 10 degrees right and 4 up, as a hand would: the panel follows by as
+        /// much, at its distance and facing the eyes. While Start over asks to be confirmed, Move and
+        /// Reset position take no press, and a drag moves nothing.
+        /// </summary>
+        private static IEnumerable<string> MovesByHand(string name, EntryPanel panel, Vector3 eyes, ClientProjection state)
+        {
+            var failures = new List<string>();
+            static (float Yaw, float Elevation) Angles(Vector3 toward) =>
+                (Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg, Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg);
+            Vector3 Turned(Vector3 point, float right, float up)
+            {
+                var (yaw, elevation) = Angles(point - eyes);
+                return eyes + Quaternion.Euler(-(elevation + up), yaw + right, 0f) * Vector3.forward * Vector3.Distance(eyes, point);
+            }
+            panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
+            var root = panel.Root;
+            var move = panel.Frame.ButtonFor(PanelModel.Move);
+            if (move == null || !move.Holds)
+            {
+                failures.Add(name + " move: Move does not show, or cannot be held to move the panel with the hand.");
+                return failures;
+            }
+            var (yawBefore, elevationBefore) = Angles(root.position - eyes);
+            var distance = Vector3.Distance(eyes, root.position);
+            var from = move.transform.position;
+            panel.DragForRender(eyes, from, Turned(from, 10f, 4f));
+            var (yawAfter, elevationAfter) = Angles(root.position - eyes);
+            Debug.Log("Halcyonic: entry render " + name + ": Move held and dragged 10 degrees right and 4 up moves the panel "
+                + WorkspaceRender.Degrees(Mathf.DeltaAngle(yawBefore, yawAfter)) + " right and " + WorkspaceRender.Degrees(elevationAfter - elevationBefore) + " up.");
+            if (Mathf.Abs(Mathf.DeltaAngle(yawBefore, yawAfter) - 10f) > 0.05f || Mathf.Abs(elevationAfter - elevationBefore - 4f) > 0.05f)
+            {
+                failures.Add(name + " move: the panel does not follow the hand by as much as it moved.");
+            }
+            if (Mathf.Abs(Vector3.Distance(eyes, root.position) - distance) > 1e-4f) failures.Add(name + " move: the panel leaves touch distance as it moves.");
+            if (Vector3.Angle(root.forward, root.position - eyes) > 0.1f) failures.Add(name + " move: the panel no longer faces the eyes once moved.");
+
+            panel.PressForRender(EntryScreens.StartOver);
+            var still = (root.position, root.rotation);
+            foreach (var id in new[] { PanelModel.Move, PanelModel.ResetPosition })
+            {
+                var button = panel.Frame.ButtonFor(id);
+                if (button == null || button.Available) failures.Add(name + " move: " + id + " takes a press while Start over asks to be confirmed.");
+            }
+            panel.DragForRender(eyes, move.transform.position, Turned(move.transform.position, -10f, 0f));
+            if ((root.position, root.rotation) != still) failures.Add(name + " move: a drag moves the panel while Start over asks to be confirmed.");
+            return failures;
         }
 
         private static ProjectIdea Idea()

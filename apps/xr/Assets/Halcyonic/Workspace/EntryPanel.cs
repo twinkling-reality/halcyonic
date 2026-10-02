@@ -23,7 +23,8 @@ namespace Halcyonic.XR.Workspace
     /// One foreground surface at a time: opening the panel collapses an open workspace, and a
     /// workspace opened while the panel shows, by a pinch on a character or by Open now, hides the
     /// panel and brings it back, as it was and where it was, when that workspace closes. Move steps
-    /// the panel to the right, the left and back to where it opened; Reset position puts the panel
+    /// the panel to the right, the left and back to where it opened, and, held, moves it with the
+    /// hand (<see cref="PanelDrag"/>), never while a confirmation is armed; Reset position puts the panel
     /// and the rail in front of where the person faces now. Every button ignores input while the app
     /// lacks focus, and nothing here is sent until the person confirms Start building.
     /// </remarks>
@@ -55,6 +56,9 @@ namespace Halcyonic.XR.Workspace
         private Pose placedPose;
         private Vector3 placedEyes;
         private string? returnAfter;
+        private PanelDrag? drag;
+        private Vector3 dragEyes;
+        private float dragDistance;
         private WorkstreamView? offered;
         private float nextRefresh;
         private TouchScreenKeyboard? keyboard;
@@ -152,6 +156,17 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Acts as a press of <paramref name="id"/> would, for the editor's renders of what a press leads to.</summary>
         public void PressForRender(string id, string? key = null) => OnActed(id, key);
 
+        /// <summary>
+        /// Holds Move at <paramref name="from"/> and drags the held point to <paramref name="to"/>, as
+        /// seen from <paramref name="eyes"/>, as a hand would, for the editor's renders.
+        /// </summary>
+        public void DragForRender(Vector3 eyes, Vector3 from, Vector3 to)
+        {
+            TakeHold(eyes, from);
+            Follow(to);
+            drag = null;
+        }
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
@@ -189,6 +204,16 @@ namespace Halcyonic.XR.Workspace
             frame = PanelFrame.Create(root, "Frame");
             frame.Accepting = () => visible && !FocusGuard.InputSuspended;
             frame.Acted += OnActed;
+            // Move held: the panel follows the hand round the eyes until it is let go.
+            frame.HoldStarted += id =>
+            {
+                if (id == PanelModel.Move && frame.MoveHeldPoint is Vector3 point) TakeHold(WorkspaceVisuals.HeadPosition, point);
+            };
+            frame.HoldEnded += (id, _) =>
+            {
+                if (id == PanelModel.Move) drag = null;
+            };
+            frame.Dragged += Follow;
             AwakeCreate();
             root.gameObject.SetActive(false);
         }
@@ -331,6 +356,39 @@ namespace Halcyonic.XR.Workspace
             Pose();
             Layout();
         }
+
+        /// <summary>Move held: the panel takes hold where the hand holds it, as seen from <paramref name="eyes"/>.</summary>
+        private void TakeHold(Vector3 eyes, Vector3 point)
+        {
+            drag = null;
+            if (frame.Shown?.CanMove != true) return;
+            var (panelYaw, panelElevation) = AnglesOf(root.position - eyes);
+            var (heldYaw, heldElevation) = AnglesOf(point - eyes);
+            var height = surface();
+            drag = new PanelDrag(panelYaw, panelElevation, heldYaw, heldElevation, PanelSize, height.HasValue ? eyes.y - height.Value : (float?)null);
+            dragEyes = eyes;
+            dragDistance = Vector3.Distance(eyes, root.position);
+        }
+
+        /// <summary>
+        /// The panel follows the held point round the eyes, at its distance and facing them, its center
+        /// in the comfortable band; never while a confirmation is armed. Move and Reset position start from there.
+        /// </summary>
+        private void Follow(Vector3 point)
+        {
+            if (drag == null || frame.Shown?.CanMove != true) return;
+            var (heldYaw, heldElevation) = AnglesOf(point - dragEyes);
+            var (yaw, elevation) = drag.Follow(heldYaw, heldElevation);
+            var forward = Quaternion.Euler(-elevation, yaw, 0f) * Vector3.forward;
+            placedEyes = dragEyes;
+            placedPose = new Pose(dragEyes + forward * dragDistance, Quaternion.LookRotation(forward, Vector3.up));
+            side = 0;
+            Pose();
+        }
+
+        /// <summary>A direction's yaw to the right and elevation up, in degrees.</summary>
+        private static (float Yaw, float Elevation) AnglesOf(Vector3 toward) =>
+            (Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg, Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg);
 
         private void ResetPosition()
         {

@@ -234,3 +234,44 @@ public class WorkspacePlacementTests
         Assert.That(WorkspacePlacement.BottomEdge(Lineups.Workspace, limit + 5f), Is.GreaterThan(WorkspacePlacement.BottomEdge(Lineups.Workspace, limit)));
     }
 }
+
+/// <summary>A panel moved by hand while Move is held (ADR 0023).</summary>
+public class PanelDragTests
+{
+    private static readonly PanelSize Size = new(0.46f, 0.186f, 0.106f);
+
+    [Test]
+    public void ThePanelTurnsRoundTheEyesWithThePointTheHandHolds()
+    {
+        var drag = new PanelDrag(panelYaw: 10f, panelElevation: -15f, grabYaw: 12f, grabElevation: -5f, Size);
+        Assert.That(drag.Follow(12f, -5f), Is.EqualTo((10f, -15f)), "held still, it stays");
+        var (yaw, elevation) = drag.Follow(22f, 0f);
+        Assert.That(yaw, Is.EqualTo(20f).Within(1e-4f));
+        Assert.That(elevation, Is.EqualTo(-10f).Within(1e-4f));
+        var behind = new PanelDrag(170f, -15f, 170f, -15f, Size).Follow(-175f, -15f);
+        Assert.That(behind.Yaw, Is.EqualTo(-175f).Within(1e-4f), "past straight behind, the yaw turns on round");
+    }
+
+    [Test]
+    public void ItsCenterStaysInTheComfortableBandAndAboveTheSurface()
+    {
+        var drag = new PanelDrag(0f, -15f, 0f, -15f, Size);
+        Assert.That(drag.Follow(0f, 40f).Elevation, Is.EqualTo(WorkspacePlacement.HighestDegrees));
+        Assert.That(drag.Follow(0f, -80f).Elevation, Is.EqualTo(WorkspacePlacement.LowestDegrees));
+        var desk = new PanelDrag(0f, -15f, 0f, -15f, Size, surfaceDrop: 0.3f);
+        var floor = Math.Max(WorkspacePlacement.LowestDegrees, WorkspacePlacement.LowestAboveSurface(Size, 0.3f));
+        Assert.That(desk.Follow(0f, -80f).Elevation, Is.EqualTo(floor).Within(1e-4f));
+        Assert.That(floor, Is.GreaterThan(WorkspacePlacement.LowestDegrees), "a desk 0.3 m below the eyes holds the panel higher");
+    }
+
+    [Test]
+    public void NothingMovesWhileAConfirmationIsArmed()
+    {
+        var model = new PanelModel("Check your project");
+        Assert.That(model.CanMove, Is.True);
+        model.Confirm = new ConfirmStep("Sure?", new PanelAction("yes", "Yes, start over", PanelActionRole.Destructive),
+            new PanelAction("cancel", "Cancel", PanelActionRole.Secondary));
+        Assert.That(model.CanMove, Is.False);
+        Assert.That(new PanelModel("Usage left") { Movable = false }.CanMove, Is.False);
+    }
+}

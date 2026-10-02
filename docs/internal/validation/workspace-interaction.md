@@ -44,6 +44,15 @@
 - **Ray targeting.** The ray takes the closest hit among all ray interactables within 5 m; hits
   within 1 mm of each other go to the higher tiebreaker score. A background interactable therefore
   blocks what is behind it, and a button 4 mm in front of it wins.
+- **Dragging with a ray** (read in the 207.0.0 sources on 2026-10-02). A `RayInteractable` may take
+  a movement provider (`InjectOptionalMovementProvider`). When its ray selects it,
+  `RayInteractor.InteractableSelected` creates the movement before the `Select` pointer event is
+  raised, and `ComputePointerPose` then returns the movement's pose; with `MoveFromTargetProvider`
+  that pose is the ray origin's (`MoveFromTarget.UpdateTarget` takes `_rayOrigin.GetPose()` every
+  select update), and the ray's end stays on the point it hit, carried with the hand. A `Move`
+  pointer event follows every frame (`PointerInteractor.DoPostprocess`). So a dragged point is the
+  origin plus its forward times the distance at which the ray first met the surface; a poke's
+  pointer pose is its point on the surface. Not verified on a headset.
 
 ### Gaze
 
