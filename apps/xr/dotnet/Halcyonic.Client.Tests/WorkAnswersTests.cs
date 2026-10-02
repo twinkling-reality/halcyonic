@@ -350,6 +350,17 @@ public class UnderstandingAnswersTests
     }
 
     [Test]
+    public void TheControlPlanesOwnAnswerBeforeAnySourceIsAskedNamesNoSource()
+    {
+        var notAsked = Intelligence.Failure("not_found", "native_id_unknown", "The runtime has not reported its session id yet.");
+        Assert.That(Answers.Understand(UnderstandPrompt.WhatChanged, notAsked).Provenance,
+            Is.EqualTo("No understanding yet: The runtime has not reported its session id yet."));
+        var section = Answers.Checked(notAsked, notAsked);
+        Assert.That(section.Provenance, Is.EqualTo("No understanding yet: The runtime has not reported its session id yet."));
+        Assert.That(section.Lines.Single(line => line.Source).Text, Is.EqualTo("No evaluation yet: The runtime has not reported its session id yet."));
+    }
+
+    [Test]
     public void ReadingAndFailedReadsAreSaidInWords()
     {
         var now = Intelligence.At(Answers.Now);

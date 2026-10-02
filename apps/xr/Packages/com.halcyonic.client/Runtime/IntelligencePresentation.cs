@@ -156,7 +156,11 @@ namespace Halcyonic.Client
                     lines.AddRange(Lines(evaluation, at, zone));
                     return lines;
                 case NotFoundEvaluation notFound:
-                    return new[] { Source(IntelligenceText.FromSeorak + " · No evaluation yet: " + IntelligenceText.Plain(notFound.Reason.Message) + status, SectionTone.Secondary) };
+                    return new[]
+                    {
+                        Source(IntelligenceText.From(IntelligenceText.FromSeorak, notFound.Reason) + "No evaluation yet: " + IntelligenceText.Plain(notFound.Reason.Message) + status,
+                            SectionTone.Secondary),
+                    };
                 case UnavailableEvaluation unavailable:
                     return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unavailable: " + IntelligenceText.Plain(unavailable.Reason.Message) + status, SectionTone.Secondary) };
                 case IncompatibleEvaluation incompatible:
@@ -440,7 +444,16 @@ namespace Halcyonic.Client
         /// as it does for an answer, then says why there is none, in words.
         /// </summary>
         internal static SectionPresentation Failure(SectionKind kind, string source, string lead, ErrorInfo reason, SectionTone tone, string status) =>
-            new SectionPresentation(kind, source + " · " + lead + Plain(reason.Message) + status, tone, Array.Empty<SectionLine>(), simulated: false);
+            new SectionPresentation(kind, From(source, reason) + lead + Plain(reason.Message) + status, tone, Array.Empty<SectionLine>(), simulated: false);
+
+        /// <summary>
+        /// The control plane's own answer before it asks any source: the runtime has not said which
+        /// session it is, so no source was asked and none is named.
+        /// </summary>
+        public const string NotAsked = "native_id_unknown";
+
+        /// <summary>"From Salidium · " before why there is no answer, unless no source was asked.</summary>
+        internal static string From(string source, ErrorInfo reason) => reason.Code == NotAsked ? "" : source + " · ";
 
         /// <summary>The source an understanding comes from, as a provenance line names it.</summary>
         public const string FromSalidium = "From Salidium";

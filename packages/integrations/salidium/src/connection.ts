@@ -58,7 +58,7 @@ export function tooLarge(what: string, maxBytes: number): Failure<'incompatible'
   return fail(
     'incompatible',
     'answer_too_large',
-    `The ${what} ran past ${Math.round(maxBytes / 1024)} KiB, more than Salidium consumer contract v1 gives, so it was not read.`,
+    `The ${what} ran past ${Math.round(maxBytes / 1024)} KiB, the most Halcyonic reads of it, so it was not read.`,
   );
 }
 
