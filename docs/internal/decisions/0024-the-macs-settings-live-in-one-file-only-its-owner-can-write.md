@@ -55,8 +55,8 @@ Facts that shaped the decision:
 5. **Halcyonic's own OpenCode settings are local by construction.** `HALCYONIC_OPENCODE_CONFIG_HOME`
    names a directory given to OpenCode alone as its `XDG_CONFIG_HOME`, so the person's own OpenCode
    settings and every other process keep theirs. The control plane holds it to the settings file's
-   standard: real folders, not links, owned by the user and closed to others, holding nothing but
-   `opencode/opencode.json`, mode 600, which may hold only `model`, `small_model`, `permissions` and
+   standard: real folders, not links, owned by the user and closed to others, with nothing in the
+   `opencode` folder but `opencode.json`, mode 600, which may hold only `model`, `small_model`, `permissions` and
    Ollama's context limits. Both models must be served on this Mac through Ollama (`ollama/...`,
    never a `cloud` tag). `pnpm mac-setup local-model <name>` writes it: that model as the default and
    the small model, a question before every shell command, and no `webfetch` or `websearch`; the
@@ -64,7 +64,8 @@ Facts that shaped the decision:
 6. **Project roots are checked by the control plane, wherever they come from.** A root from the
    environment or the file must be an existing folder that may hold projects: never the disk, a
    shared or system folder (in the forms `realpath(3)` gives, so `/etc` is `/private/etc`), a whole
-   drive, another person's home, the home folder or a folder holding it, Halcyonic's data, a hidden
+   drive, another person's home, the account's home folder (never taken from `$HOME`) or a folder
+   holding it, Halcyonic's data, a hidden
    folder or Library in the home folder, a folder another user owns, or one any user can change
    (`apps/control-plane/src/folder-safety.ts`). The setup refuses the same folders before it asks.
 7. **The startup log names each agent binary** and whether its SHA-256 is the pinned one, with a
@@ -76,7 +77,8 @@ Facts that shaped the decision:
    file exists and that other users cannot read it), downloads nothing, and checks the pinned
    binaries and voice models against their SHA-256 before recording them. By default it reads no
    access token; with `--with-token` it sends the token only to a server that first proves it holds
-   it, as `pnpm devices` now does too ([SECURITY.md](../architecture/SECURITY.md)).
+   it at the very address and port dialled, as `pnpm devices` now does too
+   ([SECURITY.md](../architecture/SECURITY.md)).
 9. **Changes take effect at the next start.** Settings are read once, as the environment was.
 
 ## Alternatives considered
@@ -102,7 +104,9 @@ Facts that shaped the decision:
   check tells them what is missing in the same words the headset uses.
 - An independent security review on 2026-10-02 found the first version let a hand-edited file allow
   `/` or the home folder, held Halcyonic's own OpenCode settings to no standard, and sent the access
-  token to whatever answered on the port; decisions 3, 5, 6, 7 and 8 above are its fixes.
+  token to whatever answered on the port; decisions 3, 5, 6, 7 and 8 above are its fixes. Its
+  re-check found a relay on another port could pass the proof on, so the proof now names the address
+  and port the connection reached.
 - The settings file is a new place that decides what agents may change. It is held to the same
   standard as the access token, and the control plane logs which settings it took from it
   (`control plane ready`, `settings.used`).

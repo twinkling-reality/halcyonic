@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { request as httpRequest } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { after, before, describe, test } from 'node:test';
 import {
   compileValidator,
@@ -11,9 +12,12 @@ import { RealtimeClient } from '../client/realtime-client.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { startTestServer, TEST_CLIENT } from '../testing/harness.ts';
 import {
+  loopbackBases,
   loopbackProof,
   PROOF_CHALLENGE_HEADER,
   PROOF_HEADER,
+  proofAddress,
+  provenBase,
   serverProvesToken,
 } from './security.ts';
 
@@ -102,7 +106,11 @@ describe('REST', () => {
     const answered = await fetch(`${base}/api/health`, {
       headers: { [PROOF_CHALLENGE_HEADER]: challenge },
     });
-    assert.equal(answered.headers.get(PROOF_HEADER), loopbackProof(server.token, challenge));
+    assert.equal(
+      answered.headers.get(PROOF_HEADER),
+      loopbackProof(server.token, `127.0.0.1:${server.port}`, challenge),
+      'the proof names the address and port the connection reached',
+    );
     for (const headers of [
       {},
       { [PROOF_CHALLENGE_HEADER]: 'AB'.repeat(32) },
@@ -115,6 +123,51 @@ describe('REST', () => {
       headers: { authorization: `Bearer ${server.token}`, [PROOF_CHALLENGE_HEADER]: challenge },
     });
     assert.equal(elsewhere.headers.get(PROOF_HEADER), null, 'only the health check answers');
+  });
+
+  test("a relay on another port cannot pass the control plane's proof on as its own", async (t) => {
+    // Something holds a port the client dials and forwards the challenge to the real control plane.
+    const relay = createServer((request, response) => {
+      const forwarded = httpRequest(
+        {
+          host: '127.0.0.1',
+          port: server.port,
+          path: request.url,
+          headers: { ...request.headers, host: `127.0.0.1:${server.port}` },
+        },
+        (answer) => {
+          response.writeHead(answer.statusCode ?? 502, answer.headers);
+          answer.pipe(response);
+        },
+      );
+      forwarded.end();
+    });
+    await new Promise<void>((resolve) => relay.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise<void>((resolve) => relay.close(() => resolve())));
+    const relayed = `http://127.0.0.1:${(relay.address() as AddressInfo).port}`;
+    const challenge = 'cd'.repeat(32);
+    const passed = await fetch(`${relayed}/api/health`, {
+      headers: { [PROOF_CHALLENGE_HEADER]: challenge },
+    });
+    assert.notEqual(passed.headers.get(PROOF_HEADER), null, 'the relay passes the real proof on');
+    assert.equal(await serverProvesToken(fetch, relayed, server.token), 'unproved');
+    assert.deepEqual(
+      await provenBase(fetch, [relayed, `http://127.0.0.1:${server.port}`], server.token),
+      {
+        base: `http://127.0.0.1:${server.port}`,
+      },
+    );
+  });
+
+  test('a loopback client dials addresses, never a name another listener could answer to', () => {
+    assert.deepEqual(loopbackBases('localhost', 47800), [
+      'http://127.0.0.1:47800',
+      'http://[::1]:47800',
+    ]);
+    assert.deepEqual(loopbackBases('::1', 47800), ['http://[::1]:47800']);
+    assert.deepEqual(loopbackBases('127.0.0.1', 47800), ['http://127.0.0.1:47800']);
+    assert.equal(proofAddress('::ffff:127.0.0.1', 47800), '127.0.0.1:47800');
+    assert.equal(proofAddress('[::1]', 47800), '[::1]:47800');
   });
 
   test('foreign Hosts and browser origins are refused even with the token', async () => {

@@ -9,6 +9,7 @@ import {
   PROOF_CHALLENGE_HEADER,
   PROOF_HEADER,
   PUBLIC_PATHS,
+  proofAddress,
 } from './security.ts';
 
 declare module 'fastify' {
@@ -83,7 +84,9 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Fast
     // A loopback client proves who answers before it sends the token (pnpm devices, mac-setup).
     const challenge = header(PROOF_CHALLENGE_HEADER);
     if (path === '/api/health' && isProofChallenge(challenge)) {
-      reply.header(PROOF_HEADER, loopbackProof(options.token, challenge));
+      const socket = request.raw.socket;
+      const reached = proofAddress(socket.localAddress ?? '', socket.localPort ?? 0);
+      reply.header(PROOF_HEADER, loopbackProof(options.token, reached, challenge));
     }
   });
 

@@ -101,7 +101,7 @@ export const PROOF_CHALLENGE_HEADER = 'x-halcyonic-challenge';
 /** The header the loopback listener answers a challenge with. */
 export const PROOF_HEADER = 'x-halcyonic-proof';
 
-const PROOF_LABEL = 'halcyonic loopback proof v1\n';
+const PROOF_LABEL = 'halcyonic loopback proof v2\n';
 const CHALLENGE = /^[0-9a-f]{64}$/;
 
 /** Whether a challenge is 32 bytes as lowercase hex, the only kind answered. */
@@ -110,24 +110,51 @@ export function isProofChallenge(value: unknown): value is string {
 }
 
 /**
- * The proof that whoever answers holds the access token: an HMAC-SHA256 under the token of a
- * label and the client's fresh challenge. It reveals nothing about the token, and the label keeps
- * it from serving as anything else.
+ * The loopback address and port a connection reached, as the proof names it: `127.0.0.1:47800` or
+ * `[::1]:47800`. An IPv4 address mapped into IPv6 is named as IPv4.
  */
-export function loopbackProof(token: string, challenge: string): string {
-  return createHmac('sha256', token).update(PROOF_LABEL).update(challenge).digest('hex');
+export function proofAddress(host: string, port: number): string {
+  const bare = host.replace(/^\[|\]$/g, '').replace(/^::ffff:(?=\d+\.)/, '');
+  return bare.includes(':') ? `[${bare}]:${port}` : `${bare}:${port}`;
 }
 
 /**
- * Whether the server at `base` proves it holds `token`, asked through the public health check
- * with a fresh challenge, before a loopback client sends the token anywhere. While the control
- * plane is stopped, another local account may listen on its port; it gets no token this way.
+ * The proof that whoever answers holds the access token: an HMAC-SHA256 under the token of a
+ * label, the address and port the connection reached, and the client's fresh challenge. It reveals
+ * nothing about the token, the label keeps it from serving as anything else, and the address keeps
+ * a relay on another address or port from passing the real control plane's answer on as its own.
+ */
+export function loopbackProof(token: string, address: string, challenge: string): string {
+  return createHmac('sha256', token)
+    .update(PROOF_LABEL)
+    .update(`${address}\n`)
+    .update(challenge)
+    .digest('hex');
+}
+
+/**
+ * Where a loopback client may dial the control plane, by address, never by a name another listener
+ * could also answer to: `localhost` is tried as 127.0.0.1, then as [::1].
+ */
+export function loopbackBases(host: string, port: number): string[] {
+  if (host === 'localhost') return [`http://127.0.0.1:${port}`, `http://[::1]:${port}`];
+  return [host.includes(':') ? `http://[${host}]:${port}` : `http://${host}:${port}`];
+}
+
+/**
+ * Whether the server at `base`, a literal loopback address and port, proves it holds `token`,
+ * asked through the public health check with a fresh challenge, before a loopback client sends the
+ * token anywhere. While the control plane is stopped, another local account may listen on its
+ * port; it gets no token this way, and relaying the challenge to the real control plane on another
+ * port yields a proof for that port, not this one.
  */
 export async function serverProvesToken(
   fetchImpl: typeof fetch,
   base: string,
   token: string,
 ): Promise<'proved' | 'unproved' | 'unreachable'> {
+  const url = new URL(base);
+  const address = proofAddress(url.hostname, Number(url.port));
   const challenge = randomBytes(32).toString('hex');
   let response: Response;
   try {
@@ -141,6 +168,24 @@ export async function serverProvesToken(
   }
   const proof = response.headers.get(PROOF_HEADER);
   if (proof === null || !/^[0-9a-f]{64}$/.test(proof)) return 'unproved';
-  const expected = Buffer.from(loopbackProof(token, challenge), 'hex');
+  const expected = Buffer.from(loopbackProof(token, address, challenge), 'hex');
   return timingSafeEqual(Buffer.from(proof, 'hex'), expected) ? 'proved' : 'unproved';
+}
+
+/**
+ * The first of `bases` whose server proves it holds `token`; otherwise whether anything answered
+ * without proving it, or nothing answered at all.
+ */
+export async function provenBase(
+  fetchImpl: typeof fetch,
+  bases: readonly string[],
+  token: string,
+): Promise<{ readonly base: string } | 'unproved' | 'unreachable'> {
+  let answered = false;
+  for (const base of bases) {
+    const outcome = await serverProvesToken(fetchImpl, base, token);
+    if (outcome === 'proved') return { base };
+    if (outcome === 'unproved') answered = true;
+  }
+  return answered ? 'unproved' : 'unreachable';
 }

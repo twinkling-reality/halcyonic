@@ -92,9 +92,13 @@ the same scratch data directory:
   the check said something "can't prove it holds this Mac's access token, so the token was not
   sent", and `pnpm devices` said the same. The impostor received three health checks, none
   carrying an `authorization` header.
-- `pnpm check` (762) covers the rest: the folder rules, including `/etc` as `/private/etc`,
-  `/private/var/db`, `/opt/homebrew`, other people's homes, whole drives and folders another user
-  owns; the control plane refusing such a root from the environment and from the file; Halcyonic's
+- The review's re-check found that a listener on another port could relay the challenge to the
+  real control plane and pass its proof on; the proof now names the address and port the connection
+  reached, and a test relays it through a second port and is refused.
+- `pnpm check` covers the rest: the folder rules, including `/etc` as `/private/etc`,
+  `/private/var/db`, `/opt/homebrew`, the caches and app data beside a user's temporary folder, other
+  people's homes, whole drives and folders another user owns, with the home folder taken from the
+  account rather than `$HOME`; the control plane refusing such a root from the environment and from the file; Halcyonic's
   own OpenCode settings refused for a link, a mode, another file beside them, an unknown key or a
   malformed rule; a named pipe as the settings file refused without hanging; the proof refused
   without the right token and given only by the health check; and the check's words following the

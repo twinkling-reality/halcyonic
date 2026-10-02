@@ -60,7 +60,7 @@ const PERSONAL_FOLDERS = [
  * (ADR 0020, ADR 0024). Refused: the whole disk and folders shared by every user or drive; what
  * belongs to macOS, its apps and programs on the PATH, in the forms `realpath(3)` gives them
  * (`/etc` is `/private/etc`); `/private/var`, except a folder made inside a user's own temporary
- * or cache folder; a whole drive; another person's home; the home folder and every folder holding
+ * folder; a whole drive; another person's home; the home folder and every folder holding
  * it; Halcyonic's data and anything holding it or in it; the hidden folders and Library in the home
  * folder, where apps keep settings and keys; a folder another user owns; and a folder any user can
  * change. Broad: a personal folder such as Documents. `real` is the folder's real path; a folder
@@ -122,12 +122,13 @@ function refused(reason: string): FolderAssessment {
 }
 
 /**
- * A folder made inside a user's own temporary or cache folder, `/private/var/folders/xx/yyy/T`
- * (or `C`, `0`), as a test or a scratch run makes, but never those folders themselves.
+ * A folder made inside a user's own temporary folder, `/private/var/folders/xx/yyy/T`, as a test or
+ * a scratch run makes, but never that folder itself, nor anything in the caches and app data beside
+ * it (`C`, `0`).
  */
 function insideOwnTemporaryFolder(real: string): boolean {
   const parts = segments('/private/var/folders', real);
-  return parts !== null && parts.length >= 4 && ['T', 'C', '0'].includes(parts[2] ?? '');
+  return parts !== null && parts.length >= 4 && parts[2] === 'T';
 }
 
 /** The path segments of `candidate` below `root`, or null when it is not inside it. */

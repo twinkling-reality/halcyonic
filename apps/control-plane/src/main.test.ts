@@ -6,8 +6,8 @@
 import assert from 'node:assert/strict';
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { tmpdir, userInfo } from 'node:os';
+import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { Readable } from 'node:stream';
 import { describe, type TestContext, test } from 'node:test';
@@ -295,10 +295,11 @@ describe('the control plane process', () => {
   });
 
   for (const [why, allowed] of [
-    ['the home folder', (root: string) => root],
-    ['a folder holding it', (root: string) => join(root, '..')],
+    ['the home folder', () => userInfo().homedir],
+    ['a folder holding it', () => dirname(userInfo().homedir)],
     ['the whole disk', () => '/'],
     ["Halcyonic's data", (root: string) => join(root, 'data')],
+    ['a folder holding it', (root: string) => root],
   ] as const) {
     test(`refuses to start from a settings file that allows ${why}`, async (t) => {
       const { root, env } = environment({});

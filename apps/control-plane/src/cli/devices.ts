@@ -21,7 +21,7 @@ import type {
   PairingStatus,
 } from '@halcyonic/contracts';
 import { loadConfig } from '../config.ts';
-import { ACCESS_TOKEN_FILE, serverProvesToken } from '../http/security.ts';
+import { ACCESS_TOKEN_FILE, loopbackBases, provenBase } from '../http/security.ts';
 
 export interface CliIo {
   readonly env: NodeJS.ProcessEnv;
@@ -58,19 +58,21 @@ interface Api {
 async function connect(env: NodeJS.ProcessEnv): Promise<Api> {
   const config = loadConfig(env);
   const token = (await readFile(join(config.dataDir, ACCESS_TOKEN_FILE), 'utf8')).trim();
-  const host = config.host === '::1' ? '[::1]' : config.host;
-  const base = `http://${host}:${config.port}`;
   // While the control plane is stopped, another local account could listen on its port: the token
-  // goes only to a server that first proves it holds it.
-  const proof = await serverProvesToken(fetch, base, token);
-  if (proof === 'unreachable') {
-    throw new Error(`The control plane is not answering at ${base}. Start it with pnpm dev.`);
-  }
-  if (proof === 'unproved') {
+  // goes only to a server that first proves it holds it, at the very address dialled.
+  const bases = loopbackBases(config.host, config.port);
+  const proven = await provenBase(fetch, bases, token);
+  if (proven === 'unreachable') {
     throw new Error(
-      `Something answers at ${base}, but it can't prove it holds this Mac's access token, so the token was not sent. It may be another program, or another account on this Mac, listening while the control plane is stopped: lsof -nP -iTCP:${config.port} -sTCP:LISTEN shows what listens.`,
+      `The control plane is not answering at ${bases.join(' or ')}. Start it with pnpm dev.`,
     );
   }
+  if (proven === 'unproved') {
+    throw new Error(
+      `Something answers at ${bases.join(' or ')}, but it can't prove it holds this Mac's access token, so the token was not sent. It may be another program, or another account on this Mac, listening while the control plane is stopped: lsof -nP -iTCP:${config.port} -sTCP:LISTEN shows what listens.`,
+    );
+  }
+  const base = proven.base;
   return {
     async request<T>(method: string, path: string) {
       let response: Response;

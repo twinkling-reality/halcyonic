@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { tmpdir, userInfo } from 'node:os';
+import { dirname, join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { ConfigError, loadConfig } from './config.ts';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
@@ -53,7 +53,7 @@ describe('folders that may hold projects', () => {
     }
   });
 
-  test("never a user's own temporary or cache folder itself, though a folder made inside one is fine", () => {
+  test("never a user's own temporary folder itself, or anything beside it, though a folder made inside it is fine", () => {
     for (const path of [
       '/private/var/folders',
       '/private/var/folders/x3',
@@ -62,6 +62,9 @@ describe('folders that may hold projects', () => {
       '/private/var/folders/x3/abc123/C',
       '/private/var/folders/x3/abc123/X',
       '/private/var/folders/x3/abc123/X/scratch',
+      '/private/var/folders/x3/abc123/0/com.apple.LaunchServices',
+      '/private/var/folders/x3/abc123/0/Store',
+      '/private/var/folders/x3/abc123/C/com.apple.AudioComponentRegistrar',
     ]) {
       assert.equal(verdict(path), 'refused', path);
     }
@@ -123,15 +126,17 @@ describe('folders that may hold projects', () => {
     assert.equal(verdict(open, context), 'refused');
   });
 
-  test('the control plane itself refuses such a root, from the environment as from the settings file', () => {
-    const home = join(base, 'person');
-    const projects = join(home, 'projects');
+  test('the control plane itself refuses such a root, taking the home folder from the account, not $HOME', () => {
+    const projects = join(base, 'projects');
     mkdirSync(projects, { recursive: true });
-    const env = { HOME: home, HALCYONIC_DATA_DIR: join(home, '.halcyonic') };
+    const data = join(base, 'data');
+    const env = { HALCYONIC_DATA_DIR: data };
     assert.deepEqual(loadConfig({ ...env, HALCYONIC_PROJECT_ROOTS: projects }).projectRoots, [
       projects,
     ]);
-    for (const root of [home, base, '/', '/etc', '/private/var/db']) {
+    const home = userInfo().homedir;
+    mkdirSync(data, { recursive: true });
+    for (const root of [home, dirname(home), base, data, '/', '/etc', '/private/var/db']) {
       assert.throws(
         () => loadConfig({ ...env, HALCYONIC_PROJECT_ROOTS: root }),
         (error: unknown) =>
@@ -139,5 +144,14 @@ describe('folders that may hold projects', () => {
         root,
       );
     }
+    // A launcher that changes $HOME changes neither which home is refused nor whose folders are whose.
+    assert.throws(
+      () => loadConfig({ ...env, HOME: '/', HALCYONIC_PROJECT_ROOTS: home }),
+      ConfigError,
+    );
+    assert.deepEqual(
+      loadConfig({ ...env, HOME: projects, HALCYONIC_PROJECT_ROOTS: projects }).projectRoots,
+      [projects],
+    );
   });
 });

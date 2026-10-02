@@ -132,7 +132,7 @@ function mac(t: TestContext): Mac {
             url.pathname === '/api/health' &&
             machine.proves &&
             challenge !== null
-              ? { [PROOF_HEADER]: loopbackProof(TOKEN, challenge) }
+              ? { [PROOF_HEADER]: loopbackProof(TOKEN, url.host, challenge) }
               : {};
           return new Response(JSON.stringify(answer.body), {
             status: answer.status,
@@ -401,6 +401,26 @@ describe('pnpm mac-setup', () => {
       text(machine),
       /it runs some or all shell commands without asking you, so they never reach the headset to approve, and it may fetch from the web\./,
     );
+  });
+
+  test('a rule for a pattern of actions counts for every action it matches', async (t) => {
+    const machine = mac(t);
+    machine.install('opencode');
+    await machine.run('agent-apps');
+    await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4');
+    const path = join(machine.dataDir, 'opencode-config', 'opencode', 'opencode.json');
+    const settings = JSON.parse(readFileSync(path, 'utf8'));
+    settings.permissions.push({ action: 'web*', resource: '*', effect: 'allow' });
+    writeFileSync(path, JSON.stringify(settings), { mode: 0o600 });
+    await machine.run();
+    assert.match(
+      text(machine),
+      /it asks you before running a shell command, and it may fetch from the web\./,
+    );
+    settings.permissions.push({ action: 'sh?ll', resource: '*', effect: 'allow' });
+    writeFileSync(path, JSON.stringify(settings), { mode: 0o600 });
+    await machine.run();
+    assert.match(text(machine), /it runs some or all shell commands without asking you/);
   });
 
   test('without ripgrep, the check says OpenCode would download it', async (t) => {

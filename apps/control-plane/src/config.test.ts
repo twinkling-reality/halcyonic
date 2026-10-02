@@ -224,9 +224,10 @@ describe('configuration', () => {
       writeFileSync(join(home, 'opencode', other), '{}', { mode: 0o600 });
       refused(`another file beside it: ${other}`, home);
     }
+    // Tools an agent runs inherit the same configuration home and may keep folders beside OpenCode's.
     home = openCodeHome(settings);
-    mkdirSync(join(home, 'git'), { mode: 0o700 });
-    refused('another app folder in the home', home);
+    mkdirSync(join(home, 'configstore'), { mode: 0o755 });
+    assert.equal(loadConfig({ HALCYONIC_OPENCODE_CONFIG_HOME: home }).opencodeConfigHome, home);
   });
 
   test('agent environment pass-through takes variable names only', () => {
