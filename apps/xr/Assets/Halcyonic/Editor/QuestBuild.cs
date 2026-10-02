@@ -36,17 +36,24 @@ namespace Halcyonic.XR.Editor
         public const string MicrophonePermission = "android.permission.RECORD_AUDIO";
 
         /// <summary>
-        /// Builds without the development option, with DevAgentSettings.asset moved out of Resources,
-        /// then checks the APK for Meta's development tools and the microphone permission, and deletes
-        /// it if either remains.
+        /// Builds without the development option, with DevAgentSettings.asset moved out of Resources
+        /// and the version code from <see cref="ReleaseVersionCode.Variable"/> when it is set, then
+        /// checks the APK for Meta's development tools and the microphone permission, and deletes it
+        /// if either remains.
         /// </summary>
         [MenuItem("Halcyonic/Build Quest Release APK")]
         public static void BuildReleaseApk()
         {
+            if (!ReleaseVersionCode.TryRead(out var versionCode, out var problem))
+            {
+                Fail(problem);
+                return;
+            }
             BuildReport report;
             try
             {
                 using (DevAgentSettingsAside.Begin())
+                using (ReleaseVersionCode.Apply(versionCode))
                 {
                     report = Build(ReleaseApkPath, BuildOptions.None);
                 }
@@ -274,6 +281,67 @@ namespace Halcyonic.XR.Editor
             throw new BuildFailedException(
                 $"Halcyonic: a release build would ship {MetaDevelopmentTools.DevAgentSettingsPath}, which holds this Mac's LAN address "
                 + "and an access token. Build it with Halcyonic > Build Quest Release APK.");
+        }
+    }
+
+    /// <summary>
+    /// The version code of a release APK. Every upload needs one above every earlier upload's
+    /// (developers report the store refuses a repeated one), so an upload's comes from the environment variable
+    /// <see cref="Variable"/>, in the form YYMMDDNN (the date and that day's build number, for
+    /// example 26111701), set for the build and put back afterwards, so ProjectSettings never
+    /// changes. Without it the project's own code (1) is kept, and the log says it is not for an
+    /// upload. See docs/internal/runbooks/XR_DEVELOPMENT.md, "Before an upload".
+    /// </summary>
+    internal sealed class ReleaseVersionCode : IDisposable
+    {
+        internal const string Variable = "HALCYONIC_VERSION_CODE";
+
+        /// <summary>The largest version code Android accepts.</summary>
+        internal const int Largest = 2100000000;
+
+        private readonly int previous;
+
+        private ReleaseVersionCode(int previous)
+        {
+            this.previous = previous;
+        }
+
+        /// <summary>The version code to build with, or 0 to keep the project's; false with a reason when the variable is malformed.</summary>
+        internal static bool TryRead(out int versionCode, out string problem)
+        {
+            versionCode = 0;
+            problem = "";
+            var text = Environment.GetEnvironmentVariable(Variable);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                Debug.Log($"Halcyonic: the release APK keeps version code {PlayerSettings.Android.bundleVersionCode}; set {Variable} for an upload.");
+                return true;
+            }
+            if (!int.TryParse(text.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out versionCode)
+                || versionCode < 1 || versionCode > Largest)
+            {
+                versionCode = 0;
+                problem = $"Halcyonic: {Variable} must be a whole number from 1 to {Largest}.";
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>Sets <paramref name="versionCode"/> for the build, unless it is 0, and puts the project's back when disposed.</summary>
+        internal static ReleaseVersionCode Apply(int versionCode)
+        {
+            var applied = new ReleaseVersionCode(PlayerSettings.Android.bundleVersionCode);
+            if (versionCode > 0)
+            {
+                PlayerSettings.Android.bundleVersionCode = versionCode;
+                Debug.Log($"Halcyonic: the release APK carries version code {versionCode}.");
+            }
+            return applied;
+        }
+
+        public void Dispose()
+        {
+            PlayerSettings.Android.bundleVersionCode = previous;
         }
     }
 }
