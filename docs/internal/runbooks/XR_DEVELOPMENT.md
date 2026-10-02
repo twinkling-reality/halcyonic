@@ -1294,8 +1294,9 @@ GPU and skin sensors, the app's frames a second, frames below 60 and slowest fra
 minute, and the compositor's `FPS=` where the headset logs a VrApi line. It ends with a summary:
 battery used and per hour, the hottest reading, the lowest minute's frame rate, and frames below 60.
 A USB cable charges the headset, so `plugged` reads 1 and the battery barely moves; for the hour's
-battery figures, connect adb over Wi-Fi (`adb tcpip 5555`, then `adb connect <headset address>`) and
-unplug the cable.
+battery figures, use the headset's Wireless debugging (`adb pair`, then `adb connect`), which is
+encrypted, and unplug the cable. Never `adb tcpip`: its traffic is not encrypted, and through `adb
+reverse` it would carry the access token and every task title across the network.
 
 ### The glance on a Quest (spike)
 
@@ -1308,22 +1309,28 @@ notification without the task's title when a task starts waiting. It is in devel
 lives in `apps/xr/Android/glance`; `tooling/glance` and `GlanceParityTests` hold its loopback proof
 and text rule to the TypeScript and C# ones.
 
-Setup, after installing a development APK and `adb reverse tcp:47800 tcp:47800`. Put the access
-token in the app's private storage, readable only by the app, with no copy on the headset's shared
-storage (`run-as` works on debuggable builds only):
+Setup, after installing a development APK and `adb reverse tcp:47800 tcp:47800`, over USB or the
+headset's encrypted Wireless debugging, never `adb tcpip`. Keep that one reverse mapping and no other
+(`adb reverse --list`): the proof the glance checks names the Mac's own address and port, which is
+the same through any mapping, so another mapping to the control plane would let whatever listens on
+the headset's 127.0.0.1:47800 relay the challenge (SECURITY.md). Put the access token in the app's
+private storage, readable only by the app, with no copy on the headset's shared storage (`run-as`
+works on debuggable builds only):
 
 ```bash
 adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; cat > files/glance-access-token'" < ~/.halcyonic/access-token
 ```
 
-It refuses a token file that anyone else can read or write, and before every request that carries
-the token the control plane must prove it holds it. To remove it:
+It refuses a token file that is a link, not the app's own, or readable or writable by anyone else,
+and before every request that carries the token the control plane must prove it holds it. Only a
+development build reaches 127.0.0.1 without TLS: its build step adds that one host to Meta's network
+security configuration, and `BuildReleaseApk` refuses an APK that carries it. To remove it:
 `adb shell run-as com.halcyonic.xr rm files/glance-access-token`.
 
 Its log lines, tag `Halcyonic`, codes and numbers only (`adb logcat -s Halcyonic`):
 `glance started`, `glance visible`, `glance hidden`, `glance polled ok in 42 ms, 1 waiting, 2
-working, visible 1` (other codes: `no_token`, `token_readable_by_others`, `unreachable`,
-`unproved`, `refused_401`, `unreadable`), `glance notified, 1 newly waiting`, `glance notification
+working, visible 1` (other codes: `no_token`, `token_not_private`, `token_malformed`,
+`unreachable`, `unproved`, `refused_401`, `unreadable`, `failed`), `glance notified, 1 newly waiting`, `glance notification
 not allowed`, `glance stopped`. It polls every 10 seconds while visible and every 30 while hidden.
 
 The checks, in order, about 20 minutes:
@@ -1339,7 +1346,8 @@ The checks, in order, about 20 minutes:
 4. Minimised: minimise the window and repeat 3. Do `glance polled` lines continue, and does the toast
    still show?
 5. How long it lives: leave it minimised over the game with `pnpm quest:session -- --minutes 60`
-   running; note when the poll lines stop, and the battery per hour against the game alone.
+   running; note when the poll lines stop. For the battery per hour against the game alone, connect
+   over Wireless debugging rather than USB (see "Device measures on a Quest"), never `adb tcpip`.
 6. Open Halcyonic from the toast's action and from the window's button: does the game end, and does
    Halcyonic open?
 7. With Do Not Disturb on, is the toast silenced?

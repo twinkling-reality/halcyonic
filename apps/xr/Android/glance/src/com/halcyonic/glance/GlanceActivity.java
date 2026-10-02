@@ -102,7 +102,14 @@ public final class GlanceActivity extends Activity {
     private void pollLoop() {
         while (running) {
             long started = SystemClock.elapsedRealtime();
-            GlanceClient.Poll poll = client.poll();
+            GlanceClient.Poll poll;
+            try {
+                poll = client.poll();
+            } catch (Throwable failed) {
+                // Never let a poll end the process, which Unity's activity shares.
+                poll = new GlanceClient.Poll("failed", null);
+            }
+            if (!running) return;
             long took = SystemClock.elapsedRealtime() - started;
             polled = true;
             int waiting = 0;
@@ -117,8 +124,10 @@ public final class GlanceActivity extends Activity {
             Log.i(TAG, String.format(Locale.ROOT, "glance polled %s in %d ms, %d waiting, %d working, visible %d",
                 poll.code, took, waiting, working, visible ? 1 : 0));
             final GlanceClient.Poll shown = poll;
-            runOnUiThread(() -> show(shown));
-            notifyNewlyWaiting(poll.tasks);
+            runOnUiThread(() -> {
+                if (running) show(shown);
+            });
+            if (running) notifyNewlyWaiting(poll.tasks);
             try {
                 Thread.sleep(visible ? VISIBLE_MS : HIDDEN_MS);
             } catch (InterruptedException woken) {
@@ -213,7 +222,8 @@ public final class GlanceActivity extends Activity {
     private static String problem(String code) {
         switch (code) {
             case "no_token":
-            case "token_readable_by_others":
+            case "token_not_private":
+            case "token_malformed":
                 return "Not set up on this headset yet.";
             default:
                 return "Can't reach your computer. Trying again.";
@@ -271,11 +281,12 @@ public final class GlanceActivity extends Activity {
         LinearLayout.LayoutParams spacing = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         spacing.bottomMargin = dp(8);
         row.setLayoutParams(spacing);
-        // Titles and project names come from outside: one line of exactly what they say, cut short.
+        // Titles and project names come from outside: one line of exactly what they say, cut short,
+        // each in its own view, so right-to-left text in one cannot reorder Halcyonic's words.
         row.addView(text(GlanceText.cut(task.title, 80), 18, INK));
         String project = GlanceText.cut(task.project, 40);
-        TextView detail = text(project.isEmpty() ? state : project + " · " + state, 15, waiting ? ATTENTION : INK_2);
-        row.addView(detail);
+        if (!project.isEmpty()) row.addView(text(project, 15, INK_2));
+        row.addView(text(state, 15, waiting ? ATTENTION : INK_2));
         return row;
     }
 
@@ -285,6 +296,7 @@ public final class GlanceActivity extends Activity {
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         view.setTextColor(color);
         view.setSingleLine(false);
+        view.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
         return view;
     }
 

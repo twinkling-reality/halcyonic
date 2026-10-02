@@ -157,6 +157,22 @@ challenge to the real control plane gets a proof for the control plane's address
 no token. The headset over USB (`adb reverse`) and other loopback clients
 still send the token without asking for the proof ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
+The glance (a spike in development builds only, [XR_CLIENT.md](XR_CLIENT.md)) is a Java client on the
+headset that does ask for the proof before every request carrying the token, and refuses a token
+file that is a link, not its own, or readable or writable by anyone else. Three limits hold for it:
+
+- **The access token lives on the headset.** It is the owner's token, which never expires and is
+  not a revocable device credential; anyone with adb on the unlocked headset can read it with
+  `run-as`, since development builds are debuggable. It is for the owner's own headset only, and is
+  removed with `adb shell run-as com.halcyonic.xr rm files/glance-access-token`.
+- **The proof's address binding does not reach across `adb reverse`.** The control plane names the
+  address and port its own socket reached, which on the Mac is always its listener whatever port the
+  headset dialled. Something listening on the headset's 127.0.0.1:47800 could relay a challenge
+  through a second reverse mapping to the control plane and receive the token; keep one mapping only.
+- **Retries.** Android's `HttpURLConnection` may retry the token's request on a fresh connection
+  when a reused one turns out stale, which is the same gap between a proof and the request it
+  precedes that `fetchWithProof` accepts.
+
 ## Controls
 
 | Control | Implementation |

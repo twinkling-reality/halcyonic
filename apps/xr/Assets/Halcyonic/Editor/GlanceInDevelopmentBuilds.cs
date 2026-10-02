@@ -31,7 +31,8 @@ namespace Halcyonic.XR.Editor
         /// <summary>Set by QuestBuild for a development build, and cleared after it.</summary>
         internal static bool Include;
 
-        public int callbackOrder => 1000;
+        // After Meta's OVRGradleGeneration (99999), which writes the network security configuration this changes.
+        public int callbackOrder => 100_000;
 
         public void OnPostGenerateGradleAndroidProject(string path)
         {
@@ -40,7 +41,13 @@ namespace Halcyonic.XR.Editor
             // development build's copy would otherwise reach the next release build.
             var copied = Path.Combine(java, "com", "halcyonic", "glance");
             if (Directory.Exists(copied)) Directory.Delete(copied, recursive: true);
-            if (!Include) return;
+            var networkConfig = Path.Combine(path, "src", "main", "res", "xml", NetworkConfigFile);
+            if (!Include)
+            {
+                RemoveLoopbackCleartext(networkConfig);
+                return;
+            }
+            AllowLoopbackCleartext(networkConfig);
             var sources = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Android", "glance", "src"));
             foreach (var source in Directory.GetFiles(sources, "*.java", SearchOption.AllDirectories))
             {
@@ -68,6 +75,8 @@ namespace Halcyonic.XR.Editor
             activity.SetAttribute("name", AndroidNamespace, Activity);
             activity.SetAttribute("label", AndroidNamespace, "Halcyonic");
             activity.SetAttribute("exported", AndroidNamespace, "true");
+            // Its window shows task titles: keep it out of the recent apps' thumbnails.
+            activity.SetAttribute("excludeFromRecents", AndroidNamespace, "true");
             activity.SetAttribute("launchMode", AndroidNamespace, "singleTask");
             activity.SetAttribute("taskAffinity", AndroidNamespace, "com.halcyonic.xr.glance");
             activity.SetAttribute("theme", AndroidNamespace, "@android:style/Theme.DeviceDefault.NoActionBar");
@@ -88,6 +97,46 @@ namespace Halcyonic.XR.Editor
             document.Save(manifestPath);
         }
 
+        /// <summary>The network security configuration Meta's build step writes, which refuses all cleartext.</summary>
+        internal const string NetworkConfigFile = "network_sec_config.xml";
+
+        /// <summary>The one host the glance may reach without TLS: the control plane through adb reverse.</summary>
+        internal const string LoopbackHost = "127.0.0.1";
+
+        /// <summary>
+        /// Adds a domain configuration that lets the glance reach 127.0.0.1, and only it, in cleartext:
+        /// Android refuses cleartext HTTP from HttpURLConnection under Meta's configuration, while the
+        /// C# client's sockets are not subject to it. The rest stays refused.
+        /// </summary>
+        private static void AllowLoopbackCleartext(string configPath)
+        {
+            if (!File.Exists(configPath)) throw new FileNotFoundException("Meta's network security configuration is missing.", configPath);
+            var document = new XmlDocument();
+            document.Load(configPath);
+            var root = document.DocumentElement!;
+            if (root.SelectSingleNode("domain-config[domain='" + LoopbackHost + "']") != null) return;
+            var domainConfig = document.CreateElement("domain-config");
+            domainConfig.SetAttribute("cleartextTrafficPermitted", "true");
+            var domain = document.CreateElement("domain");
+            domain.SetAttribute("includeSubdomains", "false");
+            domain.InnerText = LoopbackHost;
+            domainConfig.AppendChild(domain);
+            root.AppendChild(domainConfig);
+            document.Save(configPath);
+        }
+
+        /// <summary>Takes out what <see cref="AllowLoopbackCleartext"/> added, should the Gradle project keep it.</summary>
+        private static void RemoveLoopbackCleartext(string configPath)
+        {
+            if (!File.Exists(configPath)) return;
+            var document = new XmlDocument();
+            document.Load(configPath);
+            var added = document.DocumentElement!.SelectNodes("domain-config[domain='" + LoopbackHost + "']");
+            if (added == null || added.Count == 0) return;
+            foreach (XmlNode node in added) node.ParentNode!.RemoveChild(node);
+            document.Save(configPath);
+        }
+
         private static XmlElement Named(XmlDocument document, string element, string name)
         {
             var named = document.CreateElement(element);
@@ -97,7 +146,8 @@ namespace Halcyonic.XR.Editor
 
         /// <summary>
         /// What of the glance an APK carries: its activity or the notification permission in the
-        /// manifest, or its classes in any dex file. Empty for a build without it.
+        /// manifest, its classes in any dex file, or cleartext to 127.0.0.1 in a resource. Empty for a
+        /// build without it.
         /// </summary>
         internal static List<string> FindIn(string apkPath)
         {
@@ -107,7 +157,8 @@ namespace Halcyonic.XR.Editor
             {
                 var manifest = entry.FullName == "AndroidManifest.xml";
                 var dex = entry.FullName.StartsWith("classes", System.StringComparison.Ordinal) && entry.FullName.EndsWith(".dex", System.StringComparison.Ordinal);
-                if (!manifest && !dex) continue;
+                var resource = entry.FullName.StartsWith("res/", System.StringComparison.Ordinal) && entry.FullName.EndsWith(".xml", System.StringComparison.Ordinal);
+                if (!manifest && !dex && !resource) continue;
                 using var stream = entry.Open();
                 using var copy = new MemoryStream();
                 stream.CopyTo(copy);
@@ -115,6 +166,7 @@ namespace Halcyonic.XR.Editor
                 if (manifest && Contains(data, Activity)) found.Add("the glance's activity in the manifest");
                 if (manifest && Contains(data, NotificationPermission)) found.Add(NotificationPermission + " in the manifest");
                 if (dex && Contains(data, "Lcom/halcyonic/glance/")) found.Add("the glance's classes in " + entry.FullName);
+                if (resource && Contains(data, "domain-config") && Contains(data, LoopbackHost)) found.Add("cleartext to " + LoopbackHost + " in " + entry.FullName);
             }
             return found;
         }
