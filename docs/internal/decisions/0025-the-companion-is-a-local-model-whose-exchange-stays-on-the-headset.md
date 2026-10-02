@@ -55,8 +55,9 @@ agent work, and Claude Agent on hosted models only ([companion-model.md](../vali
 per request from the headset, with thinking off, no tools and no images, and checks the reply
 itself.
 
-- Off unless the host names the model (`HALCYONIC_COMPANION_MODEL`, or the Mac's settings file if
-  the host setup's ADR 0024, in progress, makes one). Ollama's address defaults to
+- Off unless the host names the model (`HALCYONIC_COMPANION_MODEL`, in the environment or in the
+  Mac's settings file, which may hold it since [ADR 0024](0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)'s
+  amendment of 2026-10-02; `pnpm mac-setup companion <name>` writes it). Ollama's address defaults to
   `http://127.0.0.1:11434` and must be loopback; any other address is refused at startup. The
   recommended model is the one the agents already use on the Mac, so one loaded model serves both.
 - Before every turn the control plane reads `GET /api/tags` and refuses a model that is not listed,
