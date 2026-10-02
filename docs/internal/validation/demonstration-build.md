@@ -116,8 +116,8 @@ Until this change nothing in the app read the device's field: the layout was the
 headsets. A seated person looks down at the rail as at a keyboard, so this was not a failure on a
 Quest 3, but the criterion asks for adapting across devices. Now `DeviceMeasures` reads each eye's
 field once the headset renders in stereo and sets `ViewField.Current`; with it, the rail rises until
-its corners are 1.5 degrees inside the field with the head level (never above 25 degrees down,
-under the line above the stage), and a panel prefers the side that keeps it inside, never pushed
+its corners are 1.5 degrees inside the field with the head level (never above 29 degrees down,
+so a degree under the line above the stage at its tallest, beside a window; AmbientRender checks it), and a panel prefers the side that keeps it inside, never pushed
 into a label (agreed with lane U). The margin is a design decision: Meta gives no number, and on an
 evenly split Quest 3S a workspace under the far lineup's labels has its lower corners 1.65 degrees
 inside the field, so a larger margin would collide with the labels. The entry and workspace renders
