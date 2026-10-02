@@ -14,6 +14,7 @@ namespace Halcyonic.XR
             root.AddComponent<ControlPlaneConnection>();
             root.AddComponent<CharacterStage>();
             root.AddComponent<FocusGuard>();
+            root.AddComponent<DeviceMeasures>();
             Object.DontDestroyOnLoad(root);
         }
     }
