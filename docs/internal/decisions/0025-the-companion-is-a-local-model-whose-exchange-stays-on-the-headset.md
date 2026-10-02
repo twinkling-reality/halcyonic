@@ -81,7 +81,8 @@ and a first task. The person can always answer in their own words, ask for the r
 - **The Mac keeps nothing.** The route holds no session: the headset sends the exchange so far with
   each turn. The exchange is never journaled, stored or logged; the log carries the outcome code,
   timings, token counts and the model's name only. Ollama holds the prompt in memory while the model
-  stays loaded, as it does any request.
+  stays loaded, as it does any request, and at its default log level logs counts and timings, not
+  text (checked with a marker word).
 - **The headset keeps the draft.** The person's words, the companion's replies, the fixed answers,
   the recap and the choices made are written on each change to one file in the app's private
   storage, for the Mac they were made with, so an app restart resumes them. The file is deleted
