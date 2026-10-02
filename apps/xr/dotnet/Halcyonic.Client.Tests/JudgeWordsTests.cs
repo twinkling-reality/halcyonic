@@ -28,13 +28,6 @@ public class JudgeWordsTests
         "Redis", "Docker", "AWS", "npm", "React",
     };
 
-    /// <summary>
-    /// Names a judge reads today whose replacement is the owner's to decide (see
-    /// docs/internal/validation/competition-judge-build.md). Remove each one once its words change;
-    /// this list must only shrink.
-    /// </summary>
-    private static readonly string[] AwaitingTheOwner = { "Salidium", "Seorak" };
-
     [Test]
     public void NoBrandIsShownAlongAnyPathOfTheDemonstration()
     {
@@ -51,7 +44,7 @@ public class JudgeWordsTests
         }
         var report = string.Join("\n", found.Select(entry => entry.Key + ": " + string.Join(" | ", entry.Value.Take(4))));
         TestContext.Out.WriteLine(report);
-        Assert.That(found.Keys.Except(AwaitingTheOwner), Is.Empty, report);
+        Assert.That(found.Keys, Is.Empty, report);
         Assert.That(words.Count, Is.GreaterThan(100), "the walk reached the words");
     }
 

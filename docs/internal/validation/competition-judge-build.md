@@ -78,7 +78,8 @@ wearer finds it without coaching is the headset session's question.
 
 ## Names a judge reads
 
-`JudgeWordsTests` found, along every path, no agent app, model, company or platform name but these:
+On 2026-10-02 `JudgeWordsTests` found, along every path, no agent app, model, company or platform
+name but these three, all since replaced; it now allows no brand at all:
 
 | Name | Where | Approved by the owner on 2026-10-02 |
 | --- | --- | --- |
@@ -90,9 +91,9 @@ Salidium and Seorak are the owner's own products, but the clause names brand nam
 exception, they predate the entry period, and the judge build does not use them, so naming them
 there invites both questions. "Mac" names another company's product. Live provenance keeps the
 products' names. Also approved: the agent apps "Practice agent" and "Practice agent, watch only",
-and the line above the stage (above), both applied on this branch; lane W applies the provenance
-words, lane G "your computer". `JudgeWordsTests` holds the three names in a list that may only
-shrink as those land.
+and the line above the stage (above). Lane W applied the provenance words ("Simulated
+explanation", "Simulated checks", "Simulated measurement") and lane G "your computer", and with
+both on main the test fails on any brand a judge could read.
 
 No word names the sponsor or its products. The app's label is Halcyonic; the APK declares Meta's
 platform features, which judges do not read.
