@@ -356,7 +356,7 @@ namespace Halcyonic.XR.UI.Editor
             {
                 (BannerKind.Live, "Connected to your Mac", (string?)null),
                 (BannerKind.NotLive, "Last known: can't reach your Mac. Trying again…", null),
-                (BannerKind.Practice, "Recorded practice: nothing here is live.", EntryText.WaitingForYou(1)),
+                (BannerKind.Practice, DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), EntryText.WaitingForYou(1)),
             })
             {
                 var holder = Holder("Banner " + kind, 0f, 0f);
