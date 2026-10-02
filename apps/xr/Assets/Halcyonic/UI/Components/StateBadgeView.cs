@@ -47,11 +47,20 @@ namespace Halcyonic.XR.UI
 
         public static float Height => GlazeTokens.Units(HeightDegrees);
 
+        /// <summary>
+        /// How much larger the split header's state pill is drawn than the stage's badge (ADR 0026): the
+        /// same badge, its word at the content's 18 dp.
+        /// </summary>
+        public static float PillScale => Glaze.Menu.PillDegrees / Glaze.BadgeDegrees;
+
+        /// <summary>The pill's height, in its parent's units.</summary>
+        public static float PillHeight => Height * PillScale;
+
         /// <summary>Badges stand still, as the person's comfort settings ask (<see cref="Comfort.Still"/>): no icon turns and nothing breathes.</summary>
         public static bool Still { get; set; }
 
-        /// <summary>The badge's width, in its parent's units.</summary>
-        public float Width => size.x;
+        /// <summary>The badge's width, in its parent's units, a pill's included.</summary>
+        public float Width => size.x * transform.localScale.x;
 
         public StateBadge? Shown => shown;
 
@@ -83,10 +92,12 @@ namespace Halcyonic.XR.UI
             }
         }
 
-        public static StateBadgeView Create(Transform parent, string name, int order)
+        /// <param name="pill">The split header's state pill on a file's subject, drawn <see cref="PillScale"/> larger.</param>
+        public static StateBadgeView Create(Transform parent, string name, int order, bool pill = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
+            if (pill) go.transform.localScale = Vector3.one * PillScale;
             var badge = go.AddComponent<StateBadgeView>();
             badge.pill = Surface.Create(go.transform, "Pill", order);
             badge.word = GlazeText.Create(go.transform, "Word", GlazeType.Badge, GlazeTokens.Text, TextAlignmentOptions.Center, order + 1);

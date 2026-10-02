@@ -337,7 +337,8 @@ namespace Halcyonic.XR.UI.Editor
         /// Type only steps down in each column of a composition (ADR 0026): its labels of words, icons
         /// left out, grouped into rows where they overlap along the plane's up, a row's size its
         /// largest em in degrees at its plane's distance; from the top, no row more than a hundredth
-        /// of a degree larger than the row above.
+        /// of a degree larger than the row above. The one exception: a state pill on the column's
+        /// subject, the split header's, reads with that subject.
         /// </summary>
         public static IEnumerable<string> TypeStepsDown(IReadOnlyList<IReadOnlyList<PlaneShape>> columns, Vector3 eyes, string what)
         {
@@ -349,6 +350,7 @@ namespace Halcyonic.XR.UI.Editor
                 foreach (var label in column.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false)))
                 {
                     if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label)) continue;
+                    if (label.GetComponentInParent<StateBadgeView>() != null && label.transform.IsChildOf(column[0].Root)) continue;
                     if (label.textInfo == null || label.textInfo.characterCount == 0) label.ForceMeshUpdate();
                     if (label.textInfo == null || label.textInfo.characterCount == 0) continue;
                     var bounds = label.textBounds;
