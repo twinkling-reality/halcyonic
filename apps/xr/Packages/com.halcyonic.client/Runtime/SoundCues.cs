@@ -51,6 +51,9 @@ namespace Halcyonic.Client
         /// <summary>The person's words were sent: three light taps.</summary>
         TellIt,
 
+        /// <summary>The person's answer to its question was sent: the question's rise answered, a light tap falling onto a warmer note.</summary>
+        SendAnswer,
+
         /// <summary>The stop was sent; the bot confirms later: a hand pressed flat on it.</summary>
         Stop,
 
@@ -95,6 +98,9 @@ namespace Halcyonic.Client
         /// <summary>Sent an instruction.</summary>
         Instruct,
 
+        /// <summary>Sent the answers to the agent's question.</summary>
+        Answer,
+
         /// <summary>Sent a request to stop the turn.</summary>
         Interrupt,
     }
@@ -107,6 +113,7 @@ namespace Halcyonic.Client
             ExecutionRespondToApprovalCommand answer =>
                 answer.Payload.Decision == ApprovalDecision.Approve ? WorkspaceAct.Approve : WorkspaceAct.Deny,
             ExecutionSendInstructionCommand _ => WorkspaceAct.Instruct,
+            ExecutionAnswerQuestionCommand _ => WorkspaceAct.Answer,
             ExecutionInterruptCommand _ => WorkspaceAct.Interrupt,
             _ => null,
         };
@@ -393,6 +400,7 @@ namespace Halcyonic.Client
             WorkspaceAct.Approve => SoundCue.Approve,
             WorkspaceAct.Deny => SoundCue.Deny,
             WorkspaceAct.Instruct => SoundCue.TellIt,
+            WorkspaceAct.Answer => SoundCue.SendAnswer,
             WorkspaceAct.Interrupt => SoundCue.Stop,
             _ => throw new ArgumentOutOfRangeException(nameof(act), act, "Unhandled act."),
         };
@@ -408,6 +416,7 @@ namespace Halcyonic.Client
                 case SoundCue.Approve:
                 case SoundCue.Deny:
                 case SoundCue.TellIt:
+                case SoundCue.SendAnswer:
                 case SoundCue.Stop:
                     return CuePlace.Workspace;
                 case SoundCue.Touch:

@@ -1437,6 +1437,7 @@ by its button's.
 | Approve | Sent, not yet confirmed | Two notes struck together, open and warm | The workspace |
 | Deny | A decision, not an error | A short step down, damped | The workspace |
 | Tell it | The person's words were sent | Three light taps | The workspace |
+| Send answer | The person's answer to its question was sent | The question's rise answered: a light tap falling onto a warmer note | The workspace |
 | Stop | The stop was sent; the bot confirms later | A hand pressed flat on it | The workspace |
 | Touch | A button took a press that has no cue of its own | One soft felt tap, Working's first strike on D4 | The button |
 | Not now | A button refused a press, being unavailable now | Deny's damped step, a note lower and quieter | The button |
@@ -1487,8 +1488,8 @@ them:
   `waitingForYouWhileAway`).
 - **Calm.** Low energy: spectral centroids of 347 Hz on average and 649 Hz at most, power-weighted
   as the soundbook's own check measured them; loudness set by importance, from -20 LUFS for
-  Waiting for you to -29 for Tell it, -30 for Not now and -32 for Touch; peaks at most 0.6 before
-  the room.
+  Waiting for you to -27 for Send answer, -29 for Tell it, -30 for Not now and -32 for Touch;
+  peaks at most 0.6 before the room.
 - **Never the only signal.** Every cue has a visual twin on the stage, the character's eyes, motion
   and light and its written status ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)),
   so Halcyonic works on mute.
@@ -1504,7 +1505,7 @@ with (FFT overlap-add), cut where it stays 60 dB below its peak. The page's per-
 left out, because in the headset a cue sounds from a place. On the development Mac the port matches
 the page's own output bit for bit, at 48 kHz in all but one of 3,950,400 samples, which differs by
 1e-16 of the peak, and at 44.1 kHz in all ([sound-rendering.md](../validation/sound-rendering.md)).
-`StageSound` renders all 81 clips (13 cues for each of the 6 notes, and Last known, Touch and Not
+`StageSound` renders all 87 clips (14 cues for each of the 6 notes, and Last known, Touch and Not
 now once) at the output sample rate on a worker thread at startup, and makes them audio clips on the main thread,
 four a frame. Nothing is synthesized while sound plays; `OnAudioFilterRead` is not used.
 

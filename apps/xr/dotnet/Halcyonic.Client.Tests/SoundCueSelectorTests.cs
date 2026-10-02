@@ -324,8 +324,8 @@ public class SoundCueSelectorTests
     {
         Stand(("w1", 5));
         Observe(Snapshot(W("w1", WorkstreamStatus.WaitingForHuman)), 0);
-        var acts = new[] { WorkspaceAct.Open, WorkspaceAct.Approve, WorkspaceAct.Deny, WorkspaceAct.Instruct, WorkspaceAct.Interrupt, WorkspaceAct.Collapse };
-        var expected = new[] { SoundCue.Open, SoundCue.Approve, SoundCue.Deny, SoundCue.TellIt, SoundCue.Stop, SoundCue.Close };
+        var acts = new[] { WorkspaceAct.Open, WorkspaceAct.Approve, WorkspaceAct.Deny, WorkspaceAct.Instruct, WorkspaceAct.Answer, WorkspaceAct.Interrupt, WorkspaceAct.Collapse };
+        var expected = new[] { SoundCue.Open, SoundCue.Approve, SoundCue.Deny, SoundCue.TellIt, SoundCue.SendAnswer, SoundCue.Stop, SoundCue.Close };
 
         for (var i = 0; i < acts.Length; i++)
         {
@@ -390,6 +390,8 @@ public class SoundCueSelectorTests
         Assert.That(WorkspaceActs.Of(commands.RespondToApproval("e1", "a1", ApprovalDecision.Deny)), Is.EqualTo(WorkspaceAct.Deny));
         Assert.That(WorkspaceActs.Of(commands.SendInstruction("e1", "Add a test.")), Is.EqualTo(WorkspaceAct.Instruct));
         Assert.That(WorkspaceActs.Of(commands.Interrupt("e1")), Is.EqualTo(WorkspaceAct.Interrupt));
+        Assert.That(WorkspaceActs.Of(commands.AnswerQuestion("e1", "q1", new[] { new QuestionAnswer { Key = "database", Text = "Use Postgres" } })),
+            Is.EqualTo(WorkspaceAct.Answer), "an answer to the agent's question has its own cue, so the press that sends it gets no tap");
         Assert.That(WorkspaceActs.Of(commands.CreateProject("Sample")), Is.Null);
     }
 

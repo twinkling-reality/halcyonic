@@ -376,6 +376,15 @@ namespace Halcyonic.Client
                         }
                     }));
                 }
+                case SoundCue.SendAnswer:
+                    // Waiting for you asked by rising from its note; the answer falls back onto it,
+                    // a light tap, as Tell it's, then a warmer strike: quicker and lighter than
+                    // Finished this round's fall, and from the workspace.
+                    return new Spec(0.8, -27, new Layer(0.08, (o, sr) =>
+                    {
+                        Strike(o, sr, 0.02, Mtof(D(h, 2)), vel: 0.32, decay: 0.2);
+                        Strike(o, sr, 0.11, Mtof(h), vel: 0.48, decay: 0.5, contact: false);
+                    }));
                 case SoundCue.Stop:
                 {
                     var f = Mtof(D(h, -2));
