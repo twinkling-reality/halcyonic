@@ -1,6 +1,6 @@
 # ADR 0026: The headset's interface is a game menu of places, sections and prompts, on one plane facing the eyes
 
-- Status: Proposed
+- Status: Accepted on 2026-10-02 by the owner, with the split header.
 - Date: 2026-10-02
 
 ## Context
@@ -47,16 +47,17 @@ centre, which keeps every word at its size.
   first, grouped by project. A row is a state icon, the task's title, a small fact (its project, a
   time, what it needs) and a chevron. Choosing a row slides that task's file out beside the menu.
   Tasks only reads and navigates; actions stay in files. Rows that do not fit page by footer prompts.
-- **A task's file replaces the workspace panel:** its subject, the task's title alone; a row of 4
+- **A task's file replaces the workspace panel:** its subject, the task's title under its state pill
+  (the split header, below); a row of 4
   sections, Waiting, Activity, Changes and Checks, an amber dot on the one that waits; a page of the
   chosen section alone, in a few short lines; and a footer of prompts. No sub-sections. A line with
   more opens a side panel that slides out to the right on the same plane (the changed files with their
   icons, the agent's reasons, the checks), holding no action but its own Close. The file opens on
   Waiting when something waits, else on Activity, out of its character, with a light line from the
   character's body to the file's top corners.
-- **The split header, should the owner take it** (rendered on 2026-10-02): a file's subject carries
-  its character's state pill on its top edge, at its left, as the character's label on the stage
-  does, its word at the content's 18 dp, so the file reads as that label opened up. Every column's
+- **The split header:** a file's subject carries its character's state pill, the same badge as the
+  character's label on the stage, on its top edge at its left, its word at the content's 18 dp, so
+  the file reads as that label opened up and its state shows at a readable size. Every column's
   subject keeps the pill's room, so the plates and titles stay level. The section tabs stay a row of
   separate shapes.
 - **New project** shows its steps as a row of shapes, as a file shows its sections: Your idea,
@@ -102,9 +103,8 @@ today and, once built, in lane U's renders of every surface:
    the page, at Body in the secondary colour, and a detail under a part, as each Seorak part's
    availability, coverage and freshness, is its own Body line in the secondary colour. Partial, stale
    or unavailable, it stays in the secondary colour and its words say so: amber means waiting for you
-   and nothing else. Only the chosen section and the main action are drawn heavier. With the split
-   header, should the owner take it, a state pill on a subject's top edge reads with that subject:
-   the one exception, which the type check makes once the split header is chosen.
+   and nothing else. Only the chosen section and the main action are drawn heavier. The one
+   exception: a state pill on a subject's top edge, the split header's, reads with that subject.
 5. **One grid.** An 8 dp step: 24 dp padding, 16 dp between groups, 8 dp from a label to its value.
    Words and icons start on one left content line, small facts and chevrons end on the right one, and
    icons stand in a fixed 24 dp column. A shape round words, as an answer or a well, reaches 0.7
@@ -134,7 +134,7 @@ today and, once built, in lane U's renders of every surface:
 - **Kept from ADR 0023:** tokens in the client core; `GlazeText` and `GlazeButton`, extended with the
   light title, a Prompt role and a Row role without a plate; the state language, badges, icons and
   atlas; character labels and the peek; touch distance, 0.46 m; 60 dp targets 12 mm apart; the Glaze
-  sounds; and the render checks, extended by the rules above. **Superseded once this is accepted:**
+  sounds; and the render checks, extended by the rules above. **Superseded:**
   foreground panels of 44 by 26 degrees with Move, Reset position and Close in a header and every
   action in a bottom bar; the workspace's tabs and sub-tabs, its Close at the end of the tabs, and
   Refresh and pagers beside headings; the rail's 2 rows of buttons; `PanelFrame` as every surface's
