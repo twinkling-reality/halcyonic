@@ -61,7 +61,7 @@ namespace Halcyonic.Client
         public static string TooLong(int limit) => "That's too long for the companion. Keep it under " + limit.ToString("N0", CultureInfo.InvariantCulture) + " characters.";
 
         /// <summary>The exchange holds all it can: only the recap is left.</summary>
-        public const string Full = "The companion has all it can take in. Make the recap, or go on without it.";
+        public const string Full = "The companion can't take in any more. Make the recap, or go on without it.";
 
         /// <summary>Why the companion can't be asked, from the Mac's code (<c>GET /api/companion</c>), never from its message.</summary>
         public static string Unavailable(string? code) => code == "companion_not_set_up" ? NotSetUp : CantRun;
@@ -81,6 +81,6 @@ namespace Halcyonic.Client
         };
 
         /// <summary>In the demonstration: the companion's replies were recorded, and nothing is asked.</summary>
-        public const string Recorded = "Recorded: an AI's replies, recorded once. Nothing here is asked.";
+        public const string Recorded = "Recorded replies. Nothing here asks the companion.";
     }
 }

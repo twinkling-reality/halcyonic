@@ -103,6 +103,9 @@ public class CompanionExchangeTests
         Assert.That(exchange.Replied(asked, Companions.Response(Companions.Ask())), Is.False);
         Assert.That(exchange.Failed(asked, "companion_too_slow"), Is.False);
         Assert.That(exchange.Turns, Is.Empty);
+        Assert.That(exchange.Left, Is.True, "a reopened Create goes where the person was, not back to the companion");
+        exchange.Ask(CompanionWant.Next);
+        Assert.That(exchange.Left, Is.False, "asking again takes it up again");
     }
 
     [Test]
@@ -349,11 +352,12 @@ public class CompanionScreensTests
         var recap = EntryScreens.Recap(idea, new NewWorkDraft(CommandFactoryFor()), null, live: true, notice: null, problem: null);
         Assert.That(recap.Rows[0].Detail, Is.EqualTo(CompanionText.Suggested));
         Assert.That(recap.Rows[1].Detail, Is.EqualTo(CompanionText.Suggested));
-        Assert.That(recap.Actions.Secondary.Single().Id, Is.EqualTo(EntryScreens.UseMyWords));
+        Assert.That(recap.Rows[1].Side!.Id, Is.EqualTo(EntryScreens.UseMyWords));
+        Assert.That(recap.Actions.Secondary, Is.Empty, "the bar keeps its places");
         idea.Rewrite("Make a page of race times.");
         recap = EntryScreens.Recap(idea, new NewWorkDraft(CommandFactoryFor()), null, live: true, notice: null, problem: null);
         Assert.That(recap.Rows[1].Detail, Is.Null);
-        Assert.That(recap.Actions.Secondary, Is.Empty);
+        Assert.That(recap.Rows[1].Side, Is.Null);
         Assert.That(EntryScreens.Proposed(Companions.Propose(view: CompanionView.NotBuildable)),
             Is.EqualTo(CompanionText.ThinksNotBuildable + " The companion says: “That is clear enough to start.”"));
     }

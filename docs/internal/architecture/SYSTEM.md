@@ -107,6 +107,8 @@ Environment variables, all optional:
 | `HALCYONIC_OPENCODE_BIN` | none | Absolute path of the pinned OpenCode 2.0.18 binary; registers the OpenCode runtime |
 | `HALCYONIC_CODEX_BIN` | none | Absolute path of the pinned Codex 0.157.0 native binary; registers the Codex runtime |
 | `HALCYONIC_WHISPER_BIN`, `HALCYONIC_WHISPER_MODEL`, `HALCYONIC_WHISPER_VAD_MODEL` | none | Absolute paths of whisper.cpp's `whisper-cli`, its large-v3-turbo q5_0 model and its Silero voice activity model; all three or none. With them, `POST /api/transcriptions` turns clips of speech into drafts ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md)) |
+| `HALCYONIC_COMPANION_MODEL` | none | The local Ollama model Create's companion asks, exactly as Ollama lists it; a name with a `cloud` tag is refused. Unset, the companion is off and Help me figure it out asks the fixed questions ([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)) |
+| `HALCYONIC_COMPANION_OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama answers: `http://` on a loopback address with a port and nothing else; needs `HALCYONIC_COMPANION_MODEL` |
 
 Files in the data directory besides the journal and the access token, all optional and mode 0600:
 `salidium-credential`, the consumer credential the owner created for Halcyonic, and
