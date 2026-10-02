@@ -222,6 +222,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 build(shot);
                 WorkspaceRender.ForceMeshes(root);
                 failures.AddRange(Checks(shot));
+                failures = KeptToFail(name, failures);
                 if (name.StartsWith("r", StringComparison.Ordinal))
                 {
                     // A plane: level and upright, as architecture is photographed, then as the eyes see it.
@@ -302,9 +303,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var extent = GlazeChecks.Of(board.Name, eyes, board.Plates.Select(plate => (Renderer)plate.Renderer));
                 Debug.Log("Halcyonic: directions render " + shot.Name + ": " + extent + ", " + board.Buttons.Count(button => button.gameObject.activeInHierarchy)
                     + " targets, " + Words(board.Root.gameObject) + " words, at most " + DrawCalls(board.Root.gameObject) + " draw calls before batching.");
-                // A Quest 3S's narrower field, as the product's FieldChecks: the head level and turned to the surface.
+                // A Quest 3S's narrower field, turned to the surface with the head tipped 18 degrees down, as the
+                // earlier rounds assumed; the refined shots use the product's FieldChecks (PlaneChecks).
                 var middleYaw = (extent.Left + extent.Right) / 2f;
-                if (extent.Right - middleYaw > 48f - 1.5f || extent.Bottom < -(45f - 1.5f) - 18f)
+                if (!shot.Name.StartsWith("r", StringComparison.Ordinal) && (extent.Right - middleYaw > 48f - 1.5f || extent.Bottom < -(45f - 1.5f) - 18f))
                 {
                     failures.Add(shot.Name + ": " + extent + " reaches past a Quest 3S's field.");
                 }
