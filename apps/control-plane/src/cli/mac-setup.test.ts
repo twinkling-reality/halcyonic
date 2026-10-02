@@ -707,7 +707,7 @@ describe('pnpm mac-setup', () => {
         .join(' ');
       assert.doesNotMatch(
         words,
-        /control plane|workstream|execution|runtime|journal|scenario|projection|snapshot|principal|capabilit|hosted|needs you|—|!/i,
+        /control plane|workstream|execution|runtime|journal|scenario|projection|snapshot|principal|capabilit|hosted|needs you|\u2014|!/i,
         line,
       );
     }
