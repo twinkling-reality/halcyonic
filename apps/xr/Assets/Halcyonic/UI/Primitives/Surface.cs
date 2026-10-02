@@ -4,18 +4,6 @@ using UnityEngine.Rendering;
 
 namespace Halcyonic.XR.UI
 {
-    /// <summary>
-    /// A flat shape of the interface (ADR 0023): a rounded rectangle, from a sharp corner to a pill,
-    /// with a fill, an edge inside its outline, solid or dashed, and a halftone for what is only last
-    /// known. One shader and one material draw every shape (Halcyonic/Glaze Surface), each with its
-    /// own properties, so shapes of every component draw alike and together.
-    /// </summary>
-    /// <remarks>
-    /// The material ships the shader into player builds from Assets/Halcyonic/UI/Resources, as the
-    /// characters' materials do theirs (<c>CharacterMaterials</c>). A shape is centred on its
-    /// transform and faces along its parent's back, as text does, so it reads seen along the
-    /// parent's forward axis.
-    /// </remarks>
     /// <summary>What a shape says about choosing (ADR 0026): nothing, what is chosen, what is pointed at, or the main action's cap.</summary>
     public enum SurfaceSelection
     {
@@ -31,6 +19,18 @@ namespace Halcyonic.XR.UI
         MainCap,
     }
 
+    /// <summary>
+    /// A flat shape of the interface (ADR 0023): a rounded rectangle, from a sharp corner to a pill,
+    /// with a fill, an edge inside its outline, solid or dashed, and a halftone for what is only last
+    /// known. One shader and one material draw every shape (Halcyonic/Glaze Surface), each with its
+    /// own properties, so shapes of every component draw alike and together.
+    /// </summary>
+    /// <remarks>
+    /// The material ships the shader into player builds from Assets/Halcyonic/UI/Resources, as the
+    /// characters' materials do theirs (<c>CharacterMaterials</c>). A shape is centred on its
+    /// transform and faces along its parent's back, as text does, so it reads seen along the
+    /// parent's forward axis.
+    /// </remarks>
     public sealed class Surface : MonoBehaviour
     {
         private const string MaterialPath = "HalcyonicUI/Surface";
