@@ -243,6 +243,99 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// A part of a composition on one plane (ADR 0026), as the plane checks take it: its name, the
+        /// transform whose XY plane it lies on, facing along its forward with its centre on its origin,
+        /// and its size there in meters.
+        /// </summary>
+        public readonly struct PlaneShape
+        {
+            public PlaneShape(string name, Transform root, Vector2 size)
+            {
+                Name = name;
+                Root = root;
+                Size = size;
+            }
+
+            public string Name { get; }
+
+            public Transform Root { get; }
+
+            public Vector2 Size { get; }
+        }
+
+        /// <summary>The centre of a composition: the middle of its parts' corners, in the world.</summary>
+        public static Vector3 CompositionCenter(IEnumerable<PlaneShape> parts)
+        {
+            var min = Vector3.positiveInfinity;
+            var max = Vector3.negativeInfinity;
+            foreach (var part in parts)
+            {
+                foreach (var x in new[] { -0.5f, 0.5f })
+                {
+                    foreach (var y in new[] { -0.5f, 0.5f })
+                    {
+                        var corner = part.Root.position + part.Root.right * (x * part.Size.x) + part.Root.up * (y * part.Size.y);
+                        min = Vector3.Min(min, corner);
+                        max = Vector3.Max(max, corner);
+                    }
+                }
+            }
+            return (min + max) / 2f;
+        }
+
+        /// <summary>
+        /// A composition's parts lie on one plane facing the eyes (ADR 0026): every part turned as the
+        /// first within 0.05 degrees and within half a millimetre of its plane; none rolled, its right
+        /// level; the plane square to the line from <paramref name="eyes"/> to the composition's centre
+        /// within half a degree; no two parts closer on the plane than a degree at its distance, 8 mm at
+        /// 0.46 m; and the columns starting on one line and ending on one line, within half a millimetre.
+        /// </summary>
+        public static IEnumerable<string> OnePlane(IReadOnlyList<IReadOnlyList<PlaneShape>> columns, Vector3 eyes, string what)
+        {
+            var parts = columns.SelectMany(column => column).ToList();
+            if (parts.Count == 0) yield break;
+            var plane = parts[0].Root;
+            foreach (var part in parts)
+            {
+                var turned = Vector3.Angle(part.Root.forward, plane.forward);
+                if (turned > 0.05f) yield return what + ": " + part.Name + " is turned " + Degrees(turned) + " degrees against " + parts[0].Name + "; every part shares one plane.";
+                var off = Vector3.Dot(part.Root.position - plane.position, plane.forward);
+                if (Mathf.Abs(off) > 0.0005f) yield return what + ": " + part.Name + " stands " + Millimetres(off) + " mm off the plane.";
+                if (Mathf.Abs(part.Root.right.y) > 0.001f) yield return what + ": " + part.Name + " is rolled; its rows run level.";
+            }
+            var center = CompositionCenter(parts);
+            var square = Vector3.Angle(plane.forward, center - eyes);
+            if (square > 0.5f) yield return what + ": the plane is " + Degrees(square) + " degrees off square to the eyes at its centre; it faces them there.";
+
+            // Apart on the plane: the distance between two rectangles in the plane's own right and up.
+            var gap = Glaze.MetersAt(GapDegrees, PlaneDistance(eyes, plane));
+            for (var a = 0; a < parts.Count; a++)
+            {
+                for (var b = a + 1; b < parts.Count; b++)
+                {
+                    var offset = parts[b].Root.position - parts[a].Root.position;
+                    var across = Mathf.Abs(Vector3.Dot(offset, plane.right)) - (parts[a].Size.x + parts[b].Size.x) / 2f;
+                    var down = Mathf.Abs(Vector3.Dot(offset, plane.up)) - (parts[a].Size.y + parts[b].Size.y) / 2f;
+                    var apart = across > 0f && down > 0f ? Mathf.Sqrt(across * across + down * down) : Mathf.Max(across, down);
+                    if (apart < gap - 0.0001f)
+                    {
+                        yield return what + ": " + parts[a].Name + " and " + parts[b].Name + " are " + Millimetres(apart) + " mm apart on the plane; parts keep "
+                            + Millimetres(gap) + ", a degree.";
+                    }
+                }
+            }
+
+            // Edges aligned: every column's first part starts on one line and its last ends on one line.
+            float Along(PlaneShape part, float side) => Vector3.Dot(part.Root.position - plane.position, plane.up) + side * part.Size.y / 2f;
+            var tops = columns.Where(column => column.Count > 0).Select(column => Along(column[0], 1f)).ToList();
+            var bottoms = columns.Where(column => column.Count > 0).Select(column => Along(column[column.Count - 1], -1f)).ToList();
+            if (tops.Max() - tops.Min() > 0.0005f) yield return what + ": the columns' tops are " + Millimetres(tops.Max() - tops.Min()) + " mm apart; they start on one line.";
+            if (bottoms.Max() - bottoms.Min() > 0.0005f) yield return what + ": the columns' bottoms are " + Millimetres(bottoms.Max() - bottoms.Min()) + " mm apart; they end on one line.";
+        }
+
+        private static string Millimetres(float meters) => (meters * 1000f).ToString("0.0", CultureInfo.InvariantCulture);
+
+        /// <summary>
         /// Every button is at least as tall and as wide as its size asks, 60 dp, or 48 dp compact, as
         /// seen from <paramref name="eyes"/>, and so is the target a hand points at.
         /// </summary>

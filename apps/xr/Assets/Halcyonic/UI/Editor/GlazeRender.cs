@@ -119,6 +119,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
                 failures.AddRange(IconAloneKeepsPresses());
                 failures.AddRange(TextAsSeenCatchesASlant());
+                failures.AddRange(OnePlaneCatchesEachBreak());
             }
             catch (Exception error)
             {
@@ -397,6 +398,66 @@ namespace Halcyonic.XR.UI.Editor
                 meters.Add((meter, share, waiting));
             }
             return meters;
+        }
+
+        /// <summary>
+        /// The one-plane check passes a composition the plane model lays (<see cref="PlaneComposition"/>,
+        /// ADR 0026), and catches each way to break one: a part turned, a part off the plane, a part
+        /// rolled, the whole plane off square to the eyes, two parts too close, and columns that start
+        /// or end on different lines. Fails if it fails the laid composition or misses a break.
+        /// </summary>
+        private static IEnumerable<string> OnePlaneCatchesEachBreak()
+        {
+            var failures = new List<string>();
+            var composition = new PlaneComposition(new[]
+            {
+                new PlaneColumn(PlaneComposition.Units(20f), PlaneComposition.Units(3f), PlaneComposition.Units(12f)),
+                new PlaneColumn(PlaneComposition.Units(24f), PlaneComposition.Units(3f), PlaneComposition.Units(4f), PlaneComposition.Units(10f)),
+            });
+            var direction = new PanelDirection(0f, -30f, true, false);
+            var tilt = Quaternion.AngleAxis(2f, PlaneLayout.Facing(direction) * Vector3.right);
+            var center = PlaneLayout.PointOf(galleryEyes, direction, 0f, 0f);
+            var breaks = new (string Name, string Caught, Action<List<List<GlazeChecks.PlaneShape>>> Break)[]
+            {
+                ("as laid", "", _ => { }),
+                ("with a part turned a degree", "is turned", columns => columns[0][1].Root.Rotate(Vector3.up, 1f, Space.Self)),
+                ("with a part 2 mm off the plane", "off the plane", columns => columns[1][0].Root.position += columns[1][0].Root.forward * 0.002f),
+                ("with a part rolled a degree", "is rolled", columns => columns[0][0].Root.Rotate(Vector3.forward, 1f, Space.Self)),
+                ("tipped 2 degrees off square to the eyes", "off square", columns =>
+                {
+                    foreach (var part in columns.SelectMany(column => column))
+                    {
+                        part.Root.SetPositionAndRotation(center + tilt * (part.Root.position - center), tilt * part.Root.rotation);
+                    }
+                }),
+                ("with two parts 4 mm apart", "mm apart on the plane", columns => columns[0][1].Root.position += columns[0][1].Root.up * 0.004f),
+                ("with a column starting 2 mm low", "start on one line", columns => columns[1][0].Root.position -= columns[1][0].Root.up * 0.002f),
+                ("with a column ending 2 mm high", "end on one line", columns => columns[1][2].Root.position += columns[1][2].Root.up * 0.002f),
+            };
+            foreach (var (name, caught, change) in breaks)
+            {
+                var holder = new GameObject("Plane " + name).transform;
+                holder.SetParent(gallery, false);
+                var columns = new List<List<GlazeChecks.PlaneShape>>();
+                foreach (var placed in composition.Parts)
+                {
+                    if (placed.Column == columns.Count) columns.Add(new List<GlazeChecks.PlaneShape>());
+                    var part = new GameObject("Column " + placed.Column + " part " + placed.Index).transform;
+                    part.SetParent(holder, false);
+                    PlaneLayout.Lay(part, galleryEyes, direction, placed);
+                    columns[placed.Column].Add(new GlazeChecks.PlaneShape(part.name, part, new Vector2(placed.Width, placed.Height) * PlaneComposition.Distance));
+                }
+                change(columns);
+                var found = GlazeChecks.OnePlane(columns.ConvertAll(column => (IReadOnlyList<GlazeChecks.PlaneShape>)column), galleryEyes, "component render: a composition " + name).ToList();
+                if (caught.Length == 0) failures.AddRange(found);
+                else if (!found.Any(failure => failure.Contains(caught)))
+                {
+                    failures.Add("component render: the one-plane check missed a composition " + name + ".");
+                }
+                else Debug.Log("Halcyonic: component render: the one-plane check caught a composition " + name + ": " + string.Join(" ", found));
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            }
+            return failures;
         }
 
         /// <summary>
