@@ -362,7 +362,9 @@ the same definition names, as the JSON Schema document:
   it was built, and **Checks** what was checked with Refresh beside Close: each line keeps its
   evidence class and chip, the first of each answer opens its full answer in the side panel (a
   changed file with its kind's generic icon, `FileScreens.Icon`), pages fit the room with Next page,
-  and the first answer's provenance is the one source line. Until an answer is read, the page says
+  and the first answer's provenance is the one source line. A page's source line takes one of its
+  rows, on the page and in its side panel alike (ADR 0026), so a page of four rows holds three lines
+  beside it, and an approval's request shows as much as fits there before Approve shows it whole. Until an answer is read, the page says
   so in words ("Still reading what changed…"), never an empty page, since a read of Salidium while
   a session is live has taken up to 10 seconds. The source line of Waiting and Activity names the
   agent app that reported the work. Nothing in the Unity layer draws it yet.

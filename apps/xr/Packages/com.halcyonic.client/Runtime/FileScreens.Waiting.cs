@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -64,8 +65,10 @@ namespace Halcyonic.Client
         /// </summary>
         private static Page Approval(WorkspacePresentation workspace, NeedAnswer need, AnswerRoom room, string source)
         {
+            var rows = WithSource(room).Rows;
             var lines = new List<PageLine> { new PageLine(need.Asks, wordsAreData: true, tone: LineTone.Waiting) };
-            if (need.Request != null) lines.Add(new PageLine(need.Request, wordsAreData: true, rows: RequestRows));
+            // The request as much as fits under what it wants; Approve and Deny show it whole.
+            if (need.Request != null) lines.Add(new PageLine(need.Request, wordsAreData: true, rows: Math.Max(1, Math.Min(RequestRows, rows - 1))));
             var footer = ApprovalFooter(workspace);
             if (footer[PromptSlot.FarRight] == null && footer[PromptSlot.Secondary] == null && WorkspaceText.WhyNoActions(workspace) is string why)
             {
@@ -74,7 +77,7 @@ namespace Halcyonic.Client
             var used = lines.Sum(line => line.Rows);
             foreach (var note in need.Notes)
             {
-                if (used + 1 > room.Rows) break;
+                if (used + 1 > rows) break;
                 lines.Add(new PageLine(note, tone: LineTone.Secondary));
                 used++;
             }
