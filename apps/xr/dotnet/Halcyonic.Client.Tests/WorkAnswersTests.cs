@@ -387,7 +387,7 @@ public class HowBuiltTests
             ["none"] = "No explanation was written for this work.",
             ["disabled"] = "Explanations are turned off on your computer, so there's none for this work.",
             ["generating"] = "An explanation is being written. Until it is, here is the evidence.",
-            ["unavailable"] = "There's no explanation for this work: nothing on your computer is set to write one.",
+            ["unavailable"] = "There's no explanation for this work: nothing on your computer can write one for it.",
             ["failed"] = "The explanation could not be written.",
         };
         foreach (var (status, why) in cases)
