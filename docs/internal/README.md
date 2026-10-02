@@ -62,6 +62,8 @@ change, so a validation record states when it was true; re-verify before relying
 | [sound-rendering.md](validation/sound-rendering.md) | The Glaze sound's port checked against the soundbook page, and what rendering it costs |
 | [network-pairing.md](validation/network-pairing.md) | Pairing a headset over the local network: certificate callbacks in Unity's Android class libraries, SRP, the pinned transports off the headset |
 | [headset-ui-guidance.md](validation/headset-ui-guidance.md) | Meta's guidance for hand targets, type, distance, contrast, feedback, icons and system windows, and whether the Interaction SDK UI Set and open icon sets fit this project |
+| [headset-redesign-research.md](validation/headset-redesign-research.md) | The headset redesign's references (visionOS, Horizon OS, Android XR, agent tools, game menus, Star Citizen's mobiGlas) and what its renders measured: a plane below the eyes, text as the eyes see it, a Quest 3S's field |
+| [heads-up-guidance.md](validation/heads-up-guidance.md) | Meta's rules for status that follows the head, walking with a boundary, outdoor use and another app in front, and the references for a heads-up mode |
 | [material-symbols.md](validation/material-symbols.md) | The headset's icons: the Material Symbols source, its licence and hash, and the icon font and atlas made from it, made again exactly |
 
 ## Private documents
