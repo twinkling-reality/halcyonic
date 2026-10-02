@@ -63,7 +63,10 @@ centre, which keeps every word at its size.
   beside it, and one rare action, such as Stop, beside Close. Pointed at, a prompt shows the selection
   treatment's frame; pressed, its cap sinks and Touch plays. Confirmations keep ADR 0023's rule: Yes
   appears in a slot no control held on that page or since, Cancel takes the first press's place, and
-  the whole request shows before Yes, its parts paged by footer prompts.
+  the whole request shows before Yes, its parts paged by footer prompts. Move and Reset position have
+  no slot: Reset position lives in Settings' Your room, and holding a file's subject drags the whole
+  plane round the eyes at touch distance, still facing them (lane U's hold-to-drag, `PanelDrag`), if
+  that keeps the plane rule; otherwise holding does nothing.
 
 The design system, as hard rules. The renders check those marked checked, in `DirectionsRender`
 today and, once built, in lane U's renders of every surface:
@@ -85,8 +88,8 @@ today and, once built, in lane U's renders of every surface:
 4. **Type only steps down (checked).** Three sizes on the menu's surfaces: Title, 24 dp, drawn light,
    for the subject, one a column; Body, 18 dp, for the sections, the content and the prompts; Label,
    15 dp, for small facts inside a row and the names of facts in a side panel. From the top of a
-   column to its bottom, size never grows again. Only the chosen section and the main action are
-   drawn heavier.
+   column to its bottom, size never grows again, so a page's source line stands last on the page, at
+   Body in the secondary colour. Only the chosen section and the main action are drawn heavier.
 5. **One grid.** An 8 dp step: 24 dp padding, 16 dp between groups, 8 dp from a label to its value.
    Words and icons start on one left content line, small facts and chevrons end on the right one, and
    icons stand in a fixed 24 dp column. A shape round words, as an answer or a well, reaches 0.7
@@ -162,8 +165,8 @@ today and, once built, in lane U's renders of every surface:
   budgets are 60 a surface and 220 a scene.
 - The renders' new checks move into lane U's `GlazeChecks` for every surface: text as the eyes see
   it, one plane facing the eyes, aligned columns and one selection treatment.
-- Move and Reset position (ADR 0023, 2026-10-02) have no slot in the footer; whether the menu's plane
-  keeps them is open.
+- Without Move in the footer, moving the plane rests on holding a file's subject, and Reset position
+  on Settings; both are on the headset checklist.
 - Not yet checked on a headset: reading at 0.46 m, the low edge at 50 degrees, the glass in
   passthrough against bright walls, the light line's comfort, unseen hit areas and their feedback,
   and turning between a file and its side panel.
