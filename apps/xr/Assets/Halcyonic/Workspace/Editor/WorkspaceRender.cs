@@ -529,25 +529,54 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The Understanding and Evaluation sections as the demonstration shows them, under their
-        /// headings with Refresh beside them: as opaque as the rest, every line inside the space under
-        /// the heading, a part's own statement never cut.
+        /// Help me understand's three answers and What was checked? as the demonstration shows them,
+        /// every page of each, under their headings with Refresh beside them and Help me understand's
+        /// questions as pills between: as opaque as the rest, every line of a page inside the space under
+        /// the heading, a part's own statement never cut, and a pager wherever an answer takes more
+        /// than a page.
         /// </summary>
         private static IEnumerable<string> Sections(View view)
         {
             var failures = new List<string>();
             var swapped = new SortedSet<char>();
             var running = Work.Running().Present();
-            foreach (var (suffix, shown) in DemonstrationSections())
+            var font = view.Panel.Section.Labels.First().font;
+            foreach (var (suffix, question, prompt, answer) in DemonstrationSections())
             {
-                var section = InStaticAtlas(shown, view.Panel.Section.Labels.First().font, swapped);
-                var question = section.Kind == SectionKind.Understanding ? WorkspaceQuestion.Understand : WorkspaceQuestion.Checked;
-                view.Show(running, new WorkspaceScreen { Question = question }, Steering(), section);
-                failures.AddRange(view.Opaque(suffix));
-                view.CloseUp(suffix);
-                failures.AddRange(view.Fits(suffix));
-                if (view.Frame.ButtonFor(WorkspaceScreens.Refresh) == null) failures.Add(view.Name + " " + suffix + ": Refresh does not show beside the heading.");
-                failures.AddRange(SectionFits(view.Panel.Section, view.Name + " " + suffix, section));
+                // Fitted to the rows the space under the heading holds, measured as the director does.
+                var screen = new WorkspaceScreen { Question = question, Prompt = prompt };
+                var measured = view.Panel.Room(WorkspaceScreens.Screen(running, Steering(), screen),
+                    Swap(answer(AnswerRoom.Unlimited).Provenance, font, swapped));
+                // Lines are measured as they are drawn: from the static atlas, so measuring them
+                // writes nothing into the committed fallback font.
+                var room = new AnswerRoom(measured.Rows, line => measured.RowsOf(InStaticAtlas(line, font, swapped)));
+                var section = InStaticAtlas(answer(room), font, swapped);
+                screen.ReadAnswer(section, room);
+                if (screen.AnswerPages.Count > 1 && screen.AnswerPages.Any(page => page.Lines.Count < 3))
+                {
+                    failures.Add(view.Name + " " + suffix + ": a page of an answer that pages shows fewer than 3 lines (" + room.Rows + " rows a page).");
+                }
+                for (var page = 0; page < screen.AnswerPages.Count; page++)
+                {
+                    var name = suffix + (screen.AnswerPages.Count > 1 ? "-" + (page + 1).ToString(CultureInfo.InvariantCulture) : "");
+                    var model = view.Show(running, screen, Steering(), screen.Answer);
+                    failures.AddRange(view.Opaque(name));
+                    view.CloseUp(name);
+                    failures.AddRange(view.Fits(name));
+                    // Help me understand reads again by itself, so its pager takes Refresh's place while a flow pages.
+                    var refreshes = question != WorkspaceQuestion.Understand || screen.AnswerPages.Count <= 1;
+                    if ((view.Frame.ButtonFor(WorkspaceScreens.Refresh) != null) != refreshes)
+                    {
+                        failures.Add(view.Name + " " + name + ": Refresh " + (refreshes ? "does not show beside the heading." : "shows beside a paging flow."));
+                    }
+                    var pills = view.Frame.Prompts.Count;
+                    if (pills != (question == WorkspaceQuestion.Understand ? 3 : 0)) failures.Add(view.Name + " " + name + ": " + pills + " of Help me understand's questions show.");
+                    var pager = view.Frame.ButtonFor(PanelModel.NextPart) != null;
+                    if (pager != screen.AnswerPages.Count > 1) failures.Add(view.Name + " " + name + ": the pager " + (pager ? "shows for an answer of one page." : "is missing."));
+                    if (model.Parts is (int at, _) && at != page) failures.Add(view.Name + " " + name + ": the pager says page " + (at + 1) + ".");
+                    failures.AddRange(SectionFits(view.Panel.Section, view.Name + " " + name, screen.Answer!));
+                    screen.TurnAnswer(1);
+                }
             }
             if (swapped.Count > 0)
             {
@@ -558,8 +587,8 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// Every line of a section is shown inside the space under its heading, a claim on one row and
-        /// a part's availability, coverage and freshness on at most two, never cut short.
+        /// Every line of a page of a section is shown inside the space under its heading, on no more
+        /// rows than it may take, and a part's availability, coverage and freshness is never cut short.
         /// </summary>
         private static IEnumerable<string> SectionFits(SectionView sectionView, string what, SectionPresentation section)
         {
@@ -1360,10 +1389,10 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// The directed work's sections as the bundled demonstration shows them: at its approval, and
+        /// The directed work's answers as the bundled demonstration shows them: at its approval, and
         /// once the approved turn has ended with a failing test.
         /// </summary>
-        private static IEnumerable<(string Suffix, SectionPresentation Section)> DemonstrationSections()
+        private static IEnumerable<(string Suffix, WorkspaceQuestion Question, UnderstandPrompt Prompt, Func<AnswerRoom, SectionPresentation> Answer)> DemonstrationSections()
         {
             var asset = Resources.Load<TextAsset>("HalcyonicDemonstration");
             if (asset == null) throw new InvalidOperationException("The demonstration is missing from Resources.");
@@ -1386,12 +1415,20 @@ namespace Halcyonic.XR.Workspace.Editor
                     ?? throw new InvalidOperationException("The demonstration holds no understanding there.");
                 var evaluation = recording.EvaluationAt(executionId, node, played)
                     ?? throw new InvalidOperationException("The demonstration holds no evaluation there.");
-                yield return ("understanding" + suffix, UnderstandingPresenter.Present(executionId,
-                    new IntelligenceRead<UnderstandingResponse>(understanding.Response, understanding.ReadAt, recorded: true),
-                    false, null, now, TimeZoneInfo.Local, WorkspaceSections.UnderstandingLines));
-                yield return ("evaluation" + suffix, EvaluationPresenter.Present(executionId,
-                    new IntelligenceRead<EvaluationResponse>(evaluation.Response, evaluation.ReadAt, recorded: true),
-                    false, null, now, TimeZoneInfo.Local));
+                var understood = new IntelligenceRead<UnderstandingResponse>(understanding.Response, understanding.ReadAt, recorded: true);
+                foreach (var (name, prompt) in new[]
+                {
+                    ("what-changed", UnderstandPrompt.WhatChanged),
+                    ("why-changed", UnderstandPrompt.WhyChanged),
+                    ("how-built", UnderstandPrompt.HowBuilt),
+                })
+                {
+                    yield return (name + suffix, WorkspaceQuestion.Understand, prompt,
+                        room => UnderstandingPresenter.Present(prompt, executionId, understood, false, null, now, TimeZoneInfo.Local, room));
+                }
+                var measured = new IntelligenceRead<EvaluationResponse>(evaluation.Response, evaluation.ReadAt, recorded: true);
+                yield return ("checked" + suffix, WorkspaceQuestion.Checked, UnderstandPrompt.WhatChanged,
+                    room => CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, now, TimeZoneInfo.Local, room));
             }
         }
 
@@ -1401,22 +1438,25 @@ namespace Halcyonic.XR.Workspace.Editor
         /// the dynamic fallback font asset at runtime; in the editor that would write the glyph into the
         /// committed fallback asset, which this check must never change.
         /// </summary>
-        private static SectionPresentation InStaticAtlas(SectionPresentation section, TMP_FontAsset font, SortedSet<char> swapped)
+        private static SectionPresentation InStaticAtlas(SectionPresentation section, TMP_FontAsset font, SortedSet<char> swapped) =>
+            new SectionPresentation(section.Kind, Swap(section.Provenance, font, swapped), section.ProvenanceTone,
+                section.Lines.Select(line => InStaticAtlas(line, font, swapped)).ToList(), section.Simulated, section.Steps);
+
+        private static SectionLine InStaticAtlas(SectionLine line, TMP_FontAsset font, SortedSet<char> swapped) =>
+            new SectionLine(Swap(line.Tag, font, swapped), Swap(line.Text, font, swapped), line.Tone, line.Detail, line.Rows, line.Source, line.StartsPage,
+                line.Repeats);
+
+        private static string Swap(string text, TMP_FontAsset font, SortedSet<char> swapped)
         {
-            string Swap(string text)
+            var characters = text.ToCharArray();
+            for (var index = 0; index < characters.Length; index++)
             {
-                var characters = text.ToCharArray();
-                for (var index = 0; index < characters.Length; index++)
-                {
-                    var character = characters[index];
-                    if (char.IsWhiteSpace(character) || font.HasCharacter(character)) continue;
-                    swapped.Add(character);
-                    characters[index] = character == '−' ? '-' : '?';
-                }
-                return new string(characters);
+                var character = characters[index];
+                if (char.IsWhiteSpace(character) || font.HasCharacter(character)) continue;
+                swapped.Add(character);
+                characters[index] = character == '−' ? '-' : '?';
             }
-            return new SectionPresentation(section.Kind, Swap(section.Provenance), section.ProvenanceTone,
-                section.Lines.Select(line => new SectionLine(Swap(line.Tag), Swap(line.Text), line.Tone, line.Detail)).ToList(), section.Simulated);
+            return new string(characters);
         }
 
         /// <summary>The mock runtime's scripted question (fixtures/scenarios/question_asked.json).</summary>

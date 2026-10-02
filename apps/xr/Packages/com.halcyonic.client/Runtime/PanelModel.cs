@@ -312,6 +312,9 @@ namespace Halcyonic.Client
         public const string NextPart = "next-part";
         public const string Tab = "tab";
 
+        /// <summary>What a prompt under the heading raises, with its id as the key.</summary>
+        public const string Prompt = "prompt";
+
         public PanelModel(string title) => Title = title ?? throw new ArgumentNullException(nameof(title));
 
         public string Title { get; }
@@ -366,6 +369,13 @@ namespace Halcyonic.Client
 
         /// <summary>An action at the heading's right, the body's top right, as Refresh on a section that reads its source.</summary>
         public PanelAction? HeadingAction { get; set; }
+
+        /// <summary>
+        /// The questions the heading's answer is asked as, one at a time, as Help me understand's What
+        /// changed?: compact pills in the heading's row, left of its action, the one answered chosen.
+        /// Each raises <see cref="Prompt"/> with its id.
+        /// </summary>
+        public IList<PanelTab> Prompts { get; } = new List<PanelTab>();
 
         /// <summary>The line at the top of the body; a banner, when there is one, shows in its place.</summary>
         public string? Lead { get; set; }

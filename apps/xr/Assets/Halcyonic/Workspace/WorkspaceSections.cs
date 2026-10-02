@@ -8,20 +8,18 @@ namespace Halcyonic.XR.Workspace
 {
     /// <summary>
     /// What the workspace's two sections read for the tab chosen: Help me understand, what the
-    /// understanding source concluded about the execution, and What was checked?, what the evaluation
-    /// source measured about it. The source's name stays in the answer's provenance line, never on a
-    /// tab. A section reads when it is shown for an execution it holds nothing about, and again when
-    /// the person presses Refresh. Understanding also follows the execution as it changes, at most
-    /// every two seconds; Evaluation, whose reads spend the evaluation source's budget, never reads by
-    /// itself again. Reads go to the control plane, or to the recorded demonstration while it plays,
-    /// through <see cref="IIntelligenceReader"/>; the client core writes every word.
+    /// understanding source concluded about the execution, asked one of its questions at a time; and
+    /// What was checked?, the checks the understanding source saw run and what the evaluation source
+    /// measured. A source's name stays in its provenance line, never on a tab. A section reads when it
+    /// is shown for an execution it holds nothing about, and again when the person presses Refresh.
+    /// Understanding also follows the execution as it changes, at most every two seconds; the
+    /// evaluation, whose reads spend the evaluation source's budget, never reads by itself again.
+    /// Reads go to the control plane, or to the recorded demonstration while it plays, through
+    /// <see cref="IIntelligenceReader"/>; the client core writes every word.
     /// </summary>
     public sealed class WorkspaceSections : MonoBehaviour
     {
         private const float FollowSeconds = 2f;
-
-        /// <summary>Lines under the provenance that fit the space under a section's heading (<see cref="SectionView"/>).</summary>
-        public const int UnderstandingLines = 6;
 
         private static readonly TimeZoneInfo Zone = LocalZone();
 
@@ -30,6 +28,7 @@ namespace Halcyonic.XR.Workspace
         private IntelligenceFeed<UnderstandingResponse> understanding = null!;
         private IntelligenceFeed<EvaluationResponse> evaluation = null!;
         private WorkspaceQuestion question;
+        private UnderstandPrompt prompt;
         private SectionPresentation? fixedSection;
 
         /// <summary>
@@ -56,6 +55,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Reads for the tab chosen from now on.</summary>
         public void Show(WorkspaceQuestion shown) => question = shown;
 
+        /// <summary>Answers Help me understand's <paramref name="asked"/> from now on, from what it already read.</summary>
+        public void Ask(UnderstandPrompt asked) => prompt = asked;
+
         /// <summary>A section given as it is, read from nowhere: for the editor's renders.</summary>
         public void ShowFixed(SectionPresentation section)
         {
@@ -63,20 +65,17 @@ namespace Halcyonic.XR.Workspace
             question = section.Kind == SectionKind.Understanding ? WorkspaceQuestion.Understand : WorkspaceQuestion.Checked;
         }
 
-        /// <summary>The chosen section as it reads now, or null while the tab chosen is not a section.</summary>
-        public SectionPresentation? Section
+        /// <summary>The chosen section as it reads now, fitted to <paramref name="room"/>, or null while the tab chosen is not a section.</summary>
+        public SectionPresentation? Section(AnswerRoom room)
         {
-            get
+            if (fixedSection != null) return fixedSection;
+            var now = DateTimeOffset.UtcNow;
+            return question switch
             {
-                if (fixedSection != null) return fixedSection;
-                var now = DateTimeOffset.UtcNow;
-                return question switch
-                {
-                    WorkspaceQuestion.Understand => UnderstandingPresenter.Present(understanding, now, Zone, UnderstandingLines),
-                    WorkspaceQuestion.Checked => EvaluationPresenter.Present(evaluation, now, Zone),
-                    _ => null,
-                };
-            }
+                WorkspaceQuestion.Understand => UnderstandingPresenter.Present(prompt, understanding, now, Zone, room),
+                WorkspaceQuestion.Checked => CheckedPresenter.Present(understanding, evaluation, now, Zone, room),
+                _ => null,
+            };
         }
 
         /// <summary>Reads the chosen section again, as Refresh asks.</summary>
@@ -84,8 +83,8 @@ namespace Halcyonic.XR.Workspace
         {
             var execution = presentation()?.Execution;
             var now = DateTimeOffset.UtcNow;
-            if (question == WorkspaceQuestion.Understand) understanding.Refresh(execution?.UpdatedAt, now);
-            else if (question == WorkspaceQuestion.Checked) evaluation.Refresh(execution?.UpdatedAt, now);
+            if (question == WorkspaceQuestion.Understand || question == WorkspaceQuestion.Checked) understanding.Refresh(execution?.UpdatedAt, now);
+            if (question == WorkspaceQuestion.Checked) evaluation.Refresh(execution?.UpdatedAt, now);
         }
 
         private IIntelligenceReader Reader() =>
@@ -96,11 +95,11 @@ namespace Halcyonic.XR.Workspace
             if (fixedSection != null) return;
             var now = DateTimeOffset.UtcNow;
             var execution = presentation()?.Execution;
-            if (question == WorkspaceQuestion.Understand)
+            if (question == WorkspaceQuestion.Understand || question == WorkspaceQuestion.Checked)
             {
                 understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, now, TimeSpan.FromSeconds(FollowSeconds));
             }
-            else if (question == WorkspaceQuestion.Checked)
+            if (question == WorkspaceQuestion.Checked)
             {
                 evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, now);
             }

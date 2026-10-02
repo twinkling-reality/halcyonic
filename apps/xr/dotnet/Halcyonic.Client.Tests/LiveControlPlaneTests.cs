@@ -189,11 +189,16 @@ public class LiveControlPlaneTests
         IIntelligenceReader reader = history;
         var read = await reader.ReadUnderstandingAsync(executionId, CancellationToken.None);
         Assert.That(read.Recorded, Is.False);
-        Assert.That(UnderstandingPresenter.Present(executionId, read, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, 7).Provenance,
-            Is.EqualTo("Understanding unavailable: Salidium does not observe sessions of the mock runtime."));
+        foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
+        {
+            Assert.That(UnderstandingPresenter.Present(prompt, executionId, read, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc).Provenance,
+                Is.EqualTo("Understanding unavailable: Salidium does not observe sessions of the mock runtime."));
+        }
         var measured = await reader.ReadEvaluationAsync(executionId, CancellationToken.None);
-        Assert.That(EvaluationPresenter.Present(executionId, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc).Provenance,
-            Is.EqualTo("Evaluation unavailable: Seorak does not observe sessions of the mock runtime."));
+        var checkedSection = CheckedPresenter.Present(executionId, read, false, null, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc);
+        Assert.That(checkedSection.Provenance, Is.EqualTo("Understanding unavailable: Salidium does not observe sessions of the mock runtime."));
+        Assert.That(checkedSection.Lines.Select(line => line.Text),
+            Is.EqualTo(new[] { "Evaluation unavailable: Seorak does not observe sessions of the mock runtime." }));
 
         var position = session.State.Position;
         connections.Last().Abort();
