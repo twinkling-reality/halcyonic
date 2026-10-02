@@ -376,14 +376,19 @@ namespace Halcyonic.XR.Workspace.Editor
             var total = placed.Sum(stack => stack[0].Width) + gap * (placed.Count - 1);
             var tall = stacks.Max(stack => stack.Sum(part => part.Height) + U(RowGap) * (stack.Count - 1));
             var lower = 0f;
+            var labels = shot.Characters.Where(character => character.View.gameObject.activeInHierarchy)
+                .Select(character => GlazeChecks.Of("label", shot.Eyes, character.View.Label.gameObject)).ToList();
+            // With nobody on the stage, as on a first visit, the plane's centre stands where a seated
+            // person looks at rest, 15 degrees down.
+            var start = labels.Count == 0 ? 15f - Mathf.Atan(tall / 2f) * Mathf.Rad2Deg : 16.5f;
             for (var attempt = 0; attempt < 80; attempt++)
             {
                 // Upright, the top line starts 16.5 degrees under eye level; facing, the centre starts
                 // where that would put the top.
                 var plane = facing == Facing.Upright
                     ? Quaternion.Euler(0f, yaw, 0f)
-                    : Quaternion.Euler(16.5f + lower + Mathf.Atan(tall / 2f) * Mathf.Rad2Deg, yaw, 0f);
-                var top = facing == Facing.Upright ? -Mathf.Tan((16.5f + lower) * Mathf.Deg2Rad) : tall / 2f;
+                    : Quaternion.Euler(start + lower + Mathf.Atan(tall / 2f) * Mathf.Rad2Deg, yaw, 0f);
+                var top = facing == Facing.Upright ? -Mathf.Tan((start + lower) * Mathf.Deg2Rad) : tall / 2f;
                 var x = -total / 2f;
                 foreach (var stack in stacks)
                 {
@@ -395,7 +400,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     x += stack[0].Width + gap;
                 }
-                var labels = shot.Characters.Select(character => GlazeChecks.Of("label", shot.Eyes, character.View.Label.gameObject)).ToList();
+                if (labels.Count == 0) break;
                 var least = placed.SelectMany(stack => stack).Min(part => labels.Min(label => OutlineApart(Outline(part, shot.Eyes), label)));
                 if (least >= 1.15f) break;
                 lower += 0.25f;

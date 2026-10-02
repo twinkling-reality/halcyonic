@@ -108,7 +108,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("a4-creating", false, shot => ShelfCreating(shot)),
             ("a5-video-watching", true, shot => Folded(shot)),
             ("a5-video-opened", true, shot => ShelfBesideWindow(shot)),
-        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots()).Concat(HeadsUpShots());
+        }.Concat(MenuShots()).Concat(StyledShots()).Concat(RefinedShots()).Concat(RolloutShots()).Concat(HeadsUpShots());
 
         // ---------------------------------------------------------------------------------------------
         // The work on the stage.
@@ -783,13 +783,14 @@ namespace Halcyonic.XR.Workspace.Editor
             line.sortingOrder = 40;
         }
 
-        /// <summary>A small caption chip, such as an evidence class; says how wide it is.</summary>
-        private static float Chip(Board board, string text, GlazeTone tone, float left, float centerY)
+        /// <summary>A small caption chip, such as an evidence class, or at the content's size where a caption would read too small; says how wide it is.</summary>
+        private static float Chip(Board board, string text, GlazeTone tone, float left, float centerY, GlazeType type = GlazeType.Caption)
         {
             var colours = Glaze.Tone(tone);
-            var (label, height) = Text(board, "Chip " + text, text, GlazeType.Caption, GlazeTokens.ColorOf(colours.Foreground), left + U(0.45f), centerY + U(0.6f), U(12f));
+            var body = type == GlazeType.Body;
+            var (label, height) = Text(board, "Chip " + text, text, type, GlazeTokens.ColorOf(colours.Foreground), left + U(0.45f), centerY + U(body ? 0.72f : 0.6f), U(12f));
             var width = Mathf.Min(U(12f), label.GetPreferredValues(label.text).x) + U(0.9f);
-            Plate(board, "Chip plate " + text, left + width / 2f, centerY, width, U(1.45f), U(0.725f), GlazeTokens.ColorOf(colours.Container),
+            Plate(board, "Chip plate " + text, left + width / 2f, centerY, width, U(body ? 1.75f : 1.45f), U(body ? 0.875f : 0.725f), GlazeTokens.ColorOf(colours.Container),
                 GlazeTokens.ColorOf(colours.Foreground, 0.5f), U(0.08f), 55, -U(0.02f));
             return width;
         }
