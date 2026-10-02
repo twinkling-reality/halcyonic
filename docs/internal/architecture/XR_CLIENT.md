@@ -301,8 +301,9 @@ the same definition names, as the JSON Schema document:
   in the failure colour: "Usage left can't be read right now. Try again later.", or "Couldn't reach
   your Mac. Press Refresh to try again." When the source could read only some limits, the note
   starts "Some limits couldn't be read this time." and no missing window is inferred. No reading
-  reads "No usage reading yet.", never 0%. While the recorded demonstration plays, the glance says
-  "Usage left isn't part of the demo." **`UsageLeftScreens`** builds its panel model.
+  reads "No usage reading yet.", never 0%. While the recorded demonstration plays, the rail offers no
+  Usage left at all and an open panel closes; should it ever show then, it says "Usage left isn't
+  part of the demo." **`UsageLeftScreens`** builds its panel model.
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each
@@ -552,7 +553,11 @@ the same definition names, as the JSON Schema document:
   transport sends the beginning's snapshot again on the same connection, so the demonstration
   starts again without a disconnect; consumers see a rewind (`StateChanges.Rewound`: the same
   journal at an earlier position) and drop activity and submissions from before, as after a journal
-  change. A new connection, as after the headset sleeps, also starts from the beginning. The
+  change. A new connection after a pause, as when the headset sleeps, goes on where the last one stood:
+  the player keeps the path of answers, the node, its events played and how long it had played or
+  held, and the transport answers the session's resume cursor with a resumed welcome and only the
+  events the client missed, keeping the timing; a cursor off that path, or a recording that had
+  reached an end, starts from the beginning. The
   player shares where the playback stands: `InstructionsFor` the recorded instructions offered for
   an execution, as `PresetInstruction`s; `Ended` while it holds one of its ends; `Plays`, how often
   it started from the beginning; and `Reads`, a `DemonstrationReads` that answers the workspace's

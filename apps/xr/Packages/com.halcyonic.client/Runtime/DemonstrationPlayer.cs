@@ -23,7 +23,8 @@ namespace Halcyonic.Client
     /// <summary>
     /// Plays a <see cref="DemonstrationRecording"/> as a realtime session, entirely on this device:
     /// each connection the session makes gets a <see cref="DemonstrationTransport"/> that plays the
-    /// recording from its beginning and follows the answers a person gives. Where the playback stands
+    /// recording from its beginning, or, after a pause, goes on where the last connection stood, and
+    /// follows the answers a person gives. Where the playback stands
     /// is shared, so the stage can offer the instructions recorded there and say when the recording
     /// has ended. Safe to read from any thread.
     /// </summary>
@@ -119,6 +120,14 @@ namespace Halcyonic.Client
         /// <summary>The transport playing now started the recording from its beginning.</summary>
         internal void Began() => Interlocked.Increment(ref plays);
 
+        private DemonstrationPlace? stood;
+
+        /// <summary>A connection closed, as when the headset pauses, standing here.</summary>
+        internal void Stood(DemonstrationPlace place) => Volatile.Write(ref stood, place);
+
+        /// <summary>Where the last connection stood, once: the next connection goes on from there.</summary>
+        internal DemonstrationPlace? TakeStood() => Interlocked.Exchange(ref stood, null);
+
         private sealed class Place
         {
             public Place(int node, int played, bool ended)
@@ -134,5 +143,32 @@ namespace Halcyonic.Client
 
             public bool Ended { get; }
         }
+    }
+
+    /// <summary>
+    /// Where a demonstration connection stood when it closed: the answers taken on the way (each node
+    /// left and how many of its events had played), the node playing, how many of its events had
+    /// played, how long it had been playing, and how long its final state had held, if it had begun to.
+    /// </summary>
+    internal sealed class DemonstrationPlace
+    {
+        public DemonstrationPlace(IReadOnlyList<(int Node, int After)> path, int node, int played, TimeSpan intoNode, TimeSpan? intoHold)
+        {
+            Path = path;
+            Node = node;
+            Played = played;
+            IntoNode = intoNode;
+            IntoHold = intoHold;
+        }
+
+        public IReadOnlyList<(int Node, int After)> Path { get; }
+
+        public int Node { get; }
+
+        public int Played { get; }
+
+        public TimeSpan IntoNode { get; }
+
+        public TimeSpan? IntoHold { get; }
     }
 }
