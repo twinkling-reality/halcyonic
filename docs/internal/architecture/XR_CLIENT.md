@@ -338,6 +338,34 @@ the same definition names, as the JSON Schema document:
   light ending above its first target (`GlazeChecks.GlowEndsAboveTargets`) and a Quest 3S's field
   (`GlazeChecks.InsideField`, which `FieldChecks` now calls), and checks that `MenuPage.Fits` agrees.
   `PanelModel` stays until nothing draws it.
+- **`FileScreens`** builds a task's file as a `MenuFrame` (ADR 0026) from its presentation, the
+  steering and what the file is in the middle of (`FileScreen`: the section chosen, the line whose
+  side panel shows, the page of each, the instructions offered where no keyboard is, where the
+  person is in the agent's question or in the request an approval answers, and the answers Changes
+  and Checks read, brief and full, null while still being read). Its subject is the task's title
+  under its state pill; its sections are Waiting, Activity, Changes and Checks, Waiting's amber dot
+  on while something waits, and it opens on Waiting then, else on Activity. **Waiting** reads only
+  the work's own state, never an answer still being read: an approval's request with Approve as
+  the main action, Deny beside it and Stop beside Close; the agent's question with its answers as
+  rows to choose, Send answer as the main action and Hold to talk beside it (never while it asks
+  for a secret), Sent… in its place, taking no press, while an answer sent may still take effect.
+  Approving or denying shows the whole request again in parts, as rows of one measured line
+  (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
+  back to the first), with Cancel in the place of the press and Yes in the free middle only once
+  the layout has measured the request and its last part has shown (`WorkspaceSteering.CanConfirm`).
+  A part read counts only within the confirmation it was read for: armed again, even for the same
+  request, it starts at the first part (`WorkspaceSteering.Armings`). Yes sends once.
+  **Activity** says what it is doing, the last thing this headset sent and the newest of the log
+  that fits, the agent's words quoted with their chip and time, with Tell it as the main action,
+  Stop beside Close and Hold to talk beside Tell it; Tell it offers the recorded instructions as
+  rows where there is no keyboard. **Changes** shows the brief answers to what changed, why and how
+  it was built, and **Checks** what was checked with Refresh beside Close: each line keeps its
+  evidence class and chip, the first of each answer opens its full answer in the side panel (a
+  changed file with its kind's generic icon, `FileScreens.Icon`), pages fit the room with Next page,
+  and the first answer's provenance is the one source line. Until an answer is read, the page says
+  so in words ("Still reading what changed…"), never an empty page, since a read of Salidium while
+  a session is live has taken up to 10 seconds. The source line of Waiting and Activity names the
+  agent app that reported the work. Nothing in the Unity layer draws it yet.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (the component render's frames use it; the stage does not yet): at most
   two columns of parts, every part of a column as

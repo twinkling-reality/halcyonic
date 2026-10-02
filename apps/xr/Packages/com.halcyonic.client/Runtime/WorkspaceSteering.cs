@@ -82,6 +82,12 @@ namespace Halcyonic.Client
         /// <summary>The action waiting for a deliberate confirmation, if any.</summary>
         public WorkspaceAction? Armed { get; private set; }
 
+        /// <summary>
+        /// How many times an action has been armed: each press that arms one, even the same action for
+        /// the same request again, is a new confirmation whose parts are read afresh.
+        /// </summary>
+        public int Armings { get; private set; }
+
         /// <summary>The approval an armed approve or deny answers.</summary>
         public string? ArmedApprovalId { get; private set; }
 
@@ -300,6 +306,7 @@ namespace Halcyonic.Client
 
         private void Arm(WorkspaceAction action, string? approvalId, string? instruction)
         {
+            Armings++;
             Armed = action;
             ArmedApprovalId = approvalId;
             Instruction = instruction;
