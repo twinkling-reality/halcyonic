@@ -65,6 +65,86 @@ public class GlazeTokenTests
     }
 
     [Test]
+    public void TheMenusTypeStepsDownFromThreeSizesAndKeepsTo14Dp()
+    {
+        Assert.That(Glaze.Menu.TitleDegrees, Is.EqualTo(24 * Glaze.DegreesPerDp));
+        Assert.That(Glaze.Menu.BodyDegrees, Is.EqualTo(18 * Glaze.DegreesPerDp));
+        Assert.That(Glaze.Menu.LabelDegrees, Is.EqualTo(15 * Glaze.DegreesPerDp));
+        Assert.That(Glaze.Menu.TitleDegrees, Is.GreaterThan(Glaze.Menu.BodyDegrees));
+        Assert.That(Glaze.Menu.BodyDegrees, Is.GreaterThan(Glaze.Menu.LabelDegrees));
+        Assert.That(Glaze.Menu.LabelDegrees, Is.GreaterThan(Glaze.MinimumTextDegrees), "the smallest is over 14 dp");
+        Assert.That(Glaze.Menu.PillDegrees, Is.EqualTo(Glaze.Menu.BodyDegrees), "the pill's word at the content's size");
+        Assert.That(Glaze.Menu.PlaneMeters, Is.EqualTo(0.46f), "touch distance");
+    }
+
+    [Test]
+    public void EveryGapOnTheMenuIsAWholeNumberOfGridSteps()
+    {
+        Assert.That(Glaze.Menu.GridDegrees, Is.EqualTo(8 * Glaze.DegreesPerDp), "8 dp");
+        foreach (var (name, gap) in new[]
+        {
+            ("padding", Glaze.Menu.PaddingDegrees),
+            ("between groups", Glaze.Menu.GroupGapDegrees),
+            ("from a name to its value", Glaze.Menu.LabelToValueDegrees),
+            ("the icon column", Glaze.Menu.IconColumnDegrees),
+            ("between parts", Glaze.Menu.PartGapDegrees),
+        })
+        {
+            var steps = gap / Glaze.Menu.GridDegrees;
+            Assert.That(steps, Is.EqualTo(MathF.Round(steps)).Within(1e-5f), $"{name} is {steps} grid steps");
+            Assert.That(steps, Is.GreaterThanOrEqualTo(1f), name);
+        }
+        Assert.That(Glaze.Menu.PaddingDegrees, Is.EqualTo(24 * Glaze.DegreesPerDp));
+        Assert.That(Glaze.Menu.GroupGapDegrees, Is.EqualTo(16 * Glaze.DegreesPerDp));
+    }
+
+    [Test]
+    public void EveryWordOnTheGlassReadsOverAWhiteWall()
+    {
+        // Passthrough's brightest: the glass at 96 percent over white, and a chosen shape's lit fill over that.
+        foreach (var (where, under) in new[] { ("the glass", Glaze.Menu.GlassOverWhite), ("a chosen shape", Glaze.Menu.LitOverWhite) })
+        {
+            foreach (var (name, colour) in new[]
+            {
+                ("text", Glaze.Text),
+                ("secondary text", Glaze.TextSecondary),
+                ("a quiet prompt's or line's words", Glaze.Menu.QuietText),
+                ("the main action's words", Glaze.Tone(GlazeTone.Accent).Foreground),
+                ("waiting for you", Glaze.Tone(GlazeTone.Attention).Foreground),
+                ("a good line", Glaze.Tone(GlazeTone.Success).Foreground),
+                ("a problem", Glaze.Tone(GlazeTone.Failure).Foreground),
+                ("moving work", Glaze.Tone(GlazeTone.Active).Foreground),
+                ("practice and demo", Glaze.Tone(GlazeTone.Simulated).Foreground),
+            })
+            {
+                Assert.That(GlazeColor.Contrast(colour, under), Is.GreaterThanOrEqualTo(4.5), $"{name} on {where} over white");
+            }
+        }
+        Assert.That(Glaze.Menu.GlassOverWhite.Luminance, Is.GreaterThan(Glaze.Panel.Luminance), "a white wall lightens the glass");
+        Assert.That(GlazeColor.Contrast(Glaze.TextDisabled, Glaze.Menu.LitOverWhite), Is.LessThan(4.5), "why quiet words take the secondary colour on the menu");
+    }
+
+    [Test]
+    public void OneSelectionTreatmentIsALitFillAndFrameAndAFainterFrameAlone()
+    {
+        Assert.That(Glaze.Menu.LitFillOpacity, Is.EqualTo(0.10f));
+        Assert.That(Glaze.Menu.LitFrameOpacity, Is.EqualTo(0.78f));
+        Assert.That(Glaze.Menu.PointedFrameOpacity, Is.EqualTo(0.42f));
+        Assert.That(Glaze.Menu.PointedFrameOpacity, Is.LessThan(Glaze.Menu.LitFrameOpacity), "pointed at, the frame is fainter");
+        Assert.That(Glaze.Menu.GlassOpacity, Is.EqualTo(Glaze.PlateOpacity));
+    }
+
+    [Test]
+    public void ColoursBlendAsADisplayBlendsThem()
+    {
+        var white = GlazeColor.Hex(0xFFFFFF);
+        var black = GlazeColor.Hex(0x000000);
+        Assert.That(black.Over(white, 1), Is.EqualTo(black));
+        Assert.That(black.Over(white, 0), Is.EqualTo(white));
+        Assert.That(black.Over(white, 0.5), Is.EqualTo(GlazeColor.Hex(0x808080)));
+    }
+
+    [Test]
     public void TypeAndTargetsKeepToMetasMinimums()
     {
         Assert.That(Glaze.MinimumTextDegrees, Is.EqualTo(14 * Glaze.DegreesPerDp));
