@@ -170,24 +170,32 @@ describe('a recorded process', () => {
   test('is still recognized after a script executable execs its interpreter', async (t) => {
     const folder = directory(t);
     // Like a script run through `#!/usr/bin/env node`: the launched program execs another one,
-    // keeping its pid, start time and arguments.
+    // keeping its pid, start time and arguments. It says when it runs, and execs only when the
+    // test says, so the test reads it before and after however slowly the machine runs either.
     const script = join(folder, 'hop');
     writeFileSync(
       script,
-      `#!/bin/sh\nsleep 0.5\nexec "${process.execPath}" -e 'setInterval(() => {}, 1000)' -- "$@"\n`,
+      `#!/bin/sh\necho running\nread go\nexec "${process.execPath}" -e 'setInterval(() => {}, 1000)' -- "$@"\n`,
       { mode: 0o755 },
     );
     const sessionId = randomUUID();
-    const child = spawn(script, [`--session-id=${sessionId}`], { stdio: 'ignore' });
+    const child = spawn(script, [`--session-id=${sessionId}`], {
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
     const exited = track(t, child);
     const pid = child.pid;
     assert.ok(pid !== undefined);
+    await new Promise<void>((resolve, reject) => {
+      child.stdout?.once('data', () => resolve());
+      child.once('exit', (code) => reject(new Error(`the script exited early with ${code}`)));
+    });
     const launched = await readProcessIdentity(pid);
     assert.ok(launched !== null);
     assert.ok(launched.command.startsWith('/bin/sh '), launched.command);
     const record = { pid, ...launched, sessionId };
+    child.stdin?.write('go\n');
     let current = launched;
-    for (let attempt = 0; attempt < 100 && current.command === launched.command; attempt += 1) {
+    for (let attempt = 0; attempt < 600 && current.command === launched.command; attempt += 1) {
       await delay(50);
       current = (await readProcessIdentity(pid)) ?? current;
     }
