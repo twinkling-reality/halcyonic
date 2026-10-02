@@ -329,13 +329,13 @@ public class UnderstandingAnswersTests
         var cases = new Dictionary<string, (string Json, string Provenance)>
         {
             ["not_found"] = (Intelligence.Failure("not_found", "not_observed", "Salidium has not observed this session."),
-                "No understanding yet: Salidium has not observed this session."),
+                "From Salidium · No understanding yet: Salidium has not observed this session."),
             ["unavailable"] = (Intelligence.Failure("unavailable", "not_running", "Salidium is not running: it has not published its discovery file."),
-                "Understanding unavailable: Salidium is not running: it has not published its discovery file."),
+                "From Salidium · Understanding unavailable: Salidium is not running: it has not published its discovery file."),
             ["incompatible"] = (Intelligence.Failure("incompatible", "invalid_document", "The session report does not match Salidium consumer contract v1."),
-                "Understanding unreadable: The session report does not match Salidium consumer contract v1."),
+                "From Salidium · Understanding unreadable: The session report does not match Salidium consumer contract v1."),
             ["unauthorized"] = (Intelligence.Failure("unauthorized", "credential_missing", "No Salidium credential is configured."),
-                "Understanding not allowed: No Salidium credential is configured."),
+                "From Salidium · Understanding not allowed: No Salidium credential is configured."),
         };
         foreach (UnderstandPrompt prompt in Enum.GetValues(typeof(UnderstandPrompt)))
         {
@@ -560,16 +560,16 @@ public class CheckedTests
     {
         var unobserved = Intelligence.Failure("unavailable", "runtime_not_observed", "Salidium does not observe sessions of the opencode runtime.");
         var section = Answers.Checked(unobserved, ControlPlaneApiTests.Available);
-        Assert.That(section.Provenance, Is.EqualTo("Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
+        Assert.That(section.Provenance, Is.EqualTo("From Salidium · Understanding unavailable: Salidium does not observe sessions of the opencode runtime."));
         Assert.That(section.Lines[0].Text, Is.EqualTo("From Seorak, read 1 minute ago"));
         Assert.That(section.Lines.Count, Is.EqualTo(8), "the measurement stands whole");
 
         var cases = new Dictionary<string, string>
         {
-            ["not_found"] = "No evaluation yet: Seorak has not captured this session.",
-            ["unavailable"] = "Evaluation unavailable: Seorak has not captured this session.",
-            ["incompatible"] = "Evaluation unreadable: Seorak has not captured this session.",
-            ["unauthorized"] = "Evaluation not allowed: Seorak has not captured this session.",
+            ["not_found"] = "From Seorak · No evaluation yet: Seorak has not captured this session.",
+            ["unavailable"] = "From Seorak · Evaluation unavailable: Seorak has not captured this session.",
+            ["incompatible"] = "From Seorak · Evaluation unreadable: Seorak has not captured this session.",
+            ["unauthorized"] = "From Seorak · Evaluation not allowed: Seorak has not captured this session.",
         };
         foreach (var (availability, words) in cases)
         {

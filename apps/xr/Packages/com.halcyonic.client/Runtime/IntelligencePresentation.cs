@@ -156,13 +156,13 @@ namespace Halcyonic.Client
                     lines.AddRange(Lines(evaluation, at, zone));
                     return lines;
                 case NotFoundEvaluation notFound:
-                    return new[] { Source("No evaluation yet: " + IntelligenceText.Plain(notFound.Reason.Message) + status, SectionTone.Secondary) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · No evaluation yet: " + IntelligenceText.Plain(notFound.Reason.Message) + status, SectionTone.Secondary) };
                 case UnavailableEvaluation unavailable:
-                    return new[] { Source("Evaluation unavailable: " + IntelligenceText.Plain(unavailable.Reason.Message) + status, SectionTone.Secondary) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unavailable: " + IntelligenceText.Plain(unavailable.Reason.Message) + status, SectionTone.Secondary) };
                 case IncompatibleEvaluation incompatible:
-                    return new[] { Source("Evaluation unreadable: " + IntelligenceText.Plain(incompatible.Reason.Message) + status, SectionTone.Problem) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation unreadable: " + IntelligenceText.Plain(incompatible.Reason.Message) + status, SectionTone.Problem) };
                 case UnauthorizedEvaluation unauthorized:
-                    return new[] { Source("Evaluation not allowed: " + IntelligenceText.Plain(unauthorized.Reason.Message) + status, SectionTone.Attention) };
+                    return new[] { Source(IntelligenceText.FromSeorak + " · Evaluation not allowed: " + IntelligenceText.Plain(unauthorized.Reason.Message) + status, SectionTone.Attention) };
                 default:
                     return new[] { Source("The evaluation came back in a form this app does not know.", SectionTone.Secondary) };
             }
@@ -435,7 +435,17 @@ namespace Halcyonic.Client
             return Empty(kind, "Not read yet.");
         }
 
-        internal static SectionPresentation Failure(SectionKind kind, string lead, ErrorInfo reason, SectionTone tone, string status) =>
-            new SectionPresentation(kind, lead + Plain(reason.Message) + status, tone, Array.Empty<SectionLine>(), simulated: false);
+        /// <summary>
+        /// A section whose source answered without conclusions: its provenance line names the source,
+        /// as it does for an answer, then says why there is none, in words.
+        /// </summary>
+        internal static SectionPresentation Failure(SectionKind kind, string source, string lead, ErrorInfo reason, SectionTone tone, string status) =>
+            new SectionPresentation(kind, source + " · " + lead + Plain(reason.Message) + status, tone, Array.Empty<SectionLine>(), simulated: false);
+
+        /// <summary>The source an understanding comes from, as a provenance line names it.</summary>
+        public const string FromSalidium = "From Salidium";
+
+        /// <summary>The source a measurement comes from, as a provenance line names it.</summary>
+        public const string FromSeorak = "From Seorak";
     }
 }

@@ -67,10 +67,10 @@ namespace Halcyonic.Client
         /// <summary>The section an understanding that is not available becomes: why there is none, said in words.</summary>
         internal static SectionPresentation Failure(SectionKind kind, UnderstandingResult result, string status) => result switch
         {
-            NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, "No understanding yet: ", notFound.Reason, SectionTone.Secondary, status),
-            UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, "Understanding unavailable: ", unavailable.Reason, SectionTone.Secondary, status),
-            IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, "Understanding unreadable: ", incompatible.Reason, SectionTone.Problem, status),
-            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, "Understanding not allowed: ", unauthorized.Reason, SectionTone.Attention, status),
+            NotFoundUnderstanding notFound => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "No understanding yet: ", notFound.Reason, SectionTone.Secondary, status),
+            UnavailableUnderstanding unavailable => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding unavailable: ", unavailable.Reason, SectionTone.Secondary, status),
+            IncompatibleUnderstanding incompatible => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding unreadable: ", incompatible.Reason, SectionTone.Problem, status),
+            UnauthorizedUnderstanding unauthorized => IntelligenceText.Failure(kind, IntelligenceText.FromSalidium, "Understanding not allowed: ", unauthorized.Reason, SectionTone.Attention, status),
             _ => IntelligenceText.Empty(kind, "The understanding came back in a form this app does not know."),
         };
 
