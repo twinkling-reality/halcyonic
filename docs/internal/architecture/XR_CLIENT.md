@@ -590,6 +590,12 @@ the same definition names, as the JSON Schema document:
   person's words or when they ask for the recap, inside the request's bounds (20 messages, 2,000
   characters a message, about 23,000 in all); a reply to a request the person left behind
   (`Leave`) is dropped by its generation. After a proposal, the recap is where things change.
+  Under a question, the person chooses one answer row (`Chosen`), as ADR 0026 has every answer:
+  a suggestion (`Choose`), their own words typed or heard (`Write`, kept while another row is
+  chosen), or Go on without it (`ChooseWithoutIt`). Choosing sends nothing; only `SendAnswer`
+  says the chosen answer and asks for the next reply, so a stray press never reaches the
+  companion. `EntryScreens.Companion`, until New project replaces it, still sends a suggestion
+  when it is pressed.
 - **`CompanionText`** writes the words around the companion, with the computer as `HostText`
   says it: its line quoted and tagged as its own ("The companion says: “…”"), its view as its
   opinion, the note that it is an AI that can be wrong, waiting, and every failure from its code

@@ -96,6 +96,29 @@ namespace Halcyonic.Client
         public bool PersonSpoke => turns.Any(turn => turn is PersonTurn);
 
         /// <summary>
+        /// The answer row the person has chosen under the companion's question (ADR 0026): choosing only
+        /// lights a row, and nothing reaches the companion until <see cref="SendAnswer"/>.
+        /// </summary>
+        public CompanionAnswerRow Chosen { get; private set; }
+
+        /// <summary>The suggestion chosen, by its place in the question's choices, or -1.</summary>
+        public int ChosenSuggestion { get; private set; } = -1;
+
+        /// <summary>The person's own answer, typed or heard, not yet sent; it stays while another row is chosen.</summary>
+        public string? Written { get; private set; }
+
+        /// <summary><see cref="Written"/> is what the computer heard, for the person to check before it is sent.</summary>
+        public bool WrittenHeard { get; private set; }
+
+        /// <summary>What Send answer would say: the chosen suggestion or the written words; null for any other row.</summary>
+        public string? Answer => Chosen switch
+        {
+            CompanionAnswerRow.Suggestion when Latest is AskReply ask && ChosenSuggestion < (ask.Question?.Choices?.Count ?? 0) => ask.Question!.Choices[ChosenSuggestion],
+            CompanionAnswerRow.Written => Written,
+            _ => null,
+        };
+
+        /// <summary>
         /// The person may say something now: nothing is on its way, the companion asked a question last
         /// (or nothing has been said yet), and the exchange has room for the words and a reply after
         /// them. Once it has proposed, the recap is where the person changes things.
@@ -106,23 +129,80 @@ namespace Halcyonic.Client
         public bool CanAskForRecap => !Waiting && PersonSpoke && turns.Count <= MaxMessages && Proposal == null;
 
         /// <summary>
-        /// Adds the person's words: typed, a choice pressed, or a spoken draft they sent. Refused,
+        /// Adds the person's words: their idea, or the answer <see cref="SendAnswer"/> sends. Refused,
         /// changing nothing, when they are blank, longer than <see cref="PersonLimit"/>, or there is no
-        /// room or turn for them.
+        /// room or turn for them. The question's answer rows are done with once words are said.
         /// </summary>
         public bool Say(string? text)
         {
             var words = (text ?? "").Trim();
-            if (words.Length == 0 || words.Length > PersonLimit || !CanSay) return false;
-            if (characters + words.Length + ReplyRoom > CharacterLimit) return false;
-            var size = Utf8(words);
-            if (bytes + size + ReplyBytes > ByteLimit) return false;
+            if (!Fits(words)) return false;
             turns.Add(new PersonTurn { Text = words });
             characters += words.Length;
-            bytes += size;
+            bytes += Utf8(words);
             Failure = null;
             Left = false;
+            Unchoose();
             return true;
+        }
+
+        /// <summary>
+        /// Lights one of the companion's suggestions, by its place in the question's choices. Refused
+        /// when there is no question to answer now or no such suggestion; nothing is sent.
+        /// </summary>
+        public bool Choose(int suggestion)
+        {
+            if (!(Latest is AskReply ask) || ask.Question?.Choices == null || suggestion < 0 || suggestion >= ask.Question.Choices.Count) return false;
+            if (!Fits(ask.Question.Choices[suggestion].Trim())) return false;
+            Chosen = CompanionAnswerRow.Suggestion;
+            ChosenSuggestion = suggestion;
+            return true;
+        }
+
+        /// <summary>
+        /// Keeps the person's own answer, typed or <paramref name="heard"/>, and lights it; nothing is
+        /// sent. Refused, changing nothing, where <see cref="Say"/> would refuse it.
+        /// </summary>
+        public bool Write(string? text, bool heard = false)
+        {
+            var words = (text ?? "").Trim();
+            if (!Fits(words)) return false;
+            Written = words;
+            WrittenHeard = heard;
+            Chosen = CompanionAnswerRow.Written;
+            ChosenSuggestion = -1;
+            return true;
+        }
+
+        /// <summary>Lights Go on without it: the recap is then made from the person's own words, without the companion.</summary>
+        public void ChooseWithoutIt()
+        {
+            Chosen = CompanionAnswerRow.WithoutIt;
+            ChosenSuggestion = -1;
+        }
+
+        /// <summary>
+        /// Send answer: says the chosen suggestion or the written words, and asks the companion's next
+        /// reply; null, changing nothing, when no answer is chosen or it can't be said now.
+        /// </summary>
+        public CompanionRepliesRequest? SendAnswer()
+        {
+            var answer = Answer;
+            return answer != null && Say(answer) ? Ask(CompanionWant.Next) : null;
+        }
+
+        /// <summary>Whether <paramref name="words"/> may be said now, with room left for the reply after them.</summary>
+        private bool Fits(string words) =>
+            words.Length > 0 && words.Length <= PersonLimit && CanSay
+            && characters + words.Length + ReplyRoom <= CharacterLimit && bytes + Utf8(words) + ReplyBytes <= ByteLimit;
+
+        /// <summary>The question's answer rows are done with: nothing chosen and nothing written.</summary>
+        private void Unchoose()
+        {
+            Chosen = CompanionAnswerRow.None;
+            ChosenSuggestion = -1;
+            Written = null;
+            WrittenHeard = false;
         }
 
         /// <summary>
@@ -167,6 +247,7 @@ namespace Halcyonic.Client
             Waiting = false;
             Failure = null;
             Model = response.Companion.Name;
+            Unchoose();
             turns.Add(new CompanionTurn { Reply = response.Reply });
             characters += Measure(response.Reply);
             bytes += Utf8(HalcyonicJson.Serialize(response.Reply));
@@ -182,12 +263,17 @@ namespace Halcyonic.Client
             return true;
         }
 
-        /// <summary>The person went on without the companion: a reply still on its way is dropped when it comes.</summary>
+        /// <summary>
+        /// The person went on without the companion: a reply still on its way is dropped when it comes,
+        /// and coming back finds their written answer chosen, if any, or nothing.
+        /// </summary>
         public void Leave()
         {
             if (Waiting) Generation++;
             Waiting = false;
             Left = true;
+            Chosen = Written != null ? CompanionAnswerRow.Written : CompanionAnswerRow.None;
+            ChosenSuggestion = -1;
         }
 
         /// <summary>
@@ -261,5 +347,21 @@ namespace Halcyonic.Client
 
         /// <summary>A reply's size as the Mac counts it: its JSON.</summary>
         private static int Measure(CompanionReply reply) => HalcyonicJson.Serialize(reply).Length;
+    }
+
+    /// <summary>The answer rows under the companion's question, of which the person chooses one (ADR 0026).</summary>
+    public enum CompanionAnswerRow
+    {
+        /// <summary>Nothing chosen: the main action asks the companion for the recap now.</summary>
+        None,
+
+        /// <summary>One of the companion's suggestions (<see cref="CompanionExchange.ChosenSuggestion"/>).</summary>
+        Suggestion,
+
+        /// <summary>The person's own answer, typed or heard (<see cref="CompanionExchange.Written"/>).</summary>
+        Written,
+
+        /// <summary>Go on without it: the main action makes the recap from the person's own words, without the companion.</summary>
+        WithoutIt,
     }
 }
