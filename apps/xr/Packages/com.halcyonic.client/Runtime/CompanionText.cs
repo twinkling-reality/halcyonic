@@ -15,6 +15,9 @@ namespace Halcyonic.Client
         /// <summary>Help me figure it out's second line when the companion can be asked.</summary>
         public const string TalkItThrough = "Talk it through with the companion";
 
+        /// <summary>The main action while Talk it through with the companion is chosen (ADR 0026).</summary>
+        public const string TalkItThroughShort = "Talk it through";
+
         /// <summary>Over the exchange: what the companion is, and that it can be wrong.</summary>
         public const string Note = "The companion is an AI on " + HostText.Your + ". It can be wrong, and you can change everything before you start.";
 
@@ -50,6 +53,9 @@ namespace Halcyonic.Client
 
         /// <summary>The same, where a footer measures too narrow for it beside Close and Hold to talk.</summary>
         public const string RecapFromMyWords = "Recap from my words";
+
+        /// <summary>Why Make the recap can't be pressed yet: the person has said nothing for the companion to work from.</summary>
+        public const string AnswerFirst = "Answer a question first, or go on without it.";
 
         public const string GoOnWithout = "Go on without it";
         public const string UseMyWords = "Use my words";
