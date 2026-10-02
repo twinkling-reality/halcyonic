@@ -32,7 +32,15 @@ namespace Halcyonic.XR.Workspace.Editor
             ("r4-waiting-approve-facing", false, shot => Lay(Facing.Eyes, () => RefinedApproval(shot))),
             ("r5-menu-alone-facing", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot, withFile: false))),
             ("r6-file-slides-out-staying", false, shot => Lay(Facing.Stay, () => RefinedHero(shot))),
+            ("r7-arriving-tasks-file-split", false, shot => Lay(Facing.Eyes, () => RefinedHero(shot, split: true))),
+            ("r8-waiting-approve-split", false, shot => Lay(Facing.Eyes, () => RefinedApproval(shot, split: true))),
         };
+
+        /// <summary>
+        /// The split header's state pill: the character's own badge on the file's title plate, as on its
+        /// label on the stage, its word at the content's 18 dp rather than the stage's 16.
+        /// </summary>
+        private const float PillScale = 1.125f;
 
         /// <summary>
         /// How the plane stands: upright; tipped back as a whole to face the eyes at its centre; or, when
@@ -208,7 +216,13 @@ namespace Halcyonic.XR.Workspace.Editor
         /// is not repeated here: it shows on its character, joined by the light line, and as the dot on
         /// the lit section.
         /// </summary>
-        private static Board SubjectShape(Shot shot, string name, string subject, Color colour, float width, float? height = null)
+        /// <param name="reserve">
+        /// Room above the plate for a state pill on its top edge, and as much inside it under the pill:
+        /// every column's subject keeps it, pill or not, so the plates and their titles stay level.
+        /// </param>
+        /// <param name="who">With the split header, the task whose state pill stands on the plate's top edge, at its left.</param>
+        private static Board SubjectShape(Shot shot, string name, string subject, Color colour, float width, float? height = null, float reserve = 0f,
+            CharacterPresentation? who = null)
         {
             var board = shot.Board(name, PlaneMeters);
             board.Width = width;
@@ -222,9 +236,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 ShaderUtilities.UpdateShaderRatios(lightMaterial);
             }
             title.fontSharedMaterial = lightMaterial;
-            board.Height = height ?? Mathf.Max(U(RowA), titleHeight + 2f * U(0.75f));
-            title.transform.localPosition = new Vector3(left, -(board.Height - titleHeight) / 2f, -U(0.05f));
-            Shape(board, 0f, -board.Height / 2f, width, board.Height, sheen: true);
+            board.Height = height ?? reserve + Mathf.Max(U(RowA), reserve + titleHeight + 2f * U(0.75f));
+            var plate = board.Height - reserve;
+            title.transform.localPosition = new Vector3(left, -reserve - reserve - (plate - reserve - titleHeight) / 2f, -U(0.05f));
+            Shape(board, 0f, -reserve - plate / 2f, width, plate, sheen: true);
+            if (who != null)
+            {
+                var pill = StateBadgeView.Create(board.Content, "State pill", 58);
+                pill.transform.localScale = Vector3.one * PillScale;
+                pill.Show(StateLanguage.BadgeOf(who));
+                pill.transform.localPosition = new Vector3(left + pill.Width * PillScale / 2f, -reserve, -U(0.06f));
+            }
             return board;
         }
 
@@ -406,14 +428,16 @@ namespace Halcyonic.XR.Workspace.Editor
         /// The hero: the menu open on Tasks, its waiting task chosen, and that task's file slid out beside
         /// it; without the file, the menu as it stands before the row is pressed.
         /// </summary>
-        private static void RefinedHero(Shot shot, bool withFile = true)
+        private static void RefinedHero(Shot shot, bool withFile = true, bool split = false)
         {
             var slot = shot.SlotOf(OpenedTitle);
             var menuWidth = 2f * U(16f);
             var fileWidth = 2f * U(18f);
+            var reserve = split ? StateBadgeView.Height * PillScale / 2f : 0f;
+            var who = split ? shot.Characters[slot].View.Presentation : null;
 
-            var fileHead = withFile ? SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, fileWidth) : null;
-            var menuHead = SubjectShape(shot, "Menu subject", "1 task is waiting for you", AmberText, menuWidth, fileHead?.Height);
+            var fileHead = withFile ? SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, fileWidth, null, reserve, who) : null;
+            var menuHead = SubjectShape(shot, "Menu subject", "1 task is waiting for you", AmberText, menuWidth, fileHead?.Height, reserve);
             var menuTabs = SectionShapes(shot, "Places", Places, menuWidth, chosen: 0, waiting: 0);
             var fileTabs = withFile ? SectionShapes(shot, "File sections", FileSections, fileWidth, chosen: 0, waiting: 0) : null;
 
@@ -477,15 +501,16 @@ namespace Halcyonic.XR.Workspace.Editor
 
             stacks.Add(new[] { fileHead, fileTabs, file });
             LayOnPlane(shot, 0f, stacks);
-            Projection(shot, slot, fileHead, fileHead);
+            Projection(shot, slot, fileHead, fileHead, reserve);
         }
 
         /// <summary>The approval: the task's file alone, upright under its task, Approve pointed at.</summary>
-        private static void RefinedApproval(Shot shot)
+        private static void RefinedApproval(Shot shot, bool split = false)
         {
             var slot = shot.SlotOf(OpenedTitle);
             var width = 2f * U(19f);
-            var head = SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, width);
+            var head = SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, width, null, split ? StateBadgeView.Height * PillScale / 2f : 0f,
+                split ? shot.Characters[slot].View.Presentation : null);
             var tabs = SectionShapes(shot, "File sections", FileSections, width, chosen: 0, waiting: 0);
             var file = shot.Board("Waiting", PlaneMeters);
             var left = -width / 2f + U(PanelPadding);
@@ -503,7 +528,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ContentShape(file, width, height, new Prompt("Close", GlazeIcon.Close), null, new Prompt("Deny", GlazeIcon.Deny),
                 new Prompt("Approve", GlazeIcon.Approve, main: true, pointedAt: true));
             LayOnPlane(shot, CardYaw(shot, slot, 20f, 0f), new List<IReadOnlyList<Board>> { new[] { head, tabs, file } });
-            Projection(shot, slot, head, head);
+            Projection(shot, slot, head, head, split ? StateBadgeView.Height * PillScale / 2f : 0f);
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -727,9 +752,11 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var column in columns)
             {
                 // Rows of text from the top: a row is the labels whose heights overlap; its size, its largest.
+                // The split header's state pill reads with the subject it stands on: the one exception, for
+                // the owner to agree, to type only stepping down.
                 var labels = column.SelectMany(part => part.Root.GetComponentsInChildren<TMP_Text>(false))
                     .Where(label => !string.IsNullOrEmpty(label.text) && !GlazeIcons.IsIcon(label) && (protoIcons == null || label.font != protoIcons)
-                        && label.textInfo.characterCount > 0)
+                        && label.textInfo.characterCount > 0 && label.GetComponentInParent<StateBadgeView>() == null)
                     .Select(label =>
                     {
                         var bounds = label.textBounds;
