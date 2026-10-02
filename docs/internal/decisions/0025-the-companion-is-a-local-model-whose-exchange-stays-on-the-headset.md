@@ -59,7 +59,9 @@ itself.
   Mac's settings file, which may hold it since [ADR 0024](0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)'s
   amendment of 2026-10-02; `pnpm mac-setup companion <name>` writes it). Ollama's address defaults to
   `http://127.0.0.1:11434` and must be loopback; any other address is refused at startup. The
-  recommended model is the one the agents already use on the Mac, so one loaded model serves both.
+  companion runs on a model of its own, `qwen3.5:9b`, chosen by trial, with Ollama keeping two
+  models loaded (`OLLAMA_MAX_LOADED_MODELS=2`) so it never waits for the agents' model or unloads
+  it: on the agents' own model a turn waited for each step of a task's work (amendment 1 below).
 - Before every turn the control plane reads `GET /api/tags` and refuses a model that is not listed,
   that carries `remote_host` or `remote_model`, or whose name has a `cloud` tag. It never pulls,
   creates or deletes a model, and never sets `keep_alive`, so it neither downloads nor holds memory
