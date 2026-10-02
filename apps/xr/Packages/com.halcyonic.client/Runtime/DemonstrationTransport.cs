@@ -85,6 +85,7 @@ namespace Halcyonic.Client
             DemonstrationAnswerKind.Approve => "Not sent to any agent; the recording continues as recorded for approving.",
             DemonstrationAnswerKind.Deny => "Not sent to any agent; the recording continues as recorded for denying.",
             DemonstrationAnswerKind.Interrupt => "Not sent to any agent; the recording continues as recorded for stopping the turn.",
+            DemonstrationAnswerKind.Answer => "Nothing is sent to an agent. The recording goes on as if you answered \u201C" + answer.Label + "\u201D.",
             _ => "Not sent to any agent; the recording continues as recorded for “" + answer.Label + "”.",
         };
 
@@ -312,6 +313,16 @@ namespace Halcyonic.Client
                         return branch;
                     }
                     return null;
+                case ExecutionAnswerQuestionCommand answered:
+                    foreach (var branch in offered)
+                    {
+                        var answer = branch.Answer;
+                        if (answer.Kind != DemonstrationAnswerKind.Answer || answer.ExecutionId != answered.Payload.ExecutionId
+                            || answer.QuestionId != answered.Payload.QuestionId || !SameChoice(answer.Answers, answered.Payload.Answers)) continue;
+                        words = Answered(answer);
+                        return branch;
+                    }
+                    return null;
                 case ExecutionSendInstructionCommand instruct:
                     DemonstrationBranch? first = null;
                     foreach (var branch in offered)
@@ -329,6 +340,23 @@ namespace Halcyonic.Client
                 default:
                     return null;
             }
+        }
+
+        /// <summary>
+        /// The same options chosen for every prompt the recording answered, and nothing typed: a
+        /// recorded question offers only its options (its plan allows nothing else).
+        /// </summary>
+        private static bool SameChoice(IReadOnlyList<QuestionAnswer> recorded, IReadOnlyList<QuestionAnswer> sent)
+        {
+            if (sent.Count != recorded.Count) return false;
+            foreach (var expected in recorded)
+            {
+                QuestionAnswer? given = null;
+                foreach (var each in sent) if (each.Key == expected.Key) given = each;
+                if (given == null || !string.IsNullOrEmpty(given.Text) || given.Selected.Count != expected.Selected.Count) return false;
+                foreach (var option in expected.Selected) if (!given.Selected.Contains(option)) return false;
+            }
+            return true;
         }
 
         /// <summary>The same instruction, whatever its spacing and letter case.</summary>
@@ -401,6 +429,9 @@ namespace Halcyonic.Client
                     break;
                 case ExecutionInterruptCommand interrupt:
                     view.ExecutionId = interrupt.Payload.ExecutionId;
+                    break;
+                case ExecutionAnswerQuestionCommand answer:
+                    view.ExecutionId = answer.Payload.ExecutionId;
                     break;
             }
             return new CommandAckMessage

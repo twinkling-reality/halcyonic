@@ -7,6 +7,8 @@ import type {
   EventEnvelope,
   ExecutionId,
   ProjectId,
+  QuestionAnswer,
+  QuestionView,
   RuntimeDescriptor,
   RuntimeId,
   RuntimeOptions,
@@ -48,7 +50,9 @@ type EventMessage = Extract<ServerMessage, { type: 'event' }>;
 /**
  * An answer a person can give in the workspace. The recording holds a continuation for each one it
  * offers; `approval_id`, `text` and `label` are null where the kind has none. An instruction's
- * `label` is what a button offering it says, and its `text` exactly what was sent.
+ * `label` is what a button offering it says, and its `text` exactly what was sent. An answer to an
+ * agent's question (ADR 0022) is one of the question's options: `label` is the option, and
+ * `question_id` and `answers` exactly what was sent.
  */
 export type DemonstrationAnswer =
   | {
@@ -70,6 +74,15 @@ export type DemonstrationAnswer =
       readonly execution_id: ExecutionId;
       readonly approval_id: null;
       readonly text: string;
+      readonly label: string;
+    }
+  | {
+      readonly kind: 'answer';
+      readonly execution_id: ExecutionId;
+      readonly approval_id: null;
+      readonly question_id: string;
+      readonly answers: readonly QuestionAnswer[];
+      readonly text: null;
       readonly label: string;
     };
 
@@ -163,11 +176,11 @@ const SEED = 12;
  * mock runtime, synthetic like every mock, so every surface still labels its work as simulated.
  */
 export const DIRECTED_RUNTIME_ID = 'demonstration' as RuntimeId;
-export const DIRECTED_RUNTIME_NAME = 'Simulated agent (demonstration)';
+export const DIRECTED_RUNTIME_NAME = 'Practice agent';
 
 /** The runtime of the work shown beside it, which declares nothing to direct. */
 export const WATCHED_RUNTIME_ID = 'demonstration-watch-only' as RuntimeId;
-export const WATCHED_RUNTIME_NAME = 'Simulated agent (demonstration, watch only)';
+export const WATCHED_RUNTIME_NAME = 'Practice agent, watch only';
 
 /** How the recording's scripted operator introduces itself in every command it sends. */
 export const DEMONSTRATION_CLIENT: ClientInfo = {
@@ -511,11 +524,19 @@ interface Decision {
   readonly answer: DemonstrationAnswer;
 }
 
-/** An action a workspace would offer, as the control plane admits it; instructions carry no text yet. */
+/**
+ * An action a workspace would offer, as the control plane admits it; instructions carry no text
+ * yet. An answer to a question carries the option it gives.
+ */
 interface Admissible {
   readonly kind: DemonstrationAnswer['kind'];
   readonly execution_id: ExecutionId;
   readonly approval_id: string | null;
+  readonly option?: {
+    readonly question_id: string;
+    readonly label: string;
+    readonly answers: readonly QuestionAnswer[];
+  };
 }
 
 /** One run of the control plane along a path of answers. */
@@ -679,7 +700,10 @@ async function runPath(
       admissible,
     };
 
-    if ((directedExecution?.pending_approvals.length ?? 0) > 0) {
+    if (
+      (directedExecution?.pending_approvals.length ?? 0) > 0 ||
+      (directedExecution?.pending_questions.length ?? 0) > 0
+    ) {
       // A person is needed: the recording holds until one answers.
       return {
         ...recorded,
@@ -738,7 +762,8 @@ async function runPath(
 
 /**
  * What a workspace would offer now, asked of the control plane's own admission for every execution:
- * answering each pending approval, stopping the turn, and instructing.
+ * answering each pending approval, each option of each pending question, stopping the turn, and
+ * instructing.
  */
 function admissibleNow(controlPlane: ControlPlane): Admissible[] {
   const probe = (command: CommandEnvelope) =>
@@ -762,6 +787,20 @@ function admissibleNow(controlPlane: ControlPlane): Admissible[] {
         if (probe(answer)) {
           found.push({ kind: decision, execution_id, approval_id: approval.approval_id });
         }
+      }
+    }
+    for (const question of execution.pending_questions) {
+      for (const option of questionOptions(question)) {
+        const answer = {
+          ...base,
+          command_type: 'execution.answer_question' as const,
+          payload: {
+            execution_id,
+            question_id: question.question_id,
+            answers: [...option.answers],
+          },
+        } as CommandEnvelope;
+        if (probe(answer)) found.push({ kind: 'answer', execution_id, approval_id: null, option });
       }
     }
     const interrupt = {
@@ -791,6 +830,23 @@ function answersWithin(path: PathRun, played: number): DemonstrationAnswer[] {
   return admissible.map(toAnswer);
 }
 
+/**
+ * The answers a recording offers to a question: each option of its one prompt, chosen alone. The
+ * plan's questions have one prompt with one choice and nothing to type (`checkPlan`), so a person
+ * can only press one of them.
+ */
+function questionOptions(
+  question: QuestionView,
+): { question_id: string; label: string; answers: QuestionAnswer[] }[] {
+  const prompt = question.prompts[0];
+  if (!question.answerable || question.prompts.length !== 1 || prompt === undefined) return [];
+  return prompt.options.map(({ label }) => ({
+    question_id: question.question_id,
+    label,
+    answers: [{ key: prompt.key, selected: [label], text: null }],
+  }));
+}
+
 function toAnswer(entry: Admissible): DemonstrationAnswer {
   switch (entry.kind) {
     case 'approve':
@@ -813,6 +869,17 @@ function toAnswer(entry: Admissible): DemonstrationAnswer {
       };
     case 'instruct':
       throw new Error('an instruction needs its recorded text');
+    case 'answer':
+      if (entry.option === undefined) throw new Error('an answer without its option');
+      return {
+        kind: 'answer',
+        execution_id: entry.execution_id,
+        approval_id: null,
+        question_id: entry.option.question_id,
+        answers: entry.option.answers,
+        text: null,
+        label: entry.option.label,
+      };
     default: {
       const unhandled: never = entry.kind;
       throw new Error(`unhandled answer ${String(unhandled)}`);
@@ -849,6 +916,8 @@ function answerCommand(
       return commands.interrupt(answer.execution_id);
     case 'instruct':
       return commands.instruct(answer.execution_id, answer.text);
+    case 'answer':
+      return commands.answerQuestion(answer.execution_id, answer.question_id, answer.answers);
     default: {
       const unhandled: never = answer;
       throw new Error(`unhandled answer ${JSON.stringify(unhandled)}`);
@@ -873,7 +942,9 @@ function assertSharedBeginning(path: PathRun, branch: PathRun, played: number): 
 
 /**
  * One workstream is directed and every scenario exists; every recorded instruction must be one the
- * directed scenario scripts, or the mock would play its default turn instead.
+ * directed scenario scripts, or the mock would play its default turn instead; and every question it
+ * asks has one prompt, one choice among its options and nothing to type or keep secret, so the
+ * recording holds a continuation for everything a person can answer.
  */
 function checkPlan(scenarios: ReadonlyMap<string, Scenario>, plan: DemonstrationPlan): void {
   const directed = plan.workstreams.filter(({ role }) => role === 'directed');
@@ -882,6 +953,28 @@ function checkPlan(scenarios: ReadonlyMap<string, Scenario>, plan: Demonstration
     if (!scenarios.has(scenario)) throw new Error(`no scenario ${scenario}`);
   }
   const scenario = scenarios.get(directed[0]?.scenario ?? '');
+  const steps = [
+    ...(scenario?.steps ?? []),
+    ...(scenario?.instructions ?? []).flatMap((instruction) => instruction.steps),
+  ];
+  for (const step of steps) {
+    if (!('await_answer' in step)) continue;
+    const prompts = step.await_answer.prompts;
+    const prompt = prompts[0];
+    if (
+      prompts.length !== 1 ||
+      prompt === undefined ||
+      prompt.multiple ||
+      prompt.free_text ||
+      prompt.secret ||
+      prompt.options.length < 2 ||
+      !step.await_answer.answerable
+    ) {
+      throw new Error(
+        `${scenario?.id} asks a question the recording cannot answer for every choice: one prompt, one of at least two options, nothing typed`,
+      );
+    }
+  }
   const scripted = new Set((scenario?.instructions ?? []).map(({ text }) => text));
   for (const { text } of [...plan.instructions.approve, ...plan.instructions.deny]) {
     if (!scripted.has(text)) {

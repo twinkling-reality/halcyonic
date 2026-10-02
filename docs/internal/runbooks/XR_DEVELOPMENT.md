@@ -844,50 +844,43 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 adb shell mv /sdcard/Android/data/com.halcyonic.xr/files/access-token.off /sdcard/Android/data/com.halcyonic.xr/files/access-token
 ```
 
-Then, with hands only:
+Then, with hands only (intended behaviour, from the recording and the renders; not yet walked on a
+headset):
 
-- **The line.** Above the stage: "Demonstration: recorded, simulated work played on this device, not
-  live." and "It follows your answers, and nothing reaches an agent."
+- **The line.** Above the stage: "Demo: recorded work played on this headset. Nothing here is
+  live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
+  mark.
 - **Beside the story.** Of three characters, "Paginate the order history endpoint" and "Send an
-  order confirmation email" work for about five seconds and finish. Opened, each shows "On Simulated
-  agent (demonstration, watch only)" and no buttons.
-- **The story.** "Add rate limiting to the sign-in endpoint" then works, and about nine seconds in
-  it needs you, with "Approval needed to use shell: Run make migrate …". It waits as long as you
-  like. Opened: "On Simulated agent (demonstration), simulated work", and Approve, Deny and Stop the
-  turn.
-- **Approve.** After the confirmation, Requests reads "Not sent to any agent; the recording
-  continues as recorded for approving.", and the recording continues: "demonstration recorder asked
-  to approve", "Approved", the migration, then "Tests failed: 1 failed, 23 passed" and "Turn
-  finished".
-- **Instruct.** Instruct offers two buttons instead of the keyboard, "Count per account too" and
-  "Change the test instead". Either one: "Not sent to any agent; the recording continues as recorded
-  for “…”.", a new turn, and "24 passed".
-- **Deny** instead: the agent says it did not run the migration; Instruct then offers "Keep them in
-  memory", which also ends with the tests passing. **Stop the turn**, at any moment while it works
-  or waits: "Stopped".
-- **Understanding.** At the approval, pinch Understanding: the first line reads "Simulated, not from
-  Salidium · recorded at" and a time, then "Waiting for you. Run make migrate …" tagged observed,
-  "Agent says: “…”" tagged reported, the two files changed, and "2 files not checked after the last
-  change" tagged inferred. Approve: the details return to Activity. Once the turn has ended, pinch
-  Understanding again: "1 test failing", "Tests failed: 1 failed, 23 passed …", and an explanation
-  tagged explained. Left open while the work goes on, it follows by itself within about two seconds
-  of each change. The change summary shows a minus sign, "(+71 −0)", not an empty box: that glyph
-  comes from the dynamic fallback font.
-- **Evaluation.** Pinch Evaluation: "Simulated, not from Seorak · recorded at …", the cost as "About
-  $0.20. Estimated from token counts at list prices. Not a bill.", and under each of the cost, the
-  outcome and the checks its own availability, coverage and freshness; before the first turn ends,
-  the outcome reads "Nothing measured yet." and "unavailable: not yet computed …". It changes only
-  when you pinch Refresh. Opened for the two finished characters beside the story, both sections show
-  their own simulated answers.
-- **The end.** Once the story has ended, the line adds "This recording has ended and starts again
-  shortly.", and the workspace says nothing can be sent. About 20 seconds later the characters go
-  back to "Not started" and it plays again, with no "Disconnected" and no "last known" on the
-  way; an open workspace shows none of the earlier activity or answers. Unanswered instructions
-  also give way to a new start after a minute.
+  order confirmation email" work for about five seconds and finish. Opened, each says it runs on
+  "Practice agent, watch only" and offers nothing to press.
+- **The question.** "Add rate limiting to the sign-in endpoint" starts at about 6 seconds and, at
+  about 7, is Waiting for you with the agent's question: "How long should an address stay locked
+  after five failed sign-ins?", options 15 minutes and 1 hour. "Look, then pinch" stands over it
+  until a workspace has been opened once. It waits as long as you like. Choose an option and press
+  Send answer: "Nothing is sent to an agent. The recording goes on as if you answered “15
+  minutes”." The agent repeats the answer as its own words and goes on.
+- **The request.** About 3 seconds later it is Waiting for you again: "It wants to run: Run make
+  migrate …". Approve, read the whole request, then Yes, approve: "Not sent to any agent; the
+  recording continues as recorded for approving.", the migration, "Checks failed" (1 failed, 23
+  passed), and the round ends.
+- **Tell it.** The workspace offers the recorded instructions as buttons, "Count per account too"
+  and "Change the test instead"; either one plays a second round whose checks pass. **Deny**
+  instead: the agent says it did not run the migration, and "Keep them in memory" is offered.
+  **Stop the turn**, at any moment while it works or waits: Stopped.
+- **Understand and Checked.** At the request and after each round, Understand and Checked show the
+  recorded simulated answers with their provenance and the time they were recorded. At the
+  question, Understand still reads Working: the simulated explanation does not yet treat a
+  question as waiting (lane W).
+- **Not in the demo.** Create a project says the demo can't start new work; Usage left says it
+  isn't part of the demo; Connect projects says these are demo projects.
+- **The end.** Once the story has ended the line adds "This recording has ended and starts again
+  shortly.", and about 20 seconds later the characters go back to Not started and it plays again,
+  never Disconnected or Last known on the way. Unanswered instructions give way after a minute.
 - **Sleep.** Take the headset off until it sleeps and put it back on: the demonstration plays from
   its beginning.
 - **Log.** `adb logcat -s Unity` shows `Halcyonic: demonstration plays from its beginning (n)` at
-  each start and `demonstration reached an end` at each end, and never what was answered.
+  each start, `demonstration reached an end` at each end, and the `Halcyonic: device` lines
+  ("Device measures on a Quest"), never what was answered.
 
 ### Room placement checks on a Quest
 

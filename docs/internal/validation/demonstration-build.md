@@ -43,16 +43,17 @@ builds only), so it always plays the demonstration. From the recording:
 
 | At | What happens |
 | --- | --- |
-| 0 s | Three characters, Not started; the line above the stage: "Demonstration: recorded, simulated work played on this device, not live." and "It follows your answers, and nothing reaches an agent." |
+| 0 s | Three characters, Not started; the line above the stage: "Demo: recorded work played on this headset. Nothing here is live." and "It follows your answers. Nothing reaches an agent." |
 | 0.3 and 0.6 s | The two watch-only tasks start working |
 | 4.8 s | Their checks finish; at 5.3 s both read Finished this round |
 | 5.7 s | The directed task, "Add rate limiting to the sign-in endpoint", starts |
-| 8.9 s | It is Waiting for you, for a request to run `make migrate`; the hint "Look, then pinch" stands over it until a workspace has been opened once; the recording holds until the judge answers |
-| answer + 3.4 s | After Approve: the migration, "Checks failed" (1 failed, 23 passed), the round ends; two recorded instructions are offered for 60 s |
+| 6.6 s | It is Waiting for you with the agent's question, how long a locked address waits (15 minutes or 1 hour); the hint "Look, then pinch" stands over it until a workspace has been opened once; the recording holds until the judge answers |
+| answer + 2.7 s | Waiting for you again, for a request to run `make migrate`; it holds again |
+| approval + 3.4 s | After Approve: the migration, "Checks failed" (1 failed, 23 passed), the round ends; two recorded instructions are offered for 60 s |
 | next round | Either instruction plays a second round whose checks pass; then the end holds 20 s and the demonstration starts again |
 
-The first decision comes about 9 seconds after the stage appears, and the whole story, played
-without pauses, takes under a minute; it waits for the judge at the request. Within 10 minutes a
+The first decision comes about 7 seconds after the stage appears, and the whole story, played
+without pauses, takes under a minute; it waits for the judge at the question and at the request. Within 10 minutes a
 seated judge with hands only has a decision, a confirmed-in-words answer, failing checks, a
 correction and passing checks. That is the satisfying moment, on paper; whether a first-time
 wearer finds it without coaching is the headset session's question.
@@ -62,12 +63,13 @@ wearer finds it without coaching is the headset session's question.
 | Area | Today in the judge build | Evidence | Who closes it |
 | --- | --- | --- | --- |
 | Welcome and onboarding | Never shown: the welcome opens only on a live first visit (`EntryPanel`, `Live` is false while the demonstration plays). A judge gets the line above the stage and the pinch hint only | `EntryPanel.cs`, lines 229 and 301 | Final recording: a demonstration welcome (script below) |
-| Agent questions (ADR 0022) | Not in the story: the recording's answers are approve, deny, stop and instruct; the recorder offers no `answer_question` and treats a pending question as an end | `demonstration.ts` (`admissibleNow`, `runPath`), `DemonstrationAnswerKind` | This lane: recorder and player support |
+| Agent questions (ADR 0022) | Closed on this branch: the story's first decision is a question with two options, each with its own recorded continuation; Understand still reads Working at the question, since the simulated explanation treats only approvals as waiting | `sign_in_rate_limit.json`, `DemonstrationAnswerKind.Answer` | Lane W for the explanation at a question |
 | Create a project | "The demo can't start new work. Connect your Mac to start real work." | `EntryText.DemoCannotStart` | Lane C's companion, then a recorded Create path |
 | Understand and Checked | Shown with the recorded simulated answers, but Checked reads as data ("available · 1 of 1 session, complete · fresh, data to 05:00:08", "unavailable: not yet computed …") | `WorkspaceRenders/desk-evaluation-panel.png` | Lane W |
 | Usage left | The chip opens an empty panel: "Usage left isn't part of the demo." | `UsageLeftRenders/far-demo-panel.png` | Hide the chip in the demonstration, or record a simulated reading (`UsageLeftPresentation.Simulated` exists) |
-| The line above the stage | Predates WORDS.md ("Demonstration:", "simulated"); WORDS.md says "demo" and "practice" | `DemonstrationFallback.Describe` | Owner's words, below |
-| Agent app names | "Simulated agent (demonstration)" and "… watch only" are shown as the agent app | `demonstration.ts` | Owner's words, below |
+| The line above the stage | Closed: the owner's words of 2026-10-02 | `DemonstrationFallback.Describe` | None |
+| Agent app names | Closed: "Practice agent" and "Practice agent, watch only" | `demonstration.ts` | None |
+| Sound on answering | Answering a question has no cue of its own (no `WorkspaceAct` for it), live or in the demo | `SoundCues.cs` | Lane U or sound |
 | The pinch hint | Still on the old workspace visuals, not the ADR 0023 components | `OnboardingHint.cs` | Lane U |
 | Three arrangements | In Settings as live; nothing in the story shows why to use them | Settings words in `JudgeWordsTests` | The video, not the build |
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
@@ -78,20 +80,19 @@ wearer finds it without coaching is the headset session's question.
 
 `JudgeWordsTests` found, along every path, no agent app, model, company or platform name but these:
 
-| Name | Where | Proposed instead (the owner's to approve) |
+| Name | Where | Approved by the owner on 2026-10-02 |
 | --- | --- | --- |
 | Salidium | "Simulated, not from Salidium · recorded at 09:00:00" in Understand | "Simulated explanation · recorded at 09:00:00" |
 | Seorak | "Simulated, not from Seorak · recorded at 09:00:00" in Checked | "Simulated measurement · recorded at 09:00:00" |
-| Mac | "The demo can't start new work. Connect your Mac to start real work." (Create) | "The demo can't start new work. Real work runs on your computer." |
+| Mac | "The demo can't start new work. Connect your Mac to start real work." (Create) | "The demo can't start new work. Real work runs on your computer." ("your computer" everywhere, lane G) |
 
 Salidium and Seorak are the owner's own products, but the clause names brand names without an
 exception, they predate the entry period, and the judge build does not use them, so naming them
-there invites both questions. "Mac" names another company's product. Live builds keep their words.
-Also proposed, for the same reason and for WORDS.md: the agent app "Simulated agent
-(demonstration)" becomes "Practice agent", and "… watch only" becomes "Practice agent, watch only";
-the line above the stage becomes "Demo: recorded work played on this headset. Nothing here is
-live." and "It follows your answers. Nothing reaches an agent." `JudgeWordsTests` holds the three
-names in a list that may only shrink.
+there invites both questions. "Mac" names another company's product. Live provenance keeps the
+products' names. Also approved: the agent apps "Practice agent" and "Practice agent, watch only",
+and the line above the stage (above), both applied on this branch; lane W applies the provenance
+words, lane G "your computer". `JudgeWordsTests` holds the three names in a list that may only
+shrink as those land.
 
 No word names the sponsor or its products. The app's label is Halcyonic; the APK declares Meta's
 platform features, which judges do not read.

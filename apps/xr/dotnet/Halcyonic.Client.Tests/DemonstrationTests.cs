@@ -34,11 +34,47 @@ internal static class Demonstration
         return document.ToString(Formatting.None);
     }
 
-    /// <summary>The answer the beginning offers once it holds at the approval.</summary>
-    public static DemonstrationBranch AtApproval(DemonstrationAnswerKind kind)
+    /// <summary>The option of the directed work's question the tests choose; the other is "1 hour".</summary>
+    public const string FirstOption = "15 minutes";
+
+    /// <summary>An answer the beginning offers once it holds at the directed work's question (ADR 0022).</summary>
+    public static DemonstrationBranch AtQuestion(DemonstrationAnswerKind kind = DemonstrationAnswerKind.Answer, string label = FirstOption)
     {
         var beginning = Recording().Nodes[0];
-        return beginning.BranchesAfter(beginning.Events.Count).Single(branch => branch.Answer.Kind == kind);
+        return beginning.BranchesAfter(beginning.Events.Count)
+            .Single(branch => branch.Answer.Kind == kind && (kind != DemonstrationAnswerKind.Answer || branch.Answer.Label == label));
+    }
+
+    /// <summary>The node after the first option, which runs on to the approval and holds there.</summary>
+    public static DemonstrationNode Answered() => Recording().Nodes[AtQuestion().Node];
+
+    /// <summary>The answer offered once the recording, after the first option, holds at the approval.</summary>
+    public static DemonstrationBranch AtApproval(DemonstrationAnswerKind kind)
+    {
+        var answered = Answered();
+        return answered.BranchesAfter(answered.Events.Count).Single(branch => branch.Answer.Kind == kind);
+    }
+
+    /// <summary>The command a workspace sends for an option of the question, as the recording's own answer was.</summary>
+    public static ExecutionAnswerQuestionCommand AnswerCommand(CommandFactory factory, string label = FirstOption)
+    {
+        var answer = AtQuestion(DemonstrationAnswerKind.Answer, label).Answer;
+        return factory.AnswerQuestion(answer.ExecutionId, answer.QuestionId!, answer.Answers.Select(each =>
+            new QuestionAnswer { Key = each.Key, Selected = each.Selected.ToList(), Text = null }));
+    }
+
+    public static bool AsksItsQuestion(RealtimeSession session) => DirectedExecution(session)?.PendingQuestions.Count > 0;
+
+    public static bool AsksForApproval(RealtimeSession session) => DirectedExecution(session)?.PendingApprovals.Count > 0;
+
+    /// <summary>Plays to the question, answers it with the first option, and plays to the approval; returns what changed on the way.</summary>
+    public static async Task<StateChanges> ToTheApprovalAsync(RealtimeSession session)
+    {
+        var seen = await Pumping.Until(session, AsksItsQuestion, "the directed work asks its question");
+        await session.SubmitAsync(AnswerCommand(new CommandFactory(Samples.Client)));
+        var after = await Pumping.Until(session, AsksForApproval, "the directed work asks for approval");
+        foreach (var stored in after.Events) seen.Events.Add(stored);
+        return seen;
     }
 
     /// <summary>The recorded instructions offered once the approved turn has ended.</summary>
@@ -94,8 +130,8 @@ public class DemonstrationRecordingTests
         }), "before anything starts, the workstreams exist, so playing it again keeps its characters");
         Assert.That(beginning.Runtimes.Select(runtime => (runtime.DisplayName, runtime.Synthetic)), Is.EqualTo(new[]
         {
-            ("Simulated agent (demonstration)", true),
-            ("Simulated agent (demonstration, watch only)", true),
+            ("Practice agent", true),
+            ("Practice agent, watch only", true),
         }));
     }
 
@@ -222,6 +258,7 @@ public class DemonstrationRecordingTests
         DemonstrationAnswerKind.Approve => WorkspaceAction.Approve,
         DemonstrationAnswerKind.Deny => WorkspaceAction.Deny,
         DemonstrationAnswerKind.Interrupt => WorkspaceAction.Interrupt,
+        DemonstrationAnswerKind.Answer => WorkspaceAction.Answer,
         _ => WorkspaceAction.Instruct,
     };
 
@@ -283,6 +320,9 @@ public class DemonstrationTransportTests
         await transport.ConnectAsync(DemonstrationTransport.Endpoint, string.Empty, CancellationToken.None);
         await SendAsync(transport, new HelloMessage { Client = Samples.Client, Resume = null });
         await ReceiveAsync(transport, 2 + Demonstration.Recording().Nodes[0].Events.Count);
+        var answer = Demonstration.AnswerCommand(new CommandFactory(Samples.Client));
+        await SendAsync(transport, answer);
+        await ReceiveAsync(transport, 1 + Demonstration.Answered().Events.Count);
         return transport;
     }
 
@@ -295,12 +335,12 @@ public class DemonstrationTransportTests
         Assert.That(ack.Command.Result, Is.Null);
         Assert.That(ack.Command.Rejection!.Code, Is.EqualTo(RejectionCode.Demonstration));
         Assert.That(ack.Command.Rejection.Message, Is.EqualTo(words));
-        Assert.That(words, Does.StartWith("Not sent to any agent"));
+        Assert.That(words, Does.StartWith("Not sent to any agent").Or.StartWith("Nothing is sent to an agent"));
         return ack;
     }
 
     [Test]
-    public async Task HelloIsAnsweredWithTheWelcomeAndTheBeginningThenTheEventsUntilTheApprovalHolds()
+    public async Task HelloIsAnsweredWithTheWelcomeAndTheBeginningThenTheEventsUntilTheQuestionHolds()
     {
         var recording = Demonstration.Recording();
         var transport = new DemonstrationTransport(recording, Demonstration.Fast());
@@ -314,11 +354,40 @@ public class DemonstrationTransportTests
         Assert.That(snapshot.Snapshot.Position, Is.EqualTo(welcome.Head));
         var events = (await ReceiveAsync(transport, recording.Nodes[0].Events.Count)).Cast<EventMessage>().ToList();
         Assert.That(events.Select(e => e.Position), Is.EqualTo(Enumerable.Range(1, events.Count).Select(p => welcome.Head + p)));
-        Assert.That(events.Last().Event, Is.InstanceOf<RuntimeApprovalRequestedEvent>());
-        Assert.That(await SilentAsync(transport), Is.True, "the recording holds at the approval until someone answers");
+        Assert.That(events.Last().Event, Is.InstanceOf<RuntimeQuestionAskedEvent>());
+        Assert.That(await SilentAsync(transport), Is.True, "the recording holds at the question until someone answers");
 
         await SendAsync(transport, new PingMessage { Nonce = "still-there" });
         Assert.That(((PongMessage)await ReceiveAsync(transport)).Nonce, Is.EqualTo("still-there"));
+    }
+
+    [Test]
+    public async Task AQuestionIsAnsweredInWordsAndTheRecordingContinuesWithTheOptionChosen()
+    {
+        var recording = Demonstration.Recording();
+        using var transport = new DemonstrationTransport(recording, Demonstration.Fast());
+        await SendAsync(transport, new HelloMessage { Client = Samples.Client, Resume = null });
+        await ReceiveAsync(transport, 2 + recording.Nodes[0].Events.Count);
+
+        // Typed words, or both options at once, are not what the recording holds: nothing changes.
+        var asked = Demonstration.AtQuestion(DemonstrationAnswerKind.Answer, "1 hour").Answer;
+        var typed = commands.AnswerQuestion(asked.ExecutionId, asked.QuestionId!, new[] { new QuestionAnswer { Key = "lockout", Selected = new List<string>(), Text = "Two hours" } });
+        await SendAsync(transport, typed);
+        AssertAnsweredInWords(await ReceiveAsync(transport), typed, DemonstrationTransport.NothingRecorded);
+        var both = commands.AnswerQuestion(asked.ExecutionId, asked.QuestionId!, new[] { new QuestionAnswer { Key = "lockout", Selected = new List<string> { "15 minutes", "1 hour" } } });
+        await SendAsync(transport, both);
+        AssertAnsweredInWords(await ReceiveAsync(transport), both, DemonstrationTransport.NothingRecorded);
+        Assert.That(await SilentAsync(transport), Is.True, "still holding at the question");
+
+        var command = Demonstration.AnswerCommand(commands, "1 hour");
+        await SendAsync(transport, command);
+        AssertAnsweredInWords(await ReceiveAsync(transport), command,
+            "Nothing is sent to an agent. The recording goes on as if you answered \u201C1 hour\u201D.");
+        var branch = Demonstration.AtQuestion(DemonstrationAnswerKind.Answer, "1 hour");
+        var events = (await ReceiveAsync(transport, recording.Nodes[branch.Node].Events.Count)).Cast<EventMessage>().ToList();
+        Assert.That(events.Select(e => e.Event).OfType<RuntimeQuestionResolvedEvent>().Single().Payload.QuestionId, Is.EqualTo(asked.QuestionId));
+        Assert.That(events.Select(e => e.Event).OfType<RuntimeAgentMessageEvent>().Select(e => e.Payload.Text), Has.Some.EndsWith(": 1 hour."));
+        Assert.That(events.Last().Event, Is.InstanceOf<RuntimeApprovalRequestedEvent>(), "and on to the approval");
     }
 
     [Test]
@@ -403,7 +472,7 @@ public class DemonstrationTransportTests
         Assert.That(JToken.DeepEquals(JToken.FromObject(again, JsonSerializer.Create(HalcyonicJson.Strict)),
             JToken.FromObject(recording.Snapshot, JsonSerializer.Create(HalcyonicJson.Strict))), Is.True, "it starts again from the beginning");
         var replayed = (await ReceiveAsync(transport, recording.Nodes[0].Events.Count)).Cast<EventMessage>();
-        Assert.That(replayed.Last().Event, Is.InstanceOf<RuntimeApprovalRequestedEvent>());
+        Assert.That(replayed.Last().Event, Is.InstanceOf<RuntimeQuestionAskedEvent>());
     }
 
     [Test]
@@ -461,7 +530,7 @@ public class DemonstrationSessionTests
         var activity = new ActivityLog();
         var submissions = new CommandSubmissions();
         var steering = new WorkspaceSteering(new CommandFactory(Samples.Client));
-        var seen = await Pumping.Until(session!, s => Demonstration.DirectedExecution(s)?.Status == ExecutionStatus.WaitingForHuman, "the directed work needs a person");
+        var seen = await Demonstration.ToTheApprovalAsync(session!);
         activity.Record(seen.Events);
         var phases = new List<ConnectionPhase>();
 
@@ -540,7 +609,7 @@ public class DemonstrationSessionTests
     public async Task TypedTextIsAnsweredWithARecordedInstructionAndSaysSo()
     {
         var player = Play(Demonstration.Fast());
-        await Pumping.Until(session!, s => Demonstration.DirectedExecution(s)?.Status == ExecutionStatus.WaitingForHuman, "the directed work needs a person");
+        await Demonstration.ToTheApprovalAsync(session!);
         var approve = Demonstration.AtApproval(DemonstrationAnswerKind.Approve);
         var factory = new CommandFactory(Samples.Client);
         await session!.SubmitAsync(factory.RespondToApproval(approve.Answer.ExecutionId, approve.Answer.ApprovalId!, ApprovalDecision.Approve));
@@ -561,7 +630,7 @@ public class DemonstrationSessionTests
     public async Task StartingAgainRewindsTheSameJournalWithoutADisconnect()
     {
         var player = Play(new DemonstrationOptions { Speed = 1000, Hold = TimeSpan.FromSeconds(1) });
-        await Pumping.Until(session!, s => Demonstration.DirectedExecution(s)?.Status == ExecutionStatus.WaitingForHuman, "the directed work needs a person");
+        await Demonstration.ToTheApprovalAsync(session!);
         var journal = session!.State.Journal!.JournalId;
         var interrupt = Demonstration.AtApproval(DemonstrationAnswerKind.Interrupt);
         await session.SubmitAsync(new CommandFactory(Samples.Client).Interrupt(interrupt.Answer.ExecutionId));
@@ -587,13 +656,13 @@ public class DemonstrationSessionTests
     [Test]
     public async Task EventsArriveAtTheRecordedPace()
     {
-        // At ten times the recorded pace, the approval comes 0.89 s after the beginning.
+        // At ten times the recorded pace, the question comes about 0.66 s after the beginning.
         Play(new DemonstrationOptions { Speed = 10, Hold = Timeout.InfiniteTimeSpan });
         var clock = Stopwatch.StartNew();
         await Pumping.Until(session!, s => s.Status.IsLive, "the demonstration is live");
         Assert.That(Demonstration.DirectedExecution(session!), Is.Null, "events are paced, not sent at once");
-        await Pumping.Until(session!, s => Demonstration.DirectedExecution(s)?.Status == ExecutionStatus.WaitingForHuman, "the approval", TimeSpan.FromSeconds(10));
-        Assert.That(clock.Elapsed, Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(0.8)));
+        await Pumping.Until(session!, Demonstration.AsksItsQuestion, "the question", TimeSpan.FromSeconds(10));
+        Assert.That(clock.Elapsed, Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(0.6)));
     }
 }
 
@@ -632,7 +701,8 @@ public class DemonstrationFallbackTests
     private static DemonstrationPlayer PlayDemonstration() =>
         new(Demonstration.Recording(), Samples.Client, Demonstration.Fast());
 
-    private static bool AtTheApproval(DemonstrationFallback fallback) =>
+    /// <summary>The directed work waits for the person: first at its question, later at its approval.</summary>
+    private static bool WaitingForThePerson(DemonstrationFallback fallback) =>
         fallback.Current != null && fallback.Current.State.Workstreams.Count > 0
         && Demonstration.DirectedExecution(fallback.Current)?.Status == ExecutionStatus.WaitingForHuman;
 
@@ -662,8 +732,8 @@ public class DemonstrationFallbackTests
         Assert.That(fallback.Player, Is.Not.Null);
         Assert.That(fallback.Reason, Is.EqualTo(DemonstrationReason.NotConfigured));
         Assert.That(fallback.Line, Is.EqualTo(
-            "Demonstration: recorded, simulated work played on this device, not live.\nIt follows your answers, and nothing reaches an agent."));
-        await Until(fallback, () => AtTheApproval(fallback), "the demonstration holds at the approval");
+            "Demo: recorded work played on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
+        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds for the person");
         Assert.That(fallback.Current!.Status.IsLive, Is.True);
     }
 
@@ -671,8 +741,11 @@ public class DemonstrationFallbackTests
     public async Task TheInstructionsItOffersComeFromWhereTheRecordingStands()
     {
         var fallback = Start(null, PlayDemonstration);
-        await Until(fallback, () => AtTheApproval(fallback), "the demonstration holds at the approval");
+        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds for the person");
         var approve = Demonstration.AtApproval(DemonstrationAnswerKind.Approve);
+        Assert.That(fallback.InstructionsFor(approve.Answer.ExecutionId), Is.Empty, "nothing to instruct while it asks its question");
+        await fallback.Current!.SubmitAsync(Demonstration.AnswerCommand(new CommandFactory(Samples.Client)));
+        await Until(fallback, () => Demonstration.AsksForApproval(fallback.Current!), "the demonstration holds at the approval");
         Assert.That(fallback.InstructionsFor(approve.Answer.ExecutionId), Is.Empty, "nothing to instruct while it waits for an approval");
 
         await fallback.Current!.SubmitAsync(new CommandFactory(Samples.Client).RespondToApproval(approve.Answer.ExecutionId, approve.Answer.ApprovalId!, ApprovalDecision.Approve));
@@ -685,7 +758,7 @@ public class DemonstrationFallbackTests
     public async Task WhenTheRecordingEndsTheLineSaysItStartsAgain()
     {
         var fallback = Start(null, PlayDemonstration);
-        await Until(fallback, () => AtTheApproval(fallback), "the demonstration holds at the approval");
+        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds for the person");
         var interrupt = Demonstration.AtApproval(DemonstrationAnswerKind.Interrupt);
         await fallback.Current!.SubmitAsync(new CommandFactory(Samples.Client).Interrupt(interrupt.Answer.ExecutionId));
         await Until(fallback, () => fallback.Current!.State.Runtimes.Count == 0, "the recording ends");
@@ -705,7 +778,7 @@ public class DemonstrationFallbackTests
         var pumped = await Until(fallback, () => fallback.Reason == DemonstrationReason.Unreachable, "the demonstration is shown");
         Assert.That(pumped[^1].Resynchronized && pumped[^1].ConnectionChanged, Is.True, "consumers redraw everything");
         Assert.That(fallback.Current, Is.SameAs(fallback.Demonstration));
-        Assert.That(fallback.Line, Does.Contain("not live").And.Contain(ConnectionText.Unreachable));
+        Assert.That(fallback.Line, Does.Contain("Nothing here is live").And.Contain(ConnectionText.Unreachable));
 
         await Until(fallback, () => server.Attempts >= 3 && fallback.Line!.Contains("Connection refused"), "the control plane is tried again");
         Assert.That(fallback.Current, Is.SameAs(fallback.Demonstration));
@@ -717,7 +790,7 @@ public class DemonstrationFallbackTests
         server.ConnectFailure = new IOException("Connection refused");
         var controlPlane = ControlPlane();
         var fallback = Start(controlPlane, PlayDemonstration);
-        await Until(fallback, () => AtTheApproval(fallback), "the demonstration has played to the approval");
+        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration has played to its question");
 
         server.ConnectFailure = null;
         var connection = await server.AcceptAsync();
@@ -777,7 +850,7 @@ public class DemonstrationFallbackTests
     public async Task PausingStopsTheDemonstrationAndResumingPlaysItFromTheBeginning()
     {
         var fallback = Start(null, PlayDemonstration);
-        await Until(fallback, () => AtTheApproval(fallback), "the demonstration holds at the approval");
+        await Until(fallback, () => WaitingForThePerson(fallback), "the demonstration holds for the person");
 
         await fallback.SetPausedAsync(true);
         await Until(fallback, () => fallback.Current!.Status.Phase == ConnectionPhase.Stopped, "the demonstration stops");
@@ -806,7 +879,7 @@ public class DemonstrationFallbackTests
         foreach (var line in new[] { waiting, refused, token, DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null) })
         {
             Assert.That(line, Does.StartWith(
-                "Demonstration: recorded, simulated work played on this device, not live.\nIt follows your answers, and nothing reaches an agent."));
+                "Demo: recorded work played on this headset. Nothing here is live.\nIt follows your answers. Nothing reaches an agent."));
         }
     }
 }

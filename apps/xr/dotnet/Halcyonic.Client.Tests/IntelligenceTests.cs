@@ -519,13 +519,14 @@ public class UnderstandingPresenterTests
     {
         var recording = Demonstration.Recording();
         var directed = recording.Understanding.Keys.Single(id => recording.Evaluation[id].Count > 20);
-        var approval = recording.Nodes[0].Events.Count;
-        var answer = recording.UnderstandingAt(directed, 0, approval)!;
+        var answered = Demonstration.AtQuestion().Node;
+        var approval = Demonstration.Answered().Events.Count;
+        var answer = recording.UnderstandingAt(directed, answered, approval)!;
         var read = new IntelligenceRead<UnderstandingResponse>(answer.Response, answer.ReadAt, recorded: true);
 
         var section = UnderstandingPresenter.Present(directed, read, false, null, Intelligence.At("2026-11-20T10:00:00.000Z"), Intelligence.Utc, 7);
 
-        Assert.That(section.Provenance, Is.EqualTo("Simulated, not from Salidium · recorded at 09:00:08"));
+        Assert.That(section.Provenance, Is.EqualTo("Simulated, not from Salidium · recorded at 09:00:09"));
         Assert.That(section.Simulated, Is.True);
         Assert.That(section.ProvenanceTone, Is.EqualTo(SectionTone.Attention));
         Assert.That(Intelligence.Texts(section)[0], Is.EqualTo("Waiting for you. Run make migrate to add the sign-in attempts table to the development database"));
@@ -930,7 +931,10 @@ public class DemonstrationReadsTests
             ((AvailableUnderstanding)answer!.Response.Result).Understanding.Verdict.Headline;
 
         Assert.That(recording.UnderstandingAt(directed, 0, 1), Is.Null, "before the work starts there is no answer");
-        Assert.That(Headline(recording.UnderstandingAt(directed, 0, beginning.Events.Count)), Is.EqualTo("Waiting for you"));
+        // At the agent's question the stand-in still says Working: it reads approvals as waiting, not questions.
+        Assert.That(Headline(recording.UnderstandingAt(directed, 0, beginning.Events.Count)), Is.EqualTo("Working"));
+        var answered = Demonstration.Answered();
+        Assert.That(Headline(recording.UnderstandingAt(directed, Demonstration.AtQuestion().Node, answered.Events.Count)), Is.EqualTo("Waiting for you"));
 
         var approve = Demonstration.AtApproval(DemonstrationAnswerKind.Approve);
         Assert.That(Headline(recording.UnderstandingAt(directed, approve.Node, 0)), Is.EqualTo("Waiting for you"), "a branch starts from its answer's point");
@@ -1013,7 +1017,7 @@ public class DemonstrationReadsTests
         Assert.That(early, Is.EqualTo("The demonstration is still being read.").Or.EqualTo(DemonstrationReads.NothingRecorded));
 
         session.Start();
-        await Pumping.Until(session, s => Demonstration.DirectedExecution(s)?.Status == ExecutionStatus.WaitingForHuman, "the directed work needs a person");
+        await Demonstration.ToTheApprovalAsync(session);
         var execution = Demonstration.DirectedExecution(session)!;
 
         var understanding = await reads.ReadUnderstandingAsync(execution.ExecutionId, CancellationToken.None);
