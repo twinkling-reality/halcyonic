@@ -695,6 +695,8 @@ namespace Halcyonic.XR.Workspace.Editor
             typing.Place.Turn(1);
             failures.AddRange(QuestionShot(view, scripted.Present(), typing, "question-typed"));
             if (view.Frame.ButtonFor(WorkspaceScreens.SpeakAnswer) == null) failures.Add(view.Name + " question-typed: hold to talk does not show beside Type an answer.");
+            // One Hold to talk a screen: the bar's would speak an instruction under the same words.
+            if (view.Frame.ButtonFor(WorkspaceScreens.HoldToTalk) != null) failures.Add(view.Name + " question-typed: the bar offers a second Hold to talk.");
 
             // Three questions shown, the most at once: the note says more wait.
             var three = Work.Asking(Scripted(), more: 2);
