@@ -47,7 +47,8 @@ export type WireEpistemic = Static<typeof WireEpistemic>;
 export const WireDiscovery = Type.Object({
   format: Type.Literal('salidium.consumer-discovery'),
   version: Type.Literal(1),
-  contracts: Type.Array(Type.Unknown(), { minItems: 1 }),
+  // Bounded so a document from whatever answers on the port costs little to refuse.
+  contracts: Type.Array(Type.Unknown(), { minItems: 1, maxItems: 32 }),
   salidium: Type.Object({ version: Text(64) }),
   instanceId: Type.String({ pattern: '^[0-9a-f]{32}$' }),
 });

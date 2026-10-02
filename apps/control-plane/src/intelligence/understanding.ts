@@ -22,10 +22,12 @@ export interface SalidiumUnderstandingOptions {
 }
 
 /**
- * Salidium as the understanding source. The credential file is read on every request that will
- * carry it, so creating, replacing or deleting it takes effect without a restart, a file other
- * users can read is refused rather than used, and sessions Salidium does not observe need no
- * credential to say so.
+ * Salidium as the understanding source. The credential file is read again on every read, so
+ * creating, replacing or deleting it takes effect without a restart, and a file other users can
+ * read is refused rather than used. For Claude Code and Codex it is read before Salidium is found,
+ * so a missing credential is said first; for OpenCode, only once Salidium says it observes it.
+ * Sessions Salidium does not observe need no credential to say so, and the credential is sent only
+ * to the instance that wrote the discovery file.
  */
 export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): UnderstandingSource {
   return {

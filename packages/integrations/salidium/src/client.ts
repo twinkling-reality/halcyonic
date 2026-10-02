@@ -1,5 +1,6 @@
 import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
 import {
+  ANSWER_MAX_BYTES,
   checkCredential,
   connect,
   credentialRejected,
@@ -14,7 +15,9 @@ import {
   refusal,
   type SalidiumOptions,
   TIMED_OUT,
+  TOO_LARGE,
   timedOut,
+  tooLarge,
 } from './connection.ts';
 import { toUnderstanding } from './report.ts';
 import {
@@ -116,7 +119,11 @@ export class SalidiumClient {
     // One budget for the whole read, so it answers in time whatever each request takes.
     const deadline = AbortSignal.timeout(this.#budgetMs);
     const instance = await connect(this.#home, this.#timeoutMs, signal, deadline);
-    if (isFailure(instance)) return declaredOnly ? notObserved : instance;
+    // Only a Salidium that is not running leaves what it would observe unknown, and so the answer
+    // what it always was; a timeout, another process on the port or a broken document is said.
+    if (isFailure(instance)) {
+      return declaredOnly && instance.reason.code === 'not_running' ? notObserved : instance;
+    }
     if (instance.providers === null ? declaredOnly : !instance.providers.has(provider))
       return instance.providers === null
         ? notObserved
@@ -179,12 +186,13 @@ const NO_REPORT = 'Salidium holds no report for this session; it may have been d
  * contract does not give is incompatibility rather than a guess.
  */
 function interpret(
-  reply: Reply | typeof TIMED_OUT | null,
+  reply: Reply | typeof TIMED_OUT | typeof TOO_LARGE | null,
   what: string,
   missing: 'session-not-observed' | 'not-found',
   missingMessage: string,
 ): { value: unknown } | Failure {
   if (reply === TIMED_OUT) return timedOut();
+  if (reply === TOO_LARGE) return tooLarge(`${what} answer`, ANSWER_MAX_BYTES);
   if (reply === null)
     return fail('unavailable', 'unreachable', `Salidium did not answer the ${what} request.`);
   if (reply.status === 200) return { value: reply.body };
