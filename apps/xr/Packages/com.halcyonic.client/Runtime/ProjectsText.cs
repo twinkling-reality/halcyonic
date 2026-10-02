@@ -33,6 +33,11 @@ namespace Halcyonic.Client
         public const string Connecting = "Connecting";
         public const string WhatHappened = "What happened";
 
+        // Why no folder is listed: a row, and its side panel's subject; Try again stands in the footer.
+        public const string FoldersUnread = "Couldn't read " + HostText.Your + "'s folders";
+        public const string NoFolders = HostText.YourStart + " doesn't allow any folder yet";
+        public const string AllowAFolder = "Allow a folder on " + HostText.Your + ", then try again.";
+
         public const string Shown = "Shown";
         public const string Hidden = "Hidden";
         public const string Yes = "Yes";

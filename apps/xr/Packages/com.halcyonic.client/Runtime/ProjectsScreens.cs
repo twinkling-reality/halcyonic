@@ -28,10 +28,17 @@ namespace Halcyonic.Client
         public const string Connect = "projects-connect";
         public const string TryAgain = "projects-try-again";
         public const string ChooseAnother = "projects-choose-another";
+        public const string ChooseProblem = "projects-choose-folders-problem";
         public const string ReadAgain = "projects-read-again";
 
-        /// <summary>How many rows a page holds; a line that wraps counts its rows.</summary>
-        public const int Rows = 4;
+        /// <summary>The key of the row that says why no folder is listed.</summary>
+        public const string ProblemKey = "folders";
+
+        /// <summary>
+        /// How many rows a page holds at a text size, a line that wraps counting its rows: 4 as designed,
+        /// 3 a step larger, where a 4-row page reaches past a Quest 3S's field (ADR 0026).
+        /// </summary>
+        public static int Rows(TextSize size) => size == TextSize.Larger ? 3 : 4;
 
         /// <summary>What Projects shows now, gathered by the menu from the session, the listing and the person's choices.</summary>
         public sealed class State
@@ -57,6 +64,12 @@ namespace Halcyonic.Client
             /// <summary>The chosen folder's key (<see cref="ConnectableFolder.Key"/>), or null.</summary>
             public string? ChosenFolder { get; set; }
 
+            /// <summary>The row that says why no folder is listed is chosen.</summary>
+            public bool ChosenProblem { get; set; }
+
+            /// <summary>The person's reading size (<see cref="Comfort.Text"/>), which sets the rows a page.</summary>
+            public TextSize TextSize { get; set; }
+
             /// <summary>The connection sent last, for whichever folder.</summary>
             public FolderConnection? Connection { get; set; }
 
@@ -80,9 +93,11 @@ namespace Halcyonic.Client
             var project = state.ChosenProject == null ? null : projects.FirstOrDefault(each => each.ProjectId == state.ChosenProject);
             // Folders are listed, and so can be chosen, only while connected outside the demonstration.
             var folder = project != null || state.ChosenFolder == null || !state.Live || state.Demonstration ? null : FolderConnect.Find(offers, state.ChosenFolder);
-            var lines = Lines(state, projects, offers, project, folder);
+            var problem = FoldersProblem(state);
+            var problemChosen = project == null && folder == null && state.ChosenProblem && problem != null;
+            var lines = Lines(state, projects, offers, project, folder, problemChosen);
 
-            var pages = Paginate(lines);
+            var pages = Paginate(lines, Rows(state.TextSize));
             var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));
@@ -112,6 +127,13 @@ namespace Halcyonic.Client
                 side = FolderPanel(folder, own, state);
                 footer = new Footer(close, farRight: FolderAction(own, waitingOn, state));
             }
+            else if (problemChosen)
+            {
+                side = state.ListingProblem != null && state.Listing == null
+                    ? new SidePanel(problem!, facts: new[] { new SideFact(ProjectsText.WhatHappened, LabelText.Plain(state.ListingProblem), valueIsData: true) })
+                    : new SidePanel(problem!, lines: new[] { new PageLine(ProjectsText.AllowAFolder, rows: 2) });
+                footer = new Footer(close, farRight: new Prompt(ReadAgain, EntryText.TryAgain, GlazeIcon.Refresh, main: true));
+            }
             else
             {
                 footer = new Footer(close, farRight: new Prompt(NewProject, ProjectsText.NewProject, GlazeIcon.CreateProject, main: true));
@@ -126,8 +148,20 @@ namespace Halcyonic.Client
             return new MenuFrame(subject, footer, lines: pages[page], side: side);
         }
 
+        /// <summary>
+        /// Why the folders could not be listed, as its row and side panel say it, when that is so: they
+        /// could not be read, or no folder is allowed yet. Each is a row that opens its side panel, with
+        /// Try again as the footer's main action while it is chosen, since a row never acts itself.
+        /// </summary>
+        private static string? FoldersProblem(State state)
+        {
+            if (state.Demonstration || !state.Live) return null;
+            if (state.Listing == null) return state.ListingProblem == null ? null : ProjectsText.FoldersUnread;
+            return state.Listing.Roots.Count == 0 ? ProjectsText.NoFolders : null;
+        }
+
         private static List<PageLine> Lines(State state, IReadOnlyList<ProjectSummary> projects, IReadOnlyList<ConnectableFolder> offers,
-            ProjectSummary? chosenProject, ConnectableFolder? chosenFolder)
+            ProjectSummary? chosenProject, ConnectableFolder? chosenFolder, bool problemChosen)
         {
             var lines = new List<PageLine>();
             if (state.Overview == null) lines.Add(Say(EntryText.WaitingForMac));
@@ -144,17 +178,16 @@ namespace Halcyonic.Client
                 lines.Add(Say(ConnectText.NotConnectedYet, rows: 2));
                 return lines;
             }
+            if (FoldersProblem(state) is string problem)
+            {
+                lines.Add(new PageLine(problem, tone: state.Listing == null ? LineTone.Problem : LineTone.Secondary,
+                    action: ChooseProblem, key: ProblemKey, opens: true, chosen: problemChosen));
+                return lines;
+            }
             var listing = state.Listing;
             if (listing == null)
             {
-                lines.Add(state.ListingProblem == null
-                    ? Say(EntryText.ReadingFolders)
-                    : new PageLine(EntryText.FoldersUnread(state.ListingProblem), tone: LineTone.Problem, action: ReadAgain, rows: 2));
-                return lines;
-            }
-            if (listing.Roots.Count == 0)
-            {
-                lines.Add(new PageLine(EntryText.NoFolders, tone: LineTone.Secondary, action: ReadAgain, rows: 2));
+                lines.Add(Say(EntryText.ReadingFolders));
                 return lines;
             }
             if (offers.Count == 0)
@@ -173,10 +206,10 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Pages of at most <see cref="Rows"/> rows, in order; a heading never ends a page, so it stays
-        /// with the first row under it. Always at least one page.
+        /// Pages of at most <paramref name="rows"/> rows, in order; a heading never ends a page, so it
+        /// stays with the first row under it. Always at least one page.
         /// </summary>
-        private static List<List<PageLine>> Paginate(List<PageLine> lines)
+        private static List<List<PageLine>> Paginate(List<PageLine> lines, int rows)
         {
             var pages = new List<List<PageLine>> { new List<PageLine>() };
             var used = 0;
@@ -185,7 +218,7 @@ namespace Halcyonic.Client
                 var line = lines[index];
                 var heading = line.Words == ProjectsText.FoldersHeading && line.Action == null && index + 1 < lines.Count;
                 var needs = line.Rows + (heading ? lines[index + 1].Rows : 0);
-                if (used > 0 && used + needs > Rows)
+                if (used > 0 && used + needs > rows)
                 {
                     pages.Add(new List<PageLine>());
                     used = 0;

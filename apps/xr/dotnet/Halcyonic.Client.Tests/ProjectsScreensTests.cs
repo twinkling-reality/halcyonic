@@ -195,9 +195,24 @@ public class ProjectsScreensTests
         Assert.That(ProjectsScreens.Projects(state).Lines.Last().Words, Is.EqualTo(EntryText.ReadingFolders));
         state.ListingProblem = "timed out";
         var unread = ProjectsScreens.Projects(state).Lines.Last();
-        Assert.That((unread.Action, unread.Tone), Is.EqualTo(((string?)ProjectsScreens.ReadAgain, LineTone.Problem)));
+        Assert.That((unread.Words, unread.Action, unread.Opens, unread.Tone), Is.EqualTo(("Couldn't read your computer's folders", (string?)ProjectsScreens.ChooseProblem, true, LineTone.Problem)),
+            "a row only opens its side panel; Try again stands in the footer");
+        Assert.That(ProjectsScreens.Projects(state).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
+        state.ChosenProblem = true;
+        var why = ProjectsScreens.Projects(state);
+        Assert.That(why.Side!.Subject, Is.EqualTo("Couldn't read your computer's folders"));
+        Assert.That(why.Side.Facts.Select(fact => (fact.Name, fact.Value, fact.ValueIsData)), Is.EqualTo(new[] { (ProjectsText.WhatHappened, "timed out", true) }));
+        Assert.That(why.Footer.All.Select(each => (each.Slot, each.Prompt.Id, each.Prompt.Words)), Is.EqualTo(new[]
+        {
+            (PromptSlot.Close, Footer.Close, ProjectsText.Close), (PromptSlot.FarRight, ProjectsScreens.ReadAgain, "Try again"),
+        }));
         state.Listing = Listing();
-        Assert.That(ProjectsScreens.Projects(state).Lines.Last().Words, Is.EqualTo(EntryText.NoFolders));
+        var none = ProjectsScreens.Projects(state);
+        Assert.That(none.Lines.Last().Words, Is.EqualTo("Your computer doesn't allow any folder yet"));
+        Assert.That(none.Side!.Lines.Single().Words, Is.EqualTo("Allow a folder on your computer, then try again."));
+        Assert.That(none.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.ReadAgain));
+        Assert.That(new[] { unread.Words, none.Lines.Last().Words }.Any(words => words.Contains("Press", StringComparison.Ordinal)), Is.False);
+        state.ChosenProblem = false;
         state.Listing = Listing(Root("Projects", Folder("used", true, null, ProjectA)));
         Assert.That(ProjectsScreens.Projects(state).Lines.Last().Words, Is.EqualTo(ConnectText.NoFreeFolders));
         state.Live = false;
@@ -207,12 +222,14 @@ public class ProjectsScreensTests
     }
 
     [Test]
-    public void ALongListPagesWithNextPageAloneOutOfTheAccentAndAHeadingNeverEndsAPage()
+    public void ALongListPagesWithNextPageAloneOutOfTheAccentAndAHeadingNeverEndsAPage([Values] TextSize size)
     {
         var folders = Enumerable.Range(0, 9).Select(index => Folder("folder-" + index, false, "2026-09-" + (10 + index) + "T00:00:00.000Z")).ToArray();
         var state = State(Listing(Root("Projects", folders)));
+        state.TextSize = size;
+        Assert.That(ProjectsScreens.Rows(size), Is.EqualTo(size == TextSize.Larger ? 3 : 4), "3 rows a page at the larger size, inside a Quest 3S's field");
         var first = ProjectsScreens.Projects(state);
-        Assert.That(first.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(ProjectsScreens.Rows));
+        Assert.That(first.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(ProjectsScreens.Rows(size)));
         Assert.That(first.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading));
         Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Secondary, PromptSlot.FarRight }),
             "three prompts fit the column: Close, Next page, New project");
@@ -225,6 +242,8 @@ public class ProjectsScreensTests
         {
             state.Page = page;
             var frame = ProjectsScreens.Projects(state);
+            Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(ProjectsScreens.Rows(size)));
+            Assert.That(frame.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading), "a heading never ends a page");
             seen.AddRange(frame.Lines.Select(line => line.Words));
             if (frame.Footer[PromptSlot.Secondary]!.Words == "First page") break;
         }
