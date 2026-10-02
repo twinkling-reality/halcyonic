@@ -365,7 +365,8 @@ namespace Halcyonic.XR.Workspace
             var (panelYaw, panelElevation) = AnglesOf(root.position - eyes);
             var (heldYaw, heldElevation) = AnglesOf(point - eyes);
             var height = surface();
-            drag = new PanelDrag(panelYaw, panelElevation, heldYaw, heldElevation, PanelSize, height.HasValue ? eyes.y - height.Value : (float?)null);
+            drag = new PanelDrag(panelYaw, panelElevation, heldYaw, heldElevation, PanelSize, height.HasValue ? eyes.y - height.Value : (float?)null,
+                ViewField.Current);
             dragEyes = eyes;
             dragDistance = Vector3.Distance(eyes, root.position);
         }

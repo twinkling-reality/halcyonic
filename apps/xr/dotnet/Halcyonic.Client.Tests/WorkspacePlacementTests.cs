@@ -265,6 +265,20 @@ public class PanelDragTests
     }
 
     [Test]
+    public void ADraggedPanelStaysInsideTheMeasuredField()
+    {
+        var narrow = new ViewField(48, 48, 45, 40);
+        var drag = new PanelDrag(0f, -15f, 0f, -15f, Size, field: narrow);
+        var lowest = WorkspacePlacement.Lowest(Size, narrow);
+        Assert.That(lowest, Is.GreaterThan(WorkspacePlacement.LowestDegrees));
+        Assert.That(drag.Follow(0f, -80f).Elevation, Is.EqualTo(lowest).Within(1e-4f));
+        // Over a desk the higher of the two floors holds.
+        var desk = new PanelDrag(0f, -15f, 0f, -15f, Size, surfaceDrop: 0.2f, field: narrow);
+        var floor = Math.Max(lowest, WorkspacePlacement.LowestAboveSurface(Size, 0.2f));
+        Assert.That(desk.Follow(0f, -80f).Elevation, Is.EqualTo(floor).Within(1e-4f));
+    }
+
+    [Test]
     public void NothingMovesWhileAConfirmationIsArmed()
     {
         var model = new PanelModel("Check your project");
