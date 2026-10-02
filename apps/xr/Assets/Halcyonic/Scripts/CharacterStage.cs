@@ -703,7 +703,7 @@ namespace Halcyonic.XR
         /// </summary>
         public static float BannerTop(float radius, float heightFromEyes) =>
             (heightFromEyes + (CharacterLabelView.DeepestBottom - GlazeTokens.Units(BannerGapDegrees)) * radius)
-            / Mathf.Cos(StageBanner.MaxWidthDegrees / 2f * Mathf.Deg2Rad);
+            / Mathf.Cos(StageBanner.WidestDegrees / 2f * Mathf.Deg2Rad);
 
         /// <summary>
         /// The height of the banner's top edge from the eyes beside a window, in meters, with it
@@ -711,7 +711,7 @@ namespace Halcyonic.XR
         /// along it, its ends being farther than its middle.
         /// </summary>
         public static float BannerTopBesideWindow(float radius) =>
-            -Mathf.Tan((WindowLaneHalfHeightDegrees + BannerGapDegrees) * Mathf.Deg2Rad) * radius / Mathf.Cos(StageBanner.MaxWidthDegrees / 2f * Mathf.Deg2Rad);
+            -Mathf.Tan((WindowLaneHalfHeightDegrees + BannerGapDegrees) * Mathf.Deg2Rad) * radius / Mathf.Cos(StageBanner.WidestDegrees / 2f * Mathf.Deg2Rad);
 
         private static string Describe(RealtimeSession session)
         {

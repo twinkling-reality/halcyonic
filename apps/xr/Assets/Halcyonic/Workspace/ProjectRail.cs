@@ -43,9 +43,20 @@ namespace Halcyonic.XR.Workspace
         /// as GlazeChecks.Apart asks. That line is lowest beside a window, with four lines: 20.9 degrees
         /// down (AmbientRender). The rail's outer pills, seen from the eyes, reach 6.5 degrees above its
         /// middle, so 20.9 + 1 + 6.5 is 28.4; this keeps a little more. AmbientRender checks it with a
-        /// field short enough to reach it.
+        /// field short enough to reach it. That is at the standard text size; <see cref="HighestBelow"/>
+        /// follows larger text.
         /// </summary>
         public const float HighestBelowDegrees = 29f;
+
+        /// <summary>The banner beside a window at its tallest, four lines, from its top to its lowest, at the standard text size: 15.6 to 20.9 degrees down.</summary>
+        private const float BannerDepthDegrees = 5.3f;
+
+        /// <summary>
+        /// The highest the rail's middle rises, in degrees below eye level: <see cref="HighestBelowDegrees"/>,
+        /// lower by as much as the banner's four lines grow with the reading text's step
+        /// (<see cref="GlazeText.Scale"/>); the rail's own buttons keep their size.
+        /// </summary>
+        public static float HighestBelow => HighestBelowDegrees + BannerDepthDegrees * (GlazeText.Scale - 1f);
 
         /// <summary>How far to either side the rail reaches, its buttons included.</summary>
         public const float HalfWidthDegrees = 24f;
@@ -85,6 +96,7 @@ namespace Halcyonic.XR.Workspace
         private float nextRefresh;
         private bool placed;
         private int placedField = -1;
+        private int placedScale = -1;
 
         /// <summary>The gap kept between buttons, 12 mm wherever the rail stands, in its own units.</summary>
         private float gap = Glaze.TargetGapMeters / Distance;
@@ -196,7 +208,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
-            if (!placed || surface().HasValue != placedOnSurface || placedField != ViewField.Version) ResetPosition();
+            if (!placed || surface().HasValue != placedOnSurface || placedField != ViewField.Version || placedScale != GlazeText.Version) ResetPosition();
             // One foreground surface at a time: the entry panel, a workspace, Usage left and Settings open where the rail would show.
             // TryGetComponent, unlike GetComponent, allocates nothing for a component that is not there, each frame.
             if (glance == null) TryGetComponent(out glance);
@@ -241,14 +253,14 @@ namespace Halcyonic.XR.Workspace
         /// How far below eye level the rail's middle goes: <see cref="BelowDegrees"/>, or higher when
         /// the headset's measured field (<see cref="ViewField.Current"/>) would cut its lower row, so
         /// every corner stays inside it with the head level, but never above
-        /// <see cref="HighestBelowDegrees"/>.
+        /// <see cref="HighestBelow"/>.
         /// </summary>
         public static float Below(ViewField? field)
         {
             // Its rows reach from its middle a button's height and half the gap between them, in the
             // rail's own units, which are radians at its distance.
             var halfHeight = Mathf.Atan(GlazeButton.HeightOf(false) + Glaze.TargetGapMeters / Distance / 2f) * Mathf.Rad2Deg;
-            return ViewField.BelowWithin(BelowDegrees, HalfWidthDegrees, halfHeight, field, HighestBelowDegrees);
+            return ViewField.BelowWithin(BelowDegrees, HalfWidthDegrees, halfHeight, field, HighestBelow);
         }
 
         /// <summary>
@@ -265,6 +277,7 @@ namespace Halcyonic.XR.Workspace
             var desk = surface();
             placedOnSurface = desk.HasValue;
             placedField = ViewField.Version;
+            placedScale = GlazeText.Version;
             var below = Below(ViewField.Current) * Mathf.Deg2Rad;
             var position = desk.HasValue
                 ? head.position + forward * DeskAhead + Vector3.down * DeskBelow

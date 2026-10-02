@@ -296,8 +296,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// With a field of view so short that it lifts the rail to its ceiling
-        /// (<see cref="ProjectRail.HighestBelowDegrees"/>), the rail stays a degree or more below the
-        /// banner, at its tallest beside a window: four lines.
+        /// (<see cref="ProjectRail.HighestBelow"/>), the rail stays a degree or more below the
+        /// banner, at its tallest beside a window: four lines, at either text size.
         /// </summary>
         private static IEnumerable<string> RailUnderTheBanner(Transform parent, Vector3 eyes, StageBanner banner, Beside work)
         {

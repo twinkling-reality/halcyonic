@@ -1054,7 +1054,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   a draft waits) at the left; Usage left, when its glance offers it, and Settings, compact, at the
   right, since they open sheets rather than act on work, each action with its icon before its words
   (the pills have none). Every button is 60 dp tall (48 compact) and 12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
-  to either side, its rows 40 to 49 degrees down; with a measured field of view too short for that, higher, its corners 1.5 degrees inside the field with the head level but never above 29 degrees down, so it stays a degree under the line above the stage at its tallest beside a window (`ProjectRail.Below`; about 39 degrees on a Quest 3S split evenly); over a desk, 0.3 m ahead and never into the desk,
+  to either side, its rows 40 to 49 degrees down; with a measured field of view too short for that, higher, its corners 1.5 degrees inside the field with the head level but never above 29 degrees down, so it stays a degree under the line above the stage at its tallest beside a window, nor above about 29.8 with text a step larger, as the banner's lines grow (`ProjectRail.Below`, `ProjectRail.HighestBelow`; about 39 degrees on a Quest 3S split evenly); over a desk, 0.3 m ahead and never into the desk,
   about 53 degrees down, under the lineup's labels. It is placed in front of the person when the app
   starts and when the stage moves onto or off a surface, and again by Reset position, and it steps
   out of the way while the entry panel, a workspace, the Usage left panel or Settings is open. Which
@@ -1080,7 +1080,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   (`Comfort.LargerTextScale`, body text 18 dp to about 21): every foreground panel, the workspace,
   the entry panel, Usage left and Settings, grows whole by it at the same distance
   (`PanelFrame.Zoom`), so its layout, pages and parts stay as designed and it opens lower to stay
-  under the titles; on the stage the titles, the peek and the banner take it (`GlazeText.Scale`,
+  under the titles; on the stage the titles, the peek and the banner, a step wider so its lines
+  stay as many (`StageBanner.WidestDegrees`), take it (`GlazeText.Scale`,
   only for labels made with it), while the badges' words and the rail's buttons, which stand where
   space is fixed, keep their size. Keep badges still stops Starting's and Working's icons turning and
   Waiting for you breathing (`StateBadgeView.Still`). One button steps the sounds from on to quieter
