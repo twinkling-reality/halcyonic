@@ -41,6 +41,16 @@ namespace Halcyonic.Client
         public const double WaitingLongSeconds = 5;
 
         public const string MakeTheRecap = "Make the recap";
+
+        /// <summary>
+        /// The main prompt while Go on without it is chosen: the recap from the person's own words,
+        /// without asking the companion (the coordinator, 2026-10-02).
+        /// </summary>
+        public const string MakeTheRecapFromMyWords = "Make the recap from my words";
+
+        /// <summary>The same, where a footer measures too narrow for it beside Close and Hold to talk.</summary>
+        public const string RecapFromMyWords = "Recap from my words";
+
         public const string GoOnWithout = "Go on without it";
         public const string UseMyWords = "Use my words";
         public const string TypeAnswer = "Type my answer";
