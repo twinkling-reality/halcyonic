@@ -271,6 +271,15 @@ the same definition names, as the JSON Schema document:
   degrees tall, would need more, and is not held to the field. Holding Move never lifts a panel for
   want of room: one that opened under the labels lower than the field allows stays where it was
   and goes no lower (`PanelDrag`).
+- **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
+  redesign proposed in ADR 0026 (no surface uses it yet): columns of parts, every part of a column as
+  wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
+  and, its last part stretched down, ending on one bottom line, all grown whole by the reading text's
+  step. Its centre is placed as one panel of its size by `WorkspacePlacement.Place`, so the band,
+  `Lowest`, `ReadingPitch`, the clearance from labels and the field hold; the plane faces the eyes
+  there, never rolled, 0.46 m away, and each part lies on it at its offset from the centre
+  (`PlaneLayout` in Unity's terms). A side panel sliding out is a column more, so the whole plane
+  re-centres. `GlazeChecks.OnePlane` holds a composition to it as built.
 - **`ViewField`** is a headset's field of view about where the person looks, read from each eye's
   projection by `DeviceMeasures` and kept as `ViewField.Current` (null in the editor and the tests,
   so the layout keeps its own angles there). Meta gives a Quest 3 as 110 by 96 degrees and a Quest
