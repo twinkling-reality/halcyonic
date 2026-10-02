@@ -258,7 +258,7 @@ namespace Halcyonic.Client
         /// <summary>Close, always far left.</summary>
         Close,
 
-        /// <summary>One rare action beside Close, as Stop, or Previous page.</summary>
+        /// <summary>One rare action beside Close, as Stop.</summary>
         Rare,
 
         /// <summary>The middle, which only a confirmation's Yes takes, so Yes stands where nothing stood on that page or since.</summary>
@@ -276,7 +276,8 @@ namespace Halcyonic.Client
     {
         Action,
         Close,
-        PreviousPage,
+
+        /// <summary>A long list's one pager prompt: Next page, and on the last page First page, which goes back to the first.</summary>
         NextPage,
 
         /// <summary>A confirmation's Yes.</summary>
@@ -291,9 +292,8 @@ namespace Halcyonic.Client
     /// prompt always has an icon. One that can't be taken now keeps its place, drawn quiet, with why on
     /// the page's last content line. Only the main action is drawn as one, its cap filled with the
     /// accent and its words heavier in the accent; it stands only at the far right, and a confirmation's
-    /// Yes, whose own words carry it, is drawn plain. Paging that can't be taken, at the first or last
-    /// page, stays in its place, quiet, with no reason. The microphone only on a held prompt, as Hold
-    /// to talk, never on approving, denying, stopping or a confirmation.
+    /// Yes, whose own words carry it, is drawn plain. The microphone only on a held prompt, as Hold to
+    /// talk, never on approving, denying, stopping or a confirmation.
     /// </summary>
     public sealed class Prompt
     {
@@ -344,18 +344,18 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// A frame's footer of prompts (ADR 0026): Close far left, a rare action or Previous page beside it,
-    /// the free middle only a confirmation's Yes takes, a secondary action, and at the far right the
-    /// one main action or, where there is none, Next page. It refuses what would put anything else
+    /// A frame's footer of prompts (ADR 0026): Close far left, a rare action beside it, the free middle
+    /// only a confirmation's Yes takes, a secondary action, and at the far right the one main action
+    /// or, where there is none, a long list's Next page. It refuses what would put anything else
     /// anywhere: a second prompt in a slot, a main action anywhere but the far right, paging as a main
     /// action, and Yes anywhere but the free middle, which held nothing on that page or since. A footer
-    /// is a function of its page and the row chosen on it.
+    /// is a function of its page and the row chosen on it. Its working limit is three prompts, Close,
+    /// one other and the main action, as long as the measured footers say so.
     /// </summary>
     public sealed class Footer
     {
-        /// <summary>What a frame's Close, Previous page and Next page raise.</summary>
+        /// <summary>What a frame's Close and its pager prompt raise.</summary>
         public const string Close = "close";
-        public const string PreviousPage = "previous-page";
         public const string NextPage = "next-page";
 
         private readonly Prompt?[] slots = new Prompt?[5];
@@ -400,26 +400,31 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// This footer with a list's pager: Previous page beside Close, and Next page at the far right
-        /// where nothing is the main action, else as the secondary prompt, never drawn as the main
-        /// action. A pager prompt that can't be taken, at the first or last page, keeps its place.
+        /// This footer with a long list's one pager prompt: Next page, or on the last page First page
+        /// (<see cref="NextPageWords"/>), at the far right where nothing is the main action, else as the
+        /// secondary prompt, never drawn as the main action.
         /// </summary>
-        public Footer WithPages(Prompt previous, Prompt next)
+        public Footer WithNext(Prompt next)
         {
-            if (previous.Kind != PromptKind.PreviousPage) throw new ArgumentException("The pager's first prompt is Previous page.", nameof(previous));
-            if (next.Kind != PromptKind.NextPage) throw new ArgumentException("The pager's second prompt is Next page.", nameof(next));
-            var footer = With(PromptSlot.Rare, previous);
-            return footer.With(this[PromptSlot.FarRight] == null ? PromptSlot.FarRight : PromptSlot.Secondary, next);
+            if (next.Kind != PromptKind.NextPage) throw new ArgumentException("A list pages by Next page.", nameof(next));
+            return With(this[PromptSlot.FarRight] == null ? PromptSlot.FarRight : PromptSlot.Secondary, next);
+        }
+
+        /// <summary>The pager prompt's words on page <paramref name="page"/>, from 0, of <paramref name="pages"/>: Next page, or First page on the last, which goes back to the first.</summary>
+        public static string NextPageWords(int page, int pages)
+        {
+            if (pages < 2 || page < 0 || page >= pages) throw new ArgumentOutOfRangeException(nameof(page), page, "A list that pages has two pages or more, and the page is one of them.");
+            return page == pages - 1 ? "First page" : "Next page";
         }
 
         /// <summary>
         /// The footer while a confirmation is armed, after a press on <paramref name="pressed"/> of
         /// <paramref name="before"/>: Close as it was, Cancel in the place of the press it would undo,
-        /// Yes in the free middle, which held nothing on that page or since, and, while the whole
-        /// request pages, Previous part beside Close and Next part at the far right or, where Cancel
-        /// stands there, as the secondary prompt. The other actions step aside until it is answered.
+        /// and Yes in the free middle, which held nothing on that page or since. The other actions step
+        /// aside until it is answered. A request in parts pages by a row at the end of the page, and Yes
+        /// appears once the last part has shown.
         /// </summary>
-        public static Footer Confirm(Footer before, PromptSlot pressed, Prompt yes, Prompt cancel, Prompt? previous = null, Prompt? next = null)
+        public static Footer Confirm(Footer before, PromptSlot pressed, Prompt yes, Prompt cancel)
         {
             if (before.Confirming) throw new InvalidOperationException("A confirmation is already armed.");
             if (!(before[pressed] is Prompt first) || first.Kind != PromptKind.Action) throw new ArgumentException("Cancel takes the place of the press it would undo.", nameof(pressed));
@@ -428,16 +433,6 @@ namespace Halcyonic.Client
             var footer = new Footer(before[PromptSlot.Close]);
             footer.slots[(int)pressed] = cancel;
             footer.slots[(int)PromptSlot.Free] = yes;
-            if (previous != null)
-            {
-                if (previous.Kind != PromptKind.PreviousPage) throw new ArgumentException("Paging back is Previous page.", nameof(previous));
-                footer.Put(PromptSlot.Rare, previous);
-            }
-            if (next != null)
-            {
-                if (next.Kind != PromptKind.NextPage) throw new ArgumentException("Paging on is Next page.", nameof(next));
-                footer.Put(footer[PromptSlot.FarRight] == null ? PromptSlot.FarRight : PromptSlot.Secondary, next);
-            }
             return footer;
         }
 
@@ -450,18 +445,15 @@ namespace Halcyonic.Client
                 case PromptKind.Close when slot != PromptSlot.Close:
                     throw new InvalidOperationException("Close stands far left.");
                 case PromptKind.Action when slot == PromptSlot.Close:
-                case PromptKind.PreviousPage when slot == PromptSlot.Close:
                 case PromptKind.NextPage when slot == PromptSlot.Close:
                     throw new InvalidOperationException("Only Close stands far left.");
                 case PromptKind.Yes:
                 case PromptKind.Cancel:
                     throw new InvalidOperationException("Yes and Cancel come only with a confirmation (Footer.Confirm).");
-                case PromptKind.PreviousPage when slot != PromptSlot.Rare:
-                    throw new InvalidOperationException("Previous page stands beside Close.");
                 case PromptKind.NextPage when slot == PromptSlot.Rare:
                     throw new InvalidOperationException("Next page stands at the far right, or as the secondary prompt.");
-                case PromptKind.NextPage when slot == PromptSlot.Secondary && !(slots[(int)PromptSlot.FarRight] is Prompt right && (right.Main || right.Kind == PromptKind.Cancel)):
-                    throw new InvalidOperationException("Next page is the secondary prompt only where a main action, or a confirmation's Cancel, holds the far right.");
+                case PromptKind.NextPage when slot == PromptSlot.Secondary && !(slots[(int)PromptSlot.FarRight] is Prompt right && right.Main):
+                    throw new InvalidOperationException("Next page is the secondary prompt only where a main action holds the far right.");
             }
             if (slot == PromptSlot.Free) throw new InvalidOperationException("Only a confirmation's Yes takes the free middle.");
             if (prompt.Main && slot != PromptSlot.FarRight) throw new InvalidOperationException("The main action stands only at the far right.");

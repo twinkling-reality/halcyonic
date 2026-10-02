@@ -12,9 +12,7 @@ public class MenuFrameTests
     private static Prompt Action(string id, bool main = false, bool available = true, string? reason = null) =>
         new(id, id, GlazeIcon.Approve, main: main, available: available, reason: reason);
 
-    private static Prompt Previous(bool available = true) => new(Footer.PreviousPage, "Previous page", GlazeIcon.Back, PromptKind.PreviousPage, available: available);
-
-    private static Prompt Next(bool available = true) => new(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage, available: available);
+    private static Prompt Next(string words = "Next page") => new(Footer.NextPage, words, GlazeIcon.Next, PromptKind.NextPage);
 
     private static Prompt HoldToTalk => new("hold-to-talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
 
@@ -78,31 +76,32 @@ public class MenuFrameTests
         Assert.That(Action("ready", reason: "never said").Reason, Is.Null, "an available prompt has no reason");
         Assert.Throws<ArgumentException>(() => _ = Action("approve", available: false), "an action that can't be taken says why");
         Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
-        Assert.That(Previous(available: false).Reason, Is.Null, "paging at the ends is quiet with no reason");
         var frame = new MenuFrame("New project", footer);
         Assert.That(frame.Reason, Is.EqualTo("The companion is still answering."));
     }
 
     [Test]
-    public void ALongListPagesWithPreviousBesideCloseAndNextAtTheFarRightPlain()
+    public void ALongListPagesByNextPageAloneAtTheFarRightPlainOrBesideTheMainAction()
     {
-        var tasks = new Footer(Close).WithPages(Previous(available: false), Next());
-        Assert.That(tasks[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.PreviousPage));
-        Assert.That(tasks[PromptSlot.Rare]!.Available, Is.False, "the first page keeps Previous page's place, quiet");
+        var tasks = new Footer(Close).WithNext(Next());
         var next = tasks[PromptSlot.FarRight]!;
         Assert.That((next.Kind, next.DrawnAsMain), Is.EqualTo((PromptKind.NextPage, false)), "Next page at the far right is drawn plain");
+        Assert.That(tasks[PromptSlot.Rare], Is.Null, "nothing pages back: the last page's prompt goes to the first");
 
-        var projects = new Footer(Close, farRight: Action("new-project", main: true)).WithPages(Previous(), Next());
+        var projects = new Footer(Close, farRight: Action("new-project", main: true)).WithNext(Next());
         Assert.That(projects[PromptSlot.Secondary]!.Kind, Is.EqualTo(PromptKind.NextPage), "where a main action holds the far right, Next page is secondary");
         Assert.That(projects[PromptSlot.FarRight]!.Id, Is.EqualTo("new-project"));
-
-        Assert.Throws<InvalidOperationException>(() => new Footer(Close, rare: Action("stop")).WithPages(Previous(), Next()), "the rare place is taken");
-        Assert.Throws<InvalidOperationException>(() => _ = new Footer(secondary: Next(), farRight: Action("send")), "Next page is secondary only beside a main action");
         var built = new Footer(Close, secondary: Next(), farRight: Action("new-project", main: true));
-        Assert.That(built[PromptSlot.Secondary]!.Kind, Is.EqualTo(PromptKind.NextPage), "the constructor takes Next page beside a main action, as WithPages does");
-        Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Next()));
-        Assert.Throws<InvalidOperationException>(() => _ = new Footer(farRight: Previous()));
-        Assert.Throws<ArgumentException>(() => new Footer(Close).WithPages(Next(), Previous()));
+        Assert.That(built[PromptSlot.Secondary]!.Kind, Is.EqualTo(PromptKind.NextPage), "the constructor takes Next page beside a main action, as WithNext does");
+
+        Assert.Throws<InvalidOperationException>(() => _ = new Footer(secondary: Next(), farRight: Action("send")), "Next page is secondary only beside a main action");
+        Assert.Throws<InvalidOperationException>(() => new Footer(Close, secondary: Action("hide"), farRight: Action("add-task", main: true)).WithNext(Next()), "no place left for it");
+        Assert.Throws<InvalidOperationException>(() => _ = new Footer(rare: Next()), "it never takes the rare place");
+        Assert.Throws<ArgumentException>(() => new Footer(Close).WithNext(Action("next")));
+
+        Assert.That((Footer.NextPageWords(0, 3), Footer.NextPageWords(1, 3), Footer.NextPageWords(2, 3)), Is.EqualTo(("Next page", "Next page", "First page")));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Footer.NextPageWords(0, 1), "a list of one page doesn't page");
+        Assert.Throws<ArgumentOutOfRangeException>(() => Footer.NextPageWords(3, 3));
     }
 
     [Test]
@@ -121,12 +120,11 @@ public class MenuFrameTests
     public void AConfirmationsYesTakesTheFreeMiddleAndCancelThePlaceOfTheFirstPress()
     {
         var waiting = new Footer(Close, rare: Action("stop"), secondary: Action("deny"), farRight: Action("approve", main: true));
-        var confirming = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(available: false), Cancel, Previous(available: false), Next());
+        var confirming = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(available: false), Cancel);
         Assert.That(confirming.All.Select(each => (each.Slot, each.Prompt.Kind)), Is.EqualTo(new[]
         {
-            (PromptSlot.Close, PromptKind.Close), (PromptSlot.Rare, PromptKind.PreviousPage), (PromptSlot.Free, PromptKind.Yes),
-            (PromptSlot.Secondary, PromptKind.NextPage), (PromptSlot.FarRight, PromptKind.Cancel),
-        }), "Close, two pager prompts, Yes and Cancel; the other actions step aside");
+            (PromptSlot.Close, PromptKind.Close), (PromptSlot.Free, PromptKind.Yes), (PromptSlot.FarRight, PromptKind.Cancel),
+        }), "Close, Yes and Cancel; the other actions step aside, and the request's parts page by a row on the page");
         Assert.That(confirming.Confirming, Is.True);
         Assert.That(waiting[PromptSlot.Free], Is.Null, "Yes stands where nothing stood on that page");
         Assert.That(confirming.Reason, Is.EqualTo("Read to part 3 first"), "the locked Yes says why, as the page's last content line");
@@ -134,7 +132,6 @@ public class MenuFrameTests
 
         var stopping = Footer.Confirm(waiting, PromptSlot.Rare, Yes(), Cancel);
         Assert.That(stopping[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Stop was pressed");
-        Assert.Throws<InvalidOperationException>(() => Footer.Confirm(waiting, PromptSlot.Rare, Yes(), Cancel, previous: Previous()), "Cancel holds the rare place");
         Assert.Throws<ArgumentException>(() => Footer.Confirm(new Footer(Close), PromptSlot.FarRight, Yes(), Cancel), "no press there to undo");
         Assert.Throws<ArgumentException>(() => Footer.Confirm(waiting, PromptSlot.Close, Yes(), Cancel), "Close is no press to confirm");
         Assert.Throws<InvalidOperationException>(() => Footer.Confirm(confirming, PromptSlot.FarRight, Yes(), Cancel), "one confirmation at a time");

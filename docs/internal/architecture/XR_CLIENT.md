@@ -280,11 +280,13 @@ the same definition names, as the JSON Schema document:
   nothing to press but its own Close) and its `Footer`. A footer's `Prompt`s stand in slots, Close,
   Rare, Free, Secondary and the far right, and it refuses what would stand anywhere else: one
   prompt a slot, the one main action only at the far right and drawn with the accent, paging never
-  the main action (Previous page beside Close, Next page at the far right where nothing is the main
-  action, else as the secondary prompt), Hold to talk only as the secondary prompt, and a
-  confirmation's Yes only in the free middle, which held nothing on that page or since, with Cancel
-  in the place of the press it would undo (`Footer.Confirm`). An unavailable prompt keeps its place,
-  drawn quiet. The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
+  the main action (a long list pages by Next page alone, First page on its last page, at the far
+  right where nothing is the main action, else as the secondary prompt), Hold to talk only as the
+  secondary prompt, and a confirmation's Yes only in the free middle, which held nothing on that page
+  or since, with Cancel in the place of the press it would undo (`Footer.Confirm`); a request in
+  parts pages by a row on the page. An unavailable prompt keeps its place, drawn quiet, and an
+  action says why. A footer's working limit is three prompts, Close, one other and the main action,
+  as the measured footers say. The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
   one radius, the glass, the selection treatment, which `GlazeChecks.OneSelectionTreatment` pins,
   and quiet words in the secondary colour, every word held to 4.5 to 1 on the glass over a white
   wall. `PanelModel` stays until nothing draws it.
