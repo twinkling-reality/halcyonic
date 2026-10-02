@@ -111,12 +111,19 @@ gives no split about the view's forward, which only the device tells.
 | Beside a window | Outermost label 37.1 degrees | Yes |
 | Turned aside | Outermost label 67.3 degrees | No, by design: the stage is turned away for a window |
 
-Nothing in the app reads the device's field: the layout is the same on both headsets. A seated
-person looks down at the rail as at a keyboard, so this is not a failure on a Quest 3, but the
-criterion asks for adapting across devices. `DeviceMeasures` now logs each eye's field once the
-headset renders in stereo, and `ViewField` reads it; the fix agreed with lane U keeps the rail and a
-panel's lower edge 3 degrees inside the measured field (a design decision; Meta gives no number),
-the rail never rising into the line above the stage, with a 3S pass in the renders.
+Until this change nothing in the app read the device's field: the layout was the same on both
+headsets. A seated person looks down at the rail as at a keyboard, so this was not a failure on a
+Quest 3, but the criterion asks for adapting across devices. Now `DeviceMeasures` reads each eye's
+field once the headset renders in stereo and sets `ViewField.Current`; with it, the rail rises until
+its corners are 1.5 degrees inside the field with the head level (never above 25 degrees down,
+under the line above the stage), and a panel prefers the side that keeps it inside, never pushed
+into a label (agreed with lane U). The margin is a design decision: Meta gives no number, and on an
+evenly split Quest 3S a workspace under the far lineup's labels has its lower corners 1.65 degrees
+inside the field, so a larger margin would collide with the labels. The entry and workspace renders
+run a Quest 3S pass (96 by 90, split evenly): the rail stands 39.0 degrees down instead of 44.5, the
+panels where they were, and every corner of the rail and the panels is inside. Over a desk the
+rail stays about 53 degrees down, inside the field when the head looks down at the lineup. The real
+split comes from the device's `Halcyonic: device view field` line.
 
 ## Frame rate
 

@@ -98,9 +98,12 @@ the questions (`far-question`, `-typed`, `-three`, `-several`, `-long`, `-option
 `-secret`, `-sent`), the whole request (`far-approval`, its first part, `far-approval-last`,
 `far-approval-short`, `far-deny`), the other confirmations (`far-stop`, `far-stop-beside-hold`,
 `far-heard`, `far-answers`), `far-hold-to-talk` and the hostile text (`far-untrusted`,
-`far-untrusted-activity`), and the same for the desk. It fails if a pixel of the workspace changes
+`far-untrusted-activity`), and the same for the desk, then the far and desk stages again with a
+Quest 3S's field of view set (`far-3s`, `desk-3s`: 96 by 90 degrees, split evenly until a device
+measures it). It fails if a pixel of the workspace changes
 when the stage behind it is drawn, a character's body or label is behind it, or its center leaves
-the comfortable band; if a target is too small or two closer than 12 mm, a word too small, any of
+the comfortable band, or, with the 3S's field, a corner of it leaves the field less 1.5 degrees with
+the head level; if a target is too small or two closer than 12 mm, a word too small, any of
 our words cut short, the list pages or a line runs below the body; if the tabs don't show whole
 beside Close; if a section's line does not fit under its heading; if the log loses its newest line
 or the agent's words don't lean; if a question's text is cut, a long one counts as read before its
@@ -131,7 +134,10 @@ with Start building and its last part reached with Next, the first and last part
 review, a refused start, and a start that may have run, before and after its first press)
 over both stages in `apps/xr/Builds/EntryRenders`, each with a close-up at a Quest 3's density
 (`-closeup.png`) and the whole panel (`-panel.png`), and logs where the rail and the panel stand
-(`Halcyonic: entry render ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
+(`Halcyonic: entry render ...`). It renders the far and desk stages again with a Quest 3S's field
+of view set (`far-3s`, `desk-3s`), and fails if a corner of the rail (with the head level, or
+pitched down to a desk's lineup) or of a panel (head level) leaves the field less 1.5 degrees; the
+log says how low each reaches (`Halcyonic: field check ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
 "Scene".
 
 The stage beside a window, and large panels folded and restored, render the same way, **Halcyonic >

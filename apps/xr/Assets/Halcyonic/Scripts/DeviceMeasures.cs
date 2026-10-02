@@ -11,7 +11,8 @@ namespace Halcyonic.XR
     /// Logs what a device session needs to know about the headset itself, in numbers only: when the
     /// first frame came after the app started, the field of view of each eye once the headset
     /// renders in stereo, and every minute the frames drawn, the slowest and how many fell below 60 a
-    /// second (<see cref="FrameTally"/>), and pauses and resumes with how long the app was away.
+    /// second (<see cref="FrameTally"/>), and pauses and resumes with how long the app was away. The
+    /// field measured becomes <see cref="ViewField.Current"/>, which the layout keeps inside.
     /// <c>tooling/quest/session.ts</c> reads these lines; see XR_DEVELOPMENT.md, "Device measures on a
     /// Quest". Each frame allocates nothing.
     /// </summary>
@@ -53,9 +54,12 @@ namespace Halcyonic.XR
             fieldTries = int.MaxValue;
             var left = Field(eyes.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left));
             var right = Field(eyes.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right));
+            var both = ViewField.Both(left, right);
             Log("view field left eye " + left.Line() + ", right eye " + right.Line()
-                + ", both " + ViewField.Both(left, right).Across.ToString("0.0", CultureInfo.InvariantCulture)
-                + " across " + ViewField.Both(left, right).Tall.ToString("0.0", CultureInfo.InvariantCulture) + " tall");
+                + ", both " + both.Across.ToString("0.0", CultureInfo.InvariantCulture)
+                + " across " + both.Tall.ToString("0.0", CultureInfo.InvariantCulture) + " tall");
+            // The rail and the panels keep inside it from now on (ProjectRail.Below, WorkspacePlacement.Lowest).
+            ViewField.Current = both;
         }
 
         private static ViewField Field(Matrix4x4 projection) =>
