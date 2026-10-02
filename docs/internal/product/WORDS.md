@@ -130,3 +130,14 @@ These words were settled by the coordinator on 2026-10-02.
 Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
 the interface of ADR 0023, one surface at a time. The character labels, the rail and Settings, the
 entry panel, the workspace and Usage left have moved; the ambient lines have not yet.
+
+## Words changed by the menu
+
+The menu of [ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)
+replaces the entry panel's screens. Routine wording, settled by the coordinator, old beside new:
+
+| Where | Old | New | Settled |
+| --- | --- | --- | --- |
+| A first visit, Projects' subject | "Welcome", then "Show projects from your computer, or make a new one. Work already running keeps going." | "What would you like to work on?" (at the larger text size, where that wraps: "What do you want to work on?") | 2026-10-02, by the coordinator; the stage shows that running work goes on |
+| A project's small fact on its row | "Hidden · 1 waiting", "1 task waiting" | "Hidden · 1 task waiting", "1 task waiting", "2 tasks running": a count keeps its noun, and a long name shortens first | 2026-10-02, by the coordinator |
+| Projects' folders | Connect a folder, its own screen | "Folders on your computer", a heading in Projects; a folder's row says "Repository · changed 3 days ago" | 2026-10-02, by lane V's brief |
