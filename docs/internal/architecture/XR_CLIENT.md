@@ -276,8 +276,14 @@ the same definition names, as the JSON Schema document:
   column's subject (with a file's state pill), its row of `FrameSection`s (chosen, reached, waits),
   its page of `PageLine`s (an icon, words, a small fact, a tone, an evidence chip, the agent's claim,
   and what a press opens or raises: a row only takes the person somewhere), why a prompt can't be
-  taken now as the page's last content line, one source line, a `SidePanel` (facts or lines,
-  nothing to press but its own Close) and its `Footer`. A footer's `Prompt`s stand in slots, Close,
+  taken now as the page's last content line, one source line (`sourceIsData` where it is text from
+  outside, as an answer's provenance), a `SidePanel` (facts, each a name over its value at 18 dp,
+  or lines, nothing to press but its own Close details, `SidePanel.Footer`) that a chosen line
+  opened or a chosen answer cut to fit slid out with all its words, and its `Footer`. A line's
+  words with no `fromRow` show from their start, ending in an ellipsis past its rows; with one,
+  they are a part of words shown in parts, exactly those rows of the words wrapped whole, so no word
+  is lost between parts. `MenuFrame.RowsAPage(text, sourceLine)` says how many rows a list's page
+  holds: 4, or 3 with larger text, a source line counting as one. A footer's `Prompt`s stand in slots, Close,
   Rare, Free, Secondary and the far right, and it refuses what would stand anywhere else: one
   prompt a slot, the one main action only at the far right and drawn with the accent, paging never
   the main action (a long list pages by Next page alone, First page on its last page, at the far
@@ -286,8 +292,22 @@ the same definition names, as the JSON Schema document:
   or since, with Cancel in the place of the press it would undo (`Footer.Confirm`); a request in
   parts pages by a row on the page. An unavailable prompt keeps its place, drawn quiet, and an
   action says why. What limits a footer is its prompts' width at 18 dp, not their count: four
-  short ones fit in a 38 degree file, and Close, Hide from the stage and Add a task overrun the
-  32 degree menu (the component render logs each footer's measure). The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
+  short ones fit in a 36 degree file, and Close, Hide from the stage and Add a task overrun the
+  32 degree menu (the component render logs each footer's measure). Each kind of column keeps one
+  width wherever it stands (`Glaze.Menu`): the menu 32 degrees, a file or New project's steps 36,
+  a side panel 26, so a page's words wrap the same alone and beside the menu.
+- **A page's measures** (`MenuPage`), engine-free, so a screen packs a page before the view lays
+  it: a column's content width and the half two answers sharing a row each take, a line of words
+  by `Glaze.Menu.LineSpacing` (the font's, which the component render holds it to), a row or an
+  answer, the gaps, a subject in one row or two under its pill, and the content round a page.
+  `MenuPage.Fits` says whether a composition stands inside a Quest 3S's field, its top
+  `MenuPage.TopDegrees` (17.5) below eye level, where a designed 26 degree panel's top stands at
+  the lowest a Quest 3S allows with the head level, and the head tipped by `ReadingPitch`, as the renders'
+  field check sees it, and `MenuPage.Height` is the most a lone file's page holds so, by its
+  subject's rows and the text size. `MenuColumns.Arrange` says which columns stand on the plane:
+  never three; a side panel beside the frame in front; and the menu stepping aside, off the plane,
+  while a file's side panel is open or while the menu and the file together would not fit (as
+  Tasks' four rows under a file title in two rows), back once neither holds or the file closes. The tokens for these surfaces are `Glaze.Menu`'s: three sizes of type, one 8 dp grid,
   one radius, the glass, the selection treatment, which `GlazeChecks.OneSelectionTreatment` pins,
   and quiet words in the secondary colour, every word held to 4.5 to 1 on the glass over a white
   wall. `Surface.DrawGlass` draws the glass in one call of the one surface shader: the panel colour
@@ -303,9 +323,24 @@ the same definition names, as the JSON Schema document:
   when pressed; `Row`, a page line's place to press, nothing at rest; and `Answer`, a hairline shape
   at rest; both lit when chosen and framed when pointed at, their words laid on them by the view
   (`ShowArea`). Each sets its shapes' `Surface.Selection`, so the selection check holds them.
+  `MenuFrameView` draws a frame or a side panel as a column's parts, each a shape centred on its
+  own transform for the plane to lay: the subject's glass with its title and pill, the row of
+  sections, and the content's glass with its lines, reason, source line, and `FooterView`, which
+  stands the footer's prompts in their slots and says whether they fit. Its static `RowsOf`,
+  `FitsHalf` and `TitleRows` measure words as it lays them, before anything is built; it pairs two
+  answers that each fit half a row in one row; and it keeps a small fact's or a chip's room at
+  18 dp wherever it stands, drawing it at 15 dp where that reads as the eyes see it; a fact from
+  outside takes at most 40 percent of its line. Once its words are laid as the plane has them it
+  raises `Drawn`, which the director passes on to the screen that counts what was read. `MenuBarView`
+  is the menu closed. The component render lays five compositions with them on one plane from the
+  eyes at both sizes and holds each to one plane, type stepping down, one selection treatment,
+  text as seen, its targets, nothing of Halcyonic's own cut, its footers fitting, the content's
+  light ending above its first target (`GlazeChecks.GlowEndsAboveTargets`) and a Quest 3S's field
+  (`GlazeChecks.InsideField`, which `FieldChecks` now calls), and checks that `MenuPage.Fits` agrees.
   `PanelModel` stays until nothing draws it.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
-  redesign ADR 0026 decides (no surface uses it yet): columns of parts, every part of a column as
+  redesign ADR 0026 decides (the component render's frames use it; the stage does not yet): at most
+  two columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
   and, its last part stretched down, ending on one bottom line, all grown whole by the reading text's
   step. Its centre is placed as one panel of its size by `WorkspacePlacement.Place`, so the band,

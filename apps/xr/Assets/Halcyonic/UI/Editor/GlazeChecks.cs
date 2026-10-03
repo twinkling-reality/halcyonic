@@ -425,6 +425,62 @@ namespace Halcyonic.XR.UI.Editor
             }
         }
 
+        /// <summary>
+        /// Every point inside <paramref name="field"/> less <see cref="ViewField.EdgeMarginDegrees"/>,
+        /// seen from <paramref name="eyes"/> with the head turned toward <paramref name="toward"/> and
+        /// pitched <paramref name="pitchDown"/> degrees down, as <c>FieldChecks</c> takes a stage and the
+        /// gallery a composition. Logs the lowest point, in the head's view.
+        /// </summary>
+        public static IEnumerable<string> InsideField(string what, IEnumerable<Vector3> points, Vector3 eyes, Vector3 toward, float pitchDown, ViewField field)
+        {
+            var margin = ViewField.EdgeMarginDegrees;
+            // A hundredth of a degree for rounding: a plate placed at its lowest has its corners on the edge.
+            var tolerance = margin - 0.01;
+            var shrunk = new ViewField(field.Left - tolerance, field.Right - tolerance, field.Up - tolerance, field.Down - tolerance);
+            var flat = new Vector3(toward.x - eyes.x, 0f, toward.z - eyes.z);
+            var yaw = Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
+            var head = Quaternion.Euler(pitchDown, yaw, 0f);
+            var outside = 0;
+            var lowest = 90f;
+            var widest = 0f;
+            foreach (var point in points)
+            {
+                var local = Quaternion.Inverse(head) * (point - eyes);
+                var across = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
+                var up = Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg;
+                lowest = Mathf.Min(lowest, up);
+                widest = Mathf.Max(widest, Mathf.Abs(across));
+                if (shrunk.Shows(across, up)) continue;
+                outside++;
+                Debug.Log("Halcyonic: field check " + what + ": a corner at " + Degrees(across) + " across and " + Degrees(up) + " up is outside.");
+            }
+            Debug.Log("Halcyonic: field check " + what + ": lowest point " + Degrees(-lowest) + " degrees below the view's middle, widest "
+                + Degrees(widest) + " to the side, looking " + Degrees(pitchDown) + " down; the field less its margin reaches "
+                + Degrees((float)shrunk.Down) + " down and " + Degrees((float)shrunk.Right) + " across.");
+            if (outside > 0) yield return what + ": " + outside + " corners lie outside the field less its margin.";
+        }
+
+        /// <summary>
+        /// A content surface's light ends above its first target (ADR 0026): no target whose top stands
+        /// higher than <paramref name="glass"/>'s top less its light's reach, so no row looks lit but the
+        /// chosen one.
+        /// </summary>
+        public static IEnumerable<string> GlowEndsAboveTargets(Surface glass, IEnumerable<GlazeButton> targets, string what)
+        {
+            var space = glass.transform.parent;
+            var line = glass.transform.localPosition.y + glass.Size.y / 2f - glass.GlowReach;
+            foreach (var target in targets)
+            {
+                if (!target.gameObject.activeInHierarchy || !target.transform.IsChildOf(space)) continue;
+                var top = space.InverseTransformPoint(target.transform.TransformPoint(new Vector3(0f, target.Size.y / 2f, 0f))).y;
+                if (top > line + 1e-5f)
+                {
+                    yield return what + ": " + PathOf(target.transform) + " reaches " + Millimetres((top - line) * space.lossyScale.y) + " mm into "
+                        + PathOf(glass.transform) + "'s light; the light ends in the top padding, above the first row.";
+                }
+            }
+        }
+
         private static string Millimetres(float meters) => (meters * 1000f).ToString("0.0", CultureInfo.InvariantCulture);
 
         /// <summary>
@@ -549,22 +605,44 @@ namespace Halcyonic.XR.UI.Editor
                 yield return name + "'s em is " + degrees.ToString("0.000", CultureInfo.InvariantCulture) + " degrees, under "
                     + GlazeIcons.MinimumDegrees.ToString("0.000", CultureInfo.InvariantCulture) + ".";
             }
-            // A word beside it: a label of its own parent that shows words, level with it and no more than an em away.
-            var seen = Of("the icon", eyes, new[] { icon.GetComponent<Renderer>() });
+            // A word beside it: a label of its own parent that shows words, level with it and no more than
+            // an em away, measured along the plane they lie on: seen from the eyes as yaw, a gap far below
+            // eye level would look wider than it is.
+            var plane = icon.transform.parent;
+            var seen = OnPlane(icon, plane);
             var beside = false;
             var nearest = "";
-            foreach (Transform sibling in icon.transform.parent)
+            foreach (Transform sibling in plane)
             {
                 if (sibling == icon.transform || !sibling.gameObject.activeInHierarchy) continue;
                 if (!sibling.TryGetComponent<TMP_Text>(out var word) || GlazeIcons.IsIcon(word) || string.IsNullOrWhiteSpace(word.text)) continue;
-                var words = Of(sibling.name, eyes, new[] { word.GetComponent<Renderer>() });
-                if (words.IsEmpty) continue;
-                var level = words.Bottom < seen.Top && seen.Bottom < words.Top;
-                var near = Mathf.Max(words.Left - seen.Right, seen.Left - words.Right) <= degrees;
+                var words = OnPlane(word, plane);
+                if (words.width <= 0f) continue;
+                var level = words.yMin < seen.yMax && seen.yMin < words.yMax;
+                var gap = Mathf.Max(words.xMin - seen.xMax, seen.xMin - words.xMax) * plane.lossyScale.x;
+                var near = Glaze.DegreesOf(gap, PlaneDistance(eyes, icon.transform)) <= degrees;
                 if (level && near) beside = true;
-                nearest += " " + words;
+                nearest += " " + sibling.name + " (" + Degrees(Glaze.DegreesOf(gap, PlaneDistance(eyes, icon.transform))) + " degrees away" + (level ? ")" : ", not level)");
             }
-            if (!beside) yield return name + " " + seen + " has no words beside it:" + (nearest.Length > 0 ? nearest : " none") + ".";
+            if (!beside) yield return name + " " + Of("the icon", eyes, new[] { icon.GetComponent<Renderer>() }) + " has no words beside it:" + (nearest.Length > 0 ? nearest : " none") + ".";
+        }
+
+        /// <summary>The rectangle a label's mesh covers on the plane of <paramref name="plane"/>, in that plane's units.</summary>
+        private static Rect OnPlane(TMP_Text label, Transform plane)
+        {
+            if (!label.TryGetComponent<MeshFilter>(out var filter) || filter.sharedMesh == null || filter.sharedMesh.bounds.size == Vector3.zero) return Rect.zero;
+            var bounds = filter.sharedMesh.bounds;
+            float left = float.MaxValue, right = float.MinValue, bottom = float.MaxValue, top = float.MinValue;
+            for (var corner = 0; corner < 4; corner++)
+            {
+                var local = bounds.center + Vector3.Scale(bounds.extents, new Vector3((corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, 0f));
+                var point = plane.InverseTransformPoint(label.transform.TransformPoint(local));
+                left = Mathf.Min(left, point.x);
+                right = Mathf.Max(right, point.x);
+                bottom = Mathf.Min(bottom, point.y);
+                top = Mathf.Max(top, point.y);
+            }
+            return Rect.MinMaxRect(left, bottom, right, top);
         }
 
         /// <summary>
