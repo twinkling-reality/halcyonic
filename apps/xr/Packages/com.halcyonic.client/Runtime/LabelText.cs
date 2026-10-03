@@ -157,6 +157,28 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// A name from outside, as a folder's or a project's, by <see cref="Plain"/>'s rule, which never
+        /// leaves it empty: a name of nothing but white space shows each of its characters as its code
+        /// point, such as ‹U+0020›, so a blank name is still something to see and to choose, and never
+        /// mistaken for another. Null or empty stays empty.
+        /// </summary>
+        public static string Name(string? text)
+        {
+            var plain = Plain(text);
+            if (plain.Length > 0 || string.IsNullOrEmpty(text)) return plain;
+            var result = new StringBuilder();
+            for (var index = 0; index < text!.Length; index++)
+            {
+                var unit = text[index];
+                var paired = char.IsHighSurrogate(unit) && index + 1 < text.Length && char.IsLowSurrogate(text[index + 1]);
+                var codePoint = paired ? char.ConvertToUtf32(unit, text[index + 1]) : unit;
+                result.Append("‹U+").Append(codePoint.ToString("X4", CultureInfo.InvariantCulture)).Append('›');
+                if (paired) index++;
+            }
+            return result.ToString();
+        }
+
+        /// <summary>
         /// <see cref="Plain"/> text for a TextMeshPro label with rich text off and escape parsing on:
         /// every backslash doubled, since such a label shows a doubled backslash as one and turns
         /// every other backslash sequence into another character. Set it on the label exactly once.
