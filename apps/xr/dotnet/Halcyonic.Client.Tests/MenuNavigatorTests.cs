@@ -81,16 +81,19 @@ public class MenuNavigatorTests
 
     private static readonly MenuBar Bar = new(MenuPlace.Tasks, "1 task is waiting for you", MenuPlace.Tasks);
 
-    /// <summary>Draws what shows as the plane would, each view reporting its frame, and the side panel of the frame in front: what a press carries.</summary>
-    private static (MenuFrame? Menu, MenuFrame? Beside, SidePanel? Side) Draw(MenuNavigator menu)
+    /// <summary>
+    /// Draws what shows as the plane would, each view reporting its frame, and the side panel of the frame
+    /// in front, beside it or, with <paramref name="inPlace"/>, in its place: what a press carries.
+    /// </summary>
+    private static (MenuFrame? Menu, MenuFrame? Beside, SidePanel? Side) Draw(MenuNavigator menu, bool inPlace = false)
     {
         var (shown, beside) = menu.Frames(Bar);
         if (shown != null) menu.Drawn(MenuColumn.Menu, shown, null);
-        if (beside != null) menu.Drawn(MenuColumn.File, beside, null);
+        if (beside != null && !menu.BesideAside) menu.Drawn(MenuColumn.File, beside, null);
         // As the plane has it: the menu's details in front of a file beside it, else the file's, else the menu's.
-        var side = (menu.BesideAside ? shown : beside ?? shown)?.Side;
-        if (side != null) menu.Drawn(MenuColumn.Side, null, side);
-        return (shown, beside, side);
+        var front = menu.BesideAside ? shown : beside ?? shown;
+        if (front?.Side is SidePanel side) menu.Drawn(MenuColumn.Side, inPlace ? front : null, side);
+        return (shown, beside, front?.Side);
     }
 
     private static SidePanel Details() => new("Details", facts: new[] { new SideFact("Seen", "just now") });
@@ -322,7 +325,7 @@ public class MenuNavigatorTests
     }
 
     [Test]
-    public void ASidePanelsPressCountsOnlyForItsCloseAndWhatItsFrameOffersNow()
+    public void ASidePanelInItsFramesPlaceTakesOnlyItsCloseAndWhatItCarriesOfItsFrameNow()
     {
         var (menu, places) = Menu();
         menu.OpenMenu(MenuPlace.Settings);
@@ -331,25 +334,63 @@ public class MenuNavigatorTests
         settings.Side = Details();
         settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
         settings.Change();
-        var (_, _, side) = Draw(menu);
+        var (_, _, side) = Draw(menu, inPlace: true);
         Assert.That(menu.Act(MenuColumn.Side, "approve", null, null, side), Is.False, "nothing its frame doesn't offer, though the side panel stands");
         Assert.That(menu.Taking(MenuColumn.Side, "talk", null, side), Is.Null, "nor a hold its frame doesn't offer");
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.True, "the change it offers");
         settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, available: false, reason: "Not now.");
         settings.Change();
-        side = Draw(menu).Side;
+        side = Draw(menu, inPlace: true).Side;
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "nor what it offers but doesn't allow now");
         Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, always");
         settings.Side = Details();
         settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
         settings.Change();
-        side = Draw(menu).Side;
+        side = Draw(menu, inPlace: true).Side;
         menu.Moved();
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "the plane moved: nothing counts until drawn where it stands");
-        Draw(menu);
+        Draw(menu, inPlace: true);
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.True, "drawn again, it counts");
         Assert.That(settings.Got.Where(got => got.StartsWith("act")), Is.EqualTo(new[] { "act change ", "act " + SidePanel.Close + " ", "act change " }),
             "the change twice and Close details once, and nothing it doesn't offer");
+    }
+
+    [Test]
+    public void ASidePanelTakesOnlyWhatItDrewItsCloseBesideItsFrameAndInItsPlaceWhatItCarries()
+    {
+        var (menu, places) = Menu();
+        menu.OpenMenu(MenuPlace.Settings);
+        menu.Frames(Bar);
+        var settings = places[MenuPlace.Settings];
+        settings.Side = Details();
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
+        settings.Change();
+        var (shown, _, side) = Draw(menu);
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "beside its frame it shows only Close details; the change stands on the frame");
+        Assert.That(menu.Act(MenuColumn.Menu, "change", null, shown, null), Is.True, "pressed on the frame, where it is drawn");
+
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true);
+        settings.Change();
+        side = Draw(menu, inPlace: true).Side;
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "in its frame's place, nothing its column doesn't mark safe there, which it never carries");
+
+        // The page's Next page beside a panel of one part would turn the page the panel hides.
+        settings.Offered = new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage);
+        settings.Change();
+        side = Draw(menu, inPlace: true).Side;
+        Assert.That(menu.Act(MenuColumn.Side, Footer.NextPage, null, null, side), Is.False, "paging of a page it hides");
+        settings.Side = new SidePanel("Details", lines: new[] { new PageLine("Part of them") }, parts: (0, 2));
+        settings.Change();
+        side = Draw(menu, inPlace: true).Side;
+        Assert.That(menu.Act(MenuColumn.Side, Footer.NextPage, null, null, side), Is.True, "paging of its own parts");
+        // A column may give the same side panel with another frame: drawn in a frame's place that no longer stands, it counts for nothing.
+        menu.Moved();
+        menu.Drawn(MenuColumn.Side, new MenuFrame("Another", new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
+            lines: new[] { new PageLine("A line", action: "open", key: "k", opens: true, chosen: true) }, side: side), side);
+        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.False, "drawn in another frame's place, it is passed over");
+        Draw(menu, inPlace: true);
+        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, either way");
+        Assert.That(settings.Got.Where(got => got.StartsWith("act")), Is.EqualTo(new[] { "act change ", "act " + Footer.NextPage + " ", "act " + SidePanel.Close + " " }));
     }
 
     [Test]
@@ -390,16 +431,21 @@ public class MenuNavigatorTests
         Assert.That(menu.BesideAside, Is.True);
         Assert.That(side, Is.SameAs(menu.Frames(Bar).Menu!.Side), "the side panel drawn is the menu's");
         Assert.That(menu.Act(MenuColumn.File, "open", "k", fileFrame, null), Is.False, "nothing on the file's last drawn frame counts while it stands aside");
+        var read = file.Got.Count(got => got.StartsWith("drawn"));
         menu.Drawn(MenuColumn.File, menu.Frames(Bar).Beside, null);
-        Assert.That(menu.Act(MenuColumn.File, "open", "k", menu.Frames(Bar).Beside, null), Is.False, "nor a draw of it reported meanwhile");
+        Assert.That(file.Got.Count(got => got.StartsWith("drawn")), Is.EqualTo(read), "a draw of it reported meanwhile counts nothing as read, since no one sees it");
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", menu.Frames(Bar).Beside, null), Is.False, "nor does a press on it count");
         Assert.That(menu.Taking(MenuColumn.File, "talk", menu.Frames(Bar).Beside, null), Is.Null, "nor a hold");
         Assert.That(menu.ColumnOf(MenuColumn.Side), Is.SameAs(settings), "a hold on the details ends at the menu's place, which took it");
         Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True);
         Assert.That(settings.Got.Last(), Is.EqualTo("act " + SidePanel.Close + " "), "its Close goes to the menu's place, whose details they are");
 
-        // The details closed: the file comes back and, drawn again, takes its presses.
+        // The details closed: until the plane is drawn again they still stand, so a hold on them ends at
+        // the menu's place; then the file comes back and, drawn again, takes its presses.
         settings.Side = null;
         settings.Change();
+        Assert.That(menu.BesideAside, Is.True, "what stands on the plane until it is drawn again");
+        Assert.That(menu.ColumnOf(MenuColumn.Side), Is.SameAs(settings), "a hold on the details still ends where it started");
         var back = Draw(menu).Beside;
         Assert.That(menu.BesideAside, Is.False);
         Assert.That(menu.Act(MenuColumn.File, "open", "k", back, null), Is.True);

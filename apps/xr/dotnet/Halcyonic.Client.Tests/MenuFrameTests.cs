@@ -126,36 +126,38 @@ public class MenuFrameTests
     [Test]
     public void ASidePanelInItsFramesPlaceCarriesOnlyWhatItShowsEverythingOfWithCloseDetailsWhereCloseStood()
     {
-        var closeDetails = SidePanel.Footer[PromptSlot.Close]!;
+        var details = new SidePanel("Details", facts: new[] { new SideFact("Seen", "just now") });
         var change = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
-        var settings = new Footer(Close, farRight: change).InPlace(closeDetails);
+        var settings = new Footer(Close, farRight: change).InPlace(details);
         Assert.That(settings.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close, "change" }), "a setting's change, which its panel shows all of");
-        Assert.That(new Footer(Close, farRight: change).WholeInPlace, Is.True);
+        Assert.That(settings[PromptSlot.Close], Is.SameAs(SidePanel.Footer[PromptSlot.Close]), "Close details where Close stood");
 
         var waiting = new Footer(Close, rare: Action("stop"), secondary: new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true),
             farRight: Action("send", main: true));
-        var answer = waiting.InPlace(closeDetails);
+        var answer = waiting.InPlace(details);
         Assert.That(answer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close }),
             "Send answer sends more than an answer's panel shows, and Hold to talk adds to it: only Close details, which brings the page back");
-        Assert.That(waiting.WholeInPlace, Is.False);
 
-        var paged = new Footer(Close, farRight: Action("send", main: true)).WithNext(new Prompt(Footer.NextPage, "Next part", GlazeIcon.Next, PromptKind.NextPage))
-            .InPlace(closeDetails);
-        Assert.That(paged.All.Select(each => (each.Slot, each.Prompt.Id)), Is.EqualTo(new[] { (PromptSlot.Close, SidePanel.Close), (PromptSlot.FarRight, Footer.NextPage) }),
-            "paging always, at the far right once the main action beside it stays behind");
+        var turning = new Footer(Close, farRight: Action("send", main: true)).WithNext(Next());
+        var inParts = new SidePanel("An answer", lines: new[] { new PageLine("Part of it") }, parts: (0, 2));
+        Assert.That(turning.InPlace(inParts).All.Select(each => (each.Slot, each.Prompt.Id)), Is.EqualTo(new[] { (PromptSlot.Close, SidePanel.Close), (PromptSlot.FarRight, Footer.NextPage) }),
+            "the panel's own parts paged, at the far right once the main action beside it stays behind");
+        Assert.That(turning.InPlace(details).All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close }),
+            "a panel of one part: the page's Next page would turn the page it hides");
+        var onePart = new SidePanel("Changes", lines: new[] { new PageLine("All of it") }, parts: (0, 1));
+        Assert.That(turning.InPlace(onePart).All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close }), "nor one counted as a single part");
 
         var forgetting = Footer.Confirm(new Footer(Close, farRight: change), PromptSlot.FarRight,
-            new Prompt("yes", "Yes, forget this computer", GlazeIcon.Change, PromptKind.Yes, safeInPlace: true), Cancel).InPlace(closeDetails);
+            new Prompt("yes", "Yes, forget this computer", GlazeIcon.Change, PromptKind.Yes, safeInPlace: true), Cancel).InPlace(details);
         Assert.That(forgetting.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Yes, PromptKind.Cancel }),
             "a Yes its panel shows all of, and Cancel always");
-        var approving = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(), Cancel).InPlace(closeDetails);
+        var approving = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(), Cancel).InPlace(details);
         Assert.That(approving.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Cancel }), "no Yes its panel doesn't show all of");
 
         var connecting = new Footer(Close, farRight: new Prompt("connect", "Connect", GlazeIcon.ConnectProjects, main: true, available: false,
-            reason: "Choose a folder first", safeInPlace: true)).InPlace(closeDetails);
+            reason: "Choose a folder first", safeInPlace: true)).InPlace(details);
         Assert.That(connecting.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close, "connect" }), "one its panel shows all of, though it can't be taken now");
         Assert.That(connecting.Reason, Is.EqualTo("Choose a folder first"), "saying why, as the page's last content line");
-        Assert.Throws<ArgumentException>(() => waiting.InPlace(Action("close-it")), "only a Close stands far left");
     }
 
     [Test]

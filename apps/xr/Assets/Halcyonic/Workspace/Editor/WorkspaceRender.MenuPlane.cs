@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
@@ -89,8 +90,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (fileHalf.Count == 0) Debug.Log("Halcyonic: workspace render " + name + ": the side panel stands in the file's place.");
                 failures.AddRange(PlaneState(name + " file and side panel", folder, camera, texture, plane, characters, eyes, window));
 
-                // Close details: the menu comes back where it was.
+                // Close details: the menu comes back where it was, taking no press until it settles.
+                var menuAside = plane.MenuAside && menuView != null;
+                if (menuAside) SettleLongAgo(menuView!);
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                if (menuAside && !plane.MenuAside) failures.AddRange(WaitsToSettle(name + " menu back", menuView!));
                 plane.Advance(MenuPlane.SlideSeconds / 2f);
                 if (plane.MenuAside != (menuPlaced.Count == 0)) failures.Add(name + ": the side panel closed, and the menu stands " + (plane.MenuAside ? "aside" : "beside the file") + " where it stood the other way before.");
                 plane.Advance(MenuPlane.SlideSeconds);
@@ -120,8 +124,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (plane.Shown.All(column => column.Kind != MenuColumn.Side)) failures.Add(name + ": a setting chosen beside a file, and its details don't show.");
                 failures.AddRange(PlaneState(name + " details over a file", folder, camera, texture, plane, characters, eyes, window));
 
-                // Close details: the file comes back.
+                // Close details: the file comes back, taking no press until it settles.
+                var fileAside = plane.FileAside && fileView != null;
+                if (fileAside) SettleLongAgo(fileView!);
                 plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                if (fileAside && !plane.FileAside) failures.AddRange(WaitsToSettle(name + " file back", fileView!));
                 plane.Advance(MenuPlane.SlideSeconds);
                 if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
                 failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
@@ -181,9 +188,25 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static MenuFrameView? FindView(MenuPlane plane, string name) => plane.GetComponentsInChildren<MenuFrameView>(true).FirstOrDefault(view => view.name == name);
 
+        /// <summary>When a button last took a new action, after which its presses count once it settles.</summary>
+        private static readonly FieldInfo ShownAt = typeof(GlazeButton).GetField("shownAt", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new System.MissingFieldException(nameof(GlazeButton), "shownAt");
+
+        private const float SettledLongAgo = -100f;
+
+        /// <summary>Every button of <paramref name="view"/>, shown or not, as if it took its action long ago and settled.</summary>
+        private static void SettleLongAgo(MenuFrameView view)
+        {
+            foreach (var button in view.GetComponentsInChildren<GlazeButton>(true)) ShownAt.SetValue(button, SettledLongAgo);
+        }
+
+        /// <summary>Every button <paramref name="view"/> shows waits to settle again, as one sliding back onto the plane must.</summary>
+        private static IEnumerable<string> WaitsToSettle(string what, MenuFrameView view) => view.GetComponentsInChildren<GlazeButton>()
+            .Where(button => (float)ShownAt.GetValue(button)! == SettledLongAgo)
+            .Select(button => what + ": " + button.name + " takes a press as it slides back, before it settles.");
+
         private static readonly Prompt PlaneClose = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
 
-        /// <summary>Tasks: the waiting task chosen, <paramref name="count"/> rows, as many as the stage holds beside a file.</summary>
         /// <summary>Settings with Text size chosen: its details beside it, its change the main action, safe on them.</summary>
         private static MenuFrame SettingChosen() => new MenuFrame(SettingsText.Subject,
             new Footer(PlaneClose, farRight: new Prompt("change", "Make text larger", GlazeIcon.Change, main: true, safeInPlace: true)),
@@ -196,6 +219,7 @@ namespace Halcyonic.XR.Workspace.Editor
             },
             side: new SidePanel("Text size", facts: new[] { new SideFact("Now", "The standard size"), new SideFact("A step larger", "Text 15 percent larger, and 3 rows a page") }));
 
+        /// <summary>Tasks: the waiting task chosen, <paramref name="count"/> rows, as many as the stage holds beside a file.</summary>
         private static MenuFrame Tasks(TextSize text, string waiting, int count)
         {
             var rows = new[]
@@ -316,22 +340,24 @@ namespace Halcyonic.XR.Workspace.Editor
 
             // Every prompt the frame in front offers is drawn somewhere on the plane, so nothing a chosen
             // row offers, as a setting's change, is out of reach; or, on its side panel in the frame's place,
-            // where only what the panel shows everything of is carried, Close details is drawn to bring the
-            // page back. A side panel in its frame's place says its frame's own reason, of what it carries.
+            // where only what the panel shows everything of is carried, and paging only of its own parts,
+            // Close details is drawn to bring the page back. A side panel in its frame's place says its
+            // frame's own reason, of what it carries.
             if (plane.Front is MenuFrame front)
             {
                 var drawn = plane.Shown.SelectMany(column => column.View.Footer.Showing?.All.Select(each => each.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
+                var inPlace = plane.Shown.Count == 1 && plane.Shown[0].Kind == MenuColumn.Side ? plane.Shown[0].View.Side : null;
+                var carried = inPlace != null ? front.Footer.InPlace(inPlace) : null;
                 foreach (var (_, prompt) in front.Footer.All)
                 {
                     if (prompt.Kind == PromptKind.Close || drawn.Contains(prompt.Id)) continue;
-                    if (prompt.SafeInPlace || prompt.Kind == PromptKind.NextPage || prompt.Kind == PromptKind.Cancel || !drawn.Contains(SidePanel.Close))
+                    if (carried == null || carried.All.Any(each => each.Prompt.Id == prompt.Id) || !drawn.Contains(SidePanel.Close))
                     {
                         failures.Add(what + ": the frame in front offers \"" + prompt.Words + "\", but nothing on the plane draws it, nor Close details to bring the page back.");
                     }
                 }
-                var inPlace = plane.Shown.Count == 1 && plane.Shown[0].Kind == MenuColumn.Side;
-                var said = front.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!).Reason;
-                if (inPlace && plane.Shown[0].View.ReasonShown != said)
+                var said = carried?.Reason;
+                if (inPlace != null && plane.Shown[0].View.ReasonShown != said)
                 {
                     failures.Add(what + ": the side panel in its frame's place says \"" + plane.Shown[0].View.ReasonShown + "\", not its frame's own reason \"" + said + "\".");
                 }

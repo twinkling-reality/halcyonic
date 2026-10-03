@@ -422,15 +422,22 @@ the same definition names, as the JSON Schema document:
   fit as the stage would place them in the headset's measured field (`MenuPage.Inside`), and a side
   panel taking its frame's place with text a step larger, or wherever the two don't fit, wearing
   the file's pill and keeping its light line. There it stands as wide as its frame and carries
-  `Footer.InPlace`: Close details where Close stood, paging and Cancel, and only the prompts its
-  column marks `Prompt.SafeInPlace`, whose side panel shows all they act on (a setting's change,
-  Forget's Yes), with their reason; for the rest Close details brings the page back. The navigator
-  takes a press or a hold there only for Close details or a prompt that frame offers now and allows
-  (`MenuNavigator.Taking`), and a column opening beside the menu lets go of the menu's chosen row,
-  whose side panel it would leave undrawn. The other way round, a row chosen in the menu that opens
-  its details with a file beside it brings the details to the front: the file steps aside to the
-  right with the menu's slide (`MenuPlane.FileAside`), and nothing on its last drawn frame counts
-  until it is back (`MenuNavigator.BesideAside`). It places the composition as one panel of its size
+  `Footer.InPlace`: Close details where Close stood, Cancel, paging only of the side panel's own
+  parts (`SidePanel.Parts`, which the frame's Next page turns), and only the prompts its column
+  marks `Prompt.SafeInPlace`, whose side panel shows all they act on (a setting's change, Forget's
+  Yes), with their reason; for the rest Close details brings the page back. The side panel's view
+  reports the frame whose place it stands in (`MenuFrameView.InPlaceOf`), and the navigator takes a
+  press or a hold there only for what it drew and allows (`MenuNavigator.Taking`): what it carries
+  in its frame's place, Close details alone beside it. A column opening beside the menu lets go of
+  the menu's chosen row, whose side panel it would leave undrawn. The other way round, a row chosen
+  in the menu that opens its details with a file beside it brings the details to the front: the
+  file steps aside to the right with the menu's slide (`MenuPlane.FileAside`), and nothing on its
+  last drawn frame counts, nor its draw as read, until it is back (`MenuNavigator.BesideAside`, as in
+  the frames handed out last, so a hold on the details ends at the menu's place until the plane is
+  drawn again). The menu or the file coming back from aside takes no press as it slides in: every
+  button it shows waits to settle again (`MenuFrameView.Unsettle`). A frame coming back from behind
+  its own side panel in its place is not made to wait: only its buttons whose words changed do. The
+  review of 2026-10-03 judged that harmless, since no Approve or Yes stands there. It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
   (`PlaceAhead`), and slides every part to its new place over 0.25 s, so the plane re-centres as
@@ -447,8 +454,9 @@ the same definition names, as the JSON Schema document:
   text as seen, its targets, a degree from every label, body and the window by their outlines as
   the eyes see them (`GlazeChecks.OutlineApart`), the field, the light line crossing nothing, and
   every prompt the frame in front offers drawn somewhere on the plane (`FooterView.Showing`), or,
-  for what isn't safe in place, Close details, and no drawn frame with a chosen row whose side panel
-  isn't drawn.
+  for what a side panel in its frame's place doesn't carry, Close details, and no drawn frame with a
+  chosen row whose side panel isn't drawn; and the menu or the file back from aside with every
+  button waiting to settle again.
   `PanelModel` stays until nothing draws it.
 - **`FileScreens`** builds a task's file as a `MenuFrame` (ADR 0026) from its presentation, the
   steering and what the file is in the middle of (`FileScreen`: the section chosen, the line whose

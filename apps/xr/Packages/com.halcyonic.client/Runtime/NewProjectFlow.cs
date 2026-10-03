@@ -745,7 +745,9 @@ namespace Halcyonic.Client
             if (!IsOpen || !ReferenceEquals(drawn, shown)) return;
             if (sidePanel)
             {
-                drawnSide = (drawn, drawn.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!), linePage);
+                // What the panel carries in the page's place; beside the page it draws Close details alone,
+                // and the navigator takes nothing else from it there.
+                drawnSide = (drawn, drawn.Side is SidePanel panel ? drawn.Footer.InPlace(panel) : SidePanel.Footer, linePage);
                 if (drawnPage?.Frame != drawn) drawnPage = null;
                 return;
             }

@@ -31,8 +31,14 @@ namespace Halcyonic.Client
         private SidePanel? drawnSide;
         private IMenuColumn? drawnSideOf;
 
-        /// <summary>The frame whose side panel was drawn last: a side panel standing in its place carries its footer, and a press there counts only for what that frame offers.</summary>
-        private MenuFrame? drawnSideFrame;
+        /// <summary>
+        /// The footer the side panel drawn last shows: in its frame's place, what <see cref="Footer.InPlace"/>
+        /// carries of that frame's; beside it, its own Close alone. A press there counts only for what it shows.
+        /// </summary>
+        private Footer? drawnSideFooter;
+
+        /// <summary>Whether the menu's details stood in front of the column beside it in the frames handed out last.</summary>
+        private bool besideAside;
         private MenuBar? lastBar;
         private bool changed = true;
 
@@ -64,9 +70,11 @@ namespace Halcyonic.Client
         /// <summary>
         /// The menu's details stand in front of the column beside it: the menu's chosen row opened its side
         /// panel, so that column steps aside off the plane until they close, and nothing on its last drawn
-        /// frame counts meanwhile.
+        /// frame counts meanwhile. Whether the menu's details stand is as in the frames handed out last
+        /// (<see cref="Frames"/>), so it holds between a change and the next draw, as what stands on the
+        /// plane does; whether the menu is open and a column beside it, as now.
         /// </summary>
-        public bool BesideAside => IsOpen && Beside != null && placeFrame?.Side != null;
+        public bool BesideAside => besideAside && IsOpen && Beside != null;
 
         /// <summary>The task whose file stands beside the menu, for its character's light line and the chosen row on Tasks; null for New project.</summary>
         public string? BesideTask { get; private set; }
@@ -166,6 +174,7 @@ namespace Halcyonic.Client
             {
                 placeFrame = IsOpen ? PlaceColumn.Frame : null;
                 besideFrame = Beside?.Frame;
+                besideAside = IsOpen && Beside != null && placeFrame?.Side != null;
             }
             if (changed || bar != lastBar) menuFrame = placeFrame?.WithSections(bar.Sections());
             changed = false;
@@ -213,8 +222,9 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// A view in <paramref name="from"/>'s slot drew <paramref name="frame"/> whole, or a side panel's
-        /// view drew <paramref name="side"/>, which belongs to the frame in front: the column that gave it
-        /// learns of it, its page or its side panel, and presses on it count from now; a frame or side
+        /// view drew <paramref name="side"/>, which belongs to the frame in front, standing in that frame's
+        /// place where <paramref name="frame"/> is given and beside it where it is null: the column that gave
+        /// it learns of it, its page or its side panel, and presses on it count from now; a frame or side
         /// panel no column gave now is passed over.
         /// </summary>
         public void Drawn(MenuColumn from, MenuFrame? frame, SidePanel? side)
@@ -236,9 +246,9 @@ namespace Halcyonic.Client
                     // As the plane has it: the file's side panel where a file stands, else the menu's, as
                     // when the menu's details stand in front of the file.
                     var front = BesideAside ? menuFrame : besideFrame ?? menuFrame;
-                    if (side == null || front == null || side != front.Side) return;
+                    if (side == null || front == null || side != front.Side || (frame != null && frame != front)) return;
                     drawnSide = side;
-                    drawnSideFrame = front;
+                    drawnSideFooter = frame != null ? front.Footer.InPlace(side) : SidePanel.Footer;
                     drawnSideOf = front == besideFrame ? Beside! : PlaceColumn;
                     drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, true);
                     return;
@@ -248,19 +258,19 @@ namespace Halcyonic.Client
         /// <summary>
         /// The column a press or a hold of <paramref name="action"/> from <paramref name="from"/> goes to:
         /// only from what was drawn last in its slot and still stands (<see cref="Standing"/>), and from a
-        /// side panel only its own Close or a prompt the frame it belongs to offers now and allows, as one
-        /// standing in its frame's place carries them; null for anything else.
+        /// side panel only what its footer showed and allows: its own Close, and, standing in its frame's
+        /// place, what it carries of that frame's; null for anything else.
         /// </summary>
         public IMenuColumn? Taking(MenuColumn from, string action, MenuFrame? frame, SidePanel? side)
         {
             if (!(Standing(from, frame, side) is IMenuColumn column)) return null;
-            if (from == MenuColumn.Side && action != SidePanel.Close && !Offers(drawnSideFrame, action)) return null;
+            if (from == MenuColumn.Side && !Offers(drawnSideFooter, action)) return null;
             return column;
         }
 
-        /// <summary>Whether <paramref name="frame"/>'s footer offers a prompt <paramref name="action"/>, available now.</summary>
-        private static bool Offers(MenuFrame? frame, string action) =>
-            frame != null && frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available);
+        /// <summary>Whether <paramref name="footer"/> offers a prompt <paramref name="action"/>, available now.</summary>
+        private static bool Offers(Footer? footer, string action) =>
+            footer != null && footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available);
 
         /// <summary>The column whose held prompt, or press, came from <paramref name="from"/>.</summary>
         public IMenuColumn? ColumnOf(MenuColumn from) => from switch
@@ -319,7 +329,7 @@ namespace Halcyonic.Client
             drawnBeside = null;
             drawnSide = null;
             drawnSideOf = null;
-            drawnSideFrame = null;
+            drawnSideFooter = null;
         }
 
         /// <summary>

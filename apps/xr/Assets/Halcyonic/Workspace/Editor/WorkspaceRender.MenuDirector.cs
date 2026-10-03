@@ -249,6 +249,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     failures.Add(name + ": the text size's change, drawn on its side panel in the frame's place, takes no press.");
                 }
+                // Beside its frame, the side panel shows only Close details: the change is the frame's to take.
+                var textSize = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View;
+                if (change != null && !inPlace && textSize != null && director.Navigator.Act(MenuColumn.Side, change.Id, null, null, textSize.Side))
+                {
+                    failures.Add(name + ": the text size's change was taken from its side panel beside the frame, which draws only Close details.");
+                }
                 // The press changed the reading size; the render keeps drawing at its own, so it is put back.
                 comfort.Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
 

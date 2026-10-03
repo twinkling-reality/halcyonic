@@ -317,7 +317,8 @@ namespace Halcyonic.XR.Workspace
         private void OnDrawn(MenuColumn from, MenuFrameView view)
         {
             if (Away) return;
-            navigator.Drawn(from, view.Frame, view.Side);
+            // A side panel reports the frame whose place it stands in, whose footer it carries.
+            navigator.Drawn(from, from == MenuColumn.Side ? view.InPlaceOf : view.Frame, view.Side);
         }
 
         /// <summary>
