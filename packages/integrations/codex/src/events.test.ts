@@ -573,6 +573,13 @@ describe('Codex event mapping edge cases', () => {
       code: 'codex_turn_failed',
       message: 'Codex reported the turn as failed without a message.',
     });
+    // A gateway's long answer comes whole, so the control plane finds a held value across 2000.
+    const long = `401 ${'x'.repeat(1981)}agent-password-20chr and the rest of the body ${'y'.repeat(60)}`;
+    notify(state, 'turn/started', { turn: { id: 'c', status: 'inProgress' } });
+    const wordy = notify(state, 'turn/completed', {
+      turn: { id: 'c', status: 'failed', error: { message: long } },
+    }).observations[0];
+    assert.equal(wordy?.type === 'runtime.turn.failed' && wordy.payload.error.message, long);
     for (const type of ['reasoning', 'mcpToolCall', 'webSearch', 'plan', 'userMessage']) {
       assert.deepEqual(
         notify(state, 'item/started', { turnId: 'b', item: { type, id: type } }).observations,

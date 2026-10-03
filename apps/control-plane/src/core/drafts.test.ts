@@ -281,6 +281,30 @@ describe("a runtime's observations", () => {
     });
   });
 
+  test("a runtime's long error loses a held value across the journal's limit, whole, before it is cut", () => {
+    const password = 'agent-password-20chr';
+    const token = 'aT0k3nOfFortyThreeCharactersXyZ_-0123456789';
+    const { sink, recorded } = recordingSink([
+      { what: 'access token', value: token },
+      { what: 'GATEWAY_PASSWORD', value: password },
+    ]);
+    // A gateway's 2,100-character 401 that echoes them across where the journal cuts, as the
+    // adapters now pass it: whole.
+    for (const [at, held] of [
+      [1985, password],
+      [1969, token],
+    ] as const) {
+      const body = `${'x'.repeat(at)}${held}${'y'.repeat(2100 - at - held.length)}`;
+      sink(
+        observation('runtime.turn.failed', { turn_id: 't', error: { code: 'e', message: body } }),
+      );
+      const payload = recorded.at(-1)?.payload as { error?: { message?: string } } | undefined;
+      const message = payload?.error?.message ?? '';
+      assert.equal(Array.from(message).length, 2000);
+      assert.ok(!message.includes(held.slice(0, 8)), 'no part of the held value is left');
+    }
+  });
+
   test("a question too malformed to fit is the adapter's defect: logged and dropped, never thrown back", () => {
     const { logger, entries } = capturingLogger();
     const recorded: unknown[] = [];

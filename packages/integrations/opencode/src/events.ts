@@ -407,10 +407,11 @@ function executionError(data: Readonly<Record<string, unknown>>): ErrorInfo {
   const message = nonBlank(error.message);
   return {
     code: code.slice(0, 64),
+    // Whole: the control plane takes credentials out, which it finds only whole, then cuts it.
     message:
       message === null
         ? 'OpenCode reported the execution as failed without a message.'
-        : clip(message.trim(), 2000),
+        : message.trim(),
   };
 }
 

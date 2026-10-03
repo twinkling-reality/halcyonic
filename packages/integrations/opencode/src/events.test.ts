@@ -646,6 +646,22 @@ describe('OpenCode event decoding', () => {
     });
   });
 
+  test("an execution error's text comes whole, for the control plane to cut after redaction", () => {
+    const state = createSessionState();
+    state.turn = { id: null };
+    const long = `401 ${'x'.repeat(1981)}agent-password-20chr and the rest of the body ${'y'.repeat(60)}`;
+    const event = decodeEvent(
+      JSON.stringify({
+        id: 'evt_g',
+        type: 'session.execution.failed',
+        data: { sessionID: 's', error: { type: 'provider_error', message: long } },
+      }),
+    );
+    assert.ok(event !== null);
+    const [failed] = observeEvent(state, event, NOW);
+    assert.equal(failed?.type === 'runtime.turn.failed' && failed.payload.error.message, long);
+  });
+
   test('a delivered inbox item is no longer a steered instruction waiting, and is not reported', () => {
     const state = createSessionState();
     state.turn = { id: 'evt_turn' };

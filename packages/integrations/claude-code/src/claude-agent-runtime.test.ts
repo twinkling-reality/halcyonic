@@ -802,6 +802,17 @@ describe('observing a turn', () => {
     );
   });
 
+  test("an API error's text comes whole, for the control plane to cut after redaction", async () => {
+    const { startConfirmed, observed } = setup();
+    const scripted = await startConfirmed();
+    // A gateway's 401 that echoes a held password from character 1985.
+    const long = `401 ${'x'.repeat(1981)}agent-password-20chr and the rest of the body ${'y'.repeat(60)}`;
+    scripted.emit(success(scripted.sessionId, { is_error: true, result: long }));
+    await settle();
+    const last = observed.at(-1);
+    assert.equal(last?.type === 'runtime.turn.failed' && last.payload.error.message, long);
+  });
+
   test('a query that ends without a result fails the turn with an unknown effect and loses the connection', async () => {
     const { adapter, startConfirmed, observed, types } = setup();
     const scripted = await startConfirmed();

@@ -24,9 +24,10 @@ export interface ExecutionContext {
 /**
  * A normalized fact an adapter observed about one execution. The control plane adds identity,
  * scope, source and ingestion time, then validates and journals it. A tool's title, an approval's
- * summary, a question's texts and a test run's label and summary come whole, however long: the
- * control plane takes the secrets it holds out of them, which it finds only whole, then cuts them
- * to the contract, a question with `fitQuestion`, leaving one with anything cut unanswerable.
+ * summary, a question's texts, a test run's label and summary, and error text (a turn's failure,
+ * why the connection was lost) come whole, however long: the control plane takes the secrets it
+ * holds out of them, which it finds only whole, then cuts them to the contract, a question with
+ * `fitQuestion`, leaving one with anything cut unanswerable.
  */
 export type RuntimeObservation = {
   [T in RuntimeEventType]: {
@@ -191,7 +192,8 @@ export interface RuntimeAdapter {
 
 /**
  * A runtime refused or failed an action. `effect: 'unknown'` means the runtime may have acted
- * anyway, for example when a connection dropped mid-request.
+ * anyway, for example when a connection dropped mid-request. Its message comes whole, as an
+ * observation's error text does: the control plane takes credentials out, then cuts it.
  */
 export class RuntimeActionError extends Error {
   readonly code: string;
