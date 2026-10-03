@@ -733,6 +733,19 @@ the same definition names, as the JSON Schema document:
   (`StartProblem`, the recap's checks in their order); the whole request (`ReviewOf`, given names as
   they are, so the review spells each once); Yes, start building locked until the last part; the
   next action a step's outcome allows; and the two presses that clear a start that may have run.
+- **`NewProjectFlow`** is New project as a column (`IMenuColumn`), opened by Projects' New project
+  or Add a task (`Open`), in the file's place beside Projects with no light line, replacing the
+  entry panel's creation screens. It keeps each place's draft and how far its start got, the step
+  and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
+  them, built once for each change, so `Drawn` counts a review's part read only for the very frame
+  it gave. A press acts only when the frame showing offers it, available, so nothing the person
+  can't see or press now runs. It asks the computer only to read (the companion's status, folders,
+  an agent app's models), the companion's next reply, and the commands a review read to its end
+  confirmed, which `BuildSequence` alone builds and sends through `IMenuHost.Submit`; a command
+  whose outcome is unknown is kept on the device (`IKeptCommand`) and comes first until cleared by
+  two presses. Hold to talk's heard words land where words are given, never sent unchecked; leaving
+  for another window lapses an armed confirmation and sends a review back to the recap. Drafts are
+  kept across a restart through `CreationDrafts`, for the computer they were made with.
 - **`NewProjectScreens`** builds New project (ADR 0026) as `MenuFrame`s, from the same models
   and checks as `EntryScreens`, which it replaces: the steps as a row of shapes (Your idea,
   Questions, Recap, Build), each reached once there is something there, the chosen one lit
