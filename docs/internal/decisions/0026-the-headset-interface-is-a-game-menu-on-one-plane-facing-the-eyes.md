@@ -44,8 +44,8 @@ centre, which keeps every word at its size.
   its subject, a row of the places, and the chosen place's content. Creating is an action, not a
   place: New project is the main prompt of Projects.
 - **Tasks is the orchestration view:** every running and recent task across all projects, what waits
-  first, grouped by project. A row is a state icon, the task's title, a small fact (its project, a
-  time, what it needs) and a chevron. Choosing a row slides that task's file out beside the menu.
+  first. A row is a state icon, the task's title, its project as the small fact, and a chevron.
+  Choosing a row slides that task's file out beside the menu.
   Tasks only reads and navigates; actions stay in files. Rows that do not fit page by Next page.
 - **A task's file replaces the workspace panel:** its subject, the task's title under its state pill
   (the split header, below); a row of 4
@@ -146,6 +146,10 @@ today and, once built, in lane U's renders of every surface:
 Decided on 2026-10-02 by lane V, the design owner, as the lanes began to build, with the
 coordinator's first-visit words:
 
+- **One kind of small fact a list.** Tasks' rows carry each task's project, in the secondary colour,
+  or amber on a row that waits; the state stands on the icon and its tone, the row's place in the
+  list, and the file. With one project only, the rows carry no fact. A time without its noun, as
+  "4 min", says nothing, so times stay on the file's Activity.
 - **Tasks holds every task**, as More work does, so none disappears: what waits for you first, then
   what works, then what ended, newest first. Older ended tasks fall to later pages.
 - **A footer's places and a prompt's emphasis are separate.** Only the main action is drawn as one,
@@ -246,7 +250,8 @@ coordinator's first-visit words:
   step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no
   16 dp gap; a small fact keeps 18 dp's room wherever it stands, so a line wraps the same anywhere,
   and is drawn at 15 dp where that reads, a fact from outside taking at most 40 percent of its line;
-  a row's tone stands on its icon and fact, its words in the text colour; and answers pair two a row
+  a row's tone stands on its icon, and on its fact only where the row waits, its words in the text
+  colour; and answers pair two a row
   where each fits half the row in one row.
 - **A side panel's fact names its value above it at 18 dp**, in the secondary colour, the value at
   18 dp under it. At 15 dp the name would stand above larger type, which type stepping down
