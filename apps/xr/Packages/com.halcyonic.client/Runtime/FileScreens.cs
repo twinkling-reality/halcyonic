@@ -25,7 +25,11 @@ namespace Halcyonic.Client
         public const string Stop = WorkspaceScreens.Stop;
         public const string TellIt = WorkspaceScreens.TellIt;
         public const string SendAnswer = WorkspaceScreens.SendAnswer;
+        /// <summary>Hold to talk on Activity, which speaks an instruction.</summary>
         public const string HoldToTalk = WorkspaceScreens.HoldToTalk;
+
+        /// <summary>Hold to talk under the agent's question, which speaks an answer: its own id, so an answer is never taken for an instruction.</summary>
+        public const string SpeakAnswer = WorkspaceScreens.SpeakAnswer;
         public const string Yes = WorkspaceScreens.Yes;
         public const string Cancel = WorkspaceScreens.Cancel;
         public const string Preset = WorkspaceScreens.Preset;

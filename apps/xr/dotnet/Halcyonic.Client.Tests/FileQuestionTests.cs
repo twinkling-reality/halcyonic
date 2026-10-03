@@ -66,7 +66,8 @@ public class FileQuestionTests
         }));
         Assert.That(frame.Lines.Where(line => line.Choice).Select(line => line.Action).Distinct(), Is.EqualTo(new[] { FileScreens.Choose, FileScreens.TypeAnswer }));
         Assert.That(frame.Lines.Any(line => line.Chosen), Is.False, "nothing is chosen until the person chooses");
-        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.HoldToTalk, FileScreens.SendAnswer }));
+        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.SpeakAnswer, FileScreens.SendAnswer }));
+        Assert.That(FileScreens.SpeakAnswer, Is.Not.EqualTo(FileScreens.HoldToTalk), "a spoken answer is never raised as an instruction");
         var send = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((send.Available, send.Reason), Is.EqualTo((false, FileScreens.SendFromYourAnswers)),
             "a question of several prompts sends only from the person's answers");
