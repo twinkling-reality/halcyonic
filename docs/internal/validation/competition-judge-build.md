@@ -58,6 +58,26 @@ seated judge with hands only has a decision, a confirmed-in-words answer, failin
 correction and passing checks. That is the satisfying moment, on paper; whether a first-time
 wearer finds it without coaching is the headset session's question.
 
+### The file on the recording (ADR 0026), 2026-10-02
+
+`JudgeFileWalkTests` plays the recording as the headset does and walks the directed task's file
+(`FileScreens`) at a page of four rows and of three for larger text. The bar and Tasks wait for
+lane U's screens, so the walk starts at the file a task opens. It found, off the device:
+
+- At the question the file opens on Waiting under its pill. At three rows the question reads first
+  in three parts, then its two answers one a page; turning the page clears what was chosen on it, so
+  Send answer sends only what is in view. The question has one prompt, so there is no Your answers
+  page, and the demonstration's policy sends an answer without a Yes.
+- At the request, Approve's Yes shows only once every part of the request has been drawn, and
+  sends once; Deny's Yes shows from the first part; Cancel sends nothing.
+- After the approved turn, Checks reads "Tests failed … 1 failed, 23 passed" with the source line
+  "Simulated checks · recorded at …", and Tell it offers the two recorded instructions as rows, sent
+  in exactly the words shown.
+- At each stop the file offers exactly what the recording answers there. A recording whose
+  question asked for a secret offers no answer, no Send answer and no Tell it, only Stop.
+- `JudgeWordsTests` reads every section, side panel and confirmation of every file on every path,
+  and finds no brand name.
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |

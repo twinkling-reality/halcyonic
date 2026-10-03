@@ -46,6 +46,8 @@ public class JudgeWordsTests
         TestContext.Out.WriteLine(report);
         Assert.That(found.Keys, Is.Empty, report);
         Assert.That(words.Count, Is.GreaterThan(100), "the walk reached the words");
+        Assert.That(words, Is.SupersetOf(new[] { FileScreens.AgentSource, "Yes, approve", "Yes, deny", "Yes, stop", "Checks", WorkspaceText.WhatWasChecked }),
+            "the walk reached every file, its confirmations and its side panels");
     }
 
     /// <summary>Every distinct string the client core gives the headset along every path of the demonstration.</summary>
@@ -125,6 +127,7 @@ public class JudgeWordsTests
                     {
                         Add(WorkspaceScreens.Screen(workspace, new WorkspaceSteering(factory), new WorkspaceScreen { Question = question, Presets = presets }));
                     }
+                    foreach (var frame in FileFrames(workspace, presets, factory, null, null)) foreach (var word in WordsOf(frame)) Add(word);
                     if (executionId == null) continue;
                     // Every answer whole, with room for every line, so no word a judge could page to escapes.
                     var understanding = recording.UnderstandingAt(executionId, index, played);
@@ -145,11 +148,73 @@ public class JudgeWordsTests
                     if (understood != null || measured != null)
                     {
                         Add(CheckedPresenter.Present(executionId, understood, false, null, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc));
+                        foreach (var frame in FileFrames(workspace, presets, factory, understood, measured)) foreach (var word in WordsOf(frame)) Add(word);
                     }
                 }
             }
         });
         return words;
+    }
+
+    /// <summary>
+    /// Every file (ADR 0026) a judge can open on this workstream where the playback stands: each
+    /// section, with room for every line; each side panel a line opens; the agent's question with its
+    /// answers; Tell it's recorded instructions; and the confirmation of each action it offers, its
+    /// request shown whole so Yes shows. Changes and Checks read the recorded answers when there are any.
+    /// </summary>
+    private static IEnumerable<MenuFrame> FileFrames(WorkspacePresentation workspace, IReadOnlyList<PresetInstruction> presets, CommandFactory factory,
+        IntelligenceRead<UnderstandingResponse>? understood, IntelligenceRead<EvaluationResponse>? measured)
+    {
+        var room = AnswerRoom.Unlimited;
+        var executionId = workspace.Execution?.ExecutionId;
+        FileAnswer? Understood(UnderstandPrompt prompt) => understood == null || executionId == null ? null : new FileAnswer(
+            UnderstandingPresenter.Present(prompt, executionId, understood, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, depth: AnswerDepth.Brief),
+            UnderstandingPresenter.Present(prompt, executionId, understood, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, depth: AnswerDepth.Full));
+        SectionPresentation Checked(AnswerDepth depth) =>
+            CheckedPresenter.Present(executionId!, understood, false, null, measured, false, null, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, depth: depth);
+        FileScreen Screen(FileSection section, string? chosen = null)
+        {
+            var screen = new FileScreen
+            {
+                Section = section,
+                Presets = presets.Count > 0 ? presets : null,
+                WhatChanged = Understood(UnderstandPrompt.WhatChanged),
+                WhyChanged = Understood(UnderstandPrompt.WhyChanged),
+                HowBuilt = Understood(UnderstandPrompt.HowBuilt),
+                Checked = executionId != null && (understood != null || measured != null) ? new FileAnswer(Checked(AnswerDepth.Brief), Checked(AnswerDepth.Full)) : null,
+                Chosen = chosen,
+            };
+            if (workspace.QuestionToAnswer is QuestionView question && executionId != null)
+            {
+                var measures = question.Prompts.Select(prompt => new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList())).ToList();
+                screen.ReadQuestion(new QuestionDraft(executionId, question), measures, room.Rows);
+            }
+            return screen;
+        }
+        foreach (FileSection section in Enum.GetValues(typeof(FileSection)))
+        {
+            yield return FileScreens.Screen(workspace, new WorkspaceSteering(factory), Screen(section), room);
+        }
+        foreach (var (section, key) in new[]
+        {
+            (FileSection.Changes, FileScreens.WhatChangedKey), (FileSection.Changes, FileScreens.WhyChangedKey),
+            (FileSection.Changes, FileScreens.HowBuiltKey), (FileSection.Checks, FileScreens.ChecksKey),
+        })
+        {
+            yield return FileScreens.Screen(workspace, new WorkspaceSteering(factory), Screen(section, key), room);
+        }
+        foreach (var action in new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt })
+        {
+            var steering = new WorkspaceSteering(factory);
+            if (steering.Press(action, workspace).Step != SteeringStep.Confirm) continue;
+            var screen = Screen(FileSection.Waiting);
+            if (steering.Request(workspace) is string request)
+            {
+                screen.ReadRequest(request, 1, 1, steering);
+                screen.RequestDrawn(0, steering, DateTimeOffset.UtcNow);
+            }
+            yield return FileScreens.Screen(workspace, steering, screen, room);
+        }
     }
 
     /// <summary>
