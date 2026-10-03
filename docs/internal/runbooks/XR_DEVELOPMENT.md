@@ -360,6 +360,10 @@ workstream.
 
 ## On a Quest
 
+A session on the headset follows [HEADSET_SESSION.md](HEADSET_SESSION.md): one order through the
+token, proof, glance, comfort and judge's path checks below, with pointers to the rest of them to
+fit in, and `pnpm quest:check` for what needs no person.
+
 The Android player settings are committed:
 - application id `com.halcyonic.xr`, product name Halcyonic;
 - IL2CPP on ARM64, minimum API level 32, target API level 34, which the Horizon Store requires
@@ -1348,8 +1352,12 @@ private storage, readable only by the app, with no copy on the headset's shared 
 works on debuggable builds only):
 
 ```bash
-adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; cat > files/glance-access-token'" < ~/.halcyonic/access-token
+adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/glance-access-token.tmp && test -s files/glance-access-token.tmp && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token' < ~/.halcyonic/access-token
+adb shell run-as com.halcyonic.xr ls -l files/glance-access-token
 ```
+
+As for the app's own token, the file is whole and private before it takes the old one's place, and
+the second line should list it with `-rw-------` and 44 bytes.
 
 It refuses a token file that is a link, not the app's own, or readable or writable by anyone else,
 and sends the token only on the connection on which the control plane has just proved it holds it.

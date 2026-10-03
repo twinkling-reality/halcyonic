@@ -1,7 +1,8 @@
 /**
  * Runs adb for the device tools. adb comes with Unity's Android module; `HALCYONIC_ADB` names
- * another. Only `dumpsys`, `am`, `logcat` and `date` are run: these tools read the headset and
- * start or stop Halcyonic, and change nothing else on it.
+ * another. Only `dumpsys`, `am`, `logcat`, `date`, `pidof`, `reverse --list` and `stat` (directly or
+ * through `run-as`) are run: these tools read the headset and start or stop Halcyonic, and change
+ * nothing else on it. `stat` reads a file's mode, size and type, never its contents.
  */
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -18,6 +19,20 @@ export const ACTIVITY = `${PACKAGE}/com.unity3d.player.UnityPlayerGameActivity`;
 export async function adb(...args: string[]): Promise<string> {
   const { stdout } = await run(ADB, args, { maxBuffer: 16 * 1024 * 1024, timeout: 20_000 });
   return stdout;
+}
+
+/** What adb printed, standard output and error together, also when the command failed, as `stat` of a missing file does. */
+export async function adbSaid(...args: string[]): Promise<string> {
+  try {
+    const { stdout, stderr } = await run(ADB, args, {
+      maxBuffer: 16 * 1024 * 1024,
+      timeout: 20_000,
+    });
+    return `${stdout}${stderr}`;
+  } catch (error) {
+    const failed = error as { stdout?: string; stderr?: string };
+    return `${failed.stdout ?? ''}${failed.stderr ?? ''}`;
+  }
 }
 
 /**
