@@ -186,7 +186,8 @@ One treatment for places, sections, rows, answers and prompts:
 - **The main action**, one a page and only at the far right: its cap filled with the accent, its
   words heavier in the accent. Anything else there is drawn plain.
 - **Unavailable**, a prompt keeps its place, drawn quiet: its cap outlined and its words in the
-  secondary colour. An action says why, on the page's last line of content.
+  secondary colour. An action says why, on the page's last line of content, except a page of
+  answers waiting only for one to be chosen, which the answers themselves explain.
 - **Hold to talk** is always the secondary prompt, and the only prompt with the microphone, wherever
   the person can speak or give words.
 - **Paging**: a list pages by Next page alone, at the far right where nothing is the main action,
