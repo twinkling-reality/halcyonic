@@ -456,7 +456,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var menuTabs = SectionShapes(shot, "Places", Places, menuWidth, chosen: 0, waiting: 0);
             var fileTabs = withFile ? SectionShapes(shot, "File sections", FileSections, fileWidth, chosen: 0, waiting: 0) : null;
 
-            // The menu's content: what waits first, then each project's tasks.
+            // The menu's content: what waits first, then what works, then what ended; each row's small
+            // fact its project, one kind of fact a list, the state standing on the icon.
             var menu = shot.Board("Tasks", PlaneMeters);
             var ml = -menuWidth / 2f + U(PanelPadding);
             var mr = menuWidth / 2f - U(PanelPadding);
@@ -465,10 +466,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 "Storefront API", AmberText, chosen: true, more: true);
             my -= U(RowHeight) + menu.TargetGap;
             RefinedRow(menu, "Paginate the order history endpoint", ml, mr, my, (cx, cy) => Glyph(menu, "State", GlazeIcon.Working, cx, cy, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground)),
-                "4 min", more: true);
+                "Storefront API", more: true);
             my -= U(RowHeight) + menu.TargetGap;
             RefinedRow(menu, "Send an order confirmation email", ml, mr, my, (cx, cy) => Glyph(menu, "State", GlazeIcon.FinishedThisRound, cx, cy, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Success).Foreground)),
-                "Finished", more: true);
+                "Storefront API", more: true);
             my -= U(RowHeight) + menu.TargetGap;
             RefinedRow(menu, "Refresh the checkout copy", ml, mr, my, (cx, cy) => Glyph(menu, "State", GlazeIcon.CheckingItsWork, cx, cy, GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Active).Foreground)),
                 "Docs site", more: true);

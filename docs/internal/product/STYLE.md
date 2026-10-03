@@ -136,12 +136,14 @@ One treatment for places, sections, rows, answers and prompts:
 ## Rows and answers
 
 - **A row**: its icon in the icon column, its words, a small fact at the right and, when it opens
-  more, a chevron. Rows are 48 dp tall and 12 mm apart. Its tone stands on its icon and fact, its
-  words in the text colour; a line with neither takes the tone on its words. A small fact keeps 18
-  dp's room wherever it stands, so a line wraps the same anywhere, and a fact from outside takes at
-  most 40 percent of its line. On a page none of whose rows has an icon,
-  as Usage's and Settings', words start on the content line. Nothing is drawn under a row: a meter
-  there reads as an underline, so the small fact carries a share in words.
+  more, a chevron. Rows are 48 dp tall and 12 mm apart. Its state's tone stands on its icon, and on
+  its fact only where the row waits, in amber; its words stay in the text colour, and a line with
+  neither an icon nor a fact takes the tone on its words. A list's small facts are one kind, as
+  Tasks' projects, in the secondary colour. A small fact keeps 18 dp's room wherever it stands, so a
+  line wraps the same anywhere, and a fact from outside takes at most 40 percent of its line. On a
+  page none of whose rows has an icon, as Usage's and Settings', words start on the content line.
+  Nothing is drawn under a row: a meter there reads as an underline, so the small fact carries a
+  share in words.
 - **Rows only take you somewhere**: to a side panel, a page or a place. A row never acts and carries
   no side action. Choosing one may set the footer's main action or the prompt beside it, as a
   project's Add a task and Hide from stage. A line that reports a problem is a row that opens its
