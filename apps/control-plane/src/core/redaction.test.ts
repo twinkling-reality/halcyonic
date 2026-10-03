@@ -183,6 +183,10 @@ describe('error text before it is journaled', () => {
       redactSecrets('Authorization: Token token="abc123def456ghi789jkl", nonce="x"', []),
       `Authorization: Token token="${REDACTED}", nonce="x"`,
     );
+    assert.equal(
+      redactSecrets("Authorization: Token token='abc123def456ghi789jkl'", []),
+      `Authorization: Token token='${REDACTED}'`,
+    );
     // A credential with = inside it is no parameter's name, and goes whole.
     assert.equal(
       redactSecrets('Bearer abcdefgh=ijklmnopqrstuv123 refused', []),
