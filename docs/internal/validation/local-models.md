@@ -276,7 +276,37 @@ What left, or tried to leave, the Mac while OpenCode ran:
 While Codex ran, with plugins and analytics off and no sign-in: nothing. The monitor saw no socket
 beyond loopback from Codex's processes in any run. Its model requests went to Ollama on the same
 Mac, and so did the metadata Codex adds to them (the installation id and, for a git workspace, its
-path and latest commit).
+path and latest commit). That held for that home's settings, `features.plugins = false` and
+`analytics.enabled = false`; without the first, Codex reaches GitHub at startup (below).
+
+### Codex's plugin sync at startup (2026-10-03)
+
+A runtime test of the pinned 0.157.0 `codex app-server` over stdio, with a fresh scratch
+`CODEX_HOME` holding no sign-in, one `initialize` request, its stderr read with anything
+token-like masked, and its process tree's internet sockets listed every 0.5 s (`lsof -a -n -P -i`),
+stopping it at once on any socket beyond loopback:
+
+- **Without `features.plugins = false`:** within the second after `initialize` answered, app-server
+  held an established connection to 140.82.113.3:443 (`lb-140-82-113-3-iad.github.com`), and
+  stopped there. A second try, with all four of the documented settings that might cover it off
+  (`check_for_update_on_startup = false`, `analytics.enabled = false`, `features.remote_plugin =
+  false`, `features.apps = false`, from Codex's configuration reference at
+  developers.openai.com/codex/config-reference), connected to 140.82.114.4:443 (GitHub) the same
+  way. The binary carries a plugin marketplace that fetches from the GitHub API; that this is the
+  plugin sync is an inference.
+- **With `features.plugins = false`** (and the update check and analytics off): `initialize`
+  answered in 0.2 s, nothing on stderr, and no internet socket at all in 75 s through startup and
+  idle. A full run then held only 127.0.0.1:11434 (Ollama) for its five minutes, sampled every
+  second.
+- **The key is undocumented:** `features.plugins` is not in today's configuration reference; the
+  pinned binary's own text names it ("features.plugins", and "Plugins are disabled. Enable the
+  plugins feature to use /plugins."). Any Codex upgrade must repeat this test.
+- **A home with its own settings:** a run with the developer's own `CODEX_HOME`, where plugins are
+  not off, probably made the same request; inferred, not captured. A fresh home whose `sessions`
+  folder is all of the developer's history also first indexes that history into a state database
+  (stderr: "state db backfill is running"), long enough that `initialize` was not answered in time.
+- Whether Halcyonic's adapter should start every local-model thread with these settings is open
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); the adapter is unchanged.
 
 ## Speed and memory
 
