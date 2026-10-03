@@ -413,6 +413,7 @@ namespace Halcyonic.XR.Workspace
         {
             bodies.Clear();
             standing.Clear();
+            var across = Vector3.zero;
             for (var index = 0; index < all.Count; index++)
             {
                 var character = all[index];
@@ -420,7 +421,10 @@ namespace Halcyonic.XR.Workspace
                 var body = WorkspaceLayout.InView(character, eyes);
                 bodies.Add(body);
                 standing.Add((body, LabelOutline(character.View), character == fileOf));
+                var toward = character.BodyPosition - eyes;
+                across += new Vector3(toward.x, 0f, toward.z).normalized;
             }
+            StageYaw = bodies.Count > 0 ? Mathf.Atan2(across.x, across.z) * Mathf.Rad2Deg : (float?)null;
         }
 
         /// <summary>
@@ -432,7 +436,11 @@ namespace Halcyonic.XR.Workspace
 
         private bool Allows(PlaneComposition composition, PanelDirection at)
         {
-            if (ViewField.Current is ViewField field && !MenuPage.Inside(composition, at, field)) return false;
+            if (ViewField.Current is ViewField field)
+            {
+                if (!MenuPage.Inside(composition, at, field)) return false;
+                if (StageYaw is float stage && !MenuDrag.WithinReach(at, stage, field)) return false;
+            }
             if (!WorkspacePlacement.Clears(at, bodies, composition.Size)) return false;
             return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);
         }
@@ -672,6 +680,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Which column of the composition the light line reaches, or -1.</summary>
         private int lineColumn = -1;
+
+        /// <summary>Where the stage's centre stands from the eyes, yaw to the right, as laid last: the characters' mean direction; null with none.</summary>
+        public float? StageYaw { get; private set; }
 
         /// <summary>Whether <paramref name="point"/>, seen from <paramref name="eyes"/>, falls on a label's outline (<see cref="LabelOutline"/>).</summary>
         public static bool OnLabel((Transform Plate, Rect Covered) label, Vector3 eyes, Vector3 point)

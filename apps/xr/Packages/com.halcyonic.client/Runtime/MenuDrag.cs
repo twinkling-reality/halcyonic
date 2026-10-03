@@ -9,9 +9,10 @@ namespace Halcyonic.Client
     /// eyes with the point the hand took hold of, at its distance and still facing them
     /// (<see cref="PanelDrag"/>), as an offset on where the stage placed it, which the next hold starts
     /// from and Reset position clears. A step that would take the plane outside the headset's measured
-    /// field, in front of a character's body or label, or where the host's own condition fails, as the
-    /// light line crossing another character, is not taken: the plane stays where it last was, so a drag
-    /// never leaves it where placement would not.
+    /// field, its centre out of that field as seen with the head turned to the stage's centre
+    /// (<see cref="WithinReach"/>), in front of a character's body or label, or where the host's own
+    /// condition fails, as the light line crossing another character, is not taken: the plane stays where
+    /// it last was, so a drag never leaves it where placement would not, nor out of sight of the stage.
     /// </summary>
     public sealed class MenuDrag
     {
@@ -21,6 +22,7 @@ namespace Halcyonic.Client
         private readonly IReadOnlyList<BodyInView> bodies;
         private readonly ViewField? field;
         private readonly Func<(float Yaw, float Elevation), bool>? holds;
+        private readonly float? stageYaw;
 
         /// <param name="placed">Where the stage placed the plane's centre.</param>
         /// <param name="moved">How far it was dragged from there before this hold, yaw to the right and elevation up, in degrees.</param>
@@ -30,9 +32,12 @@ namespace Halcyonic.Client
         /// <param name="surfaceDrop">How far below the eyes the surface under the characters is, in meters, when they stand on one.</param>
         /// <param name="field">The headset's measured field of view; null where none is measured, as in the editor.</param>
         /// <param name="holds">What else must hold with the plane moved so far, last of all, as its light line crossing no other character; null for nothing.</param>
+        /// <param name="stageYaw">Where the stage's centre stands, yaw to the right, which the plane's centre stays in view of; null without characters.</param>
         public MenuDrag(PanelDirection placed, (float Yaw, float Elevation) moved, float grabYaw, float grabElevation, PlaneComposition composition,
-            IReadOnlyList<BodyInView> bodies, float? surfaceDrop = null, ViewField? field = null, Func<(float Yaw, float Elevation), bool>? holds = null)
+            IReadOnlyList<BodyInView> bodies, float? surfaceDrop = null, ViewField? field = null, Func<(float Yaw, float Elevation), bool>? holds = null,
+            float? stageYaw = null)
         {
+            this.stageYaw = stageYaw;
             this.placed = placed;
             this.composition = composition;
             this.bodies = bodies;
@@ -62,6 +67,7 @@ namespace Halcyonic.Client
             var to = Turned(placed, moved);
             if (!WorkspacePlacement.Clears(to, bodies, composition.Size)) return false;
             if (field is ViewField measured && !MenuPage.Inside(composition, to, measured)) return false;
+            if (field is ViewField seen && stageYaw is float centre && !WithinReach(to, centre, seen)) return false;
             if (holds != null && !holds(moved)) return false;
             Moved = moved;
             return true;
@@ -82,6 +88,18 @@ namespace Halcyonic.Client
                 if (allows(scaled)) return scaled;
             }
             return default;
+        }
+
+        /// <summary>
+        /// Whether the plane's centre at <paramref name="at"/> stays inside <paramref name="field"/>, less its
+        /// margin, as seen with the head turned to the stage's centre at <paramref name="stageYaw"/>: a drag
+        /// never takes the plane, and an approval that may come to it, out of sight of the stage.
+        /// </summary>
+        public static bool WithinReach(PanelDirection at, float stageYaw, ViewField field)
+        {
+            var margin = ViewField.EdgeMarginDegrees;
+            var shrunk = new ViewField(field.Left - margin, field.Right - margin, field.Up - margin, field.Down - margin);
+            return shrunk.Shows(WorkspacePlacement.DeltaAngle(stageYaw, at.Yaw), at.Elevation);
         }
 
         /// <summary><paramref name="placed"/> moved by <paramref name="moved"/>: where a drag left the plane's centre.</summary>

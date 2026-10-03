@@ -497,6 +497,22 @@ namespace Halcyonic.XR.Workspace.Editor
             if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged into the characters.");
             director.LetGoForRender();
 
+            // Swept far to the side, it stops where its centre would leave the field as seen turned to the stage.
+            if (ViewField.Current is ViewField field && plane.StageYaw is float stage)
+            {
+                held = subject.Subject.position;
+                director.HoldSubjectForRender(held);
+                for (var step = 1; step <= 20; step++) director.DragSubjectForRender(Turned(held, step * 5f, 0f));
+                var off = Mathf.Abs(Mathf.DeltaAngle(stage, plane.Direction.Yaw));
+                if (off > field.Right - ViewField.EdgeMarginDegrees + 0.01f)
+                {
+                    failures.Add(name + ": swept aside, the plane's centre stands " + GlazeChecks.Degrees(off) + " degrees from the stage's, out of the field turned to it.");
+                }
+                director.LetGoForRender();
+                director.ResetPosition();
+                director.DrawNow();
+            }
+
             // Dragged as low as it goes, then laid anew taller, a title in two rows: it keeps only as much of
             // the drag as still holds, so it stays inside the field and clear of every character.
             var title = subject.Frame!.Subject;
