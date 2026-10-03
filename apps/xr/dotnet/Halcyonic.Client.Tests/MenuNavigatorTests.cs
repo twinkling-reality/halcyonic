@@ -257,6 +257,8 @@ public class MenuNavigatorTests
         Assert.That(menu.Act(MenuColumn.File, "yes", null, drawnA, null), Is.False, "before B is drawn");
         Draw(menu);
         Assert.That(menu.Act(MenuColumn.File, "yes", null, drawnA, null), Is.False, "after B is drawn");
+        Assert.That(menu.Standing(MenuColumn.File, drawnA, null), Is.Null, "a hold on A's frame records for no one");
+        Assert.That(menu.Standing(MenuColumn.File, menu.Frames(Bar).Beside, null), Is.SameAs(b), "a hold on B's own frame is B's");
         Assert.That(a.Got.Concat(b.Got).Any(got => got.StartsWith("act")), Is.False, "A's yes reaches neither A nor B");
         var left = new List<IMenuColumn>();
         menu.Left += left.Add;

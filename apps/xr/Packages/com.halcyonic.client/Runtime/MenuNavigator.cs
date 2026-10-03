@@ -169,13 +169,7 @@ namespace Halcyonic.Client
         /// </summary>
         public bool Act(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
-            var standing = from switch
-            {
-                MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu,
-                MenuColumn.File => Beside != null && frame != null && frame == drawnBeside,
-                _ => side != null && side == drawnSide,
-            };
-            if (!standing) return false;
+            if (!(Standing(from, frame, side) is IMenuColumn column)) return false;
             if (from == MenuColumn.Menu && action == MenuFrame.ChooseSection)
             {
                 if (key != null && Enum.TryParse<MenuPlace>(key, out var place) && place != Place)
@@ -187,9 +181,21 @@ namespace Halcyonic.Client
                 }
                 return true;
             }
-            (from == MenuColumn.Side ? drawnSideOf : ColumnOf(from))?.Act(action, key);
+            column.Act(action, key);
             return true;
         }
+
+        /// <summary>
+        /// The column whose <paramref name="frame"/>, or side panel <paramref name="side"/>, is what was
+        /// drawn last in <paramref name="from"/>'s slot and still stands, as a press or a hold must come
+        /// from; null for one that no longer stands.
+        /// </summary>
+        public IMenuColumn? Standing(MenuColumn from, MenuFrame? frame, SidePanel? side) => from switch
+        {
+            MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu ? PlaceColumn : null,
+            MenuColumn.File => Beside != null && frame != null && frame == drawnBeside ? Beside : null,
+            _ => side != null && side == drawnSide ? drawnSideOf : null,
+        };
 
         /// <summary>
         /// A view in <paramref name="from"/>'s slot drew <paramref name="frame"/> whole, or a side panel's
