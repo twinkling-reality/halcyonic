@@ -364,8 +364,9 @@ namespace Halcyonic.XR.Workspace
                     Hide();
                     return;
                 case EntryScreens.TryAgain:
-                    if (StartProblem() == null && sequence?.CanRetry == true) Send(sequence.Retry(idea?.ExistingProjectId == null ? idea?.Name : null));
-                    Layout();
+                    // Sent again only after the whole request is read again and confirmed.
+                    if (sequence?.CanRetry == true) StartBuilding();
+                    else Layout();
                     return;
                 case EntryScreens.UseThatFolder when current?.Folder is ProjectFolder taken && taken.IsNew:
                     current.ChooseFolder(ProjectFolder.Existing(taken));
@@ -668,19 +669,28 @@ namespace Halcyonic.XR.Workspace
         private void ConfirmReviewed()
         {
             if (review?.CanConfirm != true || StartProblem() != null || idea == null) return;
+            // What is sent is what was read: a request changed since the review was made is shown afresh, from its first part.
+            var now = EntryScreens.ReviewOf(idea, draft, CurrentFolder(), demonstration() == null);
+            if (!review.SameRequest(now))
+            {
+                review = now;
+                Layout();
+                return;
+            }
+            var reviewed = review;
             review = null;
             var newProject = idea.ExistingProjectId == null ? idea.Name : null;
             var folder = idea.Folder?.ToContract();
             if (sequence != null && sequence.CanRetry)
             {
                 // Sent again with the folder only when the person chose another since the last try.
-                Send(sequence.Retry(newProject, idea.Folder != sentFolder ? folder : null));
+                Send(sequence.Retry(reviewed, newProject, idea.Folder != sentFolder ? folder : null));
             }
             else if (sequence == null)
             {
                 draft.ProjectId = idea.ExistingProjectId;
                 sequence = new BuildSequence(draft, commands, newProject, folder);
-                Send(sequence.Begin());
+                Send(sequence.Begin(reviewed));
             }
             sentFolder = idea.Folder;
             Open(Screen.Sending);

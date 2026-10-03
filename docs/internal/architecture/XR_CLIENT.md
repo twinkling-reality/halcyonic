@@ -535,7 +535,11 @@ the same definition names, as the JSON Schema document:
   an existing project that is to work in another folder (which completes with no result), then
   `workstream.create` and `execution.start`, each sent only once the control plane recorded the one
   before it completed, a projected record winning over a lost acknowledgement (`NewWorkSubmission`).
-  A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
+  It begins, and sends again, only on a `NewWorkReview` read to its end whose Yes it takes, once
+  (`Spend`), and that shows the new project's name, the model and the first task it sends; the
+  panel also refuses Yes for a review that is no longer the request as it stands (`SameRequest`),
+  as after a change made by way of the steps, and shows that request afresh. So Try again opens the
+  review rather than sending. A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
   refusal's or failure's code, and can be sent again as a new command built from the draft as it is
   now, reusing the project and workstream already made (`Retry`); given a newly chosen folder, a
   project that exists is bound to it first, as after `location_required` or `location_missing`. An

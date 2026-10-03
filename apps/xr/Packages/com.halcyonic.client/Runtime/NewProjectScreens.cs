@@ -186,7 +186,8 @@ namespace Halcyonic.Client
         /// The row of steps with <paramref name="chosen"/> lit. Your idea is always reached; Questions
         /// once the companion or the fixed questions have begun; Recap once there is a first task; and
         /// Start building once nothing stops it (<paramref name="startReached"/>). A step not reached
-        /// stays quiet and takes no press; the one shown is always reached.
+        /// stays quiet and takes no press; the one shown is always reached. Choosing a step throws away
+        /// a review in progress: whatever changes on the way back is read afresh before it is sent.
         /// </summary>
         public static IReadOnlyList<FrameSection> Sections(NewProjectStep chosen, ProjectIdea idea, bool startReached)
         {
@@ -775,7 +776,9 @@ namespace Halcyonic.Client
         /// Start building, once Yes was pressed: each step of the build and how it went, in words; sent
         /// is not done, and a step is confirmed only by its completed record. Its footer comes from the
         /// outcome: Close alone while it runs and once it started; Try again, with Change, after a
-        /// refusal; Use that folder or Try again, with Choose a folder, for one about a folder; and only
+        /// refusal, which opens the review afresh, since a send needs a review read to its end and
+        /// confirmed once (<see cref="BuildSequence.Retry"/>); Use that folder or Try again, with Choose
+        /// a folder, for one about a folder; and only
         /// checking the work first when the outcome is unknown.
         /// </summary>
         /// <param name="chosenFolder">Where the person chose the files live, for Use that folder after the computer says it exists.</param>
@@ -796,7 +799,7 @@ namespace Halcyonic.Client
             }
             else if (sequence.CanRetry && sequence.StoppedAt is BuildStep stopped && EntryText.AboutFolder(stopped))
             {
-                // The next action comes from the refusal's code. Either way the request is reviewed again before it is sent.
+                // The next action comes from the refusal's code. Either way it opens the review: nothing is sent again unread.
                 var taken = stopped.Refusal == RejectionCode.LocationExists ? chosenFolder : null;
                 beside = new Prompt(ChooseAnotherFolder, EntryText.ChooseAnotherFolder, GlazeIcon.Change);
                 main = taken != null && taken.IsNew
