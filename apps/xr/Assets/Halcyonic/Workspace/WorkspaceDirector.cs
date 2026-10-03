@@ -372,7 +372,7 @@ namespace Halcyonic.XR.Workspace
             connection.Session?.State.Workstreams.Values.Any(workstream => workstream.Attention.Level == AttentionLevel.ActionRequired) == true;
 
         /// <summary>Every project and its work as the stage counts it, the same object until the state or what the stage shows changes.</summary>
-        private WorkOverview? Overview()
+        public WorkOverview? Overview()
         {
             var state = connection.Session?.State;
             var rail = GetComponent<ProjectRail>();
@@ -387,11 +387,18 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Shows or hides a project's work on the stage, kept on this device, as the rail's Show and Hide do.</summary>
-        private void ShowProject(string projectId, bool shown)
+        public void ShowProject(string projectId, bool shown)
         {
             var rail = GetComponent<ProjectRail>();
             if (rail == null) return;
             if (rail.Visibility.Shows(projectId) != shown) rail.ToggleProject(projectId);
+        }
+
+        /// <summary>Shows every project's work on the stage, including projects that appear later, kept on this device.</summary>
+        public void ShowAllProjects()
+        {
+            var rail = GetComponent<ProjectRail>();
+            if (rail != null) rail.ShowAllProjects();
         }
 
         /// <summary>
