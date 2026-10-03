@@ -41,6 +41,7 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import type { Recorder } from './recorder.ts';
+import { withinLimit } from './redaction.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
 
 export type SubmitOutcome =
@@ -735,11 +736,7 @@ function toFailure(error: unknown, redact: (text: string) => string): CommandFai
 /** A message the contract accepts: at most 2000 characters, cut with an ellipsis, never empty. */
 function clip(message: string, fallback: string): string {
   const trimmed = message.trim();
-  if (trimmed.length === 0) return fallback;
-  if (trimmed.length <= 2000) return trimmed;
-  // One character short of the limit for the ellipsis, without splitting a surrogate pair.
-  const end = /[\uD800-\uDBFF]/.test(trimmed.charAt(1998)) ? 1998 : 1999;
-  return `${trimmed.slice(0, end)}…`;
+  return trimmed.length === 0 ? fallback : withinLimit(trimmed);
 }
 
 /** JSON with object keys sorted, so equal commands compare equal regardless of key order. */

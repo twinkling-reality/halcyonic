@@ -8,6 +8,15 @@
 
 export const REDACTED = '[redacted]';
 
+/** The most a journaled error text holds: the contracts' `Text(2000)`. */
+export const JOURNALED_TEXT = 2000;
+
+/**
+ * What redaction reads of a text: what is journaled is at most JOURNALED_TEXT characters, cut after
+ * redaction, so more is never read, however long a runtime's line is.
+ */
+const READ = 4096;
+
 /** A value shorter than this is too likely to be an ordinary word to be replaced wherever it appears. */
 const SHORTEST_SECRET = 8;
 
@@ -38,7 +47,7 @@ const SCHEME_CREDENTIAL =
   /\b(Bearer|Basic|Token)(\s+)(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/=-]{8,}/gi;
 
 /** A URL's user and password: `scheme://user:password@host`. */
-const URL_USERINFO = /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
+const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
 
 /**
  * A long run that reads as random: 32 or more letters, digits, `_` and `-`, with capitals, small
@@ -54,7 +63,7 @@ const looksRandom = (run: string) => /[A-Z]/.test(run) && /[a-z]/.test(run) && /
  * and a long random run.
  */
 export function redactSecrets(text: string, secrets: Iterable<string>): string {
-  let out = text;
+  let out = text.length > READ ? text.slice(0, READ) : text;
   const exact = [...new Set([...secrets].map((secret) => secret.trim()))]
     .filter((secret) => secret.length >= SHORTEST_SECRET)
     .sort((a, b) => b.length - a.length);
@@ -64,4 +73,16 @@ export function redactSecrets(text: string, secrets: Iterable<string>): string {
     .replace(URL_USERINFO, `$1${REDACTED}@`)
     .replace(KEY_SHAPES, REDACTED)
     .replace(RANDOM_RUN, (run) => (looksRandom(run) ? REDACTED : run));
+}
+
+/**
+ * `text` within JOURNALED_TEXT characters, cut with an ellipsis, never splitting a surrogate pair:
+ * after redaction, since "[redacted]" can be longer than what it replaced.
+ */
+export function withinLimit(text: string): string {
+  if (text.length <= JOURNALED_TEXT) return text;
+  const end = /[\uD800-\uDBFF]/.test(text.charAt(JOURNALED_TEXT - 2))
+    ? JOURNALED_TEXT - 2
+    : JOURNALED_TEXT - 1;
+  return `${text.slice(0, end)}…`;
 }
