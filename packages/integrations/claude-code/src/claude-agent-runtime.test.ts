@@ -1105,7 +1105,7 @@ describe('questions', () => {
     );
   });
 
-  test('a question past the size limit is reported shortened and unanswerable', async () => {
+  test('a question past the size limit is reported whole, for the control plane to fit after redaction', async () => {
     const { startConfirmed, observed } = setup();
     const scripted = await startConfirmed();
     const questions = Array.from({ length: 10 }, (_, index) => ({
@@ -1121,9 +1121,13 @@ describe('questions', () => {
     await settle();
     const asked = observed.at(-1);
     assert.ok(asked?.type === 'runtime.question.asked');
-    assert.equal(asked.payload.answerable, false);
-    assert.ok(questionTextLength(asked.payload.prompts) <= QUESTION_TEXT_LIMIT);
-    assertContractValid(observed);
+    assert.ok(questionTextLength(asked.payload.prompts) > QUESTION_TEXT_LIMIT);
+    assert.deepEqual(
+      asked.payload.prompts.map((prompt) => prompt.text),
+      questions.map((question) => question.question),
+    );
+    // Nothing here keeps Claude Code from matching an answer; the control plane's fit will.
+    assert.equal(asked.payload.answerable, true);
   });
 
   test('a question asked outside a turn is withdrawn when the person stops the work', async () => {
@@ -1206,15 +1210,21 @@ describe('questions', () => {
     void scripted.requestPermission('AskUserQuestion', longDescription, 'req-d');
     await settle();
     const asked = observed.filter((item) => item.type === 'runtime.question.asked');
+    // A repeated question or label can't be matched. A text past its field's limit is reported
+    // whole: the control plane cuts it after redaction, and a cut question can't be answered.
     assert.deepEqual(
       asked.map((item) => item.payload.answerable),
-      [false, false, false, false, false],
+      [false, true, false, true, true],
     );
-    // What was cut says so.
-    for (const item of asked.slice(1, 2).concat(asked.slice(3))) {
-      assert.match(JSON.stringify(item.payload), / \[truncated\]/);
-    }
-    assertContractValid(observed);
+    const [, whole, , header, description] = asked;
+    assert.ok(
+      whole?.type === 'runtime.question.asked' && header?.type === 'runtime.question.asked',
+    );
+    assert.ok(description?.type === 'runtime.question.asked');
+    assert.equal(whole.payload.prompts[0]?.text, 'x'.repeat(4001));
+    assert.equal(header.payload.prompts[0]?.header, 'h'.repeat(201));
+    assert.equal(description.payload.prompts[0]?.options[0]?.description, 'd'.repeat(1001));
+    assert.ok(!JSON.stringify(asked.map((item) => item.payload)).includes('[truncated]'));
   });
 });
 

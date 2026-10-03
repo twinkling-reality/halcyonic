@@ -26,16 +26,18 @@ A runtime integration implements `RuntimeAdapter` (`packages/runtime-core/src/ad
 - Observations: the adapter reports what the runtime does as normalized `RuntimeObservation`s
   (the `runtime.*` events), with the native record id for deduplication, the native sequence when
   one exists, and honest provenance. It never throws into the sink and never invents state. A
-  tool's title, an approval's summary and a test run's label and summary are reported whole, never
-  cut: the control plane takes the secrets it holds out of them, which it finds only whole, then
-  cuts them to the contract ([SECURITY.md](SECURITY.md), "Logs and error text"). The
+  tool's title, an approval's summary, a question's texts and a test run's label and summary are
+  reported whole, never cut: the control plane takes the secrets it holds out of them, which it
+  finds only whole, then cuts them to the contract ([SECURITY.md](SECURITY.md), "Logs and error
+  text"). The
   journal outlives the process, so a native record id is never reused, not even after a restart;
   the journal would drop the new record as a duplicate ([EVENTS.md](EVENTS.md)). The model the
   runtime says it runs on is reported as `runtime.model.used`, from the runtime's own report and
   never from the choice. A question the agent asks through the runtime's structured surface is
-  reported as `runtime.question.asked`, fitted first to the contract's size limit with `fitQuestion`,
-  marked unanswerable when the adapter cannot carry an answer back faithfully, anything had to be
-  cut, or a prompt asks for a secret, and `runtime.question.resolved` once the runtime
+  reported as `runtime.question.asked`, whole, marked unanswerable when the adapter cannot carry
+  an answer back faithfully or a prompt asks for a secret; the control plane fits it once with
+  `fitQuestion`, after redaction, and marks it unanswerable when anything had to be cut. It is
+  followed by `runtime.question.resolved` once the runtime
   took the answer or withdrew the question, unless the turn's end came first and withdrew it
   ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)). After
   `runtime.connection.lost`, an adapter that can observe the runtime again reports

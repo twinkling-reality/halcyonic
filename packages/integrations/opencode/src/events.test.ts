@@ -457,7 +457,7 @@ describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
     assert.equal(formQuestion({ ...base, fields: [] }), null);
   });
 
-  test('anything cut to fit leaves the question shown, marked as cut, but not answerable', () => {
+  test('texts past their limits are reported whole, for the control plane to fit after redaction', () => {
     const field = { key: 'q0', type: 'string', title: 'Pick', description: 'Which one?' };
     const form = (overrides: Record<string, unknown>) =>
       formQuestion({
@@ -467,21 +467,27 @@ describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
       });
     const whole = form({ options: [{ value: 'a', label: 'a', description: 'd' }] });
     assert.equal(whole?.answerable, true);
-    // A label cut short would stand for a value the person never read whole.
+    // A label is reported whole and keeps its value: cut short, it would stand for a value the
+    // person never read whole, so the control plane's fit leaves such a question unanswerable.
     const label = `keep the table${' x'.repeat(100)} and drop every table`;
-    const cutLabel = form({ options: [{ value: label, label }] });
-    assert.equal(cutLabel?.answerable, false);
-    assert.ok(cutLabel?.prompts[0]?.options[0]?.label.endsWith(' [truncated]'));
-    for (const overrides of [
-      { description: 'q'.repeat(4001) },
-      { title: 'h'.repeat(201) },
-      { options: [{ value: 'a', label: 'a', description: 'd'.repeat(1001) }] },
-    ]) {
-      assert.equal(form(overrides)?.answerable, false, JSON.stringify(overrides).slice(0, 60));
+    const longLabel = form({ options: [{ value: label, label }] });
+    assert.equal(longLabel?.prompts[0]?.options[0]?.label, label);
+    assert.equal(longLabel?.fields[0]?.values.get(label), label);
+    const text = form({ description: 'q'.repeat(4001) });
+    const header = form({ title: 'h'.repeat(201) });
+    const description = form({
+      options: [{ value: 'a', label: 'a', description: 'd'.repeat(1001) }],
+    });
+    assert.equal(text?.prompts[0]?.text, 'q'.repeat(4001));
+    assert.equal(header?.prompts[0]?.header, 'h'.repeat(201));
+    assert.equal(description?.prompts[0]?.options[0]?.description, 'd'.repeat(1001));
+    for (const asked of [longLabel, text, header, description]) {
+      assert.equal(asked?.answerable, true);
+      assert.ok(!JSON.stringify(asked?.prompts).includes('[truncated]'));
     }
   });
 
-  test('a question past the size limit is reported shortened and unanswerable', () => {
+  test('a question past the size limit is reported whole, for the control plane to fit', () => {
     const fields = Array.from({ length: 10 }, (_, index) => ({
       key: `q${index}`,
       type: 'string',
@@ -494,8 +500,9 @@ describe("OpenCode 2.0.18 questions (the question tool's forms)", () => {
       }),
     }));
     const asked = formQuestion({ id: 'frm_1', metadata: { kind: 'question' }, fields });
-    assert.equal(asked?.answerable, false);
-    assert.ok(questionTextLength(asked?.prompts ?? []) <= QUESTION_TEXT_LIMIT);
+    assert.equal(asked?.answerable, true);
+    assert.equal(asked?.prompts.length, 10);
+    assert.ok(questionTextLength(asked?.prompts ?? []) > QUESTION_TEXT_LIMIT);
   });
 
   test("answers become the form's values: one for a single choice, a list for several, typed text among them", () => {

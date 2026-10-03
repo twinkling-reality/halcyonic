@@ -28,7 +28,6 @@ import type {
   RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
-import { fitQuestion } from '@halcyonic/contracts';
 import {
   type Clock,
   confirmProjectLocation,
@@ -980,9 +979,11 @@ function describeInput(input: unknown): string | null {
 /**
  * AskUserQuestion's input as questions: `questions: [{question, header, options: [{label,
  * description}], multiSelect}]`, a typed answer always possible. Null when the input does not have
- * that shape, so it is shown as an ordinary approval instead. Not answerable here when anything is
- * cut to fit the contract, or a question text or label is repeated, since Claude Code matches
- * answers by text.
+ * that shape, so it is shown as an ordinary approval instead. Its texts are reported whole: the
+ * control plane takes credentials out of them, then fits them to the contract, and a question with
+ * anything cut can't be answered. Not answerable here when a question text or label is repeated,
+ * since Claude Code matches answers by text, or there are more questions or options than the
+ * contract holds.
  */
 function askedQuestions(input: Record<string, unknown>): {
   readonly prompts: QuestionPrompt[];
@@ -992,12 +993,6 @@ function askedQuestions(input: Record<string, unknown>): {
   const raw = Array.isArray(input.questions) ? input.questions : null;
   if (raw === null || raw.length === 0) return null;
   let answerable = raw.length <= 10;
-  // The person must see whole what they answer, so anything cut to fit leaves it unanswerable.
-  const fit = (value: string, max: number): string | null => {
-    const fitted = clipMarked(value, max);
-    if (fitted !== value) answerable = false;
-    return fitted;
-  };
   const visible = (value: unknown): value is string =>
     typeof value === 'string' && /\S/.test(value);
   const prompts: QuestionPrompt[] = [];
@@ -1007,8 +1002,6 @@ function askedQuestions(input: Record<string, unknown>): {
     const entry = item as Record<string, unknown>;
     if (!visible(entry.question)) return null;
     const question = entry.question;
-    const text = fit(question, 4000);
-    if (text === null) return null;
     if ([...texts.values()].includes(question)) answerable = false;
     const offered = Array.isArray(entry.options) ? entry.options : [];
     if (offered.length > 20) answerable = false;
@@ -1016,46 +1009,33 @@ function askedQuestions(input: Record<string, unknown>): {
     for (const option of offered.slice(0, 20)) {
       const record =
         typeof option === 'object' && option !== null ? (option as Record<string, unknown>) : {};
-      const label = visible(record.label) ? fit(record.label, 200) : null;
+      const label = visible(record.label) ? record.label : null;
       if (label === null || options.some((known) => known.label === label)) {
         answerable = false;
         if (label === null) continue;
       }
-      const description = visible(record.description) ? fit(record.description, 1000) : null;
+      const description = visible(record.description) ? record.description : null;
       options.push({ label, description });
     }
     const key = `q${index}`;
     texts.set(key, question);
     prompts.push({
       key,
-      header: visible(entry.header) ? fit(entry.header, 200) : null,
-      text,
+      header: visible(entry.header) ? entry.header : null,
+      text: question,
       options,
       multiple: entry.multiSelect === true,
       free_text: true,
       secret: false,
     });
   }
-  // Bounded before it is reported, so the journal and every client hold it at a bounded size.
-  const fitted = fitQuestion(prompts, answerable);
-  return { prompts: [...fitted.prompts], texts, answerable: fitted.answerable };
+  return { prompts, texts, answerable };
 }
 
 /** What an approval asks for, whole, as `describeInput`. */
 function approvalSummary(input: Record<string, unknown>): string {
   return describeInput(input) ?? JSON.stringify(input);
 }
-
-/** Shortens visible text to a contract limit in code points and marks a cut. */
-function clipMarked(text: string, max: number): string | null {
-  const characters = Array.from(text);
-  const truncated = characters.length > max;
-  const prefix = truncated ? characters.slice(0, max - TRUNCATED.length).join('') : text;
-  if (!/\S/.test(prefix)) return null;
-  return truncated ? prefix + TRUNCATED : prefix;
-}
-
-const TRUNCATED = ' [truncated]';
 
 /** Shortens text to a contract limit. Null when nothing visible remains. */
 function clip(text: string, max: number): string | null {

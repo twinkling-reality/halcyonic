@@ -7,7 +7,6 @@ import type {
   RuntimeEventType,
   Timestamp,
 } from '@halcyonic/contracts';
-import { fitQuestion } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 import { APPROVAL_METHODS, QUESTION_METHOD, type RequestId } from './protocol.ts';
 
@@ -356,10 +355,11 @@ function observeRequest(
  * A `request_user_input` request as the agent's question. Codex 0.157.0 sends `{questions: [{id,
  * header, question, isOther, isSecret, options: [{label, description}] | null}]}` and takes
  * `{answers: {[id]: {answers: string[]}}}`. A question marked secret, an id that cannot come back
- * unchanged, any text cut to fit the contract, or more questions or options than the contract
- * carries make the request unanswerable:
- * it is shown, and the person can stop the execution. No question at all, or one from a turn that
- * ended, is refused as before.
+ * unchanged, or more questions or options than the contract carries make the request
+ * unanswerable: it is shown, and the person can stop the execution. Its texts are reported whole;
+ * the control plane takes credentials out of them, then fits them to the contract, and a question
+ * with anything cut can't be answered either. No question at all, or one from a turn that ended,
+ * is refused as before.
  */
 function observeQuestion(
   state: ThreadState,
@@ -373,12 +373,6 @@ function observeQuestion(
     return { observations: [], settled: [] };
   }
   let answerable = state.answerable && raw.length <= 10;
-  // The person must see whole what they answer, so anything cut to fit leaves it unanswerable.
-  const fit = (value: string, max: number): string => {
-    const fitted = clip(value, max);
-    if (fitted !== value) answerable = false;
-    return fitted;
-  };
   const prompts: QuestionPrompt[] = [];
   for (const [index, item] of raw.slice(0, 10).entries()) {
     const key = nonBlank(item.id);
@@ -395,26 +389,21 @@ function observeQuestion(
         continue;
       }
       const description = nonBlank(option.description);
-      options.push({
-        label: fit(label, 200),
-        description: description === null ? null : fit(description, 1000),
-      });
+      options.push({ label, description });
     }
     const secret = item.isSecret === true;
     if (secret) answerable = false;
     const header = nonBlank(item.header);
     prompts.push({
-      key: fit(key ?? `question-${index}`, 256),
-      header: header === null ? null : fit(header, 200),
-      text: fit(nonBlank(item.question) ?? header ?? 'Question', 4000),
+      key: key ?? `question-${index}`,
+      header,
+      text: nonBlank(item.question) ?? header ?? 'Question',
       options,
       multiple: false,
       free_text: item.isOther === true || options.length === 0,
       secret,
     });
   }
-  // Bounded before it is reported, so the journal and every client hold it at a bounded size.
-  const fitted = fitQuestion(prompts, answerable);
   const question: PendingQuestion = {
     questionId: `${turnId}:${String(id)}`,
     requestId: id,
@@ -431,8 +420,8 @@ function observeQuestion(
         'runtime.question.asked',
         {
           question_id: question.questionId,
-          prompts: [...fitted.prompts],
-          answerable: fitted.answerable,
+          prompts,
+          answerable,
         },
         {
           native_event_id: `${question.questionId}:${QUESTION_METHOD}`,

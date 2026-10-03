@@ -17,10 +17,12 @@ import {
   ESTIMATED_COST_NOTE,
   EVENT_VARIANTS,
   EvaluationResult,
+  fitQuestion,
   MESSAGE_NESTING_LIMIT,
   parseClientMessage,
   parseCommandEnvelope,
   parseEventEnvelope,
+  QuestionPrompts,
   RUNTIME_EVENT_TYPES,
   renderSchemaDocument,
 } from './index.ts';
@@ -429,5 +431,44 @@ describe('the C# bindings', () => {
       ['NotFoundEvaluation', 'EvaluationResult'],
     ])
       assert.ok(generated.includes(`public sealed class ${variant} : ${union}`), variant);
+  });
+});
+
+describe('fitting a question', () => {
+  const prompt = {
+    key: 'q0',
+    header: 'Database',
+    text: 'Which database?',
+    options: [{ label: 'Staging', description: null }],
+    multiple: false,
+    free_text: true,
+    secret: false,
+  };
+  const validate = compileValidator(QuestionPrompts);
+
+  test("cuts each text to its field's limit, marks the cut, and leaves it unanswerable", () => {
+    for (const long of [
+      { key: 'k'.repeat(257) },
+      { header: 'h'.repeat(201) },
+      { text: '😀'.repeat(4001) },
+      { options: [{ label: 'l'.repeat(201), description: null }] },
+      { options: [{ label: 'Staging', description: 'd'.repeat(1001) }] },
+    ]) {
+      const fitted = fitQuestion([{ ...prompt, ...long }], true);
+      assert.equal(fitted.answerable, false, Object.keys(long)[0]);
+      assert.match(JSON.stringify(fitted.prompts), / \[truncated\]/);
+      assert.ok(validate(fitted.prompts).ok, Object.keys(long)[0]);
+    }
+    // 4000 emoji are 4000 characters as the contract counts them: whole.
+    const emoji = { ...prompt, text: '😀'.repeat(4000) };
+    assert.deepEqual(fitQuestion([emoji], true), { prompts: [emoji], answerable: true });
+  });
+
+  test('gives back a question within every limit as it was, with its own answerability', () => {
+    const prompts = [prompt];
+    const fitted = fitQuestion(prompts, false);
+    assert.equal(fitted.prompts, prompts);
+    assert.equal(fitted.answerable, false);
+    assert.equal(fitQuestion(prompts, true).answerable, true);
   });
 });

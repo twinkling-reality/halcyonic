@@ -55,23 +55,47 @@ export type QuestionAnswer = Static<typeof QuestionAnswer>;
  */
 export const QUESTION_TEXT_LIMIT = 16_000;
 
+/** The most each of a question's texts holds, as {@link QuestionPrompt} and {@link QuestionOption} say. */
+const FIELD = { key: 256, header: 200, text: 4000, label: 200, description: 1000 };
+
 /** Limits a question longer than {@link QUESTION_TEXT_LIMIT} is shortened to, which fit it. */
 const SHORTENED = { prompts: 4, options: 8, header: 100, text: 1000, label: 100, description: 200 };
 
 const TRUNCATED = ' [truncated]';
 
 /**
- * A question as an adapter reports it. One within {@link QUESTION_TEXT_LIMIT} is kept whole; a
- * longer one is shortened, each cut marked, and cannot be answered, since the person would not see
- * whole what they answer.
+ * A question fitted to the contract: each text cut to its field's limit, then, when the whole is
+ * longer than {@link QUESTION_TEXT_LIMIT}, shortened further, each cut marked. A question with
+ * anything cut cannot be answered, since the person would not see whole what they answer. One
+ * within every limit comes back as it was. Adapters report a question whole; the control plane
+ * fits it once, after taking the secrets it holds out of it, since a secret cut in two is no
+ * longer found.
  */
 export function fitQuestion(
   prompts: readonly QuestionPrompt[],
   answerable: boolean,
 ): { readonly prompts: readonly QuestionPrompt[]; readonly answerable: boolean } {
-  if (questionTextLength(prompts) <= QUESTION_TEXT_LIMIT) return { prompts, answerable };
+  let cut = false;
+  const fit = (text: string, max: number): string => {
+    const fitted = shorten(text, max);
+    if (fitted !== text) cut = true;
+    return fitted;
+  };
+  const fitted = prompts.map((prompt) => ({
+    ...prompt,
+    key: fit(prompt.key, FIELD.key),
+    header: prompt.header === null ? null : fit(prompt.header, FIELD.header),
+    text: fit(prompt.text, FIELD.text),
+    options: prompt.options.map((option) => ({
+      label: fit(option.label, FIELD.label),
+      description: option.description === null ? null : fit(option.description, FIELD.description),
+    })),
+  }));
+  const each = cut ? fitted : prompts;
+  if (questionTextLength(each) <= QUESTION_TEXT_LIMIT)
+    return { prompts: each, answerable: answerable && !cut };
   return {
-    prompts: prompts.slice(0, SHORTENED.prompts).map((prompt) => ({
+    prompts: each.slice(0, SHORTENED.prompts).map((prompt) => ({
       ...prompt,
       header: prompt.header === null ? null : shorten(prompt.header, SHORTENED.header),
       text: shorten(prompt.text, SHORTENED.text),
