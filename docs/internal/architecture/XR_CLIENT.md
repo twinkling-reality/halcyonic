@@ -420,7 +420,12 @@ the same definition names, as the JSON Schema document:
   Holding a task's file by its subject plate past `GlazeButton.HoldSeconds` drags the whole plane
   round the eyes at its distance, still facing them (`MenuDrag` over `PanelDrag`, client core), as an
   offset on that placement kept across redraws until the plane is placed afresh or Reset position;
-  meanwhile Settings' menu row reads "Where you moved it" (`MenuDirector.MovedByHand`).
+  meanwhile Settings' menu row reads "Where you moved it" (`MenuDirector.MovedByHand`). Each draw
+  keeps only as much of the offset as every rule of a drag still allows for what is laid then, a
+  side panel opening, a taller subject or larger text, scaled back toward the placement a tenth at
+  a time, else none (`MenuDrag.Kept`, `MenuPlane.Allows`, which judges the light line from the
+  geometry alone), and the menu stands beside the file, or a side panel beside its frame, only where
+  the two fit where the plane was dragged; with none of it kept, Settings says "Where it stands".
   A step is taken only where the plane stays inside the measured field, clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
   each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. The
