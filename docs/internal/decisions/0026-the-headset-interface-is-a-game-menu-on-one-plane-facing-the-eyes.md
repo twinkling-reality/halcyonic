@@ -254,6 +254,15 @@ coordinator's first-visit words:
   across the window; the pill on its subject still names its task's state. Turned aside for a
   window, the plane stands under the characters, as everywhere. Nothing of Halcyonic's comes within
   a degree of the window's assumed place, straight ahead; the renders check it.
+- **Labels are cleared where they stand** (2026-10-02, lane U's renders at the far stage on a Quest
+  3S): placement clears each label at its own yaw, not with the plane's lowest corner, which had
+  set a 64 degree plane's top at 18.9 degrees and taken Tasks' 4 rows beside a file to 43.9 of
+  43.5. Cleared label by label, the plane stands about a degree higher; if a stage still takes it
+  past the field, Tasks shows 3 rows beside a file, and the menu never steps aside for good.
+- **At larger text a side panel takes the file's place** (2026-10-02): a file and a side panel come
+  to about 72 degrees, whose low corners leave a 3S's field wherever the top stands. The side panel
+  stands where the file stood, keeping the file's light line and the pill on its subject, so it still
+  reads as that task's, and Close details brings the file back.
 - **Lane U's views set the last spacing**, measured with the split header's pill: the plane's top
   stands 17.5 degrees below eye level (`MenuPage.TopDegrees`); a subject's title stands half a grid
   step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no
@@ -282,7 +291,9 @@ coordinator's first-visit words:
   down from the middle of their overlap where the label stands over the subject, as the eyes see
   them, else from the label's nearer bottom corner to the subject's nearer top corner. Leaving from
   under the label, below any mark, it crosses no words, and it crosses no other label or character;
-  the render checks it against every label and character as the eyes see them.
+  the render checks it against every label and character as the eyes see them. Over a desk, where
+  the plane stands above the lineup, it rises from the top of the character's body to the file's
+  bottom edge.
 - **A page of content keeps its glow above its first row.** The light from its top edge ends within
   its top padding, so a row that is not chosen never looks lit; a subject keeps the glow's full
   reach. The render checks that nothing to press stands in a page's glow.
