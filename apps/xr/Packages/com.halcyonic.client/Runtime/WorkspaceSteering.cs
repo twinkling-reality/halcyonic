@@ -62,7 +62,7 @@ namespace Halcyonic.Client
     {
         public static readonly TimeSpan DefaultConfirmationWindow = TimeSpan.FromSeconds(15);
 
-        private const string QuestionChanged = "Nothing was sent: the question changed. Check it again.";
+        private const string QuestionChanged = "Nothing was sent: the question changed. Read it again.";
         private const string NoInstructions = "Nothing was sent: it no longer takes instructions.";
 
         private readonly CommandFactory commands;

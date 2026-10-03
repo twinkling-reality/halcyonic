@@ -119,6 +119,10 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | The row after a prompt, in a question of several | Next question, 2 of 2; after the last, Your answers | |
 | The row ending a long question's last part, before its answers | On to the answers; where the answers page, On to the answers, 1 of 2 | |
 | Send answer's reason on a prompt's page, in a question of several | Answer each question, then send from Your answers. | |
+| Send answer's reason while a long question isn't read to its end | Read the whole question first. | Open the question to read the rest. |
+| Send answer's reason while a chosen cut answer or a long typed one isn't read whole | Read the whole answer you chose first. | |
+| Send answer's reason while a page of Your answers isn't drawn | Read all your answers first. | |
+| The row paging Your answers | Your answers, 2 of 2; from the last page, Your answers, 1 of 2 | |
 | The row for the person's own answer | Type my answer; once typed, Your answer: "…", chosen | Type an answer; Typed: … |
 
 ### Steering from a file
@@ -129,6 +133,7 @@ Settled by the coordinator on 2026-10-02.
 | --- | --- |
 | Tell it's reason while the instructions offered show and none is chosen | Choose what to tell it first. |
 | A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
+| Answers awaiting their Yes, dropped because the question is no longer the one asked | Nothing was sent: the question changed. Read it again. (instead of Check it again) |
 
 ## Sentence patterns
 

@@ -398,7 +398,7 @@ public class FileQuestionTests
         var workspace = FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer);
         var frame = Screen(workspace, screen, steering);
         Assert.That(frame.Footer.Confirming, Is.False, "no Yes over answers to a question no longer asked");
-        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Nothing was sent: the question changed. Check it again."));
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Nothing was sent: the question changed. Read it again."));
         Assert.That(steering.Armed, Is.Null);
     }
 }
