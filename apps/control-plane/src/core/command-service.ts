@@ -432,7 +432,9 @@ export class CommandService {
       }
       default: {
         const unhandled: never = command;
-        throw new Error(`unhandled command ${JSON.stringify(unhandled)}`);
+        throw new Error(
+          `unhandled command ${String((unhandled as { command_type?: unknown }).command_type)}`,
+        );
       }
     }
   }
@@ -481,7 +483,7 @@ export class CommandService {
           return;
         default: {
           const unhandled: never = first;
-          throw new Error(`unhandled outcome ${JSON.stringify(unhandled)}`);
+          throw new Error(`unhandled outcome ${String((unhandled as { kind?: unknown }).kind)}`);
         }
       }
     } catch (error) {
@@ -708,13 +710,12 @@ function toFailure(error: unknown): CommandFailure {
       effect: error.effect,
     };
   }
-  // An unexpected exception says nothing about what the runtime did.
+  // An unexpected exception says nothing about what the runtime did, and its message is not the
+  // adapter's own words: a parse error quotes what it read, which can be an instruction or agent
+  // text. Only its type is told.
   return {
     code: 'adapter_error',
-    message: clip(
-      error instanceof Error ? error.message : '',
-      'The runtime adapter failed unexpectedly.',
-    ),
+    message: `The runtime adapter failed unexpectedly (${error instanceof Error ? error.name : typeof error}).`,
     effect: 'unknown',
   };
 }
