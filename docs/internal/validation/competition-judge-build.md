@@ -98,16 +98,16 @@ eyes on the far Quest 3S stage. Each step is held to the plane's checks at both 
 
 | Area | Today in the judge build | Evidence | Who closes it |
 | --- | --- | --- | --- |
-| Welcome and onboarding | Never shown: the welcome opens only on a live first visit (`EntryPanel`, `Live` is false while the demonstration plays). A judge gets the line above the stage and the pinch hint only | `EntryPanel.cs`, lines 229 and 301 | Final recording: a demonstration welcome (script below) |
-| Agent questions (ADR 0022) | Closed on this branch: the story's first decision is a question with two options, each with its own recorded continuation; Understand still reads Working at the question, since the simulated explanation treats only approvals as waiting | `sign_in_rate_limit.json`, `DemonstrationAnswerKind.Answer` | Lane W for the explanation at a question |
-| Create a project | "The demo can't start new work. Connect your Mac to start real work." | `EntryText.DemoCannotStart` | Lane C's companion, then a recorded Create path |
-| Understand and Checked | Shown with the recorded simulated answers, but Checked reads as data ("available · 1 of 1 session, complete · fresh, data to 05:00:08", "unavailable: not yet computed …") | `WorkspaceRenders/desk-evaluation-panel.png` | Lane W |
-| Usage left | Closed 2026-10-02 (coordinator): the demonstration shows recorded limits for one practice agent, marked "Recorded for the demo, not from any account"; `JudgeWordsTests` scans them for brand names. Before, the chip was hidden in the demo, and earlier it opened an empty panel | `UsageLeftGlance`, `DemonstrationRecording.UsageLimitsAt` | None |
+| Welcome and onboarding | Still open, updated 2026-10-03: the entry panel and its welcome are retired; on a first visit the menu opens by itself on Projects, but only when connected, never in the demonstration. A judge gets the line above the stage, the closed bar ("1 task is waiting for you") and the pinch hint | `WorkspaceDirector.OpenOnFirstVisit` | Final recording: a demonstration welcome (script below) |
+| Agent questions (ADR 0022) | Closed: the story's first decision is a question with two options, each with its own recorded continuation, asked in the file under Waiting; the simulated explanation now treats a waiting question as waiting | `sign_in_rate_limit.json`, `JudgeFileWalkTests`, `demonstration-sources.ts` | None |
+| New project | Closed 2026-10-03 (lane C): Projects' New project plays the companion's recording, its question quoted as its own, to a recap marked as its suggestions under the note that it is an AI; Start building waits with "The demo can't start new work. Real work runs on your computer." | `JudgeMenuWalkTests`, `far-3s-judge-12` and `-13` | None |
+| Changes and Checks | Closed: the file's Changes and Checks show the recorded simulated answers in words, as "Tests failed …: 1 failed, 23 passed" under "Simulated checks · recorded at …" | `JudgeMenuWalkTests`, `far-3s-judge-8-checks` | None |
+| Usage | Closed 2026-10-02, on the menu since 10-03: the menu's Usage shows recorded limits for one practice agent, under "Recorded for the demo, not from any account", with no Refresh; a limit's Account is "Part of the recording"; `JudgeWordsTests` scans them for brand names | `UsageColumn`, `DemonstrationRecording.UsageLimitsAt`, `far-3s-judge-10-usage` | None |
 | The line above the stage | Closed: the owner's words of 2026-10-02 | `DemonstrationFallback.Describe` | None |
 | Agent app names | Closed: "Practice agent" and "Practice agent, watch only" | `demonstration.ts` | None |
-| Sound on answering | Answering a question has no cue of its own (no `WorkspaceAct` for it), live or in the demo | `SoundCues.cs` | Lane U or sound |
-| The pinch hint | Still on the old workspace visuals, not the ADR 0023 components | `OnboardingHint.cs` | Lane U |
-| Three arrangements | In Settings as live; nothing in the story shows why to use them | Settings words in `JudgeWordsTests` | The video, not the build |
+| Sound on answering | Closed: sending an answer plays its own cue, live and in the demo | `WorkspaceAct.Answer`, `SoundCue.SendAnswer` in `SoundCues.cs` | None |
+| The pinch hint | Still on the old workspace visuals, not the ADR 0023 components; it shows until a task's file has been opened once | `OnboardingHint.cs` | Lane U |
+| Three arrangements | In Settings under Your space, "The characters", as live; nothing in the story shows why to use them | `SpaceSettings`, `JudgeWordsTests` | The video, not the build |
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
 | Icons | On badges, marks and actions, as live | Stage and workspace renders | None |
 | Starting again | Closed 2026-10-02: after a pause it goes on where it stood; only after its end does it start again | `DemonstrationTransport.Resume` | None |
@@ -216,9 +216,11 @@ the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before a
 
 ## Consequences
 
-- The judge path works end to end off the device and its words name no third-party product; three
-  names wait for the owner's words.
-- The demonstration's story predates agent questions, Create and the welcome; its final recording
-  waits for lane C (Create with a companion) and lane W (Understand and Checked).
-- The layout does not yet adapt to the device's field; the fix is agreed with lane U.
+- The judge path works end to end off the device, through the menu of ADR 0026, and its words name
+  no brand: the three names above were replaced with the owner's words, and the scan allows none
+  (updated 2026-10-03).
+- The demonstration's story has its agent question and New project's recorded companion; its final
+  recording still waits for a demonstration welcome.
+- The layout adapts to the device's field: every menu state the judge walk draws is checked inside
+  a Quest 3S's field at both text sizes. The real split waits for the headset session.
 - Re-read the rules before the submission; they can change.
