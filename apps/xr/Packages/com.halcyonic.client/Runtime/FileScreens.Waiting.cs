@@ -299,7 +299,9 @@ namespace Halcyonic.Client
                 };
                 return new Page(partLines, source, QuestionFooter(workspace, screen, draft));
             }
-            var lines = new List<PageLine> { new PageLine(text, wordsAreData: true, rows: question.HeadRows(prompt)) };
+            var lines = new List<PageLine>();
+            // The question heads its answers where it leaves room for one; a long one by its first row.
+            if (question.HeadRows(prompt) > 0) lines.Add(new PageLine(text, wordsAreData: true, rows: question.HeadRows(prompt)));
             if (!WorkspaceText.Answerable(draft.Question))
             {
                 lines.Add(new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary));
