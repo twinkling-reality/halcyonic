@@ -153,11 +153,9 @@ namespace Halcyonic.Client
         public const string TypeMyAnswer = "Type my answer";
         public const string YourAnswers = "Your answers";
         public const string OnToTheAnswers = "On to the answers";
-
-        // Proposed, for the coordinator to settle.
         public const string ReadTheQuestion = "Read the whole question first.";
-        public const string ReadTheAnswer = "Read all of the answer you chose first.";
-        public const string ReadYourAnswers = "Read all of your answers first.";
+        public const string ReadTheAnswer = "Read the whole answer you chose first.";
+        public const string ReadYourAnswers = "Read all your answers first.";
 
         /// <summary>What a row on the question's page raises: more answers, the next question, or a prompt from the person's answers, by its index.</summary>
         public const string MoreAnswers = "more-answers";
