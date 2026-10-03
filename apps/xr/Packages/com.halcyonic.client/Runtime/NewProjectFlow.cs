@@ -98,16 +98,24 @@ namespace Halcyonic.Client
         /// </summary>
         private (string For, float Room)? pageRoom;
 
-        /// <summary>The question's pages of answers, laid out once for it, its room and its person's own answer.</summary>
+        /// <summary>The question's pages of answers, laid out once for it, its room, its person's own answer and its lines' words.</summary>
         private (string For, AnswersLayout? Layout)? answersLayout;
 
         /// <summary>The page of answers showing, where the question's answers need more than one.</summary>
         private AnswersPage? shownAnswers;
 
-        /// <summary>The unknown start's parts, where it needs more than a page, and those drawn and when, as the review holds its Yes.</summary>
+        /// <summary>
+        /// The unknown start's parts, where it needs more than a page; its lines drawn, each by its place
+        /// and words, and when, as the review holds its Yes. Lines, not parts: laid again into fewer,
+        /// larger parts at another text size, a part counts only for what was drawn of it, and a line
+        /// whose words change is read again.
+        /// </summary>
         private int unresolvedParts = 1;
-        private readonly HashSet<int> unresolvedDrawn = new HashSet<int>();
+        private readonly HashSet<string> unresolvedDrawn = new HashSet<string>();
         private double unresolvedDrawnAt;
+
+        /// <summary>The unknown start's lines as <see cref="Parts"/> laid them for the frame given, and the part showing.</summary>
+        private (IReadOnlyList<string> All, int From, int To)? unresolvedShown;
 
         /// <summary>The rows a part of the review holds, read once for the review and again only when the text size changes.</summary>
         private (NewWorkReview Review, TextSize Size, int Rows)? reviewRows;
@@ -358,6 +366,7 @@ namespace Halcyonic.Client
             pageRoom = null;
             answersLayout = null;
             unresolvedDrawn.Clear();
+            unresolvedShown = null;
             return true;
         }
 
@@ -473,7 +482,10 @@ namespace Halcyonic.Client
                     Close();
                     return;
                 case SidePanel.Close:
+                    // Closing details lets go of what was armed there, as Cancel would.
                     fact = null;
+                    confirmingStartOver = false;
+                    recoveryArmed = false;
                     break;
                 case Footer.NextPage when from == linePage:
                 case NewProjectScreens.NextPage when from == linePage && key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture):
@@ -620,7 +632,7 @@ namespace Halcyonic.Client
                     if (showModels && draft.Models.Count == 0 && modelsRead == null && draft.Runtime is RuntimeDescriptor kept) ReadModels(kept);
                     Show(NewProjectStep.Recap, page: RecapPage.Options);
                     break;
-                case NewProjectScreens.StartOver when step == NewProjectStep.Recap && !Building() && !OutcomeUnknown:
+                case NewProjectScreens.StartOver when step == NewProjectStep.Recap && fact == RecapFact.StartOver && !Building() && !OutcomeUnknown:
                     confirmingStartOver = true;
                     break;
                 case NewProjectScreens.ConfirmStartOver when confirmingStartOver && !Building() && !OutcomeUnknown:
@@ -753,11 +765,16 @@ namespace Halcyonic.Client
             }
             drawnPage = (drawn, linePage);
             if (drawnSide?.Frame != drawn) drawnSide = null;
-            // A part of the unknown start counts as read once drawn; with the last, Clear can be pressed.
-            if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedParts > 1 && unresolvedDrawn.Add(linePage))
+            // The unknown start's lines on this part count as read once drawn; with the last of them, Clear can be pressed.
+            if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedShown is { } part)
             {
-                unresolvedDrawnAt = host.Now;
-                if (unresolvedDrawn.Count == unresolvedParts) Redraw();
+                var added = false;
+                for (var index = part.From; index < part.To; index++) added |= unresolvedDrawn.Add(part.All[index]);
+                if (added)
+                {
+                    unresolvedDrawnAt = host.Now;
+                    if (part.All.All(unresolvedDrawn.Contains)) Redraw();
+                }
             }
             if (Review is not NewWorkReview reading || !reading.Paginated) return;
             if (reading.Drawn(host.Now)) Redraw();
@@ -936,12 +953,15 @@ namespace Halcyonic.Client
             if (Height(all, 0, all.Count) <= PageRoom(frame) - Note(frame.Source) - Note(frame.Reason))
             {
                 unresolvedParts = 1;
+                unresolvedShown = null;
                 return frame;
             }
             var starts = Starts(all, room - turn);
             unresolvedParts = starts.Count;
             if (linePage >= unresolvedParts || linePage < 0) linePage = unresolvedParts - 1;
             var (from, to) = (starts[linePage], linePage + 1 < unresolvedParts ? starts[linePage + 1] : all.Count);
+            var each = all.Select((line, index) => index.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + line.Words).ToList();
+            unresolvedShown = (each, from, to);
             var lines = all.Skip(from).Take(to - from).ToList();
             if (linePage + 1 < unresolvedParts)
             {
@@ -949,7 +969,7 @@ namespace Halcyonic.Client
                     key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             }
             var footer = frame.Footer;
-            if (unresolvedDrawn.Count < unresolvedParts && footer[PromptSlot.FarRight] is Prompt clear && clear.Id == NewProjectScreens.Clear)
+            if (!each.All(unresolvedDrawn.Contains) && footer[PromptSlot.FarRight] is Prompt clear && clear.Id == NewProjectScreens.Clear)
             {
                 footer = new Footer(footer[PromptSlot.Close], farRight: new Prompt(clear.Id, clear.Words, clear.Icon, main: true, available: false,
                     reason: EntryText.ReadToPart(unresolvedParts)));
@@ -972,7 +992,9 @@ namespace Halcyonic.Client
         private MenuFrame Answered(Func<AnswersPage?, MenuFrame> build, int offered, bool reserveReason, bool written)
         {
             var whole = build(null);
-            var key = pagedFor?.Key + "|" + host.TextSize + "|" + host.TitleRows(whole.Subject, Column) + "|" + written;
+            // Laid again whenever a line's words change, as when heard words add the note to check them.
+            var key = pagedFor?.Key + "|" + host.TextSize + "|" + host.TitleRows(whole.Subject, Column) + "|" + written + "|"
+                + string.Join("\n", whole.Lines.Select(line => line.Words));
             if (!(answersLayout is { } laid && laid.For == key))
             {
                 answersLayout = (key, Lay(whole, build, offered, reserveReason));
@@ -1059,7 +1081,6 @@ namespace Halcyonic.Client
             Changed?.Invoke();
         }
 
-        /// <summary>Whether <paramref name="frame"/> offers what a press raised, as the person sees it now.</summary>
         /// <summary>
         /// The page of lines the drawing that offers <paramref name="id"/> stood on: the page drawn whole,
         /// where it offers it, else the side panel drawn, for its own Close or a prompt it carried and
@@ -1077,6 +1098,7 @@ namespace Halcyonic.Client
             return null;
         }
 
+        /// <summary>Whether <paramref name="frame"/> offers what a press raised, as the person sees it now.</summary>
         private static bool Offers(MenuFrame frame, string id, string? key)
         {
             if (id == SidePanel.Close) return frame.Side != null;
