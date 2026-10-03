@@ -48,6 +48,7 @@ describe('error text before it is journaled', () => {
       ['key AKIAIOSFODNN7EXAMPLE is not valid', `key ${REDACTED} is not valid`],
       ['token ghp_0123456789abcdefghijABCDEFGHIJ was revoked', `token ${REDACTED} was revoked`],
       ['xoxb-1234567890-abcdefghij leaked', `${REDACTED} leaked`],
+      ['glpat-AbCdEfGhIjKlMnOpQrSt was refused', `${REDACTED} was refused`],
       ['credential srkx_9f8e7d6c5b4a was refused', `credential ${REDACTED} was refused`],
       ['device hlcd_AbCdEfGh0123456789IjKl is unknown', `device ${REDACTED} is unknown`],
       ['jwt eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKKF2QT4fwpM ok', `jwt ${REDACTED} ok`],
@@ -92,9 +93,13 @@ describe('error text before it is journaled', () => {
       'could not read token /Users/me/.config/gh/hosts.yml',
       'Token ~/.netrc2 is not readable',
       'bearer ./secrets/key1.txt not found',
+      'invalid token src/config/settings.json',
     ];
     for (const text of kept) assert.equal(redactSecrets(text, []), text, text);
     assert.equal(redactSecrets('token abc123def456', []), `token ${REDACTED}`);
+    // Base64 has no `.` and a JSON Web Token no `/`, so either alone is still a credential.
+    assert.equal(redactSecrets('Bearer ab/cd+ef12==', []), `Bearer ${REDACTED}`);
+    assert.equal(redactSecrets('Bearer abc.DEF-123_xyz', []), `Bearer ${REDACTED}`);
   });
 
   test('reads only the first 4096 characters, so a runtime line of any length takes no time', () => {

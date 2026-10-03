@@ -27,6 +27,7 @@ const KEY_SHAPES = new RegExp(
     'sk_(?:live|test)_[A-Za-z0-9]{16,}',
     'gh[pousr]_[A-Za-z0-9]{20,}', // GitHub's tokens
     'github_pat_[A-Za-z0-9_]{20,}',
+    'glpat-[A-Za-z0-9_-]{20,}', // GitLab's personal access tokens
     'xox[abprs]-[A-Za-z0-9-]{10,}', // Slack's
     '(?:AKIA|ASIA)[0-9A-Z]{16}', // AWS access key ids
     'AIza[0-9A-Za-z_-]{35}', // Google's API keys
@@ -42,10 +43,12 @@ const KEY_SHAPES = new RegExp(
 /**
  * A credential after its scheme, as an Authorization header carries it: one with a digit or a
  * base64 sign in it, so a sentence such as "Basic authentication failed" stays as it is, and never
- * a path, as in "token /Users/me/.config/gh/hosts.yml".
+ * a path: one that starts with `/`, `~` or `.`, as in "token /Users/me/.config/gh/hosts.yml", or
+ * holds both `/` and `.`, as in "invalid token src/config/settings.json", since base64 has no `.`
+ * and a JSON Web Token no `/`.
  */
 const SCHEME_CREDENTIAL =
-  /\b(Bearer|Basic|Token)(\s+)(?![/~.])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/=-]{8,}/gi;
+  /\b(Bearer|Basic|Token)(\s+)(?![/~.])(?!(?=[A-Za-z0-9._~+/=-]*\/)[A-Za-z0-9._~+/=-]*\.)(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/=-]{8,}/gi;
 
 /** A URL's user and password: `scheme://user:password@host`. */
 const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
@@ -56,9 +59,10 @@ const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi
  * and hashes in hex are left alone, and so are names built of words, such as a class, a test or a
  * branch. A random token switches between capitals, small letters and digits at least 0.4 times a
  * character, and has fewer than half its characters in runs of three or more small letters, where
- * a name's words put most of it. Measured over 20,000 each, 0.8 percent of random 32-character
- * tokens read as names, 0.2 percent at 43 (256 bits) and fewer longer; what Halcyonic holds is
- * taken out exactly in any case.
+ * a name's words put most of it. Measured over 50,000 random base64url tokens each, those that
+ * stay, read as names or lacking one of the three, are 1.3 percent at 32 characters, 0.24 percent
+ * at 43 (256 bits), 0.12 at 48 and 0.03 at 64; what Halcyonic holds is taken out exactly in any
+ * case.
  */
 const RANDOM_RUN = /(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-])/g;
 const kind = (character: string) =>
