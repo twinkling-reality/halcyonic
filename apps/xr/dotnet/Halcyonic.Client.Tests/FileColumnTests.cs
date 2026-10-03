@@ -343,6 +343,19 @@ public class FileColumnTests
     }
 
     [Test]
+    public void DrawingAnApprovalOnWaitingCountsNothingTowardTheQuestionDraftedMeanwhile()
+    {
+        var host = new FileMenuHost();
+        var work = new AskingWork();
+        work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-1", "Run the migration", Samples.Time)));
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Answer));
+        Assert.That(column.Screen.Question.Draft, Is.Not.Null, "the question is drafted while the approval shows");
+        Assert.That(column.Frame!.Lines.Select(line => line.Action), Has.None.EqualTo(FileScreens.Choose), "Waiting shows the approval");
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        Assert.That(column.Screen.Question.Draft!.WasShownWhole(0), Is.False, "the approval's page counts nothing toward the question");
+    }
+
+    [Test]
     public void TellItWithoutRecordedInstructionsTakesTheKeyboardsWordsOnlyWhenFinished()
     {
         var host = new FileMenuHost();

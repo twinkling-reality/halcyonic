@@ -269,7 +269,9 @@ namespace Halcyonic.Client
                 }
                 return;
             }
-            if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.Draft != null)
+            // Only a page of the question counts toward it, never another Waiting shows meanwhile.
+            if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.Draft is QuestionDraft asked
+                && FileScreens.ShowsQuestion(drawn, asked, Screen.Question.Prompt))
             {
                 var whole = Screen.Question.Draft.Prompts.Select((_, prompt) => Screen.Question.Draft.WasShownWhole(prompt)).ToList();
                 Screen.Question.Drawn(clock);
