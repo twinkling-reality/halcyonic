@@ -99,7 +99,9 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   panel taller than designed is taken to be read with the head tipped down by half again as much
   as it is taller, at most 8 degrees, and the field holds it seen so; a panel as tall as designed
   keeps the head-level rule. Settings with all its sections would need more, and waits for the
-  redesign.)
+  redesign. ADR 0026 changed two of these on 2026-10-02: each label is cleared where it stands, not
+  every label at the panel's corners, and the head tips as much as a panel's bottom needs, at most
+  8 degrees, while placement's floor keeps half again as much as a panel is taller.)
 - **One icon set.** Material Symbols Rounded (Apache-2.0), filled, weight 500, as a static
   TextMeshPro SDF atlas of only the glyphs used, made with fontTools, named by meaning in the
   client core. (On 2026-10-02 the badges and marks took their icons: 13 glyphs of version 2.972,

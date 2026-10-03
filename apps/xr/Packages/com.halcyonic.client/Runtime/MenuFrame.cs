@@ -527,8 +527,9 @@ namespace Halcyonic.Client
         /// <param name="pill">On a file, its task's state badge, as its character wears it.</param>
         /// <param name="source">Where the page's words come from, one line, last on the page, in the secondary colour.</param>
         /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
+        /// <param name="subjectWaits">The subject says what waits for the person, as Tasks' "1 task is waiting for you": it takes the waiting colour, as the closed bar's line does.</param>
         public MenuFrame(string subject, Footer footer, bool subjectIsData = false, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
-            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false)
+            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false, bool subjectWaits = false)
         {
             if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("A frame has its subject.", nameof(subject));
             sections ??= Array.Empty<FrameSection>();
@@ -543,6 +544,7 @@ namespace Halcyonic.Client
             if (source != null && string.IsNullOrWhiteSpace(source)) throw new ArgumentException("A source line has its words, or is null.", nameof(source));
             Subject = subject;
             SubjectIsData = subjectIsData;
+            SubjectWaits = subjectWaits;
             Pill = pill;
             Sections = sections;
             Lines = lines;
@@ -555,6 +557,9 @@ namespace Halcyonic.Client
         public string Subject { get; }
 
         public bool SubjectIsData { get; }
+
+        /// <summary>The subject says what waits for the person, in the waiting colour.</summary>
+        public bool SubjectWaits { get; }
 
         public StateBadge? Pill { get; }
 
@@ -584,11 +589,10 @@ namespace Halcyonic.Client
     public static class MenuPage
     {
         /// <summary>
-        /// Where the plane's top line stands below eye level, under the lineup's labels: where a panel as
-        /// tall as designed, 26 degrees, has its top with its centre as low as a Quest 3S allows with the
-        /// head level (<see cref="ViewField.LowestCenter"/>). A plane up to that tall is read with the
-        /// head level and a taller one with it tipped by <see cref="WorkspacePlacement.ReadingPitch"/>,
-        /// with no height between the two that fits neither. The line a page's height is reckoned down from.
+        /// Where the plane's top line stands below eye level, under the lineup's labels, where the stage's
+        /// own isn't known: where a panel as tall as designed, 26 degrees, has its top with its centre as
+        /// low as a Quest 3S allows with the head level (<see cref="ViewField.LowestCenter"/>). The line a
+        /// page's height is reckoned down from; the menu's plane reads the stage's own (its TopLine).
         /// </summary>
         public const float TopDegrees = 17.5f;
 
@@ -652,24 +656,40 @@ namespace Halcyonic.Client
         /// <see cref="TopDegrees"/> below eye level and the head turned to its centre and tipped down by
         /// <see cref="WorkspacePlacement.ReadingPitch"/>, as the renders' field check sees it.
         /// </summary>
-        public static bool Fits(PlaneComposition composition)
+        public static bool Fits(PlaneComposition composition) => Fits(composition, TopDegrees, Quest3S);
+
+        /// <summary>The same with the plane's top <paramref name="topDegrees"/> below eye level, where the stage's labels put it, in <paramref name="field"/>.</summary>
+        public static bool Fits(PlaneComposition composition, float topDegrees, ViewField field)
+        {
+            var half = MathF.Atan(composition.Height / 2f) * 180f / MathF.PI;
+            return Inside(composition, new PanelDirection(0f, -topDegrees - half, true, false), field);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="composition"/>, its centre at <paramref name="direction"/>, stands inside
+        /// <paramref name="field"/> less its margin with the head turned to its centre and tipped down by
+        /// <see cref="WorkspacePlacement.ReadingPitch"/>, as the renders' field check sees it: where the
+        /// stage has placed it, against the headset's measured field.
+        /// </summary>
+        public static bool Inside(PlaneComposition composition, PanelDirection direction, ViewField field)
         {
             const float DegreesPerRadian = 180f / MathF.PI;
-            var half = MathF.Atan(composition.Height / 2f) * DegreesPerRadian;
-            var direction = new PanelDirection(0f, -TopDegrees - half, true, false);
-            var pitch = WorkspacePlacement.ReadingPitch(composition.Size) / DegreesPerRadian;
+            var pitch = WorkspacePlacement.ReadingPitch(composition.Size, direction.Elevation, field) / DegreesPerRadian;
+            var yaw = direction.Yaw / DegreesPerRadian;
             var tolerance = ViewField.EdgeMarginDegrees - 0.01;
-            var shrunk = new ViewField(Quest3S.Left - tolerance, Quest3S.Right - tolerance, Quest3S.Up - tolerance, Quest3S.Down - tolerance);
+            var shrunk = new ViewField(field.Left - tolerance, field.Right - tolerance, field.Up - tolerance, field.Down - tolerance);
             foreach (var right in new[] { -composition.Width / 2f, composition.Width / 2f })
             {
                 foreach (var up in new[] { -composition.Height / 2f, composition.Height / 2f })
                 {
-                    // Seen with the head tipped down: the point turned up by as much.
+                    // Seen with the head turned to the centre and tipped down: the point turned back by as much.
                     var (x, y, z) = PlaneComposition.PointOf(direction, right, up);
-                    var seenY = y * MathF.Cos(pitch) + z * MathF.Sin(pitch);
-                    var seenZ = -y * MathF.Sin(pitch) + z * MathF.Cos(pitch);
-                    var across = MathF.Atan2(x, seenZ) * DegreesPerRadian;
-                    var elevation = MathF.Atan2(seenY, MathF.Sqrt(x * x + seenZ * seenZ)) * DegreesPerRadian;
+                    var turnedX = x * MathF.Cos(yaw) - z * MathF.Sin(yaw);
+                    var turnedZ = x * MathF.Sin(yaw) + z * MathF.Cos(yaw);
+                    var seenY = y * MathF.Cos(pitch) + turnedZ * MathF.Sin(pitch);
+                    var seenZ = -y * MathF.Sin(pitch) + turnedZ * MathF.Cos(pitch);
+                    var across = MathF.Atan2(turnedX, seenZ) * DegreesPerRadian;
+                    var elevation = MathF.Atan2(seenY, MathF.Sqrt(turnedX * turnedX + seenZ * seenZ)) * DegreesPerRadian;
                     if (!shrunk.Shows(across, elevation)) return false;
                 }
             }
@@ -679,19 +699,23 @@ namespace Halcyonic.Client
         /// <summary>
         /// The most a file's page may hold in its lines, standing alone, its subject in
         /// <paramref name="subjectRows"/> rows under its pill, at <paramref name="text"/>'s size: as tall as
-        /// keeps it inside the field (<see cref="Fits"/>). A page packs its lines against it, a source
-        /// line included (<see cref="SourceLine"/>). Beside the menu the plane is wider and the menu's
-        /// own page counts too, so the plane checks the two together and the menu steps aside where
-        /// they don't fit (<see cref="MenuColumns"/>).
+        /// keeps it inside the field (<see cref="Fits"/>), its top <paramref name="topDegrees"/> below eye
+        /// level, where the stage's labels put it (the menu's plane reads it from where it would stand),
+        /// in <paramref name="field"/>, a Quest 3S's unless given. A page packs its lines against it, a
+        /// source line included (<see cref="SourceLine"/>). Beside the menu the plane is wider and the
+        /// menu's own page counts too, so the plane checks the two together and the menu steps aside
+        /// where they don't fit (<see cref="MenuColumns"/>).
         /// </summary>
-        public static float Height(TextSize text, int subjectRows)
+        /// <param name="besideMenu">The page stands beside the menu, as Tasks' beside a file: the plane is the two columns, each this page.</param>
+        public static float Height(TextSize text, int subjectRows, float topDegrees = TopDegrees, ViewField? field = null, bool besideMenu = false)
         {
             if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows), subjectRows, "A subject takes a row or two.");
             var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
-            bool Holds(float page) => Fits(new PlaneComposition(new[]
-            {
-                new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), Subject(subjectRows, pill: true), Sections, Content(page)),
-            }, zoom));
+            var within = field ?? Quest3S;
+            PlaneColumn Column(float degrees, float page) => new PlaneColumn(PlaneComposition.Units(degrees), Subject(subjectRows, pill: true), Sections, Content(page));
+            bool Holds(float page) => Fits(new PlaneComposition(besideMenu
+                ? new[] { Column(Glaze.Menu.MenuColumnDegrees, page), Column(Glaze.Menu.FileColumnDegrees, page) }
+                : new[] { Column(Glaze.Menu.FileColumnDegrees, page) }, zoom), topDegrees, within);
             float low = 0f, high = 2f;
             if (!Holds(low)) return 0f;
             for (var step = 0; step < 40; step++)
@@ -725,20 +749,29 @@ namespace Halcyonic.Client
     /// file and a side panel would pass a Quest 3S's field. A side panel belongs to the frame in front,
     /// the file where one is open. With a file beside it, the menu steps aside, leaving the plane with a
     /// short eased slide to the left, while the file's side panel is open or while the two together
-    /// would not fit the field; it comes back once neither holds, and when the file closes. What waits
-    /// still shows on the stage and on the file's pill while it is aside.
+    /// would not fit the field, as beside a window, where the two never fit; it comes back once neither
+    /// holds, and when the file closes. What waits still shows on the stage and on the file's pill while
+    /// it is aside. With text a step larger, a frame and its side panel together are too wide for a Quest
+    /// 3S's field, so the side panel takes its frame's place, and Close details brings the frame back.
     /// </summary>
     public static class MenuColumns
     {
         /// <param name="menuOpen">The menu is open, not closed to its bar.</param>
         /// <param name="sidePanel">A side panel is open, the file's where a file is open, else the menu's.</param>
-        /// <param name="fitsBeside">The menu and the file together fit the field (<see cref="MenuPage.Fits"/>).</param>
-        public static IReadOnlyList<MenuColumn> Arrange(bool menuOpen, bool fileOpen, bool sidePanel, bool fitsBeside)
+        /// <param name="fitsBeside">The menu and the file together fit the field (<see cref="MenuPage.Fits"/>), which beside a window they never do.</param>
+        /// <param name="sideInPlace">The side panel takes its frame's place, as with text a step larger.</param>
+        public static IReadOnlyList<MenuColumn> Arrange(bool menuOpen, bool fileOpen, bool sidePanel, bool fitsBeside, bool sideInPlace = false)
         {
             var columns = new List<MenuColumn>();
+            if (!(menuOpen || fileOpen)) return columns;
+            if (sidePanel && sideInPlace)
+            {
+                columns.Add(MenuColumn.Side);
+                return columns;
+            }
             if (menuOpen && !(fileOpen && (sidePanel || !fitsBeside))) columns.Add(MenuColumn.Menu);
             if (fileOpen) columns.Add(MenuColumn.File);
-            if (sidePanel && columns.Count > 0) columns.Add(MenuColumn.Side);
+            if (sidePanel) columns.Add(MenuColumn.Side);
             return columns;
         }
 

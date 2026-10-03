@@ -140,20 +140,26 @@ namespace Halcyonic.Client
             var halfHeight = size.HalfHeightDegrees;
 
             // The characters the workspace passes in front of, left to right, and the opened one
-            // always: below their labels, or above their bodies.
-            var lowest = opened.Lowest;
+            // always: below their labels, or above their bodies. A flat panel's edge stands farther
+            // away from its middle: below eye level it looks higher there, above it lower. So each label
+            // is cleared where it stands, by the edge under its outer side, or under the panel's corner
+            // where the label reaches past it; the bodies, by the corners.
+            var halfWidth = size.HalfWidthDegrees;
+            float Under(BodyInView body)
+            {
+                var limit = body.Lowest - LabelClearanceDegrees;
+                var outer = Math.Min(halfWidth, MathF.Abs(DeltaAngle(yaw, body.Yaw)) + body.HalfWidth);
+                return Math.Min(limit, EdgeForCorners(limit, outer));
+            }
+            var top = Under(opened);
             var highest = opened.Elevation + opened.Radius;
             for (var index = 0; index < bodies.Count; index++)
             {
                 var body = bodies[index];
                 if (!Overlaps(yaw, size, body)) continue;
-                lowest = Math.Min(lowest, body.Lowest);
+                top = Math.Min(top, Under(body));
                 highest = Math.Max(highest, body.Elevation + body.Radius);
             }
-            // A flat panel's corners stand farther than its edges' middles: below eye level they look
-            // higher, above it lower. Its edges go where its corners clear what they pass.
-            var halfWidth = size.HalfWidthDegrees;
-            var top = Math.Min(lowest - LabelClearanceDegrees, EdgeForCorners(lowest - LabelClearanceDegrees, halfWidth));
             var bottom = Math.Max(highest + ClearanceDegrees, EdgeForCorners(highest + ClearanceDegrees, halfWidth));
             var below = top - halfHeight;
             var above = bottom + halfHeight;
@@ -193,7 +199,7 @@ namespace Halcyonic.Client
         /// titles grew with the text (to be judged on the headset). With a measured
         /// <paramref name="field"/>, raised so that every corner stays
         /// <see cref="ViewField.EdgeMarginDegrees"/> inside it when the person looks toward it, the head
-        /// level for a designed panel and tipped down by <see cref="ReadingPitch"/> for a taller one
+        /// level for a designed panel and tipped down by <see cref="FloorPitch"/> for a taller one
         /// (<see cref="ViewField.LowestCenter"/>), but never above <see cref="HighestDegrees"/>.
         /// </summary>
         public static float Lowest(PanelSize size, ViewField? field = null)
@@ -201,24 +207,33 @@ namespace Halcyonic.Client
             var band = LowestDegrees - TallerBy(size);
             if (field is not ViewField known) return band;
             // A plate facing the eyes, seen with the head tipped down, is the plate that much higher seen with it level.
-            var inside = known.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees) - ReadingPitch(size);
+            var inside = known.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees) - FloorPitch(size);
             return Math.Min(HighestDegrees, Math.Max(band, inside));
         }
+
+        /// <summary>
+        /// How far below the field's level-head floor placement may put a panel of
+        /// <paramref name="size"/>: none for a panel as tall as designed, which keeps the head level, and
+        /// half again as much as a taller one is taller, at most <see cref="MostReadingPitchDegrees"/>
+        /// (ADR 0023). Where a panel stands, the person tips the head as much as its bottom needs
+        /// (<see cref="ReadingPitch"/>), never more than this lets placement ask for.
+        /// </summary>
+        public static float FloorPitch(PanelSize size) => Math.Min(MostReadingPitchDegrees, 1.5f * TallerBy(size));
 
         /// <summary>How much taller than designed a panel of <paramref name="size"/> is, in degrees; 0 for one no taller.</summary>
         public static float TallerBy(PanelSize size) => Math.Max(0f, 2f * size.HalfHeightDegrees - DesignedHeightDegrees);
 
         /// <summary>
-        /// How far the person tips their head down to read a panel of <paramref name="size"/>, in degrees,
-        /// as the headset's field of view takes it (ADR 0023, 2026-10-02). A panel as tall as designed is
-        /// read with the head level. A taller one, under the far lineup's labels, reaches past the
-        /// bottom of a narrow field, a Quest 3S's, with the head level: by about 4.4 degrees with text a
-        /// step larger, 3.7 degrees taller. So it is taken to be read with the head tipped down by half
-        /// again as much as it is taller, about 5.6 degrees then, and never more than
-        /// <see cref="MostReadingPitchDegrees"/>; a panel that would need more does not fit the field. To
-        /// be judged on the headset.
+        /// How far the person tips their head down to read a panel of <paramref name="size"/> centred
+        /// <paramref name="elevation"/> degrees from eye level in <paramref name="field"/>, in degrees: as much
+        /// as brings its lowest corners inside the field less its margin, looking toward it, and never more
+        /// than <see cref="MostReadingPitchDegrees"/>; a panel that would need more does not fit the field.
+        /// A panel the field holds with the head level is read level. (ADR 0026, 2026-10-02, changing ADR
+        /// 0023's rule of half again as much as a panel is taller than designed, under which some heights
+        /// fit neither level nor tipped.) To be judged on the headset.
         /// </summary>
-        public static float ReadingPitch(PanelSize size) => Math.Min(MostReadingPitchDegrees, 1.5f * TallerBy(size));
+        public static float ReadingPitch(PanelSize size, float elevation, ViewField field) =>
+            Math.Clamp(field.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees) - elevation, 0f, MostReadingPitchDegrees);
 
         /// <summary>
         /// Where a flat panel's corners look, in degrees from eye level, when the middle of its edge is at

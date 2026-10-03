@@ -51,6 +51,21 @@ public class MenuPageTests
     }
 
     [Test]
+    public void WhereTheStagePlacesItTheFieldIsHeldTheSameWayWhereverThePersonTurns()
+    {
+        var composition = MenuAndFile(MenuPage.Rows(4), subjectRows: 1);
+        var half = MathF.Atan(composition.Height / 2f) * 180f / MathF.PI;
+        foreach (var yaw in new[] { 0f, 35f, -120f })
+        {
+            Assert.That(MenuPage.Inside(composition, new PanelDirection(yaw, -MenuPage.TopDegrees - half, true, false), MenuPage.Quest3S), Is.True, "at the reference top, turned " + yaw);
+            Assert.That(MenuPage.Inside(composition, new PanelDirection(yaw, -MenuPage.TopDegrees - half - 1.5f, true, false), MenuPage.Quest3S), Is.False,
+                "placed 1.5 degrees lower, under lower labels, it passes the field");
+        }
+        Assert.That(MenuPage.Inside(composition, new PanelDirection(0f, -MenuPage.TopDegrees - half - 1.5f, true, false), new ViewField(55, 55, 48, 48)), Is.True,
+            "a Quest 3's taller field holds it there");
+    }
+
+    [Test]
     public void TheMenuAndAFileFitAQuest3SWithAPageOfRowsAPageRows()
     {
         foreach (var text in new[] { TextSize.Standard, TextSize.Larger })
@@ -75,6 +90,8 @@ public class MenuPageTests
         Assert.That(MenuPage.Height(TextSize.Larger, 1), Is.GreaterThanOrEqualTo(MenuPage.Rows(3)), "and three with larger text");
         Assert.That(MenuPage.Height(TextSize.Larger, 1), Is.LessThan(MenuPage.Height(TextSize.Standard, 1)), "larger text grows the frame whole, so its page holds less");
         Assert.Throws<ArgumentOutOfRangeException>(() => MenuPage.Height(TextSize.Standard, 0));
+        Assert.That(MenuPage.Height(TextSize.Standard, 1, topDegrees: 19f), Is.LessThan(MenuPage.Height(TextSize.Standard, 1)), "under lower labels a page holds less");
+        Assert.That(MenuPage.Height(TextSize.Standard, 1, field: new ViewField(55, 55, 48, 48)), Is.GreaterThan(MenuPage.Height(TextSize.Standard, 1)), "a Quest 3's taller field holds more");
     }
 
     [Test]
@@ -140,6 +157,26 @@ public class MenuPageTests
         var tallest = MenuPage.Fits(Beside(1, MenuPage.Rows(4), MenuPage.Height(TextSize.Standard, 1)));
         Assert.That(tallest, Is.False);
         Assert.That(MenuColumns.Arrange(menuOpen: true, fileOpen: true, sidePanel: false, fitsBeside: tallest), Is.EqualTo(new[] { MenuColumn.File }));
+    }
+
+    [Test]
+    public void WithLargerTextASidePanelTakesItsFramesPlaceAndCloseDetailsBringsItBack()
+    {
+        Assert.That(MenuColumns.Arrange(menuOpen: true, fileOpen: true, sidePanel: true, fitsBeside: true, sideInPlace: true), Is.EqualTo(new[] { MenuColumn.Side }),
+            "the file's side panel stands where the file stood, the menu aside");
+        Assert.That(MenuColumns.Arrange(menuOpen: true, fileOpen: false, sidePanel: true, fitsBeside: true, sideInPlace: true), Is.EqualTo(new[] { MenuColumn.Side }),
+            "the menu's own side panel takes the menu's place");
+        Assert.That(MenuColumns.Arrange(menuOpen: true, fileOpen: true, sidePanel: false, fitsBeside: true, sideInPlace: true), Is.EqualTo(new[] { MenuColumn.Menu, MenuColumn.File }),
+            "Close details: the file and the menu are back");
+        Assert.That(MenuColumns.Arrange(menuOpen: false, fileOpen: false, sidePanel: true, fitsBeside: true, sideInPlace: true), Is.Empty, "a side panel belongs to a frame");
+    }
+
+    [Test]
+    public void BesideAWindowTheMenuAndAFileStandOneAtATime()
+    {
+        // The two together clear the characters either side of a window only far below the field: never beside one.
+        Assert.That(MenuColumns.Arrange(menuOpen: true, fileOpen: true, sidePanel: false, fitsBeside: false), Is.EqualTo(new[] { MenuColumn.File }));
+        Assert.That(MenuColumns.Arrange(menuOpen: true, fileOpen: false, sidePanel: false, fitsBeside: false), Is.EqualTo(new[] { MenuColumn.Menu }), "the file closed, the menu is back");
     }
 
     [Test]
