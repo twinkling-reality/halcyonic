@@ -11,7 +11,10 @@ namespace Halcyonic.XR
     /// looked at with lstat, so a link is never followed; a file is opened with O_NOFOLLOW and
     /// O_NONBLOCK, so a link that took its place is refused and a pipe never holds the app; and what
     /// was opened is checked again with fstat before a byte is read, so nothing swapped in after the
-    /// first look is read (docs/internal/architecture/SECURITY.md).
+    /// first look is read (docs/internal/architecture/SECURITY.md). Only ENOENT and ENOTDIR mean
+    /// nothing is there, only ELOOP from opening means a link, and only EACCES, EPERM and EROFS from
+    /// removing mean the removal was refused; any other failure throws
+    /// <see cref="TokenStorageException"/>, so it is never taken for one of those.
     /// </summary>
     internal sealed class AndroidTokenStorage : ITokenStorage
     {
@@ -38,9 +41,13 @@ namespace Halcyonic.XR
                 if (!opened.Regular || opened.Links != 1 || opened.Size <= 0 || opened.Size > max) return null;
                 return ReadAll(descriptor, (int)opened.Size);
             }
-            catch (AndroidJavaException)
+            catch (AndroidJavaException error)
             {
-                return null;
+                var errno = Errno(error.Message);
+                // A link that took the file's place after it was looked at, refused by O_NOFOLLOW, or
+                // a file gone meanwhile: either way not one to read.
+                if (descriptor == null && TokenStorageException.Classify("open", errno) != FailedCall.Unexpected) return null;
+                throw Failure(descriptor == null ? "open" : "fstat", errno);
             }
             finally
             {
@@ -73,9 +80,13 @@ namespace Halcyonic.XR
                 using var os = new AndroidJavaClass("android.system.Os");
                 os.CallStatic("remove", path);
             }
-            catch (AndroidJavaException)
+            catch (AndroidJavaException error)
             {
-                // Refused, as for a file another user made: reported by what lstat finds next.
+                var errno = Errno(error.Message);
+                var meaning = TokenStorageException.Classify("remove", errno);
+                // Refused, as for a file another user made or on storage mounted read-only: reported.
+                if (meaning == FailedCall.Refused) return false;
+                if (meaning != FailedCall.Missing) throw Failure("remove", errno);
             }
             return Lstat(path) == null;
         }
@@ -96,7 +107,7 @@ namespace Halcyonic.XR
             public long Size { get; }
         }
 
-        /// <summary>What lstat says of the path, or null when there is nothing there or it can't be looked at.</summary>
+        /// <summary>What lstat says of the path, or null when there is nothing there.</summary>
         private static Stat? Lstat(string path)
         {
             try
@@ -106,11 +117,22 @@ namespace Halcyonic.XR
                 using var stat = os.CallStatic<AndroidJavaObject>("lstat", path);
                 return Describe(stat, constants);
             }
-            catch (AndroidJavaException)
+            catch (AndroidJavaException error)
             {
-                return null;
+                var errno = Errno(error.Message);
+                if (TokenStorageException.Classify("lstat", errno) == FailedCall.Missing) return null;
+                throw Failure("lstat", errno);
             }
         }
+
+        /// <summary>
+        /// The errno name a failed call's exception carries. Unity's message is the Java exception's
+        /// toString, and an ErrnoException's reads "lstat failed: ENOENT (No such file or directory)".
+        /// </summary>
+        private static string? Errno(string? message) => TokenStorageException.ErrnoNameIn(message);
+
+        private static TokenStorageException Failure(string call, string? errno) =>
+            new TokenStorageException(call + " failed with " + (errno ?? "an error that names no errno"));
 
         private static Stat Describe(AndroidJavaObject stat, AndroidJavaClass constants)
         {
@@ -127,7 +149,7 @@ namespace Halcyonic.XR
         /// array, through raw JNI, since Unity's wrapper copies an array argument and would not return
         /// what was read into it.
         /// </summary>
-        private static byte[]? ReadAll(AndroidJavaObject descriptor, int size)
+        private static byte[] ReadAll(AndroidJavaObject descriptor, int size)
         {
             var os = AndroidJNI.FindClass("android/system/Os");
             var array = AndroidJNI.NewSByteArray(size);
@@ -148,8 +170,9 @@ namespace Halcyonic.XR
                     if (thrown != IntPtr.Zero)
                     {
                         AndroidJNI.ExceptionClear();
+                        var text = ThrowableText(thrown);
                         AndroidJNI.DeleteLocalRef(thrown);
-                        return null;
+                        throw Failure("read", Errno(text));
                     }
                     if (count <= 0) break;
                     total += count;
@@ -163,6 +186,24 @@ namespace Halcyonic.XR
             {
                 AndroidJNI.DeleteLocalRef(array);
                 AndroidJNI.DeleteLocalRef(os);
+            }
+        }
+
+        /// <summary>A thrown Java exception's toString, as Unity's own wrapper takes it for a message.</summary>
+        private static string? ThrowableText(IntPtr thrown)
+        {
+            var throwable = AndroidJNI.FindClass("java/lang/Throwable");
+            try
+            {
+                var toString = AndroidJNI.GetMethodID(throwable, "toString", "()Ljava/lang/String;");
+                var text = AndroidJNI.CallStringMethod(thrown, toString, Array.Empty<jvalue>());
+                // Should toString itself throw, its exception is cleared and the errno stays unknown.
+                AndroidJNI.ExceptionClear();
+                return text;
+            }
+            finally
+            {
+                AndroidJNI.DeleteLocalRef(throwable);
             }
         }
     }

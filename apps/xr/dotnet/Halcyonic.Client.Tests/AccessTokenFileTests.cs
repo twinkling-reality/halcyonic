@@ -43,6 +43,12 @@ public class AccessTokenFileTests
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
 
+    /// <summary>Skips a test that needs file modes to bind, which they don't for root.</summary>
+    private static void ModesBind()
+    {
+        if (Environment.IsPrivilegedProcess) Assert.Ignore("root reads and writes whatever the mode says");
+    }
+
     private static void MakeFifo(string path)
     {
         using var mkfifo = Process.Start("mkfifo", path)!;
@@ -159,6 +165,7 @@ public class AccessTokenFileTests
     public void ACopyThatCannotBeRemovedIsReportedNeverThrown()
     {
         if (OperatingSystem.IsWindows()) return;
+        ModesBind();
         File.WriteAllText(legacy, Token + "\n");
         // As for a file another user made: the folder lets this one read it, not remove it.
         File.SetUnixFileMode(Path.GetDirectoryName(legacy)!, UnixFileMode.UserRead | UnixFileMode.UserExecute);
@@ -169,6 +176,117 @@ public class AccessTokenFileTests
         var again = AccessTokenFile.Migrate(legacy, private_, storage);
         Assert.That(again.Outcome, Is.EqualTo(AccessTokenMigration.KeptPrivateToken), "every later start says so again, and goes on");
         Assert.That(again.SharedCopyRemains, Is.True);
+    }
+
+    [Test]
+    public void AFailingCallIsNeverTakenForNothingThereNotATokenOrRemoved()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        ModesBind();
+        var shared = Path.GetDirectoryName(legacy)!;
+        File.WriteAllText(legacy, Token + "\n");
+
+        // A folder that can't be searched: looking at the token fails, which is not "nothing there".
+        File.SetUnixFileMode(shared, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        Assert.Throws<TokenStorageException>(() => AccessTokenFile.Migrate(legacy, private_, storage));
+        Assert.Throws<TokenStorageException>(() => AccessTokenFile.Discard(legacy, storage));
+        File.SetUnixFileMode(shared, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        Assert.That(File.ReadAllText(legacy), Is.EqualTo(Token + "\n"));
+        Assert.That(File.Exists(private_), Is.False);
+
+        // A token that can't be read is not "not a token", so it is not removed.
+        File.SetUnixFileMode(legacy, UnixFileMode.None);
+        Assert.Throws<TokenStorageException>(() => AccessTokenFile.Migrate(legacy, private_, storage));
+        Assert.That(File.Exists(legacy), Is.True);
+        Assert.That(File.Exists(private_), Is.False);
+        File.SetUnixFileMode(legacy, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+        // A removal that fails, not refused: the token is moved, the failure is thrown, and the next
+        // run removes the copy.
+        Assert.Throws<TokenStorageException>(() => AccessTokenFile.Migrate(legacy, private_, new FailingRemoval(storage)));
+        Assert.That(File.ReadAllText(private_), Is.EqualTo(Token + "\n"));
+        Assert.That(File.Exists(legacy), Is.True);
+        var next = AccessTokenFile.Migrate(legacy, private_, storage);
+        Assert.That(next.Outcome, Is.EqualTo(AccessTokenMigration.KeptPrivateToken));
+        Assert.That(next.SharedCopyRemains, Is.False);
+        Assert.That(File.Exists(legacy), Is.False);
+    }
+
+    [Test]
+    public void TwoNamesForOneFileKeepTheTokenWhenLookingAfterRemovingFails()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var real = Path.Combine(directory, "real");
+        Directory.CreateDirectory(Path.Combine(real, "files"));
+        File.WriteAllText(Path.Combine(real, "files", "access-token"), Token + "\n");
+        var linked = Path.Combine(directory, "user0");
+        Directory.CreateSymbolicLink(linked, real);
+        // The old name goes, and then looking whether it is gone fails.
+        var failing = new FailingRemoval(storage, removeFirst: true);
+        Assert.Throws<TokenStorageException>(() =>
+            AccessTokenFile.Migrate(Path.Combine(linked, "files", "access-token"), Path.Combine(real, "files", "access-token"), failing));
+        Assert.That(File.ReadAllText(Path.Combine(real, "files", "access-token")), Is.EqualTo(Token + "\n"), "the token is put back");
+    }
+
+    [Test]
+    public void OnlyNothingThereALinkAndARefusalAreOutcomes()
+    {
+        foreach (var call in new[] { "lstat", "open", "remove" })
+        {
+            Assert.That(TokenStorageException.Classify(call, "ENOENT"), Is.EqualTo(FailedCall.Missing), call);
+            Assert.That(TokenStorageException.Classify(call, "ENOTDIR"), Is.EqualTo(FailedCall.Missing), call);
+            foreach (var errno in new[] { "EIO", "ENOMEM", "EMFILE", "ENXIO", "EINTR", null })
+            {
+                Assert.That(TokenStorageException.Classify(call, errno), Is.EqualTo(FailedCall.Unexpected), call + " " + errno);
+            }
+        }
+        Assert.That(TokenStorageException.Classify("open", "ELOOP"), Is.EqualTo(FailedCall.Link));
+        Assert.That(TokenStorageException.Classify("lstat", "ELOOP"), Is.EqualTo(FailedCall.Unexpected), "lstat never follows a link, so ELOOP there is a failure");
+        Assert.That(TokenStorageException.Classify("remove", "ELOOP"), Is.EqualTo(FailedCall.Unexpected));
+        foreach (var errno in new[] { "EACCES", "EPERM", "EROFS" })
+        {
+            Assert.That(TokenStorageException.Classify("remove", errno), Is.EqualTo(FailedCall.Refused), errno);
+            Assert.That(TokenStorageException.Classify("lstat", errno), Is.EqualTo(FailedCall.Unexpected), "a look refused is not nothing there: " + errno);
+            Assert.That(TokenStorageException.Classify("open", errno), Is.EqualTo(FailedCall.Unexpected), "an open refused is not \"not a token\": " + errno);
+        }
+    }
+
+    [Test]
+    public void AnErrnoIsReadFromAndroidsOwnWording()
+    {
+        Assert.That(TokenStorageException.ErrnoNameIn("android.system.ErrnoException: lstat failed: ENOENT (No such file or directory)"), Is.EqualTo("ENOENT"));
+        Assert.That(TokenStorageException.ErrnoNameIn("android.system.ErrnoException: open failed: ELOOP (Too many symbolic links encountered)"), Is.EqualTo("ELOOP"));
+        Assert.That(TokenStorageException.ErrnoNameIn("remove failed: EACCES (Permission denied)"), Is.EqualTo("EACCES"));
+        Assert.That(TokenStorageException.ErrnoNameIn("android.system.ErrnoException: read failed: errno 4095 (Unknown error 4095)"), Is.Null);
+        Assert.That(TokenStorageException.ErrnoNameIn("java.lang.SecurityException: ENOENT (not an errno)"), Is.Null);
+        Assert.That(TokenStorageException.ErrnoNameIn(null), Is.Null);
+    }
+
+    /// <summary>Storage whose removals fail for a reason other than being refused, before or after the name goes.</summary>
+    private sealed class FailingRemoval : ITokenStorage
+    {
+        private readonly ITokenStorage inner;
+        private readonly bool removeFirst;
+
+        public FailingRemoval(ITokenStorage inner, bool removeFirst = false)
+        {
+            this.inner = inner;
+            this.removeFirst = removeFirst;
+        }
+
+        public StoredEntry Examine(string path) => inner.Examine(path);
+
+        public bool IsPlainFolder(string path) => inner.IsPlainFolder(path);
+
+        public byte[]? ReadFile(string path, int max) => inner.ReadFile(path, max);
+
+        public void Restrict(string path) => inner.Restrict(path);
+
+        public bool TryRemove(string path)
+        {
+            if (removeFirst) File.Delete(path);
+            throw new TokenStorageException(removeFirst ? "lstat failed with EIO" : "remove failed with EIO");
+        }
     }
 
     [Test]
@@ -241,6 +359,7 @@ public class AccessTokenFileTests
         Assert.That(AccessTokenFile.Discard(legacy, storage).Outcome, Is.EqualTo(AccessTokenMigration.Discarded));
         Assert.That(timer.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)), "a pipe is removed at once, never opened");
 
+        ModesBind();
         File.WriteAllText(legacy, Token + "\n");
         File.SetUnixFileMode(Path.GetDirectoryName(legacy)!, UnixFileMode.UserRead | UnixFileMode.UserExecute);
         Assert.That(AccessTokenFile.Discard(legacy, storage).SharedCopyRemains, Is.True);

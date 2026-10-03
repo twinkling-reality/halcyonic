@@ -164,7 +164,9 @@ namespace Halcyonic.XR
             }
             catch (Exception error)
             {
-                Debug.LogWarning("Halcyonic: the access token on shared storage could not be moved: " + error.GetType().Name);
+                // A storage failure's message names only the call and its errno, never the token.
+                var reason = error is TokenStorageException ? error.Message : error.GetType().Name;
+                Debug.LogWarning("Halcyonic: could not deal with the access token's old place on shared storage, so a copy may still be there (" + reason + "). From the computer: adb shell ls /sdcard/Android/data/com.halcyonic.xr/files/");
             }
 #endif
         }
