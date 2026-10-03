@@ -24,7 +24,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// apart, its words large enough and none of its own cut short; that four windows show on one page
     /// and more page with where they come from on every page; that each meter pictures the words under
     /// it from the same share, and only its track while a read is in flight; that Refresh waits while
-    /// reading and is not offered in the demonstration; that only a failure is said in red; and that an
+    /// reading, and plays the recording's limits again in the demonstration, which says they are
+    /// recorded; that only a failure is said in red; and that an
     /// agent name from outside shows by the one rule. It saves each render in
     /// apps/xr/Builds/UsageLeftRenders, which git ignores, with a close-up at a Quest 3's 25 pixels
     /// per degree and the whole panel. In the editor: Halcyonic > Render Usage Left Over the Stage. In
@@ -98,7 +99,7 @@ namespace Halcyonic.XR.Workspace.Editor
             /// <summary>A read is in flight.</summary>
             public bool Reading { get; }
 
-            /// <summary>The recorded demonstration plays, so there is nowhere to read.</summary>
+            /// <summary>The recorded demonstration plays, and these are its limits.</summary>
             public bool Demonstration { get; }
 
             /// <summary>An agent's name from outside, written to break the label.</summary>
@@ -127,8 +128,17 @@ namespace Halcyonic.XR.Workspace.Editor
             yield return new Answer("reading", UsageLeftPresenter.Message(UsageLeftPresenter.Reading), reading: true);
             yield return new Answer("partial", Present(Available(now, codex, complete: false)));
             yield return new Answer("unreachable", UsageLeftPresenter.Unreachable());
-            yield return new Answer("demo", UsageLeftPresenter.Message(UsageLeftPresenter.NotInDemo), demonstration: true);
+            yield return new Answer("demo", UsageLeftPresenter.Present(RecordedLimits(now), now, zone, recorded: true), demonstration: true);
             yield return new Answer("untrusted", Present(Available(now, new[] { (WorkspaceRender.Hostile("agent"), "render-agent") })), hostile: true);
+        }
+
+        /// <summary>The committed demonstration's usage limits, as if read <paramref name="now"/>.</summary>
+        private static UsageLimitsResponse RecordedLimits(DateTimeOffset now)
+        {
+            var asset = Resources.Load<TextAsset>("HalcyonicDemonstration");
+            var recording = DemonstrationRecording.Parse(asset.text);
+            Resources.UnloadAsset(asset);
+            return recording.UsageLimitsAt(now) ?? throw new InvalidOperationException("The committed demonstration holds no usage limits.");
         }
 
         /// <summary>Each agent's two windows: the five-hour one seen minutes ago, the weekly one two days ago.</summary>
@@ -195,7 +205,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var answer in Answers())
                 {
                     var shown = answer.Shown;
-                    glance.ShowForRender(shown, targets, surface, answer.Reading, answer.Demonstration);
+                    glance.ShowForRender(shown, targets, surface, answer.Reading);
                     // The rail steps out of the way while the panel is open, as on the headset.
                     rail.Root.gameObject.SetActive(shown == null);
                     var what = name + " " + answer.Suffix;
@@ -341,11 +351,8 @@ namespace Halcyonic.XR.Workspace.Editor
             if (close == null) yield return what + ": the panel offers no Close.";
             else if (PanelFrame.RectOf(close).yMax < frame.Size.y / 2f - GlazeTokens.Units(2f)) yield return what + ": Close does not stand in the header.";
             var refresh = frame.ButtonFor(UsageLeftScreens.Refresh);
-            if (answer.Demonstration)
-            {
-                if (refresh != null) yield return what + ": Refresh is offered in the demonstration, where there is nothing to read.";
-            }
-            else if (refresh == null) yield return what + ": the panel offers no Refresh.";
+            if (answer.Demonstration && shown.Source != UsageLeftPresenter.Recorded) yield return what + ": the demonstration's limits don't say they are recorded.";
+            if (refresh == null) yield return what + ": the panel offers no Refresh.";
             else if (refresh.Available == answer.Reading) yield return what + ": Refresh " + (answer.Reading ? "takes a press while a read is in flight." : "waits with no read in flight.");
             var labels = frame.Labels.ToList();
             if (shown.Source != null && !labels.Any(label => label.text == LabelText.ForTextMeshPro(shown.Source)))

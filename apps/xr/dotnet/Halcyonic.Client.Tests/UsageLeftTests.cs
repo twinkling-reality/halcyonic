@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -267,10 +268,28 @@ public class UsageLeftScreensTests
     }
 
     [Test]
-    public void TheDemonstrationOffersNoRefresh()
+    public void ADemonstrationWithoutLimitsOffersNoRefresh()
     {
         var model = UsageLeftScreens.Screen(UsageLeftPresenter.Message(UsageLeftPresenter.NotInDemo), reading: false, canRead: false);
         Assert.That(model.Rows.Single().Title, Is.EqualTo("Usage left isn't part of the demo."));
         Assert.That(model.Actions.All, Is.Empty, "there is nothing to read again");
+    }
+
+    [Test]
+    public void TheDemonstrationsLimitsSayTheyAreRecordedAndNameNoAccount()
+    {
+        var now = DateTimeOffset.Parse("2026-10-02T14:00:00Z", CultureInfo.InvariantCulture);
+        var limits = Demonstration.Recording().UsageLimitsAt(now)!;
+        var shown = UsageLeftPresenter.Present(limits, now, TimeZoneInfo.Utc, recorded: true);
+        Assert.That(shown.Source, Is.EqualTo("Recorded for the demo, not from any account"));
+        Assert.That(shown.Note, Is.EqualTo("These limits are part of the recording."));
+        Assert.That(shown.Rows.Select(row => row.Title), Is.EqualTo(new[] { "Practice agent, 5-hour window", "Practice agent, weekly" }));
+        Assert.That(shown.Rows.Select(row => row.Text), Is.EqualTo(new[]
+        {
+            "At most 62% left, seen today at 13:58, resets today at 16:30",
+            "At most 79% left, seen today at 13:58, resets 6 Oct at 14:00",
+        }));
+        var model = UsageLeftScreens.Screen(shown, reading: false, canRead: true);
+        Assert.That(model.Actions.All.Single().Id, Is.EqualTo(UsageLeftScreens.Refresh), "Refresh plays the recording's limits again");
     }
 }

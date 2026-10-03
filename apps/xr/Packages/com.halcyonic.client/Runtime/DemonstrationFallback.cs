@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -71,6 +72,12 @@ namespace Halcyonic.Client
         /// </summary>
         public IReadOnlyList<PresetInstruction> InstructionsFor(string executionId) =>
             player?.InstructionsFor(executionId) ?? NoInstructions;
+
+        /// <summary>
+        /// The demonstration's usage limits as if read at <paramref name="now"/> (<see cref="DemonstrationRecording.UsageLimitsAt"/>);
+        /// null while it is not shown, still loading, or holds none. Reading them sends nothing.
+        /// </summary>
+        public AvailableUsageLimits? UsageLimitsAt(DateTimeOffset now) => player?.Recording?.UsageLimitsAt(now);
 
         public void Start()
         {

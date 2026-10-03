@@ -14,7 +14,8 @@ namespace Halcyonic.XR.Workspace
     /// The optional Usage left glance: a chip the project rail places at its lower row's right end
     /// (<see cref="ProjectRail.UsageLeft"/>) that opens a panel with the provider limits the Mac last
     /// saw. It reads the control plane only when opened or when Refresh is pressed, never on its own,
-    /// and shows nothing that belongs to a Workstream. Each screen is a <see cref="PanelModel"/> from
+    /// and shows nothing that belongs to a Workstream. While the recorded demonstration plays it shows
+    /// the recording's limits instead, as if read when opened or refreshed, and sends nothing. Each screen is a <see cref="PanelModel"/> from
     /// <see cref="UsageLeftScreens"/>, drawn on a <see cref="PanelFrame"/>.
     /// </summary>
     /// <remarks>
@@ -43,11 +44,12 @@ namespace Halcyonic.XR.Workspace
         private Task<UsageLimitsResponse>? read;
         private UsageLeftPresentation? shown;
         private UsageLimitsResponse? answer;
+        /// <summary>The answer is the recorded demonstration's.</summary>
+        private bool recorded;
         private bool open;
         private bool built;
         private bool rendering;
         private bool renderReading;
-        private bool renderDemonstration;
         private float nextLayout;
 
         /// <summary>The chip on the rail, which the rail places and this answers, for the editor's renders.</summary>
@@ -90,17 +92,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// Opens the panel showing <paramref name="presentation"/> as it is, where it would open among
         /// <paramref name="characters"/>, or closes it for null: as while a read is in flight when
-        /// <paramref name="reading"/>, and as while the recorded demonstration plays when
-        /// <paramref name="demonstration"/>.
+        /// <paramref name="reading"/>.
         /// </summary>
         public void ShowForRender(UsageLeftPresentation? presentation, IEnumerable<CharacterTarget> characters, float? surfaceHeight,
-            bool reading = false, bool demonstration = false)
+            bool reading = false)
         {
             open = presentation != null;
             answer = null;
             shown = presentation;
             renderReading = reading;
-            renderDemonstration = demonstration;
             frame.Page = 0;
             if (open) Place(characters, surfaceHeight);
             Layout();
@@ -114,8 +114,9 @@ namespace Halcyonic.XR.Workspace
 
         private bool Reading => rendering ? renderReading : read != null;
 
-        /// <summary>There is somewhere to read from: not while the recorded demonstration plays.</summary>
-        private bool CanRead => rendering ? !renderDemonstration : connection != null && connection.DemonstrationLine == null;
+        /// <summary>There is somewhere to read from: the control plane, or the recorded demonstration's limits while it plays them.</summary>
+        private bool CanRead => rendering || (connection != null &&
+            (connection.DemonstrationLine == null || connection.DemonstrationUsageLimits(DateTimeOffset.UtcNow) != null));
 
         private void Awake()
         {
@@ -141,12 +142,12 @@ namespace Halcyonic.XR.Workspace
                 Build();
             }
             var foreground = (entry != null && entry.Visible) || (director != null && director.OpenWorkstream != null);
-            // The recorded demonstration has nothing to read, so it offers no Usage left at all.
+            // Limits read from the control plane never stay while the recording plays, nor the recording's after it.
             var demonstration = connection?.DemonstrationLine != null;
-            if (open && (foreground || demonstration)) Close();
+            if (open && (foreground || (answer != null && recorded != demonstration))) Close();
             ApplyFold();
             // The chip hides while the app lacks focus, the return's grace included, and comes back after.
-            rail!.OfferUsageLeft(FocusGuard.InputSuspended || demonstration ? null : UsageLeftPresenter.Title);
+            rail!.OfferUsageLeft(FocusGuard.InputSuspended ? null : UsageLeftPresenter.Title);
             if (FocusGuard.InputSuspended) return;
             if (read != null && read.IsCompleted) Finish();
             if (open && Time.unscaledTime >= nextLayout) Layout();
@@ -157,7 +158,7 @@ namespace Halcyonic.XR.Workspace
             // The rail makes and places the chip; the glance answers it and says when it shows.
             chip = rail!.UsageLeft;
             chip.Pressed += Toggle;
-            rail.OfferUsageLeft(connection?.DemonstrationLine != null ? null : UsageLeftPresenter.Title);
+            rail.OfferUsageLeft(UsageLeftPresenter.Title);
             root = new GameObject("Usage left panel").transform;
             root.SetParent(transform, false);
             // The stage's banner steps aside while the panel shows where it goes, and names it while it is folded.
@@ -195,6 +196,7 @@ namespace Halcyonic.XR.Workspace
             open = false;
             Cancel();
             answer = null;
+            recorded = false;
             shown = null;
             Layout();
         }
@@ -210,11 +212,21 @@ namespace Halcyonic.XR.Workspace
         private void Read()
         {
             if (!open || FocusGuard.InputSuspended || read != null || connection == null) return;
-            var api = connection.DemonstrationLine != null ? null : ControlPlaneSettings.Api();
+            if (connection.DemonstrationLine != null)
+            {
+                // The recording's limits, as if read now; nothing is sent, so Refresh only plays them again.
+                answer = connection.DemonstrationUsageLimits(DateTimeOffset.UtcNow);
+                recorded = answer != null;
+                shown = answer == null ? UsageLeftPresenter.Message(UsageLeftPresenter.NotInDemo) : null;
+                Layout();
+                return;
+            }
+            recorded = false;
+            var api = ControlPlaneSettings.Api();
             if (api == null)
             {
                 answer = null;
-                shown = UsageLeftPresenter.Message(connection.DemonstrationLine != null ? UsageLeftPresenter.NotInDemo : UsageLeftPresenter.NotSetUp);
+                shown = UsageLeftPresenter.Message(UsageLeftPresenter.NotSetUp);
                 Layout();
                 return;
             }
@@ -247,7 +259,7 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>What was read, presented now, so a window past its reset goes; or what the glance was given to say.</summary>
         private UsageLeftPresentation Presented() =>
-            answer != null ? UsageLeftPresenter.Present(answer, DateTimeOffset.UtcNow, TimeZoneInfo.Local)
+            answer != null ? UsageLeftPresenter.Present(answer, DateTimeOffset.UtcNow, TimeZoneInfo.Local, recorded)
                 : shown ?? UsageLeftPresenter.Message(UsageLeftPresenter.Reading);
 
         /// <summary>Where the entry panel would open, at touch distance, clear of every character and its label, facing the eyes.</summary>

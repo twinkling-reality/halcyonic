@@ -96,6 +96,17 @@ Halcyonic's own words go without one. The words below were settled by the coordi
 | The source's own reading of what it observed, not a fact | Inferred | |
 | What the agent planned to do | Planned | |
 
+### Usage in the demonstration
+
+While the recorded demonstration plays, Usage shows its recorded limits for one practice agent.
+These words were settled by the coordinator on 2026-10-02.
+
+| Where | Words |
+| --- | --- |
+| Each limit | Practice agent, 5-hour window · Practice agent, weekly |
+| Where they come from, in place of a source's name | Recorded for the demo, not from any account |
+| Under the limits, in place of the account note | These limits are part of the recording. |
+
 ## Sentence patterns
 
 | Kind | Pattern | Example |

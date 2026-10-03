@@ -40,6 +40,9 @@ namespace Halcyonic.XR
         /// </summary>
         public string? DemonstrationLine => sessions?.Line;
 
+        /// <summary>The recorded demonstration's usage limits as if read now, while it is shown and holds them; null otherwise.</summary>
+        public AvailableUsageLimits? DemonstrationUsageLimits(DateTimeOffset now) => DemonstrationLine != null ? sessions?.UsageLimitsAt(now) : null;
+
         /// <summary>Why no session could be started, for display.</summary>
         public string? SetupProblem { get; private set; }
 
