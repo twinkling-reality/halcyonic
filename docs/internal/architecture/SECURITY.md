@@ -158,20 +158,28 @@ no token. The headset over USB (`adb reverse`) and other loopback clients
 still send the token without asking for the proof ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 
 The glance (a spike in development builds only, [XR_CLIENT.md](XR_CLIENT.md)) is a Java client on the
-headset that does ask for the proof before every request carrying the token, and refuses a token
-file that is a link, not its own, or readable or writable by anyone else. Three limits hold for it:
+headset that asks for the proof on one plain socket and sends the token only on that same connection,
+once the answer proves the listener holds it, so no retry or pooled connection can carry it anywhere
+else (`GlancePoll`, run whole against a real control plane and misbehaving listeners by
+`tooling/glance`). It goes through no proxy, follows no redirect, reads bounded heads and bodies
+within a 10 second deadline, and refuses a token file that is a link, not its own, or readable or
+writable by anyone else. Three limits hold for it:
 
 - **The access token lives on the headset.** It is the owner's token, which never expires and is
   not a revocable device credential; anyone with adb on the unlocked headset can read it with
   `run-as`, since development builds are debuggable. It is for the owner's own headset only, and is
   removed with `adb shell run-as com.halcyonic.xr rm files/glance-access-token`.
+- **The Mac's adb server answers every local account.** While the headset is attached, the adb
+  server on the Mac's 127.0.0.1:5037 takes commands from any process on the Mac without
+  authenticating it, so another local account, the threat the proof exists for, can read the token
+  with `run-as` or add a mapping of its own. After a session, remove the token and stop the server
+  (`adb kill-server`).
 - **The proof's address binding does not reach across `adb reverse`.** The control plane names the
   address and port its own socket reached, which on the Mac is always its listener whatever port the
-  headset dialled. Something listening on the headset's 127.0.0.1:47800 could relay a challenge
-  through a second reverse mapping to the control plane and receive the token; keep one mapping only.
-- **Retries.** Android's `HttpURLConnection` may retry the token's request on a fresh connection
-  when a reused one turns out stale, which is the same gap between a proof and the request it
-  precedes that `fetchWithProof` accepts.
+  headset dialled. So anything that routes to the Mac's 47800 lets whatever listens on the headset's
+  127.0.0.1:47800 relay a challenge and receive the token: a second reverse mapping, and equally an
+  `ssh -L`, `socat` or a proxy on the Mac. Keep one mapping only (`adb reverse --list`) and nothing
+  else forwarding to 47800.
 
 ## Controls
 

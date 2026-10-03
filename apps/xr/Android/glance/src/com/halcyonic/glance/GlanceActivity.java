@@ -70,6 +70,10 @@ public final class GlanceActivity extends Activity {
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
         running = true;
         poller = new Thread(this::pollLoop, "halcyonic-glance");
+        // A thread's own handler replaces the default one, which would end the process and Unity's
+        // activity with it; the loop catches everything, so this only logs what slips past it.
+        poller.setUncaughtExceptionHandler((thread, failed) ->
+            Log.e(TAG, "glance poller ended: " + failed.getClass().getSimpleName()));
         poller.start();
         Log.i(TAG, "glance started");
     }
@@ -101,33 +105,12 @@ public final class GlanceActivity extends Activity {
 
     private void pollLoop() {
         while (running) {
-            long started = SystemClock.elapsedRealtime();
-            GlanceClient.Poll poll;
             try {
-                poll = client.poll();
+                pollOnce();
             } catch (Throwable failed) {
-                // Never let a poll end the process, which Unity's activity shares.
-                poll = new GlanceClient.Poll("failed", null);
+                // Never let a poll, a log or a notification end the process, which Unity's activity shares.
+                Log.w(TAG, "glance poll failed: " + failed.getClass().getSimpleName());
             }
-            if (!running) return;
-            long took = SystemClock.elapsedRealtime() - started;
-            polled = true;
-            int waiting = 0;
-            int working = 0;
-            if (poll.tasks != null) {
-                for (GlanceClient.Task task : poll.tasks) {
-                    if (task.waiting) waiting++;
-                    else if (working(task.status)) working++;
-                }
-            }
-            // Codes and numbers only: never a title, the token or an address.
-            Log.i(TAG, String.format(Locale.ROOT, "glance polled %s in %d ms, %d waiting, %d working, visible %d",
-                poll.code, took, waiting, working, visible ? 1 : 0));
-            final GlanceClient.Poll shown = poll;
-            runOnUiThread(() -> {
-                if (running) show(shown);
-            });
-            if (running) notifyNewlyWaiting(poll.tasks);
             try {
                 Thread.sleep(visible ? VISIBLE_MS : HIDDEN_MS);
             } catch (InterruptedException woken) {
@@ -136,33 +119,67 @@ public final class GlanceActivity extends Activity {
         }
     }
 
-    /** A notification when a task starts waiting since the last poll; none for what already waited. */
-    private void notifyNewlyWaiting(List<GlanceClient.Task> tasks) {
-        if (tasks == null) return;
+    private void pollOnce() {
+        long started = SystemClock.elapsedRealtime();
+        GlanceClient.Poll poll = client.poll();
+        if (!running) return;
+        long took = SystemClock.elapsedRealtime() - started;
+        polled = true;
+        int waiting = 0;
+        int working = 0;
+        if (poll.tasks != null) {
+            for (GlanceClient.Task task : poll.tasks) {
+                if (task.waiting) waiting++;
+                else if (working(task.status)) working++;
+            }
+        }
+        // Codes and numbers only: never a title, the token or an address.
+        Log.i(TAG, String.format(Locale.ROOT, "glance polled %s%s in %d ms, %d waiting, %d working, visible %d",
+            poll.code, poll.cause == null ? "" : " (" + poll.cause + ")", took, waiting, working, visible ? 1 : 0));
+        int newlyWaiting = newlyWaiting(poll.tasks);
+        runOnUiThread(() -> {
+            if (!running) return;
+            show(poll);
+            // From the UI thread, under the same check, so nothing is posted after onDestroy.
+            if (newlyWaiting > 0) notifyWaiting(newlyWaiting);
+        });
+    }
+
+    /** How many tasks started waiting since the last poll that read them; none for what already waited. */
+    private int newlyWaiting(List<GlanceClient.Task> tasks) {
+        if (tasks == null) return 0;
         Set<String> waiting = new HashSet<>();
         for (GlanceClient.Task task : tasks) if (task.waiting) waiting.add(task.id);
         Set<String> before = waitingBefore;
         waitingBefore = waiting;
-        if (before == null) return;
+        if (before == null) return 0;
         Set<String> started = new HashSet<>(waiting);
         started.removeAll(before);
-        if (started.isEmpty()) return;
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            Log.i(TAG, "glance notification not allowed");
-            return;
+        return started.size();
+    }
+
+    /** A notification that a task waits, without its title; a failure to post it is logged, never thrown. */
+    private void notifyWaiting(int newlyWaiting) {
+        try {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.i(TAG, "glance notification not allowed");
+                return;
+            }
+            PendingIntent open = PendingIntent.getActivity(this, 0, openHalcyonic(), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            // Halcyonic's own words only: the OS keeps notifications in its feed, so no title or agent text.
+            Notification notification = new Notification.Builder(this, CHANNEL)
+                .setSmallIcon(getApplicationInfo().icon)
+                .setContentTitle("A task is waiting for you")
+                .setContentText("Open Halcyonic to see it.")
+                .setContentIntent(open)
+                .addAction(new Notification.Action.Builder(null, "Open Halcyonic", open).build())
+                .setAutoCancel(true)
+                .build();
+            getSystemService(NotificationManager.class).notify(1, notification);
+            Log.i(TAG, String.format(Locale.ROOT, "glance notified, %d newly waiting", newlyWaiting));
+        } catch (RuntimeException failed) {
+            Log.w(TAG, "glance notification failed: " + failed.getClass().getSimpleName());
         }
-        PendingIntent open = PendingIntent.getActivity(this, 0, openHalcyonic(), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        // Halcyonic's own words only: the OS keeps notifications in its feed, so no title or agent text.
-        Notification notification = new Notification.Builder(this, CHANNEL)
-            .setSmallIcon(getApplicationInfo().icon)
-            .setContentTitle("A task is waiting for you")
-            .setContentText("Open Halcyonic to see it.")
-            .setContentIntent(open)
-            .addAction(new Notification.Action.Builder(null, "Open Halcyonic", open).build())
-            .setAutoCancel(true)
-            .build();
-        getSystemService(NotificationManager.class).notify(1, notification);
-        Log.i(TAG, String.format(Locale.ROOT, "glance notified, %d newly waiting", started.size()));
     }
 
     private Intent openHalcyonic() {

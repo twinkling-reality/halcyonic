@@ -1062,8 +1062,9 @@ scripts use only long-stable core Unity APIs:
   the `OVERLAY_LAUNCHER` category, which `GlanceInDevelopmentBuilds` adds to development builds
   only and `BuildReleaseApk` refuses. It cannot share the C# client core, so it reads only the
   snapshot's computed fields (a test holds them to the JSON Schema), sends no command, takes the
-  access token only from a mode-600 file in app-private storage after the control plane proves it
-  holds it (`GlanceProof`, held equal to `security.ts`), and shows titles under `LabelText`'s rule
+  access token only from a mode-600 file in app-private storage, and sends it only on the plain
+  socket on which the control plane has just proved it holds it (`GlancePoll`, `GlanceProof` held
+  equal to `security.ts`). It shows titles under `LabelText`'s rule
   (`GlanceText`, held equal by one table in both languages). See XR_DEVELOPMENT.md, "The glance on
   a Quest (spike)".
 - `DeviceMeasures` logs what a device session needs about the headset, in numbers only: the first

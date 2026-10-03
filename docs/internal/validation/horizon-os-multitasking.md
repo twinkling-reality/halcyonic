@@ -157,9 +157,14 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
 - Place the characters a little beyond 2 m, so system windows such as Virtual Display's screens do
   not intersect them.
 - A 2D companion window for use inside other immersive apps is possible in the same APK, but its
-  lifetime when hidden, its cost (a second client in Kotlin or Java) and store review are
-  unverified; it is not built. A spike that tries it, with a device notification, is being designed
-  (2026-10-02).
+  lifetime when hidden and store review are unverified. A spike builds it, with a device
+  notification, in development builds only (the glance, 2026-10-02; XR_DEVELOPMENT.md, "The glance
+  on a Quest (spike)"); nothing of it has run on a Quest yet.
+- The glance reads the control plane over a plain socket, which Meta's network security
+  configuration does not bind: Android honors the cleartext flag "on a best effort basis", and
+  AOSP's `NetworkSecurityPolicy.isCleartextTrafficPermitted` documentation says there is no
+  expectation that the Socket API honors it (read 2026-10-02). Its development builds therefore add
+  no cleartext exception.
 - Notifications are not a channel for the competition build. Dashboard notifications need Meta's
   servers and the app's credentials, so they stay out unless the owner approves a hosted service.
 - The stage ignores reference space changes that move nothing, and moves with a tracking space

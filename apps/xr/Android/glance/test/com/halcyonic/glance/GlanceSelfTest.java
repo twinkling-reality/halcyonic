@@ -8,7 +8,8 @@ import java.util.Base64;
  * it, one result a line, so the test can hold them equal to security.ts's proof and the client
  * core's LabelText. Arguments come as base64 of UTF-16, so any code unit, an unpaired surrogate included, passes through intact.
  * Usage: proof TOKEN ADDRESS CHALLENGE | proves ANSWER TOKEN ADDRESS CHALLENGE | plain TEXT | cut TEXT MOST |
- * health HOST PORT CHALLENGE
+ * token REGULAR OWN MODE CONTENT (REGULAR and OWN 1 or 0, MODE octal) | poll HOST PORT TOKEN, which
+ * prints its code, its cause after a space when it has one, a line break and the snapshot it read
  */
 public final class GlanceSelfTest {
     public static void main(String[] args) {
@@ -39,13 +40,18 @@ public final class GlanceSelfTest {
             case "challenge":
                 result = GlanceProof.challenge();
                 break;
-            case "health":
+            case "token":
+                byte[] content = decoded[4].getBytes(StandardCharsets.ISO_8859_1);
                 try {
-                    String answered = GlanceHealth.proof(decoded[1], Integer.parseInt(decoded[2]), decoded[3]);
-                    result = answered == null ? "no proof" : answered;
-                } catch (java.io.IOException error) {
-                    result = "unreachable";
+                    result = GlancePoll.token("1".equals(decoded[1]), "1".equals(decoded[2]), Integer.parseInt(decoded[3], 8), content, content.length);
+                } catch (GlancePoll.Refused refused) {
+                    result = refused.code;
                 }
+                break;
+            case "poll":
+                String token = decoded[3];
+                GlancePoll.Result polled = GlancePoll.run(decoded[1], Integer.parseInt(decoded[2]), () -> token);
+                result = polled.code + (polled.cause == null ? "" : " " + polled.cause) + "\n" + (polled.snapshot == null ? "" : polled.snapshot);
                 break;
             default:
                 throw new IllegalArgumentException("unknown " + args[0]);

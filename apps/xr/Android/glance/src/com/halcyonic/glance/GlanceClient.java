@@ -5,20 +5,10 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStat;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.Proxy;
-import java.net.URL;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,10 +19,10 @@ import org.json.JSONObject;
 
 /**
  * Reads what waits from the control plane, the only place the glance talks to: the snapshot the
- * control plane computed, never a runtime, Salidium or Seorak, and it sends no command. Before each
- * request that carries the access token, the control plane proves it holds it (GlanceProof); no
- * redirect is followed. The token is read only from app-private storage, and only if no one else can
- * read the file (mode 600). Development builds only; a release build never carries this.
+ * control plane computed, never a runtime, Salidium or Seorak, and it sends no command. The request
+ * itself, with the proof before the token, is GlancePoll's; this reads the token from app-private
+ * storage and the tasks from the snapshot. Development builds only; a release build never carries
+ * this.
  */
 final class GlanceClient {
     /** Where the headset reaches the control plane over USB, through adb reverse. */
@@ -43,30 +33,17 @@ final class GlanceClient {
     /** The token's file in the app's private storage, written there by the owner with run-as. */
     static final String TOKEN_FILE = "glance-access-token";
 
-    /** The most of a snapshot the glance reads. */
-    private static final int MOST_BYTES = 1024 * 1024;
-
-    /** The longest a request may take, start to end, however slowly whatever answers sends. */
-    private static final long DEADLINE_MS = 10_000;
-
-    /** The shortest token the control plane makes or accepts (security.ts). */
-    private static final int SHORTEST_TOKEN = 32;
-
-    /** Ends a request that runs past its deadline, by closing its connection. */
-    private static final ScheduledExecutorService WATCHDOG = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "halcyonic-glance-watchdog");
-        thread.setDaemon(true);
-        return thread;
-    });
-
     /** What a poll found: a code for the log, and the tasks when it read them. */
     static final class Poll {
         final String code;
         final List<Task> tasks;
+        /** GlancePoll's cause, an exception's class name, or null. */
+        final String cause;
 
-        Poll(String code, List<Task> tasks) {
+        Poll(String code, List<Task> tasks, String cause) {
             this.code = code;
             this.tasks = tasks;
+            this.cause = cause;
         }
     }
 
@@ -93,115 +70,53 @@ final class GlanceClient {
         tokenFile = new File(context.getFilesDir(), TOKEN_FILE);
     }
 
-    /**
-     * One poll. Codes: ok, no_token, token_not_private, token_malformed, unreachable, unproved,
-     * refused_NNN, unreadable.
-     */
+    /** One poll, with GlancePoll's codes. */
     Poll poll() {
-        String token;
+        GlancePoll.Result result = GlancePoll.run(HOST, PORT, this::readToken);
+        if (result.snapshot == null) return new Poll(result.code, null, result.cause);
         try {
-            token = readToken();
-        } catch (SecurityException refused) {
-            return new Poll(refused.getMessage(), null);
-        } catch (IOException missing) {
-            return new Poll("no_token", null);
-        }
-        String address = HOST + ":" + PORT;
-        String base = "http://" + address;
-        String challenge = GlanceProof.challenge();
-        String proof;
-        try {
-            proof = GlanceHealth.proof(HOST, PORT, challenge);
-        } catch (IOException error) {
-            return new Poll("unreachable", null);
-        }
-        if (proof == null) return new Poll("unproved", null);
-        if (!GlanceProof.proves(proof, token, address, challenge)) return new Poll("unproved", null);
-        HttpURLConnection snapshot = null;
-        ScheduledFuture<?> snapshotDeadline = null;
-        try {
-            snapshot = open(base + "/api/snapshot");
-            snapshotDeadline = deadline(snapshot);
-            snapshot.setRequestProperty("Authorization", "Bearer " + token);
-            int status = snapshot.getResponseCode();
-            if (status != 200) return new Poll("refused_" + status, null);
-            String body = read(snapshot);
-            return new Poll("ok", tasks(new JSONObject(body)));
-        } catch (IOException error) {
-            return new Poll("unreachable", null);
+            return new Poll(result.code, tasks(new JSONObject(result.snapshot)), null);
         } catch (JSONException error) {
-            return new Poll("unreadable", null);
-        } finally {
-            if (snapshotDeadline != null) snapshotDeadline.cancel(false);
-            if (snapshot != null) snapshot.disconnect();
+            return new Poll("unreadable", null, null);
         }
-    }
-
-    /** Closes the connection if the request is still running at its deadline. */
-    private static ScheduledFuture<?> deadline(HttpURLConnection connection) {
-        return WATCHDOG.schedule(connection::disconnect, DEADLINE_MS, TimeUnit.MILLISECONDS);
     }
 
     /**
-     * The token, if its file is a regular file of the app's own, not a link, that no one else can
-     * read or write, holding a token of the control plane's form. Checked on the open descriptor, so
-     * the file checked is the file read.
+     * The token (GlancePoll.token), checked on the open descriptor, so the file checked is the file
+     * read. Opened without following a link (a link is ELOOP, not private) and without blocking, so a
+     * pipe put in its place cannot hold the poll past its deadline: it fails the regular-file check
+     * before anything is read.
      */
-    private String readToken() throws IOException {
+    private String readToken() throws GlancePoll.Refused {
         FileDescriptor descriptor;
         try {
-            descriptor = Os.open(tokenFile.getPath(), OsConstants.O_RDONLY | OsConstants.O_NOFOLLOW | OsConstants.O_CLOEXEC, 0);
-        } catch (ErrnoException missing) {
-            throw new IOException("no token file");
+            descriptor = Os.open(tokenFile.getPath(),
+                OsConstants.O_RDONLY | OsConstants.O_NOFOLLOW | OsConstants.O_NONBLOCK | OsConstants.O_CLOEXEC, 0);
+        } catch (ErrnoException error) {
+            if (error.errno == OsConstants.ENOENT) throw new GlancePoll.Refused("no_token");
+            if (error.errno == OsConstants.ELOOP) throw new GlancePoll.Refused("token_not_private");
+            throw new GlancePoll.Refused("token_unreadable");
         }
         // Android's FileInputStream does not own a descriptor it is given: close it ourselves.
         try (FileInputStream in = new FileInputStream(descriptor)) {
-            StructStat stat;
-            try {
-                stat = Os.fstat(descriptor);
-            } catch (ErrnoException error) {
-                throw new IOException("token file unreadable");
+            StructStat stat = Os.fstat(descriptor);
+            boolean regular = OsConstants.S_ISREG(stat.st_mode);
+            boolean own = stat.st_uid == Os.getuid();
+            byte[] bytes = new byte[GlancePoll.MOST_TOKEN_BYTES];
+            int length = 0;
+            if (regular && own && (stat.st_mode & 077) == 0) {
+                int count;
+                while (length < bytes.length && (count = in.read(bytes, length, bytes.length - length)) > 0) length += count;
             }
-            if (!OsConstants.S_ISREG(stat.st_mode) || stat.st_uid != Os.getuid() || (stat.st_mode & 077) != 0) {
-                throw new SecurityException("token_not_private");
-            }
-            byte[] bytes = new byte[4096];
-            int read = in.read(bytes);
-            String token = new String(bytes, 0, Math.max(read, 0), StandardCharsets.US_ASCII).trim();
-            // The control plane's tokens are base64url, at least 32 characters (security.ts).
-            if (token.length() < SHORTEST_TOKEN || !token.matches("[A-Za-z0-9_-]+")) throw new SecurityException("token_malformed");
-            return token;
+            return GlancePoll.token(regular, own, stat.st_mode, bytes, length);
+        } catch (ErrnoException | IOException error) {
+            throw new GlancePoll.Refused("token_unreadable");
         } finally {
             try {
                 Os.close(descriptor);
             } catch (ErrnoException ignored) {
                 // Already closed: nothing more to release.
             }
-        }
-    }
-
-    private static HttpURLConnection open(String url) throws IOException {
-        // Never through a proxy: the proof must come from the control plane itself.
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection(Proxy.NO_PROXY);
-        connection.setInstanceFollowRedirects(false);
-        connection.setUseCaches(false);
-        connection.setConnectTimeout(3000);
-        connection.setReadTimeout(5000);
-        return connection;
-    }
-
-    private static String read(HttpURLConnection connection) throws IOException {
-        try (InputStream in = connection.getInputStream()) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buffer = new byte[16384];
-            int count;
-            while ((count = in.read(buffer)) > 0) {
-                if (out.size() + count > MOST_BYTES) throw new IOException("snapshot too large");
-                out.write(buffer, 0, count);
-            }
-            return new String(out.toByteArray(), StandardCharsets.UTF_8);
-        } finally {
-            connection.disconnect();
         }
     }
 

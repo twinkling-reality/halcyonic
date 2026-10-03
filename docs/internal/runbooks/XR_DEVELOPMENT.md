@@ -1312,8 +1312,9 @@ and text rule to the TypeScript and C# ones.
 Setup, after installing a development APK and `adb reverse tcp:47800 tcp:47800`, over USB or the
 headset's encrypted Wireless debugging, never `adb tcpip`. Keep that one reverse mapping and no other
 (`adb reverse --list`): the proof the glance checks names the Mac's own address and port, which is
-the same through any mapping, so another mapping to the control plane would let whatever listens on
-the headset's 127.0.0.1:47800 relay the challenge (SECURITY.md). Put the access token in the app's
+the same through any mapping, so another mapping, or anything else on the Mac forwarding to 47800
+(`ssh -L`, `socat`, a proxy), would let whatever listens on the headset's 127.0.0.1:47800 relay the
+challenge (SECURITY.md). Put the access token in the app's
 private storage, readable only by the app, with no copy on the headset's shared storage (`run-as`
 works on debuggable builds only):
 
@@ -1322,16 +1323,30 @@ adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; cat > files/glance-access
 ```
 
 It refuses a token file that is a link, not the app's own, or readable or writable by anyone else,
-and before every request that carries the token the control plane must prove it holds it. Only a
-development build reaches 127.0.0.1 without TLS: its build step adds that one host to Meta's network
-security configuration, and `BuildReleaseApk` refuses an APK that carries it. To remove it:
-`adb shell run-as com.halcyonic.xr rm files/glance-access-token`.
+and sends the token only on the connection on which the control plane has just proved it holds it.
+Its own socket is not bound by Meta's network security configuration, which refuses cleartext to
+Android's HTTP stacks only (AOSP's `NetworkSecurityPolicy`), so the build adds no exception, and a
+development build checks that the release build's glance check finds the glance in it. The Mac's adb
+server answers any local account while the headset is attached, so after each session remove the
+token and stop the server:
+
+```bash
+adb shell run-as com.halcyonic.xr rm files/glance-access-token
+```
+
+```bash
+adb kill-server
+```
 
 Its log lines, tag `Halcyonic`, codes and numbers only (`adb logcat -s Halcyonic`):
 `glance started`, `glance visible`, `glance hidden`, `glance polled ok in 42 ms, 1 waiting, 2
 working, visible 1` (other codes: `no_token`, `token_not_private`, `token_malformed`,
-`unreachable`, `unproved`, `refused_401`, `unreadable`, `failed`), `glance notified, 1 newly waiting`, `glance notification
-not allowed`, `glance stopped`. It polls every 10 seconds while visible and every 30 while hidden.
+`token_unreadable`, `unreachable`, `unproved`, `refused_401`, `unreadable`, `too_large`,
+`too_slow`; `unreachable` and `too_slow` name the exception's class after them, as in
+`glance polled unreachable (ConnectException)`, and a connection closed before any answer, as
+adbd closes one when nothing listens behind its mapping, is `unreachable (EOFException)`), `glance poll failed: <exception class>`, `glance notified, 1 newly waiting`,
+`glance notification not allowed`, `glance notification failed: <exception class>`,
+`glance poller ended: <exception class>`, `glance stopped`. It polls every 10 seconds while visible and every 30 while hidden.
 
 The checks, in order, about 20 minutes:
 
@@ -1351,5 +1366,28 @@ The checks, in order, about 20 minutes:
 6. Open Halcyonic from the toast's action and from the window's button: does the game end, and does
    Halcyonic open?
 7. With Do Not Disturb on, is the toast silenced?
+
+Then what only a Quest can show of its safety, about 15 minutes more. First, that its plain socket
+reaches the control plane with no cleartext exception: `adb reverse --list` shows only tcp:47800,
+the stage is connected, and `adb logcat -s Halcyonic` shows `glance polled ok`; `unreachable`
+while the stage is connected means the system refused the socket. `adb logcat | grep -i -e
+cleartext -e StrictMode` shows nothing for the app.
+
+8. Notify over a game: with a task newly waiting while a game runs, does posting the notification
+   ever fail (`glance notification failed`), and does Halcyonic keep running if it does?
+9. The deadline on the headset: with a listener on the Mac that answers one byte a second
+   (`adb reverse` to it in place of the control plane), does the poll end as `too_slow` near 10
+   seconds? Then put the control plane's mapping back.
+10. adbd: does `adb shell ss -ltn` (or `netstat -ltn`) show the reverse mapping's 127.0.0.1:47800
+    on loopback only?
+11. The token file: after the setup above, is `adb shell run-as com.halcyonic.xr ls -l files` mode
+    `-rw-------`? With the file replaced by a link (`ln -sf /dev/null files/glance-access-token` under
+    `run-as`), does the poll log `token_not_private`?
+12. Recents and capture: does the glance's window show in the recent apps, and does a screenshot or
+    cast capture its titles?
+13. Backups: with `adb backup` refused for the app (allowBackup is false), is the token absent from
+    any backup the headset offers?
+14. Minimised: do `glance polled` lines continue at the hidden pace with the window minimised over a
+    game, and do they stop when the window is closed?
 
 Record what the Quest shows in [horizon-os-multitasking.md](../validation/horizon-os-multitasking.md).
