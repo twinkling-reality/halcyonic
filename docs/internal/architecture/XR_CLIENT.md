@@ -650,7 +650,7 @@ the same definition names, as the JSON Schema document:
   next action a step's outcome allows; and the two presses that clear a start that may have run.
 - **`NewProjectScreens`** builds New project (ADR 0026) as `MenuFrame`s, from the same models
   and checks as `EntryScreens`, which it replaces: the steps as a row of shapes (Your idea,
-  Questions, Recap, Start building), each reached once there is something there, the chosen one lit
+  Questions, Recap, Build), each reached once there is something there, the chosen one lit
   and an earlier one the way back; every footer Close, one other prompt and the main action, the
   most an 18 dp footer holds. Your idea offers typing the idea and one way to figure it out, the
   companion or the fixed questions. Questions is the companion's turn: its line and question quoted
