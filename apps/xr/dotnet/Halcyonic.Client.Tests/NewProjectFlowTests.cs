@@ -634,6 +634,47 @@ public class NewProjectFlowTests
     }
 
     [Test]
+    public void TheDemonstrationPlaysTheRecordedExchangeToARecapThatCanNotStartAndSendsNothing()
+    {
+        var recording = CompanionRecording.Parse(System.IO.File.ReadAllText(Repository.PathTo(
+            "apps/xr/Assets/Halcyonic/Resources/" + CompanionRecording.ResourceName + ".json")));
+        var host = new Host { Demonstration = true, KeyboardOffered = false, State = OnJournal("demonstration", JournalOrigin.Fixture) };
+        var flow = new NewProjectFlow(host, Commands, new Kept(), null, recording);
+        flow.Open(null, null);
+
+        // Your idea: talking it through is the main action, and the recording brings its own idea.
+        var yourIdea = flow.Frame!;
+        Assert.That(yourIdea.Lines.Any(line => line.Action == NewProjectScreens.TypeIdea), Is.False, "no keyboard opens here");
+        Assert.That(yourIdea.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.BeginCompanion));
+        Assert.That(yourIdea.Footer[PromptSlot.Secondary], Is.Null, "no Hold to talk in the demonstration");
+        Press(flow, NewProjectScreens.BeginCompanion, null);
+        Assert.That((flow.Step, flow.Idea!.OwnWords), Is.EqualTo((NewProjectStep.Questions, recording.Idea)));
+
+        // Questions: the companion's words quoted as its own, said to be recorded, and only the recorded answer offered.
+        var questions = flow.Frame!;
+        Assert.That(questions.Source, Is.EqualTo(CompanionText.Recorded));
+        Assert.That(questions.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)), Is.True);
+        var exchange = flow.Idea.Companion!;
+        var answer = NewProjectScreens.AnswerKey(exchange.Generation, recording.RecordedAnswer(exchange)!);
+        Assert.That(questions.Lines.Where(line => line.Action == NewProjectScreens.ChooseSuggestion && line.Pressable).Select(line => line.Key),
+            Is.EqualTo(new[] { answer }));
+        Press(flow, NewProjectScreens.ChooseSuggestion, answer);
+        Press(flow, NewProjectScreens.SendAnswer, null);
+
+        // The recording's proposal fills the recap, marked as the companion's, and the demonstration can't start it.
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        var recap = flow.Frame!;
+        Assert.That(recap.Source, Is.EqualTo(CompanionText.Note), "the note that it is an AI that can be wrong");
+        Assert.That(recap.Lines.Any(line => line.Fact == CompanionText.SuggestedShort), Is.True);
+        var start = recap.Footer[PromptSlot.FarRight]!;
+        Assert.That((start.Id, start.Available, recap.Reason), Is.EqualTo((NewProjectScreens.StartBuilding, false, EntryText.DemoCannotStart)));
+        Assert.That(recap.Sections.Single(step => step.Key == NewProjectScreens.Key(NewProjectStep.Build)).Reached, Is.False);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That((flow.Step, flow.Review), Is.EqualTo((NewProjectStep.Recap, (NewWorkReview?)null)));
+        Assert.That(host.Sent, Is.Empty, "nothing is sent");
+    }
+
+    [Test]
     public void ALiveNewProjectActsOnlyForTheJournalItWasMadeFor()
     {
         var host = new Host { State = OnJournal("journal-1") };
