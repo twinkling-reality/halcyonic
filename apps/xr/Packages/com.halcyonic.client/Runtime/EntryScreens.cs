@@ -6,92 +6,12 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// The entry panel's screens as <see cref="PanelModel"/>s (ADR 0023): the welcome, Connect projects
-    /// and More tasks, from the overview, so the XR layer only draws them and acts on what is pressed;
-    /// and the checks and the whole request New project builds on (<see cref="NewProjectFlow"/>), which
-    /// replaced the panel's own creating. Nothing here sends anything.
+    /// The checks and the whole request New project builds on (<see cref="NewProjectFlow"/>), kept from
+    /// the entry panel it replaced, whose screens the menu's Projects and New project took over (ADR
+    /// 0026). Nothing here sends anything.
     /// </summary>
     public static class EntryScreens
     {
-        // What each action raises, for the entry panel to act on.
-        public const string Connect = "connect";
-        public const string ToggleProject = "toggle-project";
-        public const string ShowAll = "show-all";
-        public const string Done = "done";
-        public const string OpenWork = "open-work";
-
-        /// <summary>The first live visit: Connect projects, and Not now in Close's place. New project is the menu's (ADR 0026).</summary>
-        public static PanelModel Welcome()
-        {
-            var model = new PanelModel(EntryText.WelcomeTitle) { CloseLabel = EntryText.NotNow, CloseIcon = GlazeIcon.NotNow, Lead = EntryText.WelcomeLine, Columns = 2 };
-            model.Rows.Add(new PanelRow { Card = true, Title = EntryText.ConnectProjects, Detail = EntryText.ConnectInvite, Action = Connect });
-            return model;
-        }
-
-        /// <summary>
-        /// Every project the Mac's journal knows: pressing one shows or hides its work on the stage. Its
-        /// counts include hidden work, so what needs the person is never hidden with its project.
-        /// </summary>
-        public static PanelModel ConnectProjects(WorkOverview? overview, bool connected, bool demonstration)
-        {
-            var model = new PanelModel(EntryText.ConnectProjects)
-            {
-                Lead = demonstration ? EntryText.ExampleProjects : connected ? EntryText.ConnectLine : EntryText.ConnectLine + " " + EntryText.LastKnownProjects,
-                Columns = 2,
-            };
-            var done = new PanelAction(Done, EntryText.Done, PanelActionRole.Primary);
-            if (overview == null || overview.Projects.Count == 0)
-            {
-                model.Rows.Add(Line(overview == null ? EntryText.WaitingForMac : EntryText.NoProjects));
-                model.Actions = new ActionSet(done);
-                return model;
-            }
-            foreach (var project in overview.Projects)
-            {
-                model.Rows.Add(new PanelRow
-                {
-                    Filter = true,
-                    Chosen = project.Shown,
-                    Title = project.Name,
-                    TitleIsData = true,
-                    Detail = EntryText.ProjectDetail(project),
-                    ShortDetail = EntryText.ChipDetail(project),
-                    DetailTone = project.NeedsYou > 0 ? GlazeTone.Attention : (GlazeTone?)null,
-                    Action = ToggleProject,
-                    Key = project.ProjectId,
-                });
-            }
-            model.Actions = new ActionSet(
-                overview.Projects.All(project => project.Shown) ? null : new PanelAction(ShowAll, EntryText.ShowAll, PanelActionRole.Secondary, icon: GlazeIcon.ShowAll),
-                done);
-            return model;
-        }
-
-        /// <summary>Every task without a character, what needs the person first; pressing one brings it to the stage and opens it.</summary>
-        public static PanelModel MoreTasks(WorkOverview? overview, bool connected)
-        {
-            var model = new PanelModel(EntryText.MoreTasks) { Lead = EntryText.MoreTasksLine, Columns = 2 };
-            if (overview == null || overview.OffStage.Count == 0)
-            {
-                model.Rows.Add(Line(overview == null ? EntryText.WaitingForMac : EntryText.AllOnStage));
-                return model;
-            }
-            foreach (var item in overview.OffStage)
-            {
-                model.Rows.Add(new PanelRow
-                {
-                    Title = LabelText.Plain(item.Workstream.Title),
-                    TitleIsData = true,
-                    Detail = EntryText.OffStageDetail(item, connected),
-                    DetailLines = 2,
-                    DetailTone = CharacterLineup.TierOf(item.Workstream) == LineupTier.NeedsYou ? GlazeTone.Attention : (GlazeTone?)null,
-                    Action = OpenWork,
-                    Key = item.Workstream.WorkstreamId,
-                });
-            }
-            return model;
-        }
-
         /// <summary>
         /// What the recap says first when the companion has just proposed it: its view, when it found
         /// the idea unclear or not buildable, then its line, quoted and tagged as its own.
@@ -168,8 +88,5 @@ namespace Halcyonic.Client
         /// </summary>
         public static bool Moves(ProjectIdea idea, ProjectLocation? currentFolder) =>
             idea.ExistingProjectId != null && idea.Folder != null && !idea.Folder.IsAt(currentFolder?.Path);
-
-        private static PanelRow Line(string text, PanelTextSize size = PanelTextSize.Body, int lines = 3, GlazeTone? tone = null) =>
-            new PanelRow { Line = true, Title = text, Size = size, TitleLines = lines, Tone = tone };
     }
 }

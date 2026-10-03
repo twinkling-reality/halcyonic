@@ -204,13 +204,6 @@ public class WorkOverviewTests
         Assert.That(overview.Projects.Select(project => project.Name), Is.EqualTo(new[] { "Alpha", "beta", "Empty" }), "by name, ignoring case");
         var alpha = overview.Projects[0];
         Assert.That((alpha.Work, alpha.NeedsYou, alpha.Notice, alpha.Active, alpha.OffStage, alpha.Shown), Is.EqualTo((4, 1, 1, 2, 1, true)));
-        Assert.That(EntryText.ProjectDetail(alpha), Is.EqualTo("Shown · 1 task waiting for you, 1 finished, 2 running"));
-        Assert.That(EntryText.ProjectDetail(overview.Projects[1]), Is.EqualTo("Hidden · 1 task paused"));
-        Assert.That(EntryText.ProjectDetail(overview.Projects[2]), Is.EqualTo("Shown · no work yet"));
-        Assert.That(EntryText.ConnectDetail(overview), Is.EqualTo("2 of 3 shown"));
-        Assert.That(EntryText.MoreWorkDetail(overview), Is.EqualTo("1 task"));
-        Assert.That(EntryText.OffStageDetail(overview.OffStage[0], live: true), Is.EqualTo("Working · Alpha · no room on the stage"));
-        Assert.That(EntryText.OffStageDetail(overview.OffStage[0], live: false), Is.EqualTo("Last known: Working · Alpha · no room on the stage"));
     }
 
     [Test]
@@ -766,27 +759,10 @@ public class BuildSequenceTests
 public class EntryWordsTests
 {
     [Test]
-    public void TheRailSaysOnlyWhatMattersMostAboutEachProject()
-    {
-        ProjectSummary Project(bool shown, int work, int active = 0, int needsYou = 0, int notice = 0) =>
-            new("p", "Project", shown, work, active, needsYou, notice, 0);
-        Assert.That(EntryText.ChipDetail(Project(true, 4, active: 2, needsYou: 1, notice: 1)), Is.EqualTo("1 task waiting"));
-        Assert.That(EntryText.ChipDetail(Project(false, 4, active: 2, notice: 1)), Is.EqualTo("Hidden · 1 finished"));
-        Assert.That(EntryText.ChipDetail(Project(true, 2, active: 2)), Is.EqualTo("2 tasks running"));
-        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("2 tasks paused"));
-        Assert.That(EntryText.ChipDetail(Project(false, 0)), Is.EqualTo("Hidden · no work yet"));
-    }
-
-    [Test]
     public void TasksWaitingForYouAreSaidAsAPersonWouldSayThem()
     {
-        ProjectSummary Project(bool shown, int needsYou) => new("p", "Project", shown, 5, 0, needsYou, 0, 0);
         Assert.That(EntryText.WaitingForYou(1), Is.EqualTo("1 task is waiting for you"));
         Assert.That(EntryText.WaitingForYou(2), Is.EqualTo("2 tasks are waiting for you"));
-        Assert.That(EntryText.ChipDetail(Project(true, 2)), Is.EqualTo("2 tasks waiting"));
-        Assert.That(EntryText.ChipDetail(Project(false, 3)), Is.EqualTo("Hidden · 3 waiting"));
-        Assert.That(EntryText.ProjectDetail(Project(true, 2)), Is.EqualTo("Shown · 2 tasks are waiting for you"));
-        Assert.That(EntryText.ProjectDetail(Project(true, 1)), Is.EqualTo("Shown · 1 task is waiting for you"));
         Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.WaitingForYou(2)), "the ambient line and the entry agree");
     }
 
@@ -858,10 +834,8 @@ public class EntryWordsTests
     {
         var words = new List<string>
         {
-            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.MoreTasks, EntryText.WelcomeTitle,
-            EntryText.WelcomeLine, EntryText.ConnectInvite, EntryText.CreateInvite, EntryText.NotNow, EntryText.ConnectLine,
-            EntryText.NoProjects, EntryText.LastKnownProjects, EntryText.ExampleProjects, EntryText.ShowAll, EntryText.AddTask, EntryText.WaitingForMac,
-            EntryText.MoreTasksLine, EntryText.AllOnStage, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
+            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.CreateInvite, EntryText.NotNow,
+            EntryText.ShowAll, EntryText.AddTask, EntryText.WaitingForMac, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
             EntryText.NothingStartsYet, EntryText.GuideNote,
             EntryText.Back, EntryText.Chosen, EntryText.ChosenForYou,
             EntryText.RecapLine, EntryText.StartBuilding, EntryText.StartOver, EntryText.StartOverQuestion, EntryText.ConfirmStartOver,
@@ -897,7 +871,6 @@ public class EntryWordsTests
             Assert.That(word, Does.Not.Contain("\u2014"), "no em dash");
             Assert.That(word.Length, Is.LessThanOrEqualTo(110), word);
         }
-        Assert.That(EntryText.ConnectLine, Does.Contain("already set up on your computer"), "Connect claims no discovery");
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
             "the glossary's words: an agent app, a task, your computer");
         Assert.That(EntryText.GuideNote, Does.Contain("not an AI"));

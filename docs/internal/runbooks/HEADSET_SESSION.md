@@ -346,8 +346,8 @@ development build and the token in place:
   app, the stage staying put, returning focus with a pinch, recentering.
 - [quest-3-device.md](../validation/quest-3-device.md): what it lists as not exercised.
 - [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md): the rows a session answers, such as calm
-  motion, windows over the desk, sound while away, arrangements, the fold and its grace, the rail,
-  Move, the passthrough window and returning focus, cues during focus, repeating Waiting, and the
+  motion, windows over the desk, sound while away, arrangements, the fold and its grace, the
+  closed bar after turning away, the passthrough window and returning focus, cues during focus, repeating Waiting, and the
   socket across sleep, look and pinch, and recentering.
 
 ## Close

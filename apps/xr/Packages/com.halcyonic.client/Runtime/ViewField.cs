@@ -148,20 +148,6 @@ namespace Halcyonic.Client
             return true;
         }
 
-        /// <summary>
-        /// How far below eye level, in degrees, the middle of a plate <paramref name="halfWidth"/> by
-        /// <paramref name="halfHeight"/> degrees goes, when it would go <paramref name="preferred"/>
-        /// below: no lower than keeps every corner inside <paramref name="field"/> less the margin
-        /// (<see cref="LowestCenter"/>), and no higher than <paramref name="highest"/> below, which
-        /// keeps it clear of what stands above it. Without a field, <paramref name="preferred"/>.
-        /// </summary>
-        public static float BelowWithin(float preferred, float halfWidth, float halfHeight, ViewField? field, float highest)
-        {
-            if (field is not ViewField known) return preferred;
-            var deepest = -known.LowestCenter(halfWidth, halfHeight);
-            return Math.Max(highest, Math.Min(preferred, deepest));
-        }
-
         /// <summary>The field in one log line of numbers: "left 52.0 right 43.0 up 48.0 down 50.0".</summary>
         public string Line() =>
             "left " + Left.ToString("0.0", CultureInfo.InvariantCulture)

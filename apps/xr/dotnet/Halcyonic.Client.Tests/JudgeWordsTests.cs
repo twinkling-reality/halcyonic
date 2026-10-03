@@ -126,12 +126,9 @@ public class JudgeWordsTests
                 {
                     state.ApplySnapshot(node.EndingSnapshot.Snapshot, new StateChanges());
                 }
-                var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
                 // The menu's bar, closed and open, and Tasks, as the session stands here.
                 foreach (var place in MenuBar.Places) Add(TasksColumn.Bar(place, state).ClosedLine);
                 foreach (var word in WordsOf(new TasksColumn(new StateMenuHost(state)).Frame!)) Add(word);
-                Add(EntryScreens.ConnectProjects(overview, connected: false, demonstration: true));
-                Add(EntryScreens.MoreTasks(overview, connected: false));
                 foreach (var workstream in state.Workstreams.Values)
                 {
                     var workspace = WorkspacePresenter.Present(workstream, state, log, live: true);

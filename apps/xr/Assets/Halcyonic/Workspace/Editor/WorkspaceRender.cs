@@ -341,7 +341,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
                 var section = new HashSet<Component>(Panel.Section.Labels);
-                failures.AddRange(EntryRender.NothingOfOursCut(Panel.ShownParts.Where(part => !section.Contains(part)), what, Frame));
+                failures.AddRange(NothingOfOursCut(Panel.ShownParts.Where(part => !section.Contains(part)), what, Frame));
                 if (Frame.Pages > 1) failures.Add(what + ": the list takes " + Frame.Pages + " pages; the workspace pages only what its screens page.");
                 var area = Frame.ListArea;
                 foreach (var (label, _) in Frame.ShownLines)

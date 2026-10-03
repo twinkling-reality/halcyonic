@@ -130,24 +130,8 @@ waiting task is not Tasks' first row; if Yes shows on the request's first part o
 last; if Checks does not show the recorded simulated checks; if Tell it offers other than the
 recorded instructions; or if a recorded limit's Account does not say it is part of the recording.
 
-The project rail and the entry panel render the same way, **Halcyonic > Render the Entry Panel
-Over the Stage**, or in batch mode:
-
-```bash
-/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.EntryRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-entry-render.log
-```
-
-It saves every screen of the entry panel (welcome, Connect projects, More tasks) and the Settings
-sheet over both stages in `apps/xr/Builds/EntryRenders`, each with a close-up at a Quest 3's density
-(`-closeup.png`) and the whole panel (`-panel.png`), and logs where the panel stands
-(`Halcyonic: entry render ...`). New project, which replaced the panel's creating, renders with the
-menu. It renders the far and desk stages again with a Quest 3S's field of view set (`far-3s`,
-`desk-3s`), and fails if a corner of a panel (head level) leaves the field less 1.5 degrees; the
-log says how low each reaches (`Halcyonic: field check ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
-"Scene".
-
-The stage beside a window, and large panels folded and restored, render the same way, **Halcyonic >
-Render the Stage Beside a Window**, or in batch mode:
+The stage beside a window renders the same way, **Halcyonic > Render the Stage Beside a Window**,
+or in batch mode:
 
 ```bash
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.AmbientRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-ambient-render.log
@@ -155,40 +139,15 @@ Render the Stage Beside a Window**, or in batch mode:
 
 It saves the characters in each arrangement, in front, turned aside and beside a window, behind a
 window-sized plate (1.4 by 0.79 m at 1.6 m, straight ahead at eye level) (`window-front.png`,
-`window-aside.png`, `window-beside.png`), and the entry and Usage left panels open, folded and
-restored, in `apps/xr/Builds/AmbientRenders`. It logs, for each arrangement, how many characters'
+`window-aside.png`, `window-beside.png`), in `apps/xr/Builds/AmbientRenders`. It logs, for each arrangement, how many characters'
 bodies and labels the plate covers and how far out the outermost label reaches, and how far below
 eye level the banner hangs beside a window. It fails if turning the lineup aside uncovers no one;
 if beside a window the plate covers any body or label, a body or label comes within a degree of
 the window's lane or of another character's, a whole title shows or a short one is missing, takes
 more than one line or is wider than 10.5 degrees, or the banner reaches into the lane,
-sits under the window or a label, cuts its words short or takes a press; if, with a field of view
-short enough to lift the rail to its ceiling, the rail comes within a degree of that banner; if a folded panel still
-shows, or the banner would not name it as still open; or if a restored panel differs by a pixel
-from before it folded. Beside a window it names in the log any two short titles cut to the same
+sits under the window or a label, cuts its words short or takes a press. Beside a window it names in the log any two short titles cut to the same
 words, as the render's own two do. The plate is not a real window: only the headset shows what a
 real one covers.
-
-The Usage left glance renders the same way, **Halcyonic > Render Usage Left Over the Stage**, or in
-batch mode:
-
-```bash
-/Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.UsageLeftRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-usage-left-render.log
-```
-
-It saves the chip on the rail, then the panel with two readings, four, six over three pages, two
-being read again, not set up, no reading yet, while reading, a partial answer, an unreachable Mac,
-the demonstration and an agent name from outside, over both stages in
-`apps/xr/Builds/UsageLeftRenders`, each with a close-up and the whole panel (`-panel.png`), and logs
-how far below eye level the panel spans (`Halcyonic: usage left render ...`). It fails if the chip
-leaves the rail's free room or comes near a rail button; if the panel covers a character's body or
-label, comes within a degree of one, or reaches beyond the space the workspace may take; if a
-target is too small, closer than 12 mm to another or past the panel's edge, or a word too small; if
-one of its own words is cut short; if four windows page or six do not, or a page leaves out where
-the windows come from or what is unknown; if a meter does not stand over its own "at most" words,
-fills other than that share of its track, or fills at all while a read is in flight; if Close is not
-in the header, Refresh takes a press while reading or shows in the demonstration; if anything but
-a failure is said in red; or if outside text does not show as written. It reads no control plane.
 
 Every state of a task on the stage renders the same way, **Halcyonic > Render Every State on the
 Stage**, or in batch mode:
@@ -246,8 +205,8 @@ or in batch mode:
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.MeasureRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-measure.log
 ```
 
-It builds the stage with the rail, the stage beside a window while another window has focus, the
-entry panel, a workspace, Usage left and Settings, and logs for each the draw calls at most, the text
+It builds the stage, the stage beside a window while another window has focus, and a workspace,
+and logs for each the draw calls at most, the text
 labels and their characters, the vertices and triangles; for each panel, what showing the same
 screen again costs (text meshes built again, the editor's milliseconds, bytes); and what each
 per-frame method allocates a frame (`Halcyonic: interface measure ...`). It fails if a panel could
@@ -258,10 +217,10 @@ Halcyonic's. Its times are a Mac's; what only the
 headset tells is in [quest-3-performance.md](../validation/quest-3-performance.md).
 
 Every render, and the measure, runs twice: at the standard text size, then with reading text a step
-larger, as a person may choose in Settings' Comfort section (`Comfort.LargerTextScale`), and fails
+larger, as a person may choose in Settings' Comfort (`Comfort.LargerTextScale`), and fails
 if either pass does. The second pass logs `Halcyonic: the same again with reading text a step
 larger.` before it starts, its failures begin "at the larger text size", and its pictures go to a
-`Larger` folder inside the render's own, such as `apps/xr/Builds/EntryRenders/Larger`. A run takes
+`Larger` folder inside the render's own, such as `apps/xr/Builds/FileRenders/Larger`. A run takes
 about twice as long as before.
 
 Every render also measures each label's text as the eyes see it, slant included
@@ -635,18 +594,19 @@ opens and asks first, and start the control plane as usual.
 
 In the headset, with hands only:
 
-1. On the rail under the stage, press **Settings**; in its Your computer section, pinch or poke **Pair with a computer**.
+1. Open the menu, then Settings; under Your computer, choose **Pairing** and press **Pair with a computer**.
 2. The system keyboard opens: type the address `pnpm pair` printed, such as `192.168.1.23:47801`,
    and press Enter. The next time, the last address is already there.
 3. The number pad opens: type the eight digits and press Enter.
-4. The line above the button reads "Pairing with ...", then "Paired with your computer at ... Connecting
+4. The stage's banner says "Pairing with ...", then "Paired with your computer at ... Connecting
    over Wi-Fi.", and the stage connects to the control plane. `pnpm pair` names the headset and
    ends.
 
 The pairing is kept in the app's internal storage and survives restarts and `adb install -r`; it
 takes the place of an access token written to the headset: with both, the app uses the pairing.
 
-- **Forget:** pinch **Forget this computer**, then **Yes, forget this computer** within six seconds. The Mac
+- **Forget:** in Settings, Pairing, press **Forget this computer**, then **Yes, forget this computer**,
+  which stands in the middle of the footer, within six seconds. The Mac
   stops accepting this headset (`pnpm devices` shows it revoked), and the app returns to the access
   token, or to the demonstration.
 - **A new address:** if the Mac's address changes, forget it and pair again.
@@ -662,8 +622,7 @@ takes the place of an access token written to the headset: with both, the app us
 What the Mac cannot check ([network-pairing.md](../validation/network-pairing.md)):
 
 - **Pairing:** the steps above, seated, hands only. Both keyboards appear and can be used with
-  hands; the line in Settings and its notice on the banner are readable; Settings does not cover
-  the stage. The Mac lists the headset with a readable label (`pnpm devices`).
+  hands; the notices on the banner are readable; Settings does not cover the stage. The Mac lists the headset with a readable label (`pnpm devices`).
 - **Live over Wi-Fi:** with the USB cable unplugged, the banner under the stage reads "Connected to your computer", and
   `pnpm demo` on the Mac moves the characters. Open a workspace: its activity includes what
   happened before it opened, so REST works over the pinned connection. Approve something: the
@@ -897,18 +856,17 @@ Before the session, on the Mac:
 - At least three projects and more than six workstreams in its journal (for example `pnpm demo`
   more than once), and one approval waiting in one of the projects
   (`pnpm demo | sed '/approval requested/q'`).
-- Halcyonic installed fresh, or its data cleared, so the welcome shows. Usage left left as it is
-  until Seorak's limits build runs.
+- Halcyonic installed fresh, or its data cleared, so the first visit opens the menu by itself.
+  Usage left left as it is until Seorak's limits build runs.
 
 In the headset:
 
-1. **Welcome.** Once connected: "Welcome", one line, the Connect projects card, and Not now where
-   Close usually is. Running work stays on the stage behind it. Once any of
-   them is chosen it does not come back.
-2. **Connect projects.** It says these are the projects already set up on your computer. Hide the project
-   whose work waits for approval: its characters leave the stage, its tile and its rail chip read
-   "Hidden · 1 waiting", and See other tasks lists that work first in More tasks. Press it there: it
-   stands on the stage and opens; collapse it, show the project again.
+1. **First visit.** Once connected, the menu opens by itself on Projects: "What would you like to
+   work on?", each project's row saying what waits in it, and New project as the main prompt.
+   Running work stays on the stage. It opens by itself only on this first visit.
+2. **Hide a project.** Choose the project whose work waits for approval, then Hide from stage: its
+   characters leave the stage, and its row reads "Hidden · 1 task waiting". Open Tasks: that work is
+   still listed. Open it: it stands on the stage and opens; collapse it, then Show on stage.
 3. **Create from a typed idea.** Open the menu, Projects, New project. Type my idea, type a
    sentence on the system keyboard, Make the recap: the recap names the project from its first
    words. Choose how it runs, More options: choose the agent app, then the local model; Done; the
@@ -936,14 +894,12 @@ In the headset:
 9. **The four questions.** In the opened workspace, What is it doing?, Help me understand and What
    was checked? read whole on their tabs, and What do you need from me? shows only while the approval
    waits. Approve, read the whole request, confirm: the answer counts once the runtime confirms it.
-10. **Usage left.** At the right end of the rail's lower row, Usage left: pressed, it opens a panel
-    at touch distance that says "Usage left isn't set up on your computer yet. Set it up there to see it
-    here.", in white, not red, with Close at its top right and Refresh at its bottom right. It steps
-    aside when the entry panel or a workspace opens.
-11. **Reset position.** Move steps the panel right, left and back. Turn in the chair and press
-    Reset position: the panel and the rail come in front of you.
+10. **Usage left.** Open the menu, Usage: it says "Usage left isn't set up on your computer yet. Set
+    it up there to see it here.", in white, not red.
+11. **Reset position.** Turn in the chair, then Settings, Your space, The menu, Reset position: the
+    menu comes in front of you.
 
-Throughout, note whether the rail sits over a character, its label or a system window, whether
+Throughout, note whether the menu sits over a character, its label or a system window, whether
 anything needs leaning in to read, and whether any button pressed did nothing. Afterwards, the cases
 the journey does not reach: Add a task (Projects, the project, Add a task) to a project in another folder (the recap says every later
 task uses the new folder, and the review shows the folder now and from now on), and a control plane
@@ -1179,21 +1135,21 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
 
 1. **Place.** Characters in front of you, not on the desk; then open a browser video window (Meta's
    browser, any video) and place it straight ahead. Note how many characters it covers. In
-   Settings (the rail's Settings, Your room), press Make room for a window and note the count
-   again; then Either side of a window, and note it once more; Characters in front turns them back.
+   Settings, Your space, The characters, press Make room for a window and note the count again;
+   then Either side of a window, and note it once more; Characters in front turns them back.
    Record the three counts, where the window stood, and whether you had to turn your head to see
    the outermost characters beside it (their labels reach about 37 degrees out). Beside a window,
    with only badges showing, can you tell the tasks apart without peeking?
 2. **Watch.** Select the video. The log says focus went to another window; three seconds later,
-   large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
-   on the stage moves. Characters keep animating. The banner under the characters says the panel is
-   still open ("Still open: Connect projects"), and beside a window, how many more tasks are not
-   shown. On a device that has never shown it, coming back the first time with the characters in
-   front, the banner says once "Window in the way? Settings can move the characters."
+   large panels are folded. Open a task's file first, and note whether the menu's plane folds away
+   and whether the banner says what is still open; nothing else on the stage moves. Characters keep
+   animating. Beside a window, the banner says how many more tasks are not shown. On a device that
+   has never shown it, coming back the first time with the characters in front, the banner says
+   once "Window in the way? Settings can move the characters."
 3. **Waiting for you while watching.** Make a workstream need you. The character rises and turns,
    and the banner under the stage says "1 task is waiting for you" in amber. Can you see either past
    the window?
-4. **Return by hand.** Pinch on a character, the rail or empty space. The first pinch only returns
+4. **Return by hand.** Pinch on a character, the menu or empty space. The first pinch only returns
    focus: nothing opens or presses, and panels come back as they were. Then open the character and
    read the request.
 5. **Half done.** Arm Yes, approve, then select the video before confirming, and come back. The
@@ -1203,7 +1159,7 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
 7. **Back to the video.** Select it again; the character you approved stays nearby, panels fold.
 8. **Flapping.** Move a hand quickly between the video and the stage several times. Nothing on the
    stage rearranges; the log shows losses but no folding unless focus stays away three seconds.
-9. **Keyboard.** Start a new project and type its idea. The keyboard takes focus; the entry panel
+9. **Keyboard.** Start a new project and type its idea. The keyboard takes focus; the menu's plane
    stays put and the draft is kept. Close the keyboard with Done and the text arrives.
 10. **Hold to talk**, if the build has it: hold, then select the video mid-sentence. Recording
     stops; nothing is transcribed and the field keeps its text.
@@ -1241,8 +1197,7 @@ For each step write down what you saw and how it felt, in
 1. **Reading at touch distance (3 minutes).** Open the character that waits for you: the workspace
    opens 0.46 m away, 44 by 26 degrees, beside it. Read the whole request, part by part, and poke
    Next, Approve and Cancel. On Doing, press Show details: can you tell what runs the work and
-   where? Then press Connect projects and read the first screen. Hold its Move and drag: does the
-   panel follow your hand smoothly, with the ray and with a poke? Can you read for
+   where? Then open the menu on Projects and read its first page. Can you read for
    a few minutes without strain, and poke every button without leaning or stretching? If reading
    strains, say so: the fallback is the same panel at 1 m, ray only.
 2. **The stage's height and the labels (2 minutes).** The characters stand 2.4 m away, their centres
@@ -1254,7 +1209,7 @@ For each step write down what you saw and how it felt, in
    Waiting for you with a count have no room for their icon on the stage: do you miss it? On the
    panels, does each button's icon help you find it, or only crowd its words?
 3. **A window in front, three ways (5 minutes).** Put the browser video straight ahead. Count the
-   characters it covers. In Settings (the rail's Settings, Your room), press Make room for a window:
+   characters it covers. In Settings, Your space, The characters, press Make room for a window:
    the lineup turns 32 degrees right, the outermost label about 67 degrees from straight ahead. Is
    turning your head that far comfortable? Count again. Then press Either side of a window: four
    characters, two each side of the window at 32 degrees, one just above eye level and one below,
@@ -1267,7 +1222,7 @@ For each step write down what you saw and how it felt, in
    beside a window how many more tasks are not shown. Can you see it past the video? Pinch to come
    back: the first pinch only returns focus, and the panel comes back as it was. On a device that
    has never shown it, the banner says once "Window in the way? Settings can move the characters."
-5. **Sounds (3 minutes).** Press a tab, the pager and a rail pill: one soft tap from the button
+5. **Sounds (3 minutes).** Press a tab, the pager and a row of the menu: one soft tap from the button
    each time. Press a locked Yes, or Refresh while Usage left reads: Not now, a damped step down.
    Approve a request and confirm: the confirming press sounds Approve's two notes, with no tap.
    Answer a question and send it: Send answer's light tap falling onto a warmer note, with no tap
@@ -1280,13 +1235,12 @@ For each step write down what you saw and how it felt, in
    Does a double press ever do what you didn't mean?
 7. **Smoothness (throughout).** With a workspace open for a minute, the log's `FPS=` stays at 72.
    Does anything stutter, for example every half second while a panel is open?
-8. **Usage left (1 minute).** Open it from the rail. Each window's meter ends in dots: does it read
+8. **Usage left (1 minute).** Open it from the menu, Usage. Each window's meter ends in dots: does it read
    as "at most"? Press Refresh: the meters empty to their tracks and Refresh waits until the read
    is back.
-9. **The same places (1 minute).** Through Connect projects, More tasks, a question and the
-   review: Close stays at the top right, Back at the bottom left, the button the screen leads to at
+9. **The same places (1 minute).** Through Projects, Tasks, a question and the review: Close stays at the top right, Back at the bottom left, the button the screen leads to at
    the bottom right, the pager above it at the right. Does your hand learn where to go?
-10. **Comfort (2 minutes).** In Settings' Comfort section press Make text larger: the sheet grows
+10. **Comfort (2 minutes).** In Settings, Comfort, Text size, press Make text larger: the menu grows
     where it stands, and the characters' titles, the peek and the banner grow a step. Open the
     character that waits for you: the workspace is a step larger and opens lower, to stay under the
     titles. Can you read its bottom row, and press its bar, without bending your neck? Is tipping

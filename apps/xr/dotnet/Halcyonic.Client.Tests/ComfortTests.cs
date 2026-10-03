@@ -12,7 +12,6 @@ public class ComfortTests
         var comfort = Comfort.Load(null);
         Assert.That((comfort.Text, comfort.Still, comfort.Sounds), Is.EqualTo((TextSize.Standard, false, SoundLevel.On)));
         Assert.That((comfort.TextScale, comfort.Volume), Is.EqualTo((1f, 1f)));
-        Assert.That(comfort.Line, Is.EqualTo("Text is the standard size. Badges move, and sounds are on."));
         Assert.That((comfort.TextButton, comfort.MotionButton, comfort.SoundButton), Is.EqualTo(("Make text larger", "Keep badges still", "Make sounds quieter")));
     }
 
@@ -42,7 +41,6 @@ public class ComfortTests
         var kept = Comfort.Load(comfort.Save());
         Assert.That((kept.Text, kept.Still, kept.Sounds), Is.EqualTo((TextSize.Larger, true, SoundLevel.Quieter)));
         Assert.That((kept.TextScale, kept.Volume), Is.EqualTo((Comfort.LargerTextScale, Comfort.QuieterVolume)));
-        Assert.That(kept.Line, Is.EqualTo("Text is a step larger. Badges stand still, and sounds are quieter."));
         Assert.That((kept.TextButton, kept.MotionButton, kept.SoundButton), Is.EqualTo(("Make text standard", "Let badges move", "Turn sounds off")));
         Assert.That(Comfort.Load(new Comfort { Sounds = SoundLevel.Off }.Save()).Volume, Is.Zero);
     }

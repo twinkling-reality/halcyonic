@@ -126,7 +126,6 @@ public class DeviceMeasureTests
     {
         var panel = new PanelSize(0.46f, 0.186f, 0.106f);
         Assert.That(WorkspacePlacement.Lowest(panel, null), Is.EqualTo(WorkspacePlacement.LowestDegrees));
-        Assert.That(ViewField.BelowWithin(44.5f, 24f, 4.5f, null, 25f), Is.EqualTo(44.5f));
     }
 
     /// <summary>The corners of a plate facing the eyes, its center at an elevation, as yaw and elevation from a level head.</summary>
@@ -183,17 +182,6 @@ public class DeviceMeasureTests
         var under = WorkspacePlacement.Place(0f, far, new[] { far }, panel, field: narrow);
         Assert.That(under.Clear, Is.True);
         Assert.That(under.Elevation + panel.HalfHeightDegrees, Is.LessThanOrEqualTo(-15f - WorkspacePlacement.LabelClearanceDegrees + 1e-3f));
-    }
-
-    [Test]
-    public void ANarrowFieldLiftsTheRailButNeverIntoWhatStandsAboveIt()
-    {
-        var even3S = new ViewField(48, 48, 45, 45);
-        var lifted = ViewField.BelowWithin(44.5f, 24f, 4.5f, even3S, 25f);
-        Assert.That(lifted, Is.EqualTo(-even3S.LowestCenter(24f, 4.5f)).Within(1e-4));
-        Assert.That(lifted, Is.LessThan(44.5f).And.GreaterThan(25f));
-        Assert.That(ViewField.BelowWithin(44.5f, 24f, 4.5f, new ViewField(55, 55, 50, 70), 25f), Is.EqualTo(44.5f), "a deep field keeps the rail where it is");
-        Assert.That(ViewField.BelowWithin(44.5f, 24f, 4.5f, new ViewField(40, 40, 30, 20), 25f), Is.EqualTo(25f), "never above its highest");
     }
 
     [Test]
