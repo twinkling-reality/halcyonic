@@ -192,7 +192,7 @@ namespace Halcyonic.Client
             var problemChosen = target.Problem;
             var lines = Lines(state, projects, offers, project, folder, problemChosen);
 
-            var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize));
+            var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize, sourceLine: false));
             var page = Math.Max(0, state.Page) % pages.Count;
             // A chosen row shows on its own page, so its side panel slides out beside it.
             var chosenAt = pages.FindIndex(each => each.Any(line => line.Chosen));

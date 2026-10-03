@@ -246,9 +246,9 @@ public class ProjectsScreensTests
         var folders = Enumerable.Range(0, 9).Select(index => Folder("folder-" + index, false, "2026-09-" + (10 + index) + "T00:00:00.000Z")).ToArray();
         var state = State(Listing(Root("Projects", folders)));
         state.TextSize = size;
-        Assert.That(MenuFrame.RowsAPage(size), Is.EqualTo(size == TextSize.Larger ? 3 : 4), "3 rows a page at the larger size, inside a Quest 3S's field");
+        Assert.That(MenuFrame.RowsAPage(size, sourceLine: false), Is.EqualTo(size == TextSize.Larger ? 3 : 4), "3 rows a page at the larger size, inside a Quest 3S's field");
         var first = ProjectsScreens.Projects(state);
-        Assert.That(first.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(MenuFrame.RowsAPage(size)));
+        Assert.That(first.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(MenuFrame.RowsAPage(size, sourceLine: false)));
         Assert.That(first.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading));
         Assert.That(first.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Secondary, PromptSlot.FarRight }),
             "three prompts fit the column: Close, Next page, New project");
@@ -261,7 +261,7 @@ public class ProjectsScreensTests
         {
             state.Page = page;
             var frame = ProjectsScreens.Projects(state);
-            Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(MenuFrame.RowsAPage(size)));
+            Assert.That(frame.Lines.Sum(line => line.Rows), Is.LessThanOrEqualTo(MenuFrame.RowsAPage(size, sourceLine: false)));
             Assert.That(frame.Lines.Last().Words, Is.Not.EqualTo(ProjectsText.FoldersHeading), "a heading never ends a page");
             seen.AddRange(frame.Lines.Select(line => line.Words));
             if (frame.Footer[PromptSlot.Secondary]!.Words == "First page") break;

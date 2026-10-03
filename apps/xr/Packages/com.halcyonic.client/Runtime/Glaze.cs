@@ -178,6 +178,9 @@ namespace Halcyonic.Client
         /// <summary>State badges, counts and tags (16 dp).</summary>
         public const float BadgeDegrees = 1f;
 
+        /// <summary>A state badge's height, its word and the room round it.</summary>
+        public const float BadgeHeightDegrees = 1.75f;
+
         /// <summary>Supporting lines, and the smallest text anywhere (15 dp).</summary>
         public const float CaptionDegrees = 0.9375f;
 
@@ -241,14 +244,40 @@ namespace Halcyonic.Client
             /// <summary>The subject, one a column, drawn light (24 dp).</summary>
             public const float TitleDegrees = 1.5f;
 
-            /// <summary>The sections, the content, the prompts, a source line, and the pill's word (18 dp).</summary>
+            /// <summary>The sections, the content, the prompts, a side panel's fact names, a source line, and the pill's word (18 dp).</summary>
             public const float BodyDegrees = 1.125f;
 
-            /// <summary>Small facts inside a row and the names of facts in a side panel (15 dp), never a line of its own.</summary>
+            /// <summary>Small facts inside a row (15 dp), never a line of its own; a side panel names its facts at <see cref="BodyDegrees"/>.</summary>
             public const float LabelDegrees = 0.9375f;
 
             /// <summary>The split header's state pill: the same badge as the stage's, its word at the content's size.</summary>
             public const float PillDegrees = BodyDegrees;
+
+            /// <summary>The pill's height: the badge's, grown as its word is.</summary>
+            public const float PillHeightDegrees = BadgeHeightDegrees * PillDegrees / BadgeDegrees;
+
+            /// <summary>A subject's plate at its least, and the padding above and below its title in it.</summary>
+            public const float SubjectDegrees = 3.2f;
+
+            public const float SubjectPaddingDegrees = 0.75f;
+
+            /// <summary>
+            /// How tall a line of text is for each unit of its em: Liberation Sans's line height over its
+            /// point size, 98.89 over 86, which the component render holds to the font.
+            /// </summary>
+            public const float LineSpacing = 1.15f;
+
+            /// <summary>
+            /// Each column's width, as an angle at the eyes when centred in front of them
+            /// (<see cref="PlaneComposition.Units"/>): the menu's places, a task's file or New project's
+            /// steps, and a side panel. One width a kind, wherever it stands, so a page's words wrap the
+            /// same alone and beside the menu, and a request shown in parts never loses a word.
+            /// </summary>
+            public const float MenuColumnDegrees = 32f;
+
+            public const float FileColumnDegrees = 36f;
+
+            public const float SideColumnDegrees = 26f;
 
             /// <summary>One grid step, 8 dp.</summary>
             public const float GridDegrees = 0.5f;

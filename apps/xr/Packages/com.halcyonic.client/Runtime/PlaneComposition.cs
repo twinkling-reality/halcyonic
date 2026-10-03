@@ -94,6 +94,7 @@ namespace Halcyonic.Client
         public PlaneComposition(IReadOnlyList<PlaneColumn> columns, float zoom = 1f)
         {
             if (columns.Count == 0) throw new ArgumentException("A composition holds at least one column.", nameof(columns));
+            if (columns.Count > 2) throw new ArgumentException("A composition holds at most two columns: three would pass a Quest 3S's field (MenuColumns).", nameof(columns));
             if (!(zoom > 0f)) throw new ArgumentOutOfRangeException(nameof(zoom), zoom, "A zoom is above nothing.");
             Columns = columns;
             Zoom = zoom;

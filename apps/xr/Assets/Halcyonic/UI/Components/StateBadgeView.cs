@@ -15,7 +15,7 @@ namespace Halcyonic.XR.UI
     /// </summary>
     public sealed class StateBadgeView : MonoBehaviour
     {
-        public const float HeightDegrees = 1.75f;
+        public const float HeightDegrees = Glaze.BadgeHeightDegrees;
         private const float PaddingDegrees = 0.75f;
 
         /// <summary>Before the icon: less than the padding after the word, since the icon's em has room of its own round the glyph.</summary>

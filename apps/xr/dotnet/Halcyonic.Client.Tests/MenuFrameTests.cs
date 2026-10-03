@@ -178,7 +178,9 @@ public class MenuFrameTests
         var answer = new PageLine("Use Postgres", wordsAreData: true, action: "answer", key: "0", choice: true, chosen: true);
         Assert.That(answer.Choice, Is.True);
         var part = new PageLine("Write and apply a migration that moves sessions into their own table.", wordsAreData: true, rows: 3, fromRow: 3);
-        Assert.That((part.Rows, part.FromRow), Is.EqualTo((3, 3)), "a part of a long request shows from where the one before ended");
+        Assert.That((part.Rows, part.FromRow), Is.EqualTo((3, (int?)3)), "a part of a long request shows from where the one before ended");
+        Assert.That(new PageLine("Use Postgres", wordsAreData: true, rows: 2).FromRow, Is.Null, "words not in parts are cut with an ellipsis");
+        Assert.That(new PageLine("Write and apply", wordsAreData: true, rows: 3, fromRow: 0).FromRow, Is.EqualTo(0), "the first part is a part too");
         Assert.Throws<ArgumentOutOfRangeException>(() => _ = new PageLine("x", fromRow: -1));
         var recorded = new PageLine("Add a test for the limit", wordsAreData: true, action: "tell-it", key: "1", available: false);
         Assert.That(recorded.Pressable, Is.False, "shown but taking no press, as an answer the recording doesn't hold");
@@ -214,6 +216,14 @@ public class MenuFrameTests
 
         var unchosen = new PageLine("Storefront API", action: "open-project", key: "p1", opens: true);
         Assert.Throws<ArgumentException>(() => _ = new MenuFrame("Projects", new Footer(), lines: new[] { unchosen }, side: side), "no chosen line opened it");
+
+        // An answer cut to fit shows all its words beside the page once chosen, so what is sent is read first.
+        var whole = new SidePanel("Your answer", lines: new[] { new PageLine("Lock the account for 15 minutes after five failed sign-ins, then email the owner", wordsAreData: true, rows: 3) });
+        var cut = new PageLine("Lock the account for 15 minutes after five failed sign-ins, then email the owner", wordsAreData: true, action: "answer", key: "0",
+            choice: true, chosen: true, rows: 2);
+        Assert.That(new MenuFrame("How long should a lockout last?", new Footer(Close), lines: new[] { cut }, side: whole).Side, Is.SameAs(whole));
+        var notChosen = new PageLine("15 minutes", action: "answer", key: "1", choice: true);
+        Assert.Throws<ArgumentException>(() => _ = new MenuFrame("How long?", new Footer(Close), lines: new[] { notChosen }, side: whole), "only a chosen answer");
         Assert.Throws<ArgumentException>(() => _ = new SidePanel("Why it changed them", lines: new[] { new PageLine("x", action: "a") }), "nothing to press");
         Assert.Throws<ArgumentException>(() => _ = new SidePanel("x", facts: new[] { new SideFact("a", "b") }, lines: new[] { new PageLine("c") }), "facts or lines");
         Assert.Throws<ArgumentOutOfRangeException>(() => _ = new SidePanel("x", parts: (2, 2)));
@@ -247,10 +257,12 @@ public class MenuFrameTests
     }
 
     [Test]
-    public void AListsPageHoldsFourRowsOrThreeWithLargerText()
+    public void APageHoldsFourRowsOrThreeWithLargerTextItsSourceLineCountingAsOne()
     {
-        Assert.That(MenuFrame.RowsAPage(TextSize.Standard), Is.EqualTo(4));
-        Assert.That(MenuFrame.RowsAPage(TextSize.Larger), Is.EqualTo(3), "4 would take the menu and a file past a Quest 3S's field");
+        Assert.That(MenuFrame.RowsAPage(TextSize.Standard, sourceLine: false), Is.EqualTo(4));
+        Assert.That(MenuFrame.RowsAPage(TextSize.Larger, sourceLine: false), Is.EqualTo(3), "4 would take the menu and a file past a Quest 3S's field");
+        Assert.That(MenuFrame.RowsAPage(TextSize.Standard, sourceLine: true), Is.EqualTo(3), "4 rows and a source line reach past the field beside a side panel");
+        Assert.That(MenuFrame.RowsAPage(TextSize.Larger, sourceLine: true), Is.EqualTo(2));
     }
 
     [Test]
