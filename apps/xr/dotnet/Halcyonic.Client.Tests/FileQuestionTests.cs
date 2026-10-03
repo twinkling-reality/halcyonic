@@ -201,12 +201,8 @@ public class FileQuestionTests
             // A line beside the one before it shares that one's row and target.
             if (before?.BesideNext == true) continue;
             var target = line.Action != null;
-            if (before != null)
-            {
-                var both = target && before.Action != null;
-                var turn = target != (before.Action != null);
-                total += both ? budget.TargetGap : turn ? budget.GroupGap : 0f;
-            }
+            // As the view lays them: 12 mm between two targets, a grid step between any other two.
+            if (before != null) total += target && before.Action != null ? budget.TargetGap : budget.LineGap;
             total += target ? budget.Target(line.Rows) : budget.Words(line.Rows);
             before = line;
         }
@@ -242,6 +238,19 @@ public class FileQuestionTests
             }
             Assert.That(seen, Is.EqualTo(Enumerable.Range(0, labels.Length)), text + ": every answer, in the agent's order");
         }
+    }
+
+    [Test]
+    public void AtTheStandardSizeAQuestionAndTwoAnswersOfTwoRowsShareAPageForTheFileAlone()
+    {
+        var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1);
+        var labels = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
+        var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 3).ToList()) };
+        var (_, workspace, screen, _) = Asking(OnePrompt(labels), measured);
+        screen.ReadQuestion(screen.Question.Draft!, measured, budget, budget);
+        Assert.That(screen.Question.QuestionPart, Is.Null, "a question of one row heads its answers");
+        Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 0, 1 }), "the question and its answers are one group, 8 dp apart, so two answers fit");
+        Assert.That(Height(Screen(workspace, screen), budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f));
     }
 
     [Test]

@@ -24,7 +24,13 @@ namespace Halcyonic.Client
         /// <summary>Between two targets.</summary>
         public abstract float TargetGap { get; }
 
-        /// <summary>Between groups, as from a page's words to its targets, or before its reason.</summary>
+        /// <summary>
+        /// Within a group, from a line to the next where both are not targets, as from a question to its
+        /// first answer (8 dp): the view draws this, and the page counts it.
+        /// </summary>
+        public abstract float LineGap { get; }
+
+        /// <summary>Between groups, as before a page's reason.</summary>
         public abstract float GroupGap { get; }
 
         /// <summary>The reason a prompt waits, a line of words after a group's gap.</summary>
@@ -66,12 +72,15 @@ namespace Halcyonic.Client
 
         public override float TargetGap => 0f;
 
+        public override float LineGap => 0f;
+
         public override float GroupGap => 0f;
     }
 
     /// <summary>
     /// A page packed by height (<see cref="MenuPage"/>): a line of words a line's height, a target
-    /// 48 dp or taller, 12 mm between targets and a group's gap before the reason, against the most a
+    /// 48 dp or taller, 12 mm between targets, 8 dp between other lines of a group and a group's gap
+    /// before the reason, against the most a
     /// lone file's page holds inside a Quest 3S's field.
     /// </summary>
     public sealed class HeightBudget : PageBudget
@@ -89,6 +98,8 @@ namespace Halcyonic.Client
         public override float Target(int rows = 1) => MenuPage.Target(Math.Max(1, rows));
 
         public override float TargetGap => MenuPage.TargetGap;
+
+        public override float LineGap => MenuPage.Grid;
 
         public override float GroupGap => MenuPage.GroupGap;
     }

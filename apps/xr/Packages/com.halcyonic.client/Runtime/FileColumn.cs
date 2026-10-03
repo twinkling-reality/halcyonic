@@ -383,11 +383,14 @@ namespace Halcyonic.Client
             Changed?.Invoke();
         }
 
-        /// <summary>The page's room on this stage, read once when the file opens: the lower of alone and beside the menu, so it packs once.</summary>
+        /// <summary>
+        /// The page's room on this stage, read once when the file opens, so it packs once: the file's
+        /// alone (ADR 0026), the menu stepping aside where the two together would not fit.
+        /// </summary>
         private PageBudget Budget(WorkspacePresentation presentation)
         {
             var rows = host.TitleRows(presentation.Character.Title, Glaze.Menu.FileColumnDegrees);
-            return new HeightBudget(Math.Min(host.PageHeight(rows, besideMenu: false), host.PageHeight(rows, besideMenu: true)));
+            return new HeightBudget(host.PageHeight(rows, besideMenu: false));
         }
 
         private FileAnswer? Understand(UnderstandPrompt prompt, AnswerRoom room, DateTimeOffset clock) =>
@@ -439,7 +442,7 @@ namespace Halcyonic.Client
         public static int RequestPartRows(int askingRows, PageBudget page)
         {
             var asked = Math.Min(2, Math.Max(1, askingRows));
-            return page.WordsIn(page.Room - page.GroupGap - page.Target() - page.GroupGap - page.Words(asked));
+            return page.WordsIn(page.Room - page.LineGap - page.Target() - page.LineGap - page.Words(asked));
         }
     }
 }

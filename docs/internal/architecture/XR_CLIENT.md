@@ -1402,8 +1402,10 @@ answer's place) and a second decision waits for the first. The column measures w
 (`IMenuHost.RowsOf`) before it builds: every prompt and every answer at the file's and the side
 panel's widths, each typed answer and each line of Your answers as they read now, the request an
 approval answers, and the brief answers' lines. It packs the question and the request's parts by
-height against what a page holds on its stage (`IMenuHost.PageHeight`), read once when the file
-opens, the lower of alone and beside the menu, so a page never packs again while it shows. What
+height against what the file's page holds alone on its stage (`IMenuHost.PageHeight`), the menu
+stepping aside where the two would not fit (`MenuColumns`), read once when the file opens, so a page
+never packs again while it shows. It counts the gaps the view draws: 12 mm between two targets and
+8 dp between any other two lines, so a question and its answers are one group. What
 counts as read counts only when the director hands back the very frame the column last built
 (`IMenuColumn.Drawn`), the page or its side panel. Hold to talk's one voice tells the column whether
 it held Hold to talk under the question (an answer, drafted) or on Activity (an instruction, asked
