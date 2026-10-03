@@ -248,6 +248,34 @@ public class FileColumnTests
     }
 
     [Test]
+    public void FocusLeavingResetsWhatWasReadWithinAnArmingButNotAQuestionsReads()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        var column = Column(host, () => Approving(work));
+        column.Act(FileScreens.Approve, null);
+        Draw(host, column);
+        Assert.That(column.Steering.CanConfirm, Is.True);
+        column.FocusLeft();
+        column.Act(FileScreens.Approve, null);
+        Assert.That(column.Steering.CanConfirm, Is.False, "the request is read again from its first part");
+        Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.Not.EqualTo(FileScreens.Yes));
+
+        var asking = new AskingWork();
+        var answering = Column(host, () => FileScreensTests.Offering(asking.Present(), WorkspaceAction.Answer));
+        for (var step = 0; step < 5 && answering.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, answering);
+            answering.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, answering);
+        Assert.That(answering.Screen.Question.Draft!.WasShownWhole(0), Is.True);
+        answering.FocusLeft();
+        Assert.That((answering.Screen.Question.Draft!.WasShownWhole(0), answering.Screen.Question.QuestionPart), Is.EqualTo((true, (int?)null)),
+            "a question read outside an arming stays read, and stays on its answers");
+    }
+
+    [Test]
     public void WithoutASessionNothingIsSentAndThePageSaysWhy()
     {
         var host = new FileMenuHost { Live = false };
