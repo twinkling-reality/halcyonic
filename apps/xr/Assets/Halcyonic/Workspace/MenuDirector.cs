@@ -15,9 +15,11 @@ namespace Halcyonic.XR.Workspace
     /// The menu on the stage (ADR 0026): it holds the menu's bar, the place open, the closed bar and the
     /// column beside the menu (<see cref="MenuNavigator"/>), draws them on one <see cref="MenuPlane"/>,
     /// and routes every press, draw and held prompt to the column it came from, each only while the app
-    /// has focus. It never sends anything itself: a column's own rules send through
-    /// <see cref="Submit"/>. It is every column's <see cref="IMenuHost"/>, over the session, the
-    /// computer's API, the keyboard and Hold to talk's one voice its host gives it.
+    /// has focus. It never sends anything itself: a column's own rules send through the host it was made
+    /// with, a <see cref="SessionBoundHost"/> over this director, which sends only to the session shown
+    /// when the column was made. Another session or journal lets every column made for the last go. It
+    /// gives every column the session, the computer's API, the keyboard and Hold to talk's one voice
+    /// its host gives it.
     /// <see cref="WorkspaceDirector"/> hosts it and keeps the realtime session and what the journal says.
     /// </summary>
     public sealed class MenuDirector : MonoBehaviour, IMenuHost
@@ -75,12 +77,15 @@ namespace Halcyonic.XR.Workspace
             public Func<IMenuHost, string, IMenuColumn?> File { get; set; } = (_, _) => null;
 
             /// <summary>
-            /// New project as a column, opened for a new project (null, null) or to add a task to one: lane
-            /// C's flow, kept in <see cref="Memory"/> for the journal (MenuMemory.NewProjectFor, made by
-            /// NewProjectColumn.Create), which the host opens on the project before giving it. The director
-            /// ticks it while it isn't beside the menu, so a build confirmed in it goes on.
+            /// Makes New project's flow, lane C's, over the host given (NewProjectColumn.Create); null when
+            /// it can't be. The director keeps it in <see cref="Memory"/> for the session and journal, ticks
+            /// it while it isn't beside the menu so a build confirmed in it goes on, and lets it go for
+            /// another session or journal.
             /// </summary>
-            public Func<IMenuHost, string?, string?, IMenuColumn?> NewProject { get; set; } = (_, _, _) => null;
+            public Func<IMenuHost, IMenuColumn?> MakeNewProject { get; set; } = _ => null;
+
+            /// <summary>Opens the flow kept for a new project (null, null), or to add a task to one, before the director shows it.</summary>
+            public Action<IMenuColumn, string?, string?> OpenNewProject { get; set; } = (_, _, _) => { };
 
             /// <summary>The session's projection, the demonstration's while it plays; null before the first snapshot.</summary>
             public Func<ClientProjection?> State { get; set; } = () => null;
@@ -88,11 +93,15 @@ namespace Halcyonic.XR.Workspace
             /// <summary>The realtime session is live.</summary>
             public Func<bool> Connected { get; set; } = () => false;
 
+            /// <summary>The session shown now, the demonstration's while it plays; null with none. Each column is bound to the one shown when it is made.</summary>
+            public Func<RealtimeSession?> Session { get; set; } = () => null;
+
             /// <summary>
-            /// How a command is sent, by the host's own submissions, so what is in flight shows as sent and
-            /// a second decision waits for the first; null when nothing can be sent.
+            /// Sends a command to that very session, by the host's own submissions, so what is in flight
+            /// shows as sent and a second decision waits for the first; null when it can't be sent, as when
+            /// that session is no longer the one shown. Never sends to the session shown instead.
             /// </summary>
-            public Func<CommandEnvelope, Task<CommandAckMessage>?> Submit { get; set; } = _ => null;
+            public Func<RealtimeSession, CommandEnvelope, Task<CommandAckMessage>?> Submit { get; set; } = (_, _) => null;
 
             /// <summary>The system keyboard can open here.</summary>
             public Func<bool> KeyboardOffered { get; set; } = () => false;
@@ -156,15 +165,17 @@ namespace Halcyonic.XR.Workspace
             var director = go.AddComponent<MenuDirector>();
             director.setup = setup;
             director.plane = MenuPlane.Create(go.transform);
-            // Each place's column is made afresh each time the menu shows it after opening.
+            // The session shown first is no change; another one later is.
+            director.memory.Session(setup.Session());
+            // Each place's column is made afresh each time the menu shows it after opening, bound to the session shown then.
             director.navigator = new MenuNavigator(new Dictionary<MenuPlace, Func<IMenuColumn>>
             {
-                [MenuPlace.Tasks] = () => new TasksColumn(director),
+                [MenuPlace.Tasks] = () => new TasksColumn(director.Bound()),
                 // Over the memory kept for the app's run on this journal, so a Connect in flight is never sent twice.
-                [MenuPlace.Projects] = () => new ProjectsColumn(director, setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
+                [MenuPlace.Projects] = () => new ProjectsColumn(director.Bound(), setup.Commands ?? throw new InvalidOperationException("Projects sends through the host's command factory."),
                     director.memory.ProjectsFor(director.State?.Journal?.JournalId), setup.Overview, setup.ShowProject, setup.ReadLocations),
-                [MenuPlace.Usage] = () => new UsageColumn(director, setup.RecordedUsage),
-                [MenuPlace.Settings] = () => new SettingsColumn(director, setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList()),
+                [MenuPlace.Usage] = () => new UsageColumn(director.Bound(), setup.RecordedUsage),
+                [MenuPlace.Settings] = () => new SettingsColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList()),
             });
             director.navigator.Changed += () => director.dirty = true;
             director.plane.Acted += director.OnActed;
@@ -182,7 +193,7 @@ namespace Halcyonic.XR.Workspace
                 director.voice = voice;
             }
             FocusGuard.Left += director.OnFocusLeft;
-            // New project's flow let go for another journal comes off the plane.
+            // New project's flow let go for another session or journal comes off the plane.
             director.memory.NewProjectDropped += flow =>
             {
                 if (director.navigator.Beside == flow) director.navigator.CloseBeside();
@@ -202,6 +213,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Draws what shows now, its parts at their places at once, for the renders.</summary>
         public void DrawNow()
         {
+            Follow();
             Draw(immediately: true);
             plane.Advance(MenuPlane.SlideSeconds);
         }
@@ -210,9 +222,9 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
+            Follow();
             navigator.Tick();
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
-            memory.Journal(State?.Journal?.JournalId);
             if (memory.NewProject is IMenuColumn flow && navigator.Beside != flow) flow.Tick();
             var nowAway = Away;
             if (away && !nowAway) dirty = true;
@@ -220,6 +232,25 @@ namespace Halcyonic.XR.Workspace
             var bar = setup.Bar(navigator.Place);
             if (dirty || shownBar == null || !Same(bar, shownBar)) Draw(immediately: false);
         }
+
+        /// <summary>
+        /// The session and journal shown now: another session, as the computer's live session taking the
+        /// demonstration's place or a re-pairing, or another journal lets go of everything made for the
+        /// last, New project's flow with it (<see cref="MenuMemory"/>), takes the column beside the menu
+        /// off the plane and makes the menu's places afresh, so nothing made for one ticks or shows for
+        /// another; what was made can't send to another anyway (<see cref="SessionBoundHost"/>).
+        /// </summary>
+        private void Follow()
+        {
+            var another = memory.Session(setup.Session());
+            another |= memory.Journal(State?.Journal?.JournalId);
+            if (!another) return;
+            navigator.CloseBeside();
+            navigator.Renew();
+        }
+
+        /// <summary>A host for a column made now: this director's, sending only to the session shown now.</summary>
+        private IMenuHost Bound() => new SessionBoundHost(this, setup.Session, setup.Submit);
 
         /// <summary>Focus is away, input still suspended just after it returns, or the plane is folded away.</summary>
         private static bool Away => FocusGuard.InputSuspended || FocusGuard.Folded;
@@ -303,10 +334,11 @@ namespace Halcyonic.XR.Workspace
         public ControlPlaneApi? Api => Demonstration ? null : setup.Api();
 
         /// <summary>
-        /// Sends through the host's submissions, the demonstration's session while it plays, which
+        /// The director sends nothing itself: each column sends through the host it was made with
+        /// (<see cref="Bound"/>), to the session shown then, the demonstration's while it plays, which
         /// answers the recorded question and approves the recorded request as a live one would.
         /// </summary>
-        public Task<CommandAckMessage>? Submit(CommandEnvelope command) => setup.Submit(command);
+        public Task<CommandAckMessage>? Submit(CommandEnvelope command) => null;
 
         public bool KeyboardOffered => setup.KeyboardOffered();
 
@@ -340,7 +372,7 @@ namespace Halcyonic.XR.Workspace
             opening = (true, workstreamId);
             try
             {
-                if (setup.File(this, workstreamId) is IMenuColumn file) navigator.ShowBeside(file, workstreamId);
+                if (setup.File(Bound(), workstreamId) is IMenuColumn file) navigator.ShowBeside(file, workstreamId);
             }
             finally
             {
@@ -353,7 +385,11 @@ namespace Halcyonic.XR.Workspace
             opening = (true, null);
             try
             {
-                if (setup.NewProject(this, projectId, projectName) is IMenuColumn flow) navigator.ShowBeside(flow, null);
+                // The flow kept for this session and journal, or one made now, bound to the session shown.
+                Follow();
+                if (!(memory.NewProjectFor(State?.Journal?.JournalId, () => setup.MakeNewProject(Bound())) is IMenuColumn flow)) return;
+                setup.OpenNewProject(flow, projectId, projectName);
+                navigator.ShowBeside(flow, null);
             }
             finally
             {

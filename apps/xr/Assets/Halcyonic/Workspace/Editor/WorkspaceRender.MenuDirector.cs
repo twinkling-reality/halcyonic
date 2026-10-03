@@ -87,24 +87,40 @@ namespace Halcyonic.XR.Workspace.Editor
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
                 StubColumn? file = null;
+                StubColumn? flow = null;
+                IMenuHost? fileHost = null;
+                IMenuHost? flowHost = null;
                 float? made = null;
-                var sent = new List<CommandEnvelope>();
+                var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
+                var commands = new CommandFactory(client);
+                // Sessions never started: only which one is shown, and which one a send was for, matter here.
+                var demonstration = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
+                var shownSession = demonstration;
+                var sent = new List<(RealtimeSession Session, CommandEnvelope Command)>();
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
-                    Commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }),
+                    Commands = commands,
                     Overview = () => overview,
                     ReadLocations = _ => System.Threading.Tasks.Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     Comfort = comfort,
                     File = (host, task) =>
                     {
+                        fileHost = host;
                         // The file reads its page height while it is made: against its own character's top line.
                         made = host.PageHeight(1, besideMenu: false);
                         return file = new StubColumn(() => WaitingFile(opened.View.Presentation!.Title, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
                         host.PageHeight(host.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
                     },
-                    Submit = command =>
+                    MakeNewProject = host =>
                     {
-                        sent.Add(command);
+                        flowHost = host;
+                        return flow = new StubColumn(() => WaitingFile(opened.View.Presentation!.Title, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
+                            host.PageHeight(host.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
+                    },
+                    Session = () => shownSession,
+                    Submit = (session, command) =>
+                    {
+                        sent.Add((session, command));
                         return null;
                     },
                     Demonstration = () => true,
@@ -139,8 +155,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
 
                 // In the demonstration a column's send still goes through the host's submissions, to the demonstration's session.
-                director.Submit(new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }).SendInstruction("render-execution", "Carry on"));
-                if (sent.Count != 1) failures.Add(name + ": in the demonstration, a column's send did not reach the host's submissions.");
+                fileHost?.Submit(commands.SendInstruction("render-execution", "Carry on"));
+                if (sent.Count != 1 || sent[0].Session != demonstration) failures.Add(name + ": in the demonstration, a column's send did not reach the host's submissions for its session.");
                 else
                 {
                     if (file.Last == null || !file.DrawnFrames.Any(drawn => drawn.Frame == file.Last && !drawn.Side))
@@ -195,6 +211,25 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": closed with no file open, the menu shows no bar.");
                 failures.AddRange(PlaneState(name + " director closed", folder, camera, texture, director.Plane, characters, eyes, null));
+
+                // New project, a build begun in the demonstration; then the computer's live session takes its place.
+                director.OpenNewProject(null, null);
+                director.DrawNow();
+                var first = flow;
+                if (first == null || director.Navigator.Beside != first || director.Memory.NewProject != first) failures.Add(name + ": New project did not open beside the menu, kept for the session.");
+                flowHost?.Submit(commands.CreateProject("Shop"));
+                shownSession = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
+                director.DrawNow();
+                if (director.Memory.NewProject != null || director.Navigator.Beside != null) failures.Add(name + ": the demonstration's New project stayed, to tick, once the live session showed.");
+                var nextStep = flowHost?.Submit(commands.SendInstruction("render-execution", "Begin"));
+                var lateYes = fileHost?.Submit(commands.SendInstruction("render-execution", "Yes"));
+                if (nextStep != null || lateYes != null || sent.Count != 2 || sent.Any(each => each.Session != demonstration))
+                {
+                    failures.Add(name + ": a column made in the demonstration sent once the live session showed.");
+                }
+                director.OpenNewProject(null, null);
+                flowHost?.Submit(commands.CreateProject("Shop"));
+                if (flow == first || sent.Count != 3 || sent[2].Session != shownSession) failures.Add(name + ": opened again, New project was not made afresh for the live session.");
             }
             finally
             {

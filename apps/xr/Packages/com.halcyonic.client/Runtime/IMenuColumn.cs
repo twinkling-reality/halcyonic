@@ -41,8 +41,9 @@ namespace Halcyonic.Client
         ControlPlaneApi? Api { get; }
 
         /// <summary>
-        /// The session's submit, for a column's own rules to send through; null when there is no
-        /// session. The director never sends around a column's rules.
+        /// The submit of the session this column was made in (<see cref="SessionBoundHost"/>), for a
+        /// column's own rules to send through; null when there was none, or once another session shows
+        /// or that session moves to another journal. The director never sends around a column's rules.
         /// </summary>
         Task<CommandAckMessage>? Submit(CommandEnvelope command);
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,7 +7,7 @@ using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
 
-/// <summary>What the menu keeps for the app's run on one journal, as its director holds it (ADR 0026).</summary>
+/// <summary>What the menu keeps for the app's run on one session and journal, as its director holds it (ADR 0026).</summary>
 [TestFixture]
 public class MenuMemoryTests
 {
@@ -108,7 +109,8 @@ public class MenuMemoryTests
         Assert.That(memory.NewProjectFor("journal-1", Make), Is.SameAs(flow), "opened again, the same flow: its draft and its build");
         memory.Journal(null);
         Assert.That(memory.NewProjectFor(null, Make), Is.SameAs(flow), "a reconnect before its first snapshot keeps it");
-        Assert.That((made, memory.NewProject), Is.EqualTo((1, (IMenuColumn)flow)));
+        Assert.That((made, memory.NewProject), Is.EqualTo((1, flow)));
+        Assert.That(new MenuMemory().NewProjectFor("journal-1", () => null), Is.Null, "none can be made, as without the host's commands");
     }
 
     [Test]
@@ -124,7 +126,32 @@ public class MenuMemoryTests
         var live = memory.NewProjectFor("live-journal", () => new Flow());
         Assert.That(live, Is.Not.SameAs(demonstration));
         memory.Forget();
-        Assert.That(dropped, Is.EqualTo(new IMenuColumn[] { demonstration, live }), "a re-pairing lets it go too");
+        Assert.That(dropped, Is.EqualTo(new[] { demonstration, live }), "a re-pairing lets it go too");
+    }
+
+    private static RealtimeSession Session() =>
+        new(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "not-a-token", new ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" }));
+
+    [Test]
+    public void AnotherSessionLetsGoOfWhatWasKeptEvenOnAJournalOfTheSameIdAndAReconnectDoesNot()
+    {
+        var memory = new MenuMemory();
+        var demonstration = Session();
+        var live = Session();
+        var dropped = new List<IMenuColumn>();
+        memory.NewProjectDropped += dropped.Add;
+        Assert.That(memory.Session(demonstration), Is.False, "the first session shown changes nothing");
+        var flow = memory.NewProjectFor("journal", () => new Flow());
+        var projects = memory.ProjectsFor("journal");
+        Assert.That(memory.Session(demonstration), Is.False, "the same session, as across a reconnect");
+        Assert.That((memory.NewProject, memory.ProjectsFor("journal")), Is.EqualTo((flow, projects)));
+
+        Assert.That(memory.Session(live), Is.True, "the computer's live session takes the demonstration's place");
+        Assert.That(dropped, Is.EqualTo(new[] { flow }), "the demonstration's flow ticks and sends no more");
+        Assert.That(memory.NewProject, Is.Null);
+        Assert.That(memory.ProjectsFor("journal"), Is.Not.SameAs(projects), "even on a journal of the same id");
+        Assert.That(memory.Journal("journal"), Is.False);
+        Assert.That(memory.Journal("another"), Is.True, "another journal says it let go too");
     }
 
     [Test]
