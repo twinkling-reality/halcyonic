@@ -62,7 +62,7 @@ public class FileQuestionTests
         var workspace = FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt);
         var screen = new FileScreen { Speak = speak };
         var draft = new QuestionDraft("e1", work.Question);
-        screen.ReadQuestion(draft, measured ?? Short(work.Question), rows, 3);
+        screen.ReadQuestion(draft, measured ?? Short(work.Question), new RowBudget(rows), new RowBudget(3));
         return (work, workspace, screen, draft);
     }
 
@@ -188,6 +188,60 @@ public class FileQuestionTests
         Assert.That((typed.Words, typed.Chosen, typed.WordsAreData), Is.EqualTo(("Your answer: “CockroachDB”", true, true)));
     }
 
+    /// <summary>A page's height as its budget prices it: words, targets, the gaps between them, and its reason.</summary>
+    internal static float Height(MenuFrame frame, PageBudget budget)
+    {
+        var total = 0f;
+        PageLine? before = null;
+        foreach (var line in frame.Lines)
+        {
+            var target = line.Action != null;
+            if (before != null)
+            {
+                var both = target && before.Action != null;
+                var turn = target != (before.Action != null);
+                total += both ? budget.TargetGap : turn ? budget.GroupGap : 0f;
+            }
+            total += target ? budget.Target(line.Rows) : budget.Words(line.Rows);
+            before = line;
+        }
+        return total + (frame.Reason != null ? budget.Reason : 0f);
+    }
+
+    [Test]
+    public void OnAHeadsetPageFourAnswersOfTwoRowsPackByHeightWithinTheField()
+    {
+        // At the larger text size a page of one two-row answer, Type my answer, More answers and the
+        // reason stands taller than the page until the view pairs Type my answer with the paging row
+        // (lane V's rule 4), so only the standard size is held here for now.
+        foreach (var text in new[] { TextSize.Standard })
+        {
+            var budget = HeightBudget.Of(text, subjectRows: 1);
+            var labels = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
+            var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 3).ToList()) };
+            var (_, workspace, screen, _) = Asking(OnePrompt(labels), measured);
+            screen.ReadQuestion(screen.Question.Draft!, measured, budget, budget);
+            // Where the question can't share a page with an answer, it shows first on its own.
+            while (screen.Question.QuestionPart != null)
+            {
+                var part = Screen(workspace, screen);
+                Assert.That(Height(part, budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f), text + ": the question's own page");
+                screen.Question.NextPart(Later(screen));
+            }
+            var seen = new List<int>();
+            var pages = screen.Question.Pages;
+            for (var page = 0; page < pages; page++)
+            {
+                var frame = Screen(workspace, screen);
+                seen.AddRange(screen.Question.Answers);
+                Assert.That(Height(frame, budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f), text + ", page " + page);
+                Assert.That(screen.Question.Answers, Is.Not.Empty, "every page holds an answer");
+                screen.Question.MoreAnswers(Later(screen));
+            }
+            Assert.That(seen, Is.EqualTo(Enumerable.Range(0, labels.Length)), text + ": every answer, in the agent's order");
+        }
+    }
+
     [Test]
     public void AChoiceIsTakenOnlyFromThePageInViewAndALayoutAnewLandsOnItOrClearsIt()
     {
@@ -206,7 +260,7 @@ public class FileQuestionTests
         Assert.That(draft.IsChosen(0, "Redis"), Is.True);
 
         // The text grows a size: two rows fewer a page.
-        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, 4, 3);
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(4), new RowBudget(3));
         Assert.That(screen.Question.Answers, Does.Contain(4), "laid out anew, the page shows what was chosen");
         Assert.That(FileScreens.WhySendWaits(screen), Is.Null.Or.Not.EqualTo(FileScreens.ReadTheAnswer));
         var frame = Screen(workspace, screen);
@@ -219,9 +273,9 @@ public class FileQuestionTests
         var work = new AskingWork();
         var screen = new FileScreen();
         var draft = new QuestionDraft("e1", work.Question);
-        Assert.Throws<ArgumentException>(() => screen.ReadQuestion(draft, Array.Empty<PromptMeasure>(), 8, 3), "no measures: no prompt counts as read");
-        Assert.Throws<ArgumentException>(() => screen.ReadQuestion(draft, new[] { new PromptMeasure(1, new[] { 1, 1 }, new[] { 1, 1 }) }, 8, 3), "one prompt of two");
-        Assert.Throws<ArgumentException>(() => screen.ReadQuestion(draft, new[] { new PromptMeasure(1, new[] { 1 }, new[] { 1 }), new PromptMeasure(1, new[] { 1, 1, 1 }, new[] { 1, 1, 1 }) }, 8, 3),
+        Assert.Throws<ArgumentException>(() => screen.ReadQuestion(draft, Array.Empty<PromptMeasure>(), new RowBudget(8), new RowBudget(3)), "no measures: no prompt counts as read");
+        Assert.Throws<ArgumentException>(() => screen.ReadQuestion(draft, new[] { new PromptMeasure(1, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(8), new RowBudget(3)), "one prompt of two");
+        Assert.Throws<ArgumentException>(() => screen.ReadQuestion(draft, new[] { new PromptMeasure(1, new[] { 1 }, new[] { 1 }), new PromptMeasure(1, new[] { 1, 1, 1 }, new[] { 1, 1, 1 }) }, new RowBudget(8), new RowBudget(3)),
             "an answer unmeasured");
         Assert.That(draft.WasShownWhole(0), Is.False);
     }
@@ -266,13 +320,13 @@ public class FileQuestionTests
         var question = OnePrompt("Postgres", "SQLite");
         var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, new[] { 1, 1 }, new[] { 1, 1 }) }, rows: 6);
         Assert.That(screen.Question.QuestionPart, Is.Null, "short, it heads its answers");
-        screen.ReadQuestion(draft, new[] { new PromptMeasure(9, new[] { 1, 1 }, new[] { 1, 1 }) }, 6, 3);
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(9, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
         Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "laid out long before it was read, its first part shows");
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines[1].Words, Is.EqualTo("Next part, 2 of 3"), "with the way on through it");
         for (var part = 0; part < 3; part++) screen.Question.NextPart(Later(screen));
         Assert.That(draft.WasShownWhole(0), Is.True);
-        screen.ReadQuestion(draft, new[] { new PromptMeasure(12, new[] { 1, 1 }, new[] { 1, 1 }) }, 6, 3);
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(12, new[] { 1, 1 }, new[] { 1, 1 }) }, new RowBudget(6), new RowBudget(3));
         Assert.That(screen.Question.QuestionPart, Is.Null, "read whole, laid out anew, it stays read");
     }
 
@@ -424,7 +478,7 @@ public class FileQuestionTests
         Assert.That(work.Present().Actions, Has.None.EqualTo(WorkspaceAction.Answer), "nothing offers to send it");
         var screen = new FileScreen { Speak = true };
         var draft = new QuestionDraft("e1", work.Question);
-        screen.ReadQuestion(draft, Short(work.Question), 8, 3);
+        screen.ReadQuestion(draft, Short(work.Question), new RowBudget(8), new RowBudget(3));
         var frame = Screen(work.Present(), screen);
         Assert.That(FileScreensTests.Slots(frame.Footer).Skip(3), Is.EqualTo(new string?[] { null, null }), "no Hold to talk and no Send answer");
         Assert.That(frame.Lines.Any(line => line.Choice), Is.False, "no answers to choose or type");
@@ -444,7 +498,7 @@ public class FileQuestionTests
         var workspace = WorkspacePresenter.Present(work.Workstream, work.State, new ActivityLog(), true, submissions);
         Assert.That(workspace.AnswerInFlight, Is.True);
         var screen = new FileScreen();
-        screen.ReadQuestion(draft, Short(work.Question), 8, 3);
+        screen.ReadQuestion(draft, Short(work.Question), new RowBudget(8), new RowBudget(3));
         var frame = Screen(workspace, screen);
         var sent = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((sent.Words, sent.Available, sent.DrawnAsMain), Is.EqualTo((WorkspaceText.Sent, false, false)));
@@ -469,7 +523,7 @@ public class FileQuestionTests
         var steering = new WorkspaceSteering(factory);
         var screen = new FileScreen();
         var draft = Answered(work);
-        screen.ReadQuestion(draft, Short(work.Question), 8, 3);
+        screen.ReadQuestion(draft, Short(work.Question), new RowBudget(8), new RowBudget(3));
         screen.Question.NextQuestion(Later(screen));
         screen.Question.NextQuestion(Later(screen));
         Assert.That(steering.SendAnswer(draft, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
@@ -488,7 +542,7 @@ public class FileQuestionTests
         var steering = new WorkspaceSteering(factory);
         var screen = new FileScreen();
         var draft = Answered(work);
-        screen.ReadQuestion(draft, Short(work.Question), 8, 3);
+        screen.ReadQuestion(draft, Short(work.Question), new RowBudget(8), new RowBudget(3));
         Assert.That(steering.SendAnswer(draft, FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer)).Step, Is.EqualTo(SteeringStep.Confirm));
 
         var other = AskingWork.Scripted();
