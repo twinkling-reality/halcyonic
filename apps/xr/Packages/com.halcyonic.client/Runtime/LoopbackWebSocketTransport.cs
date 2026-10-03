@@ -39,9 +39,9 @@ namespace Halcyonic.Client
 
         public async Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
         {
-            if (endpoint.Scheme != "ws") throw new ArgumentException("A loopback connection is ws://.", nameof(endpoint));
+            var address = endpoint.Scheme == "ws" ? LoopbackProof.AddressOf(endpoint) : null;
+            if (address == null) throw new TokenNotSentException(LoopbackProofOutcome.NotLoopback, endpoint);
             var baseUri = ControlPlaneApi.BaseUriFor(endpoint);
-            var address = LoopbackProof.AddressOf(baseUri) ?? throw new TokenNotSentException(LoopbackProofOutcome.NotLoopback, baseUri);
             var proved = await LoopbackProof.ProveAsync(baseUri, address, accessToken, cancellationToken).ConfigureAwait(false);
             if (proved.Outcome != LoopbackProofOutcome.Proved || proved.Connection == null) throw new TokenNotSentException(proved.Outcome, baseUri);
             var open = proved.Connection;

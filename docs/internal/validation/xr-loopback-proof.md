@@ -5,7 +5,8 @@
   `pnpm devices` and `pnpm mac-setup --with-token` do, so a listener that took the port gets no
   token?
 - **Date:** 2026-10-02.
-- **Versions:** Halcyonic branch lane-g-xr-proof on main 02a8d3c; .NET 10 for the client core's tests; Node.js 24
+- **Versions:** Halcyonic branch lane-g-xr-proof on main 02a8d3c, then lane-g-xr-upgrade on main
+  483302c; .NET 10 for the client core's tests; Node.js 24
   for the real control plane in them; Unity 6000.3.25f1 for Android (IL2CPP), whose
   `unityaot-linux` class libraries were read with its `monodis`.
 - **Method:** Code and tests against servers on loopback that answer as each test needs, and
@@ -54,9 +55,12 @@
   redirect).
 - `Http1`, shared with the pinned transports, refuses a response framed more than one way (two
   lengths, or a length with chunks), a transfer coding other than chunked, a folded header, a bare
-  line break in the head, a chunk size longer than 8 hex digits or longer data than its size, and
-  reads a trailer to its blank line, so a request that follows on the connection reads its own
-  answer. Only 127.0.0.1 and ::1 themselves are loopback addresses here, not the rest of
+  line break in the head or a chunk line, a chunk size longer than 8 hex digits, or chunk data not
+  followed straight away by CRLF, and reads a trailer to its blank line, so a request that follows
+  on the connection reads its own answer. A 101 must carry `Upgrade: websocket`,
+  `Connection: Upgrade` (as a token in the list) and the right `Sec-WebSocket-Accept`. An access-token
+  endpoint that is not `ws://` (or, for REST, `http://`) at 127.0.0.1 or [::1] ends the session with
+  the line WORDS.md gives, and REST reports it as a failed request; nothing is dialled. Only 127.0.0.1 and ::1 themselves are loopback addresses here, not the rest of
   127.0.0.0/8. Mutations that undo each of these fail the tests.
 - Another program on the port answering everything receives only `GET /api/health` with a
   challenge from the REST client, the transport and a session, never the token or an
@@ -88,8 +92,12 @@ On a Quest; the check is in XR_DEVELOPMENT.md, "Token storage on a Quest":
   `CryptographicOperations.FixedTimeEquals` work under IL2CPP on the headset (the APK compiles
   them; REST has not run on a headset before either, through `HttpClient`, while the realtime path
   this replaces, over `ClientWebSocket`, had);
-- how Mono's `NetworkStream` ends a read when the connection is closed to cancel it; the handler
-  reports a cancellation whatever the exception, but this is inferred for Mono, not seen.
+- how Mono's `NetworkStream` ends a read when the connection is closed to cancel it, which both
+  the REST handler and the realtime upgrade rely on to end a read that is never answered (on .NET
+  the read honours the token itself, so the tests can't show it); this is inferred for Mono, not
+  seen, and the Quest check pauses the control plane to see it.
+- Run "Token storage on a Quest" before a headset session depends on a build with this change: the
+  realtime path over USB now runs code that has not run on a headset, in place of one that had.
 
 ## Risks that remain
 

@@ -27,7 +27,7 @@ namespace Halcyonic.Client
         /// <summary>Nothing answered in time.</summary>
         Unreachable,
 
-        /// <summary>The address is not a literal loopback one, so nothing was asked.</summary>
+        /// <summary>The endpoint is not ws:// or http:// at 127.0.0.1 or [::1], so nothing was asked.</summary>
         NotLoopback,
     }
 
@@ -73,20 +73,6 @@ namespace Halcyonic.Client
         {
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(token));
             return Hex(hmac.ComputeHash(Encoding.UTF8.GetBytes(Label + address + "\n" + challenge)));
-        }
-
-        /// <summary>
-        /// Whether the control plane at <paramref name="uri"/>'s address and port proves it holds
-        /// <paramref name="token"/>, asked on a connection of its own that is closed afterwards, as
-        /// before a WebSocket upgrade, which opens its own. The token is not sent.
-        /// </summary>
-        public static async Task<LoopbackProofOutcome> AskAsync(Uri uri, string token, CancellationToken cancellationToken)
-        {
-            var address = AddressOf(uri);
-            if (address == null) return LoopbackProofOutcome.NotLoopback;
-            var proved = await ProveAsync(uri, address, token, cancellationToken).ConfigureAwait(false);
-            proved.Connection?.Dispose();
-            return proved.Outcome;
         }
 
         /// <summary>
@@ -138,6 +124,8 @@ namespace Halcyonic.Client
                     // Proved, but closing: the request can't follow on this connection, and no other carries it.
                     if (!keptOpen) return Closed(LoopbackProofOutcome.Unreachable, client);
                 }
+                // The time ran out just as the proof arrived, and closed the connection it came on.
+                if (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested) return Closed(LoopbackProofOutcome.Unreachable, client);
                 return (LoopbackProofOutcome.Proved, client);
             }
             catch (InvalidDataException) when (!cancellationToken.IsCancellationRequested)
@@ -195,8 +183,8 @@ namespace Halcyonic.Client
         public LoopbackProofOutcome Outcome { get; }
 
         /// <summary>
-        /// Why, as the detail a person may read after "Can't reach your computer", so in their words:
-        /// the access token is the access code (WORDS.md).
+        /// Why, as the detail a person may read after "Can't reach your computer", or the line a session
+        /// ends with, so in their words: the access token is the access code (WORDS.md).
         /// </summary>
         private static string Describe(LoopbackProofOutcome outcome, Uri uri)
         {
@@ -206,7 +194,8 @@ namespace Halcyonic.Client
                 case LoopbackProofOutcome.Unproved:
                     return "Something answers at " + at + " but can't prove it holds the access code, so the code was not sent. It may be another program listening while Halcyonic is stopped.";
                 case LoopbackProofOutcome.NotLoopback:
-                    return "The access code goes only to 127.0.0.1 or [::1], so it was not sent to " + at + ". Name one of those instead.";
+                    return "The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to "
+                        + uri.Scheme + "://" + uri.Authority + ". Name one of those instead.";
                 default:
                     return "Nothing answered at " + at + ", so the access code was not sent.";
             }
@@ -236,8 +225,8 @@ namespace Halcyonic.Client
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var uri = request.RequestUri ?? throw new ArgumentException("The request has no URI.", nameof(request));
-            if (uri.Scheme != "http") throw new ArgumentException("A loopback request is http://.", nameof(request));
-            var address = LoopbackProof.AddressOf(uri) ?? throw new TokenNotSentException(LoopbackProofOutcome.NotLoopback, uri);
+            var address = (uri.Scheme == "http" ? LoopbackProof.AddressOf(uri) : null)
+                ?? throw new TokenNotSentException(LoopbackProofOutcome.NotLoopback, uri);
             var body = request.Content == null ? null : await request.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
             // Whatever the caller set as authorization is left out; the token goes only after the proof.
             var headers = Http1.RequestHeaders(request, uri, body, "Authorization");

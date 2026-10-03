@@ -158,7 +158,8 @@ dial a literal address, 127.0.0.1 or [::1] (`localhost` is tried as each), and c
 against the address and port they dialled, so a listener on another port or address that relays the
 challenge to the real control plane gets a proof for the control plane's address, not its own, and
 no token. The headset over USB (`adb reverse`) and the editor ask for the same proof, dial only
-127.0.0.1 or [::1] (never `localhost`, which ends the session), through no proxy, and follow no
+`ws://` or `http://` at 127.0.0.1 or [::1] (never `localhost` or another scheme, which ends the
+session), through no proxy, and follow no
 redirect (`LoopbackProof` and `LoopbackProofHandler` in the client core). Each REST request opens
 a connection of its own, never from a pool, asks the proof on it and sends the token on that same
 connection, so only what just proved itself receives it, and a connection another program kept

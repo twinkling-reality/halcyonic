@@ -575,8 +575,8 @@ Before the headset sends its token, it asks the control plane to prove it holds 
 for the address and port the headset dialled, as `pnpm devices` does
 ([SECURITY.md](../architecture/SECURITY.md)). The proof names the address the control plane was
 reached at on the Mac, so keep the same port on both sides of `adb reverse` and the control plane
-on 127.0.0.1 (the default); a headset endpoint must be a literal address, `127.0.0.1` or `[::1]`,
-never `localhost`. If the line above the stage says "This headset's access code doesn't match your
+on 127.0.0.1 (the default); a headset endpoint must be `ws://` at a literal address, `127.0.0.1` or
+`[::1]`, never `localhost`. If the line above the stage says "This headset's access code doesn't match your
 computer's, or something else is answering in its place", the token on the headset is from an
 earlier data directory or was replaced on the Mac, or another program holds port 47800 while the
 control plane is stopped: the headset sent nothing and stopped trying. Start the control plane if
@@ -713,7 +713,10 @@ What only a headset can tell about the access token ([headset-token-storage.md](
   Start the app: it says the access code doesn't match or something else is answering, and stops,
   and the listener prints only `GET /api/health` with an `x-halcyonic-challenge`, never an
   `Authorization` header. A listener that never answers instead reads "Can't reach your computer"
-  and is tried again.
+  and is tried again. Last, pause the control plane (`kill -STOP <pid>`) and start the app: it
+  says it can't reach your computer within a few seconds and keeps trying, which shows that
+  closing a connection ends a read that is never answered under Mono; then `kill -CONT <pid>`, and
+  it connects.
 
 ### Captures and an unattended headset
 

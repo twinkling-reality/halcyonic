@@ -138,11 +138,23 @@ namespace Halcyonic.Client
                 expected = Convert.ToBase64String(sha1.ComputeHash(Encoding.ASCII.GetBytes(key + AcceptGuid)));
             }
             if (!string.Equals(head.Header("Upgrade"), "websocket", StringComparison.OrdinalIgnoreCase)
+                || !Lists(head.Header("Connection"), "upgrade")
                 || head.Header("Sec-WebSocket-Accept") != expected)
             {
                 throw new InvalidDataException("The control plane answered the WebSocket upgrade incorrectly.");
             }
             return WebSocket.CreateFromStream(stream, false, null, WebSocket.DefaultKeepAliveInterval);
+        }
+
+        /// <summary>Whether a comma-separated header value names <paramref name="token"/>, in any case (RFC 6455 4.1).</summary>
+        private static bool Lists(string? value, string token)
+        {
+            if (value == null) return false;
+            foreach (var part in value.Split(','))
+            {
+                if (string.Equals(part.Trim(), token, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
         }
 
         /// <summary>The host to connect to: a name, or an address without the brackets a URI puts around IPv6.</summary>

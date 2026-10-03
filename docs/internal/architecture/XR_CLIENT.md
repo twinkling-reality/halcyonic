@@ -86,7 +86,8 @@ the same definition names, as the JSON Schema document:
   (`LoopbackProof`, `LoopbackProofHandler`; SECURITY.md); what can't prove it gets no token, and
   no redirect is followed. `LoopbackProofHandler` speaks HTTP/1.1 itself (`Http1`, as the pinned
   handler does): each request opens a connection, proves the control plane on it and sends the
-  request on it, closing it after. An endpoint by name, such as `localhost`, ends the session.
+  request on it, closing it after. An endpoint that is not `ws://` or `http://` at 127.0.0.1 or
+  [::1], such as `localhost` or `wss://`, ends the session; a 101 must carry `Connection: Upgrade`.
   What answers without the proof stops the session with `AccessRefused`
   and "This headset's access code doesn't match your computer's, or something else is answering
   in its place, so the headset didn't send it. Put your computer's current access code on the
