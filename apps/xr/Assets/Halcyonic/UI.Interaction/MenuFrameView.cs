@@ -154,8 +154,9 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// How many rows <paramref name="shown"/> takes on a page in a column
         /// <paramref name="columnDegrees"/> wide, as the view lays it: each line its rows, at most its
-        /// <see cref="PageLine.Rows"/>, a part exactly its rows, and two answers next to each other that
-        /// each fit half the row in one row sharing it.
+        /// <see cref="PageLine.Rows"/>, a part exactly its rows, and two answers next to each other, or a
+        /// line beside the next (<see cref="PageLine.BesideNext"/>), that each fit half the row in one
+        /// row sharing it.
         /// </summary>
         public static int RowsOf(IReadOnlyList<PageLine> shown, float columnDegrees)
         {
@@ -373,10 +374,15 @@ namespace Halcyonic.XR.UI
         /// <summary>A line's words as shown: the agent's own, a claim, in quotation marks as well as leaning, never read as Halcyonic's.</summary>
         private static string Quoted(PageLine line) => line.Claim ? "\u201C" + line.Words + "\u201D" : line.Words;
 
-        /// <summary>Two answers next to each other share a row where each fits half of it in one row.</summary>
+        /// <summary>
+        /// Two answers next to each other share a row where each fits half of it in one row, and so does a
+        /// line that asks to (<see cref="PageLine.BesideNext"/>) with the next, as "Type my answer" beside
+        /// a question's paging row.
+        /// </summary>
         private static bool Pairs(PageLine first, PageLine second, float content)
         {
-            if (!first.Choice || !second.Choice || first.FromRow != null || second.FromRow != null) return false;
+            if (!(first.Choice && second.Choice) && !first.BesideNext) return false;
+            if (first.FromRow != null || second.FromRow != null) return false;
             var half = HalfWidth(content);
             return Count(Quoted(first), WordsRoom(first, half)) == 1 && Count(Quoted(second), WordsRoom(second, half)) == 1;
         }
@@ -554,7 +560,8 @@ namespace Halcyonic.XR.UI
             var rows = Wrap(line.Words, model, WordsRoom(model, right - left));
             var height = role == null ? rows * lineHeight : Mathf.Max(GlazeButton.HeightOf(true), rows * lineHeight + 2f * grid);
             var middle = top - height / 2f;
-            if (line.Button != null)
+            // A line reused from one that took a press keeps its target hidden unless this one takes a press too.
+            if (role != null && line.Button != null)
             {
                 line.Button.On = model.Chosen;
                 line.Button.Available = model.Available;

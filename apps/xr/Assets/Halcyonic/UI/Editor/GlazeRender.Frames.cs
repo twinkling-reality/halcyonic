@@ -183,7 +183,8 @@ namespace Halcyonic.XR.UI.Editor
                     new PageLine("How long should a sign-in lockout last?", wordsAreData: true, chip: "Agent says", claim: true, rows: 2),
                     new PageLine("15 minutes", wordsAreData: true, action: "answer", key: "0", choice: true, chosen: true),
                     new PageLine("1 hour", wordsAreData: true, action: "answer", key: "1", choice: true),
-                    new PageLine("Type my answer", icon: GlazeIcon.Type, action: "answer", key: "own", choice: true),
+                    new PageLine("Type my answer", icon: GlazeIcon.Type, action: "answer", key: "own", choice: true, besideNext: true),
+                    new PageLine("More answers, 2 of 2", action: "more-answers", key: "1"),
                 });
             var subject = Subject(true, (menu.Subject, Glaze.Menu.MenuColumnDegrees), (file.Subject, Glaze.Menu.FileColumnDegrees));
             var menuView = View(holder, "Menu");
