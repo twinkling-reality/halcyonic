@@ -48,7 +48,6 @@ namespace Halcyonic.XR.Workspace
         private SpriteRenderer reticle = null!;
         private OnboardingHint hint = null!;
         private readonly PeekChoice peekChoice = new PeekChoice();
-        private readonly List<BodyInView> bodies = new List<BodyInView>();
         private GazeHover? gaze;
         private CharacterTarget? pointed;
         private string? loggedPointed;
@@ -252,14 +251,13 @@ namespace Halcyonic.XR.Workspace
         {
             if (opened != null && opened.Character == null) Close(immediately: true);
             // Folded while another window keeps focus; back exactly as it was when focus returns.
-            var shown = opened?.Transition;
-            if (shown != null && shown.gameObject.activeSelf == FocusGuard.Folded) shown.gameObject.SetActive(!FocusGuard.Folded);
-            if (opened != null && opened.Transition != null
-                && Vector3.Distance(opened.Transition.PlacedBeside, opened.Character!.BodyPosition) > MovedFar * opened.Character.Scale)
+            var shown = opened?.Root;
+            if (shown != null && shown.activeSelf == FocusGuard.Folded) shown.SetActive(!FocusGuard.Folded);
+            if (opened != null && Vector3.Distance(opened.PlacedAt, opened.Character!.BodyPosition) > MovedFar * opened.Character.Scale)
             {
-                // The stage moved the character, for example after a recenter: the workspace follows.
-                var (place, scale) = PlaceBeside(opened.Character);
-                opened.Transition.MoveTo(place, scale);
+                // The stage moved the character, for example after a recenter: the file turns to it again.
+                Aim(opened);
+                RefreshPanel();
             }
             PollKeyboard();
             OpenPending();
@@ -421,13 +419,12 @@ namespace Halcyonic.XR.Workspace
 
             var root = new GameObject("Workspace " + target.WorkstreamId);
             root.transform.SetParent(transform, false);
-            // The banner names the workspace while it is folded: its task's title, as the stage shows it.
+            // The banner names the file while it is folded: its task's title, as the stage shows it.
             AmbientCover.Add(root, panel: true, () => opened != null && opened.WorkstreamId == target.WorkstreamId ? opened.Now?.Character.Title : null);
-            var panel = WorkspacePanel.Create(root.transform);
-            var (place, scale) = PlaceBeside(target);
-            var transition = WorkspaceTransition.Begin(root, target, place, scale);
-            var workspace = new Opened(target, panel, transition, new WorkspaceSteering(commands));
+            var plane = FilePlane.Create(root.transform);
+            var workspace = new Opened(target, root, plane, new WorkspaceSteering(commands));
             opened = workspace;
+            Aim(workspace);
             // Work the person just opened keeps its character a while after closing (CharacterLineup.KeepFor).
             stage.Keep(target.WorkstreamId);
             Acted?.Invoke(target.WorkstreamId, WorkspaceAct.Open);
@@ -435,11 +432,16 @@ namespace Halcyonic.XR.Workspace
             screen.Speak = HoldToTalk.Offered && connection.DemonstrationReads == null;
             screen.Zone = Clock.Zone;
             workspace.Sections = WorkspaceSections.Attach(root, () => workspace.Now, IntelligenceReader);
-            Choose(workspace, WorkspaceText.FirstQuestion(presentation));
-            panel.Accepting = () => opened == workspace && transition.Open && !FocusGuard.InputSuspended;
-            panel.Frame.Acted += (id, key) => OnActed(workspace, id, key);
-            panel.Frame.HoldStarted += id => OnHoldStarted(workspace, id);
-            panel.Frame.HoldEnded += (id, released) => OnHoldEnded(id, released);
+            // A file opens on what waits for the person, else on what it is doing (ADR 0026).
+            ShowSection(workspace, FileScreens.Opening(presentation));
+            foreach (var view in new[] { plane.File, plane.Side })
+            {
+                view.Acted += (id, key) => OnActed(workspace, id, key);
+                view.HoldStarted += prompt => OnHoldStarted(workspace, prompt.Id);
+                view.HoldEnded += (prompt, released) => OnHoldEnded(prompt.Id, released);
+            }
+            plane.File.Drawn += view => OnDrawn(workspace, view);
+            plane.Side.Drawn += view => OnSideDrawn(workspace, view);
             FacePerson(target, true);
             ReadHistory(workspace);
             RefreshPanel();
@@ -448,82 +450,134 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// What a press in the workspace does, by the action's id: Close, a tab, Refresh, the pager,
-        /// the agent's question, the instructions offered, the confirm step, then the work's actions.
-        /// Only Send answer sends an answer, with the answers chosen; no other gesture does.
+        /// What a press in the file does, by the action's id: Close, a section, a line that opens its
+        /// side panel or its own Close, Refresh, the pagers and part rows, the agent's question, the
+        /// instructions offered, the confirmation, then the work's actions. Presses count only while
+        /// the app has focus. Only Send answer sends an answer, and only as the page allows
+        /// (<see cref="WorkspaceSteering.SendAnswer(FileScreen, WorkspacePresentation)"/>); choosing a
+        /// row never sends anything.
         /// </summary>
         private void OnActed(Opened workspace, string id, string? key)
         {
-            if (opened != workspace) return;
+            if (opened != workspace || FocusGuard.InputSuspended) return;
             var screen = workspace.Screen;
+            var question = screen.Question;
+            var now = DateTimeOffset.UtcNow;
             switch (id)
             {
-                case PanelModel.Close:
+                case Footer.Close:
                     Acted?.Invoke(workspace.WorkstreamId, WorkspaceAct.Collapse);
                     Close(immediately: false);
                     return;
-                case PanelModel.Tab when WorkspaceScreens.QuestionOf(key) is WorkspaceQuestion question:
-                    Choose(workspace, question);
-                    RefreshPanel();
-                    return;
-                case WorkspaceScreens.Refresh:
+                case MenuFrame.ChooseSection when FileScreens.SectionOf(key) is FileSection section:
+                    ShowSection(workspace, section);
+                    break;
+                case FileScreens.Open:
+                    screen.Chosen = screen.Chosen == key ? null : key;
+                    break;
+                case SidePanel.Close:
+                    screen.Chosen = null;
+                    break;
+                case FileScreens.Refresh:
                     workspace.Sections.Refresh();
+                    break;
+                case Footer.NextPage:
+                    // A chosen answer's side panel in parts, else the section's page or its side panel.
+                    if (screen.Section == FileSection.Waiting && question.SideOption != null) question.NextSidePart(now);
+                    else screen.NextPage();
+                    break;
+                case FileScreens.NextPart when key == FileScreens.RequestKey:
+                    screen.NextRequestPart(workspace.Steering, now);
+                    break;
+                case FileScreens.NextPart when key == FileScreens.QuestionKey:
+                    question.NextPart(now);
+                    break;
+                case FileScreens.MoreAnswers:
+                    question.MoreAnswers(now);
+                    break;
+                case FileScreens.NextQuestion:
+                    question.NextQuestion(now);
+                    break;
+                case FileScreens.GoToQuestion when Index(key) is int prompt:
+                    question.GoTo(prompt);
+                    break;
+                case FileScreens.Choose when Index(key) is int option:
+                    // Only an answer on the page in view is taken; nothing is sent.
+                    question.Choose(option);
+                    break;
+                case FileScreens.TypeAnswer:
+                    OpenAnswerKeyboard(workspace, question.Prompt);
                     return;
-                case PanelModel.Prompt when WorkspaceScreens.PromptOf(key) is UnderstandPrompt asked:
-                    screen.Prompt = asked;
-                    workspace.Sections.Ask(asked);
-                    RefreshPanel();
-                    return;
-                case WorkspaceScreens.ShowDetails:
-                case WorkspaceScreens.ShowLog:
-                    screen.Details = id == WorkspaceScreens.ShowDetails;
-                    RefreshPanel();
-                    return;
-                case PanelModel.PreviousPart:
-                case PanelModel.NextPart:
-                    Turn(workspace, id == PanelModel.NextPart ? 1 : -1);
-                    RefreshPanel();
-                    return;
-                case WorkspaceScreens.Choose when workspace.Draft != null && Index(key) is int index:
-                    var prompt = screen.Place.Prompt;
-                    var options = workspace.Draft.Prompts[prompt].Options;
-                    if (index < options.Count) workspace.Draft.Choose(prompt, options[index].Label);
-                    RefreshPanel();
-                    return;
-                case WorkspaceScreens.TypeAnswer:
-                    OpenAnswerKeyboard(workspace, screen.Place.Prompt);
-                    return;
-                case WorkspaceScreens.HoldToTalk:
-                case WorkspaceScreens.SpeakAnswer:
+                case FileScreens.HoldToTalk:
+                case FileScreens.SpeakAnswer:
                     // Pressed and let go before its hold started.
                     Notify(workspace, VoiceText.TooShort);
-                    RefreshPanel();
-                    return;
-                case WorkspaceScreens.Preset when Index(key) is int chosen && Presets(workspace) is IReadOnlyList<PresetInstruction> presets && chosen < presets.Count:
-                    var preset = presets[chosen];
-                    workspace.Presets = false;
-                    Choose(workspace, WorkspaceQuestion.Doing);
-                    Steer(workspace, s => s.Typed(preset.Text, workspace.Now!));
-                    return;
-                case WorkspaceScreens.Yes:
-                    Choose(workspace, WorkspaceQuestion.Doing);
+                    break;
+                case FileScreens.Preset when Index(key) is int chosen:
+                    // A row only chooses; Tell it sends the chosen words as shown.
+                    screen.ChoosePreset(chosen);
+                    break;
+                case FileScreens.TellIt when screen.Presets != null:
+                    if (screen.PresetToSend is string words)
+                    {
+                        workspace.Presets = false;
+                        Steer(workspace, s => s.Typed(words, workspace.Now!));
+                    }
+                    else Notify(workspace, FileScreens.ChooseAnInstruction);
+                    break;
+                case FileScreens.Yes:
                     Steer(workspace, s => s.Confirm(workspace.Now!));
                     return;
-                case WorkspaceScreens.Cancel:
+                case FileScreens.Cancel:
                     CloseKeyboard(workspace);
                     workspace.Steering.StopTyping();
                     workspace.Steering.Cancel();
                     workspace.Presets = false;
-                    RefreshPanel();
+                    screen.ForgetRequest();
+                    break;
+                case FileScreens.SendAnswer:
+                    Steer(workspace, s => s.SendAnswer(screen, workspace.Now!));
+                    return;
+                default:
+                    if (WorkspaceScreens.ActionOf(id) is WorkspaceAction action && action != WorkspaceAction.Answer)
+                    {
+                        Steer(workspace, s => s.Press(action, workspace.Now!));
+                        return;
+                    }
                     return;
             }
-            if (WorkspaceScreens.ActionOf(id) is not WorkspaceAction action) return;
-            // Acting returns the details to what it is doing, where the request's result shows; Send
-            // answer keeps the question in view, where why nothing was sent shows.
-            if (action != WorkspaceAction.Answer) Choose(workspace, WorkspaceQuestion.Doing);
-            Steer(workspace, s => action == WorkspaceAction.Answer && workspace.Draft != null
-                ? s.SendAnswer(workspace.Draft, workspace.Now!)
-                : s.Press(action, workspace.Now!));
+            RefreshPanel();
+        }
+
+        /// <summary>
+        /// The file's column was drawn as the plane has it: the request part or the question's page it
+        /// shows counts as read, only when it is the frame this state last built.
+        /// </summary>
+        private void OnDrawn(Opened workspace, MenuFrameView view)
+        {
+            if (opened != workspace || view.Frame == null || view.Frame != workspace.Shown || workspace.Now == null) return;
+            var screen = workspace.Screen;
+            var now = DateTimeOffset.UtcNow;
+            if (workspace.Steering.Request(workspace.Now) is string request)
+            {
+                var from = screen.RequestPart * screen.RequestPartRows;
+                if (screen.Measured(workspace.Steering, request) && view.Frame.Lines.Any(line => line.Words == request && line.FromRow == from))
+                {
+                    screen.RequestDrawn(screen.RequestPart, workspace.Steering, now);
+                }
+                return;
+            }
+            if (workspace.Steering.Armed == null && screen.Section == FileSection.Waiting && screen.Question.Draft != null) screen.Question.Drawn(now);
+        }
+
+        /// <summary>The side panel was drawn: a chosen answer's part showing in it counts as read.</summary>
+        private void OnSideDrawn(Opened workspace, MenuFrameView view)
+        {
+            if (opened != workspace || view.Side == null || view.Side != workspace.Shown?.Side) return;
+            if (workspace.Steering.Armed == null && workspace.Screen.Section == FileSection.Waiting && workspace.Screen.Question.SideOption != null)
+            {
+                workspace.Screen.Question.SideDrawn(DateTimeOffset.UtcNow);
+            }
         }
 
         private static int? Index(string? key) =>
@@ -533,65 +587,36 @@ namespace Halcyonic.XR.Workspace
         private void OnHoldStarted(Opened workspace, string id)
         {
             if (opened != workspace) return;
-            if (id == WorkspaceScreens.HoldToTalk) voice.Begin();
-            else if (id == WorkspaceScreens.SpeakAnswer)
+            if (id == FileScreens.HoldToTalk) voice.Begin();
+            else if (id == FileScreens.SpeakAnswer)
             {
-                workspace.AnswerPrompt = workspace.Screen.Place.Prompt;
+                workspace.AnswerPrompt = workspace.Screen.Question.Prompt;
                 answerVoice.Begin();
             }
         }
 
         private void OnHoldEnded(string id, bool released)
         {
-            if (id == WorkspaceScreens.HoldToTalk) voice.End(released);
-            else if (id == WorkspaceScreens.SpeakAnswer) answerVoice.End(released);
+            if (id == FileScreens.HoldToTalk) voice.End(released);
+            else if (id == FileScreens.SpeakAnswer) answerVoice.End(released);
         }
 
-        /// <summary>Shows the answer to a question under its tab, and reads its section when it has one.</summary>
-        private static void Choose(Opened workspace, WorkspaceQuestion question)
+        /// <summary>Shows a section of the file, and reads what it shows.</summary>
+        private static void ShowSection(Opened workspace, FileSection section)
         {
-            workspace.Screen.Question = question;
-            // Another tab, or the same one chosen again, opens on its answer, the log rather than the details.
-            workspace.Screen.Details = false;
-            workspace.Sections.Show(question);
-        }
-
-        /// <summary>
-        /// Steps through the whole request while a confirmation asks about it, else through a section's
-        /// answer while one shows, else through the agent's question.
-        /// </summary>
-        private static void Turn(Opened workspace, int by)
-        {
-            var screen = workspace.Screen;
-            if (workspace.Now != null && workspace.Steering.Request(workspace.Now) != null)
-            {
-                screen.RequestPart = Mathf.Clamp(screen.RequestPart + by, 0, Mathf.Max(0, screen.RequestParts.Count - 1));
-                return;
-            }
-            if (screen.Question == WorkspaceQuestion.Understand || screen.Question == WorkspaceQuestion.Checked)
-            {
-                screen.TurnAnswer(by);
-                return;
-            }
-            screen.Place.Turn(by);
+            workspace.Screen.Section = section;
+            workspace.Sections.ShowFile(section);
         }
 
         /// <summary>The instructions offered where there is no keyboard, the recorded demonstration's own while it plays; null while they don't show.</summary>
         private static IReadOnlyList<PresetInstruction>? Presets(Opened workspace) =>
             !workspace.Presets ? null : workspace.Recorded?.Count > 0 ? workspace.Recorded : WorkspaceText.PresetInstructions;
 
-        /// <summary>
-        /// Within touch distance, beside the character, facing the eyes, at the frame's size, and clear
-        /// of every character's body and label, below the ones it passes or above them, in the
-        /// comfortable band and never into the surface they stand on (<see cref="WorkspaceLayout"/>).
-        /// </summary>
-        private (Pose Place, float Scale) PlaceBeside(CharacterTarget target)
+        /// <summary>The file turns toward its character, from where the eyes are now.</summary>
+        private static void Aim(Opened workspace)
         {
-            var eyes = WorkspaceVisuals.HeadPosition;
-            var looking = WorkspaceVisuals.Head != null ? WorkspaceVisuals.Head.forward : target.BodyPosition - eyes;
-            var (pose, _) = WorkspaceLayout.Place(target, targets.Values, eyes, looking, stage.SurfaceHeight, bodies);
-            // The frame is built in units of its distance, and grows with the reading text's step.
-            return (pose, PanelFrame.Scale);
+            workspace.Yaw = FilePlane.YawToward(WorkspaceVisuals.HeadPosition, workspace.Character.BodyPosition);
+            workspace.PlacedAt = workspace.Character.BodyPosition;
         }
 
         private void Close(bool immediately)
@@ -603,8 +628,7 @@ namespace Halcyonic.XR.Workspace
             voice.Drop();
             answerVoice.Drop();
             if (closing.Character != null) FacePerson(closing.Character, closing.Character == facing);
-            // Gone already when its character left the stage.
-            if (closing.Transition != null) closing.Transition.Collapse(immediately || closing.Character == null);
+            if (closing.Root != null) Destroy(closing.Root);
             WorkClosed?.Invoke(closing.WorkstreamId);
         }
 
@@ -628,67 +652,87 @@ namespace Halcyonic.XR.Workspace
             var lapse = workspace.Steering.Refresh(presentation);
             if (lapse != null) Notify(workspace, lapse);
             if (workspace.Notice != null && Time.unscaledTime > workspace.NoticeUntil) workspace.Notice = null;
-            // What waited was answered: its tab goes, and the answer showing returns to what it is doing.
-            if (workspace.Screen.Question == WorkspaceQuestion.NeedFromYou && !WorkspaceText.SomethingWaits(presentation)) Choose(workspace, WorkspaceQuestion.Doing);
             var screen = workspace.Screen;
+            // What waited was answered: the file returns to what it is doing.
+            if (screen.Section == FileSection.Waiting && !WorkspaceText.SomethingWaits(presentation) && workspace.Steering.Armed == null)
+            {
+                ShowSection(workspace, FileSection.Activity);
+            }
             screen.Notice = workspace.Notice;
             screen.Presets = Presets(workspace);
             screen.ActivityNote = Clock.Note + workspace.HistoryNote;
-            if (workspace.Draft != null) screen.ReadQuestion(workspace.Draft, QuestionParts(workspace, workspace.Draft));
-            var request = workspace.Steering.Request(presentation);
-            if (request != null) SplitRequest(workspace, presentation, request);
-            else
-            {
-                screen.RequestParts = Array.Empty<string>();
-                screen.RequestPart = 0;
-                workspace.RequestText = null;
-            }
-            // A section's answer, fitted to the rows the space under its heading holds, measured on
-            // the screen as it stands, then split into its pages.
-            if (screen.Question == WorkspaceQuestion.Understand || screen.Question == WorkspaceQuestion.Checked)
-            {
-                var provenance = workspace.Sections.Section(AnswerRoom.Unlimited)?.Provenance ?? "";
-                var room = workspace.Panel.Room(WorkspaceScreens.Screen(presentation, workspace.Steering, screen), provenance);
-                if (workspace.Sections.Section(room) is SectionPresentation section) screen.ReadAnswer(section, room);
-            }
-            workspace.Panel.Show(WorkspaceScreens.Screen(presentation, workspace.Steering, screen), screen.Answer);
-        }
 
-        /// <summary>Each prompt's text in parts of whole lines at the list's width, split once for each question.</summary>
-        private static IReadOnlyList<IReadOnlyList<string>> QuestionParts(Opened workspace, QuestionDraft draft)
-        {
-            if (workspace.PartsOf == draft && workspace.QuestionParts != null) return workspace.QuestionParts;
-            var frame = workspace.Panel.Frame;
-            var parts = new List<IReadOnlyList<string>>();
-            foreach (var prompt in draft.Prompts) parts.Add(frame.SplitLines(prompt.Text, WorkspaceScreens.QuestionLines, frame.InnerWidth));
-            workspace.PartsOf = draft;
-            workspace.QuestionParts = parts;
-            return parts;
+            var text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
+            var rows = MenuFrame.RowsAPage(text, sourceLine: true);
+            if (workspace.Draft != null) ReadQuestion(workspace, workspace.Draft, rows);
+            if (workspace.Steering.Request(presentation) is string request) ReadRequest(workspace, request, rows);
+
+            // Changes and Checks read their answers, brief lines fitted to the page as the view wraps them.
+            var room = new AnswerRoom(MenuFrame.RowsAPage(text, sourceLine: false), line =>
+                MenuFrameView.RowsOf(new PageLine(line.Words, wordsAreData: true, chip: line.Chip), Glaze.Menu.FileColumnDegrees));
+            if (screen.Section == FileSection.Changes)
+            {
+                screen.WhatChanged = workspace.Sections.Understand(UnderstandPrompt.WhatChanged, room);
+                screen.WhyChanged = workspace.Sections.Understand(UnderstandPrompt.WhyChanged, room);
+                screen.HowBuilt = workspace.Sections.Understand(UnderstandPrompt.HowBuilt, room);
+            }
+            if (screen.Section == FileSection.Checks) screen.Checked = workspace.Sections.Checked(room);
+
+            var frame = FileScreens.Screen(presentation, workspace.Steering, screen, room);
+            workspace.Shown = frame;
+            workspace.Plane.Show(frame, WorkspaceVisuals.HeadPosition, workspace.Yaw);
         }
 
         /// <summary>
-        /// The whole request an armed approval or denial answers, in parts of as many whole lines as
-        /// the body holds while the confirmation shows, never cut. The steering learns which part
-        /// shows: an approval is confirmed only once the last part has shown.
+        /// The agent's question laid out as the view wraps it at the file's and the side panel's widths:
+        /// every prompt and every answer measured, the typed answers and the person's answers as they read
+        /// now, so nothing counts as shown whole that the view would cut.
         /// </summary>
-        private static void SplitRequest(Opened workspace, WorkspacePresentation presentation, string request)
+        private static void ReadQuestion(Opened workspace, QuestionDraft draft, int rows)
         {
-            var screen = workspace.Screen;
-            if (workspace.RequestText != request)
+            const float File = Glaze.Menu.FileColumnDegrees;
+            const float Side = Glaze.Menu.SideColumnDegrees;
+            if (workspace.MeasuredFor != draft || workspace.MeasuredAt != GlazeText.Version)
             {
-                // The body's room while the confirmation shows, measured with the request in one part.
-                var frame = workspace.Panel.Frame;
-                screen.RequestParts = Array.Empty<string>();
-                screen.RequestLines = 1;
-                screen.RequestPart = 0;
-                frame.Show(WorkspaceScreens.Screen(presentation, workspace.Steering, screen));
-                var room = frame.ListArea;
-                screen.RequestLines = Mathf.Max(1, Mathf.FloorToInt(room.height / frame.LineHeightOf(PanelTextSize.Body) + 0.01f));
-                screen.RequestParts = frame.SplitLines(request, screen.RequestLines, room.width);
-                workspace.RequestText = request;
+                workspace.Measures = draft.Prompts.Select(prompt =>
+                {
+                    var answers = prompt.Options.Select(FileScreens.AnswerWords).ToList();
+                    return new PromptMeasure(
+                        MenuFrameView.RowsOf(new PageLine("“" + WorkspaceText.OneLine(prompt.Text) + "”", wordsAreData: true), File),
+                        answers.Select(words => MenuFrameView.RowsOf(new PageLine(words, wordsAreData: true, action: FileScreens.Choose, key: "0", choice: true), File)).ToList(),
+                        answers.Select(words => MenuFrameView.RowsOf(new PageLine(words, wordsAreData: true), Side)).ToList());
+                }).ToList();
+                workspace.MeasuredFor = draft;
+                workspace.MeasuredAt = GlazeText.Version;
             }
-            screen.RequestPart = Mathf.Clamp(screen.RequestPart, 0, screen.RequestParts.Count - 1);
-            workspace.Steering.RequestShown(screen.RequestPart + 1, screen.RequestParts.Count);
+            var screen = workspace.Screen;
+            screen.ReadQuestion(draft, workspace.Measures!, rows, rows);
+            for (var prompt = 0; prompt < draft.Prompts.Count; prompt++)
+            {
+                if (!(draft.Typed(prompt) is string typed)) continue;
+                screen.Question.MeasureTyped(prompt,
+                    MenuFrameView.RowsOf(new PageLine(FileScreens.TypedWords(typed), wordsAreData: true, action: FileScreens.TypeAnswer, key: "0", choice: true, chosen: true), File),
+                    MenuFrameView.RowsOf(new PageLine("“" + WorkspaceText.OneLine(typed) + "”", wordsAreData: true), Side));
+            }
+            if (draft.Prompts.Count > 1)
+            {
+                screen.Question.MeasureReview(Enumerable.Range(0, draft.Prompts.Count)
+                    .Select(prompt => MenuFrameView.RowsOf(new PageLine(FileScreens.ReviewWords(draft, prompt), wordsAreData: true, action: FileScreens.GoToQuestion, key: "0"), File))
+                    .ToList());
+            }
+        }
+
+        /// <summary>
+        /// The whole request an armed approval or denial answers, measured as the view wraps it, in parts
+        /// of the rows left beside the part's row and the confirmation's question. Which part was read is
+        /// counted only as the view draws it (<see cref="OnDrawn"/>).
+        /// </summary>
+        private static void ReadRequest(Opened workspace, string request, int rows)
+        {
+            const float File = Glaze.Menu.FileColumnDegrees;
+            var total = MenuFrameView.RowsOf(new PageLine(request, wordsAreData: true), File);
+            var asking = Mathf.Min(2, MenuFrameView.RowsOf(workspace.Steering.Prompt(workspace.Now!) ?? "", File));
+            workspace.Screen.ReadRequest(request, total, Mathf.Max(1, rows - 1 - asking), workspace.Steering);
         }
 
         /// <param name="byHand">
@@ -726,7 +770,7 @@ namespace Halcyonic.XR.Workspace
             workspace.Notice = null;
             Report(submissions.SubmitAsync(sent => session.SubmitAsync(sent), command, execution.ExecutionId));
             // An answer sent shows how it goes with the activity: sent, then taken, refused or not confirmed.
-            if (command is ExecutionAnswerQuestionCommand) Choose(workspace, WorkspaceQuestion.Doing);
+            if (command is ExecutionAnswerQuestionCommand) ShowSection(workspace, FileSection.Activity);
             if (WorkspaceActs.Of(command) is WorkspaceAct act) Acted?.Invoke(workspace.Character.WorkstreamId, act);
         }
 
@@ -894,15 +938,15 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
-        /// <summary>The open workspace and what it is in the middle of.</summary>
+        /// <summary>The open file and what it is in the middle of.</summary>
         private sealed class Opened
         {
-            public Opened(CharacterTarget character, WorkspacePanel panel, WorkspaceTransition transition, WorkspaceSteering steering)
+            public Opened(CharacterTarget character, GameObject root, FilePlane plane, WorkspaceSteering steering)
             {
                 Character = character;
                 WorkstreamId = character.WorkstreamId;
-                Panel = panel;
-                Transition = transition;
+                Root = root;
+                Plane = plane;
                 Steering = steering;
             }
 
@@ -911,25 +955,32 @@ namespace Halcyonic.XR.Workspace
             /// <summary>Kept apart from the character, which the stage may destroy while it is open.</summary>
             public string WorkstreamId { get; }
 
-            public WorkspacePanel Panel { get; }
+            public GameObject Root { get; }
 
-            public WorkspaceTransition Transition { get; }
+            public FilePlane Plane { get; }
 
             public WorkspaceSteering Steering { get; }
 
-            /// <summary>What the sections read for the tab chosen.</summary>
+            /// <summary>What the sections read for the file's section showing.</summary>
             public WorkspaceSections Sections { get; set; } = null!;
 
-            /// <summary>The tab chosen, the notice, and where the person is in the question or the request.</summary>
-            public WorkspaceScreen Screen { get; } = new WorkspaceScreen();
+            /// <summary>The section showing, the notice, and where the person is in the question or the request.</summary>
+            public FileScreen Screen { get; } = new FileScreen();
 
-            /// <summary>The question whose prompts' text <see cref="QuestionParts"/> holds in parts.</summary>
-            public QuestionDraft? PartsOf { get; set; }
+            /// <summary>The frame last built and shown, so only its drawing counts as read.</summary>
+            public MenuFrame? Shown { get; set; }
 
-            public IReadOnlyList<IReadOnlyList<string>>? QuestionParts { get; set; }
+            /// <summary>Where the file turns, in degrees round from straight ahead, and where its character stood then.</summary>
+            public float Yaw { get; set; }
 
-            /// <summary>The request <see cref="WorkspaceScreen.RequestParts"/> holds in parts, while a confirmation asks about it.</summary>
-            public string? RequestText { get; set; }
+            public Vector3 PlacedAt { get; set; }
+
+            /// <summary>The question <see cref="Measures"/> measured, and at which text size.</summary>
+            public QuestionDraft? MeasuredFor { get; set; }
+
+            public int MeasuredAt { get; set; }
+
+            public IReadOnlyList<PromptMeasure>? Measures { get; set; }
 
             /// <summary>The presentation last shown; presses are judged against it.</summary>
             public WorkspacePresentation? Now { get; set; }

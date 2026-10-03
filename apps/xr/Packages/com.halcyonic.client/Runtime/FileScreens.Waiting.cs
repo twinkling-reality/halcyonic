@@ -340,7 +340,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
-        private static string AnswerWords(QuestionOption option) =>
+        public static string AnswerWords(QuestionOption option) =>
             WorkspaceText.OneLine(option.Label) + (string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!));
 
         /// <summary>One answer offered, as a row to choose, its description after its label, in at most two rows.</summary>

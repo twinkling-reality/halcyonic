@@ -78,6 +78,41 @@ namespace Halcyonic.XR.Workspace
             };
         }
 
+        /// <summary>
+        /// Reads for a task's file from now on: Changes reads the understanding, Checks both sources, and
+        /// Waiting and Activity read nothing, as the work's own state is all they show.
+        /// </summary>
+        public void ShowFile(FileSection section) => question = section switch
+        {
+            FileSection.Changes => WorkspaceQuestion.Understand,
+            FileSection.Checks => WorkspaceQuestion.Checked,
+            _ => WorkspaceQuestion.Doing,
+        };
+
+        /// <summary>
+        /// The answer to <paramref name="asked"/> for a file, brief for its page, fitted to
+        /// <paramref name="room"/>, and full for a side panel, which pages it; null while nothing has been read yet, so the file says
+        /// it is still reading rather than show an empty page.
+        /// </summary>
+        public FileAnswer? Understand(UnderstandPrompt asked, AnswerRoom room)
+        {
+            if (understanding.Last == null && understanding.Error == null) return null;
+            var now = DateTimeOffset.UtcNow;
+            return new FileAnswer(
+                UnderstandingPresenter.Present(asked, understanding, now, Zone, room, AnswerDepth.Brief),
+                UnderstandingPresenter.Present(asked, understanding, now, Zone, AnswerRoom.Unlimited, AnswerDepth.Full));
+        }
+
+        /// <summary>What was checked, for a file, brief and full; null while nothing has been read yet.</summary>
+        public FileAnswer? Checked(AnswerRoom room)
+        {
+            if (understanding.Last == null && understanding.Error == null) return null;
+            var now = DateTimeOffset.UtcNow;
+            return new FileAnswer(
+                CheckedPresenter.Present(understanding, evaluation, now, Zone, room, AnswerDepth.Brief),
+                CheckedPresenter.Present(understanding, evaluation, now, Zone, AnswerRoom.Unlimited, AnswerDepth.Full));
+        }
+
         /// <summary>Reads the chosen section again, as Refresh asks.</summary>
         public void Refresh()
         {
