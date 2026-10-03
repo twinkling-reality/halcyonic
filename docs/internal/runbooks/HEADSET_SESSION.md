@@ -229,33 +229,71 @@ Record each in horizon-os-multitasking.md.
 
 ### 4. The menu plane's comfort (ADR 0026, [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md))
 
-These need a build that shows the menu plane. Whether the player makes it, at the session's commit:
+The menu, a task's file and a side panel stand on one plane (ADR 0026), hosted by the workspace
+since main 0bf6820. Check the session's build has it: this lists `WorkspaceDirector.cs`, and no line
+means only the editor's renders make it, so record "not in this build" for each item and walk
+[XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The interface on a Quest", instead.
 
 ```bash
 git grep -nF "MenuDirector.Create(" -- apps/xr/Assets | grep -v /Editor/
 ```
 
-No line means only the editor's renders make it (so at main 2e72330): record "not in this build" for
-each, and walk the proxies that exist: [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The interface on a
-Quest", step 1 (reading at 0.46 m, with the ray at 1 m to fall back on), and its Comfort step with
-the app's `device view field` line.
+Walk it in the recorded demonstration, which has a waiting question and recorded Changes and Checks
+answers to open side panels from; live tasks on the mock runtime have no such answers. Set the token
+aside and restart the app, which then plays the demonstration:
 
-Seated, for each: look, then record yes or no with a sentence of why, in the OPEN_QUESTIONS row and
-ADR 0026.
-1. **Reading at 0.46 m.** The menu's text reads without leaning in or squinting.
-2. **The 50 degree low edge.** The menu's and a file's lowest rows, about 50 degrees below eye
-   level, read without strain.
-3. **The head tip.** Reaching the lowest row needs no more than a small tip of the head (a Quest 3S
-   needs about 5 degrees, inside the 8 its field allows). Record the `device view field` line's
-   numbers for both eyes.
-4. **Glass in passthrough.** Against a bright wall, the glass keeps its contrast and the text stays
-   readable.
-5. **The light line.** It reads calm, never drawing the eye on its own.
-6. **Unseen hit areas.** A pinch lands where intended at each control's edge, and nowhere it
-   shouldn't.
-7. **Turning to a side panel.** Turning between a file and its side panel is easy, with no hunting.
+```bash
+adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
+adb shell am force-stop com.halcyonic.xr
+adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+```
 
-A failure falls back as ADR 0026 says (a page shows 3 rows).
+Where everything is, all with a pinch:
+- **The bar.** With no file open, the menu is its bar: what waits for you, or "Nothing is waiting
+  for you.", and Open. It stands where you look, or straight ahead under a window's lane beside a
+  window. Press it to open the menu, on Tasks if something waits, else on the place chosen last.
+- **The places,** across the menu's top: Tasks, Projects, Usage and Settings.
+- **Tasks:** every task, what waits first. A row opens its task's file.
+- **A file:** press a character, or its row in Tasks. The file opens beside the menu, and the plane
+  moves beside that character, with the light line from under its label to the file. Its sections
+  are Waiting, Activity, Changes and Checks. Press the character again to close the file.
+- **A side panel:** in a file's Changes or Checks, press an answer's line: its whole answer opens in
+  the side panel beside the page. In Waiting, a chosen answer cut short shows all its words there.
+  Where the side panel and its file don't both fit, the side panel takes the file's place, with
+  text a step larger.
+- **New project and Projects:** in Projects, New project is the main action while no row is chosen;
+  a project's row offers adding a task to it, which opens New project for it. The demonstration
+  can't start new work, so read the flow without building.
+- **Text size:** Settings, Comfort, Text size, Make text larger: text 15 percent larger, and 3 rows
+  a page. Put it back the same way after item 7.
+
+Seated, in this order, so nothing is set up twice: look, then record yes or no with a sentence of
+why, in the OPEN_QUESTIONS row and ADR 0026.
+1. **Reading at 0.46 m.** Open the menu on Tasks: its text reads without leaning in or squinting.
+2. **The light line.** Open the waiting task's file from its character: the line from its label to
+   the file reads calm, never drawing the eye on its own.
+3. **The 50 degree low edge.** The file's lowest rows and the menu's beside it, about 50 degrees
+   below eye level, read without strain.
+4. **Turning to a side panel.** In Changes or Checks, open an answer's side panel and turn between
+   the file and it, and back: easy, with no hunting.
+5. **Unseen hit areas.** Pinch at the edges of the bar, a place, a row, a file's section and a side
+   panel's controls: each lands where intended, and nowhere it shouldn't.
+6. **Glass in passthrough.** Face a bright wall, close the menu to its bar and open it again so it
+   stands against the wall: the glass keeps its contrast and the text stays readable.
+7. **The head tip, at the larger size.** Make text larger, then read Tasks and a file's lowest row
+   again: reaching it needs no more than a small tip of the head (a Quest 3S needs about 5 degrees,
+   inside the 8 its field allows). Record the `device view field` line's numbers for both eyes and
+   whether items 1 and 3 still hold. Put the text size back.
+
+A failure falls back as ADR 0026 says (a page shows 3 rows). Put the token back and restart the app:
+
+```bash
+adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
+adb shell am force-stop com.halcyonic.xr
+adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
+```
+
+`pnpm quest:check`: live again.
 
 ### 5. The judge's path, on the release build ([competition-judge-build.md](../validation/competition-judge-build.md))
 
