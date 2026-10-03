@@ -495,6 +495,27 @@ public class FileColumnTests
     }
 
     [Test]
+    public void NewWordsOfTheSameLengthAreReadFromTheirOwnFirstPart()
+    {
+        var (host, column) = TypedLongAnswer();
+        var parts = column.Screen.Question.SideParts;
+        for (var part = 0; part < parts; part++)
+        {
+            column.Drawn(column.Frame!, sidePanel: true);
+            host.Wait(1);
+            if (part < parts - 1) column.Act(Footer.NextPage, null);
+        }
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
+        column.Act(FileScreens.TypeAnswer, null);
+        var same = string.Join(" ", Enumerable.Range(1, 120).Select(step => "Lock it for a moment after the " + step + "th failed try"));
+        host.Keyboard!.Value.Done(same);
+        Assert.That((column.Screen.Question.SideParts, column.Screen.Question.SidePart), Is.EqualTo((parts, 0)), "as many parts, from the first");
+        column.Drawn(column.Frame!, sidePanel: true);
+        host.Wait(1);
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "one part of new words is not the whole of them");
+    }
+
+    [Test]
     public void NextPageOnALongTypedAnswerAdvancesAndARebuildKeepsThePart()
     {
         var (host, column) = TypedLongAnswer();
