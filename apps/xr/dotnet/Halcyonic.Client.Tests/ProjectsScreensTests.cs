@@ -447,6 +447,9 @@ public class ProjectsScreensTests
         state.Demonstration = true;
         Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.AddTask), Is.False, "the demonstration adds nothing");
         Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.ChooseProject), Is.True, "a row still takes the person somewhere");
+        Assert.That(ProjectsScreens.Allows(state, SidePanel.Close), Is.True, "the side panel's own Close, while it shows");
+        state.ChosenProject = null;
+        Assert.That(ProjectsScreens.Allows(state, SidePanel.Close), Is.False, "no side panel, no Close for it");
     }
 
     [Test]
