@@ -615,6 +615,15 @@ the same definition names, as the JSON Schema document:
   project ids mean nothing in another one, and read back as every project when damaged. A
   presentation choice, never journaled and never an authorization boundary: every authenticated
   client still receives all work.
+- **`ProjectsColumn`** is the menu's Projects place as an `IMenuColumn`: it keeps the host's folders
+  (read when it opens and when the person asks again, never on a timer), the chosen row, the page and
+  the connection sent last, and builds its frame with `ProjectsScreens`. Every press goes through
+  `ProjectsScreens.Allows` with its key, on the state the frame was built from; its one send is
+  Connect's `project.create` through `IMenuHost.Submit`. Hide from stage and Show on stage change the
+  stage on this device through a callback the director gives it, and send nothing; New project and
+  Add a task open New project through `IMenuHost.OpenNewProject`. The folders already in use come
+  from the projection (`ProjectView.location.path`). It draws again only when the projection, the
+  connection, the reading size, the overview or the minute moves, without building a frame each tick.
 - **`FolderConnect`**, **`FolderConnection`**, **`ConnectScreens`** and **`ConnectText`** are Connect
   a folder in the client core, not yet drawn on the headset: from `GET /api/locations` they offer
   the folders directly inside the allowed roots that no project uses (`used_by` empty), and a root

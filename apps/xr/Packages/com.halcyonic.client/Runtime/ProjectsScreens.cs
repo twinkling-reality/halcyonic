@@ -127,11 +127,17 @@ namespace Halcyonic.Client
         /// press, so a stale press, a second Connect after the first was sent, a Connect while another
         /// folder's outcome is unknown, or Add a task in the demonstration does nothing.
         /// </summary>
-        public static bool Allows(State state, string id)
+        public static bool Allows(State state, string id) => Allows(state, id, null);
+
+        /// <summary>
+        /// <see cref="Allows(State, string)"/> for a press with its key: a row's press acts only when that
+        /// very row, by its key, shows on the frame and takes a press.
+        /// </summary>
+        public static bool Allows(State state, string id, string? key)
         {
             var frame = Projects(state);
             return frame.Footer.All.Any(each => each.Prompt.Id == id && each.Prompt.Available)
-                || frame.Lines.Any(line => line.Action == id && line.Pressable)
+                || frame.Lines.Any(line => line.Action == id && line.Pressable && (key == null || string.Equals(line.Key, key, StringComparison.Ordinal)))
                 // A side panel's own Close, while one shows.
                 || (id == SidePanel.Close && frame.Side != null);
         }
