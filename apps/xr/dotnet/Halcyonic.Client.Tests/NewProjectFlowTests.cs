@@ -803,7 +803,7 @@ public class NewProjectFlowTests
             for (var index = 0; index < pages.Count; index++)
             {
                 var page = pages[index];
-                var room = host.PageHeight(Math.Max(1, host.TitleRows(page.Subject, Column)), besideMenu: true);
+                var room = host.PageHeight(Math.Max(1, host.TitleRows(page.Subject, Column)), besideMenu: false);
                 if (page.Source != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Source, Column)));
                 if (page.Reason != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Reason, Column)));
                 var name = what + " at " + size + ", page " + (index + 1) + " of " + pages.Count;
