@@ -33,7 +33,7 @@ public class FileScreensTests
             Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
 
     /// <summary>A file with every answer read from <paramref name="json"/>, showing <paramref name="section"/>.</summary>
-    private static FileScreen Read(FileSection section, string json = Intelligence.Verified) => new()
+    internal static FileScreen Read(FileSection section, string json = Intelligence.Verified) => new()
     {
         Section = section,
         WhatChanged = Answer(UnderstandPrompt.WhatChanged, json),
