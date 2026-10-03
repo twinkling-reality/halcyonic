@@ -421,7 +421,8 @@ namespace Halcyonic.XR.Workspace
             if (plane.Front?.Footer.Confirming == true) return false;
             foreach (var (_, view) in plane.Shown)
             {
-                if (view.Frame?.Footer.Confirming == true) return false;
+                // What each footer shows, as a side panel in its frame's place carries that frame's confirmation.
+                if (view.Footer.Showing?.Confirming == true) return false;
             }
             return true;
         }
