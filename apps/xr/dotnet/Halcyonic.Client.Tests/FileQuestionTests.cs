@@ -248,4 +248,25 @@ public class FileQuestionTests
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.Send));
         Assert.That(steering.Confirm(workspace).Step, Is.EqualTo(SteeringStep.None), "Yes sends once");
     }
+
+    [Test]
+    public void AnswersAwaitingTheirYesLapseWhenTheQuestionChanges()
+    {
+        var policies = new[] { new CommandPolicy { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.ReviewRequired } };
+        var work = new AskingWork(policies: policies);
+        var steering = new WorkspaceSteering(factory);
+        var screen = new FileScreen();
+        var draft = Answered(work);
+        screen.ReadQuestion(draft, Short(work.Question), 8);
+        Assert.That(steering.SendAnswer(draft, FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer)).Step, Is.EqualTo(SteeringStep.Confirm));
+
+        var other = AskingWork.Scripted();
+        other.QuestionId = "question-9";
+        work.Change(execution => execution.PendingQuestions[0] = other);
+        var workspace = FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer);
+        var frame = Screen(workspace, screen, steering);
+        Assert.That(frame.Footer.Confirming, Is.False, "no Yes over answers to a question no longer asked");
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo("Nothing was sent: the question changed. Check it again."));
+        Assert.That(steering.Armed, Is.Null);
+    }
 }

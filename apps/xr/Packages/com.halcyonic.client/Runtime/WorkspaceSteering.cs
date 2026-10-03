@@ -348,6 +348,12 @@ namespace Halcyonic.Client
             {
                 return "Nothing was sent: that request was already answered.";
             }
+            // Answers armed for a question no longer shown would ask "Send these answers?" over none.
+            if (Armed == WorkspaceAction.Answer
+                && (armedDraft == null || workspace.Execution == null || !armedDraft.Answers(workspace.Execution.ExecutionId, workspace.QuestionToAnswer)))
+            {
+                return QuestionChanged;
+            }
             if (IsAnswer(Armed.Value) && ArmedRequest != null && Request(workspace) != ArmedRequest)
             {
                 return "Nothing was sent: the request changed. Read it again.";
