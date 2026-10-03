@@ -159,8 +159,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var target = line.Action != null;
                 if (before != null)
                 {
-                    var both = target && before.Action != null;
-                    total += both ? budget.TargetGap : target != (before.Action != null) ? budget.GroupGap : 0f;
+                    // As the view lays them: 12 mm between two targets, a grid step between any other two.
+                    total += target && before.Action != null ? budget.TargetGap : budget.LineGap;
                 }
                 total += target ? budget.Target(rows) : budget.Words(rows);
                 before = line;

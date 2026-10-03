@@ -120,8 +120,8 @@ namespace Halcyonic.Client
             return page.Target(least) + MoreRow(asked.FreeText, several) <= room + 1e-6f;
         }
 
-        /// <summary>A head of words and the group's gap after it; none for no head.</summary>
-        private float Head(int rows) => rows <= 0 ? 0f : page.Words(rows) + page.GroupGap;
+        /// <summary>A head of words and the gap after it, the question and its answers being one group; none for no head.</summary>
+        private float Head(int rows) => rows <= 0 ? 0f : page.Words(rows) + page.LineGap;
 
         /// <summary>
         /// What a page of answers takes besides its head and answers: Type my answer, sharing its row with
@@ -140,7 +140,7 @@ namespace Halcyonic.Client
         public int QuestionMeasured(int prompt) => measures[prompt].QuestionRows;
 
         /// <summary>The rows of a long question each of its own pages shows: as many as fit beside the part's row and the reason.</summary>
-        public int QuestionPartRows => page.WordsIn(page.Room - page.GroupGap - page.Target() - page.Reason);
+        public int QuestionPartRows => page.WordsIn(page.Room - page.LineGap - page.Target() - page.Reason);
 
         /// <summary>How many pages of its own a long question takes; none for a short one.</summary>
         public int QuestionParts(int prompt) => QuestionCut(prompt) ? FileScreen.PartsOf(QuestionMeasured(prompt), QuestionPartRows) : 0;
