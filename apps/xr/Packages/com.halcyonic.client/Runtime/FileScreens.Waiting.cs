@@ -69,15 +69,24 @@ namespace Halcyonic.Client
             return (slot, new Footer(CloseFile).With(slot, Action(armed, id, main: slot == PromptSlot.FarRight)));
         }
 
-        /// <summary>An approval's footer: Close, Stop beside it, Deny beside Approve, and Approve as the main action.</summary>
+        /// <summary>
+        /// An approval's footer: Close, Stop beside it, Deny beside Approve, and Approve as the main
+        /// action; while a decision sent on it may still take effect, Sent… in Approve's place, taking no
+        /// press, and no Deny, so a second decision never races the first.
+        /// </summary>
         private static Footer ApprovalFooter(WorkspacePresentation workspace)
         {
             var actions = workspace.Actions;
+            var approve = actions.Contains(WorkspaceAction.Approve)
+                ? Action(WorkspaceAction.Approve, Approve, main: true)
+                : workspace.ApprovalInFlight
+                    ? new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.Approve, main: true, available: false, reason: SentWaiting)
+                    : null;
             return new Footer(
                 CloseFile,
                 rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
                 secondary: actions.Contains(WorkspaceAction.Deny) ? Action(WorkspaceAction.Deny, Deny) : null,
-                farRight: actions.Contains(WorkspaceAction.Approve) ? Action(WorkspaceAction.Approve, Approve, main: true) : null);
+                farRight: approve);
         }
 
         /// <summary>
