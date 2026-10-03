@@ -63,6 +63,9 @@ namespace Halcyonic.XR.Workspace.Editor
             // A plane that stays where the menu alone put it while the file slides out to its right: off
             // square, the file's far text shrunk, a corner past a Quest 3S's field, and its top in a label.
             ["r6-file-slides-out-staying"] = new[] { "off square to the eyes", "as the eyes see it", "lie outside the field", "'s outline and" },
+            // The menu and a file together beside a window: clear of the characters either side only far
+            // below the field, and the light line across the window. So a file there takes the menu's place.
+            ["r21-beside-a-window-both"] = new[] { "lie outside the field", "the light line crosses the video window" },
         };
 
         private static List<string> KeptToFail(string name, List<string> failures)
@@ -521,7 +524,11 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The approval: the task's file alone, upright under its task, Approve pointed at.</summary>
-        private static void RefinedApproval(Shot shot, bool split = false)
+        /// <param name="besideWindow">
+        /// The characters stand either side of a window straight ahead: the file opens centred under it,
+        /// not turned toward its character, and draws no light line, which would run across the window.
+        /// </param>
+        private static void RefinedApproval(Shot shot, bool split = false, bool besideWindow = false)
         {
             var slot = shot.SlotOf(OpenedTitle);
             var width = 2f * U(18f);
@@ -543,8 +550,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var height = -y + U(GroupGap) + FooterRoom(file);
             ContentShape(file, width, height, new Prompt("Close", GlazeIcon.Close), null, new Prompt("Deny", GlazeIcon.Deny),
                 new Prompt("Approve", GlazeIcon.Approve, main: true, pointedAt: true));
-            LayOnPlane(shot, CardYaw(shot, slot, 20f, 0f), new List<IReadOnlyList<Board>> { new[] { head, tabs, file } });
-            LightLine(shot, slot, head, split ? StateBadgeView.Height * PillScale / 2f : 0f);
+            LayOnPlane(shot, besideWindow ? 0f : CardYaw(shot, slot, 20f, 0f), new List<IReadOnlyList<Board>> { new[] { head, tabs, file } });
+            if (!besideWindow) LightLine(shot, slot, head, split ? StateBadgeView.Height * PillScale / 2f : 0f);
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -782,6 +789,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     var top = button.transform.localPosition.y + button.Size.y / 2f;
                     if (top > glowBottom + 0.0005f) yield return shot.Name + ": " + button.name + " in " + part.Name + " lies under its surface's glow, which would make it look chosen.";
+                }
+            }
+            // Beside a window, nothing of the plane stands over it, and the light line never crosses it.
+            var window = shot.Window ? shot.Root.Find("Video window") : null;
+            var windowExtent = window == null ? (GlazeChecks.Extent?)null : GlazeChecks.Of("the video window", shot.Eyes, window.gameObject);
+            if (windowExtent is GlazeChecks.Extent seen)
+            {
+                foreach (var part in parts)
+                {
+                    var apart = OutlineApart(Outline(part, shot.Eyes), seen);
+                    if (apart < 1f) yield return shot.Name + ": " + part.Name + " comes within " + GlazeChecks.Degrees(apart) + " degrees of the video window; nothing of Halcyonic's covers it.";
+                }
+                foreach (var (from, to, _) in lightLines)
+                {
+                    for (var step = 1; step < 40; step++)
+                    {
+                        var point = Vector3.Lerp(from, to, step / 40f) - shot.Eyes;
+                        var across = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
+                        var up = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
+                        if (across < seen.Left || across > seen.Right || up < seen.Bottom || up > seen.Top) continue;
+                        yield return shot.Name + ": the light line crosses the video window.";
+                        break;
+                    }
                 }
             }
             // The light line crosses no label and no character, its own task's included, seen from the eyes.

@@ -31,6 +31,9 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
   source line counting as one; any other page packs by height, at most `MenuPage.Height`.
 - **With nothing on the stage**, the menu stands where the person looks at rest, about 15 degrees
   down.
+- **Beside a window**, with the characters either side of one straight ahead, the menu or a file
+  stands centred under the window, one at a time, never within a degree of it, and the file draws
+  no light line, which would cross the window.
 - **Text shrinks away from the centre**, as the eyes see it: a word x across and y up, in units of
   the distance, spans sqrt(1 + x²) / (1 + x² + y²) of its size (`PlaneComposition.ShrinkAt`), down
   to 84 percent at the far corners of a menu and file side by side.
