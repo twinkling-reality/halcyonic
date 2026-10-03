@@ -663,9 +663,10 @@ namespace Halcyonic.XR.Workspace
             screen.ActivityNote = Clock.Note + workspace.HistoryNote;
 
             var text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
-            var rows = MenuFrame.RowsAPage(text, sourceLine: true);
-            if (workspace.Draft != null) ReadQuestion(workspace, workspace.Draft, rows);
-            if (workspace.Steering.Request(presentation) is string request) ReadRequest(workspace, request, rows);
+            // The question and the request pack by height, as much as a lone file's page holds in the field.
+            var budget = HeightBudget.Of(text, MenuFrameView.TitleRows(presentation.Character.Title, Glaze.Menu.FileColumnDegrees));
+            if (workspace.Draft != null) ReadQuestion(workspace, workspace.Draft, budget);
+            if (workspace.Steering.Request(presentation) is string request) ReadRequest(workspace, request, budget);
 
             // Changes and Checks read their answers, brief lines fitted to the page as the view wraps them.
             var room = new AnswerRoom(MenuFrame.RowsAPage(text, sourceLine: false), line =>
@@ -688,7 +689,7 @@ namespace Halcyonic.XR.Workspace
         /// every prompt and every answer measured, the typed answers and the person's answers as they read
         /// now, so nothing counts as shown whole that the view would cut.
         /// </summary>
-        private static void ReadQuestion(Opened workspace, QuestionDraft draft, int rows)
+        private static void ReadQuestion(Opened workspace, QuestionDraft draft, PageBudget budget)
         {
             const float File = Glaze.Menu.FileColumnDegrees;
             const float Side = Glaze.Menu.SideColumnDegrees;
@@ -706,7 +707,7 @@ namespace Halcyonic.XR.Workspace
                 workspace.MeasuredAt = GlazeText.Version;
             }
             var screen = workspace.Screen;
-            screen.ReadQuestion(draft, workspace.Measures!, rows, rows);
+            screen.ReadQuestion(draft, workspace.Measures!, budget, budget);
             for (var prompt = 0; prompt < draft.Prompts.Count; prompt++)
             {
                 if (!(draft.Typed(prompt) is string typed)) continue;
@@ -724,15 +725,20 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// The whole request an armed approval or denial answers, measured as the view wraps it, in parts
-        /// of the rows left beside the part's row and the confirmation's question. Which part was read is
-        /// counted only as the view draws it (<see cref="OnDrawn"/>).
+        /// of as many rows as fit beside the part's row and the confirmation's question. Which part was
+        /// read is counted only as the view draws it (<see cref="OnDrawn"/>).
         /// </summary>
-        private static void ReadRequest(Opened workspace, string request, int rows)
+        private static void ReadRequest(Opened workspace, string request, PageBudget budget)
         {
-            const float File = Glaze.Menu.FileColumnDegrees;
-            var total = MenuFrameView.RowsOf(new PageLine(request, wordsAreData: true), File);
-            var asking = Mathf.Min(2, MenuFrameView.RowsOf(workspace.Steering.Prompt(workspace.Now!) ?? "", File));
-            workspace.Screen.ReadRequest(request, total, Mathf.Max(1, rows - 1 - asking), workspace.Steering);
+            workspace.Screen.ReadRequest(request, MenuFrameView.RowsOf(new PageLine(request, wordsAreData: true), Glaze.Menu.FileColumnDegrees),
+                RequestPartRows(workspace.Steering.Prompt(workspace.Now!) ?? "", budget), workspace.Steering);
+        }
+
+        /// <summary>The rows of a request a part shows: what is left of the page beside the part's row and the confirmation's question.</summary>
+        public static int RequestPartRows(string asking, PageBudget budget)
+        {
+            var asked = Mathf.Min(2, MenuFrameView.RowsOf(asking, Glaze.Menu.FileColumnDegrees));
+            return budget.WordsIn(budget.Room - budget.GroupGap - budget.Target() - budget.GroupGap - budget.Words(asked));
         }
 
         /// <param name="byHand">
