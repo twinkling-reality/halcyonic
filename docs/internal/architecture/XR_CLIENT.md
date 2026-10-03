@@ -404,7 +404,10 @@ the same definition names, as the JSON Schema document:
   fit beside a file on this stage), `UsageColumn` (each limit's share left in words, its side panel
   when it was seen, when it resets and whose account) and `SettingsColumn` (each setting under its
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, the
-  rest from what owns them). `PageLine.besideNext` stands a line beside the next in half the row, as
+  rest from what owns them; a change that asks first, as forgetting the computer, arms on that press
+  with `Footer.Confirm`, Cancel in its place and Yes in the free middle, lapsing after 6 seconds, on
+  focus leaving, when Settings leaves the plane or once the change can't be made; each row is read
+  every frame, so a value changed elsewhere draws again without a press). `PageLine.besideNext` stands a line beside the next in half the row, as
   Type my answer beside a question's paging row, and `Prompt.pageExplains` keeps a prompt's reason
   undrawn where the page says it already.
 - **`MenuPlane`** (Workspace) stands the menu, a task's file and a side panel on the stage as one
