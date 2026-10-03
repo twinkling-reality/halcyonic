@@ -8,6 +8,7 @@ import type {
 import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
 import type { EventDraft, Recorder } from './recorder.ts';
+import { withinLimit } from './redaction.ts';
 
 type ControlPlaneEventType = ControlPlaneEvent['event_type'];
 type ScopeOf<T extends ControlPlaneEventType> = Pick<
@@ -98,7 +99,8 @@ export function createObservationSink(
 }
 
 /**
- * An observation's payload with credentials taken out of the runtime's error text: a turn's failure
+ * An observation's payload with credentials taken out of the runtime's error text, cut to the
+ * journal's limit after, since "[redacted]" can be longer than what it replaced: a turn's failure
  * and why the connection was lost or restored. Everything else is the runtime's account as given.
  */
 function withoutCredentials(
@@ -110,13 +112,13 @@ function withoutCredentials(
     case 'runtime.turn.failed': {
       const error = payload.error as { message?: unknown } | undefined;
       return typeof error?.message === 'string'
-        ? { ...payload, error: { ...error, message: redact(error.message) } }
+        ? { ...payload, error: { ...error, message: withinLimit(redact(error.message)) } }
         : payload;
     }
     case 'runtime.connection.lost':
     case 'runtime.connection.restored':
       return typeof payload.reason === 'string'
-        ? { ...payload, reason: redact(payload.reason) }
+        ? { ...payload, reason: withinLimit(redact(payload.reason)) }
         : payload;
     default:
       return payload;

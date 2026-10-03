@@ -47,6 +47,8 @@ describe("a runtime's observations", () => {
       observation('runtime.connection.lost', { reason: `https://u:${held}@127.0.0.1:4096 closed` }),
     );
     sink(observation('runtime.message.completed', { text: `the agent says ${held}` }));
+    // At the limit already: "[redacted]" is longer than the short credential it replaces.
+    sink(observation('runtime.connection.lost', { reason: `${'x'.repeat(1985)} Bearer a1b2c3d4` }));
     assert.deepEqual(
       recorded.map((draft) => draft.payload),
       [
@@ -60,7 +62,10 @@ describe("a runtime's observations", () => {
         { reason: 'https://[redacted]@127.0.0.1:4096 closed' },
         // The agent's own account is reported as given; only error text is taken from.
         { text: `the agent says ${held}` },
+        // Cut to the journal's limit after redaction lengthened it.
+        { reason: `${'x'.repeat(1985)} Bearer [redac…` },
       ],
     );
+    assert.equal((recorded[3]?.payload as { reason?: string } | undefined)?.reason?.length, 2000);
   });
 });

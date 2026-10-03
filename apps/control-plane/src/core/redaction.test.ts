@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { REDACTED, redactSecrets } from './redaction.ts';
+import { JOURNALED_TEXT, REDACTED, redactSecrets, withinLimit } from './redaction.ts';
 
 describe('error text before it is journaled', () => {
   test("a gateway's 401 that echoes the key loses the key and keeps the rest", () => {
@@ -62,5 +62,26 @@ describe('error text before it is journaled', () => {
       'Basic authentication failed for the gateway',
     ];
     for (const text of kept) assert.equal(redactSecrets(text, []), text, text);
+  });
+
+  test('reads only the first 4096 characters, so a runtime line of any length takes no time', () => {
+    // A long run joined by - . +, which a scheme pattern could restart at every boundary.
+    const line = 'a-'.repeat(100_000);
+    const started = performance.now();
+    const out = redactSecrets(line, []);
+    assert.ok(performance.now() - started < 500, 'linear, and only 4096 characters read');
+    assert.equal(out.length, 4096);
+  });
+
+  test('a text is cut to the journal limit after redaction, never splitting a pair', () => {
+    assert.equal(withinLimit('short'), 'short');
+    const long = withinLimit('x'.repeat(5000));
+    assert.equal(long.length, JOURNALED_TEXT);
+    assert.ok(long.endsWith('…'));
+    const pair = withinLimit(`${'x'.repeat(JOURNALED_TEXT - 2)}😀${'y'.repeat(10)}`);
+    assert.ok(
+      pair.length <= JOURNALED_TEXT && !/[\uD800-\uDBFF]…$/.test(pair),
+      'no half of a pair before the ellipsis',
+    );
   });
 });
