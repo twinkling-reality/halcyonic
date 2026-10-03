@@ -293,6 +293,17 @@ namespace Halcyonic.Client
             var prompt = question.Prompt;
             var asked = draft.Prompts[prompt];
             var text = "“" + WorkspaceText.OneLine(asked.Text) + "”";
+            if (!WorkspaceText.Answerable(draft.Question))
+            {
+                // Nothing can be answered here, so nothing is read through to: what it asks, why it
+                // can't be answered, and Stop, the way on.
+                return new Page(new[]
+                {
+                    new PageLine(text, wordsAreData: true, rows: FileQuestion.QuestionRows),
+                    new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary),
+                    new PageLine(WorkspaceText.AgentWaits, tone: LineTone.Secondary),
+                }, source, QuestionFooter(workspace, screen, draft));
+            }
             if (question.QuestionPart is int part)
             {
                 var perPart = question.QuestionPartRows;
