@@ -341,7 +341,9 @@ namespace Halcyonic.Client
             {
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
                 var paging = question.Pages > 1 || draft.Prompts.Count > 1;
-                if (asked.FreeText)
+                // Where no keyboard opens, a row that would only open it is left off; one holding words,
+                // as heard through Hold to talk, stays as their choice.
+                if (asked.FreeText && (screen.KeyboardOffered || draft.Typed(prompt) != null))
                 {
                     // Beside the paging row after it, one row for the two (lane V's rule 4).
                     var typed = draft.Typed(prompt);

@@ -92,6 +92,9 @@ namespace Halcyonic.Client
         /// <summary>What something the person just did came to, for a few seconds; null when nothing.</summary>
         public string? Notice { get; set; }
 
+        /// <summary>The system keyboard can open here; where it can't, no row whose only job is to open it shows.</summary>
+        public bool KeyboardOffered { get; set; } = true;
+
         /// <summary>Hold to talk is offered: in a development build, never in the demonstration (ADR 0021).</summary>
         public bool Speak { get; set; }
 

@@ -17,7 +17,7 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// Renders a task's file as the director shows it (ADR 0026): <see cref="FileScreens"/>' frames laid
-    /// by <see cref="FilePlane"/> on one plane facing the eyes, at each text size, into
+    /// on one plane facing the eyes as the menu's plane lays a file and its side panel alone, at each text size, into
     /// apps/xr/Builds/FileRenders, which git ignores. The agent's question with four answers of two
     /// rows each, one of them chosen and cut with its side panel, an approval's request in parts, the
     /// work's activity, and what changed with a line's side panel open. Each must lay its lines within
@@ -84,12 +84,13 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
                 var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
-                var plane = FilePlane.Create(root.transform);
+                var file = MenuFrameView.Create(root.transform, "File column");
+                var side = MenuFrameView.Create(root.transform, "Side panel");
                 var drawn = 0;
                 var sideDrawn = 0;
-                plane.File.Drawn += _ => drawn++;
-                plane.Side.Drawn += _ => sideDrawn++;
-                plane.Show(frame, eyes, 0f);
+                file.Drawn += _ => drawn++;
+                side.Drawn += _ => sideDrawn++;
+                Lay(frame, file, side, eyes);
                 var image = WorkspaceRender.Render(camera, texture);
                 File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(image);
@@ -110,6 +111,37 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(texture);
             }
             return failures;
+        }
+
+        /// <summary>
+        /// The file's column, and its side panel beside it where it has one, as one composition on a plane
+        /// facing <paramref name="eyes"/>, its top <see cref="MenuPage.TopDegrees"/> below eye level, each
+        /// column settled as the plane has it, which raises its view's Drawn.
+        /// </summary>
+        private static void Lay(MenuFrame frame, MenuFrameView file, MenuFrameView side, Vector3 eyes)
+        {
+            var subject = MenuFrameView.SubjectHeight(frame.Subject, Glaze.Menu.FileColumnDegrees, pillRoom: true);
+            if (frame.Side != null) subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(frame.Side.Subject, Glaze.Menu.SideColumnDegrees, pillRoom: true));
+            file.Show(frame, Glaze.Menu.FileColumnDegrees, subject, pillRoom: true);
+            var columns = new List<MenuFrameView> { file };
+            if (frame.Side != null)
+            {
+                side.Show(frame.Side, Glaze.Menu.SideColumnDegrees, subject, pillRoom: true);
+                columns.Add(side);
+            }
+            else side.Hide();
+            var composition = new PlaneComposition(columns.Select(view => new PlaneColumn(view.Width, view.Heights.ToArray())).ToList(), GlazeText.Scale);
+            var half = Mathf.Atan(composition.Height / 2f) * Mathf.Rad2Deg;
+            var direction = new PanelDirection(0f, -MenuPage.TopDegrees - half, true, false);
+            for (var column = 0; column < columns.Count; column++)
+            {
+                var placed = composition.Parts.Where(part => part.Column == column).OrderBy(part => part.Index).ToList();
+                for (var index = 0; index < placed.Count; index++)
+                {
+                    PlaneLayout.Lay(columns[column].Parts[index], eyes, direction, placed[index], composition.Zoom);
+                    if (index == placed.Count - 1) columns[column].Settle(placed[index], composition.Zoom);
+                }
+            }
         }
 
         private static string Degrees(float units) => GlazeChecks.Degrees(2f * Mathf.Atan(units / 2f) * Mathf.Rad2Deg);
@@ -210,7 +242,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var request = steering.Request(workspace)!;
             var budget = HeightBudget.Of(TextSizeNow, MenuFrameView.TitleRows(workspace.Character.Title, Glaze.Menu.FileColumnDegrees));
             screen.ReadRequest(request, MenuFrameView.RowsOf(new PageLine(request, wordsAreData: true), Glaze.Menu.FileColumnDegrees),
-                WorkspaceDirector.RequestPartRows(steering.Prompt(workspace) ?? "", budget), steering);
+                FileColumn.RequestPartRows(MenuFrameView.RowsOf(steering.Prompt(workspace) ?? "", Glaze.Menu.FileColumnDegrees), budget), steering);
             var frame = FileScreens.Screen(workspace, steering, screen, room);
             if (frame.Footer[PromptSlot.Free] != null && screen.RequestParts > 1) failures.Add("approval-request: Yes shows before the request's last part was drawn.");
             failures.AddRange(Shoot(folder, "approval-request", frame));

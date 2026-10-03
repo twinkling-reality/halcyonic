@@ -244,7 +244,7 @@ public class FileColumnTests
     }
 
     [Test]
-    public void WhereNoKeyboardOpensTellItOffersTheInstructionsAndTypeMyAnswerSaysToChoose()
+    public void WhereNoKeyboardOpensTellItOffersTheInstructionsAndNoRowOnlyOpensIt()
     {
         var host = new FileMenuHost { KeyboardOffered = false };
         var running = new WaitingWork();
@@ -260,9 +260,20 @@ public class FileColumnTests
 
         var asking = new AskingWork();
         var answering = Column(host, () => FileScreensTests.Offering(asking.Present(), WorkspaceAction.Answer));
+        for (var step = 0; step < 5 && answering.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, answering);
+            answering.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Assert.That(answering.Frame!.Lines.Where(line => line.Action == FileScreens.Choose), Is.Not.Empty, "the answers show");
+        Assert.That(answering.Frame!.Lines.Select(line => line.Action), Has.None.EqualTo(FileScreens.TypeAnswer),
+            "a row that would only open the keyboard is left off");
+        answering.HoldStarted(FileScreens.SpeakAnswer);
+        answering.Heard("Teal");
+        var typed = answering.Frame!.Lines.Single(line => line.Action == FileScreens.TypeAnswer);
+        Assert.That((typed.Words, typed.Chosen), Is.EqualTo(("Your answer: “Teal”", true)), "words heard stay as their choice");
         answering.Act(FileScreens.TypeAnswer, null);
-        Assert.That(host.Keyboard, Is.Null);
-        Assert.That(answering.Frame!.Lines.Last().Words, Is.EqualTo("There's no keyboard here. Choose one of the answers offered."));
+        Assert.That(host.Keyboard, Is.Null, "pressing it opens no keyboard");
     }
 
     [Test]
