@@ -33,8 +33,8 @@ Each fix is its own commit; the test named fails on main and passes with the fix
 | `pnpm demo` printed the titles of every project's tasks, the person's own work included | `apps/control-plane/src/cli/demo.ts` | Only the demo's own project is printed (`workstreamLine` in demo-scenario.ts) | `demo-scenario.test.ts`, "only the demo's own project" |
 | `pnpm devices` and `pnpm demo` failed with a parse error that quotes part of a body | `cli/devices.ts`, `demo-scenario.ts` | `readJson` fails in fixed words | `demo-scenario.test.ts`, "an answer that is not JSON" |
 | A failed `adb` call in `pnpm quest:session` and `quest:cold-start` was printed whole by Node: everything adb printed, which names the headset | `tooling/quest/adb.ts` | The error names the subcommand and its exit status only | `tooling/quest/adb.test.ts` |
-| A runtime's or provider's error text was journaled as given: a gateway's 401 that echoes the key, Codex's error answer at start, OpenCode's | `core/redaction.ts`, used by `command-service.ts` (failures) and `drafts.ts` (a turn's failure, a lost or restored connection) | Every secret Halcyonic holds or passes to a runtime is replaced, exactly, then every credential shape; the rest stays word for word (the coordinator's decision) | `redaction.test.ts`; `control-plane.test.ts`, "a runtime's refusal loses what Halcyonic holds"; `drafts.test.ts`; `runtimes.test.ts`, "the secrets taken out of runtime error text" |
-| An error logged with `{ err }` showed its message, which can quote an instruction, and Node's `rawPacket` for a malformed request: its head, Authorization header and all, as a byte array | `http/server.ts` | Errors are logged by `errorForLog`: type, code and stack frames only | `server.test.ts`, "logs an error's type, code and frames": a malformed request carrying a token |
+| A runtime's or provider's error text was journaled as given: a gateway's 401 that echoes the key, Codex's error answer at start, OpenCode's | `core/redaction.ts`, used by `command-service.ts` (failures) and `drafts.ts` (a turn's failure, a lost or restored connection) | Every secret Halcyonic holds or passes to a runtime is replaced, exactly (of the agent environment, only values whose names read as secret, so an address or a region stays), then every credential shape, never a path after a scheme word nor a name built of words; the rest stays as given, but for what only looks like a credential (SECURITY.md) (the coordinator's decision) | `redaction.test.ts`; `control-plane.test.ts`, "a runtime's refusal loses what Halcyonic holds"; `drafts.test.ts`; `runtimes.test.ts`, "the secrets taken out of runtime error text" |
+| An error logged with `{ err }` showed its message, which can quote an instruction, and Node's `rawPacket` for a malformed request: its head, Authorization header and all, as a byte array | `http/server.ts` | Errors are logged by `errorForLog`: type, code and stack frames only, and the message of Halcyonic's own errors in fixed words (`OwnWordsError`: `ConfigError`, `JournalError`, `InvalidEventError`, `TraceError`, `SpeechEngineError`), so a warm-up failure keeps its why and a refused event its issue paths | `server.test.ts`, "logs an error's type, code and frames": a malformed request carrying a token |
 | An adapter's bug, journaled as its type since the audit, left no trace for the owner | `command-service.ts` | It is logged on the Mac with its type and frames | `control-plane.test.ts`, "an adapter's bug is logged" |
 
 A scan guards what the sweeps reviewed: `tooling/log-calls.test.ts` reads every log call in the code
@@ -135,6 +135,11 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
   EVENTS.md doesn't say these fields carry tool input.
 - **Seorak's own reason** passes through to the headset, and Seorak's response is read with no
   size limit (not a privacy problem).
+- **Runtime text that is not error text.** Seorak's reason text and the model listing's failures
+  reach devices over REST without redaction, and tool titles, approval summaries and test
+  summaries are journaled without it. The review notes that the exact-copy layer alone, applied to
+  these fields, would hide nothing a person needs; the shape layer could take part of a command
+  line. Whether to apply it is open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - **Host paths** in failure messages: binary paths and the data folder's in some adapter errors,
   credential file paths in Salidium's and Seorak's reasons. Devices already see project paths.
 
