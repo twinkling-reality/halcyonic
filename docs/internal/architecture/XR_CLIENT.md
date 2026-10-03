@@ -1581,8 +1581,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   (`WorkspaceLayout.PlaceForeground` with the panel's size), so every screen puts the same things in
   the same places: Move (pressed, to the right, the left and back, 28 degrees about the eyes; held,
   the panel follows the hand round the eyes at touch distance, facing them, its center kept in the
-  comfortable band and above a desk, `PanelDrag`), Reset position (the panel and the rail in front
-  of where the person faces now) and Close at the top right, Move and Reset position unavailable
+  comfortable band and above a desk, `PanelDrag`), Reset position (the panel in front of where the
+  person faces now) and Close at the top right, Move and Reset position unavailable
   while a confirmation is armed (`PanelModel.CanMove`); Back at
   the bar's left; the primary at its right end; the pager at the body's bottom right. An action that
   can't be taken now stays in its place, unavailable, with why beside it. Opening the panel
@@ -1594,7 +1594,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   - **Connect projects** lists the projects already set up on the Mac and says so, in two columns,
     each a filter like the rail's chips, edged in the accent while shown and saying Hidden while
     not, with its work in words, what waits in the attention colour; pressing one shows or hides it,
-    Show all shows every project and Done closes. It discovers and attaches nothing. Without a live control plane it says the list is
+    Show all shows every project and Done closes, each through the workspace director
+    (`WorkspaceDirector.Overview`, `ShowProject`, `ShowAllProjects`). It discovers and attaches nothing. Without a live control plane it says the list is
     last known; during the demonstration, that these are demo projects.
   - **More tasks** lists every task without a character, what needs the person first, with its
     status, project and why it has none (its project is hidden, no room on the stage); pressing one

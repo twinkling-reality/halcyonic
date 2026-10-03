@@ -24,8 +24,8 @@ namespace Halcyonic.XR.Workspace
     /// panel and brings it back, as it was and where it was, when that workspace closes. Move steps
     /// the panel to the right, the left and back to where it opened, and, held, moves it with the
     /// hand (<see cref="PanelDrag"/>), never while a confirmation is armed; Reset position puts the panel
-    /// and the rail in front of where the person faces now. Every button ignores input while the app
-    /// lacks focus.
+    /// in front of where the person faces now. Every button ignores input while the app lacks focus.
+    /// What it lists and which projects show are the workspace director's (<see cref="WorkspaceDirector.Overview"/>).
     /// </remarks>
     public sealed partial class EntryPanel : MonoBehaviour
     {
@@ -35,7 +35,6 @@ namespace Halcyonic.XR.Workspace
         private readonly List<BodyInView> scratch = new List<BodyInView>();
         private ControlPlaneConnection? connection;
         private WorkspaceDirector? director;
-        private ProjectRail? rail;
 
         // Where the panel reads what it shows: the session, or, for the editor's renders, what was given as it is.
         private Func<bool> connected = () => false;
@@ -135,7 +134,7 @@ namespace Halcyonic.XR.Workspace
             var work = director;
             var stage = GetComponent<CharacterStage>();
             Build(() => session.Session?.Status.IsLive == true, () => session.DemonstrationLine,
-                () => rail != null ? rail.Overview : null, () => work.Targets, () => stage != null ? stage.SurfaceHeight : null);
+                work.Overview, () => work.Targets, () => stage != null ? stage.SurfaceHeight : null);
         }
 
         private void Build(Func<bool> isLive, Func<string?> demonstrationLine, Func<WorkOverview?> counted,
@@ -165,11 +164,6 @@ namespace Halcyonic.XR.Workspace
             };
             frame.Dragged += Follow;
             root.gameObject.SetActive(false);
-        }
-
-        private void Start()
-        {
-            rail = GetComponent<ProjectRail>();
         }
 
         private void OnEnable()
@@ -340,7 +334,6 @@ namespace Halcyonic.XR.Workspace
         {
             side = 0;
             Place();
-            if (rail != null) rail.ResetPosition();
             Layout();
         }
 
@@ -380,11 +373,15 @@ namespace Halcyonic.XR.Workspace
                     ShowConnect();
                     return;
                 case EntryScreens.ToggleProject when key != null:
-                    rail?.ToggleProject(key);
+                    // Pressing a project shows it if hidden and hides it if shown.
+                    if (overview()?.Projects.FirstOrDefault(project => project.ProjectId == key) is ProjectSummary pressed)
+                    {
+                        director?.ShowProject(key, !pressed.Shown);
+                    }
                     Layout();
                     return;
                 case EntryScreens.ShowAll:
-                    rail?.ShowAllProjects();
+                    director?.ShowAllProjects();
                     Layout();
                     return;
                 case EntryScreens.Done when screen == Screen.Connect:
