@@ -254,13 +254,37 @@ describe('naming the roots for people', () => {
     });
   });
 
-  test('a level further up is named only where the one below still leaves them alike', () => {
+  test('two folders above are named only where one leaves them alike, written in path order', () => {
     const labels = rootLabels(['/a/shared/Projects', '/b/shared/Projects', '/c/other/Projects']);
     assert.deepEqual(Object.fromEntries(labels), {
-      '/a/shared/Projects': 'Projects (a)',
-      '/b/shared/Projects': 'Projects (b)',
+      '/a/shared/Projects': 'Projects (a, shared)',
+      '/b/shared/Projects': 'Projects (b, shared)',
       '/c/other/Projects': 'Projects (other)',
     });
+  });
+
+  test('a label already apart stays as it is while the others reach further up', () => {
+    const labels = rootLabels([
+      '/Users/glen/Personal/Projects',
+      '/Users/glen/Personal/Work/Projects',
+      '/Users/glen/Work/Projects',
+    ]);
+    assert.deepEqual(Object.fromEntries(labels), {
+      '/Users/glen/Personal/Projects': 'Projects (Personal)',
+      '/Users/glen/Personal/Work/Projects': 'Projects (Personal, Work)',
+      '/Users/glen/Work/Projects': 'Projects (glen, Work)',
+    });
+  });
+
+  test("a root's own name keeps it against a label made to read the same", () => {
+    const labels = rootLabels(['/s/x', '/t/x', '/u/x (s)']);
+    assert.equal(labels.get('/u/x (s)'), 'x (s)', 'the folder really named so');
+    assert.equal(labels.get('/t/x'), 'x (t)');
+    assert.equal(
+      labels.get('/s/x'),
+      'x (s) 2',
+      'the made label moves, here to a number, with nothing further up',
+    );
   });
 
   test('names alike but for case or compatibility forms count as the same name', () => {
@@ -276,19 +300,31 @@ describe('naming the roots for people', () => {
     });
   });
 
-  test('a drive says so, and a root with nothing above it is named by itself', () => {
-    const labels = rootLabels([
-      '/Volumes/Work',
-      '/Users/person/Work',
-      '/Projects',
-      '/Users/person/Projects',
-    ]);
+  test('a folder on a drive is named by the drive, and a root with nothing above it by itself', () => {
+    const labels = rootLabels(['/Volumes/Work/Projects', '/Users/person/Projects', '/Projects']);
     assert.deepEqual(Object.fromEntries(labels), {
-      '/Volumes/Work': 'Work (drive)',
-      '/Users/person/Work': 'Work (person)',
-      '/Projects': 'Projects',
+      '/Volumes/Work/Projects': 'Projects (Work)',
       '/Users/person/Projects': 'Projects (person)',
+      '/Projects': 'Projects',
     });
+  });
+
+  test('a listing from a host that gives no label still reads', () => {
+    const listing = {
+      roots: [
+        {
+          path: '/Users/person/Projects',
+          name: 'Projects',
+          status: 'available',
+          repository: false,
+          changed_at: null,
+          used_by: [],
+          folders: [],
+          folders_truncated: false,
+        },
+      ],
+    };
+    assert.ok(validLocations(listing).ok);
   });
 
   test('a root configured twice is one root with one name, and no name grows past the contract', () => {
@@ -334,7 +370,8 @@ describe('naming the roots for people', () => {
       'Work',
       'Projects (old)',
       'old',
-      'drive',
+      'x (Work)',
+      'Work, old',
       'Ｐrojects',
       '🙂',
       'a',
@@ -354,6 +391,21 @@ describe('naming the roots for people', () => {
       }
       const labels = rootLabels([...paths]);
       assert.equal(labels.size, paths.size);
+      assert.deepEqual(
+        rootLabels([...paths].reverse()),
+        labels,
+        'the order the roots are given changes nothing',
+      );
+      const folds = [...paths].map((path) =>
+        path.split('/').pop()?.normalize('NFKC').toLowerCase(),
+      );
+      for (const path of paths) {
+        const own = path.split('/').pop() ?? '';
+        const alone =
+          folds.filter((fold) => fold === own.normalize('NFKC').toLowerCase()).length === 1;
+        if (alone)
+          assert.equal(labels.get(path), own, `${path}: a name no other root has stays as it is`);
+      }
       const values = [...labels.values()];
       assert.equal(
         new Set(values.map((label) => label.normalize('NFKC').toLowerCase())).size,
@@ -398,7 +450,7 @@ describe('naming the roots for people', () => {
       ],
       'the name stays the folder own name; the label tells them apart',
     );
-    assert.ok(listed.roots.every((root) => !root.label.includes('/')));
+    assert.ok(listed.roots.every((root) => !(root.label ?? '').includes('/')));
   });
 });
 

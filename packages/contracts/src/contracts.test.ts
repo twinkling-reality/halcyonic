@@ -399,6 +399,18 @@ describe('the C# bindings', () => {
     assert.equal(committed, generated, 'run pnpm contracts:emit and commit the result');
   });
 
+  test('an optional string reads as null when missing and is left out when null; nothing else may be optional', () => {
+    assert.match(
+      generated,
+      /\[JsonProperty\("label", Required = Required\.Default, NullValueHandling = NullValueHandling\.Ignore\)\]\s+public string\? Label \{ get; set; \}/,
+    );
+    assert.equal(
+      generated.match(/Required = Required\.Default/g)?.length,
+      1,
+      'LocationRoot.label is the one optional property',
+    );
+  });
+
   test('every event and command type has a class the converters can create', () => {
     const tags = [
       ...EVENT_VARIANTS.map(

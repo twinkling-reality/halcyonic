@@ -79,6 +79,11 @@ interface Member {
   readonly type: CsType;
   /** The value of a constant property, emitted as its initializer. */
   readonly constant: string | number | undefined;
+  /**
+   * The property may be absent, as one added to a response that older senders leave out: read as
+   * null when missing, and left out when null, so readers and senders of either age agree.
+   */
+  readonly optional?: boolean;
 }
 
 interface Variant {
@@ -300,19 +305,23 @@ class CSharpGenerator {
     const properties = (schema.properties ?? {}) as Readonly<Record<string, Schema>>;
     const required = new Set((schema.required ?? []) as readonly string[]);
     return Object.entries(properties).map(([wire, property]) => {
-      if (!required.has(wire)) {
-        throw new Error(`${owner}.${wire}: optional properties are not supported; use Nullable`);
-      }
+      const optional = !required.has(wire);
       const name = pascal(wire);
       if (name === owner)
         throw new Error(`${owner}.${wire}: a member cannot share its type's name`);
       const constant = property.const;
+      if (optional && (constant !== undefined || property.type !== 'string')) {
+        // Absent is told apart from null only for a plain string; anything else is Nullable instead.
+        throw new Error(`${owner}.${wire}: only a plain string may be optional; use Nullable`);
+      }
+      const type = this.#resolve(property, `${stem}${name}`);
       return {
         wire,
         name,
-        type: this.#resolve(property, `${stem}${name}`),
+        type: optional ? { ...type, nullable: true } : type,
         constant:
           typeof constant === 'string' || typeof constant === 'number' ? constant : undefined,
+        optional,
       };
     });
   }
@@ -382,6 +391,12 @@ function converter(
 }
 
 function renderMember(member: Member): string[] {
+  if (member.optional) {
+    return [
+      `        [JsonProperty("${member.wire}", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]`,
+      `        public ${spell(member.type)} ${member.name} { get; set; }`,
+    ];
+  }
   const required = member.type.nullable ? 'Required.AllowNull' : 'Required.Always';
   let initializer = '';
   if (member.constant !== undefined) {

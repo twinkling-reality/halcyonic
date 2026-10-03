@@ -2351,8 +2351,8 @@ namespace Halcyonic.Contracts
         [JsonProperty("name", Required = Required.Always)]
         public string Name { get; set; } = default!;
 
-        [JsonProperty("label", Required = Required.Always)]
-        public string Label { get; set; } = default!;
+        [JsonProperty("label", Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
+        public string? Label { get; set; }
 
         [JsonProperty("status", Required = Required.Always)]
         public LocationRootStatus Status { get; set; }

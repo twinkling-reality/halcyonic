@@ -118,11 +118,12 @@ export const LocationRoot = Type.Object(
     name: DisplayName,
     /**
      * The root's name for people, unlike every other root's: its own name, or, where another root
-     * shares it, with a folder above that tells them apart, as "Projects (Work)" or "Work (drive)",
-     * or a number where nothing does. It can change when the roots change; a client shows it,
-     * re-read from the latest listing, and never keeps it as a choice's identity. Never a path.
+     * reads the same, with folders above that tell them apart, as "Projects (Work)" or "Projects
+     * (Personal, Work)", or a number where nothing does. It can change when the roots change; a
+     * client shows it, re-read from the latest listing, and never keeps it as a choice's identity.
+     * Never a path. Optional, so a client reads an older host that sends none, showing `name`.
      */
-    label: DisplayName,
+    label: Type.Optional(DisplayName),
     status: Type.Union([Type.Literal('available'), Type.Literal('missing')]),
     /** The root's own facts, read as a listed folder's are; null and empty while it is missing. */
     ...FolderFacts,
