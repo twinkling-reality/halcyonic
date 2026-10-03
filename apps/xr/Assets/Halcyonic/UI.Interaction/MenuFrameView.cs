@@ -75,6 +75,14 @@ namespace Halcyonic.XR.UI
         private float subjectPressedAt = -1f;
         private bool subjectHolding;
 
+        /// <summary>The subject plate's cue while it can be held: the pointed frame, or the lit treatment from the press until let go.</summary>
+        private Surface? subjectCue;
+        private int subjectCuePainted = -1;
+
+        /// <summary>The subject plate as last laid, its centre and size in the subject part's units: where the hold and its cue stand.</summary>
+        private Vector3 subjectPlateAt;
+        private Vector2 subjectPlateSize;
+
         /// <summary>Something was pressed: an action's id and its key.</summary>
         public event Action<string, string?>? Acted;
 
@@ -451,6 +459,8 @@ namespace Halcyonic.XR.UI
             if (subjectHold != null) return;
             var host = new GameObject("Subject hold");
             host.transform.SetParent(subjectPart, false);
+            // Over the plate's glass, under its words: the one selection treatment, as a held prompt shows it.
+            subjectCue = Surface.Create(subjectPart, "Subject cue", Order + 1);
             subjectHold = PointerTarget.Rectangle(host, Vector2.one, ray: true, poke: true);
             subjectHold.EnableDrag();
             subjectHold.Selected += () =>
@@ -469,11 +479,58 @@ namespace Halcyonic.XR.UI
                 subjectHolding = false;
                 if (held) SubjectLetGo?.Invoke();
             };
+            PlaceSubjectHold();
+        }
+
+        /// <summary>The hold and its cue over the subject plate as laid: the hold in front of the glass, the cue on it, both behind its words.</summary>
+        private void PlaceSubjectHold()
+        {
+            if (subjectHold == null || subjectCue == null) return;
+            subjectHold.Resize(subjectPlateSize);
+            subjectHold.transform.localPosition = subjectPlateAt + new Vector3(0f, 0f, -U(0.02f));
+            subjectCue.transform.localPosition = subjectPlateAt + new Vector3(0f, 0f, -U(0.01f));
+            subjectCuePainted = -1;
+        }
+
+        /// <summary>For the editor's renders, which have no hands: paints the subject plate's cue as pointed at or pressed.</summary>
+        public void PaintSubjectForRender(bool pointed, bool pressed)
+        {
+            subjectCuePainted = -1;
+            PaintSubjectCue(pointed, pressed);
+        }
+
+        /// <summary>The subject plate's cue, as a held prompt's (ADR 0026): the pointed frame alone, or held, from the press until let go, the lit fill and frame; only when that changed.</summary>
+        private void PaintSubjectCue(bool pointed, bool pressed)
+        {
+            if (subjectCue == null) return;
+            var away = FocusGuard.InputSuspended;
+            var state = (pressed ? 1 : 0) | (pointed ? 2 : 0) | (away ? 4 : 0);
+            if (state == subjectCuePainted) return;
+            subjectCuePainted = state;
+            var radius = U(Glaze.Menu.RadiusDegrees);
+            if (away || (!pressed && !pointed))
+            {
+                subjectCue.Draw(Vector2.zero, 0f, Color.clear);
+                subjectCue.Selection = SurfaceSelection.None;
+            }
+            else if (pressed)
+            {
+                subjectCue.Draw(subjectPlateSize, radius, new Color(1f, 1f, 1f, Glaze.Menu.LitFillOpacity), new Color(1f, 1f, 1f, Glaze.Menu.LitFrameOpacity),
+                    U(Glaze.Menu.LitFrameDegrees));
+                subjectCue.Selection = SurfaceSelection.Lit;
+            }
+            else
+            {
+                subjectCue.Draw(subjectPlateSize, radius, Color.clear, new Color(1f, 1f, 1f, Glaze.Menu.PointedFrameOpacity), U(Glaze.Menu.PointedFrameDegrees));
+                subjectCue.Selection = SurfaceSelection.Pointed;
+            }
         }
 
         private void Update()
         {
-            if (subjectHold == null || subjectHolding || subjectPressedAt < 0f || Time.unscaledTime - subjectPressedAt < GlazeButton.HoldSeconds) return;
+            if (subjectHold == null) return;
+            PaintSubjectCue(subjectHold.Hovered, subjectPressedAt >= 0f);
+            if (subjectHolding || subjectPressedAt < 0f || Time.unscaledTime - subjectPressedAt < GlazeButton.HoldSeconds) return;
             if (!(subjectHold.HeldPoint is Vector3 point)) return;
             subjectHolding = true;
             SubjectHeld?.Invoke(point);
@@ -490,12 +547,9 @@ namespace Halcyonic.XR.UI
             var plate = subjectHeight - reserve;
             subjectPlate.DrawGlass(new Vector2(width, plate));
             subjectPlate.transform.localPosition = new Vector3(0f, top - reserve - plate / 2f, 0f);
-            if (subjectHold != null)
-            {
-                // Over the plate, behind its words, so a ray finds it there.
-                subjectHold.Resize(new Vector2(width, plate));
-                subjectHold.transform.localPosition = new Vector3(0f, top - reserve - plate / 2f, -U(0.02f));
-            }
+            subjectPlateAt = new Vector3(0f, top - reserve - plate / 2f, 0f);
+            subjectPlateSize = new Vector2(width, plate);
+            PlaceSubjectHold();
             // In the plate, under the pill's lower half, centred.
             var inner = Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));

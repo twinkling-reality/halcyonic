@@ -31,7 +31,9 @@ namespace Halcyonic.XR.UI
         /// A footer's prompt on the menu (ADR 0026): a round key cap holding its icon, then its words,
         /// with no plate and an unseen 60 dp hit area; the main action's cap filled with the accent
         /// (<see cref="GlazeButton.On"/>), its words heavier in the accent. Pointed at, the pointed frame
-        /// round it; pressed, its cap sinks.
+        /// round it; pressed, its cap sinks. A held prompt, as Hold to talk, also takes the lit treatment
+        /// from its press until let go, as a file's subject plate does when held, so a person sees the
+        /// hold take before it starts.
         /// </summary>
         Prompt,
 
@@ -634,6 +636,12 @@ namespace Halcyonic.XR.UI
                 plate.Draw(size, radius, litFill, litFrame, GlazeTokens.Units(Glaze.Menu.LitFrameDegrees));
                 plate.Selection = SurfaceSelection.Lit;
             }
+            else if (pressed && Holds && role == ButtonRole.Prompt)
+            {
+                // Held, from the press until let go: the lit treatment where the pointed frame stood.
+                plate.Draw(new Vector2(size.x, size.y - GlazeTokens.Units(0.4f)), radius, litFill, litFrame, GlazeTokens.Units(Glaze.Menu.LitFrameDegrees));
+                plate.Selection = SurfaceSelection.Lit;
+            }
             else if (hovered)
             {
                 var framed = role == ButtonRole.Prompt ? new Vector2(size.x, size.y - GlazeTokens.Units(0.4f)) : size;
@@ -670,8 +678,11 @@ namespace Halcyonic.XR.UI
             }
         }
 
-        /// <summary>Paints the state it is in now, only when that changed.</summary>
-        private void Paint() => Paint(target.Hovered, flash > 0f || holding);
+        /// <summary>
+        /// Paints the state it is in now, only when that changed: pressed while its flash lasts, or, for a
+        /// hold button, from the press until let go. Painting changes nothing of when a hold starts.
+        /// </summary>
+        private void Paint() => Paint(target.Hovered, flash > 0f || holding || (Holds && pressedAt >= 0f));
 
         private void Paint(bool pointed, bool pressed)
         {

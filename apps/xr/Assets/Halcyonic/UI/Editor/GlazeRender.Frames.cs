@@ -44,22 +44,26 @@ namespace Halcyonic.XR.UI.Editor
         private static IEnumerable<string> Frames(string folder, Camera camera, RenderTexture texture, GameObject root, Vector3 eyes)
         {
             var failures = new List<string>();
-            var compositions = new (string Name, Func<Transform, List<FrameColumn>> Build)[]
+            var compositions = new (string Name, Func<Transform, List<FrameColumn>> Build, Action<List<FrameColumn>>? Paint)[]
             {
-                ("frames-tasks-and-file", TasksAndFile),
-                ("frames-usage-limit", UsageLimit),
-                ("frames-changes-details", ChangesDetails),
-                ("frames-approval-confirming", ApprovalConfirming),
-                ("frames-closed", Closed),
+                ("frames-tasks-and-file", TasksAndFile, null),
+                ("frames-usage-limit", UsageLimit, null),
+                ("frames-changes-details", ChangesDetails, null),
+                ("frames-approval-confirming", ApprovalConfirming, null),
+                ("frames-closed", Closed, null),
+                ("frames-subject-pointed", Draggable, columns => PaintHeld(columns, pressed: false)),
+                ("frames-subject-held", Draggable, columns => PaintHeld(columns, pressed: true)),
             };
             var aim = camera.transform.rotation;
-            foreach (var (name, build) in compositions)
+            foreach (var (name, build, paint) in compositions)
             {
                 var holder = new GameObject(name).transform;
                 holder.SetParent(gallery, false);
                 var columns = build(holder);
                 var what = "component render: " + name;
                 var (direction, shapes) = Compose(columns, eyes);
+                // Painted once laid, since laying a footer paints its buttons as they are.
+                paint?.Invoke(columns);
                 camera.transform.rotation = PlaneLayout.Facing(direction);
                 var targets = columns.SelectMany(column => column.View?.Targets ?? new[] { column.Bar!.Target }).ToList();
                 failures.AddRange(Check(folder, "gallery-" + name + ".png", camera, texture, root, eyes,
@@ -96,6 +100,60 @@ namespace Halcyonic.XR.UI.Editor
             failures.AddRange(PartsLoseNoWord());
             failures.AddRange(GlowCatchesARowUnderIt());
             failures.AddRange(OutlineApartCatchesALabelOverAPart());
+            failures.AddRange(HeldReadsAlike());
+            return failures;
+        }
+
+        /// <summary>The menu on Tasks beside a file whose subject plate drags the plane, as on the stage.</summary>
+        private static List<FrameColumn> Draggable(Transform holder)
+        {
+            var columns = TasksAndFile(holder);
+            columns[1].View!.EnableSubjectHold();
+            return columns;
+        }
+
+        /// <summary>A hand on the file's subject plate and on Hold to talk: pointed at, or held from the press until let go.</summary>
+        private static void PaintHeld(List<FrameColumn> columns, bool pressed)
+        {
+            var file = columns[1].View!;
+            file.PaintSubjectForRender(pointed: true, pressed);
+            file.Targets.First(target => target.Holds).PaintForRender(true, pressed);
+        }
+
+        /// <summary>
+        /// A held prompt and a held subject plate read alike (ADR 0026): pointed at, the pointed frame;
+        /// held, from the press until let go, the lit treatment. Painting so starts no hold and raises nothing.
+        /// </summary>
+        private static IEnumerable<string> HeldReadsAlike()
+        {
+            var failures = new List<string>();
+            var holder = new GameObject("Held reads alike").transform;
+            holder.SetParent(gallery, false);
+            try
+            {
+                var columns = Draggable(holder);
+                PaintHeld(columns, pressed: false);
+                var file = columns[1].View!;
+                var cue = file.GetComponentsInChildren<Surface>(false).FirstOrDefault(surface => surface.name == "Subject cue");
+                var talk = file.Targets.First(target => target.Holds);
+                var started = 0;
+                talk.HoldStarted += () => started++;
+                if (cue?.Selection != SurfaceSelection.Pointed) failures.Add("component render: the file's subject plate, pointed at, shows no pointed frame.");
+                file.PaintSubjectForRender(pointed: true, pressed: true);
+                talk.PaintForRender(true, true);
+                if (cue?.Selection != SurfaceSelection.Lit) failures.Add("component render: the file's subject plate, held, is not lit.");
+                if (!talk.GetComponentsInChildren<Surface>(false).Any(surface => surface.Selection == SurfaceSelection.Lit))
+                {
+                    failures.Add("component render: Hold to talk, held, is not lit as the subject plate is.");
+                }
+                if (talk.Holding || started > 0) failures.Add("component render: painting Hold to talk as held started its hold.");
+                file.PaintSubjectForRender(pointed: false, pressed: false);
+                if (cue?.Selection != SurfaceSelection.None) failures.Add("component render: the file's subject plate shows a cue with nothing on it.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            }
             return failures;
         }
 

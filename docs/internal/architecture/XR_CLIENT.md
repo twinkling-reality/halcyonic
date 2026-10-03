@@ -426,7 +426,12 @@ the same definition names, as the JSON Schema document:
   hold counts only on the file's frame last drawn, never while a confirmation stands on the plane,
   and it is apart from every prompt, so it never starts Hold to talk and no held prompt drags. While
   it lasts nothing is pressed or held and nothing is laid again under the hand; let go, the plane is
-  drawn where it was left and presses count again. A drag step allocates nothing. It runs
+  drawn where it was left and presses count again. A drag step allocates nothing. The subject plate
+  shows the one selection treatment as a held prompt does: the pointed frame while a hand points at
+  it, and from the press until let go the lit fill and frame, so a person sees the hold take before
+  the plane follows; Hold to talk, and any held prompt, takes the same lit treatment from its press,
+  where before its cap sank only once the hold had started. Painting changes nothing of when a hold
+  starts or what it raises. It runs
   Hold to talk's one voice for any held
   prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
