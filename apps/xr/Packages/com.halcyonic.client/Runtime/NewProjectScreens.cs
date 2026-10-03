@@ -479,8 +479,13 @@ namespace Halcyonic.Client
         /// <param name="confirmingStartOver">Start over was pressed once: Cancel stands in its place and Yes, start over in the middle.</param>
         /// <param name="buildReached">Whether Build's step can be chosen, where it differs from nothing stopping a start: a start whose outcome is unknown shows there.</param>
         /// <param name="startOverProblem">Why Start over can't be taken now, as while a build is on its way or its outcome unknown; null when it can.</param>
+        /// <param name="words">
+        /// Words can be given here, by the keyboard or Hold to talk. Where neither is offered, a change
+        /// that only leads to a page of words (renaming, a first task in the person's own words) is left
+        /// off, since that page could only show them.
+        /// </param>
         public static MenuFrame Recap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem,
-            RecapFact? chosen = null, bool confirmingStartOver = false, bool? buildReached = null, string? startOverProblem = null)
+            RecapFact? chosen = null, bool confirmingStartOver = false, bool? buildReached = null, string? startOverProblem = null, bool words = true)
         {
             var existing = idea.ExistingProjectId != null;
             var suggested = idea.NameSuggested || idea.TaskSuggested;
@@ -506,8 +511,8 @@ namespace Halcyonic.Client
                 action: ChooseFact, key: FactKey(RecapFact.HowItRuns), opens: true, chosen: chosen == RecapFact.HowItRuns));
             var change = chosen switch
             {
-                RecapFact.Name => new Prompt(Rename, EntryText.Change, GlazeIcon.Change),
-                RecapFact.FirstTask => new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change),
+                RecapFact.Name => words ? new Prompt(Rename, EntryText.Change, GlazeIcon.Change) : null,
+                RecapFact.FirstTask => words || ChangeFor(idea) != TaskChange.Words ? new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change) : null,
                 RecapFact.Folder => new Prompt(ChooseWhere, EntryText.ChooseAnotherFolder, GlazeIcon.Change),
                 RecapFact.HowItRuns => new Prompt(MoreOptions, EntryText.MoreOptions, GlazeIcon.Change),
                 _ => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem),
@@ -570,7 +575,9 @@ namespace Halcyonic.Client
         /// </summary>
         /// <param name="problem">Why the folders couldn't be read, as it arrived, or null while reading.</param>
         /// <param name="notice">A line for this page only, such as why a new folder's name was refused.</param>
-        public static MenuFrame RecapFolder(ProjectIdea idea, bool startReached, LocationsResponse? locations, string? problem, string? notice)
+        /// <param name="words">Words can be given here, by the keyboard or Hold to talk; where neither is offered, no new folder is offered, since it could not be named.</param>
+        public static MenuFrame RecapFolder(ProjectIdea idea, bool startReached, LocationsResponse? locations, string? problem, string? notice,
+            bool words = true)
         {
             var lines = new List<PageLine>();
             var main = new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true);
@@ -598,6 +605,7 @@ namespace Halcyonic.Client
                 for (var index = 0; index < options.Count; index++)
                 {
                     var option = options[index];
+                    if (!words && option.Kind == FolderOptionKind.NewFolder) continue;
                     var chosen = current != null && current.RootPath == option.Root.Path
                         && (option.Kind == FolderOptionKind.NewFolder ? current.IsNew
                             : !current.IsNew && (option.Kind == FolderOptionKind.Root ? current.FolderName == null

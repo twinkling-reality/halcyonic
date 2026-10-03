@@ -804,7 +804,9 @@ the same definition names, as the JSON Schema document:
   belongs to the same draft. Where the system keyboard can't open (`IMenuHost.KeyboardOffered` false,
   as in the editor), a row that only types is left off, since it would do nothing; one already
   holding words, heard or kept, stays as a choice that a press only chooses, and choices and Hold to
-  talk stay where offered. Hold to talk's heard words land where words are given, never sent unchecked; leaving
+  talk stay where offered. With neither the keyboard nor Hold to talk, nothing leads to a page of
+  words, which could only show them: no Change for the name or for a first task in the person's own
+  words, and no new folder, which could not be named. Hold to talk's heard words land where words are given, never sent unchecked; leaving
   for another window lapses an armed confirmation and sends a review back to the recap. Drafts are
   kept across a restart through `CreationDrafts`, for the computer they were made with. A kept
   folder's place is read again from every listing the computer gives (`ProjectIdea.ReadPlaces`,

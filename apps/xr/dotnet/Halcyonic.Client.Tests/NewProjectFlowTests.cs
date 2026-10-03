@@ -668,6 +668,24 @@ public class NewProjectFlowTests
     }
 
     [Test]
+    public void WithNeitherTheKeyboardNorHoldToTalkRenamingIsNotOfferedAndItsPressDoesNothing()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        host.KeyboardOffered = false;
+        host.VoiceOffered = false;
+        flow.Tick();
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Name));
+        Assert.That(Ids(flow.Frame!), Does.Not.Contain(NewProjectScreens.Rename));
+        Press(flow, NewProjectScreens.Rename, null);
+        Assert.That(flow.Frame!.Lines.Any(line => line.Words == EntryText.ProjectName), Is.False, "no page of words opens");
+
+        host.VoiceOffered = true;
+        flow.Tick();
+        Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.Rename), "Hold to talk can give the name");
+    }
+
+    [Test]
     public void AfterAReconnectMidBuildTheSameFlowSettlesTheStartFromItsRecordAndNeverCreatesTwice()
     {
         var drop = new TaskCompletionSource<CommandAckMessage>();
