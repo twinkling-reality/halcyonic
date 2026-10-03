@@ -69,6 +69,9 @@ namespace Halcyonic.Client
         FirstTask,
         Folder,
         HowItRuns,
+
+        /// <summary>The recap's last row: chosen, its side panel says what starting over clears, and Start over stands in the footer.</summary>
+        StartOver,
     }
 
     /// <summary>What the words page is for.</summary>
@@ -463,12 +466,16 @@ namespace Halcyonic.Client
             {
                 lines.Add(new PageLine(CompanionText.GoOnWithout, icon: GlazeIcon.Next, action: GoOnWithout, choice: true, chosen: withoutIt));
             }
-            if (withoutIt && exchange.Proposal == null) main = new Prompt(MakeRecapFromMyWords, CompanionText.MakeTheRecapFromMyWords, GlazeIcon.Next, main: true);
             if (exchange.WrittenHeard && exchange.Chosen == CompanionAnswerRow.Written) lines.Add(new PageLine(VoiceText.HeardAnswer, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var talk = voice && !recorded && answering
                 ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: quiet == null, reason: quiet, holds: true)
                 : null;
+            // Beside Close and Hold to talk the whole words don't fit a file's footer (the workspace render: 0.657 of 0.618), so the shorter.
+            if (withoutIt && exchange.Proposal == null)
+            {
+                main = new Prompt(MakeRecapFromMyWords, talk != null ? CompanionText.RecapFromMyWords : CompanionText.MakeTheRecapFromMyWords, GlazeIcon.Next, main: true);
+            }
             // A full exchange says so: as Hold to talk's reason where it stands, else on a line of its own.
             if (talk == null && !recorded && quiet == CompanionText.Full) lines.Add(new PageLine(CompanionText.Full, tone: LineTone.Secondary, rows: 2));
             var footer = new Footer(Close(), secondary: talk, farRight: main);
@@ -537,7 +544,8 @@ namespace Halcyonic.Client
             RecapFact.Name => "name",
             RecapFact.FirstTask => "first-task",
             RecapFact.Folder => "folder",
-            _ => "how-it-runs",
+            RecapFact.HowItRuns => "how-it-runs",
+            _ => "start-over",
         };
 
         /// <summary>The fact a row's key names, or null for a key that names none.</summary>
@@ -595,17 +603,22 @@ namespace Halcyonic.Client
                 action: ChooseFact, key: FactKey(RecapFact.Folder), opens: true, chosen: chosen == RecapFact.Folder));
             lines.Add(new PageLine(EntryText.RunsWith(draft, live), wordsAreData: RuntimeIsData(draft, live),
                 action: ChooseFact, key: FactKey(RecapFact.HowItRuns), opens: true, chosen: chosen == RecapFact.HowItRuns));
+            // Start over, the last row, chosen like a fact, so it always stands in one place: on the last page.
+            lines.Add(new PageLine(EntryText.StartOver, icon: GlazeIcon.StartOver, action: ChooseFact, key: FactKey(RecapFact.StartOver), opens: true,
+                chosen: chosen == RecapFact.StartOver));
+            // The footer's middle acts on the row chosen; with none chosen, a recap that pages turns there.
             var change = chosen switch
             {
                 RecapFact.Name => words ? new Prompt(Rename, EntryText.Change, GlazeIcon.Change) : null,
                 RecapFact.FirstTask => words || ChangeFor(idea) != TaskChange.Words ? new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change) : null,
                 RecapFact.Folder => new Prompt(ChooseWhere, EntryText.ChooseAnotherFolder, GlazeIcon.Change),
                 RecapFact.HowItRuns => new Prompt(MoreOptions, EntryText.MoreOptions, GlazeIcon.Change),
-                _ => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem),
+                RecapFact.StartOver => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem),
+                _ => null,
             };
             var footer = new Footer(Close(), rare: change,
                 farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem));
-            if (confirmingStartOver && chosen == null)
+            if (confirmingStartOver && chosen == RecapFact.StartOver && startOverProblem == null)
             {
                 lines.Add(new PageLine(EntryText.StartOverQuestion, rows: 2));
                 footer = Footer.Confirm(footer, PromptSlot.Rare,
@@ -715,9 +728,10 @@ namespace Halcyonic.Client
             bool showModels, bool live)
         {
             var lines = new List<PageLine> { new PageLine(EntryText.OptionsLine, tone: LineTone.Secondary, rows: 2) };
-            Prompt? rare = null;
             if (showModels && draft.Runtime?.ModelChoice == ModelChoice.Listed)
             {
+                // Another agent app, a row before the models, so the footer's middle is free for Next page.
+                lines.Add(new PageLine(EntryText.ChangeAgentApp, icon: GlazeIcon.Change, action: ChangeRuntime));
                 if (draft.Models.Count == 0) lines.Add(new PageLine(draft.ModelProblem ?? EntryText.NoModels, rows: 2));
                 var elsewhere = draft.Elsewhere;
                 for (var index = 0; index < draft.Models.Count; index++)
@@ -731,7 +745,6 @@ namespace Halcyonic.Client
                             : (chosen && draft.ModelPreselected ? EntryText.ChosenForYou + " · " : "") + EntryText.ServedShort(each.Served),
                         action: ChooseModel, key: each.ModelRef, choice: true, chosen: chosen));
                 }
-                rare = new Prompt(ChangeRuntime, EntryText.ChangeAgentApp, GlazeIcon.Change);
             }
             else
             {
@@ -746,7 +759,7 @@ namespace Halcyonic.Client
                 }
             }
             var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, new Footer(Close(), rare: rare, farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)),
+            return new MenuFrame(subject, new Footer(Close(), farRight: new Prompt(Done, EntryText.Done, GlazeIcon.Next, main: true)),
                 subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, startReached), lines: lines);
         }
 
@@ -769,6 +782,8 @@ namespace Halcyonic.Client
                 case RecapFact.FirstTask:
                     return new SidePanel(EntryText.FirstTask, lines: new[] { new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, rows: 8) },
                         source: idea.TaskSuggested ? CompanionText.Note : null);
+                case RecapFact.StartOver:
+                    return new SidePanel(EntryText.StartOver, lines: new[] { new PageLine(EntryText.StartOverClears, rows: 3) });
                 case RecapFact.Folder:
                     var folderLines = new List<PageLine>
                     {

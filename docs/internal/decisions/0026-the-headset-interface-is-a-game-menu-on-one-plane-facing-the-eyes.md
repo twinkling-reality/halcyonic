@@ -228,7 +228,7 @@ coordinator's first-visit words:
   text, so a footer that fits at one size fits at both, and a render whose footer does not fit
   fails. In a 36 degree file, with about 34.4 of room, Close, Stop, Deny and Approve take 30.3, while
   Close, Start over, Hold to talk and Make the recap take 38.3: Start over stands on the recap
-  alone, beside Close while no row is chosen, where a chosen fact's Change takes its place. In the
+  alone, as its last row, its action beside Close only while that row is chosen. In the
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
   from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
   tasks.
@@ -344,6 +344,14 @@ coordinator's first-visit words:
   turns by a row, "Next page, 2 of 3". The source line and the reason stay on every page. A page's
   room is read once for what shows, never as the head moves, and anything new starts at its first
   page.
+- **Never four prompts** (2026-10-03, the coordinator). The footer's middle acts on the chosen row;
+  with none chosen, it pages. A chosen row's action replaces the pager, since a turn closes it
+  anyway: the person closes its details or chooses another row on the page, then turns. New
+  project's Start over is the recap's last row, on its last page even when the recap fits one,
+  chosen as a fact is, its side panel saying what starting over clears and its action arming the
+  confirmation in place; How it runs' Change agent app is a row before the models. The workspace
+  render lays every New project footer at both text sizes and fails on four prompts or a footer
+  that doesn't fit.
 
 ## Alternatives considered
 

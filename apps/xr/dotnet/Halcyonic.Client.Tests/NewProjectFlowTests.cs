@@ -150,12 +150,24 @@ public class NewProjectFlowTests
     {
         for (var turned = 0; turned < 12 && key != null && flow.Frame is MenuFrame frame && !Shows(frame, id, key) && Turn(frame) is { } turn; turned++)
         {
-            flow.Drawn(frame, false);
+            Draw(flow, frame);
             flow.Act(turn.Id, turn.Key);
         }
-        if (flow.Frame is MenuFrame drawn) flow.Drawn(drawn, false);
+        if (flow.Frame is MenuFrame drawn) Draw(flow, drawn);
         flow.Act(id, key);
+        if (flow.Frame is MenuFrame after) NeverFourPrompts(after);
     }
+
+    /// <summary>The director draws the frame, as it would after checking it holds never four prompts.</summary>
+    private static void Draw(NewProjectFlow flow, MenuFrame frame)
+    {
+        NeverFourPrompts(frame);
+        flow.Drawn(frame, false);
+    }
+
+    /// <summary>Never four prompts in a footer (ADR 0026): every frame a test reaches through a press or a turn is checked.</summary>
+    private static void NeverFourPrompts(MenuFrame frame) =>
+        Assert.That(frame.Footer.All.Count(), Is.LessThanOrEqualTo(3), frame.Subject + ": " + string.Join(", ", frame.Footer.All.Select(each => each.Prompt.Words)));
 
     /// <summary>
     /// What turns a frame's page, as the person finds it: the footer's Next page, where a list pages as
@@ -184,7 +196,7 @@ public class NewProjectFlowTests
         var seen = new HashSet<string> { Seen(pages[0]) };
         while (pages.Count < 12 && Turn(pages[^1]) is { } turn)
         {
-            flow.Drawn(pages[^1], false);
+            Draw(flow, pages[^1]);
             flow.Act(turn.Id, turn.Key);
             if (!seen.Add(Seen(flow.Frame!))) break;
             pages.Add(flow.Frame!);
@@ -234,12 +246,12 @@ public class NewProjectFlowTests
     /// <summary>The review read part by part, as the director draws each and the person presses Next part a second later.</summary>
     private static void ReadToTheEnd(NewProjectFlow flow, Host host)
     {
-        flow.Drawn(flow.Frame!, false);
+        Draw(flow, flow.Frame!);
         for (var part = 0; part < 50 && flow.Review?.CanConfirm != true; part++)
         {
             host.Now += 1;
             Press(flow, NewProjectScreens.NextPart, null);
-            flow.Drawn(flow.Frame!, false);
+            Draw(flow, flow.Frame!);
         }
     }
 
@@ -265,6 +277,69 @@ public class NewProjectFlowTests
         Assert.That(((ProjectCreateCommand)host.Sent[0]).Payload.Name, Is.EqualTo(flow.Idea!.Name));
         Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent, Has.Count.EqualTo(1), "a review confirms one send");
+    }
+
+    [Test]
+    [Ignore("Pending lane U: an in-place side panel draws only Close details (MenuFrameView), so a chosen fact's change isn't drawn at larger text; lane U is to give it its frame's footer, Close details in Close's place. Update what's drawn here with it.")]
+    public void AtLargerTextAChosenFactsChangeIsOfferedInWhatIsDrawn()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        host.TextSize = TextSize.Larger;
+        flow.Tick();
+        foreach (var fact in new[] { RecapFact.Name, RecapFact.FirstTask, RecapFact.Folder, RecapFact.HowItRuns, RecapFact.StartOver })
+        {
+            Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(fact));
+            var frame = flow.Frame!;
+            var change = frame.Footer[PromptSlot.Rare];
+            Assert.That((frame.Side != null, change != null), Is.EqualTo((true, true)), fact + ": its side panel open and its change in the frame's footer");
+            // What the plane draws (MenuPlane, MenuFrameView): with text a step larger, the side panel stands in New project's place.
+            var drawn = MenuColumns.Arrange(menuOpen: false, fileOpen: true, sidePanel: true, fitsBeside: true, sideInPlace: true)
+                .SelectMany(column => (column == MenuColumn.Side ? SidePanel.Footer : frame.Footer).All.Select(each => each.Prompt.Id));
+            Assert.That(drawn, Does.Contain(change!.Id), fact + "'s change is drawn");
+            Press(flow, SidePanel.Close, null);
+        }
+    }
+
+    [Test]
+    public void StartOverClearsTheIdeaAndKeepsHowItRunsAsItsSidePanelSays()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        string RunsWith() => Pages(flow).SelectMany(page => page.Lines).Single(line => line.Key == NewProjectScreens.FactKey(RecapFact.HowItRuns)).Words;
+        var runsWith = RunsWith();
+        Press(flow, NewProjectScreens.StartOver, null);
+        Assert.That(flow.Frame!.Footer.Confirming, Is.False, "Start over arms nothing until its row is chosen");
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        Assert.That(flow.Frame!.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears));
+        Press(flow, NewProjectScreens.StartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That((flow.Step, flow.Idea!.HasRecap), Is.EqualTo((NewProjectStep.YourIdea, false)));
+
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Assert.That((flow.Step, flow.Frame!.Side), Is.EqualTo((NewProjectStep.Recap, (SidePanel?)null)), "no fact chosen on the new recap");
+        Assert.That(RunsWith(), Is.EqualTo(runsWith), "how it runs stays");
+    }
+
+    [Test]
+    public void StartOverActsOnlyWhileItsRowIsChosenEvenFromAFrameStillShowing()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        var drawn = flow.Frame!;
+        Draw(flow, drawn);
+        // Two presses on the frame still showing: another row on its page first, then Start over, which no longer stands
+        // (choosing a row disarms it, and the recap asks only while Start over's row is chosen).
+        Assert.That(drawn.Lines.Any(line => line.Key == NewProjectScreens.FactKey(RecapFact.HowItRuns)), Is.True);
+        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Assert.That(flow.Frame!.Side, Is.Not.Null, "How it runs chosen");
+        flow.Act(NewProjectScreens.StartOver, null);
+        Assert.That(flow.Frame!.Footer.Confirming, Is.False, "Start over arms nothing once its row isn't chosen");
+        flow.Act(NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True);
     }
 
     [Test]
@@ -595,8 +670,10 @@ public class NewProjectFlowTests
         var flow = Unknown(host, kept);
         var first = kept.Id;
         Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Recap));
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
         var recap = flow.Frame!;
-        Assert.That(recap.Footer[PromptSlot.Rare]!.Available, Is.False, "Start over waits too");
+        Assert.That((recap.Footer[PromptSlot.Rare]!.Id, recap.Footer[PromptSlot.Rare]!.Available), Is.EqualTo((NewProjectScreens.StartOver, false)),
+            "Start over waits too");
         Press(flow, NewProjectScreens.StartOver, null);
         Press(flow, NewProjectScreens.ConfirmStartOver, null);
         Assert.That(flow.Sequence, Is.Not.Null, "the build is still held");
@@ -839,7 +916,6 @@ public class NewProjectFlowTests
                 if (page.Source != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Source, Column)));
                 if (page.Reason != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Reason, Column)));
                 var name = what + " at " + size + ", page " + (index + 1) + " of " + pages.Count;
-                TestContext.Progress.WriteLine("DEBUG " + name + " room " + room + " lines " + LinesHeight(host, page.Lines) + " reason [" + page.Reason + "] source rows " + (page.Source == null ? 0 : host.RowsOf(page.Source, Column)) + ": " + string.Join(" | ", page.Lines.Select(line => line.Action + ":" + line.Rows + "/" + host.RowsOf(line, Column) + (line.BesideNext ? "+" : "") + ":" + line.Words)));
                 Assert.That(LinesHeight(host, page.Lines), Is.LessThanOrEqualTo(room + 1e-5f), name + " fits");
                 if (pages.Count > 1)
                 {
@@ -883,8 +959,8 @@ public class NewProjectFlowTests
         Assert.That(shown.Where(line => line.Action == NewProjectScreens.ChooseFact).Select(line => line.Key), Is.EquivalentTo(new[]
         {
             NewProjectScreens.FactKey(RecapFact.Name), NewProjectScreens.FactKey(RecapFact.FirstTask),
-            NewProjectScreens.FactKey(RecapFact.Folder), NewProjectScreens.FactKey(RecapFact.HowItRuns),
-        }), "every fact once");
+            NewProjectScreens.FactKey(RecapFact.Folder), NewProjectScreens.FactKey(RecapFact.HowItRuns), NewProjectScreens.FactKey(RecapFact.StartOver),
+        }), "every fact once, and Start over");
         Assert.That(flow.Frame!.Lines[0].Action, Is.Null, "the recap's line first");
 
         // A fact chosen on a later page keeps that page, and its side panel slides out from it.
@@ -895,11 +971,14 @@ public class NewProjectFlowTests
         Assert.That(chosen.Side, Is.Not.Null);
         Assert.That(chosen.Lines.Single(line => line.Chosen).Key, Is.EqualTo(NewProjectScreens.FactKey(RecapFact.HowItRuns)));
 
-        // Turning the page, by the footer's Next page as the menu's lists turn, closes it.
+        // The chosen row's action holds the footer's middle, so no Next page: never four prompts.
+        Assert.That(chosen.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { Footer.Close, NewProjectScreens.MoreOptions, NewProjectScreens.StartBuilding }));
+        // Its details closed, the pages turn by the footer's Next page, as the menu's lists turn.
         var chosenKeys = chosen.Lines.Select(line => line.Key).ToList();
+        Press(flow, SidePanel.Close, null);
+        Assert.That((flow.Frame!.Side, flow.Frame.Footer[PromptSlot.Secondary]?.Id), Is.EqualTo(((SidePanel?)null, Footer.NextPage)));
         Press(flow, Footer.NextPage, null);
-        Assert.That(flow.Frame!.Side, Is.Null);
-        Assert.That(flow.Frame.Lines.Select(line => line.Key), Is.Not.EqualTo(chosenKeys), "another page");
+        Assert.That(flow.Frame!.Lines.Select(line => line.Key), Is.Not.EqualTo(chosenKeys), "another page");
     }
 
     [Test]
@@ -916,7 +995,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.SendAnswer, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         var shown = FitsEveryPage(flow, host, "the demonstration's recap");
-        Assert.That(shown.Count(line => line.Action == NewProjectScreens.ChooseFact), Is.EqualTo(4), "every fact once");
+        Assert.That(shown.Count(line => line.Action == NewProjectScreens.ChooseFact), Is.EqualTo(5), "every fact once, and Start over");
     }
 
     [Test]
@@ -1017,6 +1096,38 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.Clear, null);
         Press(flow, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Null);
+    }
+
+    [Test]
+    public void ASidePanelDrawnCountsNothingAsRead()
+    {
+        // The review: only its side panel drawn, its parts stay unread however long the person waits.
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        for (var part = 0; part < 20; part++)
+        {
+            flow.Drawn(flow.Frame!, sidePanel: true);
+            host.Now += 1;
+            flow.Act(NewProjectScreens.NextPart, null);
+        }
+        Assert.That(flow.Review!.CanConfirm, Is.False, "no part of the review read from a side panel's draw");
+        ReadToTheEnd(flow, host);
+        Assert.That(flow.Review!.CanConfirm, Is.True, "its pages drawn, it is read");
+
+        // The unknown start: every part's side panel drawn, Clear still waits.
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+        var tight = new Host { TextSize = TextSize.Larger, Height = (rows, beside) => MenuPage.Height(TextSize.Larger, rows, besideMenu: beside) * 0.6f };
+        var unknown = Flow(tight, kept);
+        unknown.Open(null, null);
+        for (var part = 0; part < 10 && Turn(unknown.Frame!) is { } next; part++)
+        {
+            unknown.Drawn(unknown.Frame!, sidePanel: true);
+            tight.Now += 1;
+            unknown.Act(next.Id, next.Key);
+        }
+        unknown.Drawn(unknown.Frame!, sidePanel: true);
+        Assert.That(unknown.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.False, "Clear waits for its parts' pages");
     }
 
     [Test]

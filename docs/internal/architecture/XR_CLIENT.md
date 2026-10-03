@@ -795,9 +795,11 @@ the same definition names, as the JSON Schema document:
   targets and a grid step otherwise, two short answers sharing a row). Where they need more, a page
   of whole lines at a time, in order: a list (the recap's facts, the folders, the agent apps and
   models) turns by the footer's Next page, "First page" on the last, in the secondary place, the
-  recap's first line on its first page only and a chosen fact keeping its page, its side panel
-  sliding out from it, until a turn closes it; Starting, whose secondary place holds its change,
-  turns by a row, "Next page, 2 of 3", keyed to the page it stands on. A question's answers page as
+  recap's first line on its first page only. Never four prompts: the footer's middle acts on the
+  chosen row, so a chosen fact keeps its page, its side panel sliding out from it, its change in the
+  pager's place until its details close or another row is chosen (`NewProjectFlow.PagesInFooter`);
+  Starting, whose secondary place holds its change, turns by a row, "Next page, 2 of 3", keyed to
+  the page it stands on. A question's answers page as
   answers do: the question heading every page where it and a row of answers fit, else first on a
   page of its own ("On to the answers") and then by its first row where that fits; its offered
   answers in order, Go on without it or the skip the last of them, and the person's own answer
@@ -866,8 +868,12 @@ the same definition names, as the JSON Schema document:
   the recap, Make the recap from my words); Hold to talk as the secondary prompt; and the note that
   it is an AI as the source line of any page showing its words. The Recap shows each fact as a row,
   Suggested beside what the companion suggested, opening a side panel with the whole of it; the
-  chosen fact's change stands beside Close (Start over while none is chosen, confirmed in place),
-  and changing a suggested first task, the folder or how it runs is a page of answers with Done.
+  chosen fact's change stands beside Close; Start over is its last row, on its last page, chosen as
+  a fact is, its side panel saying what starting over clears (the idea, its answers, the name, first
+  task and folder; how it runs stays) and its Start over confirmed in place. Changing a suggested
+  first task, the folder or how it runs is a page of answers with Done, another agent app a row
+  before the models. The render lays every New project footer at both text sizes and fails on any
+  of four prompts or one that doesn't fit.
   The fixed questions go forward only: choosing an answer, the person's own or the skip only
   lights it (`ProjectIdea.ChooseGuideAnswer`, `WriteGuideAnswer`, `ChooseGuideSkip`), and Next
   question gives it (`NextQuestion`), Make the recap on the last. Changing a first task composed

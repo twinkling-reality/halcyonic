@@ -29,7 +29,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// agent's questions, a step at a time, a long one counted as read only after its last part; the
     /// whole request of a very long command, stepped through with Next, Yes locked until its last
     /// part; that every confirmation's Yes stands clear of every control shown before it and since;
-    /// hold to talk beside Tell it only where it fits; and hostile text on every label that shows
+    /// hold to talk beside Tell it only where it fits; every New project footer, never four prompts and
+    /// each fitting its column; and hostile text on every label that shows
     /// text Halcyonic did not write. The Meta XR Simulator renders nothing on the development Mac, so
     /// this is the check short of a headset. It saves each render as a PNG in
     /// apps/xr/Builds/WorkspaceRenders, which git ignores.
@@ -102,6 +103,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 // A judge's walk through the menu on the recorded demonstration, from the eyes.
                 failures.AddRange(RenderJudgeWalk("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                // Every New project footer in the file's column: never four prompts, and each fits.
+                failures.AddRange(RenderNewProjectFooters(string.IsNullOrEmpty(variant) ? "the standard" : "the larger"));
             }
             catch (Exception error)
             {
