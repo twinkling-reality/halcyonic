@@ -357,7 +357,7 @@ namespace Halcyonic.Client
                 for (var index = 0; index < choices.Count; index++)
                 {
                     lines.Add(new PageLine(LabelText.Plain(choices[index]), wordsAreData: true, action: ChooseSuggestion,
-                        key: choices[index], choice: true,
+                        key: AnswerKey(exchange.Generation, choices[index]), choice: true,
                         chosen: exchange.Chosen == CompanionAnswerRow.Suggestion && exchange.ChosenSuggestion == index,
                         available: recorded ? choices[index] == recordedAnswer : exchange.CanSay, rows: 2));
                 }
@@ -423,6 +423,20 @@ namespace Halcyonic.Client
 
         /// <summary>The rows <paramref name="text"/> takes at the content's size, about.</summary>
         private static int Rows(string text) => (text.Length + RowCharacters - 1) / RowCharacters;
+
+        /// <summary>
+        /// An answer row's key: the question it answers, by the companion's request that brought it or
+        /// the fixed question's place, and its words, so a press on a frame drawn before the next
+        /// question never lights the same words there.
+        /// </summary>
+        public static string AnswerKey(int question, string words) => question.ToString(CultureInfo.InvariantCulture) + "|" + words;
+
+        /// <summary>The words an answer row's key gives, when it answers <paramref name="question"/>; null for another question's.</summary>
+        public static string? AnswerWords(string? key, int question)
+        {
+            var asked = question.ToString(CultureInfo.InvariantCulture) + "|";
+            return key != null && key.StartsWith(asked, System.StringComparison.Ordinal) ? key.Substring(asked.Length) : null;
+        }
 
         /// <summary>
         /// A folder row's key: what it chooses, by its place's path and the folder's own name, so a press
@@ -694,7 +708,7 @@ namespace Halcyonic.Client
             var choices = idea.Choices;
             for (var index = 0; index < choices.Count; index++)
             {
-                lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: choices[index], choice: true,
+                lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: AnswerKey(idea.Question, choices[index]), choice: true,
                     chosen: stands == choices[index]));
             }
             var written = idea.GuideWritten ?? (stands != null && !choices.Contains(stands) ? stands : null);

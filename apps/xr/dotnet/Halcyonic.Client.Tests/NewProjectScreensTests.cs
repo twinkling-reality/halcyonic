@@ -115,7 +115,7 @@ public class NewProjectScreensTests
     [Test]
     public void TheQuestionQuotesTheCompanionItsSuggestionsAreAnswersAndGoOnWithoutItIsTheLast()
     {
-        var frame = Questions(Asked(out _));
+        var frame = Questions(Asked(out var exchange));
         HoldsThreePrompts(frame);
         Assert.That(frame.Source, Is.EqualTo(CompanionText.Note), "the note that it is an AI is the page's source line");
         Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Questions"));
@@ -125,8 +125,11 @@ public class NewProjectScreensTests
         Assert.That(quote.Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "two rows, and room for a third rather than cut");
         Assert.That(Answers(frame).Select(line => line.Words),
             Is.EqualTo(new[] { "Each runner", "One organiser", CompanionText.TypeAnswer, CompanionText.GoOnWithout }));
-        Assert.That(Answers(frame).Take(2).Select(line => line.Key), Is.EqualTo(new[] { "Each runner", "One organiser" }),
-            "keyed by their own words, so a press on a frame drawn before a new reply takes none of its suggestions");
+        Assert.That(Answers(frame).Take(2).Select(line => line.Key),
+            Is.EqualTo(new[] { NewProjectScreens.AnswerKey(exchange.Generation, "Each runner"), NewProjectScreens.AnswerKey(exchange.Generation, "One organiser") }),
+            "keyed by the question and their own words, so a press on a frame drawn before a new reply takes nothing on it");
+        Assert.That(NewProjectScreens.AnswerWords(Answers(frame).First().Key, exchange.Generation), Is.EqualTo("Each runner"));
+        Assert.That(NewProjectScreens.AnswerWords(Answers(frame).First().Key, exchange.Generation + 1), Is.Null, "another question's");
         Assert.That(Answers(frame).Any(line => line.Chosen), Is.False);
         Assert.That(frame.Lines.Any(line => line.Icon == GlazeIcon.HoldToTalk), Is.False, "the microphone is only in the footer");
         Assert.That(frame.Footer[PromptSlot.Secondary]!.Holds, Is.True);

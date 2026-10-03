@@ -138,6 +138,12 @@ public class NewProjectFlowTests
         flow.Act(id, key);
     }
 
+    /// <summary>A suggestion's key, on the companion's question showing now.</summary>
+    private static string Suggestion(NewProjectFlow flow, string words) => NewProjectScreens.AnswerKey(flow.Idea!.Companion!.Generation, words);
+
+    /// <summary>A fixed answer's key, on the fixed question showing now.</summary>
+    private static string Fixed(NewProjectFlow flow, string words) => NewProjectScreens.AnswerKey(flow.Idea!.Question, words);
+
     /// <summary>Waits for what the flow asked the control plane, as its director's frames would.</summary>
     private static async Task Until(NewProjectFlow flow, Func<bool> done)
     {
@@ -340,7 +346,7 @@ public class NewProjectFlowTests
         await Until(flow, () => flow.Idea!.Companion!.Latest is AskReply);
         Assert.That(routes.Asked.Count(asked => asked == "POST /api/companion/replies"), Is.EqualTo(1));
 
-        Press(flow, NewProjectScreens.ChooseSuggestion, "One organiser");
+        Press(flow, NewProjectScreens.ChooseSuggestion, Suggestion(flow, "One organiser"));
         Assert.That(routes.Asked.Count(asked => asked == "POST /api/companion/replies"), Is.EqualTo(1), "choosing sends nothing");
         Press(flow, NewProjectScreens.SendAnswer, null);
         await Until(flow, () => flow.Step == NewProjectStep.Recap);
@@ -361,11 +367,11 @@ public class NewProjectFlowTests
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Questions));
         Press(flow, NewProjectScreens.NextQuestion, null);
         Assert.That(flow.Idea!.Question, Is.EqualTo(0), "nothing chosen, nothing given");
-        Press(flow, NewProjectScreens.ChooseFixedAnswer, "An app");
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, Fixed(flow, "An app"));
         Press(flow, NewProjectScreens.NextQuestion, null);
-        Press(flow, NewProjectScreens.ChooseFixedAnswer, "Just me");
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, Fixed(flow, "Just me"));
         Press(flow, NewProjectScreens.NextQuestion, null);
-        Press(flow, NewProjectScreens.ChooseFixedAnswer, "Do its main job on one screen");
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, Fixed(flow, "Do its main job on one screen"));
         Press(flow, NewProjectScreens.NextQuestion, null);
         Press(flow, NewProjectScreens.SkipFixedQuestion, null);
         Press(flow, NewProjectScreens.NextQuestion, null);
@@ -699,7 +705,7 @@ public class NewProjectFlowTests
         {
             Companion = new CompanionModel { Name = "local-model:tag", Served = "this_mac" }, MaxQuestions = 4,
         });
-        var replies = new Queue<CompanionReply>(new CompanionReply[] { Companions.Ask(), Companions.Ask("Where should it run?", "A web page", "An app") });
+        var replies = new Queue<CompanionReply>(new CompanionReply[] { Companions.Ask(), Companions.Ask("Who keeps the page up to date?", "One organiser", "Each runner") });
         routes.Answers["POST /api/companion/replies"] = () => HalcyonicJson.Serialize(Companions.Response(replies.Dequeue()));
         var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
         var flow = Flow(host);
@@ -707,15 +713,18 @@ public class NewProjectFlowTests
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseCompanion));
         Press(flow, NewProjectScreens.BeginCompanion, null);
         await Until(flow, () => flow.Idea!.Companion!.Latest is AskReply);
-        flow.Act(NewProjectScreens.ChooseSuggestion, "Each runner");
+        flow.Act(NewProjectScreens.ChooseSuggestion, Suggestion(flow, "Each runner"));
         Assert.That(flow.Idea!.Companion!.Chosen, Is.EqualTo(CompanionAnswerRow.None), "a frame never drawn takes no press");
 
-        Press(flow, NewProjectScreens.ChooseSuggestion, "Each runner");
+        Press(flow, NewProjectScreens.ChooseSuggestion, Suggestion(flow, "Each runner"));
+        var earlier = Suggestion(flow, "One organiser");
         Press(flow, NewProjectScreens.SendAnswer, null);
-        await Until(flow, () => flow.Idea.Companion.Latest is AskReply asked && asked.Question.Text == "Where should it run?");
-        // The person's press lands on the earlier frame, the one last drawn: its words are no answer now.
-        flow.Act(NewProjectScreens.ChooseSuggestion, "One organiser");
-        Assert.That(flow.Idea.Companion.Chosen, Is.EqualTo(CompanionAnswerRow.None), "never the suggestion now in that place");
+        await Until(flow, () => flow.Idea.Companion.Latest is AskReply asked && asked.Question.Text == "Who keeps the page up to date?");
+        // The person's press lands on the earlier frame, the one last drawn: the same words answer another question now.
+        flow.Act(NewProjectScreens.ChooseSuggestion, earlier);
+        Assert.That(flow.Idea.Companion.Chosen, Is.EqualTo(CompanionAnswerRow.None), "never the same words on the next question");
+        Press(flow, NewProjectScreens.ChooseSuggestion, Suggestion(flow, "One organiser"));
+        Assert.That(flow.Idea.Companion.Chosen, Is.EqualTo(CompanionAnswerRow.Suggestion), "a press on the question drawn now takes it");
     }
 
     [Test]
