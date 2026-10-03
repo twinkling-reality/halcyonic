@@ -54,9 +54,9 @@ namespace Halcyonic.XR.Workspace
         public event Action<MenuColumn, MenuFrameView>? Drawn;
 
         /// <summary>A held prompt, as Hold to talk, started or ended (let go on it, or dropped).</summary>
-        public event Action<Prompt>? HoldStarted;
+        public event Action<MenuColumn, Prompt>? HoldStarted;
 
-        public event Action<Prompt, bool>? HoldEnded;
+        public event Action<MenuColumn, Prompt, bool>? HoldEnded;
 
         /// <summary>Where the composition's centre stands from the eyes.</summary>
         public PanelDirection Direction { get; private set; }
@@ -117,8 +117,8 @@ namespace Halcyonic.XR.Workspace
             var view = MenuFrameView.Create(transform, name);
             view.Acted += (action, key) => Acted?.Invoke(kind, action, key);
             view.Drawn += drawn => Drawn?.Invoke(kind, drawn);
-            view.HoldStarted += prompt => HoldStarted?.Invoke(prompt);
-            view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(prompt, letGo);
+            view.HoldStarted += prompt => HoldStarted?.Invoke(kind, prompt);
+            view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
             view.Hide();
             return view;
         }

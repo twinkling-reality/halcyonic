@@ -362,6 +362,25 @@ the same definition names, as the JSON Schema document:
   the view's measures, the page height on this stage read when the column opens, and the way to
   open a task's file or New project. A place's frame leaves its sections out; the director adds the
   menu's places (`MenuBar.Sections`, `MenuFrame.WithSections`) and handles choosing one.
+  `MenuNavigator` (client core) is what the menu shows and where each press and draw goes: open on a
+  place or closed to its bar, the column beside it, a press to the column that showed it (a side
+  panel's to the frame in front), a draw only for the very frame a column gave, and nothing else. A
+  place's column is made when the menu first shows it after opening and let go when the menu or the
+  column closes, so each opening starts afresh; what must outlive it, as Projects' memory of a
+  Connect in flight, `MenuMemory` keeps for the app's run on one journal, across reconnects and never
+  renewed then, since a socket's drop is when an outcome turns unknown; another journal or a
+  re-pairing starts afresh. The director makes Projects (lane L's `ProjectsColumn`) over it.
+  `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`, as every column's
+  `IMenuHost`: it sends only through the submit its host gives it, WorkspaceDirector's command
+  submissions, so what is in flight shows as sent, runs Hold to talk's one voice for any held
+  prompt, and passes presses and holds only while the app has focus. Lane U's places are
+  `TasksColumn` (every task, what waits first, its project where there are several, as many rows as
+  fit beside a file on this stage), `UsageColumn` (each limit's share left in words, its side panel
+  when it was seen, when it resets and whose account) and `SettingsColumn` (each setting under its
+  group's heading, its one change the main action; the comfort settings from `ComfortSettings`, the
+  rest from what owns them). `PageLine.besideNext` stands a line beside the next in half the row, as
+  Type my answer beside a question's paging row, and `Prompt.pageExplains` keeps a prompt's reason
+  undrawn where the page says it already.
 - **`MenuPlane`** (Workspace) stands the menu, a task's file and a side panel on the stage as one
   composition: the columns by `MenuColumns`, the menu standing beside the file only where the two
   fit as the stage would place them in the headset's measured field (`MenuPage.Inside`), and a side

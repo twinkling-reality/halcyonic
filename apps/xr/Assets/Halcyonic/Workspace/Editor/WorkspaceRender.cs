@@ -98,6 +98,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderMenuPlane("far-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 failures.AddRange(RenderMenuPlane("desk-3s-plane", folder, radius: 0.55f, surfaceDrop: 0.46f));
                 failures.AddRange(RenderMenuPlane("window-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
+                // The menu's director driving the plane, as WorkspaceDirector will host it.
+                failures.AddRange(RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
             }
             catch (Exception error)
             {
