@@ -99,6 +99,9 @@ namespace Halcyonic.XR
 
         private static string PairingPath() => PrivatePath(PairingFileName);
 
+        /// <summary>A file of the app's own in its private storage (<see cref="PrivatePath"/>), as New project keeps its drafts.</summary>
+        public static string PrivateFile(string name) => PrivatePath(name);
+
         /// <summary>
         /// A file in the app's private storage: on Android Context.getFilesDir(), internal storage,
         /// which no other app can read and adb reaches only through run-as on a debuggable build, unlike
