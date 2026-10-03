@@ -19,6 +19,7 @@
     "demonstration:record": "node apps/control-plane/src/cli/record-demonstration.ts",
     "quest:session": "node tooling/quest/session.ts",
     "quest:cold-start": "node tooling/quest/cold-start.ts",
+    "quest:check": "node tooling/quest/check.ts",
     "companion:record": "node apps/control-plane/src/cli/record-companion.ts",
     "contracts:emit": "node packages/contracts/scripts/emit.ts",
     "test:csharp": "dotnet test apps/xr/dotnet/Halcyonic.Client.Tests",
