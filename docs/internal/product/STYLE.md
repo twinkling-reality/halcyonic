@@ -34,7 +34,11 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
   the distance, spans sqrt(1 + x²) / (1 + x² + y²) of its size (`PlaneComposition.ShrinkAt`), down
   to 84 percent at the far corners of a menu and file side by side.
 - **Moving it.** There is no Move or Reset position prompt. Holding a file's subject drags the whole
-  plane round the eyes, still facing them, and Reset position lives in Settings' Your room.
+  plane round the eyes, still facing them, and Reset position lives in Settings' Your space.
+- **Two columns at most.** The menu, a file and a side panel would not fit the field together. When
+  a file beside the menu opens a side panel, or shows a page taller than the menu's rows leave, the
+  menu steps aside off the plane with the same eased slide, and comes back once neither holds or
+  the file closes.
 
 ## A composition's parts
 
@@ -138,8 +142,11 @@ One treatment for places, sections, rows, answers and prompts:
   side panel, and what fixes it is the footer's main action while it is chosen.
 - **An answer** is a shape round its words. Choosing it lights it, and the footer's main action
   sends or records it.
-- **Answers that don't fit** page by a row at the end, "More answers, 2 of 2", under the question,
-  which heads every page. Paging clears what was chosen, so what is sent is always in view. An
+- **A page packs by height**, not rows: a line of words takes its line, a target its 48 dp, against
+  the page's content height (`MenuFrame`).
+- **Answers that don't fit** page by a row: "Type my answer" and "More answers, 2 of 2" stand side
+  by side last on every page, and paging clears what was chosen, so what is sent is always in view.
+  A question too long to share a page with a row of answers has its own pages first, in parts. An
   answer longer than 2 rows is cut, and choosing it slides out its side panel with all its words.
   No answer the agent offered is left out.
 - **A claim keeps its evidence class's chip**: "Agent says", "Subagent says", "Inferred", "Planned",

@@ -63,8 +63,6 @@ namespace Halcyonic.XR.Workspace.Editor
             // A plane that stays where the menu alone put it while the file slides out to its right: off
             // square, the file's far text shrunk, a corner past a Quest 3S's field, and its top in a label.
             ["r6-file-slides-out-staying"] = new[] { "off square to the eyes", "as the eyes see it", "lie outside the field", "'s outline and" },
-            // A companion's reply too long to show, its view over a quote of three rows: past the field.
-            ["r14-creating-questions-too-long"] = new[] { "lie outside the field" },
         };
 
         private static List<string> KeptToFail(string name, List<string> failures)
@@ -525,7 +523,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static void RefinedApproval(Shot shot, bool split = false)
         {
             var slot = shot.SlotOf(OpenedTitle);
-            var width = 2f * U(19f);
+            var width = 2f * U(18f);
             var head = SubjectShape(shot, "File subject", OpenedTitle, GlazeTokens.Text, width, null, split ? StateBadgeView.Height * PillScale / 2f : 0f,
                 split ? shot.Characters[slot].View.Presentation : null);
             var tabs = SectionShapes(shot, "File sections", FileSections, width, chosen: 0, waiting: 0);

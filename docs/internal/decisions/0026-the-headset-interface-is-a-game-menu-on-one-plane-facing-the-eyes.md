@@ -70,7 +70,7 @@ centre, which keeps every word at its size.
   treatment's frame; pressed, its cap sinks and Touch plays. Confirmations keep ADR 0023's rule: Yes
   appears in a slot no control held on that page or since, Cancel takes the first press's place, and
   the whole request shows before Yes, its parts paged by a row on the page. Move and Reset position have
-  no slot: Reset position lives in Settings' Your room, and holding a file's subject drags the whole
+  no slot: Reset position lives in Settings' Your space, and holding a file's subject drags the whole
   plane round the eyes at touch distance, still facing them (lane U's hold-to-drag, `PanelDrag`), if
   that keeps the plane rule; otherwise holding does nothing.
 
@@ -177,8 +177,8 @@ coordinator's first-visit words:
 - **The companion's words are one quote of at most 2 rows**, its line and its question; the line
   drops first and the question is never cut. When it thinks the idea cannot be built as software,
   that view goes first, in our words and the secondary colour, and the quote is the question alone.
-  Under that view a quote of 3 rows takes the page 0.2 degrees past a Quest 3S's field at today's
-  text size, a render kept to fail.
+  Under that view a quote of 3 rows takes the page to the very edge of a Quest 3S's field at today's
+  text size, 43.5 of 43.5 degrees, with nothing to spare.
 - **Fixed questions page forward only**, as lists do (Answer a few questions, and Add a task): the
   question with "Question 2 of 4" as its small fact, its answers as rows, the row for their own
   answer, and last, where a question can be skipped, a skip that says what skipping leaves, as Name
@@ -220,19 +220,27 @@ coordinator's first-visit words:
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
   from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
   tasks.
-- **A question whose answers don't fit pages them by a row.** The question, quoted, heads every
-  page in at most 2 rows; a longer one is cut, and its line opens a side panel with all of it.
-  Answers keep the agent's order, short ones two a row, long ones one a row in at most 2 rows of
-  words; a longer answer is cut, and choosing it slides out its side panel with all its words, so
-  what Send answer sends can be read first. The row for the person's own answer stands last on
-  every page. A row at the end, "More answers, 2 of 2", takes them on, as a confirmation's parts
-  do, since Hold to talk holds the place beside Send answer. Paging clears what was chosen, so Send
-  answer only sends what is on the page in view, and answers chosen together are chosen on one
-  page. No answer the agent offered is left out. A cut question counts as read whole, as ADR 0022
-  requires before sending, only once its side panel has shown. A question of several prompts shows
-  one at a time, each ending with a row, "Next question, 2 of 2", which keeps the earlier prompts'
-  choices; after the last, a row "Your answers" opens a page listing each prompt's answer as a row
-  back to it, and only there does Send answer send, so nothing sent is ever out of view.
+- **A question whose answers don't fit pages them by a row.** A page packs by height, not rows: a
+  line of words takes its line, a target its 48 dp, against the page's content height
+  (`MenuFrame`), packed for the file alone. The question, quoted, heads the page in at most 2 rows.
+  When it and one row of answers don't fit together, the question has its own page or pages first,
+  in parts, the last ending in a row to the answers, whose pages repeat its first line, cut, where
+  it fits; it counts as read whole, as ADR 0022 requires before sending, once its last part has
+  shown. Answers keep the agent's order, short ones two a row, long ones one a row in at most 2 rows
+  of words; a longer answer is cut, and choosing it slides out its side panel with all its words, so
+  what Send answer sends can be read first. "Type my answer" and the paging row stand side by side
+  last on every page: "More answers, 2 of 2", and "First answers, 1 of 2" on the last, a row since
+  Hold to talk holds the place beside Send answer. Paging clears what was chosen, so Send answer
+  only sends what is on the page in view, and answers chosen together are chosen on one page. No
+  answer the agent offered is left out. A question of several prompts shows one at a time, each
+  ending with a row, "Next question, 2 of 2", which keeps the earlier prompts' choices; after the
+  last, a row "Your answers" opens a page listing each prompt's answer as a row back to it, and only
+  there does Send answer send, so nothing sent is ever out of view.
+- **Two columns at most.** The menu, a file and a side panel come to about 98 degrees with their
+  gaps, past a Quest 3S's 93. When a file beside the menu opens a side panel, or shows a page taller
+  than the menu's rows leave, the menu steps aside, off the plane, with the re-centring's eased
+  slide; it comes back once the side panel is closed and the page fits beside it, or the file
+  closes.
 - **A side panel's fact names its value above it at 18 dp**, in the secondary colour, the value at
   18 dp under it. At 15 dp the name would stand above larger type, which type stepping down
   forbids; the render caught it on Usage's side panel.
@@ -244,7 +252,7 @@ coordinator's first-visit words:
   and whose account it is, with the source. Refresh stands beside Close and Next page at the far
   right. A meter under each row read as an underline, which one selection treatment forbids, so the
   words carry the share.
-- **Settings lists each setting as a row** under its group's heading (Your room, Comfort, and in
+- **Settings lists each setting as a row** under its group's heading (Your space, Comfort, and in
   development builds Your computer), its value the small fact; chosen, its side panel says what it
   is now and what the change does, and the footer's main action is that one change, as Make text
   larger. A setting of more than two values steps to the next, its prompt naming it, as the sounds

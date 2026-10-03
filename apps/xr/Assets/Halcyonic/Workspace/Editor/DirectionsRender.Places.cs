@@ -41,7 +41,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var width = 2f * U(16f);
             var sideWidth = 2f * U(13f);
-            var head = SubjectShape(shot, "Menu subject", "How much is left before a limit?", GlazeTokens.Text, width);
+            var head = SubjectShape(shot, "Menu subject", "How much is left before each limit?", GlazeTokens.Text, width);
             var places = SectionShapes(shot, "Places", Places, width, chosen: 2, waiting: 0);
 
             var menu = shot.Board("Usage", PlaneMeters);
@@ -115,8 +115,8 @@ namespace Halcyonic.XR.Workspace.Editor
 
             // The second page while a comfort setting is chosen, the first otherwise.
             var (heading, rows) = chosen
-                ? ("Comfort", new[] { ("Text size", "Standard"), ("Badges", "Moving"), ("Sounds", "On") })
-                : ("Your room", new[] { ("Around you", "Your room"), ("The characters", "In front of you"), ("The menu", "Where you moved it") });
+                ? ("Comfort", new[] { ("Text size", "Standard"), ("Moving badges", "On"), ("Sounds", "On") })
+                : ("Your space", new[] { ("Around you", "Your room"), ("The characters", "In front of you"), ("The menu", "Where you moved it") });
             var menu = shot.Board("Settings", PlaneMeters);
             var l = -width / 2f + U(PanelPadding);
             var r = width / 2f - U(PanelPadding);
