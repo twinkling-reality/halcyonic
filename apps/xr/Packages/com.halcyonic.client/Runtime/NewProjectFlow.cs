@@ -714,7 +714,8 @@ namespace Halcyonic.Client
         /// </summary>
         private MenuFrame Paged(MenuFrame frame)
         {
-            var room = host.PageHeight(Math.Max(1, host.TitleRows(frame.Subject, Column)), besideMenu: true);
+            // A file's page standing alone (ADR 0026): the plane steps the menu aside wherever the two together don't fit.
+            var room = host.PageHeight(Math.Max(1, host.TitleRows(frame.Subject, Column)), besideMenu: false);
             if (frame.Source is string source) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(source, Column)));
             if (frame.Reason is string reason) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(reason, Column)));
             var all = frame.Lines;
@@ -1135,14 +1136,15 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The rows of the request a part of the review holds: the page's height beside Projects, as the
-        /// stage gives it, less the line over the parts and the Next part row; every row is counted as a
+        /// The rows of the request a part of the review holds: the page's height standing alone, as the
+        /// stage gives it and a file's page takes it, the plane stepping the menu aside wherever the two
+        /// together don't fit, less the line over the parts and the Next part row; every row is counted as a
         /// line of its own, with a grid step after it, so a part always fits however its items split.
         /// </summary>
         private int ReviewPartRows()
         {
             var subject = Math.Max(1, host.TitleRows(NewProjectScreens.Subject(idea!).Subject, Glaze.Menu.FileColumnDegrees));
-            var room = host.PageHeight(subject, besideMenu: true) - MenuPage.Words(1) - MenuPage.Target() - 2f * MenuPage.GroupGap;
+            var room = host.PageHeight(subject, besideMenu: false) - MenuPage.Words(1) - MenuPage.Target() - 2f * MenuPage.GroupGap;
             return Math.Max(1, (int)Math.Floor(room / (MenuPage.Words(1) + MenuPage.Grid)));
         }
 

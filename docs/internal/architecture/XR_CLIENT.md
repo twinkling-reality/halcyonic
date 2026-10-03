@@ -789,7 +789,8 @@ the same definition names, as the JSON Schema document:
   and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
   it gave. Every page but the review, which pages by its parts, is packed into the page the stage
-  gives (`IMenuHost.PageHeight`): its lines counted as the view lays them (a row or answer a
+  gives a file's page standing alone (`IMenuHost.PageHeight`), the plane stepping the menu aside
+  wherever the two together don't fit, as for a file: its lines counted as the view lays them (a row or answer a
   target's height, 12 mm between two targets and a grid step otherwise, two short answers sharing a
   row) beside its reason and its source line in the rows they take; where they need more, a page of
   whole lines at a time, in order, each ending in a row that turns to the next, "Next page, 2 of 3",
