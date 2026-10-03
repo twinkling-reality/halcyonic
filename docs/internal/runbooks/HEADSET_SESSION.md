@@ -332,6 +332,21 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
    competition-judge-build.md. Pass: each beat when the timeline says. Record: whether a newcomer
    finds the satisfying moment, the field of view split as the headset shows it, and a clean resume
    after sleep, the system menu and another app.
+3. **The file's confirmations,** after the walk, in the same demonstration, on the waiting task's
+   file. Stop comes last, since its Yes ends the story.
+   1. *Another window drops a confirmation.* Press Approve and read to the request's second part,
+      then open the system menu, or another app, and come back. Pass: the page reads "You went to
+      another window, so nothing was sent. Press it again to confirm." Pressing Approve again reads
+      the request from its first part, and an answer already chosen on the question stays chosen.
+   2. *At the larger text size the request stays put.* Settings, Comfort, Text size, Make text
+      larger; press Approve and read to the last part. Pass: Yes appears, and the parts neither lay
+      out again nor jump back to the first part as it does. Put the text size back. At the standard
+      size the request fits one part, so this can't be seen there.
+   3. *Stop asks first.* On Activity, press Stop. Pass: Cancel stands in Stop's place and "Yes, stop"
+      in the middle. Press Cancel: nothing is sent and the recording goes on. Press Stop again and
+      leave it: after about 15 seconds the ask drops and the page reads "Nothing was sent: you
+      didn't confirm in time. Press it again." Last, press Stop and "Yes, stop", and record what the
+      task shows; restart the app before walking the demonstration again.
 
 ## Where time allows
 
