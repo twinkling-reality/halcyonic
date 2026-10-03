@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { PassThrough } from 'node:stream';
 import { after, before, describe, test } from 'node:test';
 import {
   compileValidator,
@@ -22,6 +23,7 @@ import {
   serverProvesToken,
   TokenNotSent,
 } from './security.ts';
+import { createHttpServer } from './server.ts';
 
 const validateSnapshot = compileValidator(Snapshot);
 const APPROVAL = DEMO_WORKSTREAMS[2] as (typeof DEMO_WORKSTREAMS)[number];
@@ -458,5 +460,36 @@ describe('realtime protocol', () => {
       'REST bootstrap agrees with what was streamed',
     );
     await client.close();
+  });
+});
+
+describe('the log', () => {
+  test('never shows the token, a cookie or the proof, wherever a logged object carries them', async () => {
+    const lines = new PassThrough();
+    let logged = '';
+    lines.on('data', (chunk: Buffer) => {
+      logged += chunk.toString('utf8');
+    });
+    const app = await createHttpServer({
+      logLevel: 'trace',
+      token: 'a'.repeat(43),
+      logStream: lines,
+    });
+    const headers = {
+      authorization: 'Bearer SECRET-token',
+      cookie: 'session=SECRET-cookie',
+      'x-halcyonic-proof': 'SECRET-proof',
+      'x-halcyonic-challenge': 'SECRET-challenge',
+    };
+    app.log.info({ headers }, 'bare');
+    app.log.info({ req: { headers } }, 'request');
+    app.log.info({ res: { headers } }, 'response');
+    app.log.info({ upstream: { headers } }, 'nested');
+    await app.inject({ method: 'GET', url: '/api/health', headers });
+    await app.close();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(logged, /\[redacted\]/);
+    assert.match(logged, /"msg":"nested"/);
+    assert.equal(logged.includes('SECRET'), false, logged);
   });
 });
