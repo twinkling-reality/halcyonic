@@ -89,6 +89,14 @@ namespace Halcyonic.Client
         public void Act(string id, string? key)
         {
             if (Now == null) return;
+            // A press is judged against the work as it is now, not as the last rebuild read it up to
+            // RefreshSeconds ago, so the steering's checks see a request or question that changed since.
+            if (present() is WorkspacePresentation fresh) Now = fresh;
+            else
+            {
+                Closed?.Invoke();
+                return;
+            }
             var question = Screen.Question;
             var clock = host.Clock;
             switch (id)
