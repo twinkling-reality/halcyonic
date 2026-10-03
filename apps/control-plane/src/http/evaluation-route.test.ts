@@ -8,6 +8,7 @@ import {
   type EvaluationResult,
   type ExecutionId,
   type RuntimeId,
+  type UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import type { RuntimeAdapter } from '@halcyonic/runtime-core';
@@ -80,12 +81,17 @@ const EVALUATION: Evaluation = {
 };
 const AVAILABLE: EvaluationResult = { availability: 'available', evaluation: EVALUATION };
 
+/** A credential the control plane holds, which a provider's words repeat. */
+const HELD = 'srkx_seorak-credential-value';
+
 let answer: EvaluationResult;
+let limits: UsageLimitsResponse;
 const asked: [string, string][] = [];
 let server: Awaited<ReturnType<typeof startTestServer>>;
 
 before(async () => {
   server = await startTestServer({
+    secrets: () => [{ what: 'Seorak credential', value: HELD }],
     adapters: (time) => [
       new MockRuntimeAdapter({ scenarios: SCENARIOS, clock: time, scheduler: time }),
       STALLED,
@@ -95,6 +101,7 @@ before(async () => {
         asked.push([runtimeKind, nativeId]);
         return answer;
       },
+      usageLimits: async () => limits,
     },
   });
 });
@@ -180,6 +187,42 @@ describe('GET /api/executions/:id/evaluation', () => {
     assert.equal(measured.status, 200);
     assert.deepEqual(measured.body, { execution_id: executionId, result: AVAILABLE });
     assert.ok(validateResponse(measured.body).ok);
+  });
+
+  test("the provider's own words lose what Halcyonic holds, named, and every credential shape", async () => {
+    const { executionId } = await startReportedExecution();
+    const words = `Seorak refused ${HELD}; the gateway said Bearer abc123def456 is unknown`;
+    const cleaned =
+      'Seorak refused [redacted: Seorak credential]; the gateway said Bearer [redacted] is unknown';
+    answer = { availability: 'unavailable', reason: { code: 'server_error', message: words } };
+    assert.deepEqual((await evaluation(executionId)).body.result, {
+      availability: 'unavailable',
+      reason: { code: 'server_error', message: cleaned },
+    });
+    answer = {
+      availability: 'available',
+      evaluation: {
+        ...EVALUATION,
+        verification: { ...EVALUATION.verification, lens: { by_kind: [], empty_reason: words } },
+      },
+    };
+    const measured = await evaluation(executionId);
+    assert.ok(validateResponse(measured.body).ok);
+    assert.deepEqual(measured.body.result, {
+      availability: 'available',
+      evaluation: {
+        ...EVALUATION,
+        verification: { ...EVALUATION.verification, lens: { by_kind: [], empty_reason: cleaned } },
+      },
+    });
+    limits = { availability: 'unavailable', reason: { code: 'server_error', message: words } };
+    const response = await fetch(`${server.baseUrl}/api/usage-limits`, {
+      headers: { authorization: `Bearer ${server.token}` },
+    });
+    assert.deepEqual(await response.json(), {
+      availability: 'unavailable',
+      reason: { code: 'server_error', message: cleaned },
+    });
   });
 
   test('an answer outside the contract is reported as incompatible rather than passed on', async () => {

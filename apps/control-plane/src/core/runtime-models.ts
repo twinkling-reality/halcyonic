@@ -1,5 +1,6 @@
 import { compileValidator, RuntimeModelsResult } from '@halcyonic/contracts';
 import { RuntimeActionError, type RuntimeAdapter } from '@halcyonic/runtime-core';
+import { type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
 
 const validateResult = compileValidator(RuntimeModelsResult);
 
@@ -10,12 +11,14 @@ const CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
 /**
  * Reads the models a runtime can use now, straight from its adapter, and states why when it
- * cannot (ADR 0016). Nothing is cached or journaled. A list that does not match the contract is
- * not passed on.
+ * cannot (ADR 0016), in the runtime's own words with credentials taken out, as any error text
+ * (redaction.ts). Nothing is cached or journaled. A list that does not match the contract is not
+ * passed on.
  */
 export async function readRuntimeModels(
   adapter: RuntimeAdapter,
   timeoutMs: number = MODEL_LIST_TIMEOUT_MS,
+  redaction: Redaction = redactionOf(),
 ): Promise<RuntimeModelsResult> {
   const list = adapter.listModels;
   if (list === undefined) {
@@ -46,7 +49,7 @@ export async function readRuntimeModels(
         if (error instanceof RuntimeActionError) {
           return unavailable(
             CODE_PATTERN.test(error.code) ? error.code : 'runtime_error',
-            clip(error.message) ?? 'The runtime could not list its models.',
+            clip(redaction.errorText(error.message)) ?? 'The runtime could not list its models.',
           );
         }
         return unavailable('adapter_error', 'The runtime adapter failed to list its models.');
@@ -75,6 +78,6 @@ function unavailable(code: string, message: string): RuntimeModelsResult {
 }
 
 function clip(text: string): string | null {
-  const trimmed = text.trim().slice(0, 2000);
-  return trimmed === '' ? null : trimmed;
+  const trimmed = text.trim();
+  return trimmed === '' ? null : withinLimit(trimmed);
 }
