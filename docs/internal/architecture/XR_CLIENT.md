@@ -380,7 +380,9 @@ the same definition names, as the JSON Schema document:
   `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`, as every column's
   `IMenuHost`: it sends only through the submit its host gives it, WorkspaceDirector's command
   submissions, so what is in flight shows as sent, runs Hold to talk's one voice for any held
-  prompt, and passes presses and holds only while the app has focus. `MenuVoice` (client core) keeps
+  prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
+  the plane is folded counts for nothing, and the plane draws again on return, so a column learns
+  what was read only while the person is there. `MenuVoice` (client core) keeps
   the voice's words for the column that held: a hold while the voice still records or waits for the
   computer's answer starts nothing, a column learns its hold started only once the voice records,
   only that hold ends it, and the column leaving the plane, or focus leaving, drops what it records

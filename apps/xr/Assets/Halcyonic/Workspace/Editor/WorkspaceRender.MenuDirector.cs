@@ -153,6 +153,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, null));
 
+                // Folded away, the person is elsewhere: a draw counts for nothing, and a press on it is not taken.
+                if (file != null)
+                {
+                    var counted = file.DrawnFrames.Count;
+                    FocusGuard.FoldForRender(true);
+                    try
+                    {
+                        file.Change();
+                        director.DrawNow();
+                    }
+                    finally
+                    {
+                        FocusGuard.FoldForRender(null);
+                    }
+                    if (file.DrawnFrames.Count != counted) failures.Add(name + ": a draw while the plane was folded counted as read.");
+                    if (director.Navigator.Act(MenuColumn.File, Footer.Close, null, director.Plane.Showing(MenuColumn.File), null))
+                    {
+                        failures.Add(name + ": a press on a frame drawn while folded was taken.");
+                    }
+                    director.DrawNow();
+                    if (file.DrawnFrames.Count != counted + 1) failures.Add(name + ": drawn again on return, the file did not learn of it.");
+                }
+
                 // Choosing a place is the menu's own; the file stays beside it.
                 // A press from the frame drawn before the file opened is passed over: it no longer stands.
                 if (director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage), drawnTasks, null))
