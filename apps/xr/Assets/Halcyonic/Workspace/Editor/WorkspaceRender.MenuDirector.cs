@@ -513,16 +513,21 @@ namespace Halcyonic.XR.Workspace.Editor
             // Into the characters, holding does nothing: up into their labels, or over a desk, down into their bodies.
             held = subject.Subject.position;
             director.HoldSubjectForRender(held);
+            if (!director.Dragging) failures.Add(name + ": held again where it was left, the file's subject took no hold of the plane.");
             director.DragSubjectForRender(Turned(held, 0f, plane.Direction.Above ? 15f : -15f));
             if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged into the characters.");
             director.LetGoForRender();
+            director.DrawNow();
 
             // Swept far to the side, it stops where its centre would leave the field as seen turned to the stage.
             if (ViewField.Current is ViewField field && plane.StageYaw is float stage)
             {
                 held = subject.Subject.position;
+                var before = plane.Direction.Yaw;
                 director.HoldSubjectForRender(held);
-                for (var step = 1; step <= 20; step++) director.DragSubjectForRender(Turned(held, step * 5f, 0f));
+                if (!director.Dragging) failures.Add(name + ": held to sweep it aside, the file's subject took no hold of the plane.");
+                for (var step = 1; step <= 100; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
+                if (Mathf.Abs(Mathf.DeltaAngle(before, plane.Direction.Yaw)) < 1f) failures.Add(name + ": swept aside, the plane stayed where it was.");
                 var off = Mathf.Abs(Mathf.DeltaAngle(stage, plane.Direction.Yaw));
                 if (off > field.Right - ViewField.EdgeMarginDegrees + 0.01f)
                 {
@@ -533,12 +538,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
             }
 
-            // Dragged as low as it goes, then laid anew taller, a title in two rows: it keeps only as much of
-            // the drag as still holds, so it stays inside the field and clear of every character.
+            // Dragged as far from the characters as it goes, then laid anew taller, a title in two rows: it
+            // keeps only as much of the drag as still holds, so it stays inside the field and clear of every character.
             var title = subject.Frame!.Subject;
             held = subject.Subject.position;
+            var level = plane.Direction.Elevation;
+            var away = plane.Direction.Above ? -0.5f : 0.5f;
+            // A plane already at the field's edge that way has no room to be dragged: there is no drag to keep.
+            var room = !(ViewField.Current is ViewField seen) || !(plane.Composition is PlaneComposition laid)
+                || MenuPage.Inside(laid, MenuDrag.Turned(plane.Direction, (0f, -2f * away)), seen);
             director.HoldSubjectForRender(held);
-            director.DragSubjectForRender(Turned(held, 0f, plane.Direction.Above ? -30f : 30f));
+            if (!director.Dragging) failures.Add(name + ": held to drag it away from the characters, the file's subject took no hold of the plane.");
+            for (var step = 1; step <= 60; step++) director.DragSubjectForRender(Turned(held, 0f, away * step));
+            if (!room) Debug.Log("Halcyonic: workspace render: " + name + " stands at the field's edge away from the characters, so no drag is kept as it grows taller.");
+            else if (Mathf.Abs(level - plane.Direction.Elevation) < 1f) failures.Add(name + ": dragged away from the characters, the plane stayed where it was.");
             director.LetGoForRender();
             director.DrawNow();
             retitle(title + ", and keep a record of every lockout for the security review at the end of the month");
@@ -553,12 +566,14 @@ namespace Halcyonic.XR.Workspace.Editor
             director.HoldSubjectForRender(subject.Subject.position);
             if (director.Dragging) failures.Add(name + ": held while a confirmation stands, the plane was dragged.");
             director.LetGoForRender();
+            director.DrawNow();
             director.PressSubjectForRender();
             confirm(false);
             director.DrawNow();
             director.MatureHoldForRender(subject.Subject.position);
             if (director.Dragging) failures.Add(name + ": pressed while a confirmation stood, its hold dragged the plane once it went.");
             director.LetGoForRender();
+            director.DrawNow();
 
             // Focus leaving ends a drag, and so does what stands on the plane changing under it.
             director.HoldSubjectForRender(subject.Subject.position);
@@ -567,6 +582,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (director.Dragging) failures.Add(name + ": focus left, and the drag went on.");
             director.DrawNow();
             director.HoldSubjectForRender(subject.Subject.position);
+            if (!director.Dragging) failures.Add(name + ": focus back and the plane drawn, the file's subject took no hold of the plane.");
             director.Navigator.CloseMenu();
             director.DrawNow();
             if (director.Dragging) failures.Add(name + ": the menu closed under a drag, and the drag went on.");
