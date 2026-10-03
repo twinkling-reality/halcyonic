@@ -85,15 +85,21 @@ namespace Halcyonic.Client
                 ? new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true, available: false,
                     reason: QuestionNotReady)
                 : null;
-            return new Page(lines, source, new Footer(CloseFile,
-                rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
-                farRight: send));
+            return new Page(lines, source, new Footer(CloseFile, rare: StopWhereUnanswerable(workspace, pending), farRight: send));
         }
 
         /// <summary>
-        /// An approval's footer: Close, Stop beside it, Deny beside Approve, and Approve as the main
-        /// action; while a decision sent on it may still take effect, Sent… in Approve's place, taking no
-        /// press, and no Deny, so a second decision never races the first.
+        /// Stop, on Waiting only where Halcyonic can't answer the question, as one asking for a secret or
+        /// marked unanswerable: stopping is then the way on (ADR 0022). Elsewhere Stop stands on Activity
+        /// (ADR 0026).
+        /// </summary>
+        private static Prompt? StopWhereUnanswerable(WorkspacePresentation workspace, QuestionView question) =>
+            workspace.Actions.Contains(WorkspaceAction.Interrupt) && !WorkspaceText.Answerable(question) ? Action(WorkspaceAction.Interrupt, Stop) : null;
+
+        /// <summary>
+        /// An approval's footer: Close, Deny beside Approve, and Approve as the main action, Stop standing
+        /// on Activity; while a decision sent on it may still take effect, Sent… in Approve's place,
+        /// taking no press, and no Deny, so a second decision never races the first.
         /// </summary>
         private static Footer ApprovalFooter(WorkspacePresentation workspace)
         {
@@ -105,7 +111,6 @@ namespace Halcyonic.Client
                     : null;
             return new Footer(
                 CloseFile,
-                rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
                 secondary: actions.Contains(WorkspaceAction.Deny) ? Action(WorkspaceAction.Deny, Deny) : null,
                 farRight: approve);
         }
@@ -262,7 +267,7 @@ namespace Halcyonic.Client
             }
             return new Footer(
                 CloseFile,
-                rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
+                rare: StopWhereUnanswerable(workspace, draft.Question),
                 secondary: screen.Speak && !secret && actions.Contains(WorkspaceAction.Answer)
                     ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
                     : null,

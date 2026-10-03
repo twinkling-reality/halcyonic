@@ -436,7 +436,8 @@ the same definition names, as the JSON Schema document:
   under its state pill; its sections are Waiting, Activity, Changes and Checks, Waiting's amber dot
   on while something waits, and it opens on Waiting then, else on Activity. **Waiting** reads only
   the work's own state, never an answer still being read: an approval's request with Approve as
-  the main action, Deny beside it and Stop beside Close, and while a decision sent on it may still
+  the main action and Deny beside it, Stop standing on Activity (and on Waiting only beside a
+  question Halcyonic can't answer, where stopping is the way on), and while a decision sent on it may still
   take effect, Sent… in Approve's place and no Deny, so a second decision never races the first
   (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
   rows to choose, Send answer as the main action and Hold to talk beside it. A question with any

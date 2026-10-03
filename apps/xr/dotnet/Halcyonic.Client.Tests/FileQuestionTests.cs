@@ -81,7 +81,8 @@ public class FileQuestionTests
         }));
         Assert.That(frame.Lines.Where(line => line.Choice).Select(line => line.Action).Distinct(), Is.EqualTo(new[] { FileScreens.Choose, FileScreens.TypeAnswer }));
         Assert.That(frame.Lines.Any(line => line.Chosen), Is.False, "nothing is chosen until the person chooses");
-        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.SpeakAnswer, FileScreens.SendAnswer }));
+        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, null, FileScreens.SpeakAnswer, FileScreens.SendAnswer }),
+            "Stop stands on Activity while the question can be answered here");
         Assert.That(FileScreens.SpeakAnswer, Is.Not.EqualTo(FileScreens.HoldToTalk), "a spoken answer is never raised as an instruction");
         var send = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((send.Available, send.Reason), Is.EqualTo((false, FileScreens.SendFromYourAnswers)),
@@ -396,7 +397,7 @@ public class FileQuestionTests
         Assert.That((side.Lines.Single().Rows, side.Lines.Single().FromRow, side.Parts), Is.EqualTo((3, (int?)0, ((int, int)?)(0, 3))),
             "all its words beside the page, in parts worked out from its own measurement");
         Assert.That(chosen.Lines[1].Chosen, Is.True, "the answer stays chosen, and brings its side panel");
-        Assert.That(FileScreensTests.Slots(chosen.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, Footer.NextPage, FileScreens.SendAnswer }),
+        Assert.That(FileScreensTests.Slots(chosen.Footer), Is.EqualTo(new[] { Footer.Close, null, null, Footer.NextPage, FileScreens.SendAnswer }),
             "Next page turns its parts, in Hold to talk's place");
         Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "chosen, but not all of it seen");
 
@@ -481,6 +482,7 @@ public class FileQuestionTests
         screen.ReadQuestion(draft, Short(work.Question), new RowBudget(8), new RowBudget(3));
         var frame = Screen(work.Present(), screen);
         Assert.That(FileScreensTests.Slots(frame.Footer).Skip(3), Is.EqualTo(new string?[] { null, null }), "no Hold to talk and no Send answer");
+        Assert.That(frame.Footer[PromptSlot.Rare]?.Id, Is.EqualTo(FileScreens.Stop), "stopping is the way on, so Stop stands here");
         Assert.That(frame.Lines.Any(line => line.Choice), Is.False, "no answers to choose or type");
         Assert.That(frame.Lines.Select(line => line.Words), Has.Some.EqualTo(WorkspaceText.CannotAnswer(question)));
         draft.Choose(1, "Orders");

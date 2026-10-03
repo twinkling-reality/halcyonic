@@ -41,7 +41,8 @@ public class FileWaitingTests
         var roomy = FileScreens.Screen(workspace, new WorkspaceSteering(factory), screen, new AnswerRoom(8));
         Assert.That(roomy.Lines[1].Rows, Is.EqualTo(FileScreens.RequestRows));
         Assert.That(roomy.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(8), "the notes fill only the room left");
-        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Stop, null, FileScreens.Deny, FileScreens.Approve }));
+        Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, null, null, FileScreens.Deny, FileScreens.Approve }),
+            "Stop stands on Activity, not beside an approval");
         Assert.That(frame.Footer[PromptSlot.FarRight]!.DrawnAsMain, Is.True);
         Assert.That(frame.Footer[PromptSlot.Secondary]!.DrawnAsMain, Is.False);
         Assert.That(frame.Lines.Any(line => line.Pressable), Is.False, "nothing on the page sends anything");
@@ -299,7 +300,7 @@ public class FileWaitingTests
     }
 
     [Test]
-    public void StopPressedOnWaitingAsksThereAndWhateverIsArmedAsksOnEverySection()
+    public void StopArmedAsksOnEverySectionOfTheFileWhereverItWasPressed()
     {
         var work = new WaitingWork();
         var workspace = Approving(work);
