@@ -214,7 +214,7 @@ coordinator's first-visit words:
   its 1.45 degree cap, a grid step, its 18 dp words (a main action's 5 percent wider) and 1.2
   degrees of margin, 12 mm apart, against its column's content width. Frames grow whole with larger
   text, so a footer that fits at one size fits at both, and a render whose footer does not fit
-  fails. In a 38 degree file, with 36.4 of room, Close, Stop, Deny and Approve take 30.3, while
+  fails. In a 36 degree file, with about 34.4 of room, Close, Stop, Deny and Approve take 30.3, while
   Close, Start over, Hold to talk and Make the recap take 38.3: Start over stands on the recap
   alone, beside Close while no row is chosen, where a chosen fact's Change takes its place. In the
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
@@ -237,10 +237,17 @@ coordinator's first-visit words:
   last, a row "Your answers" opens a page listing each prompt's answer as a row back to it, and only
   there does Send answer send, so nothing sent is ever out of view.
 - **Two columns at most.** The menu, a file and a side panel come to about 98 degrees with their
-  gaps, past a Quest 3S's 93. When a file beside the menu opens a side panel, or shows a page taller
-  than the menu's rows leave, the menu steps aside, off the plane, with the re-centring's eased
-  slide; it comes back once the side panel is closed and the page fits beside it, or the file
-  closes.
+  gaps, past a Quest 3S's 93. When a file beside the menu opens a side panel, or the two don't fit
+  the field together, as with a page taller than the menu's rows leave or a file's title on two
+  rows, the menu steps aside, off the plane, with the re-centring's eased slide; it comes back once
+  the side panel is closed and the two fit again, or the file closes.
+- **Lane U's views set the last spacing**, measured with the split header's pill: the plane's top
+  stands 17.5 degrees below eye level (`MenuPage.TopDegrees`); a subject's title stands half a grid
+  step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no
+  16 dp gap; a small fact keeps 18 dp's room wherever it stands, so a line wraps the same anywhere,
+  and is drawn at 15 dp where that reads, a fact from outside taking at most 40 percent of its line;
+  a row's tone stands on its icon and fact, its words in the text colour; and answers pair two a row
+  where each fits half the row in one row.
 - **A side panel's fact names its value above it at 18 dp**, in the secondary colour, the value at
   18 dp under it. At 15 dp the name would stand above larger type, which type stepping down
   forbids; the render caught it on Usage's side panel.
@@ -295,17 +302,15 @@ coordinator's first-visit words:
 
 - A person learns once where to look and where to press, and a section's page gets most of the
   frame. The lanes rebuild the presentation, not the logic.
-- The menu and a file side by side make a plane 64 by 32 degrees, from 18 to 50 degrees below eye
-  level along its middle, its bottom edge 0.48 m away; ADR 0023's panels reach about 42 degrees. A
-  file alone, 38 by 24 degrees, reaches 40. Whether the low edge is comfortable is judged on the
+- The menu and a file side by side make a plane 64.3 by 33.0 degrees with the split header, from 17.5
+  to 50.5 degrees below eye level along its middle (lane U's views); ADR 0023's panels reach about 42
+  degrees. Whether the low edge is comfortable is judged on the
   headset, beside the open question on panels taller than 26 degrees
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); if not, a menu shows 3 rows a page.
-- A Quest 3S's field holds the menu and a file at today's text size, as `FieldChecks` sees it with the
-  head turned to the composition and tipped 8 degrees (`WorkspacePlacement.ReadingPitch`): the
-  lowest point 41.8 degrees below the view's middle, of 43.5, and the widest 39.0 to the side, of
-  46.5. Larger text, 15 percent, would take the lowest point to about 46.7 by calculation, 3 degrees
-  past, so with larger text Tasks shows 3 rows a page (about 41.5); lane U's renders at both sizes
-  confirm it.
+- A Quest 3S's field holds the menu and a file at both text sizes, as `FieldChecks` sees it with the
+  head turned to the composition and tipped 8 degrees (`WorkspacePlacement.ReadingPitch`), with about
+  a degree to spare, Tasks showing 4 rows a page at the standard size and 3 at larger text; lane U's
+  views render all five of its compositions at both sizes and check it.
 - Contrast at 96 percent is calculated, not measured: over a white wall, as in passthrough, secondary
   text keeps 4.8:1 (`GlazeChecks.Over`). The contrast check composites every surface over white, and
   the opacity rises or the secondary colour lightens wherever text falls short.
