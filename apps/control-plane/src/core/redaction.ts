@@ -59,11 +59,12 @@ const WHOLE_KEY_SHAPE = new RegExp(`^(?:${KEY_SHAPES.source})$`);
  * base64 sign in it, so a sentence such as "Basic authentication failed" stays as it is, and never
  * a path: one that starts with `/`, `~` or `.`, as in "token /Users/me/.config/gh/hosts.yml", or
  * holds both `/` and a `.` before a letter or digit, as in "invalid token src/config/settings.json",
- * since base64 has no `.` and a JSON Web Token no `/`. A full stop after it is a sentence's, and
- * stays outside what is replaced.
+ * since base64 has no `.` and a JSON Web Token no `/`. One with `+` or `=` in it is base64 and so
+ * never a path. `=` ends it only as padding, and a full stop after it is a sentence's: both stay
+ * outside what is replaced, as in "...ZA==.Retry".
  */
 const SCHEME_CREDENTIAL =
-  /\b(Bearer|Basic|Token)(\s+)(?![/~.])(?!(?=[A-Za-z0-9._~+/=-]*\/)[A-Za-z0-9._~+/=-]*\.[A-Za-z0-9])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/=-]{7,}[A-Za-z0-9_~+/=-]/gi;
+  /\b(Bearer|Basic|Token)(\s+)(?![/~.])(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\/)[A-Za-z0-9._~/-]*\.[A-Za-z0-9])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/-]{7,}[A-Za-z0-9_~+/-]={0,2}/gi;
 
 /** A URL's user and password: `scheme://user:password@host`. */
 const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
