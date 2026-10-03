@@ -155,10 +155,12 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Reads <paramref name="draft"/>'s question, each prompt laid out as <paramref name="measured"/>
-        /// says on pages of <paramref name="rows"/> content rows, the source line's row already taken:
-        /// from its first prompt when it is another question, else where the person was.
+        /// says on pages of <paramref name="rows"/> content rows and side panels of
+        /// <paramref name="sideRows"/>, the source line's row already taken from each: from its first
+        /// prompt when it is another question, else where the person was.
         /// </summary>
-        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<PromptMeasure> measured, int rows) => Question.Show(draft, measured, rows);
+        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<PromptMeasure> measured, int rows, int sideRows) =>
+            Question.Show(draft, measured, rows, sideRows);
 
         private int armingRead = -1;
         private readonly HashSet<int> drawn = new HashSet<int>();

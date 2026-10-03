@@ -10,15 +10,19 @@ namespace Halcyonic.Client
     {
         /// <param name="questionRows">The rows the prompt's text wraps to across the page.</param>
         /// <param name="answerRows">The rows each answer offered wraps to across the page, in the prompt's order, one for every answer.</param>
-        public PromptMeasure(int questionRows, IReadOnlyList<int> answerRows)
+        /// <param name="answerSideRows">The rows each answer wraps to across a side panel, where a cut one shows whole, one for every answer.</param>
+        public PromptMeasure(int questionRows, IReadOnlyList<int> answerRows, IReadOnlyList<int> answerSideRows)
         {
             QuestionRows = Math.Max(1, questionRows);
             AnswerRows = answerRows ?? throw new ArgumentNullException(nameof(answerRows));
+            AnswerSideRows = answerSideRows ?? throw new ArgumentNullException(nameof(answerSideRows));
         }
 
         public int QuestionRows { get; }
 
         public IReadOnlyList<int> AnswerRows { get; }
+
+        public IReadOnlyList<int> AnswerSideRows { get; }
     }
 
     /// <summary>
@@ -58,12 +62,15 @@ namespace Halcyonic.Client
         private readonly Dictionary<int, HashSet<int>> partsDrawn = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, HashSet<int>> answersRead = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, string> typedRead = new Dictionary<int, string>();
-        private readonly Dictionary<int, (string Words, int Rows)> typedRows = new Dictionary<int, (string Words, int Rows)>();
+        private readonly Dictionary<int, (string Words, int Rows, int SideRows)> typedRows = new Dictionary<int, (string Words, int Rows, int SideRows)>();
+        private int sideRows = 1;
+        private int? sideOption;
+        private readonly Dictionary<(int Prompt, int Option), HashSet<int>> sidePartsDrawn = new Dictionary<(int Prompt, int Option), HashSet<int>>();
+        private DateTimeOffset? sideDrawnAt;
         private IReadOnlyList<int> reviewRows = Array.Empty<int>();
         private IReadOnlyList<string> reviewWords = Array.Empty<string>();
         private List<List<int>> reviewPages = new List<List<int>> { new List<int>() };
         private readonly HashSet<int> reviewDrawn = new HashSet<int>();
-        private readonly HashSet<int> sideDrawn = new HashSet<int>();
         private DateTimeOffset? drawnAt;
 
         public QuestionDraft? Draft => draft;
@@ -133,7 +140,7 @@ namespace Halcyonic.Client
         /// person was. Laid out anew, the page showing is the one holding what was chosen, or the choice
         /// is cleared; a long question partly read is read again, and one read whole stays read.
         /// </summary>
-        public void Show(QuestionDraft answering, IReadOnlyList<PromptMeasure> measured, int contentRows)
+        public void Show(QuestionDraft answering, IReadOnlyList<PromptMeasure> measured, int contentRows, int sideContentRows)
         {
             if (measured == null || measured.Count != answering.Prompts.Count)
             {
@@ -141,13 +148,14 @@ namespace Halcyonic.Client
             }
             for (var prompt = 0; prompt < measured.Count; prompt++)
             {
-                if (measured[prompt].AnswerRows.Count != answering.Prompts[prompt].Options.Count)
+                if (measured[prompt].AnswerRows.Count != answering.Prompts[prompt].Options.Count
+                    || measured[prompt].AnswerSideRows.Count != answering.Prompts[prompt].Options.Count)
                 {
                     throw new ArgumentException("Every answer a prompt offers is measured.", nameof(measured));
                 }
             }
             var another = !ReferenceEquals(answering, draft);
-            var relaid = !another && (contentRows != rows || !SameMeasures(measures, measured));
+            var relaid = !another && (contentRows != rows || Math.Max(1, sideContentRows) != sideRows || !SameMeasures(measures, measured));
             if (another)
             {
                 draft = answering;
@@ -158,11 +166,13 @@ namespace Halcyonic.Client
                 typedRead.Clear();
                 typedRows.Clear();
                 reviewDrawn.Clear();
-                sideDrawn.Clear();
+                sidePartsDrawn.Clear();
+                sideOption = null;
                 drawnAt = null;
             }
             measures = measured;
             rows = Math.Max(1, contentRows);
+            sideRows = Math.Max(1, sideContentRows);
             pages = Enumerable.Range(0, answering.Prompts.Count).Select(prompt => Lay(answering, prompt)).ToList();
             LayReview();
             if (another)
@@ -178,6 +188,10 @@ namespace Halcyonic.Client
             }
             drawnAt = null;
             reviewDrawn.Clear();
+            // A side panel's parts read so far no longer map to its new parts: what is unread is read again.
+            sidePartsDrawn.Clear();
+            SidePart = 0;
+            sideDrawnAt = null;
             for (var prompt = 0; prompt < answering.Prompts.Count; prompt++)
             {
                 // A long question partly read no longer maps to its new parts: it is read again.
@@ -222,7 +236,8 @@ namespace Halcyonic.Client
         }
 
         private static bool SameMeasures(IReadOnlyList<PromptMeasure> a, IReadOnlyList<PromptMeasure> b) =>
-            a.Count == b.Count && a.Zip(b, (x, y) => x.QuestionRows == y.QuestionRows && x.AnswerRows.SequenceEqual(y.AnswerRows)).All(same => same);
+            a.Count == b.Count && a.Zip(b, (x, y) => x.QuestionRows == y.QuestionRows && x.AnswerRows.SequenceEqual(y.AnswerRows)
+                && x.AnswerSideRows.SequenceEqual(y.AnswerSideRows)).All(same => same);
 
         /// <summary>
         /// A prompt's answers in pages: what is left of the rows under the question's head, beside the
@@ -274,10 +289,19 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>The layout measured the typed answer as it reads now: it wraps to <paramref name="measured"/> rows.</summary>
-        public void MeasureTyped(int prompt, int measured)
+        /// <summary>
+        /// The layout measured the typed answer as it reads now: it wraps to <paramref name="measured"/>
+        /// rows on the page and <paramref name="sideMeasured"/> in a side panel. Longer than its row, its
+        /// side panel shows all of it.
+        /// </summary>
+        public void MeasureTyped(int prompt, int measured, int sideMeasured)
         {
-            if (draft?.Typed(prompt) is string typed) typedRows[prompt] = (typed, Math.Max(1, measured));
+            if (!(draft?.Typed(prompt) is string typed)) return;
+            typedRows[prompt] = (typed, Math.Max(1, measured), Math.Max(1, sideMeasured));
+            if (prompt != Prompt || Reviewing || QuestionPart != null) return;
+            var index = draft.Prompts[prompt].Options.Count;
+            if (TypedCut(prompt)) OpenSide(index);
+            else if (sideOption == index) sideOption = null;
         }
 
         /// <summary>
@@ -300,7 +324,44 @@ namespace Halcyonic.Client
         public void Choose(int option)
         {
             if (draft == null || !Answers.Contains(option)) return;
-            draft.Choose(Prompt, draft.Prompts[Prompt].Options[option].Label);
+            var asked = draft.Prompts[Prompt];
+            draft.Choose(Prompt, asked.Options[option].Label);
+            if (draft.IsChosen(Prompt, asked.Options[option].Label) && AnswerCut(Prompt, option)) OpenSide(option);
+            else if (sideOption is int open && !SideStillChosen(open)) sideOption = null;
+        }
+
+        /// <summary>
+        /// The answer whose side panel shows all its words: a chosen cut answer, or the typed one where it
+        /// is the prompt's option count, when it is longer than its row; null while none shows.
+        /// </summary>
+        public int? SideOption => sideOption is int open && draft != null && !Reviewing && QuestionPart == null && SideStillChosen(open) ? open : (int?)null;
+
+        /// <summary>The rows of the side panel's answer each of its parts shows.</summary>
+        public int SidePartRows => sideRows;
+
+        /// <summary>The part of the side panel's answer showing, from 0.</summary>
+        public int SidePart { get; private set; }
+
+        /// <summary>How many parts the side panel's answer takes, worked out from its own measurement.</summary>
+        public int SideParts => SideOption is int open ? FileScreen.PartsOf(SideMeasured(Prompt, open), sideRows) : 0;
+
+        /// <summary>The rows an answer, or the typed one at the option count, wraps to across a side panel.</summary>
+        public int SideMeasured(int prompt, int option) =>
+            option < measures[prompt].AnswerSideRows.Count ? Math.Max(1, measures[prompt].AnswerSideRows[option])
+            : typedRows.TryGetValue(prompt, out var typed) ? typed.SideRows : 1;
+
+        private void OpenSide(int option)
+        {
+            sideOption = option;
+            SidePart = 0;
+            sideDrawnAt = null;
+        }
+
+        private bool SideStillChosen(int option)
+        {
+            if (draft == null || Prompt >= draft.Prompts.Count) return false;
+            var asked = draft.Prompts[Prompt];
+            return option == asked.Options.Count ? TypedCut(Prompt) : option < asked.Options.Count && draft.IsChosen(Prompt, asked.Options[option].Label);
         }
 
         /// <summary>
@@ -328,30 +389,37 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The view reports the side panel showing a chosen answer's whole words, the typed one where
-        /// <paramref name="option"/> is the prompt's option count, drew part <paramref name="part"/> of
-        /// <paramref name="parts"/>: once every part has, the answer counts as read.
+        /// The view reports it drew the side panel showing at <paramref name="now"/>: the part showing of
+        /// the answer it holds counts as read, and the answer once every part has. Which answer and how
+        /// many parts it takes are this model's own, from the answer's measurement, never the view's.
         /// </summary>
-        public void SideDrawn(int option, int part, int parts)
+        public void SideDrawn(DateTimeOffset now)
         {
-            if (draft == null || Reviewing || QuestionPart != null) return;
-            sideDrawn.Add(part);
-            if (sideDrawn.Count < Math.Max(1, parts)) return;
+            if (draft == null || !(SideOption is int open)) return;
+            sideDrawnAt ??= now;
+            var key = (Prompt, open);
+            if (!sidePartsDrawn.TryGetValue(key, out var drawn)) sidePartsDrawn[key] = drawn = new HashSet<int>();
+            drawn.Add(SidePart);
+            if (drawn.Count < SideParts) return;
             var asked = draft.Prompts[Prompt];
-            if (option == asked.Options.Count)
+            if (open == asked.Options.Count)
             {
                 if (draft.Typed(Prompt) is string typed) typedRead[Prompt] = typed;
             }
-            else if (option >= 0 && option < asked.Options.Count && draft.IsChosen(Prompt, asked.Options[option].Label))
+            else
             {
                 if (!answersRead.TryGetValue(Prompt, out var read)) answersRead[Prompt] = read = new HashSet<int>();
-                read.Add(option);
+                read.Add(open);
             }
-            sideDrawn.Clear();
         }
 
-        /// <summary>A side panel opened or closed: its parts are counted afresh.</summary>
-        public void SideChanged() => sideDrawn.Clear();
+        /// <summary>The footer's Next page while the side panel's answer is in parts: its next part, or from the last the first.</summary>
+        public void NextSidePart(DateTimeOffset now)
+        {
+            if (SideParts < 2 || !(sideDrawnAt is DateTimeOffset at) || now - at < TurnGuard) return;
+            SidePart = (SidePart + 1) % SideParts;
+            sideDrawnAt = null;
+        }
 
         private bool Settled(DateTimeOffset now) => drawnAt is DateTimeOffset at && now - at >= TurnGuard;
 
@@ -377,6 +445,7 @@ namespace Halcyonic.Client
             if (!Reviewing) draft.ClearChosen(Prompt);
             Page = (Page + 1) % Pages;
             Turned();
+            sideOption = null;
         }
 
         /// <summary>The row on to the next question, or after the last, to the person's answers.</summary>
@@ -385,6 +454,7 @@ namespace Halcyonic.Client
             if (draft == null || draft.Prompts.Count < 2 || Reviewing || QuestionPart != null || !Settled(now)) return;
             Prompt++;
             Page = 0;
+            sideOption = null;
             QuestionPart = !Reviewing && QuestionParts(Prompt) > 0 && !draft.WasShownWhole(Prompt) ? 0 : (int?)null;
             Turned();
         }
@@ -395,6 +465,7 @@ namespace Halcyonic.Client
             if (draft == null || prompt < 0 || prompt >= draft.Prompts.Count) return;
             Prompt = prompt;
             Page = 0;
+            sideOption = null;
             QuestionPart = QuestionParts(prompt) > 0 && !draft.WasShownWhole(prompt) ? 0 : (int?)null;
             Land(draft);
             Turned();
