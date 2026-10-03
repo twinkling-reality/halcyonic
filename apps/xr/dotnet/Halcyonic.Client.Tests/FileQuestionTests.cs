@@ -277,6 +277,42 @@ public class FileQuestionTests
     }
 
     [Test]
+    public void ATypedAnswerOrYourAnswersUnmeasuredCountsAsCutAndUnread()
+    {
+        var (_, workspace, screen, draft) = Asking(OnePrompt("Postgres", "SQLite"));
+        Draw(screen);
+        draft.Type(0, new string('x', 419));
+        Assert.That(screen.Question.TypedCut(0), Is.True, "unmeasured, a typed answer is cut");
+        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer));
+        Assert.That(Screen(workspace, screen).Lines.Single(line => line.Action == FileScreens.TypeAnswer).Rows, Is.EqualTo(FileQuestion.AnswerRows));
+        screen.Question.MeasureTyped(0, 1);
+        Assert.That(FileScreens.WhySendWaits(screen), Is.Null, "measured as one row, it shows whole");
+        draft.Type(0, new string('y', 419));
+        Assert.That(FileScreens.WhySendWaits(screen), Is.EqualTo(FileScreens.ReadTheAnswer), "a measurement of other words counts for nothing");
+
+        var (_, several, review, answers) = Asking();
+        for (var prompt = 0; prompt < 2; prompt++)
+        {
+            Screen(several, review);
+            review.Question.Choose(prompt == 0 ? 1 : 0);
+            review.Question.NextQuestion(Later(review));
+        }
+        Draw(review);
+        Assert.That(review.Question.ReviewRead, Is.False, "drawn, but never measured");
+        Assert.That(FileScreens.WhySendWaits(review), Is.EqualTo(FileScreens.ReadYourAnswers));
+        review.Question.MeasureReview(new[] { 1, 1 });
+        Draw(review);
+        Assert.That(FileScreens.WhySendWaits(review), Is.Null);
+        review.Question.GoTo(0);
+        review.Question.Choose(0);
+        Assert.That(answers.IsChosen(0, "Light"), Is.True);
+        review.Question.NextQuestion(Later(review));
+        review.Question.NextQuestion(Later(review));
+        Draw(review);
+        Assert.That(FileScreens.WhySendWaits(review), Is.EqualTo(FileScreens.ReadYourAnswers), "changed since it was measured, it is unread");
+    }
+
+    [Test]
     public void ALongQuestionUnreadKeepsSendAnswerWaiting()
     {
         var question = OnePrompt("Postgres", "SQLite");

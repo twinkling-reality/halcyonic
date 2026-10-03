@@ -58,8 +58,9 @@ namespace Halcyonic.Client
         private readonly Dictionary<int, HashSet<int>> partsDrawn = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, HashSet<int>> answersRead = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, string> typedRead = new Dictionary<int, string>();
-        private readonly Dictionary<int, int> typedRows = new Dictionary<int, int>();
+        private readonly Dictionary<int, (string Words, int Rows)> typedRows = new Dictionary<int, (string Words, int Rows)>();
         private IReadOnlyList<int> reviewRows = Array.Empty<int>();
+        private IReadOnlyList<string> reviewWords = Array.Empty<string>();
         private List<List<int>> reviewPages = new List<List<int>> { new List<int>() };
         private readonly HashSet<int> reviewDrawn = new HashSet<int>();
         private readonly HashSet<int> sideDrawn = new HashSet<int>();
@@ -113,10 +114,14 @@ namespace Halcyonic.Client
         public int AnswerMeasured(int prompt, int option) => measures[prompt].AnswerRows[option];
 
         /// <summary>The typed answer is longer than its row's <see cref="AnswerRows"/> rows, so its row is cut.</summary>
-        public bool TypedCut(int prompt) => draft?.Typed(prompt) != null && TypedMeasured(prompt) > AnswerRows;
+        public bool TypedCut(int prompt) => draft?.Typed(prompt) != null && (!TypedMeasuredNow(prompt) || TypedMeasured(prompt) > AnswerRows);
 
-        /// <summary>The rows the typed answer wraps to, as the layout measured it; one until measured.</summary>
-        public int TypedMeasured(int prompt) => typedRows.TryGetValue(prompt, out var measured) ? measured : 1;
+        /// <summary>The typed answer was measured as it reads now; one unmeasured, or measured before it changed, counts as cut and unread.</summary>
+        private bool TypedMeasuredNow(int prompt) =>
+            draft?.Typed(prompt) is string typed && typedRows.TryGetValue(prompt, out var measured) && measured.Words == typed;
+
+        /// <summary>The rows the typed answer wraps to, as the layout measured it; as many as its row holds until it is measured as it reads now.</summary>
+        public int TypedMeasured(int prompt) => TypedMeasuredNow(prompt) ? typedRows[prompt].Rows : AnswerRows;
 
         /// <summary>The rows each prompt's answer takes on the page of the person's answers, as the layout measured it.</summary>
         public int ReviewShows(int prompt) => prompt < reviewRows.Count ? Math.Max(1, reviewRows[prompt]) : 1;
@@ -269,14 +274,23 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>The layout measured the typed answer: it wraps to <paramref name="measured"/> rows.</summary>
-        public void MeasureTyped(int prompt, int measured) => typedRows[prompt] = Math.Max(1, measured);
+        /// <summary>The layout measured the typed answer as it reads now: it wraps to <paramref name="measured"/> rows.</summary>
+        public void MeasureTyped(int prompt, int measured)
+        {
+            if (draft?.Typed(prompt) is string typed) typedRows[prompt] = (typed, Math.Max(1, measured));
+        }
 
-        /// <summary>The layout measured each prompt's answer as the page of the person's answers shows it whole.</summary>
+        /// <summary>
+        /// The layout measured each prompt's answer as the page of the person's answers shows it whole
+        /// (<see cref="FileScreens.ReviewWords"/>), as it reads now: should an answer change, or a prompt
+        /// go unmeasured, the page counts as unread until measured again.
+        /// </summary>
         public void MeasureReview(IReadOnlyList<int> measured)
         {
-            if (reviewRows.SequenceEqual(measured)) return;
+            var words = ReviewWordsNow();
+            if (reviewRows.SequenceEqual(measured) && reviewWords.SequenceEqual(words)) return;
             reviewRows = measured;
+            reviewWords = words;
             reviewDrawn.Clear();
             LayReview();
             if (Reviewing) Page = Math.Min(Page, Pages - 1);
@@ -416,6 +430,12 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Every page of the person's answers has been drawn.</summary>
-        public bool ReviewRead => Reviewing && Enumerable.Range(0, reviewPages.Count).All(reviewDrawn.Contains);
+        public bool ReviewRead => Reviewing && ReviewMeasuredNow && Enumerable.Range(0, reviewPages.Count).All(reviewDrawn.Contains);
+
+        /// <summary>Every prompt's answer was measured as the page of the person's answers shows it now.</summary>
+        private bool ReviewMeasuredNow => draft != null && reviewRows.Count == draft.Prompts.Count && reviewWords.SequenceEqual(ReviewWordsNow());
+
+        private IReadOnlyList<string> ReviewWordsNow() =>
+            draft == null ? Array.Empty<string>() : Enumerable.Range(0, draft.Prompts.Count).Select(prompt => FileScreens.ReviewWords(draft, prompt)).ToList();
     }
 }
