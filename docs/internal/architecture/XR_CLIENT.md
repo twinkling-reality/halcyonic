@@ -618,7 +618,8 @@ the same definition names, as the JSON Schema document:
 - **`ProjectsColumn`** is the menu's Projects place as an `IMenuColumn`: it keeps the host's folders
   (read when it opens and when the person asks again, never on a timer), the chosen row and the page,
   and builds its frame with `ProjectsScreens`. The connection sent last lives in `ProjectsMemory`,
-  which the director keeps for the session and gives every Projects column, so an unknown outcome
+  which the director keeps for the app's run (one journal), across reconnects, and gives every Projects
+  column, so an unknown outcome
   holds Connect back across a close and a reopen. Every press goes through `ProjectsScreens.Allows`
   with its key, on the state at the press, and a closed column takes none. Its one send is Connect's
   `project.create` through `IMenuHost.Submit`. Hide from stage and Show on stage change the stage on

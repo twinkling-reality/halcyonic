@@ -39,9 +39,10 @@ namespace Halcyonic.Client
         private (long Position, bool Connected, bool Demonstration, TextSize Text, long Minute, WorkOverview? Overview) seen;
 
         /// <param name="memory">
-        /// What outlives this column for the session, kept by the director and given to every Projects
-        /// column it opens: the connection sent last, so one whose outcome is unknown still holds Connect
-        /// back after Projects is closed and opened again.
+        /// What outlives this column for the app's run (one journal), across reconnects, kept by the
+        /// director and given to every Projects column it opens: the connection sent last, so one whose
+        /// outcome is unknown still holds Connect back after Projects is closed and opened again, or the
+        /// realtime session drops and comes back, which is when an outcome usually becomes unknown.
         /// </param>
         /// <param name="overview">
         /// Every project and its work, as the stage counts it; null before the first snapshot. It must give
@@ -275,9 +276,10 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// What Projects keeps for the session, outliving any one <see cref="ProjectsColumn"/>: the
-    /// connection sent last and its acknowledgement still on its way. The director keeps one for the
-    /// session and gives it to every Projects column it opens, so a connection whose outcome is unknown
+    /// What Projects keeps for the app's run (one journal), outliving any one <see cref="ProjectsColumn"/>
+    /// and every reconnect: the connection sent last and its acknowledgement still on its way. The
+    /// director keeps one for that run, never a new one when the realtime session reconnects, and gives
+    /// it to every Projects column it opens, so a connection whose outcome is unknown
     /// keeps every Connect held back, and its record still resolves it, however often Projects is
     /// closed and opened again.
     /// </summary>
