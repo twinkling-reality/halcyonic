@@ -392,6 +392,8 @@ public class MenuNavigatorTests
         Assert.That(menu.Act(MenuColumn.File, "open", "k", fileFrame, null), Is.False, "nothing on the file's last drawn frame counts while it stands aside");
         menu.Drawn(MenuColumn.File, menu.Frames(Bar).Beside, null);
         Assert.That(menu.Act(MenuColumn.File, "open", "k", menu.Frames(Bar).Beside, null), Is.False, "nor a draw of it reported meanwhile");
+        Assert.That(menu.Taking(MenuColumn.File, "talk", menu.Frames(Bar).Beside, null), Is.Null, "nor a hold");
+        Assert.That(menu.ColumnOf(MenuColumn.Side), Is.SameAs(settings), "a hold on the details ends at the menu's place, which took it");
         Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True);
         Assert.That(settings.Got.Last(), Is.EqualTo("act " + SidePanel.Close + " "), "its Close goes to the menu's place, whose details they are");
 

@@ -150,6 +150,11 @@ public class MenuFrameTests
             "a Yes its panel shows all of, and Cancel always");
         var approving = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(), Cancel).InPlace(closeDetails);
         Assert.That(approving.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Cancel }), "no Yes its panel doesn't show all of");
+
+        var connecting = new Footer(Close, farRight: new Prompt("connect", "Connect", GlazeIcon.ConnectProjects, main: true, available: false,
+            reason: "Choose a folder first", safeInPlace: true)).InPlace(closeDetails);
+        Assert.That(connecting.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close, "connect" }), "one its panel shows all of, though it can't be taken now");
+        Assert.That(connecting.Reason, Is.EqualTo("Choose a folder first"), "saying why, as the page's last content line");
         Assert.Throws<ArgumentException>(() => waiting.InPlace(Action("close-it")), "only a Close stands far left");
     }
 
