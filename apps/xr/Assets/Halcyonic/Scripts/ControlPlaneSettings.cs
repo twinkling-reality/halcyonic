@@ -25,8 +25,6 @@ namespace Halcyonic.XR
         private static bool tokenMigrated;
         private static ControlPlaneApi? api;
         private static ControlPlaneTarget? apiTarget;
-        private static string? computer;
-        private static bool computerRead;
 
         public static Uri Endpoint => new Uri(Environment.GetEnvironmentVariable("HALCYONIC_ENDPOINT") ?? DefaultEndpoint);
 
@@ -60,27 +58,10 @@ namespace Halcyonic.XR
         }
 
         /// <summary>
-        /// The computer <see cref="Target"/> reaches, as <see cref="ControlPlaneTarget.Computer"/> names
-        /// it, or null when none is configured: read once, and again only after a pairing or forgetting
-        /// one, so it costs nothing to ask every frame. What the device keeps for one computer alone,
-        /// such as a start whose outcome is unknown, is kept under it. Call it on the main thread.
-        /// </summary>
-        public static string? Computer()
-        {
-            if (!computerRead)
-            {
-                computer = Target()?.Computer;
-                computerRead = true;
-            }
-            return computer;
-        }
-
-        /// <summary>
         /// Where the pairing and its credential are kept: app-internal storage on Android, which only
-        /// this app can read, and the persistent data directory elsewhere. Saving or forgetting one
-        /// changes the computer reached. Call it on the main thread.
+        /// this app can read, and the persistent data directory elsewhere. Call it on the main thread.
         /// </summary>
-        public static IPairingStore PairingStore => pairingStore ??= new ChangesComputer(new FilePairingStore(PairingPath()));
+        public static IPairingStore PairingStore => pairingStore ??= new FilePairingStore(PairingPath());
 
         /// <summary>The pairing, or null when there is none or it cannot be read.</summary>
         public static PairedControlPlane? ReadPairing()
@@ -204,31 +185,6 @@ namespace Halcyonic.XR
                 Debug.LogWarning("Halcyonic: could not deal with the access token's old place on shared storage, so a copy may still be there (" + reason + "). From the computer: adb shell ls /sdcard/Android/data/com.halcyonic.xr/files/");
             }
 #endif
-        }
-
-        /// <summary>The pairing's store, after whose save or forget the computer reached is read again.</summary>
-        private sealed class ChangesComputer : IPairingStore
-        {
-            private readonly IPairingStore store;
-
-            public ChangesComputer(IPairingStore store)
-            {
-                this.store = store;
-            }
-
-            public PairedControlPlane? Load() => store.Load();
-
-            public void Save(PairedControlPlane pairing)
-            {
-                store.Save(pairing);
-                computerRead = false;
-            }
-
-            public void Forget()
-            {
-                store.Forget();
-                computerRead = false;
-            }
         }
     }
 }

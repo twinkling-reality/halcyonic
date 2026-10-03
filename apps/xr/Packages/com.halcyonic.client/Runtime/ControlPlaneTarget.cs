@@ -107,15 +107,6 @@ namespace Halcyonic.Client
             && string.Equals(Credential, other.Credential, StringComparison.Ordinal)
             && string.Equals(Pairing?.CertificateSha256, other.Pairing?.CertificateSha256, StringComparison.Ordinal);
 
-        /// <summary>
-        /// Which computer this reaches, as a name for what the device keeps for that computer alone,
-        /// such as a start whose outcome is unknown: a paired control plane by its certificate pin,
-        /// which pairing with it again keeps, and one reached with the access token by its endpoint.
-        /// A SHA-256 in lowercase hex, never of the credential, which a new token or pairing changes.
-        /// </summary>
-        public string Computer =>
-            PairingCrypto.Sha256Hex(System.Text.Encoding.UTF8.GetBytes(Pairing != null ? "paired " + Pairing.CertificateSha256 : "local " + Endpoint.AbsoluteUri));
-
         /// <summary>A certificate pin: a SHA-256 in lowercase hex.</summary>
         public static string CheckPin(string pin) =>
             Sha256.IsMatch(pin) ? pin : throw new ArgumentException("A certificate pin is a SHA-256 in lowercase hex.", nameof(pin));
