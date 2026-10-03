@@ -174,13 +174,35 @@ const SECRET_WORDS: ReadonlySet<string> = new Set([
 /** Where a value such as `Authorization: Bearer token` or `a=1; b=2` divides into parts. */
 const VALUE_PARTS = /[\s:,;=]+/;
 
-/** A URL's user and password in a value: `scheme://user:password@host`. */
-const URL_USERINFO = /\b[a-z][a-z0-9+.-]{0,31}:\/\/([^\s/?#@]+)@/gi;
+/**
+ * A URL's user and password in a value: `scheme://user:password@host`, up to the last `@` before
+ * the host, since a password can hold a raw `@`.
+ */
+const URL_USERINFO = /\b[a-z][a-z0-9+.-]{0,31}:\/\/([^\s/?#]+)@/gi;
 
 /**
- * The secrets in a value's URLs, however they look: each password, as written and decoded, and
- * `user:password`; a user alone only when it reads as a credential, as a token in
- * `https://token@host`.
+ * A value given to a password, secret or token key, as a connection string or a query gives it:
+ * `password=…`, `Pwd: …`, `client_secret=…`, `"token": "…"`, quoted or up to `&`, `;`, `,` or a
+ * space.
+ */
+const KEYED_SECRET =
+  /(?<![A-Za-z0-9])[A-Za-z0-9_.-]{0,32}?(?:password|passwd|pwd|secret|token)["']?\s*[=:]\s*("[^"]*"|'[^']*'|[^\s&;,"']+)/gi;
+
+/** A password, as written and, where it is percent-encoded, decoded. */
+function asWrittenAndDecoded(password: string): string[] {
+  try {
+    const decoded = decodeURIComponent(password);
+    return decoded === password ? [password] : [password, decoded];
+  } catch {
+    // Not percent-encoded as written: the password as written is held.
+    return [password];
+  }
+}
+
+/**
+ * The secrets in a value's URLs and connection strings, however they look: each URL's password,
+ * as written and decoded, and `user:password`, a user alone only when it reads as a credential, as
+ * a token in `https://token@host`; and each value given to a password, secret or token key.
  */
 function urlSecrets(value: string): string[] {
   const found: string[] = [];
@@ -192,13 +214,11 @@ function urlSecrets(value: string): string[] {
     }
     const password = userinfo.slice(colon + 1);
     if (password === '') continue;
-    found.push(userinfo, password);
-    try {
-      const decoded = decodeURIComponent(password);
-      if (decoded !== password) found.push(decoded);
-    } catch {
-      // Not percent-encoded as written: the password as written is held.
-    }
+    found.push(userinfo, ...asWrittenAndDecoded(password));
+  }
+  for (const [, given = ''] of value.matchAll(KEYED_SECRET)) {
+    const unquoted = /^(["']).*\1$/.test(given) ? given.slice(1, -1) : given;
+    if (unquoted !== '') found.push(...asWrittenAndDecoded(unquoted));
   }
   return found;
 }
@@ -217,7 +237,8 @@ export function secretName(name: string): boolean {
  * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
  * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
  * themselves, each part of one that reads as a credential by itself, as the value of a header in
- * `Name: value`, and the password in any URL in one, all under their variable's name. An address or a region passed to agents, such as
+ * `Name: value`, and the password in any URL or connection string in one, all under their
+ * variable's name. An address or a region passed to agents, such as
  * ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
  * since a server's password changes with each launch and a credential when it is replaced; a file
  * that can't be read gives nothing. Device credentials are kept only as hashes, so their shape is
