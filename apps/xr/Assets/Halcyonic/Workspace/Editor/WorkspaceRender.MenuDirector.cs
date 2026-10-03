@@ -490,11 +490,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(name + ": a redraw moved the dragged plane.");
             }
 
-            // Up into the characters' labels, holding does nothing.
+            // Into the characters, holding does nothing: up into their labels, or over a desk, down into their bodies.
             held = subject.Subject.position;
             director.HoldSubjectForRender(held);
-            director.DragSubjectForRender(Turned(held, 0f, -15f));
-            if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged up into the characters' labels.");
+            director.DragSubjectForRender(Turned(held, 0f, plane.Direction.Above ? 15f : -15f));
+            if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged into the characters.");
             director.LetGoForRender();
 
             // Dragged as low as it goes, then laid anew taller, a title in two rows: it keeps only as much of
@@ -502,7 +502,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var title = subject.Frame!.Subject;
             held = subject.Subject.position;
             director.HoldSubjectForRender(held);
-            director.DragSubjectForRender(Turned(held, 0f, 30f));
+            director.DragSubjectForRender(Turned(held, 0f, plane.Direction.Above ? -30f : 30f));
             director.LetGoForRender();
             director.DrawNow();
             retitle(title + ", and keep a record of every lockout for the security review at the end of the month");
