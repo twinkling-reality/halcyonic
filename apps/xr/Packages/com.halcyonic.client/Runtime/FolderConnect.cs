@@ -38,10 +38,10 @@ namespace Halcyonic.Client
         public string RawName { get; }
 
         /// <summary>The name to show, by <see cref="LabelText"/>'s rule.</summary>
-        public string Name => LabelText.Plain(RawName);
+        public string Name => LabelText.Name(RawName);
 
         /// <summary>The root's name to show, where the folder is.</summary>
-        public string RootName => LabelText.Plain(Root.Name);
+        public string RootName => LabelText.Name(Root.Name);
 
         /// <summary>A <c>.git</c> entry sits directly inside it; null when the host could not look.</summary>
         public bool? Repository { get; }
@@ -61,7 +61,10 @@ namespace Halcyonic.Client
         /// </summary>
         public bool LooksLikeAnother { get; internal set; }
 
-        /// <summary>Which row this is, for a press to name it: the root's path and the folder's name, never shown.</summary>
+        /// <summary>
+        /// Which row this is, for a press to name it: the root's absolute path and the folder's name as the
+        /// file system has it. Never shown, and kept out of every log.
+        /// </summary>
         public string Key => FolderConnect.KeyOf(Root, Folder);
     }
 
@@ -79,7 +82,11 @@ namespace Halcyonic.Client
         /// <summary>A project's name when its folder's name has nothing but spaces in it.</summary>
         public const string FallbackProjectName = "Project";
 
-        public static IReadOnlyList<ConnectableFolder> Offers(LocationsResponse listing)
+        /// <param name="otherNames">
+        /// Names a free folder may imitate beyond the listing's own, as the projects' names; the folders
+        /// the listing says are in use count too.
+        /// </param>
+        public static IReadOnlyList<ConnectableFolder> Offers(LocationsResponse listing, IEnumerable<string>? otherNames = null)
         {
             var offers = new List<ConnectableFolder>();
             foreach (var root in listing.Roots)
@@ -95,6 +102,14 @@ namespace Halcyonic.Client
             {
                 foreach (var offer in alike) offer.LooksLikeAnother = true;
             }
+            // A free folder that imitates a project's name, or a folder in use, is marked as well.
+            var taken = new HashSet<string>((otherNames ?? Enumerable.Empty<string>()).Select(name => Likeness(LabelText.Name(name))), StringComparer.Ordinal);
+            foreach (var root in listing.Roots.Where(root => root.Status == LocationRootStatus.Available))
+            {
+                if (root.UsedBy.Count > 0) taken.Add(Likeness(LabelText.Name(root.Name)));
+                foreach (var folder in root.Folders.Where(folder => folder.UsedBy.Count > 0)) taken.Add(Likeness(LabelText.Name(folder.Name)));
+            }
+            foreach (var offer in offers.Where(offer => taken.Contains(Likeness(offer.Name)))) offer.LooksLikeAnother = true;
             return offers
                 .OrderByDescending(offer => offer.ChangedAt.HasValue)
                 .ThenByDescending(offer => offer.ChangedAt ?? DateTimeOffset.MinValue)

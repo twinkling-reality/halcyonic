@@ -133,7 +133,7 @@ public class ProjectsScreensTests
         }).Using<string>((a, b) => string.Compare(a, b, StringComparison.OrdinalIgnoreCase)));
         Assert.That(frame.Side.Facts[0].ValueIsData, Is.True, "a place's name is text from outside");
         var connect = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That((connect.Id, connect.DrawnAsMain), Is.EqualTo((ProjectsScreens.Connect, true)), "never where the row's press landed: rows are on the left, the main action far right");
+        Assert.That((connect.Id, connect.DrawnAsMain), Is.EqualTo((ProjectsScreens.Connect, true)), "the main action takes the far right slot, apart from the rows");
         Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null);
 
         state.Live = false;
@@ -168,6 +168,25 @@ public class ProjectsScreensTests
         var connected = ProjectsScreens.Projects(state);
         Assert.That(connected.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.AddTask));
         Assert.That(connected.Side!.Facts.Last().Name, Is.EqualTo(ProjectsText.WhatHappened));
+
+        var unknown = new FolderConnection(notes, Commands);
+        var third = unknown.Begin();
+        unknown.Advance(With(new CommandView
+        {
+            CommandId = third.CommandId, Status = CommandStatus.Failed,
+            Failure = new CommandFailure { Code = "timeout", Message = "No answer.", Effect = FailureEffect.Unknown },
+        }));
+        state.Connection = unknown;
+        state.ChosenFolder = shop.Key;
+        var blocked = ProjectsScreens.Projects(state);
+        Assert.That(blocked.Reason, Does.StartWith("Not sure whether"), "an unknown outcome is said as unknown, not as still coming");
+        Assert.That(blocked.Reason, Does.Contain("in Projects"));
+        state.ChosenFolder = notes.Key;
+        var own = ProjectsScreens.Projects(state);
+        Assert.That(own.Footer[PromptSlot.FarRight], Is.Null, "a connection that may have run is never offered again");
+        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Not sure it happened."));
+        state.ChosenFolder = shop.Key;
+        state.Connection = connection;
 
         var refused = new FolderConnection(shop, Commands);
         var second = refused.Begin();
@@ -267,14 +286,113 @@ public class ProjectsScreensTests
             var fact = ProjectsText.ProjectFact(project);
             Assert.That(Regex.IsMatch(fact, @"\d+ (waiting|running|finished|paused|checking)"), Is.False, fact + ": a count keeps its noun");
         }
+        var failed = new Portfolio().Project("f", "Failing").Work("x", "f", WorkstreamStatus.Failed).Apply();
+        var failing = WorkOverview.Of(failed, new StageVisibility(), _ => true).Projects.Single();
+        Assert.That(ProjectsText.ProjectFact(failing), Is.EqualTo("1 task to look at"), "failed or unknown work is never called finished");
+        Assert.That(ProjectsText.Work(failing), Is.EqualTo("1 task to look at"));
+
         var zone = TimeZoneInfo.Utc;
-        string? Fact(LocationsResponse listing) => ProjectsText.FolderFact(FolderConnect.Offers(listing).First(), Now, zone,
+        (string? Text, bool IsData) Fact(LocationsResponse listing) => ProjectsText.FolderFact(FolderConnect.Offers(listing).First(), Now, zone,
             FolderConnect.Offers(listing).Select(offer => offer.Root.Path).Distinct().Count() > 1);
-        Assert.That(Fact(Listing(Root("Projects", Folder("a", false, "2026-10-02T09:00:00.000Z")))), Is.EqualTo("Changed 3 hours ago"));
+        Assert.That(Fact(Listing(Root("Projects", Folder("a", false, "2026-10-02T09:00:00.000Z")))), Is.EqualTo(((string?)"Changed 3 hours ago", false)));
         Assert.That(Fact(Listing(Root("Projects", Folder("a", true, "2026-10-02T09:00:00.000Z")), Root("Work", Folder("b", false, "2026-09-01T00:00:00.000Z")))),
-            Is.EqualTo("In Projects · changed 3 hours ago"));
-        Assert.That(Fact(Listing(Root("Projects", Folder("a", null)))), Is.EqualTo(ProjectsText.CantTell));
-        Assert.That(Fact(Listing(Root("Projects", Folder("app", true), Folder("APP", false)))), Is.EqualTo(ConnectText.LooksLikeAnother));
+            Is.EqualTo(((string?)"In Projects · changed 3 hours ago", true)), "a place's name makes the fact text from outside");
+        Assert.That(Fact(Listing(Root("Projects", Folder("a", null)))).Text, Is.EqualTo(ProjectsText.CantTell));
+        Assert.That(Fact(Listing(Root("Projects", Folder("app", true, "2026-10-02T09:00:00.000Z"), Folder("APP", false, "2026-09-01T00:00:00.000Z")))).Text,
+            Is.EqualTo(ConnectText.LooksLikeAnother + " · Repository · changed 3 hours ago"), "a look-alike keeps the facts that tell it apart");
+    }
+
+    [Test]
+    public void NamesThatShowAsBlankStillBuildAndShowTheirCodePoints()
+    {
+        var state = new Portfolio().Project("p", "\u0085").Work("w", "p", WorkstreamStatus.Running).Apply();
+        var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
+        var projects = State(Listing(Root("Projects", Folder(" "), Folder("\u00A0"), Folder("\u3000"), Folder("\t"))), overview);
+        var frame = ProjectsScreens.Projects(projects);
+        Assert.That(frame.Lines.First().Words, Is.EqualTo("‹U+0085›"));
+        var names = new List<string>();
+        for (var page = 0; page < 3; page++)
+        {
+            projects.Page = page;
+            names.AddRange(ProjectsScreens.Projects(projects).Lines.Where(line => line.Action == ProjectsScreens.ChooseFolder).Select(line => line.Words));
+        }
+        Assert.That(names.Distinct(), Is.EquivalentTo(new[] { "‹U+0020›", "‹U+00A0›", "‹U+3000›", "‹U+0009›" }));
+        projects.ChosenFolder = FolderConnect.Offers(projects.Listing!).First().Key;
+        Assert.That(ProjectsScreens.Projects(projects).Side!.Subject, Does.StartWith("‹U+"));
+        projects.ChosenFolder = null;
+        projects.ChosenProject = "p";
+        Assert.That(ProjectsScreens.Projects(projects).Side!.Subject, Is.EqualTo("‹U+0085›"));
+    }
+
+    [Test]
+    public void AFolderThatImitatesAProjectAndTheProjectAreBothMarked()
+    {
+        var state = new Portfolio().Project("p", "acme-api").Work("w", "p", WorkstreamStatus.Running).Apply();
+        var projects = State(Listing(Root("Projects", Folder("Acme-API"), Folder("notes", false))), WorkOverview.Of(state, new StageVisibility(), _ => true));
+        var frame = ProjectsScreens.Projects(projects);
+        Assert.That(frame.Lines.Single(line => line.Words == "acme-api").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
+        Assert.That(frame.Lines.Single(line => line.Words == "Acme-API").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
+        Assert.That(frame.Lines.Single(line => line.Words == "notes").Fact, Does.Not.StartWith(ConnectText.LooksLikeAnother));
+        projects.ChosenProject = "p";
+        Assert.That(ProjectsScreens.Projects(projects).Side!.Facts.Select(fact => fact.Value), Does.Contain(ProjectsText.ProjectLooksAlike));
+
+        var used = Listing(Root("Projects", Folder("shop", true, "2026-10-01T00:00:00.000Z", ProjectA), Folder("SHOP")));
+        Assert.That(FolderConnect.Offers(used).Single().LooksLikeAnother, Is.True, "a free folder imitating one in use is marked");
+    }
+
+    [Test]
+    public void EveryPressActsOnTheRowTheFrameShows()
+    {
+        var state = State(Listing(Root("Projects", Folder("shop"))));
+        Assert.That(ProjectsScreens.TargetOf(state).AddTaskTo, Is.Null, "nothing chosen: New project, nothing to add to");
+
+        state.ChosenProject = "a";
+        var project = ProjectsScreens.TargetOf(state);
+        Assert.That((project.AddTaskTo, project.AddTaskName, project.Folder), Is.EqualTo(("a", "Alpha", (ConnectableFolder?)null)));
+
+        var shop = FolderConnect.Offers(state.Listing!).Single();
+        var connection = new FolderConnection(shop, Commands);
+        var command = connection.Begin();
+        connection.Advance(With(new CommandView { CommandId = command.CommandId, Status = CommandStatus.Completed, Result = new ProjectCreatedResult { ProjectId = ProjectA } }));
+        state.Connection = connection;
+        // The chosen project wins over the connection made a moment ago.
+        Assert.That(ProjectsScreens.TargetOf(state).AddTaskTo, Is.EqualTo("a"));
+        state.ChosenProject = null;
+        Assert.That(ProjectsScreens.TargetOf(state).AddTaskTo, Is.Null, "a connection for a folder not chosen adds nothing");
+        state.ChosenFolder = shop.Key;
+        var folder = ProjectsScreens.TargetOf(state);
+        Assert.That((folder.Folder?.Key, folder.AddTaskTo, folder.AddTaskName), Is.EqualTo((shop.Key, ProjectA, "shop")));
+        Assert.That(ProjectsScreens.Projects(state).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.AddTask));
+    }
+
+    [Test]
+    public void AFolderBoundSinceTheListingWasReadIsNotOfferedAgain()
+    {
+        var state = State(Listing(Root("Projects", Folder("shop"), Folder("notes", false))));
+        state.BoundPaths = new[] { "/Users/person/Projects/notes" };
+        Assert.That(ProjectsScreens.Projects(state).Lines.Select(line => line.Words), Does.Not.Contain("notes"));
+        var shop = FolderConnect.Offers(state.Listing!).Single(offer => offer.RawName == "shop");
+        var connection = new FolderConnection(shop, Commands);
+        var command = connection.Begin();
+        connection.Advance(With(new CommandView { CommandId = command.CommandId, Status = CommandStatus.Completed, Result = new ProjectCreatedResult { ProjectId = ProjectA } }));
+        state.Connection = connection;
+        state.ChosenFolder = shop.Key;
+        state.BoundPaths = new[] { "/Users/person/Projects/notes", "/Users/person/Projects/shop" };
+        Assert.That(ProjectsScreens.Projects(state).Side!.Facts.Last().Name, Is.EqualTo(ProjectsText.WhatHappened), "the folder just connected keeps its outcome while chosen");
+        state.ChosenFolder = null;
+        Assert.That(ProjectsScreens.Projects(state).Lines.Select(line => line.Words), Does.Not.Contain("shop"), "and is not offered once let go");
+    }
+
+    [Test]
+    public void AChosenFolderMeansNothingInTheDemonstration()
+    {
+        var state = State(Listing(Root("Projects", Folder("shop"))));
+        state.ChosenFolder = FolderConnect.Offers(state.Listing!).Single().Key;
+        state.Demonstration = true;
+        var frame = ProjectsScreens.Projects(state);
+        Assert.That(frame.Side, Is.Null);
+        Assert.That(frame.Lines.Any(line => line.Action == ProjectsScreens.ChooseFolder), Is.False);
+        Assert.That(ProjectsScreens.TargetOf(state).Folder, Is.Null);
     }
 
     [Test]
@@ -286,6 +404,10 @@ public class ProjectsScreensTests
         foreach (var frame in frames)
         {
             var words = new List<string> { frame.Subject };
+            // No path reaches any word, ours or from outside.
+            var everything = frame.Lines.Select(line => line.Words).Concat(frame.Lines.Select(line => line.Fact).OfType<string>())
+                .Concat(frame.Side?.Facts.SelectMany(fact => new[] { fact.Name, fact.Value }) ?? Array.Empty<string>()).Append(frame.Side?.Subject ?? "");
+            Assert.That(everything.Where(word => word.Contains('/', StringComparison.Ordinal)), Is.Empty);
             words.AddRange(frame.Lines.Where(line => !line.WordsAreData).Select(line => line.Words));
             words.AddRange(frame.Lines.Select(line => line.Fact).OfType<string>());
             words.AddRange(frame.Footer.All.Select(each => each.Prompt.Words));

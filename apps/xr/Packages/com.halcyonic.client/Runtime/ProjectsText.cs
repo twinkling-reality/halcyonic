@@ -44,37 +44,59 @@ namespace Halcyonic.Client
         public const string No = "No";
         public const string CantTell = HostText.YourStart + " can't look inside it";
 
+        /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
+        public const string ProjectLooksAlike = "Another project or folder has a name that looks the same. Check this is the one you mean by its work.";
+
         /// <summary>
         /// A project's small fact on its row: what matters most, what waits for the person first, as a
-        /// short count that keeps its noun ("1 task waiting", "2 tasks running"), after "Hidden · " when
-        /// its work is not on the stage. A long name shortens to make room, never this.
+        /// short count that keeps its noun ("1 task waiting", "2 tasks running", "1 task to look at" for
+        /// work that failed, can't be told or failed its checks), after "Hidden · " when its work is not
+        /// on the stage, and after the look-alike mark when its name looks like another's. A long name
+        /// shortens to make room, never this.
         /// </summary>
-        public static string ProjectFact(ProjectSummary project)
+        public static string ProjectFact(ProjectSummary project, bool looksAlike = false)
         {
             var most = project.NeedsYou > 0 ? Tasks(project.NeedsYou) + " waiting"
-                : project.Notice > 0 ? Tasks(project.Notice) + " finished"
+                : project.Notice > 0 ? Tasks(project.Notice) + " to look at"
                 : project.Active > 0 ? Tasks(project.Active) + " running"
                 : project.Work == 0 ? "No work yet" : Tasks(project.Work) + " paused";
-            return project.Shown ? most : Hidden + " · " + (project.Work == 0 ? "no work yet" : most);
+            var fact = project.Shown ? most : Hidden + " · " + (project.Work == 0 ? "no work yet" : most);
+            return looksAlike ? ConnectText.LooksLikeAnother + " · " + Lower(fact) : fact;
         }
+
+        /// <summary>
+        /// A project's work in full, for its side panel, what waits for the person first, naming tasks
+        /// once: "1 task waiting for you, 1 to look at, 2 running", or "No work yet", "3 tasks paused".
+        /// </summary>
+        public static string Work(ProjectSummary project)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            string Counted(int count) => parts.Count == 0 ? Tasks(count) : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (project.NeedsYou > 0) parts.Add(Counted(project.NeedsYou) + " waiting for you");
+            if (project.Notice > 0) parts.Add(Counted(project.Notice) + " to look at");
+            if (project.Active > 0) parts.Add(Counted(project.Active) + " running");
+            if (parts.Count > 0) return string.Join(", ", parts);
+            return project.Work == 0 ? "No work yet" : Tasks(project.Work) + " paused";
+        }
+
+        private static string Lower(string text) => text.Length == 0 ? text : char.ToLowerInvariant(text[0]) + text.Substring(1);
 
         private static string Tasks(int count) =>
             count.ToString(System.Globalization.CultureInfo.InvariantCulture) + (count == 1 ? " task" : " tasks");
 
         /// <summary>
-        /// A folder's small fact on its row, short: the look-alike mark when its name looks like
-        /// another's; else its place where there are several, or that it is a repository, then when it
-        /// changed ("Repository · changed 3 days ago", "In Work · changed today"). Its side panel says
-        /// the rest.
+        /// A folder's small fact on its row: its place where there are several, or that it is a
+        /// repository, then when it changed ("Repository · changed 3 days ago", "In Work · changed 5
+        /// hours ago"), after the look-alike mark when its name looks like another's, since the place
+        /// and the time are what tell look-alikes apart. <c>IsData</c> when it holds a place's name.
         /// </summary>
-        public static string? FolderFact(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone, bool manyPlaces)
+        public static (string? Text, bool IsData) FolderFact(ConnectableFolder folder, DateTimeOffset now, TimeZoneInfo zone, bool manyPlaces)
         {
-            if (folder.LooksLikeAnother) return ConnectText.LooksLikeAnother;
-            if (folder.Repository == null) return CantTell;
-            var first = manyPlaces ? "in " + folder.RootName : folder.Repository == true ? Repository : null;
+            var mark = folder.LooksLikeAnother ? ConnectText.LooksLikeAnother : null;
+            var first = folder.Repository == null ? Lower(CantTell) : manyPlaces ? "in " + folder.RootName : folder.Repository == true ? Repository : null;
             var changed = folder.ChangedAt == null ? null : "changed " + ConnectText.Ago(folder.ChangedAt.Value, now, zone);
-            var fact = string.Join(" · ", new[] { first, changed }.Where(part => part != null));
-            return fact.Length == 0 ? null : Sentence(fact);
+            var fact = string.Join(" · ", new[] { mark, first, changed }.Where(part => part != null));
+            return (fact.Length == 0 ? null : Sentence(fact), folder.Repository != null && manyPlaces);
         }
 
         /// <summary>A sentence of Halcyonic's own, begun with a capital, as a side panel's value.</summary>
