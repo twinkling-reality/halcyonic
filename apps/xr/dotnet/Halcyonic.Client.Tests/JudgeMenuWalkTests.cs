@@ -106,7 +106,11 @@ internal sealed class DemonstrationMenuHost : IMenuHost
         Navigator.ShowBeside(File, workstreamId);
     }
 
-    public void OpenNewProject(string? projectId, string? projectName) => throw new InvalidOperationException("The walk opens no New project.");
+    /// <summary>What asked to open New project beside the menu: Projects' New project (null, null), or Add a task to a project.</summary>
+    public List<(string? Project, string? Name)> NewProjects { get; } = new();
+
+    /// <summary>Lane C's flow, which plays its own recording in the demonstration, is walked by its own tests; here it is only asked for.</summary>
+    public void OpenNewProject(string? projectId, string? projectName) => NewProjects.Add((projectId, projectName));
 
     private WorkspacePresentation? Present(string workstreamId)
     {
@@ -356,6 +360,27 @@ public class JudgeMenuWalkTests
         host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Projects));
         (menu, _) = host.Draw();
         Assert.That(menu!.Sections.Single(section => section.Chosen).Words, Is.EqualTo("Projects"));
+        var projects = player.Session.State.Projects.Values.Select(project => project.Name).ToList();
+        Assert.That(menu.Lines.Where(line => line.Action == ProjectsScreens.ChooseProject).Select(line => line.Words), Is.EquivalentTo(projects),
+            "the demonstration's own projects");
+        Assert.That(menu.Lines.Select(line => line.Words), Has.None.EqualTo(ProjectsText.FoldersHeading), "the demonstration connects no folder, so it lists none");
+        // New project is the main prompt; in the demonstration it opens lane C's flow, which plays its own recording.
+        Assert.That(menu.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(ProjectsScreens.NewProject));
+        var sentBefore = host.Sent.Count;
+        host.Press(MenuColumn.Menu, ProjectsScreens.NewProject);
+        Assert.That(host.NewProjects, Is.EqualTo(new[] { ((string?)null, (string?)null) }), "New project opens beside the menu");
+        // A project chosen: its side panel, and Add a task opening New project for it.
+        var projectRow = menu.Lines.First(line => line.Action == ProjectsScreens.ChooseProject);
+        host.Press(MenuColumn.Menu, ProjectsScreens.ChooseProject, projectRow.Key);
+        (menu, _) = host.Draw();
+        Assert.That((menu!.Side ?? host.DrawnSides.Last()).Subject, Is.EqualTo(projectRow.Words));
+        if (menu.Footer.All.Any(each => each.Prompt.Id == ProjectsScreens.AddTask && each.Prompt.Available))
+        {
+            host.Press(MenuColumn.Menu, ProjectsScreens.AddTask);
+            Assert.That(host.NewProjects.Last(), Is.EqualTo(((string?)projectRow.Key, (string?)projectRow.Words)));
+        }
+        Assert.That(host.Sent, Has.Count.EqualTo(sentBefore), "Projects itself sent nothing");
+        host.Press(MenuColumn.Menu, SidePanel.Close);
 
         // Settings: each setting a row with its value, chosen to show what it is and what its change does.
         host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
