@@ -26,7 +26,18 @@ namespace Halcyonic.XR.Editor
         [MenuItem("Halcyonic/Build Quest APK")]
         public static void BuildDevelopmentApk()
         {
-            Finish(Build(DevelopmentApkPath, BuildOptions.Development).summary);
+            var report = Build(DevelopmentApkPath, BuildOptions.Development);
+            if (report.summary.result == BuildResult.Succeeded)
+            {
+                // The release check's positive control: everything it looks for is found here, where the glance is.
+                var missing = GlanceInDevelopmentBuilds.MissingFrom(GlanceInDevelopmentBuilds.FindIn(DevelopmentApkPath));
+                if (missing.Count > 0)
+                {
+                    Fail($"Halcyonic: the release build's glance check finds none of {string.Join("; ", missing)} in {DevelopmentApkPath}, which carries the glance, so it could miss them in a release.");
+                    return;
+                }
+            }
+            Finish(report.summary);
         }
 
         /// <summary>

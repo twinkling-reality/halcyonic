@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Xml;
 using UnityEditor.Android;
@@ -41,13 +42,9 @@ namespace Halcyonic.XR.Editor
             // development build's copy would otherwise reach the next release build.
             var copied = Path.Combine(java, "com", "halcyonic", "glance");
             if (Directory.Exists(copied)) Directory.Delete(copied, recursive: true);
-            var networkConfig = Path.Combine(path, "src", "main", "res", "xml", NetworkConfigFile);
-            if (!Include)
-            {
-                RemoveLoopbackCleartext(networkConfig);
-                return;
-            }
-            AllowLoopbackCleartext(networkConfig);
+            // Earlier builds of the spike allowed cleartext to 127.0.0.1; its own sockets need no exception.
+            RemoveLoopbackCleartext(Path.Combine(path, "src", "main", "res", "xml", NetworkConfigFile));
+            if (!Include) return;
             var sources = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Android", "glance", "src"));
             foreach (var source in Directory.GetFiles(sources, "*.java", SearchOption.AllDirectories))
             {
@@ -100,32 +97,15 @@ namespace Halcyonic.XR.Editor
         /// <summary>The network security configuration Meta's build step writes, which refuses all cleartext.</summary>
         internal const string NetworkConfigFile = "network_sec_config.xml";
 
-        /// <summary>The one host the glance may reach without TLS: the control plane through adb reverse.</summary>
+        /// <summary>The control plane through adb reverse, which a stale cleartext exception would name.</summary>
         internal const string LoopbackHost = "127.0.0.1";
 
         /// <summary>
-        /// Adds a domain configuration that lets the glance reach 127.0.0.1, and only it, in cleartext:
-        /// Android refuses cleartext HTTP from HttpURLConnection under Meta's configuration, while the
-        /// C# client's sockets are not subject to it. The rest stays refused.
+        /// Takes out a domain configuration allowing cleartext to 127.0.0.1, which builds of the spike
+        /// before it read over its own socket added, should the Gradle project keep one. Android's
+        /// cleartext policy binds its HTTP stacks, not a plain socket such as GlancePoll's or the C#
+        /// client's.
         /// </summary>
-        private static void AllowLoopbackCleartext(string configPath)
-        {
-            if (!File.Exists(configPath)) throw new FileNotFoundException("Meta's network security configuration is missing.", configPath);
-            var document = new XmlDocument();
-            document.Load(configPath);
-            var root = document.DocumentElement!;
-            if (root.SelectSingleNode("domain-config[domain='" + LoopbackHost + "']") != null) return;
-            var domainConfig = document.CreateElement("domain-config");
-            domainConfig.SetAttribute("cleartextTrafficPermitted", "true");
-            var domain = document.CreateElement("domain");
-            domain.SetAttribute("includeSubdomains", "false");
-            domain.InnerText = LoopbackHost;
-            domainConfig.AppendChild(domain);
-            root.AppendChild(domainConfig);
-            document.Save(configPath);
-        }
-
-        /// <summary>Takes out what <see cref="AllowLoopbackCleartext"/> added, should the Gradle project keep it.</summary>
         private static void RemoveLoopbackCleartext(string configPath)
         {
             if (!File.Exists(configPath)) return;
@@ -169,6 +149,16 @@ namespace Halcyonic.XR.Editor
                 if (resource && Contains(data, "domain-config") && Contains(data, LoopbackHost)) found.Add("cleartext to " + LoopbackHost + " in " + entry.FullName);
             }
             return found;
+        }
+
+        /// <summary>
+        /// The kinds of finding <see cref="FindIn"/> makes in an APK that carries the whole glance and
+        /// are not among <paramref name="found"/>: none for a development build, or the check is blind.
+        /// </summary>
+        internal static List<string> MissingFrom(IReadOnlyList<string> found)
+        {
+            var kinds = new[] { "the glance's activity in the manifest", NotificationPermission + " in the manifest", "the glance's classes in " };
+            return kinds.Where(kind => !found.Any(finding => finding.StartsWith(kind, System.StringComparison.Ordinal))).ToList();
         }
 
         private static bool Contains(byte[] data, string text) =>
