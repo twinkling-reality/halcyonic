@@ -586,15 +586,25 @@ public class NewProjectStartTests
     private static IEnumerable<string> Ids(MenuFrame frame) =>
         frame.Footer.All.Select(each => each.Prompt.Id).Concat(frame.Lines.Where(line => line.Action != null).Select(line => line.Action!));
 
+    /// <summary>The frame as a press finds it: built, then its part drawn, as the panel does.</summary>
+    private static MenuFrame Drawn(NewWorkReview review, double now, string? problem = null)
+    {
+        review.Drawn(now);
+        return NewProjectScreens.Review(Idea(), review, problem);
+    }
+
     [Test]
     public void YesStartBuildingCanNeitherAppearNorBePressedBeforeTheLastPartHasShown()
     {
         var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
         review.Paginate(review.Items.Select(_ => 2).ToList(), 6);
         Assert.That(review.PageCount, Is.GreaterThan(2));
+        var now = 0.0;
         for (var page = 0; page < review.PageCount - 1; page++)
         {
-            var frame = NewProjectScreens.Review(Idea(), review, problem: null);
+            Assert.That(Ids(NewProjectScreens.Review(Idea(), review, problem: null)), Does.Not.Contain(NewProjectScreens.ConfirmStart),
+                "not before its part is drawn");
+            var frame = Drawn(review, now);
             HoldsThreePrompts(frame);
             Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo(EntryText.StartBuilding));
             Assert.That(Ids(frame), Does.Not.Contain(NewProjectScreens.ConfirmStart), "no Yes anywhere before the last part: part " + (page + 1));
@@ -604,10 +614,13 @@ public class NewProjectStartTests
             var next = frame.Lines.Last();
             Assert.That((next.Action, next.Words), Is.EqualTo((NewProjectScreens.NextPart, EntryText.NextPart(page + 2, review.PageCount))));
             Assert.That(review.CanConfirm, Is.False, "the panel's own check refuses Yes too");
-            review.Next();
+            Assert.That(review.Next(now + 0.1), Is.False, "a double press's second press passes nothing");
+            Assert.That(review.Next(now += 1), Is.True, "Next part, pressed");
         }
 
-        var last = NewProjectScreens.Review(Idea(), review, problem: null);
+        Assert.That(Ids(NewProjectScreens.Review(Idea(), review, problem: null)), Does.Not.Contain(NewProjectScreens.ConfirmStart),
+            "on the last part, but not drawn yet");
+        var last = Drawn(review, now);
         HoldsThreePrompts(last);
         Assert.That(last.Lines.Any(line => line.Action == NewProjectScreens.NextPart), Is.False);
         var yes = last.Footer[PromptSlot.Free]!;
@@ -616,6 +629,42 @@ public class NewProjectStartTests
         Assert.That(last.Footer.All.Select(each => each.Slot), Is.EqualTo(new[] { PromptSlot.Close, PromptSlot.Free, PromptSlot.FarRight }));
         var gone = NewProjectScreens.Review(Idea(), review, problem: EntryText.WaitingForMac);
         Assert.That((gone.Footer[PromptSlot.Free]!.Available, gone.Reason), Is.EqualTo((false, EntryText.WaitingForMac)));
+
+        review.Paginate(review.Items.Select((_, index) => index == review.Items.Count - 1 ? 9 : 3).ToList(), 6);
+        Assert.That(Ids(NewProjectScreens.Review(Idea(), review, problem: null)), Does.Contain(NewProjectScreens.ConfirmStart),
+            "every line was drawn whole, so laid out anew it stays read");
+    }
+
+    [Test]
+    public void ARemeasurePartwayThroughTheReviewNeverOffersYesForLinesNotDrawn()
+    {
+        foreach (var (before, after) in new[] { (6, 4), (4, 8) })
+        {
+            var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", new string('w', 600));
+            var tall = review.Items.Count - 1;
+            review.Paginate(review.Items.Select((_, index) => index == tall ? 14 : 1).ToList(), before);
+            var now = 0.0;
+            Drawn(review, now);
+            Assert.That(review.Next(now += 1), Is.True);
+            Drawn(review, now);
+            Assert.That(review.DrawnWhole(tall), Is.False, "the first task drawn only in part");
+
+            // The text size changes, or the waiting banner leaves: the request is laid out anew.
+            review.Paginate(review.Items.Select((_, index) => index == tall ? 14 * before / after : 1).ToList(), after);
+            var frame = NewProjectScreens.Review(Idea(), review, problem: null);
+            Assert.That(Ids(frame), Does.Not.Contain(NewProjectScreens.ConfirmStart), before + " to " + after + " lines a part");
+            Assert.That(review.Parts.First().Item == tall && review.Parts.First().FirstLine == 0, Is.True, "the first task read again from its start");
+            var parts = 0;
+            frame = Drawn(review, now += 1);
+            while (review.Next(now += 1))
+            {
+                Assert.That(Ids(frame), Does.Not.Contain(NewProjectScreens.ConfirmStart));
+                frame = Drawn(review, now);
+                parts++;
+            }
+            Assert.That(parts, Is.EqualTo(review.PageCount - 1 - review.Pages.ToList().FindIndex(page => page.Any(part => part.Item == tall))));
+            Assert.That(frame.Footer[PromptSlot.Free]!.Id, Is.EqualTo(NewProjectScreens.ConfirmStart), "once every new line is drawn");
+        }
     }
 
     [Test]
@@ -633,7 +682,8 @@ public class NewProjectStartTests
                 Is.EqualTo(review.Parts.Select(part => (review.Items[part.Item].Text, part.Lines, part.FirstLine))));
             Assert.That(parts.All(line => line.WordsAreData), Is.True);
             split |= parts.Any(line => line.FromRow > 0);
-            review.Next();
+            review.Drawn(page);
+            review.Next(page + 1);
         }
         Assert.That(split, Is.True, "an item split across parts starts its later part at the row it left off");
         var unmeasured = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
