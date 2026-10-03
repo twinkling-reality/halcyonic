@@ -697,8 +697,8 @@ the same definition names, as the JSON Schema document:
   project or behind the six slots. `ForRail` picks the projects a short rail shows, those that
   need the person first.
 - **`ProjectIdea`** is what the person wants to make before anything is sent: an idea in their own
-  words, named from its first words, or the answers to Help me figure it out's four fixed
-  questions (kind, who it is for, what it should do first, with first steps offered for the kind,
+  words, named from its first words, or the answers to the four fixed questions (New project's
+  Answer a few questions: kind, who it is for, what it should do first, with first steps offered for the kind,
   and a name that can be skipped), which always compose the same recap ("Make a website for my
   team. First, show one page that says what it is."). Typed answers go in as typed. The fixed
   questions involve no model and never present themselves as an assistant. With the companion
@@ -2182,10 +2182,8 @@ Code, diffs, tests and output in the workspace; the Understanding section's full
 changed file, every review item, the explanation's diagrams), which it summarizes in seven lines;
 reading a real execution's understanding and evaluation end to end, which waits for a real Claude
 Code or Codex run ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md));
-choosing a folder deeper than one level inside a place the Mac allows; the companion and kept drafts on the headset's panel (the control plane and the client core have
-both; the panel's screens wait for the headset's redesign, so Help me figure it out still asks the
-fixed questions and a restart still loses a draft); voice for the companion's answers, the fixed
-questions' own answers, a folder's name and the recap's Change, and voice in release builds; discovering or attaching work Halcyonic did not
+choosing a folder deeper than one level inside a place the Mac allows; voice in release builds;
+discovering or attaching work Halcyonic did not
 start; the soundbook's softer repeat of "Waiting for you" once nobody has
 looked at the character for two minutes, and a volume and mute for sound in the headset; finding
 the Mac without typing its address (mDNS), changing a paired Mac's address without pairing again,
