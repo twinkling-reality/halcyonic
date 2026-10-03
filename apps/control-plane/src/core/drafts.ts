@@ -64,6 +64,7 @@ export function createObservationSink(
   logger: Logger,
   execution: ExecutionContext,
   runtimeId: RuntimeId,
+  redact: (text: string) => string = (text) => text,
 ): ObservationSink {
   return (observation) => {
     const draft = {
@@ -78,7 +79,7 @@ export function createObservationSink(
       correlation_id: null,
       causation_id: null,
       provenance: observation.provenance,
-      payload: observation.payload,
+      payload: withoutCredentials(observation, redact),
     } as unknown as EventDraft;
     try {
       recorder.record(draft);
@@ -94,4 +95,30 @@ export function createObservationSink(
       );
     }
   };
+}
+
+/**
+ * An observation's payload with credentials taken out of the runtime's error text: a turn's failure
+ * and why the connection was lost or restored. Everything else is the runtime's account as given.
+ */
+function withoutCredentials(
+  observation: Parameters<ObservationSink>[0],
+  redact: (text: string) => string,
+): unknown {
+  const payload = observation.payload as Record<string, unknown>;
+  switch (observation.type) {
+    case 'runtime.turn.failed': {
+      const error = payload.error as { message?: unknown } | undefined;
+      return typeof error?.message === 'string'
+        ? { ...payload, error: { ...error, message: redact(error.message) } }
+        : payload;
+    }
+    case 'runtime.connection.lost':
+    case 'runtime.connection.restored':
+      return typeof payload.reason === 'string'
+        ? { ...payload, reason: redact(payload.reason) }
+        : payload;
+    default:
+      return payload;
+  }
 }

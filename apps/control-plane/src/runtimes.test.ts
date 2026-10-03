@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
@@ -18,6 +26,7 @@ import {
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
   createRuntimeAdapters,
+  heldSecrets,
   openCodeEnvironment,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
@@ -271,5 +280,36 @@ describe('runtime composition', () => {
       () => adapters({ HALCYONIC_CLAUDE_AGENT: '1' }, { HOME: '/home/someone', PATH: '/usr/bin' }),
       EnvironmentError,
     );
+  });
+});
+
+describe('the secrets taken out of runtime error text', () => {
+  test('are the token, the Anthropic key, the agent values and the credentials, read when asked', () => {
+    const dataDir = join(base, 'held');
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    const environment = {
+      ...HOST,
+      GATEWAY_KEY: 'gateway-value-1',
+      ANTHROPIC_API_KEY: 'sk-ant-env-key',
+    };
+    const config = loadConfig({
+      ...HOST,
+      HALCYONIC_DATA_DIR: dataDir,
+      HALCYONIC_AGENT_ENV: 'GATEWAY_KEY',
+    });
+    const secrets = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', []);
+    assert.deepEqual(secrets(), ['the-access-token-value', 'sk-ant-env-key', 'gateway-value-1']);
+    // A credential put in place later is read the next time.
+    for (const [name, value] of [
+      ['salidium-credential', 'salidium-value'],
+      ['seorak-credential', 'srkx_seorak-value'],
+    ] as const) {
+      writeFileSync(join(dataDir, name), `${value}\n`, { mode: 0o600 });
+      chmodSync(join(dataDir, name), 0o600);
+    }
+    assert.deepEqual(secrets().slice(3), ['salidium-value', 'srkx_seorak-value']);
+    // One others can read is not read, and gives nothing.
+    chmodSync(join(dataDir, 'seorak-credential'), 0o644);
+    assert.deepEqual(secrets().slice(3), ['salidium-value']);
   });
 });

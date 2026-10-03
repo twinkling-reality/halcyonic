@@ -28,7 +28,7 @@ import { DeviceAccess } from './network/devices.ts';
 import { Pairing } from './network/pairing.ts';
 import { createNetworkServer } from './network/server.ts';
 import { matchesPin, pinsForThisMac } from './pins.ts';
-import { createRuntimeAdapters, stopStaleRuntimeServers } from './runtimes.ts';
+import { createRuntimeAdapters, heldSecrets, stopStaleRuntimeServers } from './runtimes.ts';
 import { readHostSettings, SETTINGS_FILE, settingsInUse, withSettings } from './settings.ts';
 import { Transcriptions } from './speech/transcriptions.ts';
 import { WhisperEngine } from './speech/whisper.ts';
@@ -85,6 +85,12 @@ async function main(): Promise<void> {
     logger: app.log,
     commandTimeoutMs: config.commandTimeoutMs,
     locations,
+    secrets: heldSecrets(
+      config,
+      { environment: process.env, dataDir: config.dataDir },
+      access.token,
+      adapters,
+    ),
   });
   controlPlane.reconcile();
   const transcriptions = new Transcriptions({ engine: speech, clock: systemClock });
