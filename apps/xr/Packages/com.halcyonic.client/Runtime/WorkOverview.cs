@@ -125,7 +125,7 @@ namespace Halcyonic.Client
                     var work = byProject[project.ProjectId].ToList();
                     return new ProjectSummary(
                         project.ProjectId,
-                        LabelText.Plain(project.Name),
+                        LabelText.Name(project.Name),
                         visibility.Shows(project.ProjectId),
                         work.Count,
                         work.Count(workstream => CharacterLineup.TierOf(workstream) == LineupTier.Active),
@@ -145,7 +145,7 @@ namespace Halcyonic.Client
                     var known = state.Projects.TryGetValue(workstream.ProjectId, out var project);
                     return new OffStageWork(
                         workstream,
-                        known ? LabelText.Plain(project!.Name) : "",
+                        known ? LabelText.Name(project!.Name) : "",
                         visibility.Shows(workstream.ProjectId) ? OffStageReason.StageFull : OffStageReason.ProjectHidden);
                 })
                 .ToList();

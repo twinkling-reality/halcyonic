@@ -231,4 +231,16 @@ public class LabelTextTests
         }
         return true;
     }
+
+    [Test]
+    public void ANameNeverShowsAsBlank()
+    {
+        Assert.That(LabelText.Name(" "), Is.EqualTo("‹U+0020›"));
+        Assert.That(LabelText.Name("\u00A0\t"), Is.EqualTo("‹U+00A0›‹U+0009›"));
+        Assert.That(LabelText.Name("\u0085"), Is.EqualTo("‹U+0085›"));
+        Assert.That(LabelText.Name(" shop "), Is.EqualTo(LabelText.Plain(" shop ")), "a name with something to show keeps Plain's rule");
+        Assert.That(LabelText.Name(""), Is.Empty);
+        Assert.That(LabelText.Name(null), Is.Empty);
+        Assert.That(LabelText.Plain(LabelText.Name(" ")), Is.EqualTo(LabelText.Name(" ")), "showing it again changes nothing");
+    }
 }
