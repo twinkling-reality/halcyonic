@@ -183,12 +183,22 @@ public class FileQuestionTests
     }
 
     [Test]
-    public void AQuestionAskingForASecretOffersNoHoldToTalk()
+    public void AQuestionAskingForASecretCannotBeAnsweredHereWhateverItsAdapterSays()
     {
         var question = AskingWork.Scripted();
         question.Prompts[0].Secret = true;
-        var (_, workspace, screen, _) = Asking(question, speak: true);
-        Assert.That(Screen(workspace, screen).Footer[PromptSlot.Secondary], Is.Null);
+        Assert.That(question.Answerable, Is.True, "the adapter says it can be answered");
+        var work = new AskingWork(question);
+        Assert.That(work.Present().Actions, Has.None.EqualTo(WorkspaceAction.Answer), "nothing offers to send it");
+        var screen = new FileScreen { Speak = true };
+        var draft = new QuestionDraft("e1", work.Question);
+        screen.ReadQuestion(draft, Short(work.Question), 8);
+        var frame = Screen(work.Present(), screen);
+        Assert.That(FileScreensTests.Slots(frame.Footer).Skip(3), Is.EqualTo(new string?[] { null, null }), "no Hold to talk and no Send answer");
+        Assert.That(frame.Lines.Any(line => line.Choice), Is.False, "no answers to choose or type");
+        Assert.That(frame.Lines.Select(line => line.Words), Has.Some.EqualTo(WorkspaceText.CannotAnswer(question)));
+        draft.Choose(1, "Orders");
+        Assert.That(draft.Problem, Is.EqualTo(WorkspaceText.CannotAnswer(question)), "and the draft refuses to build");
     }
 
     [Test]

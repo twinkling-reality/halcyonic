@@ -182,7 +182,7 @@ namespace Halcyonic.Client
             if (draft.Prompts.Count > 1 && !question.Reviewing) return SendFromYourAnswers;
             if (!(draft.Problem is string problem)) return null;
             var answered = Enumerable.Range(0, draft.Prompts.Count).All(draft.IsAnswered);
-            return answered && draft.Question.Answerable ? OpenToRead : problem;
+            return answered && WorkspaceText.Answerable(draft.Question) ? OpenToRead : problem;
         }
 
         /// <summary>
@@ -244,7 +244,7 @@ namespace Halcyonic.Client
                     source: source);
             }
             question.Shown(prompt, sidePanel: opened);
-            if (!draft.Question.Answerable)
+            if (!WorkspaceText.Answerable(draft.Question))
             {
                 lines.Add(new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary));
                 lines.Add(new PageLine(WorkspaceText.AgentWaits, tone: LineTone.Secondary));
