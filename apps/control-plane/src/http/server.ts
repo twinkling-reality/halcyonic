@@ -34,6 +34,22 @@ export interface HttpServerOptions {
   readonly logStream?: NodeJS.WritableStream;
 }
 
+/**
+ * Headers whose values are never logged, wherever a logged object carries them: the access token or
+ * a device credential, cookies, and the loopback proof and its challenge (SECURITY.md). Fastify's own
+ * request lines carry no headers; this keeps any line that does from showing these.
+ */
+const SECRET_HEADERS = [
+  'authorization',
+  'cookie',
+  '["x-halcyonic-proof"]',
+  '["x-halcyonic-challenge"]',
+];
+export const REDACTED_PATHS = SECRET_HEADERS.flatMap((header) => {
+  const key = header.startsWith('[') ? header : `.${header}`;
+  return [`headers${key}`, `req.headers${key}`, `*.headers${key}`];
+});
+
 export function errorBody(
   code: string,
   message: string,
@@ -50,7 +66,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Fast
   const app = Fastify({
     logger: {
       level: options.logLevel,
-      redact: { paths: ['req.headers.authorization'], censor: '[redacted]' },
+      redact: { paths: REDACTED_PATHS, censor: '[redacted]' },
       ...(options.logStream === undefined ? {} : { stream: options.logStream }),
     },
     bodyLimit: 1024 * 1024,
