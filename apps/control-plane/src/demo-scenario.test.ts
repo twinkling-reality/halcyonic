@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import type { RuntimeDescriptor } from '@halcyonic/contracts';
+import type { RuntimeDescriptor, ServerMessage, WorkstreamView } from '@halcyonic/contracts';
 import { MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { systemClock } from '@halcyonic/runtime-core';
 import { RealtimeClient } from './client/realtime-client.ts';
@@ -9,8 +9,10 @@ import {
   chooseModel,
   listModels,
   parseDemoArguments,
+  readJson,
   startScenario,
   submit,
+  workstreamLine,
 } from './demo-scenario.ts';
 import { createUuidV7Generator } from './ids.ts';
 import { SCENARIOS, startTestServer } from './testing/harness.ts';
@@ -121,5 +123,46 @@ describe('pnpm demo --scenario', () => {
         /execution\.start was not accepted/,
       );
     });
+  });
+});
+
+describe('what pnpm demo prints', () => {
+  const message = {
+    type: 'event',
+    position: 7,
+    event: { event_type: 'workstream.created' },
+  } as unknown as Extract<ServerMessage, { type: 'event' }>;
+  const workstream = (projectId: string, title: string) =>
+    ({
+      workstream_id: 'w1',
+      project_id: projectId,
+      title,
+      status: 'idle',
+      attention: { level: 'none', reasons: [] },
+    }) as unknown as WorkstreamView;
+
+  test("only the demo's own project, never the person's own work", () => {
+    assert.match(
+      workstreamLine(workstream('demo', 'Add a login page'), message, new Map(), 'demo') ?? '',
+      /Add a login page/,
+    );
+    assert.equal(
+      workstreamLine(workstream('theirs', 'PRIVATE-TITLE'), message, new Map(), 'demo'),
+      null,
+    );
+    assert.equal(
+      workstreamLine(workstream('theirs', 'PRIVATE-TITLE'), message, new Map(), null),
+      null,
+      'before its project exists',
+    );
+  });
+
+  test('an answer that is not JSON fails in fixed words, never quoting it', async () => {
+    await assert.rejects(readJson(new Response('x SECRETBODY }')), (error: unknown) => {
+      assert.equal((error as Error).message, 'The control plane gave an answer that is not JSON.');
+      return true;
+    });
+    assert.deepEqual(await readJson(new Response('{"a":1}')), { a: 1 });
+    assert.equal(await readJson(new Response('')), null);
   });
 });

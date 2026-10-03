@@ -21,6 +21,7 @@ import type {
   PairingStatus,
 } from '@halcyonic/contracts';
 import { loadConfig } from '../config.ts';
+import { readJson } from '../demo-scenario.ts';
 import {
   ACCESS_TOKEN_FILE,
   fetchWithProof,
@@ -96,10 +97,9 @@ async function connect(env: NodeJS.ProcessEnv): Promise<Api> {
         }
         throw new Error(`The control plane is not answering at ${base}. Start it with pnpm dev.`);
       }
-      const text = await response.text();
       return {
         status: response.status,
-        body: (text === '' ? null : JSON.parse(text)) as T | ErrorResponse,
+        body: (await readJson(response)) as T | ErrorResponse,
       };
     },
   };
