@@ -32,9 +32,6 @@ namespace Halcyonic.Client
         public const string Choose = WorkspaceScreens.Choose;
         public const string TypeAnswer = WorkspaceScreens.TypeAnswer;
 
-        /// <summary>The rows each part of the agent's question shows, its answers under them.</summary>
-        public const int QuestionRows = 2;
-
         /// <summary>The rows the request shows on Waiting before Approve or Deny shows it whole.</summary>
         public const int RequestRows = 3;
 
