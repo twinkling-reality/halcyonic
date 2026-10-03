@@ -1,6 +1,7 @@
 import { type EventEnvelope, parseEventEnvelope } from '@halcyonic/contracts';
 import type { Scheduler } from '@halcyonic/runtime-core';
 import type { Recorder } from '../core/recorder.ts';
+import { OwnWordsError } from '../logger.ts';
 
 /**
  * A trace is a recorded journal in JSON Lines form: one event envelope per line, in journal
@@ -11,7 +12,7 @@ export function serializeTrace(events: readonly EventEnvelope[]): string {
   return events.map((event) => `${JSON.stringify(event)}\n`).join('');
 }
 
-export class TraceError extends Error {
+export class TraceError extends OwnWordsError {
   constructor(message: string) {
     super(message);
     this.name = 'TraceError';

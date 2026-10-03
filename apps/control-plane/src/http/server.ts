@@ -2,6 +2,7 @@ import websocket from '@fastify/websocket';
 import type { ErrorResponse, Principal, ValidationIssue } from '@halcyonic/contracts';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { LogLevel } from '../config.ts';
+import { OwnWordsError } from '../logger.ts';
 import {
   checkRequest,
   isProofChallenge,
@@ -62,7 +63,8 @@ export function errorForLog(error: unknown): {
   stack: string;
   code?: string | number;
 } {
-  // The message stays empty: the shape Fastify's serializer has, with nothing in it.
+  // The message stays empty, the shape Fastify's serializer has with nothing in it, unless it is
+  // Halcyonic's own fixed words.
   if (!(error instanceof Error)) return { type: typeof error, message: '', stack: '' };
   const code = (error as { code?: unknown }).code;
   const frames = (error.stack ?? '')
@@ -71,7 +73,7 @@ export function errorForLog(error: unknown): {
     .join('\n');
   return {
     type: error.name,
-    message: '',
+    message: error instanceof OwnWordsError ? error.message : '',
     stack: frames,
     ...(typeof code === 'string' || typeof code === 'number' ? { code } : {}),
   };

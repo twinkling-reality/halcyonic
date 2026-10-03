@@ -11,7 +11,10 @@ import {
   type WorkstreamStatus,
 } from '@halcyonic/contracts';
 import { RealtimeClient } from '../client/realtime-client.ts';
+import { ConfigError } from '../config.ts';
+import { InvalidEventError } from '../core/recorder.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
+import { SpeechEngineError } from '../speech/whisper.ts';
 import { startTestServer, TEST_CLIENT } from '../testing/harness.ts';
 import {
   fetchWithProof,
@@ -483,6 +486,18 @@ describe('the log', () => {
     });
     assert.deepEqual(Object.keys(errorForLog(raw)).sort(), ['code', 'message', 'stack', 'type']);
     assert.deepEqual(errorForLog('not an error'), { type: 'string', message: '', stack: '' });
+
+    // Halcyonic's own fixed words keep their why; a plain error with the same words does not.
+    const own = [
+      new SpeechEngineError('The engine took longer than 15 s.'),
+      new InvalidEventError([
+        { path: '/payload/text', message: 'must be at most 2000 characters' },
+      ]),
+      new ConfigError('HALCYONIC_PORT must be an integer from 0 to 65535, got "x".'),
+    ];
+    for (const error of own) assert.equal(errorForLog(error).message, error.message, error.name);
+    assert.match(errorForLog(own[1]).message, /\/payload\/text must be at most/);
+    assert.equal(errorForLog(new Error('The engine took longer than 15 s.')).message, '');
 
     // A malformed request: Node gives its error the request's head, Authorization header and all.
     const lines = new PassThrough();
