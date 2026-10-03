@@ -25,9 +25,10 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
   over a short eased slide, so what was pressed travels least.
 - **Inside the field.** A composition stays inside a Quest 3S's field, 96 by 90 degrees less 1.5 at
   each edge, with the head turned to its centre and tipped by `WorkspacePlacement.ReadingPitch`, at
-  most 8 degrees. The menu and a file side by side take 64 by 32 degrees, from 18 to 50 degrees
-  below eye level. A page holds 4 rows at the standard text size and 3 at larger text
-  (`MenuFrame.RowsAPage`), its source line counting as one.
+  most 8 degrees. The plane's top stands 17.5 degrees below eye level (`MenuPage.TopDegrees`), and
+  the menu and a file side by side take 64.3 by 33.0 degrees, to 50.5 below eye level. A list of
+  rows holds 4 a page at the standard text size and 3 at larger text (`MenuFrame.RowsAPage`), its
+  source line counting as one; any other page packs by height, at most `MenuPage.Height`.
 - **With nothing on the stage**, the menu stands where the person looks at rest, about 15 degrees
   down.
 - **Text shrinks away from the centre**, as the eyes see it: a word x across and y up, in units of
@@ -37,8 +38,9 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
   plane round the eyes, still facing them, and Reset position lives in Settings' Your space.
 - **Two columns at most.** The menu, a file and a side panel would not fit the field together. When
   a file beside the menu opens a side panel, or shows a page taller than the menu's rows leave, the
-  menu steps aside off the plane with the same eased slide, and comes back once neither holds or
-  the file closes.
+  menu steps aside off the plane with the same eased slide, as it does whenever the two don't fit
+  the field together, as with a file's title on two rows; it comes back once neither holds or the
+  file closes.
 
 ## A composition's parts
 
@@ -49,7 +51,8 @@ the page's shape at its bottom.
   about 36 characters; a longer subject wraps to a second line and its plate grows. Projects' subject
   is its purpose, "What would you like to work on?".
 - **The split header.** A task's file carries its character's state pill on the subject's top edge
-  at its left: the same badge as the character's label on the stage, its word at 18 dp. Every
+  at its left: the same badge as the character's label on the stage, its word at 18 dp, the title
+  half a grid step under the pill's lower edge. Every
   column's subject keeps the pill's room, so the plates and titles stay level.
 - **The row of shapes**: the menu's places (Tasks, Projects, Usage, Settings), a file's sections
   (Waiting, Activity, Changes, Checks) or New project's steps (Your idea, Questions, Recap, Build).
@@ -133,15 +136,19 @@ One treatment for places, sections, rows, answers and prompts:
 ## Rows and answers
 
 - **A row**: its icon in the icon column, its words, a small fact at the right and, when it opens
-  more, a chevron. Rows are 48 dp tall and 12 mm apart. On a page none of whose rows has an icon,
+  more, a chevron. Rows are 48 dp tall and 12 mm apart. Its tone stands on its icon and fact, its
+  words in the text colour; a line with neither takes the tone on its words. A small fact keeps 18
+  dp's room wherever it stands, so a line wraps the same anywhere, and a fact from outside takes at
+  most 40 percent of its line. On a page none of whose rows has an icon,
   as Usage's and Settings', words start on the content line. Nothing is drawn under a row: a meter
   there reads as an underline, so the small fact carries a share in words.
 - **Rows only take you somewhere**: to a side panel, a page or a place. A row never acts and carries
   no side action. Choosing one may set the footer's main action or the prompt beside it, as a
   project's Add a task and Hide from stage. A line that reports a problem is a row that opens its
   side panel, and what fixes it is the footer's main action while it is chosen.
-- **An answer** is a shape round its words. Choosing it lights it, and the footer's main action
-  sends or records it.
+- **An answer** is a shape round its words, "Type my answer" included. Two stand side by side where
+  each fits half the row in one row. Choosing one lights it, and the footer's main action sends or
+  records it.
 - **A page packs by height**, not rows: a line of words takes its line, a target its 48 dp, against
   the page's content height (`MenuFrame`).
 - **Answers that don't fit** page by a row: "Type my answer" and "More answers, 2 of 2" stand side
@@ -160,7 +167,8 @@ One treatment for places, sections, rows, answers and prompts:
   action far right.
 - **A prompt** is a round key cap, 1.45 degrees, holding its icon at a degree (ADR 0023's floor for
   icons), then its words at 18 dp, with no
-  plate. Hit areas are 60 dp tall, unseen, 12 mm apart. Pointed at, it shows the selection frame;
+  plate. Hit areas are 60 dp tall, unseen, 12 mm apart. The footer follows the page's last target
+  12 mm below it, with no 16 dp gap before it. Pointed at, it shows the selection frame;
   pressed, its cap sinks and Touch plays.
 - **The main action**, one a page and only at the far right: its cap filled with the accent, its
   words heavier in the accent. Anything else there is drawn plain.
