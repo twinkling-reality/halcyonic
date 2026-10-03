@@ -261,6 +261,22 @@ public class FileQuestionTests
     }
 
     [Test]
+    public void MeasuredLongerBeforeItWasDrawnAQuestionShowsItsFirstPart()
+    {
+        var question = OnePrompt("Postgres", "SQLite");
+        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, new[] { 1, 1 }) }, rows: 6);
+        Assert.That(screen.Question.QuestionPart, Is.Null, "short, it heads its answers");
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(9, new[] { 1, 1 }) }, 6);
+        Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "laid out long before it was read, its first part shows");
+        var frame = Screen(workspace, screen);
+        Assert.That(frame.Lines[1].Words, Is.EqualTo("Next part, 2 of 3"), "with the way on through it");
+        for (var part = 0; part < 3; part++) screen.Question.NextPart(Later(screen));
+        Assert.That(draft.WasShownWhole(0), Is.True);
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(12, new[] { 1, 1 }) }, 6);
+        Assert.That(screen.Question.QuestionPart, Is.Null, "read whole, laid out anew, it stays read");
+    }
+
+    [Test]
     public void ALongQuestionUnreadKeepsSendAnswerWaiting()
     {
         var question = OnePrompt("Postgres", "SQLite");
