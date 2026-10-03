@@ -101,12 +101,14 @@ public class SettingsColumnTests
     {
         public bool Paired { get; set; } = true;
 
+        public string Address { get; set; } = "192.168.1.20";
+
         public string? Busy { get; set; }
 
         public int Forgotten { get; private set; }
 
         public MenuSetting Setting => new("pairing", "Your computer", "Pairing", () => Paired
-                ? new SettingNow("192.168.1.20", "Paired with 192.168.1.20", "Forget it", "This headset then needs pairing again to reach it", "Forget this computer",
+                ? new SettingNow(Address, "Paired with " + Address, "Forget it", "This headset then needs pairing again to reach it", "Forget this computer",
                     reason: Busy, confirm: "Yes, forget this computer", valueIsData: true)
                 : new SettingNow("Not paired", "Not paired with a computer", "Pair", "Pair this headset with your computer", "Pair with a computer", reason: Busy),
             () =>
@@ -179,6 +181,21 @@ public class SettingsColumnTests
         Assert.That(settings.Frame!.Footer.Confirming, Is.False, "it can't be made now");
         settings.Act(SettingsColumn.Yes, null);
         Assert.That(pairing.Forgotten, Is.EqualTo(0), "none of them forgot anything");
+    }
+
+    [Test]
+    public void AForgetArmedForOneComputerLapsesOnceAnotherIsPairedAndNeverForgetsIt()
+    {
+        var (settings, pairing, _) = Forgetting();
+        settings.Act(SettingsColumn.ChangeSetting, null);
+        // Pairing with another computer finished within the seconds the Forget stays armed.
+        pairing.Address = "192.168.1.31";
+        settings.Act(SettingsColumn.Yes, null);
+        Assert.That(pairing.Forgotten, Is.EqualTo(0), "a Yes pressed before the frame showed the new computer forgets nothing");
+        settings.Tick();
+        Assert.That(settings.Frame!.Footer.Confirming, Is.False, "what it showed changed, so it lapsed");
+        settings.Act(SettingsColumn.Yes, null);
+        Assert.That(pairing.Forgotten, Is.EqualTo(0));
     }
 
     [Test]

@@ -298,4 +298,17 @@ public class MenuNavigatorTests
         menu.CloseMenu();
         Assert.That(menu.Act(MenuColumn.Menu, "open", "k", Draw(menu).Menu, null), Is.False, "closed, the menu takes no press");
     }
+
+    [Test]
+    public void APlaneThatMovedTakesNoPressUntilItsFramesAreDrawnInTheirNewPlace()
+    {
+        var (menu, places) = Menu();
+        menu.OpenMenu(MenuPlace.Tasks);
+        var shown = Draw(menu).Menu;
+        menu.Moved();
+        Assert.That(menu.Act(MenuColumn.Menu, "open", "k", shown, null), Is.False, "moved, as on Reset position");
+        Assert.That(Draw(menu).Menu, Is.SameAs(shown), "the same frame, drawn again where it now stands");
+        Assert.That(menu.Act(MenuColumn.Menu, "open", "k", shown, null), Is.True);
+        Assert.That(places[MenuPlace.Tasks].Got.Count(got => got.StartsWith("act")), Is.EqualTo(1));
+    }
 }

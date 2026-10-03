@@ -394,7 +394,8 @@ the same definition names, as the JSON Schema document:
   session, so sends go on. The director then also takes the column beside the menu off the plane and
   makes the menu's places afresh. It places the plane from the eyes and gaze taken when what stands
   on it changes, the menu opening or closing or the column beside it, and on Settings' Reset position
-  (`ResetPosition`); any other redraw stays where it was rather than following the head. It runs
+  (`ResetPosition`), which takes no press until the plane is drawn in its new place
+  (`MenuNavigator.Moved`); any other redraw stays where it was rather than following the head. It runs
   Hold to talk's one voice for any held
   prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
@@ -409,7 +410,8 @@ the same definition names, as the JSON Schema document:
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, the
   rest from what owns them; a change that asks first, as forgetting the computer, arms on that press
   with `Footer.Confirm`, Cancel in its place and Yes in the free middle, lapsing after 6 seconds, on
-  focus leaving, when Settings leaves the plane or once the change can't be made; each row is read
+  focus leaving, when Settings leaves the plane, once the change can't be made, or once anything the
+  setting shows changes, so a Forget armed for one computer never forgets another; each row is read
   every frame, so a value changed elsewhere draws again without a press). `PageLine.besideNext` stands a line beside the next in half the row, as
   Type my answer beside a question's paging row, and `Prompt.pageExplains` keeps a prompt's reason
   undrawn where the page says it already.

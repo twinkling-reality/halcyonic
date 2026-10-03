@@ -216,10 +216,14 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Draws again at once, as after the stage moved: the plane re-centres on the stage it stands over.</summary>
         public void Redraw() => dirty = true;
 
-        /// <summary>Settings' Reset position: the plane is placed afresh where the person looks now, as when the menu opens.</summary>
+        /// <summary>
+        /// Settings' Reset position: the plane is placed afresh where the person looks now, as when the menu
+        /// opens, and takes no press until it is drawn there.
+        /// </summary>
         public void ResetPosition()
         {
             anchor = null;
+            navigator.Moved();
             dirty = true;
         }
 
