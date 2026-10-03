@@ -427,7 +427,10 @@ the same definition names, as the JSON Schema document:
   Forget's Yes), with their reason; for the rest Close details brings the page back. The navigator
   takes a press or a hold there only for Close details or a prompt that frame offers now and allows
   (`MenuNavigator.Taking`), and a column opening beside the menu lets go of the menu's chosen row,
-  whose side panel it would leave undrawn. It places the composition as one panel of its size
+  whose side panel it would leave undrawn. The other way round, a row chosen in the menu that opens
+  its details with a file beside it brings the details to the front: the file steps aside to the
+  right with the menu's slide (`MenuPlane.FileAside`), and nothing on its last drawn frame counts
+  until it is back (`MenuNavigator.BesideAside`). It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
   (`PlaceAhead`), and slides every part to its new place over 0.25 s, so the plane re-centres as

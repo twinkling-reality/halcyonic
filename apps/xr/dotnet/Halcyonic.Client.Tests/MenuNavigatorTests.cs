@@ -48,7 +48,12 @@ public class MenuNavigatorTests
 
         public void Close() => Closed?.Invoke();
 
-        public void Act(string id, string? key) => Got.Add("act " + id + " " + key);
+        public void Act(string id, string? key)
+        {
+            Got.Add("act " + id + " " + key);
+            // As every column does: its side panel's Close lets go of the row that opened it.
+            if (id == SidePanel.Close) Side = null;
+        }
 
         public void Drawn(MenuFrame drawn, bool sidePanel) => Got.Add("drawn " + drawn.Subject + (sidePanel ? " side" : ""));
 
@@ -82,7 +87,8 @@ public class MenuNavigatorTests
         var (shown, beside) = menu.Frames(Bar);
         if (shown != null) menu.Drawn(MenuColumn.Menu, shown, null);
         if (beside != null) menu.Drawn(MenuColumn.File, beside, null);
-        var side = (beside ?? shown)?.Side;
+        // As the plane has it: the menu's details in front of a file beside it, else the file's, else the menu's.
+        var side = (menu.BesideAside ? shown : beside ?? shown)?.Side;
         if (side != null) menu.Drawn(MenuColumn.Side, null, side);
         return (shown, beside, side);
     }
@@ -334,6 +340,7 @@ public class MenuNavigatorTests
         side = Draw(menu).Side;
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "nor what it offers but doesn't allow now");
         Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, always");
+        settings.Side = Details();
         settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
         settings.Change();
         side = Draw(menu).Side;
@@ -363,5 +370,37 @@ public class MenuNavigatorTests
         other.Frames(Bar);
         other.ShowBeside(new Column("New project"), null);
         Assert.That(otherPlaces[MenuPlace.Usage].Got.Any(got => got.StartsWith("act")), Is.False, "nothing chosen, nothing let go");
+    }
+
+    [Test]
+    public void TheMenusDetailsStandInFrontOfAFileBesideItWhichTakesNothingUntilItIsBack()
+    {
+        var (menu, places) = Menu();
+        var file = new Column("File");
+        menu.OpenMenu(MenuPlace.Settings);
+        menu.ShowBeside(file, "w1");
+        var fileFrame = Draw(menu).Beside;
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", fileFrame, null), Is.True, "beside the menu, the file takes its presses");
+
+        // A setting chosen with the file beside the menu: its details take the front, the file steps aside.
+        var settings = places[MenuPlace.Settings];
+        settings.Side = Details();
+        settings.Change();
+        var (_, _, side) = Draw(menu);
+        Assert.That(menu.BesideAside, Is.True);
+        Assert.That(side, Is.SameAs(menu.Frames(Bar).Menu!.Side), "the side panel drawn is the menu's");
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", fileFrame, null), Is.False, "nothing on the file's last drawn frame counts while it stands aside");
+        menu.Drawn(MenuColumn.File, menu.Frames(Bar).Beside, null);
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", menu.Frames(Bar).Beside, null), Is.False, "nor a draw of it reported meanwhile");
+        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True);
+        Assert.That(settings.Got.Last(), Is.EqualTo("act " + SidePanel.Close + " "), "its Close goes to the menu's place, whose details they are");
+
+        // The details closed: the file comes back and, drawn again, takes its presses.
+        settings.Side = null;
+        settings.Change();
+        var back = Draw(menu).Beside;
+        Assert.That(menu.BesideAside, Is.False);
+        Assert.That(menu.Act(MenuColumn.File, "open", "k", back, null), Is.True);
+        Assert.That(file.Got.Count(got => got == "act open k"), Is.EqualTo(2), "once before the details, once after");
     }
 }
