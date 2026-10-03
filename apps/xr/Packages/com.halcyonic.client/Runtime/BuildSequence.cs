@@ -104,6 +104,12 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<BuildStep> Steps => steps;
 
+        /// <summary>The draft it sends from: the runtime, model and first task as they are now.</summary>
+        public NewWorkDraft Draft => draft;
+
+        /// <summary>The project it creates first, or null when the work goes to the draft's project.</summary>
+        public string? NewProjectName => newProjectName;
+
         /// <summary>The command in flight, or null before the first and after the sequence ends.</summary>
         public NewWorkSubmission? Current { get; private set; }
 
@@ -154,10 +160,14 @@ namespace Halcyonic.Client
             return sequence;
         }
 
-        /// <summary>The first command to send.</summary>
-        public CommandEnvelope Begin()
+        /// <summary>
+        /// The first command to send, on <paramref name="reviewed"/>, read to its end and confirmed:
+        /// it must show the project's name, the model and the first task this sends, and is spent.
+        /// </summary>
+        public CommandEnvelope Begin(NewWorkReview reviewed)
         {
             if (index != 0 || Current != null) throw new InvalidOperationException("The sequence has begun.");
+            Confirmed(reviewed, newProjectName);
             return Send(CommandFor(steps[0].Kind));
         }
 
@@ -173,10 +183,13 @@ namespace Halcyonic.Client
         /// name of a project not created yet. With <paramref name="folder"/>, a project not created yet
         /// is created there, and a project that exists is bound to it first with
         /// <c>project.set_location</c>, as after <c>location_required</c> or <c>location_missing</c>.
+        /// Like the first, it goes only on a fresh <paramref name="reviewed"/>, read to its end and
+        /// confirmed, showing what it sends: Try again reads the request again.
         /// </summary>
-        public CommandEnvelope Retry(string? projectName = null, ProjectLocationChoice? folder = null)
+        public CommandEnvelope Retry(NewWorkReview reviewed, string? projectName = null, ProjectLocationChoice? folder = null)
         {
             if (!CanRetry) throw new InvalidOperationException("Only a step that cannot have run is sent again.");
+            Confirmed(reviewed, steps[index].Kind == BuildStepKind.CreateProject ? projectName ?? newProjectName : null);
             if (projectName != null) newProjectName = projectName;
             if (folder != null) location = folder;
             Stopped = false;
@@ -191,6 +204,22 @@ namespace Halcyonic.Client
                 steps.Insert(index, new BuildStep(BuildStepKind.BindFolder));
             }
             return Send(CommandFor(steps[index].Kind));
+        }
+
+        /// <summary>
+        /// Holds a send to what the person read: the review shows the new project's name, the model
+        /// and the first task as they go, and its final action is taken now, once.
+        /// </summary>
+        private void Confirmed(NewWorkReview reviewed, string? projectName)
+        {
+            if (reviewed == null) throw new ArgumentNullException(nameof(reviewed));
+            if (projectName != null && !reviewed.Shows(NewWorkReview.ProjectLabel, projectName))
+            {
+                throw new InvalidOperationException("The project's name is not the one reviewed.");
+            }
+            if (!reviewed.Shows(NewWorkReview.ModelIdLabel, draft.Model?.ModelRef ?? "none")) throw new InvalidOperationException("The model is not the one reviewed.");
+            if (!reviewed.Shows(NewWorkReview.FirstTaskLabel, draft.Objective)) throw new InvalidOperationException("The first task is not the one reviewed.");
+            if (!reviewed.Spend()) throw new InvalidOperationException("Only a request read to its end, and confirmed once, is sent.");
         }
 
         /// <summary>The acknowledgement of the command in flight.</summary>

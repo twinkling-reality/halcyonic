@@ -667,7 +667,7 @@ public class CreationDraftTests
         idea.UseIdea("Make a page of race times.");
         idea.Rename("Race Times");
         var sequence = new BuildSequence(draft, commands, idea.Name);
-        var create = sequence.Begin();
+        var create = sequence.Begin(Samples.Reviewed(sequence));
         var projectId = "01a0dcf1-5a80-7000-8000-0000000000a9";
         var state = new ClientProjection();
         var snapshot = Samples.Snapshot(1);

@@ -422,11 +422,11 @@ public class LiveControlPlaneTests
 
             var taken = ProjectFolder.New(place, "recipes")!;
             var sequence = new BuildSequence(await Draft(null, "Plan the week's dinners."), commands, "Recipes", taken.ToContract());
-            await Drive(sequence, sequence.Begin());
+            await Drive(sequence, sequence.Begin(Samples.Reviewed(sequence)));
             Assert.That(sequence.StoppedAt?.Refusal, Is.EqualTo(RejectionCode.LocationExists));
             Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.True);
 
-            await Drive(sequence, sequence.Retry(folder: ProjectFolder.Existing(taken).ToContract()));
+            await Drive(sequence, sequence.Retry(Samples.Reviewed(sequence), folder: ProjectFolder.Existing(taken).ToContract()));
             Assert.That(sequence.Started, Is.True, string.Join(", ", sequence.Steps.Select(EntryText.StepStatus)));
             var project = session.State.Projects[sequence.ProjectId!];
             Assert.That((project.Location!.Name, project.Location.Created), Is.EqualTo(("recipes", false)));
@@ -434,7 +434,7 @@ public class LiveControlPlaneTests
             var moved = ProjectFolder.New(place, ProjectFolder.SuggestName("Recipes, again!"))!;
             var more = new BuildSequence(await Draft(project.ProjectId, "Write the shopping list."), commands, null, moved.ToContract());
             Assert.That(more.Steps[0].Kind, Is.EqualTo(BuildStepKind.BindFolder));
-            await Drive(more, more.Begin());
+            await Drive(more, more.Begin(Samples.Reviewed(more)));
             Assert.That(more.Started, Is.True, string.Join(", ", more.Steps.Select(EntryText.StepStatus)));
             Assert.That(session.State.Projects[project.ProjectId].Location!.Name, Is.EqualTo("recipes-again"));
             Assert.That(Directory.Exists(Path.Combine(root, "recipes-again")), Is.True);

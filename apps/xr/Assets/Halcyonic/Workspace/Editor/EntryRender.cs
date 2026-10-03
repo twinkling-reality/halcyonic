@@ -407,13 +407,22 @@ namespace Halcyonic.XR.Workspace.Editor
             };
         }
 
+        /// <summary>The request read through and confirmable, as Start building's review leaves it, for a render's sequence.</summary>
+        private static NewWorkReview Read(NewWorkDraft draft, string project)
+        {
+            var review = new NewWorkReview(project, "Title", "Agent", "Model", "on your computer", draft.Model?.ModelRef ?? "none", draft.Objective);
+            review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
+            review.Drawn(0);
+            return review;
+        }
+
         /// <summary>A new project whose new folder's name the Mac already has: refused, offering to use that folder.</summary>
         private static BuildSequence FolderTaken(ClientProjection shown, ProjectIdea idea)
         {
             var draft = Draft(shown, listed: true);
             draft.Objective = idea.FirstTask;
             var sequence = new BuildSequence(draft, Commands(), idea.Name, idea.Folder!.ToContract());
-            var project = sequence.Begin();
+            var project = sequence.Begin(Read(draft, idea.Name));
             sequence.Advance(With(new CommandView
             {
                 CommandId = project.CommandId, Status = CommandStatus.Rejected, IssuedAt = Time, UpdatedAt = Time,
@@ -471,7 +480,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var draft = Draft(shown, listed: true);
             draft.Objective = Idea().FirstTask;
             var sequence = new BuildSequence(draft, Commands(), "Recipe tracker");
-            var project = sequence.Begin();
+            var project = sequence.Begin(Read(draft, "Recipe tracker"));
             var workstream = sequence.Advance(With(Done(project, new ProjectCreatedResult { ProjectId = "p-new" })))!;
             var start = sequence.Advance(With(Done(workstream, new WorkstreamCreatedResult { WorkstreamId = "w-new" })))!;
             sequence.Advance(With(new CommandView

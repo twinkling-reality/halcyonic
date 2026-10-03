@@ -327,7 +327,7 @@ public class EntryScreensTests
         draft.Objective = "Add a page.";
         var folder = ProjectFolder.New(Root(), "recipes")!;
         var sequence = new BuildSequence(draft, Commands, "Recipes", folder.ToContract());
-        var create = sequence.Begin();
+        var create = sequence.Begin(Samples.Reviewed(sequence));
         var waiting = EntryScreens.Sending(sequence, folder);
         Assert.That(waiting.Rows.Select(row => row.DetailTone), Is.EqualTo(new GlazeTone?[] { GlazeTone.Active, null, null }));
         Assert.That(waiting.Actions.All, Is.Empty, "nothing to press while the Mac answers");
@@ -343,7 +343,7 @@ public class EntryScreensTests
         Assert.That(EntryScreens.Sending(sequence, null).Actions.Primary!.Id, Is.EqualTo(EntryScreens.TryAgain));
 
         var unknown = new BuildSequence(draft, Commands, "Recipes");
-        var made = unknown.Begin();
+        var made = unknown.Begin(Samples.Reviewed(unknown));
         unknown.AcknowledgementLost(new CommandOutcomeUnknownException(made.CommandId, "The socket closed."));
         unknown.Advance(new ClientProjection());
         var check = EntryScreens.Sending(unknown, null);

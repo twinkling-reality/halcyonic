@@ -540,7 +540,7 @@ public class NewProjectStartTests
     {
         var folder = ProjectFolder.New(Root(), "recipes")!;
         var sequence = new BuildSequence(Draft(), Commands, "Recipes", folder.ToContract());
-        var create = sequence.Begin();
+        var create = sequence.Begin(Samples.Reviewed(sequence));
         var waiting = NewProjectScreens.Starting(Idea(), sequence, folder);
         HoldsThreePrompts(waiting);
         Assert.That(waiting.Sections.Single(step => step.Chosen).Words, Is.EqualTo(EntryText.StartBuilding));
@@ -559,7 +559,7 @@ public class NewProjectStartTests
         Assert.That(NewProjectScreens.Starting(Idea(), sequence, null).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.TryAgainStart));
 
         var unknown = new BuildSequence(Draft(), Commands, "Recipes");
-        var made = unknown.Begin();
+        var made = unknown.Begin(Samples.Reviewed(unknown));
         unknown.AcknowledgementLost(new CommandOutcomeUnknownException(made.CommandId, "The socket closed."));
         unknown.Advance(new ClientProjection());
         var check = NewProjectScreens.Starting(Idea(), unknown, null);

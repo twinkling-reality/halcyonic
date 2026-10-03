@@ -468,7 +468,7 @@ public class BuildSequenceTests
         var draft = Draft();
         var sequence = new BuildSequence(draft, Commands, "Recipes");
         Assert.That(sequence.Steps.Select(step => step.Kind), Is.EqualTo(new[] { BuildStepKind.CreateProject, BuildStepKind.CreateWorkstream, BuildStepKind.StartWork }));
-        var project = sequence.Begin();
+        var project = sequence.Begin(Samples.Reviewed(sequence));
         Assert.That(project, Is.InstanceOf<ProjectCreateCommand>());
         Assert.That(sequence.Unresolved, Is.EqualTo(project.CommandId));
         Assert.That(sequence.Advance(With()), Is.Null);
@@ -499,14 +499,14 @@ public class BuildSequenceTests
     {
         var sequence = new BuildSequence(Draft("existing"), Commands, null);
         Assert.That(sequence.Steps.Select(step => step.Kind), Is.EqualTo(new[] { BuildStepKind.CreateWorkstream, BuildStepKind.StartWork }));
-        Assert.That(((WorkstreamCreateCommand)sequence.Begin()).Payload.ProjectId, Is.EqualTo("existing"));
+        Assert.That(((WorkstreamCreateCommand)sequence.Begin(Samples.Reviewed(sequence))).Payload.ProjectId, Is.EqualTo("existing"));
     }
 
     [Test]
     public void AProjectedCompletionWinsOverALostAcknowledgement()
     {
         var sequence = new BuildSequence(Draft("existing"), Commands, null);
-        var workstream = sequence.Begin();
+        var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.AcknowledgementLost(new CommandOutcomeUnknownException(workstream.CommandId, "The socket closed."));
         Assert.That(sequence.Advance(With()), Is.Null);
         Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened));
@@ -520,7 +520,7 @@ public class BuildSequenceTests
     {
         var draft = Draft("existing");
         var sequence = new BuildSequence(draft, Commands, null);
-        var workstream = sequence.Begin();
+        var workstream = sequence.Begin(Samples.Reviewed(sequence));
         var start = sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
         var refused = new CommandView
         {
@@ -531,7 +531,7 @@ public class BuildSequenceTests
         Assert.That(sequence.Stopped, Is.True);
         Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that: The runtime needs a working directory."));
         Assert.That(sequence.CanRetry, Is.True, "a refused command cannot have run");
-        var again = sequence.Retry();
+        var again = sequence.Retry(Samples.Reviewed(sequence));
         Assert.That(again, Is.InstanceOf<ExecutionStartCommand>());
         Assert.That(again.CommandId, Is.Not.EqualTo(start.CommandId));
         Assert.That(((ExecutionStartCommand)again).Payload.WorkstreamId, Is.EqualTo("w1"), "the work already created is reused");
@@ -541,7 +541,7 @@ public class BuildSequenceTests
     public void AFailureThatMayHaveRunOrAnUnexpectedResultKeepsTheGuard()
     {
         var sequence = new BuildSequence(Draft("existing"), Commands, null);
-        var workstream = sequence.Begin();
+        var workstream = sequence.Begin(Samples.Reviewed(sequence));
         var failed = new CommandView
         {
             CommandId = workstream.CommandId, Status = CommandStatus.Failed,
@@ -553,7 +553,7 @@ public class BuildSequenceTests
         Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo(EntryText.NotSureItHappened), "an effect that may have happened is never said not to have");
 
         var other = new BuildSequence(Draft("existing"), Commands, null);
-        var command = other.Begin();
+        var command = other.Begin(Samples.Reviewed(other));
         other.Advance(With(Completed(command, new ProjectCreatedResult { ProjectId = "p" })));
         Assert.That(other.Steps[0].Status, Is.EqualTo(BuildStepStatus.Unexpected));
         Assert.That(other.Unresolved, Is.EqualTo(command.CommandId));
@@ -564,12 +564,52 @@ public class BuildSequenceTests
     public void ACommandNeverSentIsReleased()
     {
         var sequence = new BuildSequence(Draft(), Commands, "Recipes");
-        sequence.Begin();
+        sequence.Begin(Samples.Reviewed(sequence));
         sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         sequence.Advance(null);
         Assert.That(EntryText.StepStatus(sequence.Steps[0]), Is.EqualTo("Couldn't send: your computer isn't connected. Try again when it is."));
         Assert.That(sequence.Unresolved, Is.Null);
-        Assert.That(sequence.Retry("Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
+        Assert.That(sequence.Retry(Samples.Reviewed(sequence, "Recipes, renamed"), "Recipes, renamed"), Is.InstanceOf<ProjectCreateCommand>());
+    }
+
+    [Test]
+    public void NothingIsSentButWhatAReviewReadToItsEndShowsAndEachReviewSendsOnce()
+    {
+        var sequence = new BuildSequence(Draft(), Commands, "Recipes");
+        var unread = new NewWorkReview("Recipes", "Title", "Agent", "Model", "on your computer", "none", "Make a website for my team.");
+        unread.Paginate(unread.Items.Select(_ => 1).ToList(), 2);
+        unread.Drawn(0);
+        Assert.Throws<InvalidOperationException>(() => sequence.Begin(unread), "a review not read to its end confirms nothing");
+        Assert.That(sequence.Current, Is.Null, "nothing was sent");
+        Assert.Throws<InvalidOperationException>(() => sequence.Begin(Samples.Reviewed(sequence, "Recipes, before it was renamed")));
+        var otherTask = new BuildSequence(Draft(), Commands, "Recipes");
+        otherTask.Draft.Objective = "Something the person never read.";
+        Assert.Throws<InvalidOperationException>(() => otherTask.Begin(Samples.Reviewed(sequence)), "the first task is the one read");
+        Assert.That(sequence.Current, Is.Null);
+
+        var reviewed = Samples.Reviewed(sequence);
+        sequence.Begin(reviewed);
+        Assert.That((reviewed.Spent, reviewed.CanConfirm), Is.EqualTo((true, false)), "its Yes is taken");
+        sequence.AcknowledgementLost(new SessionUnavailableException("Not connected."));
+        sequence.Advance(null);
+        Assert.That(sequence.CanRetry, Is.True);
+        Assert.Throws<InvalidOperationException>(() => sequence.Retry(reviewed), "Try again reads the request again");
+        Assert.Throws<InvalidOperationException>(() => sequence.Retry(Samples.Reviewed(sequence), "Recipes, renamed in the recap"),
+            "a name changed since the review is never sent unread");
+        Assert.That(sequence.Retry(Samples.Reviewed(sequence, "Recipes, renamed in the recap"), "Recipes, renamed in the recap"),
+            Is.InstanceOf<ProjectCreateCommand>());
+    }
+
+    [Test]
+    public void AReviewMadeAfterAChangeIsNotTheSameRequest()
+    {
+        static NewWorkReview Of(string project, string task) => new(project, "Title", "Agent", "Model", "on your computer", "none", task);
+        Assert.That(Of("Recipes", "Plan dinners.").SameRequest(Of("Recipes", "Plan dinners.")), Is.True);
+        Assert.That(Of("Recipes", "Plan dinners.").SameRequest(Of("Recipes, renamed", "Plan dinners.")), Is.False);
+        Assert.That(Of("Recipes", "Plan dinners.").SameRequest(Of("Recipes", "Plan lunches.")), Is.False);
+        Assert.That(Of("Recipes", "Plan dinners.").SameRequest(null), Is.False);
+        var moved = new NewWorkReview("Recipes", "Title", "Agent", "Model", "on your computer", "none", "Plan dinners.", "recipes in Projects");
+        Assert.That(Of("Recipes", "Plan dinners.").SameRequest(moved), Is.False, "a folder chosen since is a change");
     }
 }
 

@@ -152,7 +152,7 @@ public class FolderRefusalTests
     public void ANewProjectIsCreatedInItsFolder()
     {
         var sequence = new BuildSequence(Draft(), Commands, "Recipes", Folder("recipes"));
-        var create = (ProjectCreateCommand)sequence.Begin();
+        var create = (ProjectCreateCommand)sequence.Begin(Samples.Reviewed(sequence));
         Assert.That(((NewFolderChoice)create.Payload.Location!).FolderName, Is.EqualTo("recipes"));
     }
 
@@ -161,7 +161,7 @@ public class FolderRefusalTests
     {
         var sequence = new BuildSequence(Draft("p1"), Commands, null, Folder("shop"));
         Assert.That(sequence.Steps.Select(step => step.Kind), Is.EqualTo(new[] { BuildStepKind.BindFolder, BuildStepKind.CreateWorkstream, BuildStepKind.StartWork }));
-        var bind = (ProjectSetLocationCommand)sequence.Begin();
+        var bind = (ProjectSetLocationCommand)sequence.Begin(Samples.Reviewed(sequence));
         Assert.That(bind.Payload.ProjectId, Is.EqualTo("p1"));
         Assert.That(sequence.Advance(With(Done(bind, null))), Is.InstanceOf<WorkstreamCreateCommand>(), "binding completes with no result");
         Assert.That(new BuildSequence(Draft("p1"), Commands, null).Steps.Select(step => step.Kind),
@@ -172,7 +172,7 @@ public class FolderRefusalTests
     public void AStartWithoutAFolderIsBoundAndStartedAgainOnTheSameWork()
     {
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
-        var workstream = sequence.Begin();
+        var workstream = sequence.Begin(Samples.Reviewed(sequence));
         var start = sequence.Advance(With(Done(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
         sequence.Advance(With(Refused(start, RejectionCode.LocationRequired, "The project has no folder <b>to work in</b>.")));
         var step = sequence.StoppedAt!;
@@ -181,7 +181,7 @@ public class FolderRefusalTests
         Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: This project has no folder on your computer yet. Choose where its files live, then try again."),
             "the next action comes from the code, not the message");
 
-        var bind = sequence.Retry(folder: Folder("recipes"));
+        var bind = sequence.Retry(Samples.Reviewed(sequence), folder: Folder("recipes"));
         Assert.That(bind, Is.InstanceOf<ProjectSetLocationCommand>());
         var again = (ExecutionStartCommand)sequence.Advance(With(Done(bind, null)))!;
         Assert.That(again.Payload.WorkstreamId, Is.EqualTo("w1"), "the work already created is started, not made again");
@@ -192,10 +192,10 @@ public class FolderRefusalTests
     public void AFolderAlreadyThereOffersToUseIt()
     {
         var sequence = new BuildSequence(Draft(), Commands, "Recipes", Folder("recipes"));
-        var create = sequence.Begin();
+        var create = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(create, RejectionCode.LocationExists, "There is already a folder named recipes.")));
         Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Contain("Use that folder"));
-        var use = (ProjectCreateCommand)sequence.Retry(folder: new ExistingFolderChoice { Root = "/Users/person/Projects", FolderName = "recipes" });
+        var use = (ProjectCreateCommand)sequence.Retry(Samples.Reviewed(sequence), folder: new ExistingFolderChoice { Root = "/Users/person/Projects", FolderName = "recipes" });
         Assert.That(use.Payload.Location, Is.InstanceOf<ExistingFolderChoice>());
         Assert.That(use.CommandId, Is.Not.EqualTo(create.CommandId));
     }
@@ -213,7 +213,7 @@ public class FolderRefusalTests
         Assert.That(EntryText.FolderProblem(RejectionCode.InvalidState, "other"), Is.Null);
 
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
-        var workstream = sequence.Begin();
+        var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(workstream, RejectionCode.InvalidState, "Not now‮.")));
         Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Couldn't do that: Not now‹U+202E›."));
         Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.False);
@@ -223,7 +223,7 @@ public class FolderRefusalTests
     public void AFailureThatMayHaveMadeTheFolderNeverSaysNothingHappened()
     {
         var sequence = new BuildSequence(Draft(), Commands, "Recipes", Folder("recipes"));
-        var create = sequence.Begin();
+        var create = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(new CommandView
         {
             CommandId = create.CommandId, Status = CommandStatus.Failed,

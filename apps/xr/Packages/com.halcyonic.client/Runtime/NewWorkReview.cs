@@ -95,10 +95,15 @@ namespace Halcyonic.Client
         /// (<see cref="NewWorkDraft.TitleSource"/>): its own ellipsis follows, as written, never spelled
         /// as a code point the way a typed one is.
         /// </param>
+        /// <summary>The labels whose values a build checks against what it sends (<see cref="Shows"/>).</summary>
+        public const string ProjectLabel = "Project: ";
+        public const string ModelIdLabel = "Model id: ";
+        public const string FirstTaskLabel = "First task: ";
+
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, bool titleCut = false)
         {
-            Add("Project: ", project);
+            Add(ProjectLabel, project);
             if (folderBefore != null && folder != null)
             {
                 Add("Folder now: ", folderBefore);
@@ -109,8 +114,8 @@ namespace Halcyonic.Client
             Add("Agent app: ", runtime);
             Add("Model: ", model);
             Add("Where the model runs: ", modelFacts);
-            Add("Model id: ", modelRef);
-            Add("First task: ", objective);
+            Add(ModelIdLabel, modelRef);
+            Add(FirstTaskLabel, objective);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
             foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, ""));
         }
@@ -129,8 +134,29 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<IReadOnlyList<ReviewPart>> Pages => pages;
 
-        /// <summary>The final action can be taken: the last page shows, and every line of every item has been drawn in this layout.</summary>
-        public bool CanConfirm => Paginated && Page == PageCount - 1 && AllDrawn;
+        /// <summary>
+        /// The final action can be taken: the last page shows, every line of every item has been drawn
+        /// in this layout, and it has not been taken already.
+        /// </summary>
+        public bool CanConfirm => !Spent && Paginated && Page == PageCount - 1 && AllDrawn;
+
+        /// <summary>The final action was taken: a review confirms one send, and sending again reads a fresh one.</summary>
+        public bool Spent { get; private set; }
+
+        /// <summary>Takes the final action: true once, and only while it can be confirmed.</summary>
+        public bool Spend()
+        {
+            if (!CanConfirm) return false;
+            Spent = true;
+            return true;
+        }
+
+        /// <summary>Whether <paramref name="other"/> shows exactly this request, item by item, as a review made afresh from the same choices would.</summary>
+        public bool SameRequest(NewWorkReview? other) =>
+            other != null && other.items.Count == items.Count && items.Zip(other.items, (mine, theirs) => mine.Text == theirs.Text).All(same => same);
+
+        /// <summary>Whether the review shows <paramref name="value"/>, spelled as it spells it, under <paramref name="label"/>.</summary>
+        public bool Shows(string label, string value) => items.Any(item => item.Label == label && item.Value == Safe(value));
 
         /// <summary>Every line of every item has been drawn in the current layout.</summary>
         public bool AllDrawn => Paginated && drawn.All(lines => lines.All(line => line));
