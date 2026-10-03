@@ -247,6 +247,13 @@ coordinator's first-visit words:
   the field together, as with a page taller than the menu's rows leave or a file's title on two
   rows, the menu steps aside, off the plane, with the re-centring's eased slide; it comes back once
   the side panel is closed and the two fit again, or the file closes.
+- **Beside a window**, with the characters either side of a window straight ahead, the menu or a
+  file opens centred under the window, between them, one at a time: the two together clear the
+  characters' labels only 61 degrees below eye level, far past the field, so a file opened there
+  takes the menu's place, the menu stepping aside. The file draws no light line, which would run
+  across the window; the pill on its subject still names its task's state. Turned aside for a
+  window, the plane stands under the characters, as everywhere. Nothing of Halcyonic's comes within
+  a degree of the window's assumed place, straight ahead; the renders check it.
 - **Lane U's views set the last spacing**, measured with the split header's pill: the plane's top
   stands 17.5 degrees below eye level (`MenuPage.TopDegrees`); a subject's title stands half a grid
   step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no

@@ -22,6 +22,10 @@ namespace Halcyonic.XR.Workspace.Editor
             ("r16-usage-limit", false, shot => Lay(Facing.Eyes, () => Usage(shot, chosen: true))),
             ("r17-settings", false, shot => Lay(Facing.Eyes, () => Settings(shot, chosen: false))),
             ("r18-settings-text-size", false, shot => Lay(Facing.Eyes, () => Settings(shot, chosen: true))),
+            // Beside a video window straight ahead, the characters either side of it: the menu, then a file.
+            ("r19-beside-a-window", true, shot => Lay(Facing.Eyes, () => RefinedHero(shot, withFile: false))),
+            ("r20-beside-a-window-file", true, shot => Lay(Facing.Eyes, () => RefinedApproval(shot, split: true, besideWindow: true))),
+            ("r21-beside-a-window-both", true, shot => Lay(Facing.Eyes, () => RefinedHero(shot, split: true))),
         };
 
         /// <summary>Each limit as the reading shows it: whose and which window, and the share left, rounded up.</summary>

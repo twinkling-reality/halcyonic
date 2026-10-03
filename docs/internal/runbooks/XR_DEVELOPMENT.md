@@ -226,8 +226,9 @@ plane facing the eyes at its centre, never rolled, its parts a degree apart and 
 one selection treatment; type that only steps down, a state pill reading with its subject; no text
 under 14 dp as the eyes see it; a Quest 3S's field as `FieldChecks` sees it; a light line that
 crosses no label or character; and no row in a page's glow. Shots kept to show what a rule catches
-name what they must fail, the upright plane (`r1`, `r2`) and a plane that stays put while a file
-slides out (`r6`), and the run fails if they stop failing. `r12` also logs a quote measure: how many
+name what they must fail, the upright plane (`r1`, `r2`), a plane that stays put while a file
+slides out (`r6`) and the menu and a file together beside a video window (`r21`), and the run fails
+if they stop failing. Beside a window (`r19` to `r21`), nothing may come within a degree of it. `r12` also logs a quote measure: how many
 characters of a companion's question fit its 2 rows at a file's width. `HALCYONIC_PROTO_ICONS`, the path of a font of the file-type
 glyphs cut from Material Symbols, which is not committed, draws those icons in the styled and refined
 shots; without it they are left out.
