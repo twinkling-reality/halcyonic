@@ -257,6 +257,7 @@ public class ControlPlaneApiTests
                 {
                   "path": "/Users/you/dev",
                   "name": "dev",
+                  "label": "dev (you)",
                   "status": "available",
                   "repository": false,
                   "changed_at": "2026-09-30T08:00:00.000Z",
@@ -273,7 +274,7 @@ public class ControlPlaneApiTests
                   ],
                   "folders_truncated": false
                 },
-                { "path": "/Volumes/Work", "name": "Work", "status": "missing", "repository": null, "changed_at": null, "used_by": [], "folders": [], "folders_truncated": false }
+                { "path": "/Volumes/Work", "name": "Work", "label": "Work (drive)", "status": "missing", "repository": null, "changed_at": null, "used_by": [], "folders": [], "folders_truncated": false }
               ]
             }
             """;
@@ -283,6 +284,7 @@ public class ControlPlaneApiTests
 
         Assert.That(handler.Requests.Single().RequestUri, Is.EqualTo(new Uri("http://127.0.0.1:47800/api/locations")));
         Assert.That(response.Roots.Select(root => root.Status), Is.EqualTo(new[] { LocationRootStatus.Available, LocationRootStatus.Missing }));
+        Assert.That((response.Roots[0].Name, ProjectFolder.LabelOf(response.Roots[0])), Is.EqualTo(("dev", "dev (you)")), "the folder's own name, and the host's label for people");
         var storefront = response.Roots[0].Folders[0];
         Assert.That(storefront.Name, Is.EqualTo("storefront"));
         Assert.That(storefront.Repository, Is.True);

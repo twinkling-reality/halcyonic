@@ -248,4 +248,42 @@ public class FolderRefusalTests
         odd.Observe(Done(bind, new ProjectCreatedResult { ProjectId = "p2" }));
         Assert.That(odd.HasExpectedResult, Is.False);
     }
+
+    [Test]
+    public void APlaceShowsTheHostsLabelAndAKeptChoiceReadsItAgain()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, UsedBy = new List<string>(),
+            Folders = new List<LocationFolder> { new() { Name = "shop", Path = "/Users/person/Projects/shop", UsedBy = new List<string>() } },
+        };
+        root.Label = "Projects (person)";
+        var chosen = ProjectFolder.Existing(root, root.Folders[0]);
+        Assert.That(chosen.Describe(), Is.EqualTo("shop in Projects (person)"));
+        Assert.That(((ExistingFolderChoice)chosen.ToContract()).Root, Is.EqualTo(root.Path), "the label is shown, never sent");
+        Assert.That(ProjectFolder.New(root, "site")!.Describe(), Is.EqualTo("a new folder, site, in Projects (person)"));
+        Assert.That(ProjectFolder.NewFolderLabel(root), Is.EqualTo("New folder in Projects (person)"));
+
+        // Kept across a restart, then the roots changed: the label is read again by the root's path.
+        var kept = ProjectFolder.Restore(chosen.RootPath, chosen.RootName, chosen.FolderName, isNew: false)!;
+        root.Label = "Projects";
+        Assert.That(kept.Current(new LocationsResponse { Roots = new List<LocationRoot> { root } }).Describe(), Is.EqualTo("shop in Projects"));
+        var gone = kept.Current(new LocationsResponse { Roots = new List<LocationRoot>() });
+        Assert.That(gone.PlaceGone, Is.True);
+        Assert.That(gone.Describe(), Is.EqualTo("shop in a place your computer doesn't list now"), "never the old label");
+        root.Status = LocationRootStatus.Missing;
+        Assert.That(kept.Current(new LocationsResponse { Roots = new List<LocationRoot> { root } }).PlaceGone, Is.True);
+    }
+
+    [Test]
+    public void AHostWithoutLabelsStillNamesItsPlaces()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, UsedBy = new List<string>(),
+            Folders = new List<LocationFolder> { new() { Name = "shop", Path = "/Users/person/Projects/shop", UsedBy = new List<string>() } },
+        };
+        root.Label = null!;
+        Assert.That(ProjectFolder.LabelOf(root), Is.EqualTo("Projects"));
+    }
 }

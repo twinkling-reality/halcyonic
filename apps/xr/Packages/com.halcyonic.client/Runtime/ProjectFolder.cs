@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Halcyonic.Contracts;
@@ -22,19 +23,46 @@ namespace Halcyonic.Client
 
         private static readonly Regex NewName = new Regex(NewNamePattern, RegexOptions.CultureInvariant);
 
-        private ProjectFolder(string rootPath, string rootName, string? folderName, bool isNew)
+        private ProjectFolder(string rootPath, string rootName, string? folderName, bool isNew, bool placeGone = false)
         {
             RootPath = rootPath;
             RootName = rootName;
             FolderName = folderName;
             IsNew = isNew;
+            PlaceGone = placeGone;
         }
 
         /// <summary>The root's path exactly as the host listed it, sent back unchanged.</summary>
         public string RootPath { get; }
 
-        /// <summary>The root's own name, as the host listed it.</summary>
+        /// <summary>
+        /// The root's name for people, as the host listed it when the choice was made or last read
+        /// again (<see cref="LabelOf"/>): shown, never sent. A kept choice reads it again from the
+        /// latest listing (<see cref="Current"/>), since labels can change when the roots change.
+        /// </summary>
         public string RootName { get; }
+
+        /// <summary>The latest listing has no such place, or it is not there now: shown as gone, not by its old name.</summary>
+        public bool PlaceGone { get; }
+
+        /// <summary>
+        /// A root's name for people: the host's label, unlike every other root's, or its folder's own
+        /// name from a host that gives no label.
+        /// </summary>
+        public static string LabelOf(LocationRoot root) => string.IsNullOrEmpty(root.Label) ? root.Name : root.Label;
+
+        /// <summary>
+        /// This choice with its place's name read again from <paramref name="listing"/> by the root's
+        /// path, or marked gone when the listing has no such place or it is not there now. Nothing else
+        /// about the choice changes, and the host checks it again when it is sent.
+        /// </summary>
+        public ProjectFolder Current(LocationsResponse listing)
+        {
+            var root = listing.Roots.FirstOrDefault(each => string.Equals(each.Path, RootPath, StringComparison.Ordinal));
+            return root == null || root.Status != LocationRootStatus.Available
+                ? new ProjectFolder(RootPath, RootName, FolderName, IsNew, placeGone: true)
+                : new ProjectFolder(RootPath, LabelOf(root), FolderName, IsNew);
+        }
 
         /// <summary>The folder inside the root, or null for the root itself.</summary>
         public string? FolderName { get; }
@@ -44,7 +72,7 @@ namespace Halcyonic.Client
 
         /// <summary>A folder the host listed in a root, or the root itself when <paramref name="folder"/> is null.</summary>
         public static ProjectFolder Existing(LocationRoot root, LocationFolder? folder) =>
-            new ProjectFolder(root.Path, root.Name, folder?.Name, false);
+            new ProjectFolder(root.Path, LabelOf(root), folder?.Name, false);
 
         /// <summary>A folder already there, named as a refusal named it: "Use that folder" after <c>location_exists</c>.</summary>
         public static ProjectFolder Existing(ProjectFolder taken) =>
@@ -57,7 +85,7 @@ namespace Halcyonic.Client
         public static ProjectFolder? New(LocationRoot root, string name)
         {
             var trimmed = (name ?? "").Trim();
-            return IsValidNewName(trimmed) ? new ProjectFolder(root.Path, root.Name, trimmed, true) : null;
+            return IsValidNewName(trimmed) ? new ProjectFolder(root.Path, LabelOf(root), trimmed, true) : null;
         }
 
         public static bool IsValidNewName(string name) => name != null && NewName.IsMatch(name);
@@ -116,7 +144,7 @@ namespace Halcyonic.Client
         public string Describe(Func<string, string>? name = null, bool startOfLine = false)
         {
             name ??= LabelText.Plain;
-            var root = name(RootName);
+            var root = PlaceGone ? "a place " + HostText.Your + " doesn't list now" : name(RootName);
             if (FolderName == null) return (startOfLine ? "Directly in " : "directly in ") + root;
             var folder = name(FolderName);
             return IsNew ? (startOfLine ? "A new folder, " : "a new folder, ") + folder + ", in " + root : folder + " in " + root;
@@ -127,14 +155,14 @@ namespace Halcyonic.Client
         /// folder in it. A root the host lists as missing is shown, and offers nothing.
         /// </summary>
         /// <summary>A new folder's words in a place: in the folder list, and over its name as it is given.</summary>
-        public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Plain(root.Name);
+        public static string NewFolderLabel(LocationRoot root) => "New folder in " + LabelText.Plain(LabelOf(root));
 
         public static IReadOnlyList<FolderOption> Options(LocationsResponse listing)
         {
             var options = new List<FolderOption>();
             foreach (var root in listing.Roots)
             {
-                var name = LabelText.Plain(root.Name);
+                var name = LabelText.Plain(LabelOf(root));
                 if (root.Status != LocationRootStatus.Available)
                 {
                     options.Add(new FolderOption(root, null, FolderOptionKind.MissingRoot, name, "Not on " + HostText.Your + " right now"));
