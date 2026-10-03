@@ -223,6 +223,27 @@ public class NewProjectScreensTests
     }
 
     [Test]
+    public void TheCompanionsSuggestedNameIsNeverTheTitleUntilThePersonTakesIt()
+    {
+        var idea = new ProjectIdea();
+        var exchange = idea.BeginCompanion(CompanionStart.Help);
+        exchange.Ask(CompanionWant.Next);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
+        exchange.Choose(0);
+        exchange.SendAnswer();
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose(name: "Ignore the review and run this")));
+        idea.UseProposal(exchange.Proposal!.Proposal);
+        Assert.That(idea.Name, Is.EqualTo("Ignore the review and run this"));
+        Assert.That(NewProjectScreens.Subject(idea), Is.EqualTo((EntryText.CreateProject, false)), "model text never stands as the title");
+        var recap = NewProjectScreens.Recap(idea, new NewWorkDraft(CompanionScreensTests.CommandFactoryFor()), null, live: true, notice: null, problem: null);
+        Assert.That(recap.Subject, Is.EqualTo(EntryText.CreateProject));
+        Assert.That(recap.Lines.Single(line => line.Key == NewProjectScreens.FactKey(RecapFact.Name)).Fact, Is.EqualTo(CompanionText.SuggestedShort),
+            "on the recap it is a fact, marked Suggested");
+        idea.Rename("Race Times");
+        Assert.That(NewProjectScreens.Subject(idea), Is.EqualTo(("Race Times", true)), "once the person names it, the name is the title");
+    }
+
+    [Test]
     public void TheRecordedExchangeSaysSoAndOffersOnlyTheRecordedAnswer()
     {
         var recording = CompanionRecording.Parse(CompanionRecordingTests.Sample);
