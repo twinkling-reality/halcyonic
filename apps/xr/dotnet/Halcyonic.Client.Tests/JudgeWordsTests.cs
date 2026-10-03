@@ -64,6 +64,8 @@ public class JudgeWordsTests
             Gather(JToken.FromObject(model, Serializer), words);
         }
 
+        // The menu's places (ADR 0026), on its bar whichever is open.
+        foreach (var place in MenuBar.Places) Add(MenuBar.Word(place));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true));
         Add(UsageLeftPresenter.NotInDemo);
@@ -144,6 +146,77 @@ public class JudgeWordsTests
             }
         });
         return words;
+    }
+
+    /// <summary>
+    /// Every word a menu frame (ADR 0026) shows: its subject and pill, each section's words, each
+    /// line's words and fact and chip, its source and why a prompt can't be taken now, its side panel's
+    /// subject, facts and lines, and every prompt's words and reason. Named field by field, so a word a
+    /// new field carries is added here on purpose.
+    /// </summary>
+    internal static IEnumerable<string> WordsOf(MenuFrame frame)
+    {
+        yield return frame.Subject;
+        if (frame.Pill != null) yield return StateLanguage.WordOf(frame.Pill.State);
+        foreach (var section in frame.Sections) yield return section.Words;
+        foreach (var line in frame.Lines)
+        {
+            foreach (var word in WordsOf(line)) yield return word;
+        }
+        if (frame.Source != null) yield return frame.Source;
+        if (frame.Reason != null) yield return frame.Reason;
+        if (frame.Side is SidePanel side)
+        {
+            yield return side.Subject;
+            foreach (var fact in side.Facts)
+            {
+                yield return fact.Name;
+                yield return fact.Value;
+            }
+            foreach (var line in side.Lines)
+            {
+                foreach (var word in WordsOf(line)) yield return word;
+            }
+            if (side.Source != null) yield return side.Source;
+        }
+        foreach (var (_, prompt) in frame.Footer.All)
+        {
+            yield return prompt.Words;
+            if (prompt.Reason != null) yield return prompt.Reason;
+        }
+    }
+
+    private static IEnumerable<string> WordsOf(PageLine line)
+    {
+        yield return line.Words;
+        if (line.Fact != null) yield return line.Fact;
+        if (line.Chip != null) yield return line.Chip;
+    }
+
+    [Test]
+    public void EveryWordOfAMenuFrameIsGathered()
+    {
+        // A side panel shows facts or lines, never both, so the frame is gathered once with each.
+        var withFacts = new SidePanel("Changed files", facts: new[] { new SideFact("Lines", "71 added") }, source: "Simulated explanation");
+        var withLines = new SidePanel("Checks", lines: new[] { new PageLine("src/a.ts", wordsAreData: true, fact: "New") });
+        MenuFrame Frame(SidePanel side) => new MenuFrame("Add rate limiting",
+            new Footer(
+                close: new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close),
+                farRight: new Prompt(WorkspaceScreens.TellIt, "Tell it", GlazeIcon.TellIt, main: true, available: false, reason: "Nothing to tell it now.")),
+            subjectIsData: true,
+            sections: new[] { new FrameSection("changes", "Changes", chosen: true) },
+            lines: new[]
+            {
+                new PageLine("2 files changed", fact: "now", chip: "Inferred", action: "open", key: "what-changed", opens: true, chosen: true),
+            },
+            source: "Simulated checks",
+            side: side);
+        Assert.That(WordsOf(Frame(withFacts)), Is.SupersetOf(new[]
+        {
+            "Add rate limiting", "Changes", "2 files changed", "now", "Inferred", "Simulated checks", "Nothing to tell it now.",
+            "Changed files", "Lines", "71 added", "Simulated explanation", "Close", "Tell it",
+        }));
+        Assert.That(WordsOf(Frame(withLines)), Is.SupersetOf(new[] { "Checks", "src/a.ts", "New" }));
     }
 
     private static readonly JsonSerializer Serializer = JsonSerializer.Create(new JsonSerializerSettings
