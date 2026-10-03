@@ -358,16 +358,23 @@ namespace Halcyonic.Client
             // has it, closed or on the part they turned to; reopening it is the row's, or coming back to
             // the prompt (OpenTypedIfUnread).
             var fresh = !typedRows.TryGetValue(prompt, out var before) || before.Words != typed;
+            // The same words laid into another number of parts: the parts drawn so far no longer map to
+            // the new ones, so what is unread is read again, from the first.
+            var reparted = !fresh && FileScreen.PartsOf(before.SideRows, SidePartRows) != FileScreen.PartsOf(Math.Max(1, sideMeasured), SidePartRows);
             typedRows[prompt] = (typed, Math.Max(1, measured), Math.Max(1, sideMeasured));
             var index = draft.Prompts[prompt].Options.Count;
-            if (fresh) sidePartsDrawn.Remove((prompt, index));
+            if (fresh || reparted) sidePartsDrawn.Remove((prompt, index));
             if (prompt != Prompt || Reviewing || QuestionPart != null) return;
             if (!TypedCut(prompt))
             {
                 if (sideOption == index) sideOption = null;
             }
             else if (fresh) OpenSide(index);
-            else if (sideOption == index && SidePart >= SideParts) SidePart = Math.Max(0, SideParts - 1);
+            else if (sideOption == index && reparted)
+            {
+                SidePart = 0;
+                sideDrawnAt = null;
+            }
         }
 
         /// <summary>
