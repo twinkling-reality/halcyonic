@@ -31,12 +31,17 @@ internal sealed class DemonstrationMenuHost : IMenuHost
             [MenuPlace.Projects] = () => new ProjectsColumn(this, commands, new ProjectsMemory(), () => State == null ? null : WorkOverview.Of(State, new StageVisibility(), _ => true),
                 (_, _) => { }),
             [MenuPlace.Usage] = () => new UsageColumn(this, at => player.Recording?.UsageLimitsAt(at)),
-            [MenuPlace.Settings] = () => new SettingsColumn(this, ComfortSettings.Of(Comfort, () => { })),
+            // As the director gives them in the release build: Your space, with no Your computer, then Comfort.
+            [MenuPlace.Settings] = () => new SettingsColumn(this, SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null),
+                id => SpaceActs.Add(id)).Concat(ComfortSettings.Of(Comfort, () => { })).ToList()),
         });
         Navigator.Changed += () => changed = true;
     }
 
     private bool changed = true;
+
+    /// <summary>What Your space's rows raised, for the headset's own layer to do.</summary>
+    public List<string> SpaceActs { get; } = new();
 
     public MenuNavigator Navigator { get; }
 
@@ -436,19 +441,31 @@ public class JudgeMenuWalkTests
         Assert.That(host.Sent, Has.Count.EqualTo(sentBefore), "Projects itself sent nothing");
         host.Press(MenuColumn.Menu, SidePanel.Close);
 
-        // Settings: each setting a row with its value, chosen to show what it is and what its change does.
+        // Settings: a page a group, Your space then Comfort, each setting a row with its value, chosen to
+        // show what it is and what its change does. No Your computer: the release build pairs nothing.
         host.Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
         (menu, _) = host.Draw();
         Assert.That(menu!.Subject, Is.EqualTo(SettingsText.Subject));
-        Assert.That(menu.Lines[0].Words, Is.EqualTo(Comfort.Heading));
-        foreach (var row in menu.Lines.Where(line => line.Action == SettingsColumn.OpenSetting).ToList())
+        var groups = new List<string>();
+        var firstPage = string.Join("|", menu.Lines.Select(line => line.Words));
+        for (var page = 0; page < 8; page++)
         {
-            host.Press(MenuColumn.Menu, SettingsColumn.OpenSetting, row.Key);
-            var (chosen, _) = host.Draw();
-            Assert.That(chosen!.Side!.Subject, Is.EqualTo(row.Words));
-            Assert.That(chosen.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(SettingsColumn.ChangeSetting));
-            host.Press(MenuColumn.Menu, SidePanel.Close);
+            // A group longer than a page goes on to the next under its heading again; the pages come round to the first.
+            if (page > 0 && string.Join("|", menu!.Lines.Select(line => line.Words)) == firstPage) break;
+            if (!groups.Contains(menu!.Lines[0].Words)) groups.Add(menu.Lines[0].Words);
+            foreach (var row in menu.Lines.Where(line => line.Action == SettingsColumn.OpenSetting).ToList())
+            {
+                host.Press(MenuColumn.Menu, SettingsColumn.OpenSetting, row.Key);
+                var (chosen, _) = host.Draw();
+                Assert.That(chosen!.Side!.Subject, Is.EqualTo(row.Words));
+                Assert.That(chosen.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(SettingsColumn.ChangeSetting));
+                host.Press(MenuColumn.Menu, SidePanel.Close);
+            }
+            host.Press(MenuColumn.Menu, Footer.NextPage);
+            (menu, _) = host.Draw();
         }
+        Assert.That(groups, Is.EqualTo(new[] { SettingsText.YourSpace, Comfort.Heading }));
+        Assert.That(host.SpaceActs, Is.Empty, "choosing a setting changes nothing");
 
         // Closed again: the bar alone, the file closed too, saying nothing waits.
         host.Press(MenuColumn.File, Footer.Close);
@@ -461,6 +478,6 @@ public class JudgeMenuWalkTests
         foreach (var drawn in host.Drawn) words.UnionWith(JudgeWordsTests.WordsOf(drawn));
         foreach (var drawnSide in host.DrawnSides) words.UnionWith(JudgeWordsTests.WordsOf(drawnSide));
         Assert.That(JudgeWordsTests.Branded(words), Is.Empty);
-        Assert.That(words, Is.SupersetOf(new[] { "Yes, approve", "Yes, deny", "Part of the recording", UsageLeftPresenter.Recorded, Comfort.Heading }));
+        Assert.That(words, Is.SupersetOf(new[] { "Yes, approve", "Yes, deny", "Part of the recording", UsageLeftPresenter.Recorded, Comfort.Heading, SettingsText.YourSpace }));
     }
 }
