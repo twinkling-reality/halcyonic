@@ -523,9 +523,8 @@ namespace Halcyonic.Client
         {
             // Reviewing changes nothing: the draft takes the first task only when its Yes is pressed.
             var model = draft.Model;
-            // A folder is sent for a new project, or to move one that exists; a project already where the choice points stays as it is.
             var moves = Moves(idea, currentFolder);
-            var sends = idea.ExistingProjectId == null || moves ? idea.Folder : null;
+            var sends = FolderSent(idea, currentFolder);
             // The review spells what Halcyonic did not write by its code points, so it is given those names as they are.
             var folder = sends?.Describe(name => name) ?? currentFolder?.Name ?? "none";
             var before = moves ? currentFolder?.Name ?? "none" : null;
@@ -543,6 +542,13 @@ namespace Halcyonic.Client
                 titleCut,
                 sends?.ToContract());
         }
+
+        /// <summary>
+        /// The folder a send carries, decided once for the review, the first send and Try again alike:
+        /// a new project's, a real move's, or none when the project is already where the choice points.
+        /// </summary>
+        public static ProjectFolder? FolderSent(ProjectIdea idea, ProjectLocation? currentFolder) =>
+            idea.ExistingProjectId == null || Moves(idea, currentFolder) ? idea.Folder : null;
 
         /// <summary>
         /// The request moves a project that exists to another folder: one is chosen, and the project is
