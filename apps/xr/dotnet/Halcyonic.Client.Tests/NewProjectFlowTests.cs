@@ -357,6 +357,41 @@ public class NewProjectFlowTests
     }
 
     [Test]
+    public void CloseDetailsLetsGoOfStartOversQuestionSoAYesFromTheSameDrawTakesNothing()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        host.TextSize = TextSize.Larger;
+        flow.Tick();
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        flow.Drawn(flow.Frame!, sidePanel: true);
+        flow.Act(NewProjectScreens.StartOver, null);
+        flow.Drawn(flow.Frame!, sidePanel: true);
+        Assert.That(flow.Frame!.Footer.Confirming, Is.True);
+        // Close details, then Yes before anything new is drawn: the question closed with the details.
+        flow.Act(SidePanel.Close, null);
+        flow.Act(NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True, "nothing cleared");
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        Assert.That(flow.Frame!.Footer.Confirming, Is.False, "chosen again, Start over asks only once pressed again");
+    }
+
+    [Test]
+    public void AStaleStartOverPressIsRefusedNotArmedOutOfSight()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        Draw(flow, flow.Frame!);
+        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        var changes = 0;
+        flow.Changed += () => changes++;
+        // Start over from the frame still showing, its row no longer chosen: refused, nothing redrawn.
+        flow.Act(NewProjectScreens.StartOver, null);
+        Assert.That(changes, Is.EqualTo(0), "the press took nothing");
+    }
+
+    [Test]
     public void StartOverClearsTheIdeaAndKeepsHowItRunsAsItsSidePanelSays()
     {
         var host = new Host();
@@ -985,27 +1020,36 @@ public class NewProjectFlowTests
         {
             host.TextSize = size;
             flow.Tick();
-            var pages = Pages(flow);
-            for (var index = 0; index < pages.Count; index++)
-            {
-                var page = pages[index];
-                var room = host.PageHeight(Math.Max(1, host.TitleRows(page.Subject, Column)), besideMenu: false);
-                if (page.Source != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Source, Column)));
-                if (page.Reason != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Reason, Column)));
-                var name = what + " at " + size + ", page " + (index + 1) + " of " + pages.Count;
-                Assert.That(LinesHeight(host, page.Lines), Is.LessThanOrEqualTo(room + 1e-5f), name + " fits");
-                if (pages.Count > 1)
-                {
-                    var turn = Turn(page);
-                    Assert.That(turn, Is.Not.Null, name + " turns");
-                    if (turn!.Value.Id == Footer.NextPage) Assert.That(turn.Value.Words, Is.EqualTo(Footer.NextPageWords(index, pages.Count)), name + " says where it turns");
-                    if (turn.Value.Id == NewProjectScreens.NextPage) Assert.That(turn.Value.Words, Is.EqualTo(EntryText.NextPage(index, pages.Count)), name + " says where it turns");
-                }
-                if (size == TextSize.Standard) shown.AddRange(page.Lines.Where(line => !Turns(line)));
-            }
+            var lines = FitsThisSize(flow, host, what);
+            if (size == TextSize.Standard) shown.AddRange(lines);
         }
         host.TextSize = TextSize.Standard;
         flow.Tick();
+        return shown;
+    }
+
+    /// <summary>Every page of what shows at the text size set now, as <see cref="FitsEveryPage"/> checks each; returns every line shown, the turning rows left out.</summary>
+    private static List<PageLine> FitsThisSize(NewProjectFlow flow, Host host, string what)
+    {
+        var shown = new List<PageLine>();
+        var pages = Pages(flow);
+        for (var index = 0; index < pages.Count; index++)
+        {
+            var page = pages[index];
+            var room = host.PageHeight(Math.Max(1, host.TitleRows(page.Subject, Column)), besideMenu: false);
+            if (page.Source != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Source, Column)));
+            if (page.Reason != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Reason, Column)));
+            var name = what + " at " + host.TextSize + ", page " + (index + 1) + " of " + pages.Count;
+            Assert.That(LinesHeight(host, page.Lines), Is.LessThanOrEqualTo(room + 1e-5f), name + " fits");
+            if (pages.Count > 1)
+            {
+                var turn = Turn(page);
+                Assert.That(turn, Is.Not.Null, name + " turns");
+                if (turn!.Value.Id == Footer.NextPage) Assert.That(turn.Value.Words, Is.EqualTo(Footer.NextPageWords(index, pages.Count)), name + " says where it turns");
+                if (turn.Value.Id == NewProjectScreens.NextPage) Assert.That(turn.Value.Words, Is.EqualTo(EntryText.NextPage(index, pages.Count)), name + " says where it turns");
+            }
+            shown.AddRange(page.Lines.Where(line => !Turns(line)));
+        }
         return shown;
     }
 
@@ -1205,6 +1249,113 @@ public class NewProjectFlowTests
         }
         unknown.Drawn(unknown.Frame!, sidePanel: true);
         Assert.That(unknown.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.False, "Clear waits for its parts' pages");
+    }
+
+    [Test]
+    public void ClearWaitsForEveryLineOfTheUnknownStartEvenWhenItsPartsAreLaidAgain()
+    {
+        // Parts read at the larger size, then the text a step smaller lays it again into fewer, larger parts.
+        var cases = 0;
+        for (var factor = 0.50f; factor <= 0.62f; factor += 0.002f)
+        {
+            for (var read = 1; read <= 4; read++)
+            {
+                var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+                var host = new Host { TextSize = TextSize.Larger };
+                var size = factor;
+                host.Height = (rows, beside) => MenuPage.Height(host.TextSize, rows, besideMenu: beside) * (host.TextSize == TextSize.Larger ? 0.6f : size);
+                var flow = Flow(host, kept);
+                flow.Open(null, null);
+                var all = NewProjectScreens.Unresolved(new ProjectIdea(), kept.Id, null, armed: false, live: true).Lines.Select(line => line.Words).ToList();
+                var drawn = new HashSet<string>();
+                void DrawAndNote()
+                {
+                    foreach (var line in flow.Frame!.Lines) drawn.Add(line.Words);
+                    flow.Drawn(flow.Frame!, false);
+                }
+                DrawAndNote();
+                for (var part = 1; part < read && flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is { } row; part++)
+                {
+                    host.Now += 1;
+                    flow.Act(NewProjectScreens.NextPart, row.Key);
+                    DrawAndNote();
+                }
+                host.TextSize = TextSize.Standard;
+                flow.Tick();
+                // Read on at the smaller size, part by part, until Clear can be pressed: never before every line has shown.
+                for (var part = 0; part < 10; part++)
+                {
+                    DrawAndNote();
+                    var undrawn = all.Where(words => !drawn.Contains(words)).ToList();
+                    if (undrawn.Count > 0) cases++;
+                    Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available && undrawn.Count > 0, Is.False,
+                        "x" + size + ", " + read + " part(s) read first: Clear with a line never drawn: " + string.Join(" / ", undrawn));
+                    if (flow.Frame!.Footer[PromptSlot.FarRight]!.Available || flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is not { } row) break;
+                    host.Now += 1;
+                    flow.Act(NewProjectScreens.NextPart, row.Key);
+                }
+                Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "x" + size + ", " + read + ": read to its end, Clear can be pressed");
+            }
+        }
+        Assert.That(cases, Is.GreaterThan(0), "some layout leaves a line undrawn");
+    }
+
+    [Test]
+    public void AQuestionsAnswersAreLaidAgainWhenHeardWordsAddALine()
+    {
+        static string Seen(MenuFrame frame) => string.Join(" | ", frame.Lines.Select(line => line.Words));
+        var mattered = 0;
+        foreach (var factor in new[] { 0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f, 1.5f })
+        {
+            var host = new Host { TextSize = TextSize.Larger };
+            host.Height = (rows, beside) => MenuPage.Height(host.TextSize, rows, besideMenu: beside) * factor;
+            var flow = Flow(host);
+            flow.Open(null, null);
+            Press(flow, NewProjectScreens.ChooseQuestions, null);
+            Press(flow, NewProjectScreens.BeginQuestions, null);
+            for (var turned = 0; turned < 5 && !flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.TypeFixedAnswer) && Turn(flow.Frame!) is { } turn; turned++)
+            {
+                Press(flow, turn.Id, turn.Key);
+            }
+            host.Typed.Enqueue("A page for the club");
+            Press(flow, NewProjectScreens.TypeFixedAnswer, null);
+            var typed = Seen(flow.Frame!);
+            // Heard words replace the typed answer and add the note to check them: the page is laid again for it.
+            flow.Heard("A page of race times for the club");
+            var heard = flow.Frame!;
+            Assert.That(heard.Lines.Any(line => line.Words == VoiceText.HeardNote), Is.True, "x" + factor + ": the note to check heard words");
+            // As a layout made afresh for the same lines gives it, the text size changed and back.
+            host.TextSize = TextSize.Standard;
+            flow.Tick();
+            host.TextSize = TextSize.Larger;
+            flow.Tick();
+            Assert.That(Seen(heard), Is.EqualTo(Seen(flow.Frame!)), "x" + factor + ": laid again with the note, as afresh");
+            if (Seen(heard).Replace(" | " + VoiceText.HeardNote, "").Replace("A page of race times for the club", "A page for the club") != typed) mattered++;
+        }
+        Assert.That(mattered, Is.GreaterThan(0), "the note changes how some page is laid");
+    }
+
+    [Test]
+    public void ATurnFromWhatShowedBeforeTurnsNothingOnceSomethingElseShows()
+    {
+        var host = new Host { TextSize = TextSize.Larger, Height = (rows, _) => MenuPage.Height(TextSize.Larger, rows) * 0.8f };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Press(flow, NewProjectScreens.ChooseQuestions, null);
+        Press(flow, NewProjectScreens.BeginQuestions, null);
+        var first = flow.Frame!;
+        var seen = Turn(first)!.Value;
+        Assert.That((first.Lines[0].Words, seen.Id), Is.EqualTo((ProjectIdea.Questions[0].Prompt, NewProjectScreens.MoreAnswers)), "the question first, on a page of its own");
+        Draw(flow, first);
+        // Quick presses on the frame still showing: Your idea, then the question again, built but not drawn yet.
+        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.YourIdea));
+        Assert.That(flow.Frame!.Sections.Single(section => section.Chosen).Key, Is.EqualTo(NewProjectScreens.Key(NewProjectStep.YourIdea)));
+        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Questions));
+        var again = flow.Frame!;
+        Assert.That((again.Lines[0].Words, Turn(again)?.Key), Is.EqualTo((ProjectIdea.Questions[0].Prompt, seen.Key)), "its first page again, turned by a row keyed the same");
+        // The turn the person saw before what shows changed turns nothing now.
+        flow.Act(seen.Id, seen.Key);
+        Assert.That(flow.Frame!.Lines[0].Words, Is.EqualTo(ProjectIdea.Questions[0].Prompt), "still the question's first page");
     }
 
     [Test]
