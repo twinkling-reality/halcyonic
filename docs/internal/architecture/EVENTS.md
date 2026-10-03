@@ -74,13 +74,13 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.turn.completed` | execution | runtime | The turn ended normally |
 | `runtime.turn.failed` | execution | runtime | The turn ended with an error |
 | `runtime.turn.interrupted` | execution | runtime | The turn was stopped on request |
-| `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision |
+| `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision; carries the tool and what it asks for (`subject.summary`), the tool's input (below) |
 | `runtime.approval.resolved` | execution | runtime | The runtime applied a decision |
 | `runtime.question.asked` | execution | runtime | The agent waits for the person to answer a question; carries the runtime's question id, its prompts (the agent's words) and whether Halcyonic can answer it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)) |
 | `runtime.question.resolved` | execution | runtime | The runtime took an answer (`answered`) or withdrew the question (`dismissed`); a turn's end withdraws it too |
-| `runtime.tool.started` / `.completed` | execution | runtime | Tool activity |
+| `runtime.tool.started` / `.completed` | execution | runtime | Tool activity; a start carries the tool's name and a `title` from its input, or null (below) |
 | `runtime.agent_message` | execution | runtime | Agent text (`reported`) |
-| `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome |
+| `runtime.test_run.started` / `.completed` | execution | runtime | A test run and its outcome, with the runtime's label and summary; only the mock reports test runs today |
 | `runtime.connection.lost` | execution | runtime | The adapter lost contact with the runtime |
 | `runtime.connection.restored` | execution | runtime | The adapter can observe the runtime again after a loss; what changed meanwhile follows as its own events |
 | `runtime.model.used` | execution | runtime | The model the runtime says the execution runs on (`observed`), by the `model_ref` of the runtime's list; reported when it starts and whenever it changes |
@@ -97,6 +97,16 @@ of the projection, and a credential is known only by its SHA-256. Realtime clien
 device events, and paired devices do not read them from the history ([REALTIME.md](REALTIME.md)).
 A command from a device revoked after its request or connection was authenticated is journaled as
 `command.rejected` with `device_revoked`.
+
+A tool's `title` and what an approval asks for carry the tool's input, as the runtime gives it:
+Codex's whole command line, with where it runs, or the files a change touches; Claude Code's
+command, path, URL, query or pattern, or for an approval with none of those, its whole input as
+JSON, which for an MCP tool can hold a credential argument; OpenCode's resources for a permission.
+A question's texts and a test run's label and summary are the runtime's own words. Adapters report
+all of them whole, and the control plane takes every exact copy of a secret it holds out of them,
+named, then cuts each to the contract before it is journaled. A credential it doesn't hold stays,
+so the person reads the command as it would run ([SECURITY.md](SECURITY.md), "Logs and error
+text").
 
 ## Contracts: one source of truth
 
