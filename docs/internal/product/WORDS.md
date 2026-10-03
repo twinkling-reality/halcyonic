@@ -122,6 +122,15 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | Send answer's reason on a prompt's page, in a question of several | Answer each question, then send from Your answers. | |
 | The row for the person's own answer | Type my answer; once typed, Your answer: "…", chosen | Type an answer; Typed: … |
 
+### Steering from a file
+
+Settled by the coordinator on 2026-10-02.
+
+| Where | Words |
+| --- | --- |
+| Tell it's reason while the instructions offered show and none is chosen | Choose what to tell it first. |
+| A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
+
 ## Sentence patterns
 
 | Kind | Pattern | Example |
