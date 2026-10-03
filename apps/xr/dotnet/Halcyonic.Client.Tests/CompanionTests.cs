@@ -606,6 +606,30 @@ public class CreationDraftTests
     }
 
     [Test]
+    public void ExpiredDraftsLeaveTheDeviceAsSoonAsTheyAreReadForAnyComputer()
+    {
+        var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
+        var idea = new ProjectIdea();
+        idea.UseIdea("a tide table");
+        var exchange = idea.BeginCompanion(CompanionStart.Idea);
+        exchange.Ask(CompanionWant.Next);
+        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
+        exchange.Write("my private words, not yet sent");
+        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var other = "01a0dcf1-5a80-7000-8000-00000000j002";
+        new CreationDrafts(new FileCreationDraftStore(FilePath), () => now).Keep(other, new[] { CreationDraft.Of(other, "", idea, null, draft, now)! });
+        new CreationDrafts(new FileCreationDraftStore(FilePath), () => now.AddDays(6)).Keep(Journal, new[] { CreationDraft.Of(Journal, "", idea, null, draft, now.AddDays(6))! });
+        Assert.That(File.ReadAllText(FilePath), Does.Contain("my private words"));
+
+        // A week after the other computer's draft last changed, opening drafts for this one drops it from the file, with nothing kept.
+        var later = new CreationDrafts(new FileCreationDraftStore(FilePath), () => now.AddDays(7).AddMinutes(1));
+        Assert.That(later.For(Journal), Has.Count.EqualTo(1));
+        Assert.That(new FileCreationDraftStore(FilePath).Load().Select(each => each.JournalId), Is.EqualTo(new[] { Journal }), "rewritten on reading");
+        Assert.That(new CreationDrafts(new FileCreationDraftStore(FilePath), () => now.AddDays(14)).For(other), Is.Empty);
+        Assert.That(File.Exists(FilePath), Is.False, "nothing left, so no file");
+    }
+
+    [Test]
     public void NothingWorthKeepingIsNotKeptAndAnUnchangedDraftIsNotWrittenAgain()
     {
         var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");

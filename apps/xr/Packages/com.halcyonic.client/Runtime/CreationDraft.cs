@@ -11,8 +11,10 @@ namespace Halcyonic.Client
     /// <summary>
     /// One Create draft as this device keeps it across an app restart (ADR 0025): the person's idea or
     /// answers, the recap, the exchange with the companion, the choices made, and what the Mac already
-    /// made of it, for the computer whose journal it was made with. It holds the person's own words
-    /// and the companion's, and never a credential; it lives only in the app's private storage.
+    /// made of it, for the computer whose journal it was made with. It holds the person's own words,
+    /// an answer not yet sent included, which may be anything they typed, and the companion's: so it
+    /// is never logged, Halcyonic puts no credential in it, and it lives only in the app's private
+    /// files (on the headset under getFilesDir, never Unity's persistentDataPath).
     /// </summary>
     public sealed class CreationDraft
     {
@@ -330,8 +332,20 @@ namespace Halcyonic.Client
                 .ToList();
         }
 
-        /// <summary>What the store holds, read once; this object writes every change after that, so it never reads again.</summary>
-        private List<CreationDraft> Kept() => kept ??= store.Load().ToList();
+        /// <summary>
+        /// What the store holds, read once; this object writes every change after that, so it never
+        /// reads again. Expired drafts leave the device as they are read, not at the next change, since
+        /// they can hold a person's private words.
+        /// </summary>
+        private List<CreationDraft> Kept()
+        {
+            if (kept != null) return kept;
+            var at = now();
+            var loaded = store.Load().ToList();
+            kept = loaded.Where(draft => !draft.ExpiredAt(at)).ToList();
+            if (kept.Count != loaded.Count) store.Save(kept);
+            return kept;
+        }
 
         /// <summary>
         /// Keeps <paramref name="current"/> as this computer's drafts, in place of what was kept for it,
