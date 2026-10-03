@@ -689,6 +689,56 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void TheFolderASendCarriesIsDecidedOnceAndEveryYesSends()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = new List<LocationFolder> { new() { Name = "recipes", Path = "/Users/person/Projects/recipes" } },
+        };
+        var there = new ProjectLocation { Path = "/Users/person/Projects/recipes", Name = "recipes", Created = false };
+
+        // Add a task, choosing the folder the project is already in: nothing about the folder is sent.
+        var task = new ProjectIdea("p1", "Recipes");
+        task.UseIdea("Make a website for my team.");
+        task.ChooseFolder(ProjectFolder.Existing(root, root.Folders[0]));
+        Assert.That(EntryScreens.FolderSent(task, there), Is.Null);
+        var draft = Draft("p1");
+        draft.Objective = task.FirstTask;
+        var stays = new BuildSequence(draft, Commands, null, EntryScreens.FolderSent(task, there)?.ToContract());
+        Assert.That(stays.Begin(Read(EntryScreens.ReviewOf(task, draft, there, live: true))), Is.InstanceOf<WorkstreamCreateCommand>(),
+            "Yes sends, and binds nothing");
+
+        // A real move: the review shows it, and the same decision sends it.
+        task.ChooseFolder(ProjectFolder.New(root, "recipes-v2"));
+        Assert.That(EntryScreens.FolderSent(task, there), Is.SameAs(task.Folder));
+        var moves = new BuildSequence(draft, Commands, null, EntryScreens.FolderSent(task, there)?.ToContract());
+        Assert.That(moves.Begin(Read(EntryScreens.ReviewOf(task, draft, there, live: true))), Is.InstanceOf<ProjectSetLocationCommand>());
+
+        // A project made in its folder, a later step refused, and its own folder chosen again: Try again sends.
+        var idea = new ProjectIdea();
+        idea.UseIdea("Make a website for my team.");
+        idea.Rename("Recipes");
+        idea.ChooseFolder(ProjectFolder.New(root, "made"));
+        var fresh = Draft();
+        fresh.Objective = idea.FirstTask;
+        var sequence = new BuildSequence(fresh, Commands, idea.Name, EntryScreens.FolderSent(idea, null)?.ToContract());
+        var project = sequence.Begin(Read(EntryScreens.ReviewOf(idea, fresh, null, live: true)));
+        var workstream = sequence.Advance(With(Completed(project, new ProjectCreatedResult { ProjectId = "p2" })))!;
+        sequence.Advance(With(new CommandView
+        {
+            CommandId = workstream.CommandId, Status = CommandStatus.Rejected,
+            Rejection = new CommandRejection { Code = RejectionCode.InvalidRuntimeOptions, Message = "Not now." },
+        }));
+        idea.ProjectMade("p2", "Recipes");
+        var made = new ProjectLocation { Path = "/Users/person/Projects/made", Name = "made", Created = true };
+        idea.ChooseFolder(ProjectFolder.Existing(root, new LocationFolder { Name = "made", Path = "/Users/person/Projects/made" }));
+        Assert.That(EntryScreens.FolderSent(idea, made), Is.Null, "chosen again, its own folder is no move");
+        Assert.That(sequence.Retry(Read(EntryScreens.ReviewOf(idea, fresh, made, live: true)), null, EntryScreens.FolderSent(idea, made)?.ToContract()),
+            Is.InstanceOf<WorkstreamCreateCommand>());
+    }
+
+    [Test]
     public void AReviewMadeAfterAChangeIsNotTheSameRequest()
     {
         static NewWorkReview Of(string project, string task) => new(project, "Title", "Agent", "Model", "on your computer", "none", task);

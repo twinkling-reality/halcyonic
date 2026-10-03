@@ -46,8 +46,8 @@ namespace Halcyonic.XR.Workspace
 
         private readonly List<TextMeshPro> reviewLabels = new List<TextMeshPro>();
 
-        private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence, ProjectFolder? Sent)> drafts =
-            new Dictionary<string, (ProjectIdea, BuildSequence?, ProjectFolder?)>();
+        private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence)> drafts =
+            new Dictionary<string, (ProjectIdea, BuildSequence?)>();
         private string draftKey = "";
         private NewWorkDraft draft = null!;
         private ProjectIdea? idea;
@@ -66,7 +66,6 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A line for one screen, such as why a folder name was refused: shown only there, dropped once another screen shows.</summary>
         private (Screen On, string Text)? notice;
         private string? shownProject;
-        private ProjectFolder? sentFolder;
         private bool rendering;
         private LocationsResponse? locations;
         private string? locationsProblem;
@@ -155,9 +154,9 @@ namespace Halcyonic.XR.Workspace
             if (idea == null || key != draftKey)
             {
                 // Each place keeps its own draft, with how far its start got, so nothing is made twice.
-                if (idea != null) drafts[draftKey] = (idea, sequence, sentFolder);
+                if (idea != null) drafts[draftKey] = (idea, sequence);
                 draftKey = key;
-                (idea, sequence, sentFolder) = drafts.TryGetValue(key, out var kept) ? kept : (new ProjectIdea(projectId, projectName), null, null);
+                (idea, sequence) = drafts.TryGetValue(key, out var kept) ? kept : (new ProjectIdea(projectId, projectName), null);
                 review = null;
                 notice = null;
             }
@@ -301,7 +300,6 @@ namespace Halcyonic.XR.Workspace
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                     review = null;
                     sequence = null;
-                    sentFolder = null;
                     notice = null;
                     confirmingStartOver = false;
                     Open(Screen.CreateStart);
@@ -359,7 +357,6 @@ namespace Halcyonic.XR.Workspace
                     drafts.Remove(draftKey);
                     idea = null;
                     sequence = null;
-                    sentFolder = null;
                     shownProject = null;
                     Hide();
                     return;
@@ -682,14 +679,13 @@ namespace Halcyonic.XR.Workspace
             var reviewed = review;
             review = null;
             var newProject = idea.ExistingProjectId == null ? idea.Name : null;
-            var folder = idea.Folder?.ToContract();
+            // The folder the review showed as sent, decided in one place: a new project's, a real move's, or none.
+            var folder = EntryScreens.FolderSent(idea, CurrentFolder())?.ToContract();
             // The draft takes the first task only at this press; the build keeps what it confirmed, whatever changes after.
             draft.Objective = idea.FirstTask;
             if (sequence != null && sequence.CanRetry)
             {
-                // Sent again with the folder only when the person chose another since the last try.
-                Send(sequence.Retry(reviewed, newProject, idea.Folder != sentFolder ? folder : null));
-                sentFolder = idea.Folder;
+                Send(sequence.Retry(reviewed, newProject, folder));
             }
             else if (sequence == null)
             {
@@ -699,7 +695,6 @@ namespace Halcyonic.XR.Workspace
                 var first = begun.Begin(reviewed);
                 sequence = begun;
                 Send(first);
-                sentFolder = idea.Folder;
             }
             Open(Screen.Sending);
         }
