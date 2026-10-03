@@ -174,6 +174,35 @@ const SECRET_WORDS: ReadonlySet<string> = new Set([
 /** Where a value such as `Authorization: Bearer token` or `a=1; b=2` divides into parts. */
 const VALUE_PARTS = /[\s:,;=]+/;
 
+/** A URL's user and password in a value: `scheme://user:password@host`. */
+const URL_USERINFO = /\b[a-z][a-z0-9+.-]{0,31}:\/\/([^\s/?#@]+)@/gi;
+
+/**
+ * The secrets in a value's URLs, however they look: each password, as written and decoded, and
+ * `user:password`; a user alone only when it reads as a credential, as a token in
+ * `https://token@host`.
+ */
+function urlSecrets(value: string): string[] {
+  const found: string[] = [];
+  for (const [, userinfo = ''] of value.matchAll(URL_USERINFO)) {
+    const colon = userinfo.indexOf(':');
+    if (colon < 0) {
+      if (looksLikeCredential(userinfo)) found.push(userinfo);
+      continue;
+    }
+    const password = userinfo.slice(colon + 1);
+    if (password === '') continue;
+    found.push(userinfo, password);
+    try {
+      const decoded = decodeURIComponent(password);
+      if (decoded !== password) found.push(decoded);
+    } catch {
+      // Not percent-encoded as written: the password as written is held.
+    }
+  }
+  return found;
+}
+
 /** Whether a variable's name reads as a secret's: one of its words is in SECRET_WORDS. */
 export function secretName(name: string): boolean {
   return name
@@ -187,8 +216,8 @@ export function secretName(name: string): boolean {
  * taken out of a runtime's text before a device sees it (core/redaction.ts): the access token, the
  * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
  * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
- * themselves, and each part of one that reads as a credential by itself, as the value of a header
- * in `Name: value`, all under their variable's name. An address or a region passed to agents, such as
+ * themselves, each part of one that reads as a credential by itself, as the value of a header in
+ * `Name: value`, and the password in any URL in one, all under their variable's name. An address or a region passed to agents, such as
  * ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
  * since a server's password changes with each launch and a credential when it is replaced; a file
  * that can't be read gives nothing. Device credentials are kept only as hashes, so their shape is
@@ -206,6 +235,7 @@ export function heldSecrets(
     [
       ...(secretName(name) || looksLikeCredential(value) ? [value] : []),
       ...value.split(VALUE_PARTS).filter((part) => part !== value && looksLikeCredential(part)),
+      ...urlSecrets(value),
     ].map((held) => ({ what: name, value: held })),
   );
   return () => {
