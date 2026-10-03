@@ -251,6 +251,9 @@ What a client sees and can do about folders on the host
 - **Listing reads a bounded part of each root**: at most 10,000 entries, in the order the file
   system returns them, then sorts the folders among them and keeps 200; a root with more entries is
   marked truncated, and its folders past the first 10,000 entries are not offered.
+- **A root's name** is its folder's own name, or, where two roots share one, that name with the
+  nearest folder above that tells them apart ("Projects (Work)", `rootLabels`), so a person can tell
+  two places apart without the listing showing a path. A root configured as `/` itself is named `/`.
 - **What the listing tells about a folder** comes from the folder's own entry and from one name
   inside it, never from a file's contents: whether a `.git` folder or file sits directly inside it
   (`repository`), the newer modification time of the folder and of that `.git` entry

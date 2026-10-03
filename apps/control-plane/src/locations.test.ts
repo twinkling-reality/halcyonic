@@ -21,7 +21,7 @@ import {
   MAX_LOCATION_FOLDERS,
   type ProjectId,
 } from '@halcyonic/contracts';
-import { createHostLocations, MAX_SCANNED_ENTRIES } from './locations.ts';
+import { createHostLocations, MAX_SCANNED_ENTRIES, rootLabels } from './locations.ts';
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-locations-')));
 after(() => rmSync(base, { recursive: true, force: true }));
@@ -237,6 +237,88 @@ describe('what the listing tells about each folder', () => {
       { repository: only?.repository, changed_at: only?.changed_at, used_by: only?.used_by },
       { repository: null, changed_at: null, used_by: [] },
     );
+  });
+});
+
+describe('naming the roots for people', () => {
+  test('a root is named by its own folder, and only roots sharing a name gain the folder above', () => {
+    const labels = rootLabels([
+      '/Users/person/Projects',
+      '/Volumes/Work/Projects',
+      '/Users/person/Code',
+    ]);
+    assert.deepEqual(Object.fromEntries(labels), {
+      '/Users/person/Projects': 'Projects (person)',
+      '/Volumes/Work/Projects': 'Projects (Work)',
+      '/Users/person/Code': 'Code',
+    });
+  });
+
+  test('a level further up is named only where the one below still leaves them alike', () => {
+    const labels = rootLabels(['/a/shared/Projects', '/b/shared/Projects', '/c/other/Projects']);
+    assert.deepEqual(Object.fromEntries(labels), {
+      '/a/shared/Projects': 'Projects (a)',
+      '/b/shared/Projects': 'Projects (b)',
+      '/c/other/Projects': 'Projects (other)',
+    });
+  });
+
+  test('names alike but for case or compatibility forms count as the same name', () => {
+    const labels = rootLabels([
+      '/Users/one/Projects',
+      '/Users/two/PROJECTS',
+      '/Users/three/Ｐrojects',
+    ]);
+    assert.deepEqual(
+      [...labels.values()],
+      ['Projects (one)', 'PROJECTS (two)', 'Ｐrojects (three)'],
+    );
+  });
+
+  test('a root at the top of a volume, or with nothing above it, is named by itself', () => {
+    const labels = rootLabels([
+      '/Volumes/Work',
+      '/Users/person/Work',
+      '/Projects',
+      '/Users/person/Projects',
+    ]);
+    assert.deepEqual(Object.fromEntries(labels), {
+      '/Volumes/Work': 'Work (Volumes)',
+      '/Users/person/Work': 'Work (person)',
+      '/Projects': 'Projects',
+      '/Users/person/Projects': 'Projects (person)',
+    });
+  });
+
+  test('a root configured twice is one root with one name, and no name grows past the contract', () => {
+    assert.deepEqual(
+      Object.fromEntries(rootLabels(['/Users/person/Projects', '/Users/person/Projects'])),
+      {
+        '/Users/person/Projects': 'Projects',
+      },
+    );
+    const long = 'p'.repeat(200);
+    const labels = rootLabels([`/${'a'.repeat(250)}/${long}`, `/${'b'.repeat(250)}/${long}`]);
+    for (const label of labels.values()) {
+      assert.ok(label.length <= 255, `${label.length} characters`);
+      assert.ok(label.startsWith(`${long} (`));
+    }
+    assert.equal(new Set(labels.values()).size, 2);
+  });
+
+  test('the listing names two roots that share a folder name apart, and never by a path', () => {
+    const top = join(base, 'labels');
+    const first = join(top, 'home', 'Projects');
+    const second = join(top, 'work', 'Projects');
+    mkdirSync(join(first, 'app'), { recursive: true });
+    mkdirSync(join(second, 'site'), { recursive: true });
+    const listed = createHostLocations([first, second]).list();
+    assert.ok(validLocations(listed).ok);
+    assert.deepEqual(
+      listed.roots.map((root) => root.name),
+      ['Projects (home)', 'Projects (work)'],
+    );
+    assert.ok(listed.roots.every((root) => !root.name.includes('/')));
   });
 });
 
