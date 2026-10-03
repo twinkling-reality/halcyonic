@@ -138,7 +138,12 @@ namespace Halcyonic.Client
         /// <summary>Once a frame: what it awaits, as a read, an acknowledgement or a build, is looked at.</summary>
         void Tick();
 
-        /// <summary>Another window took focus, or this column left the plane: an armed confirmation lapses, a review is read again.</summary>
+        /// <summary>
+        /// Another window took focus, or this column left the plane: every armed confirmation lapses, and
+        /// what was read within that arming goes with it, so an approval's request is read again from its
+        /// first part; a review is read again. What was read outside an arming, as a question's parts and
+        /// answers, stays: an answer is still chosen and sent deliberately, in view.
+        /// </summary>
         void FocusLeft();
     }
 }

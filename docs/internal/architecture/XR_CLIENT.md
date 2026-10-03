@@ -1413,7 +1413,10 @@ it held Hold to talk under the question (an answer, drafted) or on Activity (an 
 before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and an
 empty Type my answer row is left off (a typed answer heard through Hold to talk stays as a choice,
 and pressing it opens nothing). The page still keeps that row's room, so an answer heard lands
-without packing the page again. Another window taking focus lapses an armed confirmation. Not yet
+without packing the page again. Another window taking focus lapses every armed confirmation, and
+what was read within that arming goes with it, so an approval's request is read again from its first
+part; what was read outside an arming, as a question's parts and answers, stays, since an answer is
+still chosen and sent deliberately, in view. Not yet
 built: the file's opening out of its character and the light line to it, which the menu's plane
 owns.
 
