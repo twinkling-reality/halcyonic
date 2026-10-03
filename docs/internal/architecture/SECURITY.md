@@ -252,15 +252,20 @@ What a client sees and can do about folders on the host
   system returns them, then sorts the folders among them and keeps 200; a root with more entries is
   marked truncated, and its folders past the first 10,000 entries are not offered.
 - **A root's label** (`label`, beside its folder's own `name`) is that name, or, where another root
-  shares it, the name with a folder above that tells them apart ("Projects (Work)", "Work (drive)"
-  for a drive's own folder in `/Volumes`), or a number where nothing does (`rootLabels`). No two
-  labels read alike once case and compatibility forms are folded, and none holds a path; startup
-  refuses `/`, `/Users` and `/Volumes` as roots (`assessFolder`). A label can change when the roots
-  change, so it is shown, never kept as a choice's identity: a kept choice sends the root's path and
-  reads its label again from the latest listing (`ProjectFolder.Current`), saying a place is gone
-  rather than showing an old label. Labels come from folder names, so they may hold control, bidi or
-  private-use characters; the host leaves them as they are and the headset shows them by `LabelText`'s
-  rule, as it does every name. Projects are named, and look-alikes compared, by `name`.
+  reads the same, the name with folders above that tell them apart, nearest first and written in
+  path order ("Projects (Work)" for `/Volumes/Work/Projects` beside "Projects (person)", or
+  "Projects (Personal, Work)" where one folder above is not enough), or a number where nothing does
+  (`rootLabels`). No two labels read alike once case and compatibility forms are folded; only labels
+  still alike reach further up, a root named by its own folder alone keeps that name, and none holds a
+  path. Startup refuses `/`, `/Users`, `/Volumes` and a whole drive as roots (`assessFolder`). A label
+  can change when the roots change, so it is shown, never kept as a choice's identity: a choice sends
+  the root's path. `ProjectFolder.Current` reads a kept choice's label again from the latest listing,
+  saying a place is gone rather than showing an old label; New project calls it once lane C's wiring
+  lands, and until then a restored draft can show a stale label beside the right path. `label` is
+  optional in the contract, so a headset reads an older host that sends none, showing `name`. Labels
+  come from folder names, so they may hold control, bidi or private-use characters; the host leaves
+  them as they are and the headset shows them by `LabelText`'s rule, as it does every name. Projects
+  are named, and look-alikes compared, by `name`.
 - **What the listing tells about a folder** comes from the folder's own entry and from one name
   inside it, never from a file's contents: whether a `.git` folder or file sits directly inside it
   (`repository`), the newer modification time of the folder and of that `.git` entry
