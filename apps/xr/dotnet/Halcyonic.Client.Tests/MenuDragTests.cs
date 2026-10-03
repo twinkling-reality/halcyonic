@@ -114,6 +114,20 @@ public class MenuDragTests
     }
 
     [Test]
+    public void AStepTheDragsFloorAllowsButTheFieldDoesNotIsNotTaken()
+    {
+        var composition = MenuAndFile();
+        var quest3S = new ViewField(48, 48, 45, 45);
+        // Placed lower than the field holds it, as a plane laid anew at larger text stood: the drag's floor
+        // never lifts it, so it lets the plane stay that low, and only the field's own check refuses it.
+        var low = new PanelDirection(0f, -50f, true, false);
+        Assert.That(MenuPage.Inside(composition, low, quest3S), Is.False);
+        var drag = new MenuDrag(low, (0f, 0f), 0f, -45f, composition, Array.Empty<BodyInView>(), field: quest3S);
+        Assert.That(drag.Follow(3f, -45f), Is.False, "sideways, as low as it is, it stays where it was");
+        Assert.That(drag.Moved, Is.EqualTo((0f, 0f)));
+    }
+
+    [Test]
     public void TurnedWrapsRoundTheEyes()
     {
         var turned = MenuDrag.Turned(new PanelDirection(170f, -20f, true, true), (20f, -2f));

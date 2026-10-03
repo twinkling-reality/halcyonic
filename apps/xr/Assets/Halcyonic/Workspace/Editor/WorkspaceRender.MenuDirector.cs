@@ -92,8 +92,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var targets = characters.ConvertAll(character => character.Target);
                 var state = Projection(characters);
                 var opened = characters[3];
-                // The file's title, which the drag's checks lengthen to make the file taller under a drag.
+                // The file's title, which the drag's checks lengthen to make the file taller under a drag,
+                // and whether it asks its Yes, as a confirmation standing on the plane.
                 var fileTitle = opened.View.Presentation!.Title;
+                var fileConfirming = false;
                 looking = opened.Target.BodyPosition - eyes;
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
@@ -124,8 +126,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         fileHost = host;
                         // The file reads its page height while it is made: against its own character's top line.
                         made = host.PageHeight(1, besideMenu: false);
-                        return file = new StubColumn(() => WaitingFile(fileTitle, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
-                        host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
+                        return file = new StubColumn(() =>
+                        {
+                            var waiting = WaitingFile(fileTitle, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
+                                host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: false));
+                            return fileConfirming ? Confirming(waiting) : waiting;
+                        });
                     },
                     MakeNewProject = host =>
                     {
@@ -212,6 +218,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(DragMenu(name, folder, camera, texture, director, characters, eyes, title =>
                 {
                     fileTitle = title;
+                    file?.Change();
+                }, confirming =>
+                {
+                    fileConfirming = confirming;
                     file?.Change();
                 }));
 
@@ -447,8 +457,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// check a placed one is.
         /// </summary>
         /// <param name="retitle">Gives the file another title, as one in two rows that makes it taller.</param>
+        /// <param name="confirm">Has the file ask its Yes, or not, as a confirmation standing on the plane.</param>
         private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
-            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Action<string> retitle)
+            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Action<string> retitle, Action<bool> confirm)
         {
             var failures = new List<string>();
             var plane = director.Plane;
@@ -468,7 +479,14 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 failures.Add(name + ": the plane turned " + GlazeChecks.Degrees(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) + " degrees with a hand that moved 4.");
             }
-            if (director.Navigator.Act(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null)) failures.Add(name + ": a press counted mid-drag.");
+            // Mid-drag the director takes no press and starts no hold, even where the navigator would.
+            director.Navigator.Drawn(MenuColumn.File, plane.Showing(MenuColumn.File), null);
+            if (director.PressForRender(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null)) failures.Add(name + ": a press counted mid-drag.");
+            var begun = 0;
+            director.VoiceForRender(new MenuVoice(() => false, () => begun++, () => { }, () => { }));
+            var talk = new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true);
+            director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
+            if (begun > 0) failures.Add(name + ": a held prompt started the voice mid-drag.");
             failures.AddRange(DragAllocatesNothing(name, director, step => Turned(held, 4f + (step % 2) * 0.5f, 0f)));
             director.DragSubjectForRender(Turned(held, 4f, 0f));
             director.LetGoForRender();
@@ -476,10 +494,12 @@ namespace Halcyonic.XR.Workspace.Editor
             if (director.Dragging) failures.Add(name + ": let go, the plane still followed the hand.");
             if (!director.MovedByHand) failures.Add(name + ": dragged, the director does not say the person moved the plane, so Settings would not.");
             failures.AddRange(PlaneState(name + " director dragged", folder, camera, texture, plane, characters, eyes, null));
-            if (!director.Navigator.Act(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null))
+            if (!director.PressForRender(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null))
             {
                 failures.Add(name + ": drawn where it was left, the plane took no press.");
             }
+            director.HoldPromptForRender(MenuColumn.File, talk, plane.Showing(MenuColumn.File), null);
+            if (begun != 1) failures.Add(name + ": drawn where it was left, a held prompt started no voice.");
 
             // A redraw keeps it where it was left.
             var left = plane.Direction;
@@ -527,6 +547,32 @@ namespace Halcyonic.XR.Workspace.Editor
             retitle(title);
             director.DrawNow();
 
+            // A confirmation standing on the plane keeps it where it is, held then or pressed then.
+            confirm(true);
+            director.DrawNow();
+            director.HoldSubjectForRender(subject.Subject.position);
+            if (director.Dragging) failures.Add(name + ": held while a confirmation stands, the plane was dragged.");
+            director.LetGoForRender();
+            director.PressSubjectForRender();
+            confirm(false);
+            director.DrawNow();
+            director.MatureHoldForRender(subject.Subject.position);
+            if (director.Dragging) failures.Add(name + ": pressed while a confirmation stood, its hold dragged the plane once it went.");
+            director.LetGoForRender();
+
+            // Focus leaving ends a drag, and so does what stands on the plane changing under it.
+            director.HoldSubjectForRender(subject.Subject.position);
+            if (!director.Dragging) failures.Add(name + ": the file's subject, held, took no hold of the plane.");
+            director.FocusLeftForRender();
+            if (director.Dragging) failures.Add(name + ": focus left, and the drag went on.");
+            director.DrawNow();
+            director.HoldSubjectForRender(subject.Subject.position);
+            director.Navigator.CloseMenu();
+            director.DrawNow();
+            if (director.Dragging) failures.Add(name + ": the menu closed under a drag, and the drag went on.");
+            director.Open(MenuPlace.Tasks);
+            director.DrawNow();
+
             // Reset position places it afresh.
             director.ResetPosition();
             director.DrawNow();
@@ -536,6 +582,12 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             return failures;
         }
+
+        /// <summary>A file asking its Yes on its Send answer: Cancel where Send answer stood, Yes in the free middle.</summary>
+        private static MenuFrame Confirming(MenuFrame waiting) => new MenuFrame(waiting.Subject,
+            Footer.Confirm(waiting.Footer, PromptSlot.FarRight, new Prompt("yes", "Yes, send", GlazeIcon.SendAnswer, PromptKind.Yes),
+                new Prompt("cancel", "Cancel", GlazeIcon.Close, PromptKind.Cancel)),
+            waiting.SubjectIsData, waiting.Pill, waiting.Sections, waiting.Lines, waiting.Source, waiting.Side, waiting.SourceIsData, waiting.SubjectWaits);
 
         /// <summary>
         /// A drag's step allocates nothing in Unity's own runtime, as GC Allocated In Frame counts it, where

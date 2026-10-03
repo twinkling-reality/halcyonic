@@ -111,6 +111,9 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public event Action<MenuColumn, MenuFrame?, Vector3>? SubjectHeld;
 
+        /// <summary>A file's subject was pressed, from a view on the plane: its column and the frame it showed.</summary>
+        public event Action<MenuColumn, MenuFrame?>? SubjectPressed;
+
         /// <summary>While a subject is held: the held point moved, to here in the world.</summary>
         public event Action<Vector3>? SubjectDragged;
 
@@ -177,6 +180,10 @@ namespace Halcyonic.XR.Workspace
             view.SubjectHeld += point =>
             {
                 if (Contains(shown, view)) SubjectHeld?.Invoke(kind, view.Frame, point);
+            };
+            view.SubjectPressed += () =>
+            {
+                if (Contains(shown, view)) SubjectPressed?.Invoke(kind, view.Frame);
             };
             view.SubjectDragged += point => SubjectDragged?.Invoke(point);
             view.SubjectLetGo += () => SubjectLetGo?.Invoke();
