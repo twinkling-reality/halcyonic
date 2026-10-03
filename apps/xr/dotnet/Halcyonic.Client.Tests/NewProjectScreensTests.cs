@@ -301,6 +301,48 @@ public class NewProjectScreensTests
                 Assert.That(words, Does.Not.Contain(brand), words);
         }
     }
+
+    [Test]
+    public void WhereTheKeyboardCantOpenARowThatOnlyTypesIsLeftOffAndOneHoldingWordsStaysAChoice()
+    {
+        static bool Types(MenuFrame frame) => frame.Lines.Any(line =>
+            line.Action is NewProjectScreens.TypeIdea or NewProjectScreens.TypeAnswer or NewProjectScreens.TypeFixedAnswer
+                or NewProjectScreens.TypeTask or NewProjectScreens.TypeWords);
+
+        var blank = new ProjectIdea();
+        var noIdea = NewProjectScreens.YourIdea(blank, IdeaRow.None, startReached: false, voice: true, said: null, keyboard: false);
+        Assert.That(Types(noIdea), Is.False);
+        Assert.That(noIdea.Lines.Any(line => line.Action == NewProjectScreens.ChooseQuestions), Is.True, "the other way to figure it out stays");
+        Assert.That(noIdea.Footer[PromptSlot.Secondary]!.Id, Is.EqualTo(NewProjectScreens.HoldToTalk), "and Hold to talk where offered");
+        blank.UseIdea("A page of race times");
+        var heard = NewProjectScreens.YourIdea(blank, IdeaRow.Typed, startReached: false, voice: true, said: null, keyboard: false)
+            .Lines.Single(line => line.Action == NewProjectScreens.TypeIdea);
+        Assert.That((heard.Words, heard.Chosen), Is.EqualTo(("A page of race times", true)), "words already given stay a choice");
+
+        var asked = Asked(out var exchange);
+        Assert.That(Types(NewProjectScreens.Questions(asked, startReached: false, voice: true, said: null, waitedSeconds: 0, keyboard: false)), Is.False);
+        Assert.That(exchange.Write("Just me", heard: true), Is.True);
+        Assert.That(NewProjectScreens.Questions(asked, startReached: false, voice: true, said: null, waitedSeconds: 0, keyboard: false)
+            .Lines.Single(line => line.Action == NewProjectScreens.TypeAnswer).Chosen, Is.True);
+
+        var guided = new ProjectIdea();
+        guided.BeginGuide();
+        Assert.That(Types(NewProjectScreens.FixedQuestion(guided, startReached: false, voice: true, said: null, keyboard: false)), Is.False);
+        Assert.That(guided.WriteGuideAnswer("A tracker", heard: true), Is.True);
+        Assert.That(NewProjectScreens.FixedQuestion(guided, startReached: false, voice: true, said: null, keyboard: false)
+            .Lines.Single(line => line.Action == NewProjectScreens.TypeFixedAnswer).Chosen, Is.True);
+
+        var task = new ProjectIdea();
+        task.UseIdea("A page of race times");
+        Assert.That(Types(NewProjectScreens.RecapTask(task, startReached: false, keyboard: false)), Is.False);
+        Assert.That(task.Rewrite("List the races by date"), Is.True);
+        Assert.That(NewProjectScreens.RecapTask(task, startReached: false, keyboard: false)
+            .Lines.Single(line => line.Action == NewProjectScreens.TypeTask).Chosen, Is.True);
+
+        var name = NewProjectScreens.Words(task, startReached: false, WordsFor.Name, written: null, heard: false, voice: true, said: null, keyboard: false);
+        Assert.That(Types(name), Is.False);
+        Assert.That(name.Lines.Any(line => line.Words == task.Name && !line.Pressable), Is.True, "the words show, with no row to type them");
+    }
 }
 
 public class NewProjectRecapTests

@@ -564,6 +564,22 @@ public class NewProjectFlowTests
     }
 
     [Test]
+    public void WhereTheKeyboardCantOpenNoRowOpensItAndHeardWordsStayAChoice()
+    {
+        var host = new Host { KeyboardOffered = false };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Assert.That(flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.TypeIdea), Is.False);
+        flow.Heard("A page of race times for my running club");
+        Press(flow, NewProjectScreens.ChooseQuestions, null);
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Assert.That(host.Prompts, Is.Empty, "no keyboard was asked to open");
+        Assert.That(flow.Frame!.Lines.Single(line => line.Action == NewProjectScreens.TypeIdea).Chosen, Is.True, "the heard idea is chosen again");
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+    }
+
+    [Test]
     public void AfterAReconnectMidBuildTheSameFlowSettlesTheStartFromItsRecordAndNeverCreatesTwice()
     {
         var drop = new TaskCompletionSource<CommandAckMessage>();

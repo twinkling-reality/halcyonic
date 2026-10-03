@@ -258,7 +258,12 @@ namespace Halcyonic.Client
         /// Whether the companion can be asked, as the computer said when New project opened (ADR 0025);
         /// null when not read, as in the demonstration.
         /// </param>
-        public static MenuFrame YourIdea(ProjectIdea idea, IdeaRow chosen, bool startReached, bool voice, string? said, CompanionStatus? companion = null)
+        /// <param name="keyboard">
+        /// The system keyboard can open here. Where it can't, as in the editor, a row that only types is
+        /// left off, since it would do nothing; one already holding words, heard or kept, stays as a choice.
+        /// </param>
+        public static MenuFrame YourIdea(ProjectIdea idea, IdeaRow chosen, bool startReached, bool voice, string? said, CompanionStatus? companion = null,
+            bool keyboard = true)
         {
             var existing = idea.ExistingProjectId != null;
             var typed = idea.OwnWords;
@@ -269,15 +274,15 @@ namespace Halcyonic.Client
                 chosen = IdeaRow.None;
             }
             if (chosen == IdeaRow.None) chosen = typed != null ? IdeaRow.Typed : talk ? IdeaRow.Companion : IdeaRow.FixedQuestions;
-            var lines = new List<PageLine>
+            var lines = new List<PageLine> { new PageLine(existing ? EntryText.WorkPrompt : EntryText.IdeaPrompt) };
+            if (keyboard || typed != null)
             {
-                new PageLine(existing ? EntryText.WorkPrompt : EntryText.IdeaPrompt),
-                new PageLine(typed == null ? EntryText.TypeIdea : LabelText.Plain(typed), wordsAreData: typed != null, icon: GlazeIcon.Type,
-                    action: TypeIdea, choice: true, chosen: chosen == IdeaRow.Typed, rows: typed == null ? 1 : 2),
-                talk
-                    ? new PageLine(CompanionText.TalkItThrough, action: ChooseCompanion, choice: true, chosen: chosen == IdeaRow.Companion)
-                    : new PageLine(EntryText.AnswerQuestions, action: ChooseQuestions, choice: true, chosen: chosen == IdeaRow.FixedQuestions),
-            };
+                lines.Add(new PageLine(typed == null ? EntryText.TypeIdea : LabelText.Plain(typed), wordsAreData: typed != null, icon: GlazeIcon.Type,
+                    action: TypeIdea, choice: true, chosen: chosen == IdeaRow.Typed, rows: typed == null ? 1 : 2));
+            }
+            lines.Add(talk
+                ? new PageLine(CompanionText.TalkItThrough, action: ChooseCompanion, choice: true, chosen: chosen == IdeaRow.Companion)
+                : new PageLine(EntryText.AnswerQuestions, action: ChooseQuestions, choice: true, chosen: chosen == IdeaRow.FixedQuestions));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             else if (!existing && companion is UnavailableCompanion unavailable)
             {
@@ -314,8 +319,9 @@ namespace Halcyonic.Client
         /// The demonstration plays this recorded exchange: said so in the source line, only the
         /// recorded answer can be chosen, and Make the recap only where the recording asked for it.
         /// </param>
+        /// <param name="keyboard">The system keyboard can open here; where it can't, Type my answer shows only once it holds words, as a choice.</param>
         public static MenuFrame Questions(ProjectIdea idea, bool startReached, bool voice, string? said, double waitedSeconds,
-            CompanionRecording? recording = null)
+            CompanionRecording? recording = null, bool keyboard = true)
         {
             var exchange = idea.Companion ?? throw new System.ArgumentException("The idea has no exchange with the companion.", nameof(idea));
             var recorded = recording != null;
@@ -355,7 +361,7 @@ namespace Halcyonic.Client
                         chosen: exchange.Chosen == CompanionAnswerRow.Suggestion && exchange.ChosenSuggestion == index,
                         available: recorded ? choices[index] == recordedAnswer : exchange.CanSay, rows: 2));
                 }
-                if (!recorded)
+                if (!recorded && (keyboard || exchange.Written != null))
                 {
                     var written = exchange.Written;
                     lines.Add(new PageLine(written == null ? CompanionText.TypeAnswer : LabelText.Plain(written), wordsAreData: written != null,
@@ -513,7 +519,8 @@ namespace Halcyonic.Client
         /// my own, chosen, for them to check.
         /// </summary>
         /// <param name="said">A line for this page only, such as hold to talk's words or that the task is what the computer heard.</param>
-        public static MenuFrame RecapTask(ProjectIdea idea, bool startReached, bool voice = false, string? said = null)
+        /// <param name="keyboard">The system keyboard can open here; where it can't, Type my own shows only once it holds the task, as a choice.</param>
+        public static MenuFrame RecapTask(ProjectIdea idea, bool startReached, bool voice = false, string? said = null, bool keyboard = true)
         {
             var proposal = idea.Companion?.Proposal?.Proposal;
             var lines = new List<PageLine> { new PageLine(EntryText.FirstTask, tone: LineTone.Secondary) };
@@ -528,8 +535,11 @@ namespace Halcyonic.Client
                     chosen: !idea.TaskSuggested && idea.FirstTask == idea.OwnWords, rows: 3));
             }
             var typed = !idea.TaskSuggested && idea.FirstTask != idea.OwnWords;
-            lines.Add(new PageLine(typed ? LabelText.Plain(idea.FirstTask) : EntryText.TypeMyOwn, wordsAreData: typed, icon: GlazeIcon.Type,
-                action: TypeTask, choice: true, chosen: typed, rows: typed ? 3 : 1));
+            if (keyboard || typed)
+            {
+                lines.Add(new PageLine(typed ? LabelText.Plain(idea.FirstTask) : EntryText.TypeMyOwn, wordsAreData: typed, icon: GlazeIcon.Type,
+                    action: TypeTask, choice: true, chosen: typed, rows: typed ? 3 : 1));
+            }
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
             var (subject, isData) = Subject(idea);
@@ -673,7 +683,8 @@ namespace Halcyonic.Client
         /// composing the first task. Coming back to a question finds its answer chosen. The note that
         /// these are fixed questions, not an AI, is the source line.
         /// </summary>
-        public static MenuFrame FixedQuestion(ProjectIdea idea, bool startReached, bool voice, string? said)
+        /// <param name="keyboard">The system keyboard can open here; where it can't, the typed answer's row shows only once it holds words, as a choice.</param>
+        public static MenuFrame FixedQuestion(ProjectIdea idea, bool startReached, bool voice, string? said, bool keyboard = true)
         {
             if (idea.Question >= ProjectIdea.Questions.Count) throw new System.ArgumentException("Every fixed question is answered.", nameof(idea));
             var question = ProjectIdea.Questions[idea.Question];
@@ -687,8 +698,11 @@ namespace Halcyonic.Client
                     chosen: stands == choices[index]));
             }
             var written = idea.GuideWritten ?? (stands != null && !choices.Contains(stands) ? stands : null);
-            lines.Add(new PageLine(written == null ? question.TypeLabel : LabelText.Plain(written), wordsAreData: written != null, icon: GlazeIcon.Type,
-                action: TypeFixedAnswer, choice: true, chosen: written != null && stands == written, rows: written == null ? 1 : 2));
+            if (keyboard || written != null)
+            {
+                lines.Add(new PageLine(written == null ? question.TypeLabel : LabelText.Plain(written), wordsAreData: written != null, icon: GlazeIcon.Type,
+                    action: TypeFixedAnswer, choice: true, chosen: written != null && stands == written, rows: written == null ? 1 : 2));
+            }
             if (question.SkipLabel != null) lines.Add(new PageLine(question.SkipLabel, action: SkipFixedQuestion, choice: true, chosen: idea.GuideSkipChosen));
             if (idea.GuideWrittenHeard && written != null && stands == written) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
@@ -718,8 +732,9 @@ namespace Halcyonic.Client
         /// <param name="written">The words given on this page, typed or heard, not yet kept; null for none yet.</param>
         /// <param name="heard"><paramref name="written"/> is what the computer heard, for the person to check.</param>
         /// <param name="root">For a new folder, the place it goes in.</param>
+        /// <param name="keyboard">The system keyboard can open here; where it can't, the words show without a row to type them, and none shows before there are any.</param>
         public static MenuFrame Words(ProjectIdea idea, bool startReached, WordsFor what, string? written, bool heard, bool voice, string? said,
-            LocationRoot? root = null)
+            LocationRoot? root = null, bool keyboard = true)
         {
             if (what == WordsFor.FolderName && root == null) throw new System.ArgumentException("A new folder goes in a place.", nameof(root));
             var current = what switch
@@ -745,9 +760,13 @@ namespace Halcyonic.Client
                     WordsFor.FirstTask => EntryText.FirstTask,
                     _ => EntryText.NewFolderIn(root!),
                 }, wordsAreData: what == WordsFor.FolderName),
-                new PageLine(shown ?? (what == WordsFor.FirstTask ? EntryText.TypeMyOwn : EntryText.TypeName), wordsAreData: shown != null,
-                    icon: GlazeIcon.Type, action: TypeWords, choice: true, chosen: shown != null && written != null, rows: what == WordsFor.FirstTask ? 4 : 1),
             };
+            if (keyboard)
+            {
+                lines.Add(new PageLine(shown ?? (what == WordsFor.FirstTask ? EntryText.TypeMyOwn : EntryText.TypeName), wordsAreData: shown != null,
+                    icon: GlazeIcon.Type, action: TypeWords, choice: true, chosen: shown != null && written != null, rows: what == WordsFor.FirstTask ? 4 : 1));
+            }
+            else if (shown != null) lines.Add(new PageLine(shown, wordsAreData: true, rows: what == WordsFor.FirstTask ? 4 : 1));
             if (heard && written != null) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
