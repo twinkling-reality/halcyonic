@@ -1,4 +1,4 @@
-import { type ChildProcess, execFile, spawn } from 'node:child_process';
+import { type ChildProcess, type ExecFileException, execFile, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
@@ -205,7 +205,7 @@ export async function launchServer(options: LaunchOptions): Promise<CodexServer>
       `Could not start Codex at ${options.binaryPath}: ${error.message}`,
     );
   }
-  const errorOutput = collectTail(child);
+  drainErrorOutput(child);
   const rpc = new RpcConnection(child.stdout, child.stdin, options.handlers);
   const server = new CodexServer(child, pid, rpc, options.recordFile);
   try {
@@ -226,8 +226,8 @@ export async function launchServer(options: LaunchOptions): Promise<CodexServer>
     throw new RuntimeActionError(
       'runtime_unavailable',
       status === null
-        ? `Could not start Codex: ${error instanceof Error ? error.message : String(error)}${errorOutput()}`
-        : `Codex exited during startup (${describeExit(status)}).${errorOutput()}`,
+        ? `Could not start Codex: ${sentence(error instanceof Error ? error.message : String(error))}${UNREPORTED}`
+        : `Codex exited during startup (${describeExit(status)}).${UNREPORTED}`,
     );
   }
 }
@@ -246,7 +246,8 @@ function readVersion(options: LaunchOptions, timeoutMs: number): Promise<string>
           reject(
             new RuntimeActionError(
               'runtime_unavailable',
-              `Could not read the version of the Codex binary at ${options.binaryPath}${error === null ? '' : `: ${error.message}`}`,
+              // Never the error's message, which carries what the command printed to its error output.
+              `Could not read the version of the Codex binary at ${options.binaryPath}${error === null ? '' : ` (${describeFailure(error)})`}.${UNREPORTED}`,
             ),
           );
         }
@@ -283,17 +284,28 @@ export function describeExit(status: ExitStatus): string {
   return status.signal === null ? `exit code ${status.code}` : `signal ${status.signal}`;
 }
 
-function collectTail(child: ChildProcess): () => string {
-  let tail = '';
-  child.stderr?.setEncoding('utf8');
-  child.stderr?.on('data', (chunk: string) => {
-    tail = (tail + chunk).slice(-2000);
-  });
+/** Text that ends as one sentence does, with a single full stop. */
+const sentence = (text: string) => text.replace(/[.\s]*$/, '.');
+
+/** How a command that ran failed: its exit code or signal, or the error that kept it from running. */
+function describeFailure(error: ExecFileException): string {
+  if (error.signal) return `signal ${error.signal}`;
+  if (typeof error.code === 'number') return `exit code ${error.code}`;
+  return typeof error.code === 'string' ? error.code : 'it did not run';
+}
+
+/**
+ * What a failure says of Codex's error output, which is drained and never kept: it may hold
+ * secrets, such as a key that verbose logging or a configuration error prints, and a failure is
+ * journaled and shown on every device.
+ */
+const UNREPORTED =
+  ' Its error output is not reported, since it may hold secrets; run the Codex binary with app-server in a terminal on the Mac to see it.';
+
+/** Reads the server's error output to its end without keeping any of it, so it never blocks on a full pipe. */
+function drainErrorOutput(child: ChildProcess): void {
   child.stderr?.on('error', () => undefined);
-  return () => {
-    const text = tail.trim();
-    return text === '' ? '' : ` Its error output ended with: ${text}`;
-  };
+  child.stderr?.resume();
 }
 
 function signalGroup(pid: number, name: NodeJS.Signals): void {

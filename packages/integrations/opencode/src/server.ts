@@ -192,7 +192,7 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
       `Could not start OpenCode at ${options.binaryPath}: ${error.message}`,
     );
   }
-  const errorOutput = collectTail(child, password);
+  drainErrorOutput(child);
   const server = new OpenCodeServer(
     child,
     pid,
@@ -203,7 +203,7 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
     const record = await identify(server, options.binaryPath, port);
     await writeServerRecord(options.recordFile, record);
     server.watch(record);
-    await waitUntilReady(server, options, errorOutput);
+    await waitUntilReady(server, options);
     return server;
   } catch (error) {
     const status = server.exitStatus;
@@ -212,8 +212,8 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
     throw new RuntimeActionError(
       'runtime_unavailable',
       status === null
-        ? `Could not start OpenCode: ${error instanceof Error ? error.message : String(error)}`
-        : `OpenCode exited during startup (${describeExit(status)}).${errorOutput()}`,
+        ? `Could not start OpenCode: ${sentence(error instanceof Error ? error.message : String(error))}${UNREPORTED}`
+        : `OpenCode exited during startup (${describeExit(status)}).${UNREPORTED}`,
     );
   }
 }
@@ -241,18 +241,14 @@ async function identify(
   throw new Error(`could not confirm with ps that process ${server.pid} runs ${binaryPath}`);
 }
 
-async function waitUntilReady(
-  server: OpenCodeServer,
-  options: LaunchOptions,
-  errorOutput: () => string,
-): Promise<void> {
+async function waitUntilReady(server: OpenCodeServer, options: LaunchOptions): Promise<void> {
   const deadline = Date.now() + options.startupTimeoutMs;
   while (Date.now() < deadline) {
     const status = server.exitStatus;
     if (status !== null) {
       throw new RuntimeActionError(
         'runtime_unavailable',
-        `OpenCode exited during startup (${describeExit(status)}).${errorOutput()}`,
+        `OpenCode exited during startup (${describeExit(status)}).${UNREPORTED}`,
       );
     }
     let response: { status: number; body: unknown } | null = null;
@@ -277,7 +273,7 @@ async function waitUntilReady(
   }
   throw new RuntimeActionError(
     'runtime_unavailable',
-    `OpenCode did not become ready within ${options.startupTimeoutMs} ms.${errorOutput()}`,
+    `OpenCode did not become ready within ${options.startupTimeoutMs} ms.${UNREPORTED}`,
   );
 }
 
@@ -302,17 +298,21 @@ export function describeExit(status: ExitStatus): string {
   return status.signal === null ? `exit code ${status.code}` : `signal ${status.signal}`;
 }
 
-function collectTail(child: ChildProcess, password: string): () => string {
-  let tail = '';
-  child.stderr?.setEncoding('utf8');
-  child.stderr?.on('data', (chunk: string) => {
-    tail = (tail + chunk).slice(-2000);
-  });
+/** Text that ends as one sentence does, with a single full stop. */
+const sentence = (text: string) => text.replace(/[.\s]*$/, '.');
+
+/**
+ * What a failure says of OpenCode's error output, which is drained and never kept: it may hold
+ * secrets, such as a provider's key in a configuration error, and a failure is journaled and shown
+ * on every device.
+ */
+const UNREPORTED =
+  ' Its error output is not reported, since it may hold secrets; run the OpenCode binary with serve in a terminal on the Mac to see it.';
+
+/** Reads the server's error output to its end without keeping any of it, so it never blocks on a full pipe. */
+function drainErrorOutput(child: ChildProcess): void {
   child.stderr?.on('error', () => undefined);
-  return () => {
-    const text = tail.split(password).join('<redacted>').trim();
-    return text === '' ? '' : ` Its error output ended with: ${text}`;
-  };
+  child.stderr?.resume();
 }
 
 async function freeLoopbackPort(): Promise<number> {
