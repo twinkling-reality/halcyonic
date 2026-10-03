@@ -487,9 +487,11 @@ namespace Halcyonic.XR.Workspace
                 var up = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
                 for (var index = 0; index < standing.Count; index++)
                 {
-                    var (body, label, _) = standing[index];
+                    var (body, label, own) = standing[index];
                     if (OnLabel(label, eyes, point)) return true;
-                    if (Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
+                    // The file's own body is where the line starts over a desk, so only the others count.
+                    if (!own && Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees
+                        && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
                 }
             }
             return false;
