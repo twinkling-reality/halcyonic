@@ -456,4 +456,45 @@ describe("the secrets taken out of a runtime's text", () => {
       'connect postgres://[redacted: DATABASE_URL]@db:5432/app failed',
     );
   });
+
+  test('hold escaped, comma-holding, command-line and more-keyed secrets, and never an absolute path', () => {
+    const random = 'q7Xk2pLm9vRt4wZb8nHc';
+    const environment = {
+      ...HOST,
+      SERVICE_JSON: '{"password": "pa\\"ss12345word", "user": "app"}',
+      DB_OPTIONS: 'password=pa,ss12345word;user=app,role=admin',
+      SERVICE_KEYS:
+        'api_key=api-value-111 apikey=api-value-222 access_key=acc-value-333 passphrase=phrase-value-444 credentials=cred-value-555',
+      BLOB_URL: 'https://acct.blob.core.windows.net/c?sv=2022-11-02&sp=r&sig=abc%2Bdef123456',
+      SERVICE_CONFIG: `{"api_key": "${random}"}`,
+      CLIENT_CONFIG: `{"client": "${random}x"}`,
+      TOOL_ARGS: "mysql --host db --password hunter2pass --api-key 'k3y-value-123' --user app",
+      ENV_FILE: 'PWD=/Users/me/project; HOME=/Users/me',
+      SSH_AUTH_SOCK: '/private/tmp/com.apple.launchd.abc/Listeners',
+    };
+    const config = loadConfig({
+      ...HOST,
+      HALCYONIC_AGENT_ENV: Object.keys(environment).slice(2).join(','),
+    });
+    const dataDir = join(base, 'more-keyed');
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    // A project's path and an agent socket's name places, never secrets.
+    assert.deepEqual(held.slice(1), [
+      { what: 'SERVICE_JSON', value: 'pa\\"ss12345word' },
+      { what: 'SERVICE_JSON', value: 'pa"ss12345word' },
+      { what: 'DB_OPTIONS', value: 'pa,ss12345word' },
+      { what: 'SERVICE_KEYS', value: 'api-value-111' },
+      { what: 'SERVICE_KEYS', value: 'api-value-222' },
+      { what: 'SERVICE_KEYS', value: 'acc-value-333' },
+      { what: 'SERVICE_KEYS', value: 'phrase-value-444' },
+      { what: 'SERVICE_KEYS', value: 'cred-value-555' },
+      { what: 'BLOB_URL', value: 'abc%2Bdef123456' },
+      { what: 'BLOB_URL', value: 'abc+def123456' },
+      { what: 'SERVICE_CONFIG', value: random },
+      { what: 'CLIENT_CONFIG', value: `${random}x` },
+      { what: 'TOOL_ARGS', value: 'hunter2pass' },
+      { what: 'TOOL_ARGS', value: 'k3y-value-123' },
+    ]);
+  });
 });

@@ -180,31 +180,51 @@ const VALUE_PARTS = /[\s:,;=]+/;
  */
 const URL_USERINFO = /\b[a-z][a-z0-9+.-]{0,31}:\/\/([^\s/?#]+)@/gi;
 
-/**
- * A value given to a password, secret or token key, as a connection string or a query gives it:
- * `password=…`, `Pwd: …`, `client_secret=…`, `"token": "…"`, quoted or up to `&`, `;`, `,` or a
- * space.
- */
-const KEYED_SECRET =
-  /(?<![A-Za-z0-9])[A-Za-z0-9_.-]{0,32}?(?:password|passwd|pwd|secret|token)["']?\s*[=:]\s*("[^"]*"|'[^']*'|[^\s&;,"']+)/gi;
+/** The keys whose values are secrets, as a connection string, a query, JSON or a command names them. */
+const SECRET_KEY =
+  '(?:password|passwd|pwd|passphrase|secret|token|api[_-]?key|access[_-]?key|credentials?|sig)';
 
-/** A password, as written and, where it is percent-encoded, decoded. */
-function asWrittenAndDecoded(password: string): string[] {
-  try {
-    const decoded = decodeURIComponent(password);
-    return decoded === password ? [password] : [password, decoded];
-  } catch {
-    // Not percent-encoded as written: the password as written is held.
-    return [password];
+/** A quoted value, escaped quotes and all. */
+const QUOTED = `"(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*'`;
+
+/**
+ * A value given to a secret's key, as a connection string, a query or JSON gives it: `password=…`,
+ * `Pwd: …`, `client_secret=…`, `"api_key": "…"`, an Azure SAS's `sig=…`. Quoted, or up to `&`,
+ * `;`, whitespace or a quote, a comma in it ending it only before another key.
+ */
+const KEYED_SECRET = new RegExp(
+  `(?<![A-Za-z0-9])[A-Za-z0-9_.-]{0,32}?${SECRET_KEY}["']?\\s*[=:]\\s*(${QUOTED}|[^\\s&;,"']+(?:,(?![A-Za-z_][A-Za-z0-9_.-]*\\s*[=:])[^\\s&;,"']+)*)`,
+  'gi',
+);
+
+/** A value given to a secret's command-line option: `--password value`, `--api-key "…"`. */
+const OPTION_SECRET = new RegExp(
+  `(?<![A-Za-z0-9-])--?[A-Za-z0-9_.-]{0,32}?${SECRET_KEY}\\s+(${QUOTED}|[^\\s"']+)`,
+  'gi',
+);
+
+/** A value as written, and without its quotes, escapes and percent-encoding where it has them. */
+function asWritten(given: string): string[] {
+  const quoted = /^(["']).*\1$/s.test(given);
+  const inner = quoted ? given.slice(1, -1) : given;
+  const forms = [inner];
+  if (quoted) forms.push(inner.replace(/\\(.)/g, '$1'));
+  for (const form of [...forms]) {
+    try {
+      forms.push(decodeURIComponent(form));
+    } catch {
+      // Not percent-encoded as written: the form as written is held.
+    }
   }
+  return [...new Set(forms)].filter((form) => form !== '');
 }
 
 /**
- * The secrets in a value's URLs and connection strings, however they look: each URL's password,
- * as written and decoded, and `user:password`, a user alone only when it reads as a credential, as
- * a token in `https://token@host`; and each value given to a password, secret or token key.
+ * The secrets within a value, however they look: each URL's password and `user:password`, a user
+ * alone only when it reads as a credential, as a token in `https://token@host`; each value given to
+ * a secret's key; and each value given to a secret's command-line option.
  */
-function urlSecrets(value: string): string[] {
+function secretsWithin(value: string): string[] {
   const found: string[] = [];
   for (const [, userinfo = ''] of value.matchAll(URL_USERINFO)) {
     const colon = userinfo.indexOf(':');
@@ -214,13 +234,20 @@ function urlSecrets(value: string): string[] {
     }
     const password = userinfo.slice(colon + 1);
     if (password === '') continue;
-    found.push(userinfo, ...asWrittenAndDecoded(password));
+    found.push(userinfo, ...asWritten(password));
   }
-  for (const [, given = ''] of value.matchAll(KEYED_SECRET)) {
-    const unquoted = /^(["']).*\1$/.test(given) ? given.slice(1, -1) : given;
-    if (unquoted !== '') found.push(...asWrittenAndDecoded(unquoted));
+  for (const pattern of [KEYED_SECRET, OPTION_SECRET]) {
+    for (const [, given = ''] of value.matchAll(pattern)) found.push(...asWritten(given));
   }
   return found;
+}
+
+/** A path from the root or home, which names a place, never a secret: `PWD=/Users/me/project`. */
+const ABSOLUTE_PATH = /^(?:\/|~\/|[A-Za-z]:[\\/])/;
+
+/** A part of a value without the quotes and brackets around it: `"q7Xk…"}` reads as `q7Xk…`. */
+function bare(part: string): string {
+  return part.replace(/^["'([{<]+|["')\]}>]+$/g, '');
 }
 
 /** Whether a variable's name reads as a secret's: one of its words is in SECRET_WORDS. */
@@ -237,8 +264,8 @@ export function secretName(name: string): boolean {
  * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
  * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
  * themselves, each part of one that reads as a credential by itself, as the value of a header in
- * `Name: value`, and the password in any URL or connection string in one, all under their
- * variable's name. An address or a region passed to agents, such as
+ * `Name: value`, and the password in any URL, connection string or command line in one, all under
+ * their variable's name; never an absolute path, which names a place. An address or a region passed to agents, such as
  * ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
  * since a server's password changes with each launch and a credential when it is replaced; a file
  * that can't be read gives nothing. Device credentials are kept only as hashes, so their shape is
@@ -254,10 +281,17 @@ export function heldSecrets(
     passThrough(config.agentEnvironment, dependencies.environment),
   ).flatMap(([name, value]) =>
     [
-      ...(secretName(name) || looksLikeCredential(value) ? [value] : []),
-      ...value.split(VALUE_PARTS).filter((part) => part !== value && looksLikeCredential(part)),
-      ...urlSecrets(value),
-    ].map((held) => ({ what: name, value: held })),
+      ...new Set([
+        ...(secretName(name) || looksLikeCredential(value) ? [value] : []),
+        ...value
+          .split(VALUE_PARTS)
+          .map(bare)
+          .filter((part) => part !== value && looksLikeCredential(part)),
+        ...secretsWithin(value),
+      ]),
+    ]
+      .filter((held) => !ABSOLUTE_PATH.test(held.trim()))
+      .map((held) => ({ what: name, value: held })),
   );
   return () => {
     let anthropic: string | undefined;
