@@ -5511,7 +5511,6 @@
       "required": [
         "path",
         "name",
-        "label",
         "status",
         "repository",
         "changed_at",

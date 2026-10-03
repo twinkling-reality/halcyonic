@@ -541,34 +541,36 @@ function cut(text: string, limit: number): string {
 }
 
 /**
- * Each root's name for people, by its real path: its folder's own name, or, where that name is
- * another root's too, the name with a folder above it that tells them apart, as "Projects (Work)"
- * beside "Projects (person)". A root directly inside `/Volumes`, a drive, says "(drive)". The nearest
- * folder above is tried first, and one further up only for the roots still alike; where nothing above
- * tells them apart, a number does, "Projects (old) 2", in the order of their paths. Every label differs
- * from every other once case and compatibility forms are folded, so no two roots ever read the same.
+ * Each root's name for people, by its real path, unlike every other root's once case and
+ * compatibility forms are folded: its folder's own name, or, where another root's name or label
+ * reads the same, the name with folders above it that tell them apart, nearest first, written in
+ * path order: "Projects (Work)" beside "Projects (person)", or "Projects (Personal, Work)" where one
+ * folder above is not enough. Only labels still alike reach further up, so a label that already
+ * stands apart stays as it is; a root named by its own folder alone keeps that name against a label
+ * made to look like it. Where nothing above tells roots apart, a number does, "Projects (old) 2".
  * Never a path; the same path, configured twice, is one root with one name.
  */
 export function rootLabels(paths: readonly string[]): Map<string, string> {
   const unique = [...new Set(paths)].sort();
-  const segments = new Map(
-    unique.map((path) => [path, path.split(sep).filter((part) => part.length > 0)]),
+  const ancestors = new Map(
+    unique.map((path) => [
+      path,
+      path
+        .split(sep)
+        .filter((part) => part.length > 0)
+        .slice(0, -1)
+        .reverse(),
+    ]),
   );
-  const above = (path: string, depth: number): string | null => {
-    const parts = segments.get(path) ?? [];
-    const index = parts.length - 1 - depth;
-    if (index < 0) return null;
-    // A drive's own folder sits in /Volumes, which says nothing a person knows it by.
-    if (depth === 1 && parts.length === 2 && parts[0] === 'Volumes') return 'drive';
-    return parts[index] ?? null;
-  };
   const labelled = (path: string, depth: number): string => {
     const name = nameOf(path);
-    const parent = depth === 0 ? null : above(path, depth);
-    if (parent === null || name.length + 5 > MAX_LABEL) return cut(name, MAX_LABEL);
-    return `${name} (${cut(parent, MAX_LABEL - name.length - 3)})`;
+    if (depth === 0 || name.length + 5 > MAX_LABEL) return cut(name, MAX_LABEL);
+    const above = (ancestors.get(path) ?? []).slice(0, depth).reverse().join(', ');
+    return `${name} (${cut(above, MAX_LABEL - name.length - 3)})`;
   };
-  const groups = (labels: Map<string, string>): string[][] => {
+  const labels = new Map(unique.map((path) => [path, labelled(path, 0)]));
+  const depthOf = new Map(unique.map((path) => [path, 0]));
+  const clashes = (): string[][] => {
     const byLabel = new Map<string, string[]>();
     for (const [path, label] of labels) {
       const key = folded(label);
@@ -576,18 +578,15 @@ export function rootLabels(paths: readonly string[]): Map<string, string> {
     }
     return [...byLabel.values()].filter((same) => same.length > 1);
   };
-  const labels = new Map(unique.map((path) => [path, labelled(path, 0)]));
-  const depthOf = new Map(unique.map((path) => [path, 0]));
-  for (let round = 0; round < 64; round += 1) {
-    const movable: string[] = [];
-    for (const same of groups(labels)) {
-      // A root named by its own folder alone keeps it: only a label made from a folder above moves on,
-      // unless every root that reads alike is named by its own folder.
-      const made = same.filter((path) => (depthOf.get(path) ?? 0) > 0);
-      const moving = made.length > 0 && made.length < same.length ? made : same;
-      // Only roots that still have a folder above to name go a level up.
-      movable.push(...moving.filter((path) => above(path, (depthOf.get(path) ?? 0) + 1) !== null));
-    }
+  // A root alone in reading as its own folder's name keeps it; every other root alike moves up.
+  const moving = (same: string[]): string[] => {
+    const own = same.filter((path) => (depthOf.get(path) ?? 0) === 0);
+    return own.length === 1 ? same.filter((path) => path !== own[0]) : same;
+  };
+  for (let round = 0; round < 256; round += 1) {
+    const movable = clashes()
+      .flatMap(moving)
+      .filter((path) => (depthOf.get(path) ?? 0) < (ancestors.get(path) ?? []).length);
     if (movable.length === 0) break;
     for (const path of movable) {
       const depth = (depthOf.get(path) ?? 0) + 1;
@@ -595,20 +594,19 @@ export function rootLabels(paths: readonly string[]): Map<string, string> {
       labels.set(path, labelled(path, depth));
     }
   }
-  // Whatever still reads alike is told apart by a number, the first by path keeping its label.
-  const clash = new Set(groups(labels).flat());
-  const seen = new Set<string>();
-  for (const path of unique.filter((each) => clash.has(each))) {
-    const label = labels.get(path) ?? nameOf(path);
-    if (!seen.has(folded(label))) {
-      seen.add(folded(label));
-      continue;
+  // Whatever still reads alike, with nothing further up to tell it apart, gets a number: an own name
+  // keeps its label, else the first by path does.
+  for (const same of clashes()) {
+    const own = same.filter((path) => (depthOf.get(path) ?? 0) === 0);
+    const keeper = own.length === 1 ? own[0] : same[0];
+    for (const path of same.filter((each) => each !== keeper)) {
+      const label = labels.get(path) ?? nameOf(path);
+      const taken = new Set([...labels.values()].map(folded));
+      let count = 2;
+      const numbered = () => `${cut(label, MAX_LABEL - String(count).length - 1)} ${count}`;
+      while (taken.has(folded(numbered()))) count += 1;
+      labels.set(path, numbered());
     }
-    const taken = new Set([...labels.values()].map(folded));
-    let count = 2;
-    const numbered = () => `${cut(label, MAX_LABEL - String(count).length - 1)} ${count}`;
-    while (taken.has(folded(numbered()))) count += 1;
-    labels.set(path, numbered());
   }
   return labels;
 }
