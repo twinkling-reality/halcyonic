@@ -17,8 +17,23 @@ export const PACKAGE = 'com.halcyonic.xr';
 export const ACTIVITY = `${PACKAGE}/com.unity3d.player.UnityPlayerGameActivity`;
 
 export async function adb(...args: string[]): Promise<string> {
-  const { stdout } = await run(ADB, args, { maxBuffer: 16 * 1024 * 1024, timeout: 20_000 });
-  return stdout;
+  try {
+    const { stdout } = await run(ADB, args, { maxBuffer: 16 * 1024 * 1024, timeout: 20_000 });
+    return stdout;
+  } catch (error) {
+    // Never the error itself: it carries everything adb printed, which can name the headset or
+    // hold what was read from it, and an unhandled one is printed whole.
+    const failed = error as { code?: unknown; signal?: unknown };
+    const how =
+      typeof failed.code === 'number'
+        ? `exit code ${failed.code}`
+        : typeof failed.signal === 'string'
+          ? `signal ${failed.signal}`
+          : typeof failed.code === 'string'
+            ? failed.code
+            : 'it did not run';
+    throw new Error(`adb ${args.slice(0, 2).join(' ')} failed (${how})`);
+  }
 }
 
 /** What adb printed, standard output and error together, also when the command failed, as `stat` of a missing file does. */
