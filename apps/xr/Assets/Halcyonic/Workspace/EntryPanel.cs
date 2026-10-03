@@ -5,19 +5,18 @@ using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
-using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace
 {
     /// <summary>
     /// The one foreground panel for entering work, opened from the project rail: the welcome on the
-    /// first live visit, Connect projects, More tasks, and Create a project (in
-    /// <c>EntryPanel.Create.cs</c>). Each screen is a <see cref="PanelModel"/> from
-    /// <see cref="EntryScreens"/>, drawn by a <see cref="PanelFrame"/> at touch distance (ADR 0023),
-    /// and it opens where a workspace would, clear of every character and label
-    /// (<see cref="WorkspaceLayout.PlaceForeground"/>), so running work stays in view and keeps
-    /// updating while the person chooses or creates.
+    /// first live visit, Connect projects and More tasks. Creating is New project's, on the menu
+    /// (<see cref="NewProjectFlow"/>, ADR 0026), and nothing here sends a command. Each screen is a
+    /// <see cref="PanelModel"/> from <see cref="EntryScreens"/>, drawn by a <see cref="PanelFrame"/>
+    /// at touch distance (ADR 0023), and it opens where a workspace would, clear of every character
+    /// and label (<see cref="WorkspaceLayout.PlaceForeground"/>), so running work stays in view and
+    /// keeps updating while the person chooses.
     /// </summary>
     /// <remarks>
     /// One foreground surface at a time: opening the panel collapses an open workspace, and a
@@ -26,7 +25,7 @@ namespace Halcyonic.XR.Workspace
     /// the panel to the right, the left and back to where it opened, and, held, moves it with the
     /// hand (<see cref="PanelDrag"/>), never while a confirmation is armed; Reset position puts the panel
     /// and the rail in front of where the person faces now. Every button ignores input while the app
-    /// lacks focus, and nothing here is sent until the person confirms Start building.
+    /// lacks focus.
     /// </remarks>
     public sealed partial class EntryPanel : MonoBehaviour
     {
@@ -34,14 +33,11 @@ namespace Halcyonic.XR.Workspace
         private const string WelcomedPreference = "halcyonic.entry.welcomed";
 
         private readonly List<BodyInView> scratch = new List<BodyInView>();
-        private readonly AttentionWatch watch = new AttentionWatch();
         private ControlPlaneConnection? connection;
         private WorkspaceDirector? director;
         private ProjectRail? rail;
-        private CommandFactory commands = null!;
 
-        // Where the panel reads what it shows: the session, or, for the editor's renders, a state given as it is.
-        private Func<ClientProjection?> state = () => null;
+        // Where the panel reads what it shows: the session, or, for the editor's renders, what was given as it is.
         private Func<bool> connected = () => false;
         private Func<string?> demonstration = () => null;
         private Func<WorkOverview?> overview = () => null;
@@ -59,10 +55,7 @@ namespace Halcyonic.XR.Workspace
         private PanelDrag? drag;
         private Vector3 dragEyes;
         private float dragDistance;
-        private WorkstreamView? offered;
         private float nextRefresh;
-        private TouchScreenKeyboard? keyboard;
-        private Action<string>? typed;
 
         /// <summary>What the panel shows.</summary>
         public enum Screen
@@ -70,14 +63,6 @@ namespace Halcyonic.XR.Workspace
             Welcome,
             Connect,
             MoreWork,
-            CreateStart,
-            Guide,
-            Recap,
-            Options,
-            Folder,
-            Review,
-            Sending,
-            Previous,
         }
 
         /// <summary>The panel shows now.</summary>
@@ -89,12 +74,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The frame drawing the screen, for the editor's checks.</summary>
         public PanelFrame Frame => frame;
 
-        /// <summary>The labels showing the whole request's items on the page showing, top to bottom, for the editor's checks.</summary>
-        public IReadOnlyList<TextMeshPro> RequestLabels => reviewLabels.Where(label => label.gameObject.activeSelf).ToList();
-
         /// <summary>Every label and button showing now, for the editor's checks that each shows what it was given, whole.</summary>
-        public IEnumerable<Component> ShownParts =>
-            frame.Buttons.Cast<Component>().Concat(frame.Labels).Concat(reviewLabels.Where(label => label.gameObject.activeSelf));
+        public IEnumerable<Component> ShownParts => frame.Buttons.Cast<Component>().Concat(frame.Labels);
 
         /// <summary>
         /// Builds a panel that shows <paramref name="shownState"/> and <paramref name="shownOverview"/>
@@ -107,33 +88,14 @@ namespace Halcyonic.XR.Workspace
             var go = new GameObject("Entry panel render");
             go.transform.SetParent(parent, false);
             var panel = go.AddComponent<EntryPanel>();
-            panel.Build(() => shownState, () => true, () => null, () => shownOverview, () => shownCharacters, () => surfaceHeight);
-            panel.now = () => panel.renderSeconds;
+            // The screens read the overview counted from the state, never the state itself.
+            panel.Build(() => true, () => null, () => shownOverview, () => shownCharacters, () => surfaceHeight);
             return panel;
         }
 
-        /// <summary>
-        /// Shows a screen for the editor's renders, with the creation draft given, and the work that
-        /// came to need the person while creating, if any, in the banner.
-        /// </summary>
-        public void ShowForRender(Screen shown, ProjectIdea? shownIdea = null, NewWorkDraft? shownDraft = null, BuildSequence? shownSequence = null,
-            ClientProjection? before = null, string? unresolvedCommand = null, LocationsResponse? listing = null)
+        /// <summary>Shows a screen for the editor's renders.</summary>
+        public void ShowForRender(Screen shown)
         {
-            rendering = true;
-            locations = listing;
-            locationsProblem = null;
-            idea = shownIdea;
-            if (shownDraft != null) draft = shownDraft;
-            sequence = shownSequence;
-            kept = new KeptForRender { Id = unresolvedCommand };
-            ownId = null;
-            confirmingStartOver = false;
-            notice = null;
-            if (shownIdea != null && shown == Screen.Review) StartBuilding();
-            showModels = shown == Screen.Options && draft.Runtime?.ModelChoice == ModelChoice.Listed;
-            // What already waited when the screen opened is not news; only the needs-you render brings some.
-            var now = before ?? state();
-            if (now != null) watch.Begin(now);
             screen = shown;
             visible = true;
             side = 0;
@@ -143,27 +105,14 @@ namespace Halcyonic.XR.Workspace
             Layout();
         }
 
-        /// <summary>The whole request shown for review, for the editor's renders.</summary>
-        public NewWorkReview? Review => review;
-
         /// <summary>Folded while another window keeps focus; back exactly as it was when focus returns. Public for the editor's renders.</summary>
         public void ApplyFold()
         {
             if (root.gameObject.activeSelf != (visible && !FocusGuard.Folded)) root.gameObject.SetActive(visible && !FocusGuard.Folded);
         }
 
-        /// <summary>Lays the panel out again, as after the editor turned the review's page.</summary>
-        public void RedrawForRender() => Layout();
-
-        /// <summary>
-        /// Acts as a press of <paramref name="id"/> would, for the editor's renders of what a press leads
-        /// to, a second after the last, as a person reading would press.
-        /// </summary>
-        public void PressForRender(string id, string? key = null)
-        {
-            renderSeconds += 1;
-            OnActed(id, key);
-        }
+        /// <summary>Acts as a press of <paramref name="id"/> would, for the editor's renders of what a press leads to.</summary>
+        public void PressForRender(string id, string? key = null) => OnActed(id, key);
 
         /// <summary>
         /// Holds Move at <paramref name="from"/> and drags the held point to <paramref name="to"/>, as
@@ -185,26 +134,18 @@ namespace Halcyonic.XR.Workspace
             var session = connection;
             var work = director;
             var stage = GetComponent<CharacterStage>();
-            Build(() => session.Session?.State, () => session.Session?.Status.IsLive == true, () => session.DemonstrationLine,
+            Build(() => session.Session?.Status.IsLive == true, () => session.DemonstrationLine,
                 () => rail != null ? rail.Overview : null, () => work.Targets, () => stage != null ? stage.SurfaceHeight : null);
         }
 
-        private void Build(Func<ClientProjection?> shownState, Func<bool> isLive, Func<string?> demonstrationLine, Func<WorkOverview?> counted,
+        private void Build(Func<bool> isLive, Func<string?> demonstrationLine, Func<WorkOverview?> counted,
             Func<IEnumerable<CharacterTarget>> onStage, Func<float?> surfaceHeight)
         {
-            state = shownState;
             connected = isLive;
             demonstration = demonstrationLine;
             overview = counted;
             characters = onStage;
             surface = surfaceHeight;
-            // The same client the session introduces itself as (ControlPlaneConnection).
-            commands = new CommandFactory(new ClientInfo
-            {
-                Name = "halcyonic-xr",
-                Version = Application.version,
-                DeviceLabel = SystemInfo.deviceModel,
-            });
             welcomed = PlayerPrefs.GetInt(WelcomedPreference, 0) == 1;
             root = new GameObject("Entry panel").transform;
             root.SetParent(transform, false);
@@ -223,7 +164,6 @@ namespace Halcyonic.XR.Workspace
                 if (id == PanelModel.Move) drag = null;
             };
             frame.Dragged += Follow;
-            AwakeCreate();
             root.gameObject.SetActive(false);
         }
 
@@ -250,7 +190,6 @@ namespace Halcyonic.XR.Workspace
 
         private void OnDestroy()
         {
-            DestroyCreate();
             if (root != null) Destroy(root.gameObject);
         }
 
@@ -258,9 +197,7 @@ namespace Halcyonic.XR.Workspace
         {
             if (director == null) return;
             ApplyFold();
-            PollKeyboard();
-            UpdateCreate();
-            if (!visible && !welcomed && returnAfter == null && director.OpenWorkstream == null && Live && keyboard == null) Open(Screen.Welcome);
+            if (!visible && !welcomed && returnAfter == null && director.OpenWorkstream == null && Live) Open(Screen.Welcome);
             if (!visible || Time.unscaledTime < nextRefresh) return;
             Layout();
         }
@@ -303,7 +240,6 @@ namespace Halcyonic.XR.Workspace
         {
             visible = false;
             root.gameObject.SetActive(false);
-            CloseKeyboard();
         }
 
         private void Welcomed()
@@ -414,36 +350,19 @@ namespace Halcyonic.XR.Workspace
             Hide();
         }
 
-        /// <summary>Draws the current screen's model; the whole request, when it shows, in the space the frame leaves for it.</summary>
+        /// <summary>Draws the current screen's model.</summary>
         private void Layout()
         {
             nextRefresh = Time.unscaledTime + 0.5f;
-            DropStaleNotice();
-            var model = screen switch
+            frame.Show(screen switch
             {
                 Screen.Welcome => EntryScreens.Welcome(),
                 Screen.Connect => EntryScreens.ConnectProjects(overview(), connected(), demonstration() != null),
-                Screen.MoreWork => EntryScreens.MoreTasks(overview(), connected()),
-                _ => CreateModel(),
-            };
-            frame.Show(model);
-            if (screen == Screen.Review && review != null) LayRequest(model);
-            else HideRequest();
+                _ => EntryScreens.MoreTasks(overview(), connected()),
+            });
         }
 
-        /// <summary>
-        /// Work that came to need the person while they create, offered in the banner: Open now or Keep
-        /// creating. It never switches by itself; opening it keeps the draft, and the panel returns as
-        /// it was when that workspace closes.
-        /// </summary>
-        private PanelBanner? Banner()
-        {
-            var now = state();
-            offered = now == null ? null : watch.Next(now);
-            return offered == null ? null : EntryScreens.WaitingBanner(offered);
-        }
-
-        /// <summary>What a press on the frame does, by the action's id: the frame's own, the welcome's and lists', then Create's.</summary>
+        /// <summary>What a press on the frame does, by the action's id: the frame's own, then the welcome's and lists'.</summary>
         private void OnActed(string id, string? key)
         {
             switch (id)
@@ -460,15 +379,9 @@ namespace Halcyonic.XR.Workspace
                 case EntryScreens.Connect:
                     ShowConnect();
                     return;
-                case EntryScreens.Create:
-                    ShowCreate(null, null);
-                    return;
                 case EntryScreens.ToggleProject when key != null:
                     rail?.ToggleProject(key);
                     Layout();
-                    return;
-                case EntryScreens.AddTask when key != null:
-                    ShowCreate(key, overview()?.Projects.FirstOrDefault(project => project.ProjectId == key)?.Name);
                     return;
                 case EntryScreens.ShowAll:
                     rail?.ShowAllProjects();
@@ -480,54 +393,7 @@ namespace Halcyonic.XR.Workspace
                 case EntryScreens.OpenWork when key != null:
                     director?.OpenWork(key);
                     return;
-                case EntryScreens.OpenNow when offered != null:
-                    var work = offered.WorkstreamId;
-                    watch.Dismiss(work);
-                    director?.OpenWork(work);
-                    return;
-                case EntryScreens.KeepCreating when offered != null:
-                    watch.Dismiss(offered.WorkstreamId);
-                    Layout();
-                    return;
-                default:
-                    ActCreate(id, key);
-                    return;
             }
-        }
-
-        /// <summary>
-        /// The Quest system keyboard (TouchScreenKeyboard with Require System Keyboard on). While it
-        /// is open the app loses input focus; the typed text counts when it closes with Done.
-        /// </summary>
-        private void OpenKeyboard(string initial, string prompt, Action<string> done)
-        {
-            if (!TouchScreenKeyboard.isSupported)
-            {
-                notice = (screen, EntryText.NoKeyboard);
-                Layout();
-                return;
-            }
-            typed = done;
-            keyboard = FocusGuard.Track(TouchScreenKeyboard.Open(initial, TouchScreenKeyboardType.Default, true, false, false, false, prompt));
-        }
-
-        private void PollKeyboard()
-        {
-            var open = keyboard;
-            if (open == null || open.status == TouchScreenKeyboard.Status.Visible) return;
-            keyboard = null;
-            var done = typed;
-            typed = null;
-            if (open.status == TouchScreenKeyboard.Status.Done) done?.Invoke(open.text ?? "");
-            if (visible) Layout();
-        }
-
-        private void CloseKeyboard()
-        {
-            if (keyboard == null) return;
-            keyboard.active = false;
-            keyboard = null;
-            typed = null;
         }
     }
 }

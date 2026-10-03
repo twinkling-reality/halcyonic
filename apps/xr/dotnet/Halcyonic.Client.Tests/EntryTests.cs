@@ -402,39 +402,6 @@ public class ProjectIdeaTests
     }
 }
 
-public class AttentionWatchTests
-{
-    [Test]
-    public void OffersOnlyWorkThatNewlyNeedsYou()
-    {
-        var portfolio = new Portfolio().Project("a", "A").Project("b", "B")
-            .Work("already", "a", WorkstreamStatus.WaitingForHuman)
-            .Work("calm", "b", WorkstreamStatus.Running);
-        var state = portfolio.Apply();
-        var watch = new AttentionWatch();
-        watch.Begin(state);
-        Assert.That(watch.Next(state), Is.Null, "what needed the person already is on the stage and the rail");
-
-        var changed = new Portfolio().Project("a", "A").Project("b", "B")
-            .Work("already", "a", WorkstreamStatus.WaitingForHuman)
-            .Work("calm", "b", WorkstreamStatus.WaitingForHuman);
-        var next = changed.Apply();
-        Assert.That(watch.Next(next)?.WorkstreamId, Is.EqualTo("calm"));
-        Assert.That(watch.Next(next)?.WorkstreamId, Is.EqualTo("calm"), "it stays offered until answered");
-        watch.Dismiss("calm");
-        Assert.That(watch.Next(next), Is.Null);
-
-        var answered = new Portfolio().Project("a", "A").Project("b", "B")
-            .Work("already", "a", WorkstreamStatus.Running)
-            .Work("calm", "b", WorkstreamStatus.Running).Apply();
-        Assert.That(watch.Next(answered), Is.Null);
-        var again = new Portfolio().Project("a", "A").Project("b", "B")
-            .Work("already", "a", WorkstreamStatus.WaitingForHuman)
-            .Work("calm", "b", WorkstreamStatus.Running).Apply();
-        Assert.That(watch.Next(again)?.WorkstreamId, Is.EqualTo("already"), "needing the person again is news again");
-    }
-}
-
 public class BuildSequenceTests
 {
     private static readonly CommandFactory Commands = new(new ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" });
@@ -676,7 +643,8 @@ public class BuildSequenceTests
         Assert.That(again.Items.Select(item => item.Label), Has.No.Member("Folder now: ").And.No.Member("Folder from now on: "));
         Assert.That(again.Items.Single(item => item.Label == "Where its files live: ").Value, Is.EqualTo("recipes"));
         Assert.That(again.FolderChoice, Is.Null, "nothing to send about the folder");
-        Assert.That(EntryScreens.Recap(idea, draft, there, live: true, notice: null, problem: null).Lead, Is.EqualTo(EntryText.RecapLine), "no warning about a move");
+        Assert.That(NewProjectScreens.Recap(idea, draft, there, live: true, notice: null, problem: null).Lines[0].Words, Is.EqualTo(EntryText.RecapLine),
+            "no warning about a move");
         Assert.That(sequence.Retry(Read(again)), Is.InstanceOf<WorkstreamCreateCommand>(), "Try again sends, never throws");
 
         var moved = new ProjectIdea("p1", "Recipes");
@@ -819,7 +787,6 @@ public class EntryWordsTests
         Assert.That(EntryText.ChipDetail(Project(false, 3)), Is.EqualTo("Hidden · 3 waiting"));
         Assert.That(EntryText.ProjectDetail(Project(true, 2)), Is.EqualTo("Shown · 2 tasks are waiting for you"));
         Assert.That(EntryText.ProjectDetail(Project(true, 1)), Is.EqualTo("Shown · 1 task is waiting for you"));
-        Assert.That(EntryText.WaitingNow("Import recipes"), Is.EqualTo("\u201CImport recipes\u201D is waiting for you."));
         Assert.That(AmbientText.NeedsYouLine(2), Is.EqualTo(EntryText.WaitingForYou(2)), "the ambient line and the entry agree");
     }
 
@@ -891,21 +858,21 @@ public class EntryWordsTests
     {
         var words = new List<string>
         {
-            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.MoreTasks, EntryText.ContinueCreating, EntryText.WelcomeTitle,
+            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.MoreTasks, EntryText.WelcomeTitle,
             EntryText.WelcomeLine, EntryText.ConnectInvite, EntryText.CreateInvite, EntryText.NotNow, EntryText.ConnectLine,
             EntryText.NoProjects, EntryText.LastKnownProjects, EntryText.ExampleProjects, EntryText.ShowAll, EntryText.AddTask, EntryText.WaitingForMac,
             EntryText.MoreTasksLine, EntryText.AllOnStage, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
-            EntryText.TypeIdeaInvite, EntryText.HelpMe, EntryText.HelpMeInvite, EntryText.NothingStartsYet, EntryText.GuideNote,
-            EntryText.Back, EntryText.Chosen, EntryText.ChosenForYou, EntryText.NoKeyboard, EntryText.RecapTitle, EntryText.WorkRecapTitle,
+            EntryText.NothingStartsYet, EntryText.GuideNote,
+            EntryText.Back, EntryText.Chosen, EntryText.ChosenForYou,
             EntryText.RecapLine, EntryText.StartBuilding, EntryText.StartOver, EntryText.StartOverQuestion, EntryText.ConfirmStartOver,
             EntryText.MoreOptions, EntryText.ProjectName, EntryText.FirstTask, EntryText.NotNamedYet, EntryText.HowItRuns, EntryText.NameTheProject,
             EntryText.WhatFirstTask, EntryText.FolderTitle, EntryText.FolderLine, EntryText.ReadingFolders, EntryText.NoFolders, EntryText.FoldersCut,
-            EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.ChooseFolder, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder,
-            EntryText.RebindWarning, EntryText.FoldersUnread("no reason given."), EntryText.OptionsTitle, EntryText.OptionsLine, EntryText.NoRuntimes,
+            EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder,
+            EntryText.RebindWarning, EntryText.FoldersUnread("no reason given."), EntryText.OptionsLine, EntryText.NoRuntimes,
             EntryText.ChangeAgentApp, EntryText.ListsModels, EntryText.ChoosesModel, EntryText.NoModels, EntryText.Practice, EntryText.PracticeRun,
-            EntryText.PracticeDetail, EntryText.Done, EntryText.ReviewTitle, EntryText.ReviewLine, EntryText.ConfirmStart, EntryText.Change,
+            EntryText.PracticeDetail, EntryText.Done, EntryText.ReviewLine, EntryText.ConfirmStart, EntryText.Change,
             EntryText.ReadToPart(4), EntryText.Previous, EntryText.Next, EntryText.Page(0, 2), EntryText.Part(0, 2),
-            EntryText.SendingTitle, EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened,
+            EntryText.SendingLine, EntryText.TryAgain, EntryText.Started, EntryText.NotSureItHappened,
             EntryText.PreviousRequestTitle, EntryText.PreviousRequestLine, EntryText.CheckFirst, EntryText.Clear, EntryText.ClearOnceChecked,
             EntryText.ClearOnlyAfterChecking, EntryText.ConfirmClear, EntryText.Cancel, EntryText.Cleared, EntryText.Reference("id"),
             EntryText.OpenNow, EntryText.KeepCreating, EntryText.Move, EntryText.ResetPosition, EntryText.Close,

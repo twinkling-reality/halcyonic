@@ -22,7 +22,7 @@ Client core (com.halcyonic.client)    RealtimeSession, ClientProjection,        
         │                             NewWorkDraft, NewWorkReview,
         │                             NewWorkSubmission, BuildSequence,
         │                             StageVisibility, WorkOverview, ProjectIdea,
-        │                             AttentionWatch, EntryText,
+        │                             EntryText,
         │                             PeekChoice, WorkspacePlacement, SeatedPointing,
         │                             InFrontPlacement,
         │                             ActivityLog, EventHistory, CommandFactory,
@@ -716,13 +716,11 @@ the same definition names, as the JSON Schema document:
   a suggestion (`Choose`), their own words typed or heard (`Write`, kept while another row is
   chosen), or Go on without it (`ChooseWithoutIt`). Choosing sends nothing; only `SendAnswer`
   says the chosen answer and asks for the next reply, so a stray press never reaches the
-  companion. `EntryScreens.Companion`, until New project replaces it, still sends a suggestion
-  when it is pressed.
+  companion.
 - **`CompanionText`** writes the words around the companion, with the computer as `HostText`
   says it: its line quoted and tagged as its own ("The companion says: “…”"), its view as its
   opinion, the note that it is an AI that can be wrong, waiting, and every failure from its code
-  with a next step. `EntryScreens.Companion` is its screen as a model; the headset's panel does
-  not show it yet (below).
+  with a next step. New project shows it (`NewProjectScreens.Questions`).
 - **`CreationDraft`** and **`CreationDrafts`** keep every Create draft on the device across an
   app restart: the idea or answers, the recap, the exchange with an answer written for it but not
   yet sent (it comes back chosen, never sent), the folder, agent app and model
@@ -734,9 +732,6 @@ the same definition names, as the JSON Schema document:
 - **`CompanionRecording`** plays the companion's part of the demonstration: one exchange recorded
   once from the real companion (`pnpm companion:record`), pressed through in its recorded order,
   labelled recorded, never asking a model, and never showing the model's name.
-- **`AttentionWatch`** notices work that comes to need the person while they create, hidden
-  projects included, so the entry panel can offer Open now or Keep creating; what already needed
-  them is not offered again, and it never switches by itself.
 - **`EntryText`** writes every word of the rail and the entry panel: plain verbs, statuses in
   words, a model's serving place in terms of where the person's code and instructions go, and
   nothing that claims discovery (Connect lists the projects already set up on the Mac). The words
@@ -760,15 +755,17 @@ the same definition names, as the JSON Schema document:
   Done, Skip and Clear, none. The header's Close says its icon (`CloseIcon`, a clock for the
   welcome's Not now). Text from outside comes in as `LabelText.Plain` shows it and says it is data,
   which alone may end in an ellipsis.
-- **`EntryScreens`** builds every entry screen as a `PanelModel` from the draft, the overview and
-  the Mac's state, so the Unity layer only draws it and acts on the id a press raises, and decides
-  what each offers: Start building at the right end, unavailable with what is missing
-  (`StartProblem`, the recap's checks in their order); the whole request (`ReviewOf`, given names as
-  they are, so the review spells each once); Yes, start building locked until the last part; the
-  next action a step's outcome allows; and the two presses that clear a start that may have run.
+- **`EntryScreens`** builds the entry panel's screens (the welcome, Connect projects, More tasks)
+  as `PanelModel`s from the overview, so the Unity layer only draws them and acts on the id a press
+  raises, and holds the checks New project builds on: why Start building can't go ahead now
+  (`StartProblem`, the recap's checks in their order), the whole request (`ReviewOf`, given names as
+  they are, so the review spells each once), the folder a send carries (`FolderSent`) and whether a
+  request moves a project (`Moves`). The panel's own creating, its screens and its banner for work
+  that came to need the person while creating, is retired: New project is the one way to start
+  work, and nothing else sends a creating command.
 - **`NewProjectFlow`** is New project as a column (`IMenuColumn`), opened by Projects' New project
-  or Add a task (`Open`), in the file's place beside Projects with no light line, replacing the
-  entry panel's creation screens. It keeps each place's draft and how far its start got, the step
+  or Add a task (`Open`), in the file's place beside Projects with no light line, which replaced
+  the entry panel's creation screens. It keeps each place's draft and how far its start got, the step
   and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
   it gave. A press acts only when the frame the director last drew offers it, available, so nothing
@@ -814,7 +811,7 @@ the same definition names, as the JSON Schema document:
   lists shows as gone and Start building waits, "Choose where its files live.", until a listing
   shows it again, and a read that fails changes nothing.
 - **`NewProjectScreens`** builds New project (ADR 0026) as `MenuFrame`s, from the same models
-  and checks as `EntryScreens`, which it replaces: the steps as a row of shapes (Your idea,
+  and checks as the entry panel's retired creating, kept in `EntryScreens`: the steps as a row of shapes (Your idea,
   Questions, Recap, Build), each reached once there is something there, the chosen one lit
   and an earlier one the way back; every footer Close, one other prompt and the main action, the
   most an 18 dp footer holds. Your idea offers typing the idea and one way to figure it out, the
@@ -1359,7 +1356,7 @@ scripts use only long-stable core Unity APIs:
   their content kept (`Folded`), and they come back exactly as they were once input is ready again.
   Focus that flaps, as the Quest's system windows make it, folds nothing. While panels are folded the
   stage's banner, under the characters or beside a window under its lane, also says which panel is
-  still open ("Still open: Create a project", `AmbientCover.OpenPanel`) and, beside a window, how
+  still open ("Still open: Connect projects", `AmbientCover.OpenPanel`) and, beside a window, how
   many more tasks have no character ("2 more tasks not shown here"); it only says, taking no press.
   The app's own system
   keyboard is tracked (`Track` wraps every `TouchScreenKeyboard.Open`), so typing folds nothing and
@@ -1492,8 +1489,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   their short form where it has not ("1 task waiting", "Hidden · 1 waiting"), in the attention
   colour while something waits, pressed to show or hide that project's work on the stage; and See
   other tasks, while some work has no character, with how much of it waits for the person. Below,
-  actions: Connect projects, with how many projects show, and Create a project (Keep creating while
-  a draft waits) at the left; Usage left, when its glance offers it, and Settings, compact, at the
+  actions: Connect projects, with how many projects show, at the left (New project is the menu's);
+  Usage left, when its glance offers it, and Settings, compact, at the
   right, since they open sheets rather than act on work, each action with its icon before its words
   (the pills have none). Every button is 60 dp tall (48 compact) and 12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
   to either side, its rows 40 to 49 degrees down; with a measured field of view too short for that, higher, its corners 1.5 degrees inside the field with the head level but never above 29 degrees down, so it stays a degree under the line above the stage at its tallest beside a window, nor above about 29.8 with text a step larger, as the banner's lines grow (`ProjectRail.Below`, `ProjectRail.HighestBelow`; about 39 degrees on a Quest 3S split evenly); over a desk, 0.3 m ahead and never into the desk,
@@ -1577,7 +1574,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   straight ahead, the render (`AmbientRender`) counts it covering 4 of 6 characters' bodies and 4 of
   their labels in front, 2 bodies and 3 labels aside, and none beside a window, whose outermost
   label reaches 37.5 degrees (37.0 before the short titles).
-- **Entry panel:** `EntryPanel`, the one foreground panel for entering work. Each screen is a
+- **Entry panel:** `EntryPanel`, the one foreground panel for finding work. It sends nothing:
+  creating is New project's, on the menu (`NewProjectFlow`). Each screen is a
   `PanelModel` from `EntryScreens`, drawn by a `PanelFrame` 0.46 m from the eyes, 44 by 26 degrees
   (ADR 0023), opened where a foreground panel goes, clear of every character and its label
   (`WorkspaceLayout.PlaceForeground` with the panel's size), so every screen puts the same things in
@@ -1588,87 +1586,25 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   while a confirmation is armed (`PanelModel.CanMove`); Back at
   the bar's left; the primary at its right end; the pager at the body's bottom right. An action that
   can't be taken now stays in its place, unavailable, with why beside it. Opening the panel
-  collapses an open workspace; a workspace opened while it shows, by a pinch on a character or by
-  Open now, hides it, and it comes back as it was, where it was, when that workspace closes. Running
+  collapses an open workspace; a workspace opened while it shows, by a pinch on a character, hides
+  it, and it comes back as it was, where it was, when that workspace closes. Running
   work keeps updating throughout.
-  - **Welcome**, on the first live visit only (a device preference): one line and two cards,
-    Connect projects and Create a project, and Not now in Close's place.
+  - **Welcome**, on the first live visit only (a device preference): one line and one card,
+    Connect projects, and Not now in Close's place.
   - **Connect projects** lists the projects already set up on the Mac and says so, in two columns,
     each a filter like the rail's chips, edged in the accent while shown and saying Hidden while
     not, with its work in words, what waits in the attention colour; pressing one shows or hides it,
-    Add a task beside it starts new work in it while connected, Show all shows every project and
-    Done closes. It discovers and attaches nothing. Without a live control plane it says the list is
+    Show all shows every project and Done closes. It discovers and attaches nothing. Without a live control plane it says the list is
     last known; during the demonstration, that these are demo projects.
   - **More tasks** lists every task without a character, what needs the person first, with its
     status, project and why it has none (its project is hidden, no room on the stage); pressing one
     brings it to the stage (`WorkspaceDirector.OpenWork`, which asks the stage for it) and opens it
     on the next frame, once it stands in its slot. It stays on the stage after it is collapsed, until
     other work is brought forward or its project is hidden.
-  - **Create a project** (or **New task in** a project, from Add a task) asks What would you like to
-    make? under its title: Type my idea opens the system keyboard and goes straight to the recap,
-    with Hold to talk beside it in development builds and what it is doing on a line under them;
-    Help me figure it out asks the fixed questions of `ProjectIdea`, one at a time, the answer given
-    before marked Chosen, with typing one's own, skipping the name and Back, and says "Fixed
-    questions, not an AI." The recap (Check your project) shows four facts in two columns, each
-    changed by pressing it: the project's name and its first task (Change), where its files live
-    (Choose or Change) and how it runs (More options), which says where the work's code and
-    instructions go ("On your computer") and what that means ("Chosen for you. Change it in More
-    options.", "It runs on a remote service: your code and instructions go there."). While the
-    needs-you banner shows, each fact takes one line and how it runs loses its note, so all four
-    still show at once. More options lists the agent apps that can start work, real ones first and a
-    simulated one last, named "Practice run: builds nothing" in a live session (the recorded
-    demonstration keeps its names), then the chosen one's own models, read on demand, each with
-    where it runs, the Mac's first and the rest under a line saying where they run
-    (`ElsewhereDivider`). Nothing is chosen for the person but a model on the Mac, which says so; a
-    model that runs elsewhere takes a second press, the first saying that the person's code and
-    instructions go there. Start building stays at the bar's right end, unavailable and saying what
-    is missing until nothing is; Start over, at the left, is confirmed in place. Start building shows
-    the whole request (`NewWorkReview`, Check before starting, "Check every part before you
-    start.", since its items are Halcyonic's account of the command, not the command), wrapped at the body's width between words, a part at a time, each item whole in one part
-    unless it alone is taller than a part, with the pager in a row under the header. Change takes
-    the right end where Start building stood, and Yes, start building stands where no control of
-    the recap stood nor any shown since, the pager on every part included, so pressing twice in one
-    place never confirms; until the last part it stays there locked, saying what is left to read
-    ("Read to part 2 first") until every part has been drawn in the layout showing, and once
-    unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
-    step shows how it went, in words and in its tone; a refusal offers Try again and Change, one
-    about a folder the action its code names, and an unknown outcome only Next, to Not sure it
-    happened. A project made here is shown on the stage whatever was chosen before. While a
-    command's outcome is unknown its id stays in device storage for the journal it was sent to,
-    shared with New project and read afresh, and blocks another start, even after a restart, until
-    two separate presses in two places clear it after the person checks the work:
-    Clear, then Yes, clear, left of Cancel, which takes Clear's place; clearing starts a blank idea,
-    never a retry. Each place keeps its own draft in memory while the app runs, a new project's and
-    each project's Add a task, with how far its start got, so going back never makes a project
-    twice; Close, opening a character, Open now and working elsewhere keep it, and Create a project
-    without a project returns to the one last worked on. An app restart loses it. Live work only
-    while a real control plane is connected; the recorded demonstration does not stand in for
-    creation.
-  - **Where its files live** reads the folders the Mac lists (`ControlPlaneApi.GetLocationsAsync`)
-    when the person opens it, never on a timer, and lists them in two columns, a page at a time:
-    for each place the Mac allows, a new folder there, the place itself (Directly in Projects), and
-    each folder in it; a place not on the Mac now shows, unavailable; a listing cut at 200 folders
-    says so; and no places at all reads "Your computer doesn't allow any folder yet", pointing to the Mac,
-    with Try again. A new folder's name is typed with the system keyboard, offered as one made from
-    the project's name, and refused on the headset unless it keeps the host's rule, which the lead
-    then says in the failure colour. A folder is needed only when the chosen agent app works in a
-    project folder (`RuntimeDescriptor.UsesProjectLocation`); an existing project keeps its own,
-    shown on the recap, unless the person chooses another, when the recap says every later task in
-    the project uses the new folder and the review shows its folder now and from now on before
-    anything is sent. The review shows where the files will live in every case. A refusal about a
-    folder offers its next action from the code: Use that folder after `location_exists` (the same
-    folder, now as an existing one), and Choose a folder after `location_required`,
-    `location_missing`, `location_not_allowed` or a folder the Mac could not make; either returns
-    through the review. A project already made is then moved to the new folder before its work is
-    started again.
-  - **Needs you while creating:** work that comes to need the person while a Create screen shows
-    (`AttentionWatch`), hidden projects included, appears in the banner in the lead's place, in the
-    attention colour, with Open now (the attention button) and Keep creating; nothing switches by
-    itself, and the draft is kept.
   The mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
   which says no software work was performed, and needs no folder. Codex and OpenCode work in the
   project's folder ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)),
-  which the panel asks for before it offers Start building.
+  which New project asks for before it offers Start building.
 
 `WorkspaceDirector`, on the stage object, attaches a `CharacterTarget` to the `Body` of each
 character the stage creates, so it moves with the body: a sphere of `CharacterView.BodyRadius` for
@@ -2171,39 +2107,22 @@ after it becomes the agent's words or Halcyonic's: the lean alone builds its mes
 allocate nothing by `PerFrameTests`.
 
 `EntryRender` (**Halcyonic > Render the Entry Panel Over the Stage**, also runnable in batch mode)
-renders the project rail and every screen of the entry panel over the same two stages, and saves
-each in `apps/xr/Builds/EntryRenders`, with a close-up at a Quest 3's 25 pixels per degree and a
-view of the whole panel. On every screen it fails if the panel lets anything behind it show through
-(compared inside its own outline), covers a character's body, comes within a degree of a character's
-body or label as the eyes see them, or leaves the comfortable band; if a target is under 60 dp (48
-for the window controls, the banner's and the pager's), two targets are closer than 12 mm, a button
-runs past the panel's edge, or a word is under the caption's size; if any of Halcyonic's own words
-is cut short (only text from outside, which the model says is data, may end in an ellipsis); unless
-Close, the bar's right end, Back and the pager stand in the same place on every screen (a
-confirmation's pager, which stands at the top, apart). Every confirmation, reached by showing its
-screen and then pressing (Start building on the recap, then Next through every part; Start over;
-the second press that clears a start that may have run), fails unless Yes stands 12 mm clear of
-every control shown before its confirm step and since, never in the pager's row, with no
-microphone on Yes or Cancel or on any button that is not held, and, while it pages, its pager
-stands above the body. It holds Move on the recap and drags it 10
-degrees right and 4 up, and fails unless the panel follows by as much, at touch distance, facing
-the eyes, and unless, while Start over asks to be confirmed, Move and Reset position take no press
-and a drag moves nothing. It fails if the rail
-reaches more than 24 degrees from its middle, runs past its ends, puts two buttons closer than
-12 mm, has a target under 60 dp (48 compact) or a word under the caption's size, or comes within a
-degree of a character's body or label. It opens Settings from the rail, with the sections the room
-and pairing fill, and fails if the sheet comes within a degree of a character or label, leaves the
-comfortable band, has a target or word too small, cuts our words short, or shows a refusal from
-outside otherwise than as written. It reaches the whole request from the recap with Start building
-and steps through it with Next, for the longest name and task in one unbroken word, a task made only
-of characters shown as code points, a task with no place to break, and a long task in words, saving
-the first and last part of each, and fails unless every character of every item shows exactly once
-across the parts, inside the space above the pager, no item overlaps another, a line breaks inside a
-word only where the word is longer than a line, the pager stands above the body, and Yes, start
-building is unlocked on the last part only, clear of every control shown before and since. It renders Where its files live with a listing cut short and a place no longer on the Mac, and
-with no places; a recap and review that move a project to a new folder; and a start refused because
-the new folder's name is taken, offering Use that folder. With hostile project, folder and place
-names and titles, every label must show them by the one rule.
+renders every screen of the entry panel (the welcome, Connect projects, More tasks) and the
+Settings sheet over the same two stages, and saves each in `apps/xr/Builds/EntryRenders`, with a
+close-up at a Quest 3's 25 pixels per degree and a view of the whole panel. On every screen it
+fails if the panel lets anything behind it show through (compared inside its own outline), covers a
+character's body, comes within a degree of a character's body or label as the eyes see them, or
+leaves the comfortable band; if a target is under 60 dp (48 for the window controls and the
+pager's), two targets are closer than 12 mm, a button runs past the panel's edge, or a word is under
+the caption's size; if any of Halcyonic's own words is cut short (only text from outside, which the
+model says is data, may end in an ellipsis); unless Close, the bar's right end, Back and the pager
+stand in the same place on every screen. It holds Move on Connect projects and drags it 10 degrees
+right and 4 up, and fails unless the panel follows by as much, at touch distance, facing the eyes.
+It opens Settings, with the sections the room and pairing fill, and fails if the sheet comes within
+a degree of a character or label, leaves the comfortable band, has a target or word too small, cuts
+our words short, or shows a refusal from outside otherwise than as written. With hostile project
+names and titles, every label must show them by the one rule. New project is rendered with the
+menu, not here.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the
@@ -2238,11 +2157,10 @@ instruction; typing always stays:
   asked on the first hold, which records nothing; the person holds again once they allow it.
   Capture stops and the clip is discarded, never sent, the frame input is suspended (the rule
   agreed with the focus work), and a hold that starts while suspended is ignored.
-- **Where it shows.** On Create a project's start screen, beside Type my idea, with what it is
-  doing on a line across the panel under them (`PanelFrame` raises its hold by the action's id); a
-  heard idea or task becomes the recap's first task, which says
-  "This is what your computer heard. Check it before you go on.", and nothing is sent until Start building and
-  the review. In an open workspace, at the end of the action row when the work takes
+- **Where it shows.** In New project's footer wherever words are given (Your idea, a question,
+  the first task, the name or a new folder's); heard words land where words are given, an idea
+  saying "This is what your computer heard. Check it before you go on.", and nothing is sent until
+  Start building and the review. In an open workspace, at the end of the action row when the work takes
   instructions and the row has room; a heard instruction always asks "Your computer heard: ... Send it?".
   Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
@@ -2251,8 +2169,7 @@ instruction; typing always stays:
   `RECORD_AUDIO`; `QuestBuild.BuildReleaseApk` also deletes and fails a release APK whose manifest
   asks for it.
 
-The editor's renders show the start screen with hold to talk and its longest words, and the
-workspace's action row with it beside running work's actions and left out where approve, deny, stop
+The editor's renders show the workspace's action row with it beside running work's actions and left out where approve, deny, stop
 and instruct fill the row. Not checked on a headset: the Quest microphone's rate and level, the
 permission prompt, and whether a ray that leaves the button while pinching ends the hold.
 

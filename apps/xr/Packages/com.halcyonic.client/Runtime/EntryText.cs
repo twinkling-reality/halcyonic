@@ -20,7 +20,6 @@ namespace Halcyonic.Client
         public const string ConnectProjects = "Connect projects";
         public const string CreateProject = "Create a project";
         public const string MoreTasks = "More tasks";
-        public const string ContinueCreating = "Continue creating";
 
         /// <summary>The rail's button for the tasks without a character, a verb first (ADR 0023).</summary>
         public const string SeeOtherTasks = "See other tasks";
@@ -48,9 +47,6 @@ namespace Halcyonic.Client
         public const string IdeaPrompt = "What would you like to make?";
         public const string WorkPrompt = "What should this task do?";
         public const string TypeIdea = "Type my idea";
-        public const string TypeIdeaInvite = "In your own words";
-        public const string HelpMe = "Help me figure it out";
-        public const string HelpMeInvite = "A few fixed questions";
 
         /// <summary>New project's row for the fixed questions, and the main action while it is chosen (ADR 0026).</summary>
         public const string AnswerQuestions = "Answer a few questions";
@@ -80,11 +76,7 @@ namespace Halcyonic.Client
         /// <summary>Under the answer given before, and under every choice made in a list: one word marks a choice everywhere.</summary>
         public const string Chosen = "Chosen";
 
-        /// <summary>The editor has no system keyboard; on the headset this never shows.</summary>
-        public const string NoKeyboard = "There's no keyboard here, so typing isn't possible. Use the headset to type.";
 
-        public const string RecapTitle = "Check your project";
-        public const string WorkRecapTitle = "Check your new task";
         public const string RecapLine = "Change anything before you start building.";
         public const string StartBuilding = "Start building";
         public const string StartOver = "Start over";
@@ -105,7 +97,6 @@ namespace Halcyonic.Client
         public const string FoldersCut = HostText.YourStart + " lists only the first 200 folders in a place.";
         public const string NewFolderPrompt = "Name the new folder";
         public const string NewFolderRule = "Use up to 64 letters, digits, dots, dashes or underscores. Start with a letter or digit.";
-        public const string ChooseFolder = "Choose";
         public const string UseThatFolder = "Use that folder";
         public const string ChooseAnotherFolder = "Choose a folder";
         public const string RebindWarning = "Every later task in this project uses the new folder. Tasks already running keep theirs.";
@@ -149,7 +140,6 @@ namespace Halcyonic.Client
         /// <summary>The step stopped over its folder, so choosing another is the next action.</summary>
         public static bool AboutFolder(BuildStep step) => !step.EffectUnknown && FolderProblem(step.Refusal, step.Failure) != null;
 
-        public const string OptionsTitle = "How it runs";
         public const string OptionsLine = "Choose the agent app that does the work, then its model. Each model says where it runs.";
         public const string NoRuntimes = "No agent app on " + HostText.Your + " can start work right now. Set one up on " + HostText.Your + ", then open this again.";
         public const string ChangeAgentApp = "Change agent app";
@@ -162,7 +152,6 @@ namespace Halcyonic.Client
         public const string Practice = "Practice";
         public const string Done = "Done";
 
-        public const string ReviewTitle = "Check before starting";
         /// <summary>Under the review's title: the items are Halcyonic's own account of what will be sent, so it asks to check them, never claims to be the command.</summary>
         public const string ReviewLine = "Check every part before you start.";
         public const string ConfirmStart = "Yes, start building";
@@ -182,7 +171,6 @@ namespace Halcyonic.Client
 
         public static string Part(int page, int pages) => "Part " + Count(page + 1) + " of " + Count(pages);
 
-        public const string SendingTitle = "Starting your work";
         public const string SendingLine = "Work already running keeps going.";
         public const string TryAgain = "Try again";
         public const string Started = "Confirmed: it started. Find it on the stage.";
@@ -234,8 +222,6 @@ namespace Halcyonic.Client
 
         public static string Question(int index, int count) => "Question " + Count(index + 1) + " of " + Count(count);
 
-        /// <summary>The banner while creating, naming the work that came to wait for the person.</summary>
-        public static string WaitingNow(string title) => "“" + title + "” is waiting for you.";
 
         /// <summary>How many tasks wait for the person, said as a person would: "1 task is waiting for you", "2 tasks are waiting for you".</summary>
         public static string WaitingForYou(int count) => Tasks(count) + (count == 1 ? " is" : " are") + " waiting for you";

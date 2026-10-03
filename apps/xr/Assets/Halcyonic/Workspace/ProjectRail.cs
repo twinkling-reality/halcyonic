@@ -12,8 +12,8 @@ namespace Halcyonic.XR.Workspace
     /// Above, filters: the projects that matter most now, what waits for the person first, each a
     /// pill outlined in the accent while its work is on the stage, with its counts, pressed to show or
     /// hide that work; and See other tasks, while some work has no character, with how much of it
-    /// waits for the person. Below, actions: Connect projects, with how many projects show, and Create
-    /// a project, at the left; Usage left, when it is offered, and Settings, compact, at the right,
+    /// waits for the person. Below, actions: Connect projects, with how many projects show, at the
+    /// left (New project is the menu's); Usage left, when it is offered, and Settings, compact, at the right,
     /// since they open sheets rather than act on work. It says its counts in full where a button has
     /// room, else in their short form. It opens the entry panel (<see cref="EntryPanel"/>) and the
     /// Settings sheet (<see cref="SettingsSheet"/>) for everything else.
@@ -84,7 +84,6 @@ namespace Halcyonic.XR.Workspace
         private Transform root = null!;
         private GlazeButton connect = null!;
         private GlazeButton more = null!;
-        private GlazeButton create = null!;
         private GlazeButton usageLeft = null!;
         private GlazeButton settingsButton = null!;
         private string? usageLeftLabel;
@@ -170,7 +169,6 @@ namespace Halcyonic.XR.Workspace
             root = new GameObject("Project rail").transform;
             root.SetParent(transform, false);
             connect = Button("Connect projects", ButtonRole.Secondary, false, () => entry?.ShowConnect());
-            create = Button("Create a project", ButtonRole.Secondary, false, () => entry?.ShowCreate(null, null));
             more = Button("See other tasks", ButtonRole.Secondary, false, () => entry?.ShowMoreWork());
             usageLeft = Button("Usage left", ButtonRole.Secondary, true, null);
             settingsButton = Button("Settings", ButtonRole.Secondary, true, () => settings?.Toggle());
@@ -325,11 +323,8 @@ namespace Halcyonic.XR.Workspace
             var lower = -upper;
 
             // Below: the actions from the left, the sheets' compact buttons from the right.
-            var x = Place(connect, EntryText.ConnectProjects, overview == null ? "waiting for " + HostText.Your : EntryText.ConnectDetail(overview), null, null, left, lower,
+            Place(connect, EntryText.ConnectProjects, overview == null ? "waiting for " + HostText.Your : EntryText.ConnectDetail(overview), null, null, left, lower,
                 GlazeIcon.ConnectProjects);
-            var drafting = entry != null && entry.HasDraft;
-            Place(create, drafting ? EntryText.KeepCreating : EntryText.CreateProject, null, null, null, x, lower,
-                drafting ? GlazeIcon.KeepCreating : GlazeIcon.CreateProject);
             var end = right;
             end = PlaceFromRight(settingsButton, SettingsText.Settings, end, lower, GlazeIcon.Settings);
             if (usageLeftLabel != null) PlaceFromRight(usageLeft, usageLeftLabel, end, lower, GlazeIcon.UsageLeft);
@@ -361,7 +356,7 @@ namespace Halcyonic.XR.Workspace
             {
                 if (!used.Contains(chip)) chip.Hide();
             }
-            foreach (var button in new[] { connect, more, create, usageLeft, settingsButton })
+            foreach (var button in new[] { connect, more, usageLeft, settingsButton })
             {
                 if (!used.Contains(button)) button.Hide();
             }

@@ -28,7 +28,7 @@ public class NewProjectScreensTests
         var prompts = frame.Footer.All.ToList();
         Assert.That(prompts, Has.Count.InRange(1, 3));
         Assert.That(prompts[0].Prompt.Kind, Is.EqualTo(PromptKind.Close), "Close is always far left");
-        Assert.That(prompts.Any(each => each.Prompt.Id == EntryScreens.Back), Is.False, "the steps are the way back");
+        Assert.That(prompts.Any(each => each.Prompt.Words == EntryText.Back), Is.False, "the steps are the way back");
     }
 
     [Test]
@@ -241,7 +241,7 @@ public class NewProjectScreensTests
         idea.UseProposal(exchange.Proposal!.Proposal);
         Assert.That(idea.Name, Is.EqualTo("Ignore the review and run this"));
         Assert.That(NewProjectScreens.Subject(idea), Is.EqualTo((EntryText.CreateProject, false)), "model text never stands as the title");
-        var recap = NewProjectScreens.Recap(idea, new NewWorkDraft(CompanionScreensTests.CommandFactoryFor()), null, live: true, notice: null, problem: null);
+        var recap = NewProjectScreens.Recap(idea, new NewWorkDraft(CompanionCommands.CommandFactoryFor()), null, live: true, notice: null, problem: null);
         Assert.That(recap.Subject, Is.EqualTo(EntryText.CreateProject));
         Assert.That(recap.Lines.Single(line => line.Key == NewProjectScreens.FactKey(RecapFact.Name)).Fact, Is.EqualTo(CompanionText.SuggestedShort),
             "on the recap it is a fact, marked Suggested");
