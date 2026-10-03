@@ -500,7 +500,8 @@ public class LiveControlPlaneTests
         draft.ChooseRuntime(mock);
         draft.SetModels(listed);
         draft.ChooseModel(models[0]);
-        var workstream = (WorkstreamCreatedResult)await RunAsync(draft.CreateWorkstream());
+        var sequence = new BuildSequence(draft, commands, null);
+        var workstream = (WorkstreamCreatedResult)await RunAsync(sequence.Begin(Samples.Reviewed(sequence)));
         var options = new Dictionary<string, JToken> { ["scenario"] = "successful_feature" };
 
         // A model the runtime does not list is refused in words, and nothing starts.
@@ -509,7 +510,7 @@ public class LiveControlPlaneTests
         Assert.That(unlisted.Disposition, Is.EqualTo(CommandAckDisposition.Rejected));
         Assert.That(unlisted.Command!.Rejection!.Message, Is.EqualTo("The mock runtime lists no model mock/gone."));
 
-        var chosen = draft.StartExecution(workstream.WorkstreamId);
+        var chosen = (ExecutionStartCommand)sequence.Advance(session.State)!;
         Assert.That(chosen.Payload.Options, Is.Empty, "the headset sends no mock scenario option");
         var execution = (ExecutionCreatedResult)await RunAsync(chosen);
         await Until(

@@ -638,6 +638,56 @@ public class BuildSequenceTests
         Assert.That(sequence.Begin(Samples.Reviewed(sequence)), Is.InstanceOf<ProjectCreateCommand>());
     }
 
+    private static NewWorkReview Read(NewWorkReview review)
+    {
+        review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
+        Samples.ReadThrough(review);
+        return review;
+    }
+
+    [Test]
+    public void AProjectMadeInItsChosenFolderIsNotShownAsMovingWhenItsWorkIsTriedAgain()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = new List<LocationFolder>(),
+        };
+        var idea = new ProjectIdea();
+        idea.UseIdea("Make a website for my team.");
+        idea.Rename("Recipes");
+        idea.ChooseFolder(ProjectFolder.New(root, "recipes"));
+        var draft = Draft();
+        draft.Objective = idea.FirstTask;
+        var sequence = new BuildSequence(draft, Commands, idea.Name, idea.Folder!.ToContract());
+        var project = sequence.Begin(Read(EntryScreens.ReviewOf(idea, draft, null, live: true)));
+        var workstream = sequence.Advance(With(Completed(project, new ProjectCreatedResult { ProjectId = "p1" })))!;
+        sequence.Advance(With(new CommandView
+        {
+            CommandId = workstream.CommandId, Status = CommandStatus.Rejected,
+            Rejection = new CommandRejection { Code = RejectionCode.InvalidRuntimeOptions, Message = "Not now." },
+        }));
+        Assert.That(sequence.CanRetry, Is.True);
+
+        idea.ProjectMade("p1", "Recipes");
+        var there = new ProjectLocation { Path = "/Users/person/Projects/recipes", Name = "recipes", Created = true };
+        Assert.That(EntryScreens.Moves(idea, there), Is.False, "the project is already where the choice points");
+        var again = EntryScreens.ReviewOf(idea, draft, there, live: true);
+        Assert.That(again.Items.Select(item => item.Label), Has.No.Member("Folder now: ").And.No.Member("Folder from now on: "));
+        Assert.That(again.Items.Single(item => item.Label == "Where its files live: ").Value, Is.EqualTo("recipes"));
+        Assert.That(again.FolderChoice, Is.Null, "nothing to send about the folder");
+        Assert.That(EntryScreens.Recap(idea, draft, there, live: true, notice: null, problem: null).Lead, Is.EqualTo(EntryText.RecapLine), "no warning about a move");
+        Assert.That(sequence.Retry(Read(again)), Is.InstanceOf<WorkstreamCreateCommand>(), "Try again sends, never throws");
+
+        var moved = new ProjectIdea("p1", "Recipes");
+        moved.UseIdea("Make a website for my team.");
+        moved.ChooseFolder(ProjectFolder.New(root, "recipes-v2"));
+        Assert.That(EntryScreens.Moves(moved, there), Is.True);
+        var move = EntryScreens.ReviewOf(moved, draft, there, live: true);
+        Assert.That(move.Items.Select(item => item.Label), Has.Member("Folder now: ").And.Member("Folder from now on: "));
+        Assert.That(move.SendsFolder(moved.Folder!.ToContract()), Is.True);
+    }
+
     [Test]
     public void AReviewMadeAfterAChangeIsNotTheSameRequest()
     {

@@ -430,7 +430,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>Why Start building cannot go ahead now, or null.</summary>
-        private string? StartProblem() => EntryScreens.StartProblem(demonstration() != null, state(), connected(), idea, draft, CurrentFolder());
+        private string? StartProblem() => EntryScreens.StartProblem(demonstration() != null, state(), connected(), idea, draft, CurrentFolder(), sequence);
 
         /// <summary>An existing project's folder as the host bound it, or null for a new project or one without.</summary>
         private ProjectLocation? CurrentFolder()
@@ -705,7 +705,7 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>A build is on its way: it has sent, and has neither stopped nor started the work.</summary>
-        private bool Building() => sequence != null && sequence.Sent && !sequence.Stopped && !sequence.Started;
+        private bool Building() => sequence?.InFlight == true;
 
         private void Send(CommandEnvelope command)
         {

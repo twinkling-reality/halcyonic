@@ -565,7 +565,9 @@ the same definition names, as the JSON Schema document:
   Yes confirmed and builds every later step from it, never from the draft as it changes after, and
   reviewing changes nothing in the draft. The panel also refuses Yes for a review that is no longer
   the request as it stands (`SameRequest`), as after a change made by way of the steps, and shows
-  that request afresh; starts nothing more while a build is on its way; and, once a project is made
+  that request afresh; starts nothing more while a build is on its way, Start building saying
+  "Already starting. Wait to hear how it went."; shows a move only when the folder sent is not where
+  the project already is (`EntryScreens.Moves`); and, once a project is made
   and a later step stops, keeps that project and the name it was made with (`ProjectIdea.ProjectMade`).
   So Try again opens the review rather than sending. A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
   refusal's or failure's code, and can be sent again as a new command built from the draft as it is

@@ -38,10 +38,31 @@ public class NewWorkDraftTests
         Assert.That(draft.Title, Does.EndWith("‹U+200B›\u2026"), "a spelled code point is kept whole before the ellipsis");
     }
 
-    private static NewWorkDraft Draft() => new(new CommandFactory(new ClientInfo
+    private static readonly CommandFactory Commands = new(new ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" });
+
+    private static NewWorkDraft Draft() => new(Commands) { ProjectId = Guid.NewGuid().ToString("D"), Objective = "Build the search screen and test its filters." };
+
+    /// <summary>The commands a draft becomes, built where every command is: from the request a review confirmed.</summary>
+    private static (WorkstreamCreateCommand Workstream, ExecutionStartCommand Start) Built(NewWorkDraft draft)
     {
-        Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest",
-    })) { ProjectId = Guid.NewGuid().ToString("D"), Objective = "Build the search screen and test its filters." };
+        var sequence = new BuildSequence(draft, Commands, null);
+        var workstream = (WorkstreamCreateCommand)sequence.Begin(Samples.Reviewed(sequence));
+        var created = new CommandView
+        {
+            CommandId = workstream.CommandId, Status = CommandStatus.Completed,
+            Result = new WorkstreamCreatedResult { WorkstreamId = Guid.NewGuid().ToString("D") },
+        };
+        return (workstream, (ExecutionStartCommand)sequence.Advance(With(created))!);
+    }
+
+    private static ClientProjection With(CommandView command)
+    {
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Commands = new List<CommandView> { command };
+        state.ApplySnapshot(snapshot, new StateChanges());
+        return state;
+    }
 
     private static RuntimeDescriptor Runtime(string id, ModelChoice choice = ModelChoice.Listed) => new()
     {
@@ -75,10 +96,17 @@ public class NewWorkDraftTests
         Assert.That(draft.ChooseModel(model), Is.True);
         Assert.That(draft.ModelPreselected, Is.False, "now the person's own choice");
         Assert.That(draft.Problem, Is.Null);
-        var workstream = draft.CreateWorkstream();
+        // Commands are built in one place, from the request the review confirmed.
+        var sequence = new BuildSequence(draft, Commands, null);
+        var workstream = (WorkstreamCreateCommand)sequence.Begin(Samples.Reviewed(sequence));
         Assert.That(workstream.Payload.Title, Is.EqualTo(draft.Objective));
         Assert.That(workstream.Payload.Objective, Is.EqualTo(draft.Objective));
-        var start = draft.StartExecution(Guid.NewGuid().ToString("D"));
+        var created = new CommandView
+        {
+            CommandId = workstream.CommandId, Status = CommandStatus.Completed,
+            Result = new WorkstreamCreatedResult { WorkstreamId = Guid.NewGuid().ToString("D") },
+        };
+        var start = (ExecutionStartCommand)sequence.Advance(With(created))!;
         Assert.That(start.Payload.ModelRef, Is.EqualTo(model.ModelRef));
         Assert.That(start.Payload.RuntimeId, Is.EqualTo("opencode"));
         Assert.That(start.Payload.Instruction, Is.EqualTo(draft.Objective));
@@ -110,7 +138,9 @@ public class NewWorkDraftTests
             },
         });
         Assert.That(draft.Problem, Does.Contain("did not answer"));
-        Assert.Throws<InvalidOperationException>(() => draft.CreateWorkstream());
+        var sequence = new BuildSequence(draft, Commands, null);
+        Assert.Throws<InvalidOperationException>(() => sequence.Begin(Samples.Reviewed(sequence)), "no model, no start");
+        Assert.That(sequence.Current, Is.Null);
     }
 
     [Test]
@@ -119,7 +149,7 @@ public class NewWorkDraftTests
         var draft = Draft();
         draft.ChooseRuntime(Runtime("plain", ModelChoice.None));
         Assert.That(draft.Problem, Is.Null);
-        Assert.That(draft.StartExecution(Guid.NewGuid().ToString("D")).Payload.ModelRef, Is.Null);
+        Assert.That(Built(draft).Start.Payload.ModelRef, Is.Null);
     }
 
     [Test]
@@ -133,8 +163,9 @@ public class NewWorkDraftTests
         Assert.That(draft.Problem, Does.Contain("4,000"));
         draft.Objective = "Fix <b>search</b>\nwith tests";
         Assert.That(draft.Title, Is.EqualTo("Fix <b>search</b> with tests"));
-        Assert.That(draft.CreateWorkstream().Payload.Title, Is.EqualTo("Fix <b>search</b> with tests"));
-        Assert.That(draft.CreateWorkstream().Payload.Objective, Is.EqualTo(draft.Objective));
+        var built = Built(draft).Workstream;
+        Assert.That(built.Payload.Title, Is.EqualTo("Fix <b>search</b> with tests"));
+        Assert.That(built.Payload.Objective, Is.EqualTo(draft.Objective));
     }
 
     [Test]
@@ -160,7 +191,7 @@ public class NewWorkDraftTests
         Assert.That(draft.ChooseModel(hosted), Is.True, "a second press in a row chooses it");
         Assert.That(draft.Model, Is.SameAs(hosted));
         Assert.That(draft.PendingModel, Is.Null);
-        Assert.That(draft.StartExecution(Guid.NewGuid().ToString("D")).Payload.ModelRef, Is.EqualTo("opencode/space-bunny-free"));
+        Assert.That(Built(draft).Start.Payload.ModelRef, Is.EqualTo("opencode/space-bunny-free"));
     }
 
     [Test]
@@ -175,11 +206,11 @@ public class NewWorkDraftTests
         });
         Assert.That(draft.Model, Is.Null, "nothing on this Mac, so nothing is chosen");
         Assert.That(draft.Problem, Is.EqualTo("Choose a model."));
-        Assert.Throws<InvalidOperationException>(() => draft.StartExecution(Guid.NewGuid().ToString("D")));
+        Assert.Throws<InvalidOperationException>(() => Built(draft));
 
         var none = Draft();
         none.ChooseRuntime(Runtime("claude", ModelChoice.None));
-        Assert.That(none.StartExecution(Guid.NewGuid().ToString("D")).Payload.ModelRef, Is.Null, "a runtime that lists no models keeps its own choice");
+        Assert.That(Built(none).Start.Payload.ModelRef, Is.Null, "a runtime that lists no models keeps its own choice");
     }
 
     [Test]

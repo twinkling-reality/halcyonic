@@ -122,7 +122,7 @@ public class NewProjectScreensTests
         var quote = frame.Lines[0];
         Assert.That(quote.Claim && quote.WordsAreData, Is.True);
         Assert.That(quote.Words, Does.StartWith("The companion says: “").And.EndWith("”"));
-        Assert.That(quote.Rows, Is.EqualTo(NewProjectScreens.QuoteRows));
+        Assert.That(quote.Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "two rows, and room for a third rather than cut");
         Assert.That(Answers(frame).Select(line => line.Words),
             Is.EqualTo(new[] { "Each runner", "One organiser", CompanionText.TypeAnswer, CompanionText.GoOnWithout }));
         Assert.That(Answers(frame).Take(2).Select(line => line.Key), Is.EqualTo(new[] { "0", "1" }));
@@ -169,11 +169,12 @@ public class NewProjectScreensTests
         var longLine = Companions.Ask("Who enters the times?");
         longLine.Line = new string('l', 120);
         Assert.That(NewProjectScreens.Asked(longLine), Is.EqualTo("The companion says: “Who enters the times?”"));
-        var longest = Companions.Ask(new string('q', CompanionExchange.QuestionLimit));
-        var frame = Questions(Asked(out _, longest));
-        Assert.That(frame.Lines[0].Words, Is.EqualTo("The companion says: “" + new string('q', CompanionExchange.QuestionLimit) + "”"),
-            "the longest question the contract allows, whole and alone");
-        Assert.That(frame.Lines[0].Rows, Is.EqualTo(NewProjectScreens.QuoteRows), "it fits the quote's two rows");
+        // The widest letters: lane V measured 66 of them in the quote's two rows, so the longest such question needs a third.
+        var widest = string.Concat(Enumerable.Repeat("WMW ", CompanionExchange.QuestionLimit / 4)).TrimEnd() + "?";
+        Assert.That(widest.Length, Is.LessThanOrEqualTo(CompanionExchange.QuestionLimit));
+        var frame = Questions(Asked(out _, Companions.Ask(widest)));
+        Assert.That(frame.Lines[0].Words, Is.EqualTo("The companion says: “" + widest + "”"), "the longest question the contract allows, whole and alone");
+        Assert.That(frame.Lines[0].Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "room to grow to a third row rather than end in an ellipsis");
 
         var unclear = Questions(Asked(out _));
         Assert.That(unclear.Lines.Any(line => line.Words == CompanionText.ThinksUnclear), Is.False, "asking already says it is unclear");
@@ -555,6 +556,25 @@ public class NewProjectStartTests
         var prompts = frame.Footer.All.ToList();
         Assert.That(prompts, Has.Count.InRange(1, 3), "Close, one other prompt and the main action");
         Assert.That(prompts[0].Prompt.Kind, Is.EqualTo(PromptKind.Close));
+    }
+
+    [Test]
+    public void WhileABuildIsOnItsWayStartBuildingSaysWhyItWaits()
+    {
+        var folder = ProjectFolder.New(Root(), "recipes")!;
+        var draft = Draft();
+        var sequence = new BuildSequence(draft, Commands, "Recipes", folder.ToContract());
+        var state = With(new CommandView { CommandId = "c-0", Status = CommandStatus.Completed, IssuedAt = Samples.Time, UpdatedAt = Samples.Time });
+        var idea = Idea();
+        Assert.That(EntryScreens.StartProblem(false, state, true, idea, draft, null, sequence), Is.Not.EqualTo(EntryText.AlreadyStarting));
+        sequence.Begin(Samples.Reviewed(sequence));
+        Assert.That(sequence.InFlight, Is.True);
+        var problem = EntryScreens.StartProblem(false, state, true, idea, draft, null, sequence);
+        Assert.That(problem, Is.EqualTo("Already starting. Wait to hear how it went."));
+        var recap = NewProjectScreens.Recap(idea, draft, null, live: true, notice: null, problem: problem);
+        Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.AlreadyStarting)));
+        Assert.That(EntryScreens.StartProblem(true, state, true, idea, draft, null, sequence), Is.EqualTo(EntryText.DemoCannotStart),
+            "the demonstration's own reason comes first");
     }
 
     [Test]
