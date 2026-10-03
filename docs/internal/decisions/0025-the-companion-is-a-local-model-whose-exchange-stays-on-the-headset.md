@@ -106,7 +106,7 @@ and a first task. The person can always answer in their own words, ask for the r
 | Questions | At most 4 in one exchange; after the fourth, the control plane asks for a proposal only |
 | The model | `num_ctx` 8,192, `num_predict` 512, temperature 0.3, `think: false` |
 | Time | 30 s until the first token (waiting, loading, reading the prompt), 45 s for the whole turn; then the request to Ollama is closed, which stops it |
-| The reply | At most 4,096 characters read; the line 300, a question 160, 4 choices of 48, a name 60 and a first task 1,000 characters |
+| The reply | At most 4,096 characters read; the line 300, a question 100 (160 before amendment 4), 4 choices of 48, a name 60 and a first task 1,000 characters |
 | Retry | One, inside the same 45 s, when a reply does not parse or has the wrong shape |
 | Who asks | One turn at a time per principal, one at a time on the Mac (another principal's is refused as busy), 12 turns a minute per principal |
 
@@ -223,3 +223,14 @@ competition demonstration.
    token, could pass it, since an engine that truncates drops the start, the instructions. Every
    angle bracket the client sends is written as an entity, the rule is repeated after the exchange,
    and the review notes a first task that names a web address or something to run, by fixed rules.
+4. **A question fits two rows** (2026-10-02, the coordinator, for ADR 0026): the companion's question
+   is at most 100 characters, not 160. New project quotes its words in at most two rows, its line
+   dropping first and its question never cut, and under its view that the idea cannot be built a
+   third row takes the page past a Quest 3S's field. Lane V's directions render measured what the
+   two rows hold at 18 dp in a file's 36 degrees with "The companion says" around it (lane-v-redesign
+   6f7c0da, `MeasureQuote`): 105 characters of a question in ordinary English, 66 of the widest
+   letters. 100 sits under the ordinary measure with room for capitals and digits; a question of
+   mostly wide letters can still reach a third row, where the view's own measure keeps it whole.
+   The prompt states the limit, so the model aims under it; a longer question is a reply out of
+   the contract's bounds, refused as unreadable with the one retry unchanged, and Halcyonic never
+   cuts or rewrites it. A kept exchange holding a longer question restores up to that reply.

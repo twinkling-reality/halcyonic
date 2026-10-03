@@ -179,6 +179,29 @@ public class CompanionExchangeTests
         Assert.That(characters, Is.LessThanOrEqualTo(CompanionExchange.CharacterLimit));
         Assert.That(said, Is.LessThan(9), "the limit refused words past it");
     }
+
+    [Test]
+    public void AQuestionLongerThanNewProjectCanQuoteIsNotShownOrKept()
+    {
+        Assert.That(CompanionExchange.QuestionLimit, Is.EqualTo(100), "the contract's, what two rows of the quote hold");
+        Assert.That(CompanionExchange.WithinBounds(Companions.Ask(new string('q', CompanionExchange.QuestionLimit))), Is.True);
+        var over = Companions.Ask(new string('q', CompanionExchange.QuestionLimit + 1));
+        Assert.That(CompanionExchange.WithinBounds(over), Is.False);
+
+        var exchange = new CompanionExchange(CompanionStart.Help);
+        exchange.Ask(CompanionWant.Next);
+        Assert.That(exchange.Replied(exchange.Generation, Companions.Response(over)), Is.True);
+        Assert.That(exchange.Failure, Is.EqualTo("companion_unreadable"), "never shown in part");
+        Assert.That(exchange.Turns, Is.Empty);
+
+        var kept = new List<CompanionExchangeTurn>
+        {
+            new CompanionTurn { Reply = Companions.Ask() },
+            new PersonTurn { Text = "Each runner" },
+            new CompanionTurn { Reply = over },
+        };
+        Assert.That(CompanionExchange.Restore(CompanionStart.Help, 4, kept).Turns, Has.Count.EqualTo(2), "a kept exchange comes back up to that reply");
+    }
 }
 
 public class CompanionRecapTests

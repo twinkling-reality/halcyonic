@@ -1,8 +1,9 @@
-import type {
-  CompanionExchangeTurn,
-  CompanionReply,
-  CompanionStart,
-  CompanionWant,
+import {
+  COMPANION_QUESTION_MAX,
+  type CompanionExchangeTurn,
+  type CompanionReply,
+  type CompanionStart,
+  type CompanionWant,
 } from '@halcyonic/contracts';
 import type { ChatMessage } from './ollama.ts';
 
@@ -27,7 +28,7 @@ Fields:
 - "say": at most two short sentences to the person, plain and calm, no exclamation marks.
 - "assessment": "clear" when you could propose now, "unclear" when something that changes the first step is missing, "not_feasible" when it cannot be built as software on a computer.
 - "next": only "ask" or "propose". With "ask", "question" is an object and "proposal" is null. With "propose", "question" is null and "proposal" is an object.
-- "question": one question whose answer changes what gets built first, with at most 4 short choices of a few words each; the person may also answer in their own words. Never ask about what the agent can decide, such as the programming language, unless the person cares.
+- "question": one question of at most ${COMPANION_QUESTION_MAX} characters whose answer changes what gets built first, with at most 4 short choices of a few words each; the person may also answer in their own words. Never ask about what the agent can decide, such as the programming language, unless the person cares.
 - "proposal": "name" is a project name of at most 40 characters; "first_task" is one small, concrete first step the agent can finish in one go, written as an instruction to the agent, in at most 3 sentences.
 
 If the idea cannot be built as software on a computer, set "assessment" to "not_feasible", say why in "say", and ask about or propose a nearby idea that can be built.
@@ -55,7 +56,7 @@ export const REPLY_SCHEMA = {
           additionalProperties: false,
           required: ['text', 'choices'],
           properties: {
-            text: { type: 'string', minLength: 1, maxLength: 160 },
+            text: { type: 'string', minLength: 1, maxLength: COMPANION_QUESTION_MAX },
             choices: {
               type: 'array',
               maxItems: 4,

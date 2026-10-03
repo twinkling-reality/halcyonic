@@ -8945,7 +8945,7 @@
         "text": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 160,
+          "maxLength": 100,
           "pattern": "\\S"
         },
         "choices": {

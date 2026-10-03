@@ -20,7 +20,12 @@ export const COMPANION_MAX_CHOICES = 4;
 
 /** The companion's line to the person: at most two short sentences. */
 export const COMPANION_LINE_MAX = 300;
-export const COMPANION_QUESTION_MAX = 160;
+/**
+ * The companion's question: what New project's quote holds in its two rows, so the question is never
+ * cut nor takes a third row (ADR 0025, amendment 4). Measured at 18 dp in a file's 36 degrees with
+ * "The companion says" around it: 105 characters of ordinary English, 66 of the widest letters.
+ */
+export const COMPANION_QUESTION_MAX = 100;
 export const COMPANION_CHOICE_MAX = 48;
 export const COMPANION_NAME_MAX = 60;
 export const COMPANION_TASK_MAX = 1_000;
