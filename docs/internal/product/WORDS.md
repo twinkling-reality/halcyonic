@@ -106,6 +106,7 @@ These words were settled by the coordinator on 2026-10-02.
 | Each limit | Practice agent, 5-hour window · Practice agent, weekly |
 | Where they come from, in place of a source's name | Recorded for the demo, not from any account |
 | Under the limits, in place of the account note | These limits are part of the recording. |
+| A limit's Account fact, in place of who it belongs to | Part of the recording |
 
 ## Sentence patterns
 
