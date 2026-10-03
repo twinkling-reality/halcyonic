@@ -501,7 +501,7 @@ the same definition names, as the JSON Schema document:
   beside it, and an approval's request shows as much as fits there before Approve shows it whole. Until an answer is read, the page says
   so in words ("Still reading what changed…"), never an empty page, since a read of Salidium while
   a session is live has taken up to 10 seconds. The source line of Waiting and Activity is "As the
-  agent reported it", with no app's name in it. Nothing in the Unity layer draws it yet.
+  agent reported it", with no app's name in it. `WorkspaceDirector` draws it (below, "The task's file").
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
   redesign ADR 0026 decides (the component render's frames and `MenuPlane` use it): at most
   two columns of parts, every part of a column as
@@ -1384,6 +1384,26 @@ scripts use only long-stable core Unity APIs:
   below 60 a second (`FrameTally`, which allocates nothing per frame), and pauses with how long the
   app was away. `pnpm quest:session` and `pnpm quest:cold-start` read these lines over adb
   ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Device measures on a Quest").
+
+### The task's file
+
+Opening a character opens its task's file (ADR 0026) in place of the workspace panel:
+`WorkspaceDirector` keeps a `FileScreen` for it and builds its `MenuFrame` with `FileScreens.Screen`,
+and `FilePlane` lays the file's column, and beside it the side panel a line opened, on one plane
+facing the eyes, its top `MenuPage.TopDegrees` below eye level, turned toward the character and
+turned again when the stage moves it. The menu itself is not drawn here. The director measures with
+the view (`MenuFrameView.RowsOf`) before it builds: every prompt and every answer at the file's and the
+side panel's widths, each typed answer and each line of Your answers as they read now, the request
+an approval answers, and the brief answers' lines for `AnswerRoom`; pages hold
+`MenuFrame.RowsAPage`'s rows. What counts as read is counted only as the view reports it drawn
+(`MenuFrameView.Drawn`): a request's part or the question's page when the frame drawn is the one this
+state last built, and a chosen answer's side panel when it is the one built with it. Presses count only
+while the app has focus; a row only chooses or takes the person somewhere; the director is the one
+place that sends, through `WorkspaceSteering` (Send answer through
+`SendAnswer(FileScreen, WorkspacePresentation)`, which always asks the page). Changes and Checks
+read through `WorkspaceSections.ShowFile`, `Understand` and `Checked`, brief for the page and full
+for the side panel, null while nothing is read yet. Not yet built: the file's opening out of its
+character and the light line to it, and the menu beside it.
 
 ### The workspace
 
