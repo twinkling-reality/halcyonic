@@ -85,6 +85,9 @@ namespace Halcyonic.Client
         /// <summary>The frame given to the director, built once for each change, so a drawn report names the very frame it drew.</summary>
         private MenuFrame? shown;
 
+        /// <summary>Which page of the step's lines shows, from 0, when they need more than the page the stage gives.</summary>
+        private int linePage;
+
         /// <summary>The frame the director last drew: what the person saw, and so the only frame a press is checked against.</summary>
         private MenuFrame? seen;
 
@@ -255,7 +258,14 @@ namespace Halcyonic.Client
 
         public MenuFrame? Frame => IsOpen ? shown ??= Build() : null;
 
+        /// <summary>The frame for what shows, its lines packed into the page the stage gives; the review pages itself, by its parts.</summary>
         private MenuFrame Build()
+        {
+            var frame = Compose();
+            return step == NewProjectStep.Build && buildPage == BuildPage.Review ? frame : Paged(frame);
+        }
+
+        private MenuFrame Compose()
         {
             var current = idea ??= new ProjectIdea();
             var problem = StartProblem();
@@ -271,11 +281,11 @@ namespace Halcyonic.Client
                     return NewProjectScreens.FixedQuestion(current, reached, Voice, Said(step), host.KeyboardOffered);
                 case NewProjectStep.Questions:
                     step = current.HasRecap ? NewProjectStep.Recap : NewProjectStep.YourIdea;
-                    return Build();
+                    return Compose();
                 case NewProjectStep.Recap when !current.HasRecap:
                     // Nothing to recap yet, as after starting over or clearing a start: back to the idea.
                     step = NewProjectStep.YourIdea;
-                    return Build();
+                    return Compose();
                 case NewProjectStep.Recap:
                     return recapPage switch
                     {
@@ -301,7 +311,7 @@ namespace Halcyonic.Client
                         default:
                             step = current.HasRecap ? NewProjectStep.Recap : NewProjectStep.YourIdea;
                             recapPage = RecapPage.Facts;
-                            return Build();
+                            return Compose();
                     }
             }
         }
@@ -355,6 +365,11 @@ namespace Halcyonic.Client
                     Close();
                     return;
                 case SidePanel.Close:
+                    fact = null;
+                    break;
+                case NewProjectScreens.NextPage when key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture):
+                    // The next page, or the first again from the last; a fact's side panel stays with its page.
+                    linePage++;
                     fact = null;
                     break;
                 case MenuFrame.ChooseSection when NewProjectScreens.StepOf(key) is NewProjectStep chosen:
@@ -690,6 +705,80 @@ namespace Halcyonic.Client
             if (changed && IsOpen) Redraw();
         }
 
+        /// <summary>
+        /// <paramref name="frame"/> as the page the stage gives holds it (ADR 0026): its lines whole when
+        /// they fit, counted as the view lays them beside the reason and the source line; otherwise a page
+        /// of them at a time, in order, each page ending in a row that turns to the next and from the last
+        /// to the first, keyed to the page it stands on. A chosen line that opens the side panel keeps its
+        /// page showing, so the panel always slides out from its line.
+        /// </summary>
+        private MenuFrame Paged(MenuFrame frame)
+        {
+            var room = host.PageHeight(Math.Max(1, host.TitleRows(frame.Subject, Column)), besideMenu: true);
+            if (frame.Source is string source) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(source, Column)));
+            if (frame.Reason is string reason) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(reason, Column)));
+            var all = frame.Lines;
+            if (Height(all, 0, all.Count) <= room)
+            {
+                linePage = 0;
+                return frame;
+            }
+            // Whole lines a page, at least one, each page keeping room for its turning row.
+            var turn = MenuPage.TargetGap + MenuPage.Target();
+            var starts = new List<int> { 0 };
+            for (var start = 0; start < all.Count;)
+            {
+                var end = start + 1;
+                while (end < all.Count && Height(all, start, end + 1) + turn <= room) end++;
+                if (end < all.Count) starts.Add(end);
+                start = end;
+            }
+            var pages = starts.Count;
+            var opens = frame.Side == null ? -1 : all.ToList().FindIndex(line => line.Chosen && (line.Opens || line.Choice));
+            if (opens >= 0) linePage = starts.FindLastIndex(start => start <= opens);
+            if (linePage >= pages || linePage < 0) linePage = 0;
+            var from = starts[linePage];
+            var to = linePage + 1 < pages ? starts[linePage + 1] : all.Count;
+            var lines = all.Skip(from).Take(to - from).ToList();
+            lines.Add(new PageLine(EntryText.NextPage(linePage, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
+                key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            var side = opens >= from && opens < to ? frame.Side : null;
+            return new MenuFrame(frame.Subject, frame.Footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, side, frame.SourceIsData,
+                frame.SubjectWaits);
+        }
+
+        /// <summary>New project stands in a file's place, as wide as a file's column.</summary>
+        private const float Column = Glaze.Menu.FileColumnDegrees;
+
+        /// <summary>
+        /// The height lines <paramref name="from"/> to <paramref name="to"/> take as the view lays them: a
+        /// row or answer a target's height, words their rows, 12 mm between two targets and a grid step
+        /// otherwise, and two answers that each fit half a row sharing one.
+        /// </summary>
+        private float Height(IReadOnlyList<PageLine> lines, int from, int to)
+        {
+            var total = 0f;
+            for (var index = from; index < to; index++)
+            {
+                var line = lines[index];
+                if (index > from) total += lines[index - 1].Action != null && line.Action != null ? MenuPage.TargetGap : MenuPage.Grid;
+                if (index + 1 < to && Pairs(line, lines[index + 1]))
+                {
+                    total += MenuPage.Target();
+                    index++;
+                    continue;
+                }
+                var rows = Math.Max(1, Math.Min(line.Rows, host.RowsOf(line, Column)));
+                total += line.Action != null ? MenuPage.Target(rows) : MenuPage.Words(rows);
+            }
+            return total;
+        }
+
+        /// <summary>Two answers next to each other, or a line beside the next, that each fit half a row in one row, share it, as the view lays them.</summary>
+        private bool Pairs(PageLine first, PageLine second) =>
+            ((first.Choice && second.Choice) || first.BesideNext) && first.FromRow == null && second.FromRow == null
+            && host.FitsHalf(first, Column) && host.FitsHalf(second, Column);
+
         /// <summary>What a frame shows that changes with no press of the person's.</summary>
         private string BuiltFrom()
         {
@@ -742,6 +831,7 @@ namespace Halcyonic.Client
         private void Show(NewProjectStep shown, RecapPage page, BuildPage build = BuildPage.Review)
         {
             if (shown != step) said = null;
+            if (shown != step || page != recapPage || build != buildPage) linePage = 0;
             step = shown;
             recapPage = page;
             buildPage = build;

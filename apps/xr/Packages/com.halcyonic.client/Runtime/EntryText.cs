@@ -148,6 +148,13 @@ namespace Halcyonic.Client
         /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
         public static string NextPart(int part, int parts) => "Next part, " + Count(part) + " of " + Count(parts);
 
+        /// <summary>
+        /// New project's row at the end of a page that needs more than one, on page <paramref name="page"/>
+        /// (from 0) of <paramref name="pages"/>: the page it turns to, or First page on the last, as the
+        /// menu's pager says (<see cref="Footer.NextPageWords"/>) and the review's row counts.
+        /// </summary>
+        public static string NextPage(int page, int pages) => page == pages - 1 ? "First page" : "Next page, " + Count(page + 2) + " of " + Count(pages);
+
         /// <summary>The pager's words, everywhere in the entry panel: a word with its direction, never Back, which leaves the screen.</summary>
         public const string Previous = "Previous";
         public const string Next = "Next";
