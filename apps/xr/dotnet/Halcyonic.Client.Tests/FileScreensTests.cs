@@ -199,6 +199,26 @@ public class FileScreensTests
     }
 
     [Test]
+    public void ASourcesOwnWordsInsideAnAnswerAreShownAsData()
+    {
+        SectionPresentation Failing(AnswerDepth depth) =>
+            CheckedPresenter.Present(Intelligence.ExecutionId, Intelligence.Live(Intelligence.Understanding(Intelligence.Verified), "2026-09-20T16:21:30.000Z"),
+                false, null, Intelligence.Live(Intelligence.Evaluation(ControlPlaneApiTests.Available), "2026-09-26T18:01:00.000Z"), false,
+                "connection <b>refused</b>", Intelligence.At("2026-09-26T18:02:00.000Z"), Intelligence.Utc, depth: depth);
+        var screen = new FileScreen { Section = FileSection.Checks, Checked = new FileAnswer(Failing(AnswerDepth.Brief), Failing(AnswerDepth.Full)), Chosen = FileScreens.ChecksKey };
+        var lines = new List<PageLine>();
+        var parts = Screen(screen, room: AnswerRoom.Unlimited).Side!.Parts?.Parts ?? 1;
+        for (var part = 0; part < parts; part++)
+        {
+            lines.AddRange(Screen(screen, room: AnswerRoom.Unlimited).Side!.Lines);
+            screen.NextPage();
+        }
+        var refused = lines.Where(line => line.Words.Contains("refused")).ToList();
+        Assert.That(refused, Is.Not.Empty, "the measurement's failure shows in the side panel");
+        Assert.That(refused.All(line => line.WordsAreData), Is.True, "and as data, never as Halcyonic's words");
+    }
+
+    [Test]
     public void ASidePanelInPartsTakesTheFootersNextPage()
     {
         var screen = Read(FileSection.Checks);
