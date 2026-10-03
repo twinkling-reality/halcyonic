@@ -548,9 +548,13 @@ storage, in `/sdcard/Android/data/com.halcyonic.xr/files`, where `adb push` left
 anything with `adb` or file access over USB. A development build that finds a token there moves it
 into private storage at its next start, before it reads a pairing, and removes it; a release build
 removes it without reading it. Only a regular file with one name holding a token in its own form is
-taken, and nothing there is followed through a link or waited on as a pipe. The app may not be
+taken, and nothing there is followed through a link or waited on as a pipe. A token made by hand in
+another form works on the computer, which takes any of at least 32 characters, but the move refuses
+it and removes it unused; write such a token with `run-as`, as above. The app may not be
 allowed to remove a file `adb push` made, since `shell` owns it; it then logs "a copy of the access
-token is still on shared storage". Remove it from the Mac, which can, and check that it is gone:
+token is still on shared storage". If it may not even read it, it logs that it could not deal with
+the old place (`open failed with EACCES`). Either way, remove it from the Mac, which can, and check
+that it is gone:
 
 ```bash
 adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token
@@ -673,8 +677,15 @@ What only a headset can tell about the access token ([headset-token-storage.md](
   in `/sdcard/Android/data/com.halcyonic.xr/files` at all (`ln -s`, `mkfifo`); if so, that the app
   starts at once and logs that what was there was not a token.
 - **The calls.** That `android.system.Os` `lstat`, `open` with `O_NOFOLLOW | O_NONBLOCK`, `fstat`,
-  `read`, `chmod` and `remove` work through JNI under IL2CPP (no warning in the log), and what the
-  app's umask makes a new file's mode before `chmod`.
+  `read`, `chmod` and `remove` work through JNI under IL2CPP: with no private token, the move above
+  logs that it moved the token, with no warning that it could not set the mode to 600, and then
+  possibly that a copy is still on shared storage, when the app may not remove a file `shell` made.
+  The copy line alone, without the moved line, means a private token was already there, so the
+  file was never opened or read. "Could not deal with the access token's old place" names the call
+  and its errno: `open failed with EACCES` means the app may not read a file `shell` made, so remove
+  it from the Mac as above; any other is a failure to look into. With nothing on shared storage, a
+  start logs none of these lines, which shows `ENOENT` is read as nothing there. And what the app's
+  umask makes a new file's mode before `chmod`.
 - **Backups.** Whether a Meta or Horizon backup ever copied the shared file; the app itself sets
   `android:allowBackup="false"`.
 
