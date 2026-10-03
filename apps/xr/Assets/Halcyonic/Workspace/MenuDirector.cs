@@ -191,7 +191,7 @@ namespace Halcyonic.XR.Workspace
             go.transform.SetParent(parent, false);
             var director = go.AddComponent<MenuDirector>();
             director.setup = setup;
-            director.plane = MenuPlane.Create(go.transform);
+            director.plane = MenuPlane.Create(go.transform, director.OpenAs);
             // The session shown first is no change; another one later is.
             director.memory.Session(setup.Session());
             // Each place's column is made afresh each time the menu shows it after opening, bound to the session shown then.
@@ -328,6 +328,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Draws what shows now, its parts at their places at once, for the renders.</summary>
         public void DrawNow()
         {
+            Fold();
             Follow();
             LetGoIfMoved();
             Draw(immediately: true);
@@ -338,6 +339,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
+            Fold();
             Follow();
             navigator.Tick();
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
@@ -366,6 +368,25 @@ namespace Halcyonic.XR.Workspace
             if (!another) return;
             navigator.CloseBeside();
             navigator.Renew();
+        }
+
+        /// <summary>
+        /// Folds the plane away while another window keeps focus (<see cref="FocusGuard.Folded"/>), as large
+        /// panels do, so the stage's banner shows again and names what is still open; back, it is as it was.
+        /// </summary>
+        private void Fold()
+        {
+            var shows = !FocusGuard.Folded;
+            if (plane.gameObject.activeSelf != shows) plane.gameObject.SetActive(shows);
+        }
+
+        /// <summary>What the banner names as still open while the plane is folded: the task whose file is open, New project, or the menu's place; null with only the closed bar.</summary>
+        private string? OpenAs()
+        {
+            if (navigator == null) return null;
+            if (navigator.BesideTask is string task && State?.Workstreams.TryGetValue(task, out var work) == true) return work.Title;
+            if (navigator.Beside != null) return ProjectsText.NewProject;
+            return navigator.IsOpen ? MenuBar.Word(navigator.Place) : null;
         }
 
         /// <summary>A host for a column made now: this director's, sending only to the session shown now.</summary>
