@@ -234,8 +234,9 @@ namespace Halcyonic.Client
 
         /// <param name="source">Where its words come from, one line, last, in the secondary colour.</param>
         /// <param name="parts">The part showing, from 0, and how many there are, where it pages; null where it doesn't.</param>
+        /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
         public SidePanel(string subject, bool subjectIsData = false, IReadOnlyList<SideFact>? facts = null, IReadOnlyList<PageLine>? lines = null,
-            string? source = null, (int Part, int Parts)? parts = null)
+            string? source = null, (int Part, int Parts)? parts = null, bool sourceIsData = false)
         {
             if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("A side panel has its subject.", nameof(subject));
             facts ??= Array.Empty<SideFact>();
@@ -248,6 +249,7 @@ namespace Halcyonic.Client
             Facts = facts;
             Lines = lines;
             Source = source;
+            SourceIsData = sourceIsData;
             Parts = parts;
         }
 
@@ -260,6 +262,9 @@ namespace Halcyonic.Client
         public IReadOnlyList<PageLine> Lines { get; }
 
         public string? Source { get; }
+
+        /// <summary>The source line holds text from outside, shown by <see cref="LabelText"/>'s rule before it is given.</summary>
+        public bool SourceIsData { get; }
 
         public (int Part, int Parts)? Parts { get; }
     }
@@ -510,8 +515,9 @@ namespace Halcyonic.Client
 
         /// <param name="pill">On a file, its task's state badge, as its character wears it.</param>
         /// <param name="source">Where the page's words come from, one line, last on the page, in the secondary colour.</param>
+        /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
         public MenuFrame(string subject, Footer footer, bool subjectIsData = false, StateBadge? pill = null, IReadOnlyList<FrameSection>? sections = null,
-            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null)
+            IReadOnlyList<PageLine>? lines = null, string? source = null, SidePanel? side = null, bool sourceIsData = false)
         {
             if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("A frame has its subject.", nameof(subject));
             sections ??= Array.Empty<FrameSection>();
@@ -527,6 +533,7 @@ namespace Halcyonic.Client
             Sections = sections;
             Lines = lines;
             Source = source;
+            SourceIsData = sourceIsData;
             Side = side;
             Footer = footer ?? throw new ArgumentNullException(nameof(footer));
         }
@@ -545,6 +552,9 @@ namespace Halcyonic.Client
         public string? Reason => Footer.Reason;
 
         public string? Source { get; }
+
+        /// <summary>The source line holds text from outside, shown by <see cref="LabelText"/>'s rule before it is given.</summary>
+        public bool SourceIsData { get; }
 
         public SidePanel? Side { get; }
 
