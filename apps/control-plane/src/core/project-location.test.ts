@@ -324,6 +324,7 @@ describe('GET /api/locations', () => {
           {
             path: root,
             name: 'route',
+            label: 'route',
             status: 'available',
             repository: false,
             changed_at: (body as LocationsResponse).roots[0]?.changed_at,
