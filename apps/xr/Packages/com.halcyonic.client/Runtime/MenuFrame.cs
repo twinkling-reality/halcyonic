@@ -47,6 +47,14 @@ namespace Halcyonic.Client
         /// <summary>Something in <paramref name="place"/> waits for the person: its amber dot shows.</summary>
         public bool Waits(MenuPlace place) => waiting.Contains(place);
 
+        /// <summary>
+        /// The bar's places as the row of sections every place's frame shows under its subject, the
+        /// chosen one lit and each with its amber dot while something there waits; choosing one raises
+        /// <see cref="MenuFrame.ChooseSection"/> with the place's name as its key.
+        /// </summary>
+        public IReadOnlyList<FrameSection> Sections() =>
+            Places.Select(place => new FrameSection(place.ToString(), Word(place), chosen: place == Chosen, waits: Waits(place))).ToList();
+
         /// <summary>A place's word on the bar.</summary>
         public static string Word(MenuPlace place) => place switch
         {
@@ -553,6 +561,10 @@ namespace Halcyonic.Client
             Side = side;
             Footer = footer ?? throw new ArgumentNullException(nameof(footer));
         }
+
+        /// <summary>This frame with <paramref name="sections"/> in place of its own, as the menu's places on a place's page.</summary>
+        public MenuFrame WithSections(IReadOnlyList<FrameSection> sections) =>
+            new MenuFrame(Subject, Footer, SubjectIsData, Pill, sections, Lines, Source, Side, SourceIsData, SubjectWaits);
 
         public string Subject { get; }
 
