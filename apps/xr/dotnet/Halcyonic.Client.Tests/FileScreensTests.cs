@@ -297,8 +297,12 @@ public class FileScreensTests
         Assert.That(chosen.Lines.Where(line => line.Chosen).Select(line => line.Key), Is.EqualTo(new[] { "1" }), "choosing only lights the row");
         Assert.That(chosen.Footer[PromptSlot.FarRight]!.Available, Is.True);
         Assert.That(screen.PresetToSend, Is.EqualTo("Wrap up and summarise."), "Tell it sends exactly what the row shows");
-        screen.Presets = presets;
-        Assert.That(screen.ChosenPreset, Is.Null, "offered again, nothing is chosen");
+        screen.Presets = presets.ToArray();
+        Assert.That(screen.ChosenPreset, Is.EqualTo(1), "the same instructions offered again keep what was chosen");
+        screen.Presets = new[] { presets[0], new PresetInstruction("Wrap up", "Wrap up and push.") };
+        Assert.That(screen.ChosenPreset, Is.Null, "other words clear it, so Tell it never sends what was not chosen");
+        screen.Presets = null;
+        Assert.That(screen.PresetToSend, Is.Null);
     }
 
     [Test]
