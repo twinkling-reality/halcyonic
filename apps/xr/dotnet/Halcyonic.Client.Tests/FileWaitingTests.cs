@@ -341,10 +341,14 @@ public class FileWaitingTests
     {
         var work = new WaitingWork();
         var workspace = Approving(work);
-        var screen = new FileScreen { WhatChanged = null, Checked = null };
-        var frame = Screen(workspace, new WorkspaceSteering(factory), screen);
-        Assert.That(frame.Lines[0].Words, Is.EqualTo("It wants to run a command:"));
-        Assert.That(frame.Lines.Select(line => line.Words), Has.None.Contains("Still reading"));
+        string Drawn(MenuFrame frame) => string.Join(" | ", frame.Lines.Select(line => line.Words + "/" + line.Tone + "/" + line.Chip))
+            + " || " + frame.Source + " || " + string.Join(" | ", FileScreensTests.Slots(frame.Footer));
+        var reading = Screen(workspace, new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Waiting });
+        var read = Screen(workspace, new WorkspaceSteering(factory), FileScreensTests.Read(FileSection.Waiting));
+        Assert.That(read.Lines[0].Words, Is.EqualTo("It wants to run a command:"));
+        Assert.That(Drawn(read), Is.EqualTo(Drawn(reading)), "Waiting is the same whether the answers are read or still being read");
+        Assert.That(read.Lines.Select(line => line.Words), Has.None.Contains("Still reading").And.None.Contains("files changed"));
+        Assert.That(read.Source, Is.EqualTo(FileScreens.AgentSource), "never an answer's source");
     }
 
     [Test]
