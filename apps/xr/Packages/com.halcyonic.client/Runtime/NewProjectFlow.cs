@@ -85,8 +85,63 @@ namespace Halcyonic.Client
         /// <summary>The frame given to the director, built once for each change, so a drawn report names the very frame it drew.</summary>
         private MenuFrame? shown;
 
-        /// <summary>Which page of the step's lines shows, from 0, when they need more than the page the stage gives.</summary>
+        /// <summary>Which page of what shows, from 0, when it needs more than the page the stage gives.</summary>
         private int linePage;
+
+        /// <summary>What the pages belong to: the step, its page, the question and the idea. Any change, or opening, starts at the first page.</summary>
+        private (string Key, ProjectIdea? Idea)? pagedFor;
+
+        /// <summary>The page showing when the director last drew it, so a turn is taken only from the page the person saw.</summary>
+        private int seenPage = -1;
+
+        /// <summary>
+        /// The page's room on this stage (<see cref="IMenuHost.PageHeight"/>), read once for what shows and
+        /// again only when that, the subject's rows or the text size change, never as the head moves.
+        /// </summary>
+        private (string For, float Room)? pageRoom;
+
+        /// <summary>The question's pages of answers, laid out once for it, its room and its person's own answer.</summary>
+        private (string For, AnswersLayout? Layout)? answersLayout;
+
+        /// <summary>The page of answers showing, where the question's answers need more than one.</summary>
+        private AnswersPage? shownAnswers;
+
+        /// <summary>The unknown start's parts, where it needs more than a page, and those drawn and when, as the review holds its Yes.</summary>
+        private int unresolvedParts = 1;
+        private readonly HashSet<int> unresolvedDrawn = new HashSet<int>();
+        private double unresolvedDrawnAt;
+
+        /// <summary>The rows a part of the review holds, read once for the review and again only when the text size changes.</summary>
+        private (NewWorkReview Review, TextSize Size, int Rows)? reviewRows;
+
+        /// <summary>A question's pages of answers (ADR 0026): its own page first where it and a row of them don't fit, then theirs.</summary>
+        private sealed class AnswersLayout
+        {
+            public AnswersLayout(bool ownPage, List<(int First, int Count)> pages, int? headRows)
+            {
+                OwnPage = ownPage;
+                Pages = pages;
+                HeadRows = headRows;
+            }
+
+            public bool OwnPage { get; }
+
+            public List<(int First, int Count)> Pages { get; }
+
+            public int? HeadRows { get; }
+
+            public int Total => Pages.Count + (OwnPage ? 1 : 0);
+
+            /// <summary>The first page of answers, after the question's own.</summary>
+            public int FirstAnswers => OwnPage ? 1 : 0;
+
+            public AnswersPage At(int page)
+            {
+                if (OwnPage && page == 0) return new AnswersPage(0, 0, 0, Pages.Count, null);
+                var answers = page - FirstAnswers;
+                return new AnswersPage(Pages[answers].First, Pages[answers].Count, answers, Pages.Count, OwnPage ? HeadRows : null);
+            }
+        }
 
         /// <summary>The frame the director last drew: what the person saw, and so the only frame a press is checked against.</summary>
         private MenuFrame? seen;
@@ -240,6 +295,8 @@ namespace Halcyonic.Client
             Show(idea.HasRecap ? NewProjectStep.Recap : idea.Companion != null || idea.Guided ? NewProjectStep.Questions : NewProjectStep.YourIdea);
             shown = null;
             seen = null;
+            // Opened again, it reads from the first page, its room afresh where it stands now.
+            pagedFor = null;
         }
 
         /// <summary>Takes New project off the plane; its draft stays where it is.</summary>
@@ -261,12 +318,39 @@ namespace Halcyonic.Client
         /// <summary>The frame for what shows, its lines packed into the page the stage gives; the review pages itself, by its parts.</summary>
         private MenuFrame Build()
         {
+            Follow();
             var frame = Compose();
-            return step == NewProjectStep.Build && buildPage == BuildPage.Review ? frame : Paged(frame);
+            // What shows changed, as on a redirect to another step: built again from its first page.
+            if (Follow()) frame = Compose();
+            if (step == NewProjectStep.Build && buildPage == BuildPage.Review) return frame;
+            if (shownAnswers != null) return frame;
+            return step == NewProjectStep.Build && buildPage == BuildPage.Unresolved ? Parts(frame) : Paged(frame);
+        }
+
+        /// <summary>
+        /// Starts at the first page, with the room read afresh, whenever what shows is another thing: the
+        /// step or its page, the question, or the idea; true when it did.
+        /// </summary>
+        private bool Follow()
+        {
+            var exchange = idea?.Companion;
+            var question = step != NewProjectStep.Questions ? ""
+                : exchange != null && !(exchange.Left && idea!.Guided) ? "c" + exchange.Turns.Count + (exchange.Waiting ? "w" : "") + (exchange.Failure != null ? "f" : "")
+                : "f" + idea?.Question;
+            var key = string.Join("|", step, recapPage, buildPage, wordsFor, question);
+            if (pagedFor is { } was && was.Key == key && ReferenceEquals(was.Idea, idea)) return false;
+            pagedFor = (key, idea);
+            linePage = 0;
+            seenPage = -1;
+            pageRoom = null;
+            answersLayout = null;
+            unresolvedDrawn.Clear();
+            return true;
         }
 
         private MenuFrame Compose()
         {
+            shownAnswers = null;
             var current = idea ??= new ProjectIdea();
             var problem = StartProblem();
             var reached = BuildReached(problem);
@@ -276,9 +360,20 @@ namespace Halcyonic.Client
                     return NewProjectScreens.YourIdea(current, ideaRow, reached, Voice, Said(step), CompanionShown(), host.KeyboardOffered);
                 case NewProjectStep.Questions when current.Companion != null && !(current.Companion.Left && current.Guided):
                     var waited = current.Companion.Waiting ? host.Now - companionSince : 0;
+                    var asking = current.Companion;
+                    if (asking.Latest is AskReply ask && !asking.Waiting && asking.Failure == null)
+                    {
+                        // Its answers page as ADR 0026 pages answers, under the question.
+                        // Go on without it is the last answer while the companion hasn't proposed.
+                        var offered = (ask.Question?.Choices?.Count ?? 0) + (recording == null && asking.Proposal == null ? 1 : 0);
+                        return Answered(page => NewProjectScreens.Questions(current, reached, Voice, Said(step), waited, recording, host.KeyboardOffered, page),
+                            offered, reserveReason: false, asking.Written != null);
+                    }
                     return NewProjectScreens.Questions(current, reached, Voice, Said(step), waited, recording, host.KeyboardOffered);
                 case NewProjectStep.Questions when current.Guided && current.Question < ProjectIdea.Questions.Count:
-                    return NewProjectScreens.FixedQuestion(current, reached, Voice, Said(step), host.KeyboardOffered);
+                    // A question that can be skipped has its skip as the last answer.
+                    return Answered(page => NewProjectScreens.FixedQuestion(current, reached, Voice, Said(step), host.KeyboardOffered, page),
+                        current.Choices.Count + (ProjectIdea.Questions[current.Question].SkipLabel != null ? 1 : 0), reserveReason: false, current.GuideWritten != null);
                 case NewProjectStep.Questions:
                     step = current.HasRecap ? NewProjectStep.Recap : NewProjectStep.YourIdea;
                     return Compose();
@@ -367,10 +462,18 @@ namespace Halcyonic.Client
                 case SidePanel.Close:
                     fact = null;
                     break;
-                case NewProjectScreens.NextPage when key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture):
+                case Footer.NextPage when seenPage == linePage:
+                case NewProjectScreens.NextPage when seenPage == linePage && key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture):
                     // The next page, or the first again from the last; a fact's side panel stays with its page.
                     linePage++;
                     fact = null;
+                    break;
+                case NewProjectScreens.MoreAnswers when seenPage == linePage && shownAnswers is AnswersPage answering && key == answering.Row().Key
+                    && answersLayout?.Layout is AnswersLayout answersPages:
+                    // On to the answers, or their next page, or from the last the first; nothing stays chosen, so nothing out of view is sent.
+                    linePage = linePage + 1 < answersPages.Total ? linePage + 1 : answersPages.FirstAnswers;
+                    if (exchange != null && !(exchange.Left && current.Guided)) exchange.ClearChoice();
+                    else current.ClearGuideChoice();
                     break;
                 case MenuFrame.ChooseSection when NewProjectScreens.StepOf(key) is NewProjectStep chosen:
                     ChooseStep(chosen);
@@ -571,6 +674,10 @@ namespace Halcyonic.Client
                     break;
 
                 // Build.
+                case NewProjectScreens.NextPart when step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && seenPage == linePage
+                    && key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture) && host.Now - unresolvedDrawnAt >= NewWorkReview.NextPause:
+                    linePage++;
+                    break;
                 case NewProjectScreens.NextPart when review != null:
                     review.Next(host.Now);
                     break;
@@ -617,6 +724,13 @@ namespace Halcyonic.Client
         {
             if (!IsOpen || !ReferenceEquals(drawn, shown)) return;
             seen = drawn;
+            seenPage = linePage;
+            // A part of the unknown start counts as read once drawn; with the last, Clear can be pressed.
+            if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedParts > 1 && unresolvedDrawn.Add(linePage))
+            {
+                unresolvedDrawnAt = host.Now;
+                if (unresolvedDrawn.Count == unresolvedParts) Redraw();
+            }
             if (Review is not NewWorkReview reading || !reading.Paginated) return;
             if (reading.Drawn(host.Now)) Redraw();
         }
@@ -705,47 +819,156 @@ namespace Halcyonic.Client
             if (changed && IsOpen) Redraw();
         }
 
+        /// <summary>The page's room, read once for what shows (<see cref="pageRoom"/>).</summary>
+        private float PageRoom(MenuFrame frame)
+        {
+            var rows = Math.Max(1, host.TitleRows(frame.Subject, Column));
+            var key = pagedFor?.Key + "|" + rows + "|" + host.TextSize;
+            if (pageRoom is { } kept && kept.For == key) return kept.Room;
+            var room = host.PageHeight(rows, besideMenu: false);
+            pageRoom = (key, room);
+            return room;
+        }
+
+        /// <summary>What a line of words after a group's gap takes, as the source line and the reason are: its rows of <paramref name="words"/>.</summary>
+        private float Note(string? words) => words == null ? 0f : MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(words, Column)));
+
         /// <summary>
         /// <paramref name="frame"/> as the page the stage gives holds it (ADR 0026): its lines whole when
-        /// they fit, counted as the view lays them beside the reason and the source line; otherwise a page
-        /// of them at a time, in order, each page ending in a row that turns to the next and from the last
-        /// to the first, keyed to the page it stands on. A chosen line that opens the side panel keeps its
-        /// page showing, so the panel always slides out from its line.
+        /// they fit beside its reason and its source line, which stand on every page; otherwise a page of
+        /// whole lines at a time, in order, turned as the menu's lists turn, by the footer's Next page,
+        /// "First page" on the last, where its footer has the place, and else by a row at the page's end,
+        /// keyed to the page it stands on. A chosen line that opens the side panel keeps its page showing.
         /// </summary>
         private MenuFrame Paged(MenuFrame frame)
         {
-            // A file's page standing alone (ADR 0026): the plane steps the menu aside wherever the two together don't fit.
-            var room = host.PageHeight(Math.Max(1, host.TitleRows(frame.Subject, Column)), besideMenu: false);
-            if (frame.Source is string source) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(source, Column)));
-            if (frame.Reason is string reason) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(reason, Column)));
+            var room = PageRoom(frame) - Note(frame.Source) - Note(frame.Reason);
             var all = frame.Lines;
             if (Height(all, 0, all.Count) <= room)
             {
                 linePage = 0;
                 return frame;
             }
-            // Whole lines a page, at least one, each page keeping room for its turning row.
-            var turn = MenuPage.TargetGap + MenuPage.Target();
-            var starts = new List<int> { 0 };
-            for (var start = 0; start < all.Count;)
-            {
-                var end = start + 1;
-                while (end < all.Count && Height(all, start, end + 1) + turn <= room) end++;
-                if (end < all.Count) starts.Add(end);
-                start = end;
-            }
+            var footer = frame.Footer;
+            var byFooter = !footer.Confirming && footer[PromptSlot.Secondary] == null && (footer[PromptSlot.FarRight] is not Prompt right || right.Main);
+            var starts = Starts(all, room - (byFooter ? 0f : MenuPage.TargetGap + MenuPage.Target()));
             var pages = starts.Count;
             var opens = frame.Side == null ? -1 : all.ToList().FindIndex(line => line.Chosen && (line.Opens || line.Choice));
             if (opens >= 0) linePage = starts.FindLastIndex(start => start <= opens);
             if (linePage >= pages || linePage < 0) linePage = 0;
-            var from = starts[linePage];
-            var to = linePage + 1 < pages ? starts[linePage + 1] : all.Count;
+            var (from, to) = (starts[linePage], linePage + 1 < pages ? starts[linePage + 1] : all.Count);
             var lines = all.Skip(from).Take(to - from).ToList();
-            lines.Add(new PageLine(EntryText.NextPage(linePage, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
+            if (byFooter) footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(linePage, pages), GlazeIcon.Next, PromptKind.NextPage));
+            else lines.Add(new PageLine(EntryText.NextPage(linePage, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
                 key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             var side = opens >= from && opens < to ? frame.Side : null;
-            return new MenuFrame(frame.Subject, frame.Footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, side, frame.SourceIsData,
+            return new MenuFrame(frame.Subject, footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, side, frame.SourceIsData,
                 frame.SubjectWaits);
+        }
+
+        /// <summary>Where each page of <paramref name="all"/> starts: whole lines in order, at least one a page, as many as <paramref name="room"/> holds.</summary>
+        private List<int> Starts(IReadOnlyList<PageLine> all, float room)
+        {
+            var starts = new List<int> { 0 };
+            for (var start = 0; start < all.Count;)
+            {
+                var end = start + 1;
+                while (end < all.Count && Height(all, start, end + 1) <= room) end++;
+                if (end < all.Count) starts.Add(end);
+                start = end;
+            }
+            return starts;
+        }
+
+        /// <summary>
+        /// The unknown start's page (ADR 0026), as a confirmation pages: whole where it fits; otherwise
+        /// in parts, each but the last ending in "Next part, 2 of 3", and Clear unavailable, saying to
+        /// read to the last part, until every part has been drawn, as the review holds its Yes, so the
+        /// guard against a second start is never dismissed unread.
+        /// </summary>
+        private MenuFrame Parts(MenuFrame frame)
+        {
+            var all = frame.Lines;
+            var turn = MenuPage.TargetGap + MenuPage.Target();
+            var room = PageRoom(frame) - Note(frame.Source) - Note(EntryText.ReadToPart(9));
+            if (Height(all, 0, all.Count) <= PageRoom(frame) - Note(frame.Source) - Note(frame.Reason))
+            {
+                unresolvedParts = 1;
+                return frame;
+            }
+            var starts = Starts(all, room - turn);
+            unresolvedParts = starts.Count;
+            if (linePage >= unresolvedParts || linePage < 0) linePage = unresolvedParts - 1;
+            var (from, to) = (starts[linePage], linePage + 1 < unresolvedParts ? starts[linePage + 1] : all.Count);
+            var lines = all.Skip(from).Take(to - from).ToList();
+            if (linePage + 1 < unresolvedParts)
+            {
+                lines.Add(new PageLine(EntryText.NextPart(linePage + 2, unresolvedParts), icon: GlazeIcon.Next, action: NewProjectScreens.NextPart,
+                    key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            }
+            var footer = frame.Footer;
+            if (unresolvedDrawn.Count < unresolvedParts && footer[PromptSlot.FarRight] is Prompt clear && clear.Id == NewProjectScreens.Clear)
+            {
+                footer = new Footer(footer[PromptSlot.Close], farRight: new Prompt(clear.Id, clear.Words, clear.Icon, main: true, available: false,
+                    reason: EntryText.ReadToPart(unresolvedParts)));
+            }
+            return new MenuFrame(frame.Subject, footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, frame.Side, frame.SourceIsData,
+                frame.SubjectWaits);
+        }
+
+        /// <summary>
+        /// A question's page as ADR 0026 pages answers: all of it where it fits; otherwise its answers a
+        /// page at a time, the question heading every page, whole, or where it and a row of answers don't
+        /// fit, first on a page of its own and then by its first row where that fits; the person's own
+        /// answer beside the paging row, last, on every page. Laid out once for the question, its room and
+        /// whether the person has written their own answer, so nothing moves while they read.
+        /// </summary>
+        /// <param name="build">The page, given which answers it shows; null for all of them.</param>
+        /// <param name="offered">How many answers the question offers.</param>
+        /// <param name="reserveReason">Keep room for a two-row reason, as Make the recap's, which comes and goes as answers are chosen.</param>
+        /// <param name="written">The person has written their own answer, whose row then takes two rows.</param>
+        private MenuFrame Answered(Func<AnswersPage?, MenuFrame> build, int offered, bool reserveReason, bool written)
+        {
+            var whole = build(null);
+            var key = pagedFor?.Key + "|" + host.TextSize + "|" + host.TitleRows(whole.Subject, Column) + "|" + written;
+            if (!(answersLayout is { } laid && laid.For == key))
+            {
+                answersLayout = (key, Lay(whole, build, offered, reserveReason));
+            }
+            if (!(answersLayout.Value.Layout is AnswersLayout layout)) return whole;
+            if (linePage >= layout.Total || linePage < 0) linePage = 0;
+            shownAnswers = layout.At(linePage);
+            return build(shownAnswers);
+        }
+
+        /// <summary>The question's pages of answers, or null where everything fits one page.</summary>
+        private AnswersLayout? Lay(MenuFrame whole, Func<AnswersPage?, MenuFrame> build, int offered, bool reserveReason)
+        {
+            var room = PageRoom(whole) - Note(whole.Source)
+                - (reserveReason ? MenuPage.GroupGap + MenuPage.Words(2) : Note(whole.Reason));
+            if (offered == 0 || Height(whole.Lines, 0, whole.Lines.Count) <= room) return null;
+            bool Fits(int first, int count, int? head)
+            {
+                var lines = build(new AnswersPage(first, count, 0, 2, head)).Lines;
+                return Height(lines, 0, lines.Count) <= room;
+            }
+            List<(int, int)>? Pack(int? head, bool force)
+            {
+                var pages = new List<(int, int)>();
+                for (var first = 0; first < offered;)
+                {
+                    if (!Fits(first, 1, head) && !force) return null;
+                    var count = 1;
+                    while (first + count < offered && Fits(first, count + 1, head)) count++;
+                    pages.Add((first, count));
+                    first += count;
+                }
+                return pages;
+            }
+            if (Pack(null, force: false) is { } withQuestion) return new AnswersLayout(false, withQuestion, null);
+            // The question first on a page of its own; its answers' pages then by its first row where it fits.
+            if (Pack(1, force: false) is { } byFirstRow) return new AnswersLayout(true, byFirstRow, 1);
+            return new AnswersLayout(true, Pack(0, force: true)!, 0);
         }
 
         /// <summary>New project stands in a file's place, as wide as a file's column.</summary>
@@ -832,7 +1055,6 @@ namespace Halcyonic.Client
         private void Show(NewProjectStep shown, RecapPage page, BuildPage build = BuildPage.Review)
         {
             if (shown != step) said = null;
-            if (shown != step || page != recapPage || build != buildPage) linePage = 0;
             step = shown;
             recapPage = page;
             buildPage = build;
@@ -1129,7 +1351,12 @@ namespace Halcyonic.Client
         {
             var reading = review;
             if (reading == null) return;
-            var partRows = ReviewPartRows();
+            // Read once for this review, and again only when the text size changes, never as the head moves.
+            if (!(reviewRows is { } kept && ReferenceEquals(kept.Review, reading) && kept.Size == host.TextSize))
+            {
+                reviewRows = (reading, host.TextSize, ReviewPartRows());
+            }
+            var partRows = reviewRows.Value.Rows;
             if (reading.Paginated && partRows == measuredPartRows) return;
             measuredPartRows = partRows;
             reading.Paginate(reading.Items.Select(item => host.RowsOf(item.Text, Glaze.Menu.FileColumnDegrees)).ToList(), partRows);

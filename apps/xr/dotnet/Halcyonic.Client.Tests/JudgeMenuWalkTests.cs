@@ -413,9 +413,9 @@ public class JudgeMenuWalkTests
         // Where the page holds the quote alone, as at the larger size here, the suggestions are a turn of the page away.
         var questions = step;
         for (var turned = 0; turned < 10 && !questions.Lines.Any(line => line.Action == NewProjectScreens.ChooseSuggestion)
-            && questions.Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } next; turned++)
+            && questions.Lines.LastOrDefault(line => line.Action == NewProjectScreens.MoreAnswers) is PageLine next; turned++)
         {
-            host.Press(MenuColumn.File, NewProjectScreens.NextPage, next.Key);
+            host.Press(MenuColumn.File, NewProjectScreens.MoreAnswers, next.Key);
             questions = host.Draw().File!;
         }
         var exchange = flow.Idea.Companion!;
@@ -430,12 +430,13 @@ public class JudgeMenuWalkTests
         (_, step) = host.Draw();
         // The recap may need more than a page here: every page read, each turned by the row at its end.
         var recap = new List<MenuFrame> { step! };
-        while (recap.Count < 10 && recap[^1].Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } turn)
+        // The recap's facts turn as the menu's lists do, by the footer's Next page, "First page" on the last.
+        while (recap.Count < 10 && recap[^1].Footer.All.Any(each => each.Prompt.Kind == PromptKind.NextPage)
+            && recap[^1].Footer.All.First(each => each.Prompt.Kind == PromptKind.NextPage).Prompt.Words != "First page")
         {
-            host.Press(MenuColumn.File, NewProjectScreens.NextPage, turn.Key);
+            host.Press(MenuColumn.File, Footer.NextPage);
             (_, step) = host.Draw();
-            if (step!.Lines[^1].Key == recap[0].Lines[^1].Key) break;
-            recap.Add(step);
+            recap.Add(step!);
         }
         Assert.That(recap.All(page => page.Source == CompanionText.Note), Is.True, "the companion is an AI on the computer, and can be wrong, on every page");
         Assert.That(recap.SelectMany(page => page.Lines).Any(line => line.Fact == CompanionText.SuggestedShort), Is.True, "what the companion suggested is marked");

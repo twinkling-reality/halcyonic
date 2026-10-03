@@ -223,8 +223,10 @@ public class NewProjectScreensTests
         exchange.Ask(CompanionWant.Next);
         exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
         var frame = Questions(idea);
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False);
-        Assert.That(frame.Reason, Is.EqualTo(CompanionText.AnswerFirst));
+        var recap = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((recap.Available, recap.Reason, recap.PageExplains), Is.EqualTo((false, CompanionText.AnswerFirst, true)),
+            "the answers waiting to be chosen say why, so its reason keeps its words undrawn");
+        Assert.That(frame.Reason, Is.Null);
         Assert.That(NewProjectScreens.Subject(idea).Subject, Is.EqualTo(EntryText.CreateProject));
     }
 

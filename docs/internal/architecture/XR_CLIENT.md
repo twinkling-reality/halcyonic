@@ -788,16 +788,29 @@ the same definition names, as the JSON Schema document:
   the entry panel's creation screens. It keeps each place's draft and how far its start got, the step
   and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
-  it gave. Every page but the review, which pages by its parts, is packed into the page the stage
-  gives a file's page standing alone (`IMenuHost.PageHeight`), the plane stepping the menu aside
-  wherever the two together don't fit, as for a file: its lines counted as the view lays them (a row or answer a
-  target's height, 12 mm between two targets and a grid step otherwise, two short answers sharing a
-  row) beside its reason and its source line in the rows they take; where they need more, a page of
-  whole lines at a time, in order, each ending in a row that turns to the next, "Next page, 2 of 3",
-  and from the last to the first, "First page", keyed to the page it stands on, so the recap's first
-  line stands on its first page only, and a chosen fact keeps its page, its side panel sliding out
-  from it, until a turn of the page closes it. The recap's facts, the folders, the agent apps and models and the build's steps page so
-  on a Quest 3S at both text sizes. A press acts only when the frame the director last drew offers it, available, so nothing
+  it gave. Every page is packed into the page the stage gives a file's page standing alone
+  (`IMenuHost.PageHeight`), the plane stepping the menu aside wherever the two together don't fit,
+  as for a file, and pages as ADR 0026 pages the menu, its source line and its reason on every page.
+  Its lines are counted as the view lays them (a row or answer a target's height, 12 mm between two
+  targets and a grid step otherwise, two short answers sharing a row). Where they need more, a page
+  of whole lines at a time, in order: a list (the recap's facts, the folders, the agent apps and
+  models) turns by the footer's Next page, "First page" on the last, in the secondary place, the
+  recap's first line on its first page only and a chosen fact keeping its page, its side panel
+  sliding out from it, until a turn closes it; Starting, whose secondary place holds its change,
+  turns by a row, "Next page, 2 of 3", keyed to the page it stands on. A question's answers page as
+  answers do: the question heading every page where it and a row of answers fit, else first on a
+  page of its own ("On to the answers") and then by its first row where that fits; its offered
+  answers in order, Go on without it or the skip the last of them, and the person's own answer
+  beside "More answers, 2 of 2" ("First answers, 1 of 2" on the last) on every page. A turn clears
+  what was chosen, and Send answer and Next question take only an answer on the page in view. Make
+  the recap's "Answer a question first" is explained by the answers waiting, as Send answer's "Choose
+  one." is, so it isn't drawn. The unknown start reads as a confirmation does, in parts, "Next part,
+  2 of 3", Clear unavailable, "Read to part 3 first", until every part has been drawn, so the guard
+  against a second start is never cleared unread; the review keeps its own parts. A page's room is
+  read once for what shows (`Follow`: the step, its page, the question, the idea) and again only
+  when that, the subject's rows or the text size change, so nothing re-packs as the head moves; the
+  review's part rows likewise, once a review; and anything new, opening New project included, starts
+  at its first page. A press acts only when the frame the director last drew offers it, available, so nothing
   the person can't see or press now runs; a row is keyed by what it chooses (a suggestion or fixed
   answer by the question it answers and its words, a folder by its place's path and its own name),
   so a press on a frame drawn before a new reply or listing never takes another, even the same

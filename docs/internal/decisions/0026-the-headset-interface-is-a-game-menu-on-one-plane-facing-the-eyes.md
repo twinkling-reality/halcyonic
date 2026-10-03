@@ -334,6 +334,16 @@ coordinator's first-visit words:
 - **A page of content keeps its glow above its first row.** The light from its top edge ends within
   its top padding, so a row that is not chosen never looks lit; a subject keeps the glow's full
   reach. The render checks that nothing to press stands in a page's glow.
+- **New project's pages page as the menu's do** (2026-10-03, the coordinator). Where a page needs
+  more than the stage gives, a list (the recap's facts, the folders, the agent apps and models)
+  turns by the footer's Next page, "First page" on the last, in the secondary place beside the main
+  action; a question's answers turn as answers do, by "More answers, 2 of 2", the question heading
+  them where it fits and first on a page of its own where it and a row of them don't, a turn
+  clearing what was chosen; the unknown start reads in parts, as a confirmation, by "Next part, 2 of
+  3", Clear waiting for its last part; and only Starting, whose secondary place holds its change,
+  turns by a row, "Next page, 2 of 3". The source line and the reason stay on every page. A page's
+  room is read once for what shows, never as the head moves, and anything new starts at its first
+  page.
 
 ## Alternatives considered
 

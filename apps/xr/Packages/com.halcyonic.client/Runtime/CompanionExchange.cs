@@ -174,6 +174,16 @@ namespace Halcyonic.Client
             return true;
         }
 
+        /// <summary>
+        /// A page of the question's answers turned (ADR 0026): nothing stays chosen, so Send answer only
+        /// ever sends what is on the page in view; the person's own words stay, their row on every page.
+        /// </summary>
+        public void ClearChoice()
+        {
+            Chosen = CompanionAnswerRow.None;
+            ChosenSuggestion = -1;
+        }
+
         /// <summary>Lights Go on without it: the recap is then made from the person's own words, without the companion.</summary>
         public void ChooseWithoutIt()
         {

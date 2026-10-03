@@ -259,7 +259,22 @@ namespace Halcyonic.Client
         /// The answer that stands for the question being asked: the one chosen, else, coming back to it,
         /// the one given before; null for none, or while the skip is chosen.
         /// </summary>
-        public string? GuideAnswer => GuideSkipChosen || Question >= Fixed.Count ? null : GuideChosen ?? answers[Question];
+        public string? GuideAnswer => GuideSkipChosen || Question >= Fixed.Count ? null : GuideChosen ?? (guideCleared ? null : answers[Question]);
+
+        /// <summary>A page of the question's answers was turned since anything was chosen on it: the one given before doesn't stand in.</summary>
+        private bool guideCleared;
+
+        /// <summary>
+        /// A page of the question's answers turned (ADR 0026): nothing stands, not even the answer given
+        /// before, until one on the page in view is chosen, so Next question never gives what isn't in
+        /// view; the person's own words stay, their row on every page.
+        /// </summary>
+        public void ClearGuideChoice()
+        {
+            GuideChosen = null;
+            GuideSkipChosen = false;
+            guideCleared = true;
+        }
 
         /// <summary>Next question can be pressed: an answer stands for the question being asked, or its skip is chosen.</summary>
         public bool CanGoOn => Question < Fixed.Count && (GuideSkipChosen || GuideAnswer != null);
@@ -273,6 +288,7 @@ namespace Halcyonic.Client
             if (Question >= Fixed.Count || answer == null || !Choices.Contains(answer)) return false;
             GuideChosen = answer;
             GuideSkipChosen = false;
+            guideCleared = false;
             return true;
         }
 
@@ -285,6 +301,7 @@ namespace Halcyonic.Client
             GuideWrittenHeard = heard;
             GuideChosen = words;
             GuideSkipChosen = false;
+            guideCleared = false;
             return true;
         }
 
@@ -294,6 +311,7 @@ namespace Halcyonic.Client
             if (Question >= Fixed.Count || Fixed[Question].SkipLabel == null) return false;
             GuideChosen = null;
             GuideSkipChosen = true;
+            guideCleared = false;
             return true;
         }
 
@@ -310,6 +328,7 @@ namespace Halcyonic.Client
             GuideWritten = null;
             GuideWrittenHeard = false;
             GuideSkipChosen = false;
+            guideCleared = false;
         }
 
         /// <summary>

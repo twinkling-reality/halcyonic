@@ -6,6 +6,45 @@ using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
+    /// <summary>
+    /// A page of a question's answers where they need more than one (ADR 0026): the answers it
+    /// offers from <see cref="First"/>, <see cref="Count"/> of them, on answers page <see cref="Page"/>
+    /// of <see cref="Pages"/>, the question heading them whole where <see cref="HeadRows"/> is null, by
+    /// its first rows where it is a number, and not at all where it is 0. A count of 0 is the
+    /// question's own page, first, ending in its row on to the answers.
+    /// </summary>
+    public sealed class AnswersPage
+    {
+        public AnswersPage(int first, int count, int page, int pages, int? headRows)
+        {
+            First = first;
+            Count = count;
+            Page = page;
+            Pages = pages;
+            HeadRows = headRows;
+        }
+
+        public int First { get; }
+
+        public int Count { get; }
+
+        public int Page { get; }
+
+        public int Pages { get; }
+
+        public int? HeadRows { get; }
+
+        /// <summary>The question's own page, before its answers.</summary>
+        public bool OwnPage => Count == 0;
+
+        /// <summary>Whether the answer at <paramref name="index"/> stands on this page.</summary>
+        public bool Shows(int index) => index >= First && index < First + Count;
+
+        /// <summary>The row at the page's end: on to the answers from the question's own page, else the next answers, or the first from the last.</summary>
+        public PageLine Row() => new PageLine(OwnPage ? FileScreens.QuestionPartWords(0, 1, Pages) : FileScreens.MoreAnswersWords(Page, Pages),
+            icon: GlazeIcon.Next, action: NewProjectScreens.MoreAnswers, key: Page.ToString(System.Globalization.CultureInfo.InvariantCulture) + (OwnPage ? "q" : ""));
+    }
+
     /// <summary>New project's steps, left to right as its row of shapes shows them (ADR 0026).</summary>
     public enum NewProjectStep
     {
@@ -145,8 +184,15 @@ namespace Halcyonic.Client
         /// <summary>The review's row to the next part; only once the last part has shown is Yes, start building offered.</summary>
         public const string NextPart = "next-part";
 
-        /// <summary>The row at the end of a page that needs more than one, keyed by the page it stands on (<see cref="EntryText.NextPage"/>).</summary>
+        /// <summary>
+        /// The row at the end of a page that needs more than one where the footer holds no Next page:
+        /// Starting's, whose secondary place holds its change; keyed by the page it stands on
+        /// (<see cref="EntryText.NextPage"/>).
+        /// </summary>
         public const string NextPage = "page-next";
+
+        /// <summary>A question's row to its next page of answers, or from its own page to its answers, keyed by the page it stands on (ADR 0026).</summary>
+        public const string MoreAnswers = "more-answers";
 
         public const string ConfirmStart = "confirm-start";
 
@@ -323,8 +369,9 @@ namespace Halcyonic.Client
         /// recorded answer can be chosen, and Make the recap only where the recording asked for it.
         /// </param>
         /// <param name="keyboard">The system keyboard can open here; where it can't, Type my answer shows only once it holds words, as a choice.</param>
+        /// <param name="answers">The page of the question's answers showing where they need more than one; null shows them all.</param>
         public static MenuFrame Questions(ProjectIdea idea, bool startReached, bool voice, string? said, double waitedSeconds,
-            CompanionRecording? recording = null, bool keyboard = true)
+            CompanionRecording? recording = null, bool keyboard = true, AnswersPage? answers = null)
         {
             var exchange = idea.Companion ?? throw new System.ArgumentException("The idea has no exchange with the companion.", nameof(idea));
             var recorded = recording != null;
@@ -351,28 +398,46 @@ namespace Halcyonic.Client
             {
                 // Its view only when it thinks the idea can't be built; asking already says it found it unclear.
                 var notBuildable = ask.View == CompanionView.NotBuildable;
-                if (notBuildable) lines.Add(new PageLine(CompanionText.ThinksNotBuildable, tone: LineTone.Secondary, rows: 2));
+                var head = answers?.HeadRows;
+                if (notBuildable && head == null) lines.Add(new PageLine(CompanionText.ThinksNotBuildable, tone: LineTone.Secondary, rows: 2));
                 var quote = Asked(ask, withLine: !notBuildable);
                 // At most a third row: the view measures the real words and grows to it rather than cut the question.
-                lines.Add(new PageLine(quote, wordsAreData: true, claim: true, rows: QuoteRows + 1));
+                // Where its answers page, a page after its own repeats it by its first rows, cut, where they fit.
+                if (head != 0) lines.Add(new PageLine(quote, wordsAreData: true, claim: true, rows: head ?? QuoteRows + 1));
+                if (answers != null && answers.OwnPage)
+                {
+                    lines.Add(answers.Row());
+                    return QuestionsFrame(idea, startReached, voice, recorded, lines, ask, exchange, recording);
+                }
                 var choices = ask.Question?.Choices ?? new List<string>();
                 var recordedAnswer = recording?.RecordedAnswer(exchange);
                 for (var index = 0; index < choices.Count; index++)
                 {
+                    if (answers != null && !answers.Shows(index)) continue;
                     lines.Add(new PageLine(LabelText.Plain(choices[index]), wordsAreData: true, action: ChooseSuggestion,
                         key: AnswerKey(exchange.Generation, choices[index]), choice: true,
                         chosen: exchange.Chosen == CompanionAnswerRow.Suggestion && exchange.ChosenSuggestion == index,
                         available: recorded ? choices[index] == recordedAnswer : exchange.CanSay, rows: 2));
+                }
+                var paging = answers != null && answers.Pages > 1;
+                // Paging, Go on without it is the last answer, on the last page of them, before the person's own,
+                // which stands beside the paging row, last, on every page.
+                if (paging && !recorded && exchange.Proposal == null && answers!.Shows(choices.Count))
+                {
+                    lines.Add(new PageLine(CompanionText.GoOnWithout, icon: GlazeIcon.Next, action: GoOnWithout, choice: true, chosen: withoutIt));
                 }
                 if (!recorded && (keyboard || exchange.Written != null))
                 {
                     var written = exchange.Written;
                     lines.Add(new PageLine(written == null ? CompanionText.TypeAnswer : LabelText.Plain(written), wordsAreData: written != null,
                         icon: GlazeIcon.Type, action: TypeAnswer, choice: true, chosen: exchange.Chosen == CompanionAnswerRow.Written,
-                        available: exchange.CanSay, rows: written == null ? 1 : 2));
+                        available: exchange.CanSay, rows: written == null ? 1 : 2, besideNext: paging));
                 }
+                if (paging) lines.Add(answers!.Row());
                 var send = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true);
-                if (exchange.Answer != null) main = send;
+                // A suggestion chosen counts only on the page that shows it: Send answer never sends what isn't in view.
+                var chosenInView = !(exchange.Chosen == CompanionAnswerRow.Suggestion && answers != null && !answers.Shows(exchange.ChosenSuggestion));
+                if (exchange.Answer != null && chosenInView) main = send;
                 else if (recorded && !recording!.RecapHere(exchange))
                 {
                     // The recording answers this question before its recap: its answer is the one to choose.
@@ -380,8 +445,9 @@ namespace Halcyonic.Client
                 }
                 else
                 {
+                    // Before the person has said anything, the answers waiting to be chosen say why, so its reason isn't drawn.
                     main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: recorded || exchange.CanAskForRecap,
-                        reason: exchange.PersonSpoke ? CompanionText.Full : CompanionText.AnswerFirst);
+                        reason: exchange.PersonSpoke ? CompanionText.Full : CompanionText.AnswerFirst, pageExplains: !exchange.PersonSpoke);
                 }
                 if (!exchange.CanSay) quiet = CompanionText.Full;
             }
@@ -393,7 +459,7 @@ namespace Halcyonic.Client
                 answering = false;
             }
             // Go on without it, the last answer, until the companion has proposed; the recording plays to its proposal.
-            if (!recorded && exchange.Proposal == null)
+            if (!recorded && exchange.Proposal == null && !(answers != null && answers.Pages > 1 && exchange.Latest is AskReply))
             {
                 lines.Add(new PageLine(CompanionText.GoOnWithout, icon: GlazeIcon.Next, action: GoOnWithout, choice: true, chosen: withoutIt));
             }
@@ -409,6 +475,23 @@ namespace Halcyonic.Client
             var (subject, isData) = Subject(idea);
             return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines,
                 source: recorded ? CompanionText.Recorded : CompanionText.Note);
+        }
+
+        /// <summary>
+        /// The question's own page, before its answers where it and a row of them don't fit together:
+        /// the question whole and its row on to the answers, Make the recap waiting, nothing to choose.
+        /// </summary>
+        private static MenuFrame QuestionsFrame(ProjectIdea idea, bool startReached, bool voice, bool recorded, List<PageLine> lines, AskReply ask,
+            CompanionExchange exchange, CompanionRecording? recording)
+        {
+            var main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: recorded ? recording!.RecapHere(exchange) : exchange.CanAskForRecap,
+                reason: exchange.PersonSpoke ? CompanionText.Full : CompanionText.AnswerFirst);
+            var talk = voice && !recorded
+                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: exchange.CanSay, reason: exchange.CanSay ? null : CompanionText.Full, holds: true)
+                : null;
+            var (subject, isData) = Subject(idea);
+            return new MenuFrame(subject, new Footer(Close(), secondary: talk, farRight: main), subjectIsData: isData,
+                sections: Sections(NewProjectStep.Questions, idea, startReached), lines: lines, source: recorded ? CompanionText.Recorded : CompanionText.Note);
         }
 
         /// <summary>
@@ -709,30 +792,47 @@ namespace Halcyonic.Client
         /// these are fixed questions, not an AI, is the source line.
         /// </summary>
         /// <param name="keyboard">The system keyboard can open here; where it can't, the typed answer's row shows only once it holds words, as a choice.</param>
-        public static MenuFrame FixedQuestion(ProjectIdea idea, bool startReached, bool voice, string? said, bool keyboard = true)
+        /// <param name="answers">The page of the question's answers showing where they need more than one; null shows them all.</param>
+        public static MenuFrame FixedQuestion(ProjectIdea idea, bool startReached, bool voice, string? said, bool keyboard = true, AnswersPage? answers = null)
         {
             if (idea.Question >= ProjectIdea.Questions.Count) throw new System.ArgumentException("Every fixed question is answered.", nameof(idea));
             var question = ProjectIdea.Questions[idea.Question];
             var asked = idea.ExistingProjectId != null ? ProjectIdea.Questions.Count - 1 : ProjectIdea.Questions.Count;
             var stands = idea.GuideAnswer;
-            var lines = new List<PageLine> { new PageLine(question.Prompt, fact: EntryText.Question(idea.Question, asked), rows: 2) };
+            var lines = new List<PageLine>();
+            var head = answers?.HeadRows;
+            if (head != 0) lines.Add(new PageLine(question.Prompt, fact: EntryText.Question(idea.Question, asked), rows: head ?? 2));
             var choices = idea.Choices;
-            for (var index = 0; index < choices.Count; index++)
+            // An answer chosen counts only on the page that shows it: Next question never gives what isn't in view.
+            var standsIndex = stands == null ? -1 : choices.ToList().IndexOf(stands);
+            var inView = !(answers != null && standsIndex >= 0 && !answers.Shows(standsIndex));
+            if (answers == null || !answers.OwnPage)
             {
-                lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: AnswerKey(idea.Question, choices[index]), choice: true,
-                    chosen: stands == choices[index]));
+                for (var index = 0; index < choices.Count; index++)
+                {
+                    if (answers != null && !answers.Shows(index)) continue;
+                    lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: AnswerKey(idea.Question, choices[index]), choice: true,
+                        chosen: stands == choices[index]));
+                }
             }
+            var paging = answers != null && answers.Pages > 1 && !answers.OwnPage;
             var written = idea.GuideWritten ?? (stands != null && !choices.Contains(stands) ? stands : null);
-            if (keyboard || written != null)
+            // Paging, the skip is the last answer, on the last page of them, before the person's own, beside the paging row.
+            if (paging && question.SkipLabel != null && answers!.Shows(choices.Count)) lines.Add(new PageLine(question.SkipLabel, action: SkipFixedQuestion, choice: true, chosen: idea.GuideSkipChosen));
+            if ((answers == null || !answers.OwnPage) && (keyboard || written != null))
             {
                 lines.Add(new PageLine(written == null ? question.TypeLabel : LabelText.Plain(written), wordsAreData: written != null, icon: GlazeIcon.Type,
-                    action: TypeFixedAnswer, choice: true, chosen: written != null && stands == written, rows: written == null ? 1 : 2));
+                    action: TypeFixedAnswer, choice: true, chosen: written != null && stands == written, rows: written == null ? 1 : 2, besideNext: paging));
             }
-            if (question.SkipLabel != null) lines.Add(new PageLine(question.SkipLabel, action: SkipFixedQuestion, choice: true, chosen: idea.GuideSkipChosen));
+            if (answers != null && (paging || answers.OwnPage)) lines.Add(answers.Row());
+            if (!paging && (answers == null || !answers.OwnPage) && question.SkipLabel != null)
+            {
+                lines.Add(new PageLine(question.SkipLabel, action: SkipFixedQuestion, choice: true, chosen: idea.GuideSkipChosen));
+            }
             if (idea.GuideWrittenHeard && written != null && stands == written) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var next = new Prompt(NextQuestion, idea.LastQuestion ? CompanionText.MakeTheRecap : EntryText.NextQuestion, GlazeIcon.Next, main: true,
-                available: idea.CanGoOn, reason: EntryText.ChooseOrTypeFirst, pageExplains: true);
+                available: idea.CanGoOn && inView && (answers == null || !answers.OwnPage), reason: EntryText.ChooseOrTypeFirst, pageExplains: true);
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
             var (subject, isData) = Subject(idea);
             return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: next), subjectIsData: isData,
