@@ -241,7 +241,11 @@ namespace Halcyonic.Client
             {
                 var read = await stream.ReadAsync(one, 0, 1, cancellationToken).ConfigureAwait(false);
                 if (read == 0) throw new IOException("The connection closed inside a chunked response.");
-                if (one[0] == '\n') return line.ToString().TrimEnd('\r');
+                if (one[0] == '\n')
+                {
+                    if (line.Length == 0 || line[line.Length - 1] != '\r') throw new InvalidDataException("A chunk line ends without CRLF.");
+                    return line.ToString(0, line.Length - 1);
+                }
                 if (line.Length > 1024) throw new InvalidDataException("A chunk line is too long.");
                 line.Append((char)one[0]);
             }

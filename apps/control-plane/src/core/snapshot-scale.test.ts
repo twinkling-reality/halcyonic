@@ -23,7 +23,7 @@ const SCENARIOS = [
   'runtime_error',
 ];
 
-/** The largest message the headset's client takes (`ClientWebSocketTransport.DefaultMaxMessageBytes`). */
+/** The largest message the headset's client takes (`LoopbackWebSocketTransport.DefaultMaxMessageBytes`). */
 const HEADSET_MESSAGE_LIMIT = 16 * 1024 * 1024;
 
 const directory = mkdtempSync(join(tmpdir(), 'halcyonic-snapshot-scale-'));

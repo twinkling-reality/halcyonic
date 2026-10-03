@@ -290,11 +290,18 @@ public class LoopbackProofTests
     }
 
     [Test]
-    public async Task AnEndpointByNameEndsTheSessionWithoutAsking()
+    public async Task AnEndpointByNameOrWithAnotherSchemeEndsTheSessionWithoutAsking()
     {
         await using var named = new RecordingServer((_, _) => RecordingServer.Http("200 OK"));
-        var line = await RunUntilEnded(ControlPlaneTarget.Local(new Uri($"ws://localhost:{named.Port}/realtime"), Token), null);
-        Assert.That(line, Does.StartWith("The access code goes only to 127.0.0.1 or [::1]"));
+        Assert.That(await RunUntilEnded(ControlPlaneTarget.Local(new Uri($"ws://localhost:{named.Port}/realtime"), Token), null), Is.EqualTo(
+            $"The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to ws://localhost:{named.Port}. Name one of those instead."));
+        Assert.That(await RunUntilEnded(ControlPlaneTarget.Local(new Uri($"wss://127.0.0.1:{named.Port}/realtime"), Token), null), Is.EqualTo(
+            $"The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to wss://127.0.0.1:{named.Port}. Name one of those instead."));
+        using (var api = new ControlPlaneApi(new Uri($"https://127.0.0.1:{named.Port}/"), Token))
+        {
+            var error = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.GetLocationsAsync());
+            Assert.That((error!.InnerException as TokenNotSentException)?.Outcome, Is.EqualTo(LoopbackProofOutcome.NotLoopback));
+        }
         Assert.That(named.Connections, Is.Zero);
     }
 
@@ -350,7 +357,11 @@ public class LoopbackProofTests
             cancelled.Cancel();
             Assert.That(() => invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, At(silent)), cancelled.Token),
                 Throws.InstanceOf<OperationCanceledException>());
-            Assert.That(() => LoopbackProof.AskAsync(At(silent), Token, cancelled.Token), Throws.InstanceOf<OperationCanceledException>());
+            using (var transport = new LoopbackWebSocketTransport())
+            {
+                Assert.That(() => transport.ConnectAsync(new Uri($"ws://127.0.0.1:{silent.Port}/realtime"), Token, cancelled.Token),
+                    Throws.InstanceOf<OperationCanceledException>());
+            }
             using var soon = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
             Assert.That(() => invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, At(silent)), soon.Token),
                 Throws.InstanceOf<OperationCanceledException>(), "not taken for a control plane that does not answer");
@@ -386,6 +397,8 @@ public class LoopbackProofTests
             ["a chunk size of nine digits"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n000000002\r\n{}\r\n0\r\n\r\n",
             ["a chunk size that reads negative"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nffffffffffffffff\r\n{}\r\n0\r\n\r\n",
             ["a chunk longer than its size"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n1\r\n{}\r\n0\r\n\r\n",
+            ["two codings"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2\r\n{}\r\n0\r\n\r\n",
+            ["a chunk line ended by a bare line feed"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2\n{}\r\n0\r\n\r\n",
         };
         foreach (var (name, answer) in refused)
         {
@@ -416,6 +429,28 @@ public class LoopbackProofTests
         }
         Assert.That(chunked.Requests.Select(request => (request.Connection, request.Head.Split(' ')[1])),
             Is.EqualTo(new[] { (1, "/api/health"), (1, "/api/runtimes") }));
+    }
+
+    [Test]
+    public async Task AnUpgradeAnsweredWithoutConnectionUpgradeIsRefused()
+    {
+        static string Accept(string head)
+        {
+            var key = Regex.Match(head, "^Sec-WebSocket-Key: *(\\S+)\r$", RegexOptions.Multiline | RegexOptions.IgnoreCase).Groups[1].Value;
+            using var sha1 = System.Security.Cryptography.SHA1.Create();
+            return Convert.ToBase64String(sha1.ComputeHash(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+        }
+        foreach (var (connection, accepted) in new[] { ("", false), ("Connection: keep-alive, Upgrade\r\n", true) })
+        {
+            await using var server = new RecordingServer((head, port) =>
+                RecordingServer.ChallengeIn(head) != null
+                    ? RecordingServer.Http("200 OK", RecordingServer.Proof(Token, "127.0.0.1:" + port, head))
+                    : "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n" + connection + "Sec-WebSocket-Accept: " + Accept(head) + "\r\n\r\n");
+            using var transport = new LoopbackWebSocketTransport();
+            var connecting = transport.ConnectAsync(new Uri($"ws://127.0.0.1:{server.Port}/realtime"), Token, CancellationToken.None);
+            if (accepted) await connecting;
+            else Assert.That(() => connecting, Throws.InstanceOf<InvalidDataException>(), "RFC 6455 4.1 asks for Connection: Upgrade");
+        }
     }
 
     [Test]
@@ -457,12 +492,14 @@ public class LiveLoopbackProofTests
     {
         controlPlane = await ControlPlaneProcess.StartAsync(dataDir, 0);
         var baseUri = ControlPlaneApi.BaseUriFor(controlPlane.RealtimeEndpoint);
-        Assert.That(await LoopbackProof.AskAsync(baseUri, controlPlane.AccessToken, CancellationToken.None), Is.EqualTo(LoopbackProofOutcome.Proved));
-        Assert.That(await LoopbackProof.AskAsync(baseUri, new string('b', 43), CancellationToken.None), Is.EqualTo(LoopbackProofOutcome.Unproved),
-            "a stale token is not proved, so it is never sent");
         using (var api = new ControlPlaneApi(baseUri, controlPlane.AccessToken))
         {
-            Assert.That((await api.GetLocationsAsync()).Roots, Is.Not.Null);
+            Assert.That((await api.GetLocationsAsync()).Roots, Is.Not.Null, "the control plane proves its token");
+        }
+        using (var stale = new ControlPlaneApi(baseUri, new string('b', 43)))
+        {
+            Assert.That(Outcome(Assert.ThrowsAsync<ControlPlaneRequestException>(() => stale.GetLocationsAsync())), Is.EqualTo(LoopbackProofOutcome.Unproved),
+                "a stale token is not proved, so it is never sent");
         }
 
         // A relay on another port that passes everything to the control plane, naming the control
@@ -477,10 +514,9 @@ public class LiveLoopbackProofTests
         try
         {
             var throughRelay = new Uri($"http://127.0.0.1:{relayPort}/");
-            Assert.That(await LoopbackProof.AskAsync(throughRelay, controlPlane.AccessToken, CancellationToken.None), Is.EqualTo(LoopbackProofOutcome.Unproved),
-                "the control plane proves the address it was reached at, not the relay's");
             using var api = new ControlPlaneApi(throughRelay, controlPlane.AccessToken);
-            Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.GetLocationsAsync());
+            Assert.That(Outcome(Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.GetLocationsAsync())), Is.EqualTo(LoopbackProofOutcome.Unproved),
+                "the control plane proves the address it was reached at, not the relay's");
             Assert.That(relayed, Is.Not.Empty);
             Assert.That(answers.Any(answer => answer.Contains(LoopbackProof.ProofHeader + ":", StringComparison.OrdinalIgnoreCase)), Is.True,
                 "the control plane's own proof came back through the relay, for its own port");
@@ -516,6 +552,8 @@ public class LiveLoopbackProofTests
         Assert.That((await api.GetLocationsAsync()).Roots, Is.Not.Null, "the control plane, on a connection of its own, proves itself");
         Assert.That(impostor.Paths, Is.EqualTo(new[] { "/api/health" }), "the kept connection carried nothing more");
     }
+
+    private static LoopbackProofOutcome? Outcome(ControlPlaneRequestException? error) => (error?.InnerException as TokenNotSentException)?.Outcome;
 
     /// <summary>
     /// Passes each connection to the control plane in both directions, naming the control plane's

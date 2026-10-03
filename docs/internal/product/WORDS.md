@@ -145,6 +145,7 @@ surface goes back to them.
 | --- | --- | --- |
 | Your computer answered 401 to the code | Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app. | Your computer refused this headset's access token: it doesn't match your computer's. Put your computer's current access token on the headset, then restart the app. |
 | What answers can't prove it holds the code, so the headset didn't send it | This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. Put your computer's current access code on the headset, check that Halcyonic is running there, and restart the app. | |
+| The endpoint is one the code never goes to, a name or another scheme (an editor setting) | The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to {endpoint}. Name one of those instead. | The access code goes only to 127.0.0.1 or [::1], so it was not sent to localhost:47800. Name one of those instead. |
 
 ## Sentence patterns
 
