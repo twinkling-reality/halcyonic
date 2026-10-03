@@ -25,7 +25,10 @@ A runtime integration implements `RuntimeAdapter` (`packages/runtime-core/src/ad
   `model_unavailable`.
 - Observations: the adapter reports what the runtime does as normalized `RuntimeObservation`s
   (the `runtime.*` events), with the native record id for deduplication, the native sequence when
-  one exists, and honest provenance. It never throws into the sink and never invents state. The
+  one exists, and honest provenance. It never throws into the sink and never invents state. A
+  tool's title, an approval's summary and a test run's label and summary are reported whole, never
+  cut: the control plane takes the secrets it holds out of them, which it finds only whole, then
+  cuts them to the contract ([SECURITY.md](SECURITY.md), "Logs and error text"). The
   journal outlives the process, so a native record id is never reused, not even after a restart;
   the journal would drop the new record as a duplicate ([EVENTS.md](EVENTS.md)). The model the
   runtime says it runs on is reported as `runtime.model.used`, from the runtime's own report and

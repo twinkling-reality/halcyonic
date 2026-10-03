@@ -934,11 +934,12 @@ describe('approvals', () => {
     );
   });
 
-  test('approval summaries mark a cut and stay within 2000 code points', async () => {
+  test('approval summaries and tool titles come whole, for the control plane to cut after redaction', async () => {
     const { startConfirmed, observed } = setup();
     const scripted = await startConfirmed();
-    void scripted.requestPermission('Bash', { command: 'x'.repeat(2000) }, 'exact');
-    void scripted.requestPermission('Bash', { command: 'x'.repeat(2001) }, 'long');
+    // A held key across where the contract cuts: cut here, part of it would survive redaction.
+    const command = `${'x'.repeat(1990)} sk-ant-api03-AbCdEf0123456789`;
+    void scripted.requestPermission('Bash', { command }, 'long');
     void scripted.requestPermission('Bash', { command: '😀'.repeat(2001) }, 'unicode');
     void scripted.requestPermission('Custom', { title: 'y'.repeat(2001) }, 'fallback');
     await settle();
@@ -946,14 +947,22 @@ describe('approvals', () => {
     const summaries = observed
       .filter((event) => event.type === 'runtime.approval.requested')
       .map((event) => event.payload.subject.summary);
-    assert.equal(summaries[0], 'x'.repeat(2000));
-    for (const summary of summaries.slice(1)) {
-      assert.equal(Array.from(summary).length, 2000);
-      assert.ok(summary.endsWith(' [truncated]'));
-    }
-    assert.ok(summaries[2]?.startsWith('😀'));
-    assert.ok(summaries[3]?.startsWith('{"title":"'));
-    assertContractValid(observed);
+    assert.deepEqual(summaries, [
+      command,
+      '😀'.repeat(2001),
+      JSON.stringify({ title: 'y'.repeat(2001) }),
+    ]);
+
+    const title = `${'x'.repeat(490)} sk-ant-api03-AbCdEf0123456789`;
+    scripted.emit(
+      assistant(scripted.sessionId, [toolUse('toolu_long', 'Bash', { command: title })]),
+    );
+    await settle();
+    const started = observed.find(
+      (event) =>
+        event.type === 'runtime.tool.started' && event.payload.tool_call_id === 'toolu_long',
+    );
+    assert.equal(started?.type === 'runtime.tool.started' && started.payload.title, title);
   });
 });
 

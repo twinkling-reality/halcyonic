@@ -8,7 +8,13 @@ import type {
 import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
 import type { EventDraft, Recorder } from './recorder.ts';
-import { type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
+import {
+  fits,
+  fitted,
+  type Redaction,
+  redaction as redactionOf,
+  withinLimit,
+} from './redaction.ts';
 
 type ControlPlaneEventType = ControlPlaneEvent['event_type'];
 type ScopeOf<T extends ControlPlaneEventType> = Pick<
@@ -99,12 +105,15 @@ export function createObservationSink(
 }
 
 /**
- * An observation's payload with credentials taken out, cut to the journal's limit after, since
- * "[redacted]" can be longer than what it replaced. The runtime's error text, a turn's failure and
- * why the connection was lost or restored, loses what Halcyonic holds and every credential shape.
- * What a person must read as given, a tool's title, what an approval asks for, a test run's label
- * and summary, loses only exact copies of what Halcyonic holds, so the command a person approves
- * is never guessed away. Everything else, the agent's own account included, is reported as given.
+ * An observation's payload with credentials taken out, then cut to the contract's limits, since
+ * what stands in for a credential can be longer than it, and a held secret is found only whole:
+ * the adapters pass these fields uncut, and this is the one place they are cut. The runtime's error
+ * text, a turn's failure and why the connection was lost or restored, loses what Halcyonic holds
+ * and every credential shape. What a person reads to decide, a tool's title, what an approval asks
+ * for, a question's prompt, a test run's label and summary, loses only exact copies of what
+ * Halcyonic holds, so the command a person approves is never guessed away. A question's options
+ * are left as given, since an answer names them. Everything else, the agent's messages included,
+ * is reported as given.
  */
 function withoutCredentials(
   observation: Parameters<ObservationSink>[0],
@@ -113,7 +122,7 @@ function withoutCredentials(
   const payload = observation.payload as Record<string, unknown>;
   const held = (field: string, limit: number) =>
     typeof payload[field] === 'string'
-      ? { ...payload, [field]: redaction.held(payload[field], limit) }
+      ? { ...payload, [field]: fitted(redaction.held(payload[field]), limit) }
       : payload;
   switch (observation.type) {
     case 'runtime.turn.failed': {
@@ -133,9 +142,14 @@ function withoutCredentials(
     case 'runtime.approval.requested': {
       const subject = payload.subject as { summary?: unknown } | undefined;
       return typeof subject?.summary === 'string'
-        ? { ...payload, subject: { ...subject, summary: redaction.held(subject.summary, 2000) } }
+        ? {
+            ...payload,
+            subject: { ...subject, summary: fitted(redaction.held(subject.summary), 2000) },
+          }
         : payload;
     }
+    case 'runtime.question.asked':
+      return withHeldPrompts(payload, redaction);
     case 'runtime.tool.started':
       return held('title', 500);
     case 'runtime.test_run.started':
@@ -145,4 +159,22 @@ function withoutCredentials(
     default:
       return payload;
   }
+}
+
+/**
+ * A question's prompts with what Halcyonic holds taken out of their text, which the adapters have
+ * already fitted to the contract. One that the marker pushed past it is cut, and the question can
+ * no longer be answered, since the person would not see whole what they answer.
+ */
+function withHeldPrompts(payload: Record<string, unknown>, redaction: Redaction): unknown {
+  if (!Array.isArray(payload.prompts)) return payload;
+  let answerable = payload.answerable;
+  const prompts = payload.prompts.map((prompt: unknown) => {
+    const text = (prompt as { text?: unknown } | null)?.text;
+    if (typeof text !== 'string') return prompt;
+    const held = redaction.held(text);
+    if (!fits(held, 4000)) answerable = false;
+    return { ...(prompt as object), text: fitted(held, 4000) };
+  });
+  return { ...payload, prompts, answerable };
 }
