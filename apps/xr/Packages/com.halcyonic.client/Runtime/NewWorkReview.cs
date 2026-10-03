@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace Halcyonic.Client
@@ -51,8 +52,11 @@ namespace Halcyonic.Client
     /// be sent, under Halcyonic's own label, in pages the person steps through. The panel lays the
     /// items out at its own width, wrapping at word boundaries, and tells the review how many lines
     /// each takes (<see cref="Paginate"/>); the review then fills each page with whole items, and
-    /// splits an item across pages only when it alone is taller than a page. The final action is
-    /// offered only on the last page, after the person has advanced through every preceding page.
+    /// splits an item across pages only when it alone is taller than a page. A line counts as read
+    /// only once the panel has drawn it (<see cref="Drawn"/>), and the final action is offered only on
+    /// the last page with every line of the current layout drawn. Laid out again, as when the text
+    /// size changes or a banner leaves room, an item drawn whole stays read and one drawn in part is
+    /// read again, since its lines may wrap elsewhere now.
     /// </summary>
     /// <remarks>
     /// Values are text from outside: the person's own words, names from the Mac and from runtimes,
@@ -66,8 +70,20 @@ namespace Halcyonic.Client
     /// </remarks>
     public sealed class NewWorkReview
     {
+        /// <summary>
+        /// Seconds a part shows, once drawn, before Next part moves on: a second press as quick as a
+        /// double press never passes a part almost unseen.
+        /// </summary>
+        public const double NextPause = 0.4;
+
         private readonly List<ReviewItem> items = new List<ReviewItem>();
         private readonly List<List<ReviewPart>> pages = new List<List<ReviewPart>>();
+
+        /// <summary>For each item, which of its lines in the current layout the panel has drawn.</summary>
+        private readonly List<bool[]> drawn = new List<bool[]>();
+
+        /// <summary>When the page showing was first drawn since it came to show, on the panel's steady clock; null until it is.</summary>
+        private double? pageDrawnAt;
 
         /// <param name="folder">Where the project's files will live, in words, or null when it is not part of the request.</param>
         /// <param name="folderBefore">
@@ -113,20 +129,41 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<IReadOnlyList<ReviewPart>> Pages => pages;
 
-        public bool CanConfirm => Paginated && Page == PageCount - 1;
+        /// <summary>The final action can be taken: the last page shows, and every line of every item has been drawn in this layout.</summary>
+        public bool CanConfirm => Paginated && Page == PageCount - 1 && AllDrawn;
+
+        /// <summary>Every line of every item has been drawn in the current layout.</summary>
+        public bool AllDrawn => Paginated && drawn.All(lines => lines.All(line => line));
+
+        /// <summary>Every line on the page showing has been drawn.</summary>
+        public bool PageDrawn => Paginated && Parts.All(part => Enumerable.Range(part.FirstLine, part.Lines).All(line => drawn[part.Item][line]));
+
+        /// <summary>Whether <paramref name="item"/> has been drawn whole, in this layout or one before it.</summary>
+        public bool DrawnWhole(int item) => item >= 0 && item < drawn.Count && drawn[item].All(line => line);
 
         /// <summary>
         /// Lays the items out on pages of <paramref name="pageLines"/> lines, from the lines each takes
         /// at the panel's width, <paramref name="itemLines"/>, in the order of <see cref="Items"/>. An
         /// item that fits a page is never split: it starts a new page when the one it would end on is
         /// full. An item taller than a page starts on a page of its own and fills whole pages; what
-        /// follows it continues under its last part. Shows the first page.
+        /// follows it continues under its last part. Items drawn whole before stay read; an item drawn in
+        /// part is read again. Shows the first page with a line not yet drawn, or the last page when
+        /// every line has been.
         /// </summary>
         public void Paginate(IReadOnlyList<int> itemLines, int pageLines)
         {
             if (itemLines == null) throw new ArgumentNullException(nameof(itemLines));
             if (itemLines.Count != items.Count) throw new ArgumentException("Give every item its lines.", nameof(itemLines));
             if (pageLines < 1) throw new ArgumentOutOfRangeException(nameof(pageLines), pageLines, "A page holds at least one line.");
+            // Read whole stays read; read in part can't be mapped onto lines that may wrap elsewhere now.
+            var whole = Enumerable.Range(0, items.Count).Select(DrawnWhole).ToList();
+            drawn.Clear();
+            for (var index = 0; index < itemLines.Count; index++)
+            {
+                var lines = new bool[Math.Max(1, itemLines[index])];
+                if (whole[index]) for (var line = 0; line < lines.Length; line++) lines[line] = true;
+                drawn.Add(lines);
+            }
             pages.Clear();
             var page = new List<ReviewPart>();
             var used = 0;
@@ -166,16 +203,45 @@ namespace Halcyonic.Client
             }
             if (page.Count > 0) pages.Add(page);
             Page = 0;
+            while (Page < PageCount - 1 && PageDrawn) Page++;
+            pageDrawnAt = null;
         }
 
-        public void Next()
+        /// <summary>
+        /// The panel drew the page showing, at <paramref name="now"/> seconds on a steady clock: its
+        /// lines count as read. Returns whether that made the final action available.
+        /// </summary>
+        public bool Drawn(double now)
         {
-            if (Page + 1 < PageCount) Page++;
+            if (!Paginated) return false;
+            var could = CanConfirm;
+            foreach (var part in Parts)
+            {
+                for (var line = part.FirstLine; line < part.FirstLine + part.Lines; line++) drawn[part.Item][line] = true;
+            }
+            if (pageDrawnAt == null) pageDrawnAt = now;
+            return !could && CanConfirm;
         }
 
-        public void Previous()
+        /// <summary>
+        /// Moves to the next page, once the page showing has been drawn and has shown for
+        /// <see cref="NextPause"/> seconds by <paramref name="now"/>. Returns whether it moved; a press
+        /// before then changes nothing.
+        /// </summary>
+        public bool Next(double now)
         {
-            if (Page > 0) Page--;
+            if (Page + 1 >= PageCount || !(pageDrawnAt is double at) || now - at < NextPause) return false;
+            Page++;
+            pageDrawnAt = null;
+            return true;
+        }
+
+        public bool Previous()
+        {
+            if (Page == 0) return false;
+            Page--;
+            pageDrawnAt = null;
+            return true;
         }
 
         private void Add(string label, string value) => items.Add(new ReviewItem(label, Safe(value)));

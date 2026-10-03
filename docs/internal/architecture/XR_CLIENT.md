@@ -417,8 +417,12 @@ the same definition names, as the JSON Schema document:
   literal "…" in the request is always Halcyonic's; nothing else is shortened. The panel wraps each item at its own
   width, at word boundaries, and gives the review the lines each takes (`Paginate`); the review then
   fills each page with whole items, and splits an item across pages only when it alone is taller
-  than a page, starting it on a page of its own. The final action appears only on the last page,
-  after the person has advanced through every preceding page. **`NewWorkSubmission`** looks up the command id
+  than a page, starting it on a page of its own. A line counts as read only once the panel has
+  drawn it (`Drawn`), and the final action appears only on the last page with every line of the
+  current layout drawn. Laid out again, as when the text size changes or a banner leaves room, an
+  item drawn whole stays read, one drawn in part is read again from its start, and the review
+  shows the first page with anything unread; Next part waits until the page showing is drawn and
+  has shown 0.4 s, so a double press never passes one almost unseen. **`NewWorkSubmission`** looks up the command id
   in projected state before interpreting an acknowledgement: a completed event still counts when
   its acknowledgement is lost. An unknown acknowledgement keeps the request unresolved until a
   terminal record arrives or the person deliberately clears it after checking the workstreams.
@@ -1281,7 +1285,8 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     the right end where Start building stood, and Yes, start building stands where no control of
     the recap stood nor any shown since, the pager on every part included, so pressing twice in one
     place never confirms; until the last part it stays there locked, saying what is left to read
-    ("Read to part 2 first"), and once unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
+    ("Read to part 2 first") until every part has been drawn in the layout showing, and once
+    unlocked it takes no press for its settle time. `BuildSequence` then sends the commands and each
     step shows how it went, in words and in its tone; a refusal offers Try again and Change, one
     about a folder the action its code names, and an unknown outcome only Next, to Not sure it
     happened. A project made here is shown on the stage whatever was chosen before. While a

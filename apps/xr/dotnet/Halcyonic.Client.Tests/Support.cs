@@ -144,6 +144,14 @@ internal static class Samples
             UpdatedAt = Time,
         };
 
+    /// <summary>Reads a review through as a person would: each part drawn, then Next part a second later, to its last.</summary>
+    public static void ReadThrough(NewWorkReview review)
+    {
+        var now = 0.0;
+        review.Drawn(now);
+        while (review.Next(now += 1)) review.Drawn(now);
+    }
+
     public static RuntimeDescriptor MockRuntime() =>
         new()
         {

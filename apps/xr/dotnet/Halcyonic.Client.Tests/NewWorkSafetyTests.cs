@@ -135,14 +135,147 @@ public class NewWorkSafetyTests
         review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 30 }, 6);
         Assert.That(review.PageCount, Is.GreaterThan(2));
         Assert.That(review.CanConfirm, Is.False);
-        while (!review.CanConfirm) review.Next();
+        Samples.ReadThrough(review);
+        Assert.That(review.CanConfirm, Is.True);
         Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
         review.Previous();
         Assert.That(review.CanConfirm, Is.False);
-        review.Next();
+        review.Drawn(100);
+        review.Next(101);
         Assert.That(review.CanConfirm, Is.True);
         Assert.Throws<ArgumentException>(() => review.Paginate(new[] { 1, 2 }, 6));
         Assert.Throws<ArgumentOutOfRangeException>(() => review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 1 }, 0));
+    }
+
+    [Test]
+    public void TheLastPageIsNotEnoughEveryLineMustHaveBeenDrawn()
+    {
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective");
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 12 }, 6);
+        Assert.That(review.Next(10), Is.False, "nothing moves on before the part showing is drawn");
+        review.Drawn(0);
+        Assert.That(review.Next(1), Is.True);
+        Assert.That(review.Next(2), Is.False, "nor before the new part is drawn");
+        review.Drawn(2);
+        review.Next(3);
+        Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
+        Assert.That(review.CanConfirm, Is.False, "on the last page, but its lines not drawn yet");
+        Assert.That(review.Drawn(3), Is.True, "drawing the last unread part is what offers Yes");
+        Assert.That(review.CanConfirm, Is.True);
+        Assert.That(review.Drawn(4), Is.False, "already offered");
+    }
+
+    [Test]
+    public void ARemeasureToMoreLinesMidReviewOffersYesOnlyAfterTheNewLinesAreDrawn()
+    {
+        // As the security review found it: read to the last part, then the text grows (or a banner
+        // leaves), the first task wraps to more lines, and the old page number pointed past text never drawn.
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective");
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 12 }, 7);
+        Assert.That(review.PageCount, Is.EqualTo(3), "the six short items, then the first task in two parts");
+        review.Drawn(0);
+        review.Next(1);
+        review.Drawn(1);
+        Assert.That(review.DrawnWhole(6), Is.False, "the first task's first part drawn, its second not yet");
+        review.Paginate(new[] { 1, 1, 2, 1, 1, 2, 24 }, 6);
+        Assert.That(review.CanConfirm, Is.False);
+        Assert.That(review.Page, Is.Not.EqualTo(review.PageCount - 1), "never the old page number, which pointed past text never drawn");
+        Assert.That(review.DrawnWhole(0) && review.DrawnWhole(5), Is.True, "items drawn whole stay read, whatever their lines now");
+        Assert.That(review.Parts.Single().Item, Is.EqualTo(6), "it lands on the first part not yet read");
+        Assert.That(review.Parts.Single().FirstLine, Is.EqualTo(0), "the first task drawn in part is read again from its start");
+        var parts = 1;
+        var now = 50.0;
+        review.Drawn(now);
+        Assert.That(review.CanConfirm, Is.False);
+        while (review.Next(now += 1))
+        {
+            review.Drawn(now);
+            parts++;
+        }
+        Assert.That(parts, Is.EqualTo(4), "every part of the first task again, 24 lines at 6 a part");
+        Assert.That(review.CanConfirm, Is.True);
+        review.Paginate(new[] { 1, 1, 2, 1, 1, 2, 30 }, 6);
+        Assert.That(review.CanConfirm, Is.True, "drawn whole, it stays read when it wraps again");
+    }
+
+    [Test]
+    public void ARemeasureToFewerLinesKeepsWhatWasDrawnWholeAndLandsOnTheFirstPartUnread()
+    {
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective");
+        review.Paginate(new[] { 2, 2, 2, 2, 2, 2, 20 }, 4);
+        review.Drawn(0);
+        review.Next(1);
+        review.Drawn(1);
+        Assert.That(review.DrawnWhole(3), Is.True);
+        Assert.That(review.DrawnWhole(4), Is.False);
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 10 }, 8);
+        Assert.That(review.Page, Is.EqualTo(0), "the first page holds items 4 and 5, not yet read");
+        Assert.That(review.CanConfirm, Is.False);
+        Samples.ReadThrough(review);
+        Assert.That(review.CanConfirm, Is.True);
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 10 }, 20);
+        Assert.That((review.PageCount, review.CanConfirm), Is.EqualTo((1, true)), "drawn whole, laid out again on one page: still read");
+    }
+
+    [Test]
+    public void ADoublePressNeverPassesAPartAlmostUnseen()
+    {
+        var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective");
+        review.Paginate(new[] { 1, 1, 1, 1, 1, 1, 18 }, 6);
+        review.Drawn(10.0);
+        Assert.That(review.Next(10.3), Is.False, "the first part showed only 0.3 s");
+        Assert.That(review.Next(10.4), Is.True);
+        review.Drawn(10.41);
+        Assert.That(review.Next(10.5), Is.False, "the second press of a double press is ignored");
+        Assert.That(review.Page, Is.EqualTo(1));
+        Assert.That(review.Next(10.81), Is.True);
+    }
+
+    [Test]
+    public void NoOrderOfRemeasuresDrawsAndPressesOffersYesBeforeEveryLineIsDrawn()
+    {
+        var random = new Random(20261002);
+        for (var round = 0; round < 400; round++)
+        {
+            var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective", "folder");
+            var count = review.Items.Count;
+            int[] lines = null!;
+            bool[][] seen = null!;
+            void Layout()
+            {
+                var pageLines = random.Next(2, 9);
+                // Seen whole stays seen; seen in part does not carry over to lines that may wrap elsewhere.
+                var whole = seen?.Select(item => item.All(line => line)).ToArray() ?? new bool[count];
+                lines = Enumerable.Range(0, count).Select(_ => random.Next(1, 3 * pageLines)).ToArray();
+                review.Paginate(lines, pageLines);
+                seen = Enumerable.Range(0, count).Select(item => Enumerable.Repeat(whole[item], lines[item]).ToArray()).ToArray();
+            }
+            Layout();
+            var now = 0.0;
+            for (var step = 0; step < 60; step++)
+            {
+                now += random.NextDouble();
+                switch (random.Next(4))
+                {
+                    case 0:
+                        Layout();
+                        break;
+                    case 1:
+                        review.Drawn(now);
+                        foreach (var part in review.Parts)
+                            for (var line = part.FirstLine; line < part.FirstLine + part.Lines; line++) seen[part.Item][line] = true;
+                        break;
+                    default:
+                        review.Next(now);
+                        break;
+                }
+                if (review.CanConfirm)
+                {
+                    Assert.That(seen.All(item => item.All(line => line)), Is.True, "Yes only once every line of this layout was drawn");
+                    Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
+                }
+            }
+        }
     }
 
     [Test]
