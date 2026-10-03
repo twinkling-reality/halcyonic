@@ -323,19 +323,45 @@ public class MenuNavigatorTests
         menu.Frames(Bar);
         var settings = places[MenuPlace.Settings];
         settings.Side = Details();
-        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true);
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
         settings.Change();
         var (_, _, side) = Draw(menu);
-        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.True, "standing in its frame's place, the change it carries");
-        Assert.That(menu.Act(MenuColumn.Side, "approve", null, null, side), Is.False, "nothing its frame doesn't offer");
+        Assert.That(menu.Act(MenuColumn.Side, "approve", null, null, side), Is.False, "nothing its frame doesn't offer, though the side panel stands");
+        Assert.That(menu.Taking(MenuColumn.Side, "talk", null, side), Is.Null, "nor a hold its frame doesn't offer");
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.True, "the change it offers");
         settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, available: false, reason: "Not now.");
         settings.Change();
         side = Draw(menu).Side;
         Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "nor what it offers but doesn't allow now");
         Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, always");
-        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true);
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
         settings.Change();
-        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "a side panel no longer drawn, as after its row was chosen again");
-        Assert.That(settings.Got.Count(got => got == "act change "), Is.EqualTo(1));
+        side = Draw(menu).Side;
+        menu.Moved();
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "the plane moved: nothing counts until drawn where it stands");
+        Draw(menu);
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.True, "drawn again, it counts");
+        Assert.That(settings.Got.Where(got => got.StartsWith("act")), Is.EqualTo(new[] { "act change ", "act " + SidePanel.Close + " ", "act change " }),
+            "the change twice and Close details once, and nothing it doesn't offer");
+    }
+
+    [Test]
+    public void OpeningAFileBesideTheMenuLetsGoOfTheMenusChosenRowWhoseDetailsItWouldHide()
+    {
+        var (menu, places) = Menu();
+        menu.OpenMenu(MenuPlace.Settings);
+        menu.Frames(Bar);
+        var settings = places[MenuPlace.Settings];
+        settings.Side = Details();
+        settings.Change();
+        Draw(menu);
+        menu.ShowBeside(new Column("File"), "w1");
+        Assert.That(settings.Got.Last(), Is.EqualTo("act " + SidePanel.Close + " "), "its details close before the file takes the plane");
+
+        var (other, otherPlaces) = Menu();
+        other.OpenMenu(MenuPlace.Usage);
+        other.Frames(Bar);
+        other.ShowBeside(new Column("New project"), null);
+        Assert.That(otherPlaces[MenuPlace.Usage].Got.Any(got => got.StartsWith("act")), Is.False, "nothing chosen, nothing let go");
     }
 }

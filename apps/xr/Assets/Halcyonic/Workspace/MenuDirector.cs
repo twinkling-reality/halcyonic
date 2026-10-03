@@ -327,7 +327,7 @@ namespace Halcyonic.XR.Workspace
         private void OnHoldStarted(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side)
         {
             if (FocusGuard.InputSuspended) return;
-            if (navigator.Standing(from, frame, side) is IMenuColumn column) voice?.Hold(column, prompt.Id);
+            if (navigator.Taking(from, prompt.Id, frame, side) is IMenuColumn column) voice?.Hold(column, prompt.Id);
         }
 
         /// <summary>A hold ended: only the hold that started the recording ends it.</summary>

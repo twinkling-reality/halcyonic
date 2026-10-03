@@ -112,7 +112,9 @@ namespace Halcyonic.Client
                     Screen.Chosen = Screen.Chosen == key ? null : key;
                     break;
                 case SidePanel.Close:
+                    // Closes whichever side panel shows, a chosen answer's too, so the page comes back.
                     Screen.Chosen = null;
+                    question.CloseSide();
                     break;
                 case FileScreens.Refresh:
                     var execution = Now.Execution;

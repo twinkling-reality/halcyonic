@@ -348,8 +348,13 @@ namespace Halcyonic.Client
         /// The page itself says why it can't be taken now, as answers waiting to be chosen, so its
         /// reason keeps its words (<see cref="Reason"/>) but isn't drawn on the page's last line.
         /// </param>
+        /// <param name="safeInPlace">
+        /// Its frame's side panel shows everything it acts on, so it may stand on that side panel when the
+        /// side panel takes the frame's place, as a setting's change does; its column says so, and nothing
+        /// else is carried there but Close details, paging and Cancel (<see cref="Footer.InPlace"/>).
+        /// </param>
         public Prompt(string id, string words, GlazeIcon icon, PromptKind kind = PromptKind.Action, bool main = false, bool available = true,
-            string? reason = null, bool holds = false, bool pageExplains = false)
+            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false)
         {
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("A prompt raises an id.", nameof(id));
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A prompt has its words.", nameof(words));
@@ -369,6 +374,7 @@ namespace Halcyonic.Client
             Reason = available ? null : reason;
             Holds = holds;
             PageExplains = pageExplains;
+            SafeInPlace = safeInPlace;
         }
 
         public string Id { get; }
@@ -389,6 +395,9 @@ namespace Halcyonic.Client
 
         /// <summary>The page itself says why it can't be taken now: its reason isn't drawn.</summary>
         public bool PageExplains { get; }
+
+        /// <summary>Its frame's side panel shows everything it acts on, so it may be carried there when the side panel takes the frame's place.</summary>
+        public bool SafeInPlace { get; }
 
         /// <summary>Drawn as the main action: the accent on its cap and words. An unavailable main action keeps its place but is drawn quiet.</summary>
         public bool DrawnAsMain => Main && Available;
@@ -447,17 +456,34 @@ namespace Halcyonic.Client
         public string? Reason => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
 
         /// <summary>
-        /// This footer with <paramref name="close"/> where its Close stood, every other prompt kept as it
-        /// is, a confirmation's Yes and Cancel too: a side panel standing in its frame's place keeps all
-        /// the frame offers, its own Close details where the frame's Close was.
+        /// This footer as a side panel standing in its frame's place carries it: <paramref name="close"/>,
+        /// its Close details, where the frame's Close stood; paging and a confirmation's Cancel, always; and
+        /// only the prompts the column marks <see cref="Prompt.SafeInPlace"/>, whose side panel shows
+        /// everything they act on. Nothing that would act on what isn't drawn stands there: Close details
+        /// brings the page back, with everything in view. A pager left without the main action beside it
+        /// takes the far right.
         /// </summary>
-        public Footer WithClose(Prompt close)
+        public Footer InPlace(Prompt close)
         {
             if (close.Kind != PromptKind.Close) throw new ArgumentException("Close stands far left.", nameof(close));
             var footer = new Footer(this);
             footer.slots[(int)PromptSlot.Close] = close;
+            for (var index = 0; index < footer.slots.Length; index++)
+            {
+                if (index == (int)PromptSlot.Close || !(footer.slots[index] is Prompt prompt)) continue;
+                if (!(prompt.SafeInPlace || prompt.Kind == PromptKind.NextPage || prompt.Kind == PromptKind.Cancel)) footer.slots[index] = null;
+            }
+            if (footer.slots[(int)PromptSlot.Secondary] is Prompt pager && pager.Kind == PromptKind.NextPage && footer.slots[(int)PromptSlot.FarRight] == null)
+            {
+                footer.slots[(int)PromptSlot.FarRight] = pager;
+                footer.slots[(int)PromptSlot.Secondary] = null;
+            }
             return footer;
         }
+
+        /// <summary>Every prompt it offers stands on its frame's side panel in the frame's place (<see cref="InPlace"/>).</summary>
+        public bool WholeInPlace => All.All(each => each.Prompt.Kind == PromptKind.Close || each.Prompt.SafeInPlace
+            || each.Prompt.Kind == PromptKind.NextPage || each.Prompt.Kind == PromptKind.Cancel);
 
         /// <summary>This footer with <paramref name="prompt"/> in <paramref name="slot"/>, which must be empty and fit it.</summary>
         public Footer With(PromptSlot slot, Prompt prompt)

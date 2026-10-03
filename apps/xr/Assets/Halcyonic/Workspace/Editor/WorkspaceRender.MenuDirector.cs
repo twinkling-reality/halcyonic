@@ -232,6 +232,16 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     failures.Add(name + ": the text size's change, drawn on its side panel in the frame's place, takes no press.");
                 }
+                // The press changed the reading size; the render keeps drawing at its own, so it is put back.
+                comfort.Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard;
+
+                // A file opened over that chosen setting: the menu lets go of its side panel, which the file
+                // would leave undrawn, so its change can't act on details no one sees.
+                director.OpenFile(opened.View.WorkstreamId);
+                director.DrawNow();
+                failures.AddRange(PlaneState(name + " director file over a chosen setting", folder, camera, texture, director.Plane, characters, eyes, null));
+                file?.Close();
+                director.DrawNow();
 
                 // The menu's Close: the closed bar alone.
                 director.CloseMenu();

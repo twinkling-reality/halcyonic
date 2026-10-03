@@ -504,6 +504,9 @@ namespace Halcyonic.Client
             sideOption = null;
         }
 
+        /// <summary>The chosen answer's side panel closed: the page shows again, the answer still chosen.</summary>
+        public void CloseSide() => sideOption = null;
+
         /// <summary>The row on to the next question, or after the last, to the person's answers.</summary>
         public void NextQuestion(DateTimeOffset now)
         {

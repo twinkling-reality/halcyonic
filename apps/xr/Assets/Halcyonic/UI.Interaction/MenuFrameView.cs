@@ -57,8 +57,9 @@ namespace Halcyonic.XR.UI
         private SidePanel? side;
 
         /// <summary>
-        /// A side panel's footer and reason while it stands in its frame's place: its frame's, Close
-        /// details where Close stood, so all its frame offers stays drawn; null in a column of its own.
+        /// A side panel's footer and reason while it stands in its frame's place: its frame's as it carries
+        /// there (<see cref="Footer.InPlace"/>), Close details where Close stood and only what the side
+        /// panel shows everything of; null in a column of its own.
         /// </summary>
         private Footer? carried;
         private string? carriedReason;
@@ -236,15 +237,16 @@ namespace Halcyonic.XR.UI
         /// Shows a side panel in a column <paramref name="columnDegrees"/> wide: its subject, then its facts
         /// or lines, its source line and its own Close. Standing in a file's place, it wears the file's
         /// <paramref name="pill"/>, so it still reads as that task's. Standing in its frame's place, it
-        /// carries <paramref name="inPlaceOf"/>'s footer, Close details where Close stood, and its reason,
-        /// so every prompt the frame offers stays drawn and pressable.
+        /// carries <paramref name="inPlaceOf"/>'s footer as <see cref="Footer.InPlace"/> has it, Close
+        /// details where Close stood, with its reason, so whatever the side panel shows everything of
+        /// stays drawn and pressable, and Close details brings the page back for the rest.
         /// </summary>
         public void Show(SidePanel shown, float columnDegrees, float subject, bool pillRoom, StateBadge? pill = null, MenuFrame? inPlaceOf = null)
         {
             frame = null;
             side = shown;
-            carried = inPlaceOf?.Footer.WithClose(SidePanel.Footer[PromptSlot.Close]!);
-            carriedReason = inPlaceOf?.Reason;
+            carried = inPlaceOf?.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!);
+            carriedReason = carried?.Reason;
             Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = GlazeTokens.Text;

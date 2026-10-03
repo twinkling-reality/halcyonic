@@ -318,6 +318,43 @@ public class FileColumnTests
     }
 
     [Test]
+    public void CloseDetailsOnAChosenAnswersSidePanelBringsThePageBack()
+    {
+        var host = new FileMenuHost();
+        var work = new AskingWork(new QuestionView
+        {
+            QuestionId = "question-1",
+            Answerable = true,
+            AskedAt = Samples.Time,
+            Prompts = new List<QuestionPrompt>
+            {
+                new()
+                {
+                    Key = "q0", Header = "Database", Text = "Which database should it use?", Multiple = false, FreeText = false,
+                    Options = new List<QuestionOption>
+                    {
+                        new() { Label = "Postgres, with read replicas in two regions, a nightly snapshot kept for thirty days and point in time recovery" },
+                        new() { Label = "SQLite" },
+                    },
+                },
+            },
+        });
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        Assert.That(column.Frame!.Side, Is.Not.Null, "the long answer's whole words beside the page");
+        column.Act(SidePanel.Close, null);
+        Assert.That(column.Frame!.Side, Is.Null, "Close details brings the page back, where Send answer sends with everything in view");
+        Assert.That(column.Frame!.Lines.Any(line => line.Chosen), Is.True, "the answer stays chosen");
+    }
+
+    [Test]
     public void AnAnswerGoesOnlyByChoosingOnThePageThenSendAnswerOnceTheQuestionWasDrawn()
     {
         var host = new FileMenuHost();

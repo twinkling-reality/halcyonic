@@ -278,19 +278,34 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(GlazeChecks.InsideField(what, corners, eyes, GlazeChecks.CompositionCenter(shapes), WorkspacePlacement.ReadingPitch(size, plane.Direction.Elevation, field), field));
             }
 
-            // Every prompt the frame in front offers is drawn somewhere on the plane, its side panel in its
-            // place or not, so nothing a chosen row offers, as a setting's change, is out of reach; and a
-            // side panel in its frame's place says its frame's own reason.
+            // Every prompt the frame in front offers is drawn somewhere on the plane, so nothing a chosen
+            // row offers, as a setting's change, is out of reach; or, on its side panel in the frame's place,
+            // where only what the panel shows everything of is carried, Close details is drawn to bring the
+            // page back. A side panel in its frame's place says its frame's own reason, of what it carries.
             if (plane.Front is MenuFrame front)
             {
                 var drawn = plane.Shown.SelectMany(column => column.View.Footer.Showing?.All.Select(each => each.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
                 foreach (var (_, prompt) in front.Footer.All)
                 {
-                    if (prompt.Kind != PromptKind.Close && !drawn.Contains(prompt.Id)) failures.Add(what + ": the frame in front offers \"" + prompt.Words + "\", but nothing on the plane draws it.");
+                    if (prompt.Kind == PromptKind.Close || drawn.Contains(prompt.Id)) continue;
+                    if (prompt.SafeInPlace || prompt.Kind == PromptKind.NextPage || prompt.Kind == PromptKind.Cancel || !drawn.Contains(SidePanel.Close))
+                    {
+                        failures.Add(what + ": the frame in front offers \"" + prompt.Words + "\", but nothing on the plane draws it, nor Close details to bring the page back.");
+                    }
                 }
-                if (plane.Shown.Count == 1 && plane.Shown[0].Kind == MenuColumn.Side && plane.Shown[0].View.ReasonShown != front.Reason)
+                var inPlace = plane.Shown.Count == 1 && plane.Shown[0].Kind == MenuColumn.Side;
+                var said = front.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!).Reason;
+                if (inPlace && plane.Shown[0].View.ReasonShown != said)
                 {
-                    failures.Add(what + ": the side panel in its frame's place says \"" + plane.Shown[0].View.ReasonShown + "\", not its frame's reason \"" + front.Reason + "\".");
+                    failures.Add(what + ": the side panel in its frame's place says \"" + plane.Shown[0].View.ReasonShown + "\", not its frame's own reason \"" + said + "\".");
+                }
+            }
+            // No frame drawn acts on a side panel that isn't: a chosen row's details are drawn with it.
+            foreach (var (_, view) in plane.Shown)
+            {
+                if (view.Frame?.Side is SidePanel details && !plane.Shown.Any(column => column.View.Side == details))
+                {
+                    failures.Add(what + ": " + view.name + " shows a chosen row whose side panel isn't drawn, so its footer would act on details no one sees.");
                 }
             }
 
