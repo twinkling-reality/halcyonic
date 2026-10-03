@@ -410,7 +410,8 @@ the same definition names, as the JSON Schema document:
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, and
   Your space and, in a development build, Your computer from `SpaceSettings`, each row's change only
   raising its id for what owns it (`IRoomSettings`, `IPairingSettings`, `MenuDirector.ResetPosition`); a change that asks first, as forgetting the computer, arms on that press
-  with `Footer.Confirm`, Cancel in its place and Yes in the free middle, lapsing after 6 seconds, on
+  with `Footer.Confirm`, Cancel in its place and Yes in the free middle, the Yes given to the
+  setting's `Confirmed` with the reading it armed where it has one, lapsing after 6 seconds, on
   focus leaving, when Settings leaves the plane, once the change can't be made, or once anything the
   setting shows changes, so a Forget armed for one computer never forgets another; each row is read
   every frame, so a value changed elsewhere draws again without a press). `PageLine.besideNext` stands a line beside the next in half the row, as
@@ -1502,7 +1503,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
 - **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
   (the room shown and what it offers, given by the room's controls, where the characters stand, and
   the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in a
-  development build, Your computer, its Pairing row given by the pairing. The room's and the
+  development build (`Debug.isDebugBuild`, the pairing's own gate), Your computer, its Pairing row
+  given by the pairing. Every row stands whatever is there and reads what stands now: without the
+  room's controls, before they start or once they have gone, the room's rows say "Your room can't
+  be read now." and take no change, while The menu and Reset position stay; without the pairing,
+  Pairing says it isn't ready yet. The room's and the
   pairing's news shows on the stage's banner as a short notice for eight seconds
   (`CharacterStage.ShowNotice`), never in front of the person.
 - **Comfort:** Settings' Comfort (`ComfortSettings` its rows, `ComfortControls` keeping and
@@ -1928,9 +1933,11 @@ release build, such as the one judges run, offers no pairing
 - **Forgetting.** Once paired, the row's change reads "Forget this computer", and Settings asks
   first: Cancel in its place and "Yes, forget this computer" in the free middle, lapsing after six
   seconds, on focus leaving, when Settings leaves the plane or once forgetting can't be done. Only
-  that Yes forgets (`IPairingSettings.Forget`, given the address Settings asked about), and only the
-  computer at that address, with nothing under way (`PairingNow.Forgets`); the row's press unpaired
-  only pairs. Yes asks the computer to revoke this headset, deletes the pairing, and connects again as before
+  that Yes forgets: Settings gives the row's `MenuSetting.Confirmed` the reading it armed, whose
+  `SettingNow.About` is the address it asked about, and forgetting goes ahead only for the computer
+  at that address with nothing under way, checked in the client core (`PairingNow.Forgets`) and
+  again by the pairing (`IPairingSettings.Forget`). The row's bare change only pairs, unpaired, and
+  never forgets. Yes asks the computer to revoke this headset, deletes the pairing, and connects again as before
   pairing. If the Mac cannot be reached, the line says to
   revoke the headset there.
 - **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` and the access
