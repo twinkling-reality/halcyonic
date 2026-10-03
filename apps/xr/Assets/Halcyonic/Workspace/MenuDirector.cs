@@ -77,15 +77,13 @@ namespace Halcyonic.XR.Workspace
             public Func<IMenuHost, string, IMenuColumn?> File { get; set; } = (_, _) => null;
 
             /// <summary>
-            /// Makes New project's flow, lane C's, over the host given (NewProjectColumn.Create); null when
-            /// it can't be. The director keeps it in <see cref="Memory"/> for the session and journal, ticks
-            /// it while it isn't beside the menu so a build confirmed in it goes on, and lets it go for
-            /// another session or journal.
+            /// Makes New project's flow over the host given (<see cref="NewProjectColumn.Create"/>); null
+            /// when it can't be. The director keeps it in <see cref="Memory"/> for the session and journal,
+            /// opens it on a project or for a new one, ticks it while it isn't beside the menu so a build
+            /// confirmed in it goes on, and lets it go for another session or journal, or once it says it
+            /// is for another session.
             /// </summary>
-            public Func<IMenuHost, IMenuColumn?> MakeNewProject { get; set; } = _ => null;
-
-            /// <summary>Opens the flow kept for a new project (null, null), or to add a task to one, before the director shows it.</summary>
-            public Action<IMenuColumn, string?, string?> OpenNewProject { get; set; } = (_, _, _) => { };
+            public Func<IMenuHost, NewProjectFlow?> MakeNewProject { get; set; } = _ => null;
 
             /// <summary>The session's projection, the demonstration's while it plays; null before the first snapshot.</summary>
             public Func<ClientProjection?> State { get; set; } = () => null;
@@ -225,7 +223,7 @@ namespace Halcyonic.XR.Workspace
             Follow();
             navigator.Tick();
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
-            if (memory.NewProject is IMenuColumn flow && navigator.Beside != flow) flow.Tick();
+            if (memory.NewProject is NewProjectFlow flow && navigator.Beside != flow) flow.Tick();
             var nowAway = Away;
             if (away && !nowAway) dirty = true;
             away = nowAway;
@@ -387,8 +385,8 @@ namespace Halcyonic.XR.Workspace
             {
                 // The flow kept for this session and journal, or one made now, bound to the session shown.
                 Follow();
-                if (!(memory.NewProjectFor(State?.Journal?.JournalId, () => setup.MakeNewProject(Bound())) is IMenuColumn flow)) return;
-                setup.OpenNewProject(flow, projectId, projectName);
+                if (!(memory.NewProjectFor(State?.Journal?.JournalId, () => setup.MakeNewProject(Bound())) is NewProjectFlow flow)) return;
+                flow.Open(projectId, projectName);
                 navigator.ShowBeside(flow, null);
             }
             finally

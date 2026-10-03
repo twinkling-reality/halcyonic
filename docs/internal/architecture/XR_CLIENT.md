@@ -374,10 +374,12 @@ the same definition names, as the JSON Schema document:
   Connect in flight, `MenuMemory` keeps for the app's run on one session and journal, across
   reconnects and never renewed then, since a socket's drop is when an outcome turns unknown; another
   session, another journal or a re-pairing starts afresh. The director makes Projects (lane L's `ProjectsColumn`) over it, and
-  keeps New project's flow (lane C's) in it once first opened (`NewProjectFor`), ticking it while it
-  isn't beside the menu so a build confirmed in it goes on; another session, as the computer's live
-  session taking the demonstration's place, or another journal, lets the flow go and takes it off
-  the plane.
+  keeps New project's flow (lane C's `NewProjectFlow`, made by the host's `MakeNewProject` and opened
+  by the director) in it once first opened (`NewProjectFor`), ticking it while it isn't beside the
+  menu so a build confirmed in it goes on; another session, as the computer's live session taking the
+  demonstration's place, or another journal, lets the flow go and takes it off the plane, and so does
+  a kept flow that says it is for another session (`ForAnotherSession`), a second guard on the same
+  rule.
   `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`. It sends nothing itself:
   every column it makes gets a `SessionBoundHost` (client core) over it, bound to the session shown
   then, which sends only to that very session through WorkspaceDirector's command submissions, so
