@@ -8,7 +8,7 @@ alternatives: [ADR 0008](../decisions/0008-engine-independent-csharp-client-core
 ```text
 Unity layer (apps/xr/Assets)          stage, characters, focus guard;                compiles and builds;
         │                             workspace: gaze and hand peek, panel,           the workspace, the
-        │                             question tabs, project rail, entry panel,      rail, entry panel,
+        │                             question tabs, the menu's plane,               menu's plane, the
         │                             transition, first-time hint;                    room, the sound and
         │                             Meta's rig; room: passthrough, MRUK, stage      pairing are not
         │                             anchor; sound: the characters' voices;          verified on a
@@ -157,7 +157,7 @@ the same definition names, as the JSON Schema document:
   attention trades places with the one nearest the middle that does not. A waiting workstream
   replaces a shown one only from a more important tier, or, at rest, when it changed more
   recently, because working ones change every few seconds and would otherwise swap in and out.
-  The person can ask for one the lineup did not choose (`Request`, from More tasks): it takes the
+  The person can ask for one the lineup did not choose (`Request`, from Tasks): it takes the
   place of the character that ranks last and keeps a slot until another is asked for or it leaves;
   the one it replaced waits like any other. `Compare` orders workstreams as the lineup ranks them.
   Given the device's clock, the lineup also keeps new work in view: a workstream that appears after
@@ -165,8 +165,8 @@ the same definition names, as the JSON Schema document:
   (`Keep`, from the workspace), hold a slot for five minutes whatever their rank, taking the place of
   the lowest ranked character that is neither asked for nor kept; at most all slots but one are
   kept, newest first, so the work that ranks first keeps a place. Another journal's work is never
-  new (`UseJournal`), and only the device's clock is used. More tasks stays exact, since it lists
-  whatever has no slot. In the fifth headset session, older work flagged for attention pushed
+  new (`UseJournal`), and only the device's clock is used. Tasks stays exact, since it lists every
+  task whatever its slot. In the fifth headset session, older work flagged for attention pushed
   just-started work off the stage.
 - **`WorkspacePresenter`** is the expanded form of the same workstream, for milestone 3: the
   character's cues plus the objective, the execution and its runtime, the actions the control plane
@@ -528,7 +528,7 @@ the same definition names, as the JSON Schema document:
   so the layout keeps its own angles there). Meta gives a Quest 3 as 110 by 96 degrees and a Quest
   3S as 96 by 90, without the split, which only the device tells. `LowestCenter` says how low a
   plate that faces the eyes may stand with every corner inside the field less a 1.5 degree margin
-  (a design decision), and `BelowWithin` keeps the rail inside it.
+  (a design decision).
 - **`SeatedPointing`** makes a hand ray for a seated person: through the index knuckle from a pivot
   0.40 m below the eyes, 0.10 m behind them and 0.13 m to the hand's side, so a hand resting a
   little above a desk points ahead; on only while the hand is tracked with high confidence, in
@@ -698,8 +698,7 @@ the same definition names, as the JSON Schema document:
   folder's own name as the project's, counted as connected only once its record completed with the
   project, never sent again while its outcome may have run. Names are quoted inside Halcyonic's
   sentences and shown by `LabelText`'s rule.
-- **`WorkOverview`** counts every project and workstream for the rail, Connect projects and More
-  work from the projection alone: per project its work, active, needs you and to check counts by
+- **`WorkOverview`** counts every project and workstream for Projects from the projection alone: per project its work, active, needs you and to check counts by
   the lineup's tiers, whether it shows, and how much has no character; and every workstream
   without a character, ranked as the lineup ranks, with whether its project is hidden or the stage
   is full. Hidden projects keep their counts, so what needs the person never disappears with its
@@ -741,9 +740,9 @@ the same definition names, as the JSON Schema document:
 - **`CompanionRecording`** plays the companion's part of the demonstration: one exchange recorded
   once from the real companion (`pnpm companion:record`), pressed through in its recorded order,
   labelled recorded, never asking a model, and never showing the model's name.
-- **`EntryText`** writes every word of the rail and the entry panel: plain verbs, statuses in
-  words, a model's serving place in terms of where the person's code and instructions go, and
-  nothing that claims discovery (Connect lists the projects already set up on the Mac). The words
+- **`EntryText`** writes New project's words, kept from the retired entry panel: plain verbs,
+  statuses in words, a model's serving place in terms of where the person's code and instructions
+  go, and nothing that claims discovery. The words
   follow the glossary: a task, an agent app, your computer, never a workstream, a runtime or the control
   plane.
 - **`PanelModel`** is what one screen of a foreground panel shows, never where (ADR 0023): its
@@ -764,9 +763,8 @@ the same definition names, as the JSON Schema document:
   Done, Skip and Clear, none. The header's Close says its icon (`CloseIcon`, a clock for the
   welcome's Not now). Text from outside comes in as `LabelText.Plain` shows it and says it is data,
   which alone may end in an ellipsis.
-- **`EntryScreens`** builds the entry panel's screens (the welcome, Connect projects, More tasks)
-  as `PanelModel`s from the overview, so the Unity layer only draws them and acts on the id a press
-  raises, and holds the checks New project builds on: why Start building can't go ahead now
+- **`EntryScreens`** holds the checks New project builds on, kept from the retired entry panel,
+  whose screens Projects and New project took over (ADR 0026): why Start building can't go ahead now
   (`StartProblem`, the recap's checks in their order), the whole request (`ReviewOf`, given names as
   they are, so the review spells each once), the folder a send carries (`FolderSent`) and whether a
   request moves a project (`Moves`). The panel's own creating, its screens and its banner for work
@@ -1081,9 +1079,8 @@ errors, the constraints Unity imposes, and tests them with NUnit on .NET 10:
   `location_exists`, Use that folder creating the project there and starting its work, and new
   work in a new folder binding the project first;
 - the entry: with 0, 1, 6, 7 and 40 workstreams across a shown and a hidden project, every
-  workstream that needs the person either has a character or is listed first in More tasks and
-  counted with its project; project counts by tier, names by the one rule, the rail's choice of
-  projects; the visibility per journal, saved and read back, a damaged preference showing
+  workstream that needs the person either has a character or is counted with its project; project
+  counts by tier, names by the one rule; the visibility per journal, saved and read back, a damaged preference showing
   everything; a lineup request taking the weakest slot and ending when its work leaves; a precise
   idea straight to the recap, fixed questions giving the same recap for the same answers, typed
   answers as typed, a changed kind dropping its first step, no name asked for an existing project;
@@ -1254,7 +1251,7 @@ scripts use only long-stable core Unity APIs:
   the app lacks input focus. It raises `CharacterCreated` and offers `TryGetCharacter` and
   `SlotOf`, so other components add to characters without changing them. The lineup it keeps covers
   only the work of the projects its `Visibility` shows, plus the one work `Request` asks for, and
-  it raises `Refreshed` after each update so the rail can count what has no character.
+  it raises `Refreshed` after each update.
 - `CharacterView` draws a `CharacterPresentation` as a bot
   ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)): a body mesh
   generated for its identity's shape, with its eyes, satin flow, cracks, fog and halftone in one
@@ -1290,7 +1287,7 @@ scripts use only long-stable core Unity APIs:
   and Recorded), `CharacterLabelView`, `PeekCardView` and `StageBanner`. Components are built in
   units of their distance from the eyes and scaled by it, so every size is an angle.
 - `Assets/Halcyonic/UI.Interaction` (`Halcyonic.XR.UI.Interaction`) holds what takes input, on the
-  Interaction SDK, for the workspace, the entry panel, the rail and the room and pairing controls;
+  Interaction SDK, for the workspace and the menu's plane;
   the stage never references it. `PointerTarget` lives here: a ray, poke and gaze target whose
   `Selected` and `Released` say a press began and ended, let go or cancelled, as hold to talk needs,
   and which the interaction log names as its creator says (`LogAs`: a character by its work's id).
@@ -1362,12 +1359,12 @@ scripts use only long-stable core Unity APIs:
   to that window, the system keyboard or the Meta menu, it hides the assigned hand visuals and
   suspends input at once; work keeps running and updating, since losing focus is not a pause.
   Input stays suspended for half a second after focus returns, so the pinch that brings focus back
-  never presses a control. After focus has stayed away for three seconds, large panels (the entry
-  panel, an open workspace with its ring and link, the Usage left panel) fold out of the way with
+  never presses a control. After focus has stayed away for three seconds, large panels (an open
+  workspace with its ring and link) fold out of the way with
   their content kept (`Folded`), and they come back exactly as they were once input is ready again.
   Focus that flaps, as the Quest's system windows make it, folds nothing. While panels are folded the
   stage's banner, under the characters or beside a window under its lane, also says which panel is
-  still open ("Still open: Connect projects", `AmbientCover.OpenPanel`) and, beside a window, how
+  still open ("Still open: ...", `AmbientCover.OpenPanel`) and, beside a window, how
   many more tasks have no character ("2 more tasks not shown here"); it only says, taking no press.
   The app's own system
   keyboard is tracked (`Track` wraps every `TouchScreenKeyboard.Open`), so typing folds nothing and
@@ -1492,71 +1489,37 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   returns to ambient. `WorkspaceTransition` grows the panel out of the character's body, rings the character
   and links it to the panel while open, and shrinks the panel back on collapse; the character stays
   where the stage put it, and the panel follows it if the stage moves it, as after a recenter.
-- **Project rail:** `ProjectRail`, low under the stage and within reach, in two rows of
-  `GlazeButton`s ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
-  Above, filters: the projects that matter most now, what waits for the person first, each a pill
-  outlined in the accent while its work is on the stage and quiet while hidden, with its counts in
-  full where the pill has room ("1 task is waiting for you", `EntryText.ChipDetailInFull`) and in
-  their short form where it has not ("1 task waiting", "Hidden · 1 waiting"), in the attention
-  colour while something waits, pressed to show or hide that project's work on the stage; and See
-  other tasks, while some work has no character, with how much of it waits for the person. Below,
-  actions: Connect projects, with how many projects show, at the left (New project is the menu's);
-  Usage left, when its glance offers it, and Settings, compact, at the
-  right, since they open sheets rather than act on work, each action with its icon before its words
-  (the pills have none). Every button is 60 dp tall (48 compact) and 12 mm from its neighbours. It rests 0.43 m from the eyes, 44.5 degrees below eye level, 24 degrees
-  to either side, its rows 40 to 49 degrees down; with a measured field of view too short for that, higher, its corners 1.5 degrees inside the field with the head level but never above 29 degrees down, so it stays a degree under the line above the stage at its tallest beside a window, nor above about 29.8 with text a step larger, as the banner's lines grow (`ProjectRail.Below`, `ProjectRail.HighestBelow`; about 39 degrees on a Quest 3S split evenly); over a desk, 0.3 m ahead and never into the desk,
-  about 53 degrees down, under the lineup's labels. It is placed in front of the person when the app
-  starts and when the stage moves onto or off a surface, and again by Reset position, and it steps
-  out of the way while the entry panel, a workspace, the Usage left panel or Settings is open. Which
-  projects show is kept on the device for each journal (`StageVisibility`); hiding a project hides
-  its characters only.
-- **Settings:** `SettingsSheet`, which the rail's Settings opens, is one foreground panel, 44
-  degrees wide like every foreground panel and as tall as its sections, at 0.46 m, placed where the
-  entry panel would be, clear of every character and label, with Close and its icon at its top
-  right. It holds the controls that change how Halcyonic is arranged rather than act on work, each
-  feature in a section of its own (`SettingsSection`): Your room, with the room's line, its switch
-  and offer, and under them, as a part with no heading (`SettingsSheet.Continuation`), where the
-  characters stand and a button for each other arrangement; in development builds, Your computer,
-  with pairing; and Comfort. Sections stand 0.75 degrees apart, as a panel's parts do. With all four
-  parts the sheet stands about 33 degrees tall, taller than a panel, so with the characters 2.4 m
-  away it opens lower, its center about 34 degrees below eye level and its lower edge about 51
-  (`WorkspacePlacement.Lowest`); a release build, without Your computer, has it about 7 degrees
-  shorter. Their news no longer comes up in front of the person: a section's line also shows on the
-  stage's banner as a short notice for eight seconds (`CharacterStage.ShowNotice`). It closes when
-  the entry panel or a workspace opens and folds while another window keeps focus.
-- **Comfort:** Settings' Comfort section (`ComfortControls`, the words and choices in the client
-  core's `Comfort`) offers three settings, kept on the device and taking effect the moment they
+- **Which projects show:** the menu's Projects shows or hides each project's work on the stage
+  (Show on stage, Hide from stage) through the workspace director, which keeps the choice on the
+  device for each journal (`StageVisibility`, under the key the retired project rail kept it
+  under), hands it to the stage before it places anyone, and counts every project and its work for
+  Projects (`WorkOverview`). Hiding a project hides its characters only: its work is still listed
+  in Tasks, and work brought forward from there leaves with its project. On the first visit,
+  connected to the person's computer rather than the demonstration, the director opens the menu on
+  Projects by itself, once (ADR 0026), under the key the retired entry panel's welcome kept, so no
+  one welcomed before is again.
+- **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
+  (the room shown and what it offers, given by the room's controls, where the characters stand, and
+  the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in a
+  development build, Your computer, its Pairing row given by the pairing. The room's and the
+  pairing's news shows on the stage's banner as a short notice for eight seconds
+  (`CharacterStage.ShowNotice`), never in front of the person.
+- **Comfort:** Settings' Comfort (`ComfortSettings` its rows, `ComfortControls` keeping and
+  applying them, the words and choices in the client core's `Comfort`) offers three settings, kept on the device and taking effect the moment they
   change and as the stage starts. Make text larger draws reading text a step larger, by 15 percent
-  (`Comfort.LargerTextScale`, body text 18 dp to about 21): every foreground panel, the workspace,
-  the entry panel, Usage left and Settings, grows whole by it at the same distance
+  (`Comfort.LargerTextScale`, body text 18 dp to about 21): the menu's columns take it, three rows
+  a page instead of four; every foreground panel, as the workspace, grows whole by it at the same distance
   (`PanelFrame.Zoom`), so its layout, pages and parts stay as designed and it opens lower to stay
   under the titles; on the stage the titles, the peek and the banner, a step wider so its lines
   stay as many (`StageBanner.WidestDegrees`), take it (`GlazeText.Scale`,
-  only for labels made with it), while the badges' words and the rail's buttons, which stand where
-  space is fixed, keep their size. Keep badges still stops Starting's and Working's icons turning and
+  only for labels made with it), while the badges' words, which stand where space is fixed, keep
+  their size. Keep badges still stops Starting's and Working's icons turning and
   Waiting for you breathing (`StateBadgeView.Still`). One button steps the sounds from on to quieter
   (half their amplitude, 6 dB down), to off and on again, named for the level it steps to
-  (`AudioListener.volume`: Halcyonic's cues are the only sounds the app plays). The section's line
-  says how all three stand ("Text is the standard size. Badges move, and sounds are on."). Every
-  render runs at both text sizes.
-- **Usage left:** `UsageLeftGlance` offers its "Usage left" chip to the project rail, which places it
-  at its lower row's right end (`ProjectRail.OfferUsageLeft`), and nothing anywhere else: no
-  floating control. Pressing it opens a panel on the frame, 44 by 26 degrees at 0.46 m, where the
-  entry panel would open (`WorkspaceLayout.PlaceForeground`), clear of every character and its
-  label, and reads the control plane once. The rail steps out of the way meanwhile. Each screen is a
-  `PanelModel` from `UsageLeftScreens`: "Usage left" and where the readings come from along the top,
-  Close in the header; each window's name with a meter at its right and, under it, what was seen,
-  in words, the meter drawn from the same rounded-up share; the note that the account is not
-  identified, and that some limits couldn't be read, under the list, so every page says it; and
-  Refresh on the bar, which reads once more. Four windows show on one page; more page. While a read
-  is in flight the rows read before stay, their meters show only their tracks, the bar says
-  "Reading usage left…" and Refresh waits; with nothing read yet, the list says it. In the recorded
-  demonstration there is nothing to read, so it offers no Refresh. It only lays out again every
-  15 s, to drop a window that has reset. An agent name longer than 32 characters ends in an
-  ellipsis. It closes by Close or the chip, and when the entry panel or a workspace opens; while
-  another window has focus its controls take no input and the chip hides, and once focus stays away
-  the panel folds with what it read and comes back as it was. It is not Workstream status and not
-  part of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
+  (`AudioListener.volume`: Halcyonic's cues are the only sounds the app plays). Every render runs at
+  both text sizes.
+- **Usage left** is the menu's Usage (`UsageColumn`, above); the project rail's chip and its panel
+  are retired.
 - **Beside a window:** while the stage stands in front of the person, the menu's Settings, Your
   space, The characters, says where the characters stand and steps to the next arrangement in turn
   (`StageArrangement`, `SpaceSettings.Next`, `CharacterStage.SetArrangement`, kept on the device), so
@@ -1572,7 +1535,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   Demo or Recorded mark. The lineup has
   four slots then (`CharacterLineup.WithCapacity`, which keeps what it knew, kept and was asked
   for), and fills its middle two first, so what waits for the person stands in the upper places;
-  work with no character waits in the rail's See other tasks. The spec's 28 and 37 degrees at eye
+  work with no character is still listed in Tasks. The spec's 28 and 37 degrees at eye
   level assumed badges of icons alone; with words a badge is about 11 degrees wide, and two side by
   side would reach past 45 degrees, so the render's own measure decided two rows, the outermost
   label at about 37 degrees, a little past the 36 of the arc. The peek card stands out from its
@@ -1585,35 +1548,7 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   straight ahead, the render (`AmbientRender`) counts it covering 4 of 6 characters' bodies and 4 of
   their labels in front, 2 bodies and 3 labels aside, and none beside a window, whose outermost
   label reaches 37.5 degrees (37.0 before the short titles).
-- **Entry panel:** `EntryPanel`, the one foreground panel for finding work. It sends nothing:
-  creating is New project's, on the menu (`NewProjectFlow`). Each screen is a
-  `PanelModel` from `EntryScreens`, drawn by a `PanelFrame` 0.46 m from the eyes, 44 by 26 degrees
-  (ADR 0023), opened where a foreground panel goes, clear of every character and its label
-  (`WorkspaceLayout.PlaceForeground` with the panel's size), so every screen puts the same things in
-  the same places: Move (pressed, to the right, the left and back, 28 degrees about the eyes; held,
-  the panel follows the hand round the eyes at touch distance, facing them, its center kept in the
-  comfortable band and above a desk, `PanelDrag`), Reset position (the panel in front of where the
-  person faces now) and Close at the top right, Move and Reset position unavailable
-  while a confirmation is armed (`PanelModel.CanMove`); Back at
-  the bar's left; the primary at its right end; the pager at the body's bottom right. An action that
-  can't be taken now stays in its place, unavailable, with why beside it. Opening the panel
-  collapses an open workspace; a workspace opened while it shows, by a pinch on a character, hides
-  it, and it comes back as it was, where it was, when that workspace closes. Running
-  work keeps updating throughout.
-  - **Welcome**, on the first live visit only (a device preference): one line and one card,
-    Connect projects, and Not now in Close's place.
-  - **Connect projects** lists the projects already set up on the Mac and says so, in two columns,
-    each a filter like the rail's chips, edged in the accent while shown and saying Hidden while
-    not, with its work in words, what waits in the attention colour; pressing one shows or hides it,
-    Show all shows every project and Done closes, each through the workspace director
-    (`WorkspaceDirector.Overview`, `ShowProject`, `ShowAllProjects`). It discovers and attaches nothing. Without a live control plane it says the list is
-    last known; during the demonstration, that these are demo projects.
-  - **More tasks** lists every task without a character, what needs the person first, with its
-    status, project and why it has none (its project is hidden, no room on the stage); pressing one
-    brings it to the stage (`WorkspaceDirector.OpenWork`, which asks the stage for it) and opens it
-    on the next frame, once it stands in its slot. It stays on the stage after it is collapsed, until
-    other work is brought forward or its project is hidden.
-  The mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
+- **Runtimes and folders:** the mock runtime uses its generic `simulated_start` scenario when no runtime options are sent,
   which says no software work was performed, and needs no folder. Codex and OpenCode work in the
   project's folder ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)),
   which New project asks for before it offers Start building.
@@ -1632,9 +1567,7 @@ shown it reads no history, since the recording plays all of it through the sessi
 read through the acknowledgement's command record, in the demonstration's own words; and Instruct
 offers the instructions the demonstration recorded there as presets instead of opening the
 keyboard. It raises `Acted` when the person opens a workspace, collapses it, or sends a command
-from it, as the command is handed to the session; the sound follows it. It raises `WorkOpened` and
-`WorkClosed` however a workspace opens or closes, which the entry panel and the rail follow, and
-`OpenWork` opens any workstream by id, asking the stage for its character first. A switch of session arrives as a resynchronization: the open workspace follows its
+from it, as the command is handed to the session; the sound follows it. `OpenWork` opens any workstream by id, asking the stage for its character first. A switch of session arrives as a resynchronization: the open workspace follows its
 workstream into the new state, or collapses when the workstream is not there. On a journal change
 or a rewind it drops its activity and submissions, which no longer apply. Nothing is peeked, hinted or pressed while
 `FocusGuard.InputSuspended`; the system keyboard's result counts anyway, since focus returns only
@@ -2110,8 +2043,8 @@ degrees (Starting) to 10.7 (Checking its work), 11.0 (Waiting for you with a cou
 (Finished this round), which is why those three show their word alone.
 
 `MeasureRender` (**Halcyonic > Measure the Interface**, also runnable in batch mode) measures what
-the interface costs a Quest 3, off the device, for the stage with the rail, the stage beside a
-window while another window has focus, the entry panel, a workspace, Usage left and Settings: the
+the interface costs a Quest 3, off the device, for the stage, the stage beside a window while
+another window has focus, and a workspace: the
 draw calls at most, before batching, the text labels, vertices and triangles; for each panel, the
 text meshes built again, the editor's time and the bytes allocated when the same screen is shown
 again; and the bytes every per-frame method allocates, by Unity's own count of the managed heap
@@ -2122,24 +2055,6 @@ after it becomes the agent's words or Halcyonic's: the lean alone builds its mes
 [quest-3-performance.md](../validation/quest-3-performance.md). The client core's per-frame code
 (`FocusPresence`, `PeekChoice`, `InFrontPlacement`, a section's `IntelligenceFeed`) is held to
 allocate nothing by `PerFrameTests`.
-
-`EntryRender` (**Halcyonic > Render the Entry Panel Over the Stage**, also runnable in batch mode)
-renders every screen of the entry panel (the welcome, Connect projects, More tasks) and the
-Settings sheet over the same two stages, and saves each in `apps/xr/Builds/EntryRenders`, with a
-close-up at a Quest 3's 25 pixels per degree and a view of the whole panel. On every screen it
-fails if the panel lets anything behind it show through (compared inside its own outline), covers a
-character's body, comes within a degree of a character's body or label as the eyes see them, or
-leaves the comfortable band; if a target is under 60 dp (48 for the window controls and the
-pager's), two targets are closer than 12 mm, a button runs past the panel's edge, or a word is under
-the caption's size; if any of Halcyonic's own words is cut short (only text from outside, which the
-model says is data, may end in an ellipsis); unless Close, the bar's right end, Back and the pager
-stand in the same place on every screen. It holds Move on Connect projects and drags it 10 degrees
-right and 4 up, and fails unless the panel follows by as much, at touch distance, facing the eyes.
-It opens Settings, with the sections the room and pairing fill, and fails if the sheet comes within
-a degree of a character or label, leaves the comfortable band, has a target or word too small, cuts
-our words short, or shows a refusal from outside otherwise than as written. With hostile project
-names and titles, every label must show them by the one rule. New project is rendered with the
-menu, not here.
 
 The room placement is not in the scene: `RoomBootstrap` adds it at runtime, and it creates MRUK,
 the passthrough layer, the stage's anchor and its controls under an object of its own. Nor is the

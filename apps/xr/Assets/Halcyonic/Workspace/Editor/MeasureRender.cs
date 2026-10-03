@@ -21,8 +21,8 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// Measures, off the device, what the interface asks of a Quest 3 (ADR 0023), for each surface as
-    /// the person meets it: the stage with the rail, the stage beside a window while another window
-    /// has focus, the entry panel, a workspace, Usage left and Settings, each over the stage.
+    /// the person meets it: the stage, the stage beside a window while another window has focus, and a
+    /// workspace over the stage.
     /// </summary>
     /// <remarks>
     /// For each it counts what draws: the renderers showing, an upper bound on draw calls (every
@@ -78,9 +78,6 @@ namespace Halcyonic.XR.Workspace.Editor
             (typeof(StateBadgeView), "Update"),
             (typeof(GlazeButton), "Update"),
             (typeof(PeekLabel), "LateUpdate"),
-            (typeof(ProjectRail), "Update"),
-            (typeof(UsageLeftGlance), "Update"),
-            (typeof(SettingsSheet), "Update"),
         };
 
         [MenuItem("Halcyonic/Measure the Interface")]
@@ -145,20 +142,16 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static IEnumerable<Scene> Scenes()
         {
-            yield return new Scene("the stage and the rail", root =>
+            yield return new Scene("the stage", root =>
             {
-                var (state, overview, characters) = Stage(root, besideWindow: false);
+                var (state, _, characters) = Stage(root, besideWindow: false);
                 Banner(root, AmbientText.NeedsYouLine(AmbientText.NeedsYou(state)), null, null, besideWindow: false);
-                var rail = ProjectRail.ForRender(root.transform, overview, null);
-                rail.ResetPosition();
-                var glance = UsageLeftGlance.ForRender(rail);
                 // A peek showing, as when the person looks at the waiting character.
                 var peek = PeekLabel.Create(root.transform);
                 var waiting = characters.First(character => character.View.Presentation?.Activity == CharacterActivity.WaitingForHuman);
                 peek.Show(waiting.Target, characters.ConvertAll(character => character.Target), PeekCard.Of(WorkspaceRender.Work.Approval("Run make migrate").Present()), 1f,
                     aboveCharacter: false);
-                var refresh = (Action)Delegate.CreateDelegate(typeof(Action), rail, typeof(ProjectRail).GetMethod("Refresh", BindingFlags.Instance | BindingFlags.NonPublic)!);
-                return (rail.Root.gameObject, refresh);
+                return (null, null);
             });
             yield return new Scene("beside a window, another window with focus", root =>
             {
@@ -167,14 +160,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 Banner(root, AmbientText.NeedsYouLine(AmbientText.NeedsYou(state)), AmbientText.NotShown(state.Workstreams.Count - characters.Count),
                     AmbientText.StillOpen("Add rate limiting to the sign-in endpoint"), besideWindow: true);
                 return (null, null);
-            });
-            yield return new Scene("the entry panel, Connect projects", root =>
-            {
-                FocusGuard.FoldForRender(false);
-                var (state, overview, characters) = Stage(root, besideWindow: false);
-                var entry = EntryPanel.ForRender(root.transform, state, overview, characters.ConvertAll(character => character.Target), null);
-                entry.ShowForRender(EntryPanel.Screen.Connect);
-                return (entry.Root.gameObject, () => entry.Frame.Show(entry.Frame.Shown!));
             });
             yield return new Scene("a workspace, Waiting for you", root =>
             {
@@ -190,37 +175,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 var model = panel.Frame.Shown!;
                 return (panel.gameObject, () => panel.Show(model, null));
             });
-            yield return new Scene("Usage left, four windows", root =>
-            {
-                var (_, overview, characters) = Stage(root, besideWindow: false);
-                var rail = ProjectRail.ForRender(root.transform, overview, null);
-                rail.ResetPosition();
-                var glance = UsageLeftGlance.ForRender(rail);
-                glance.ShowForRender(UsageLeftPresenter.Present(FourWindows(), DateTimeOffset.UtcNow, TimeZoneInfo.Utc), characters.ConvertAll(character => character.Target), null);
-                rail.Root.gameObject.SetActive(false);
-                return (glance.Panel.gameObject, () => glance.Frame.Show(glance.Frame.Shown!));
-            });
-            yield return new Scene("Settings", root =>
-            {
-                var (_, overview, characters) = Stage(root, besideWindow: false);
-                var rail = ProjectRail.ForRender(root.transform, overview, null);
-                rail.ResetPosition();
-                var sheet = SettingsSheet.On(rail.gameObject);
-                var room = sheet.Section(SettingsText.YourRoom, 0);
-                room.Say("No free desk or table in reach, so your agents stand in front of you.");
-                room.Offer(room.Button("Space switch", ButtonRole.Secondary), "Show a virtual space");
-                var arrangement = sheet.Continuation(room);
-                arrangement.Say(SettingsText.Arrangement(StageArrangement.InFront));
-                arrangement.Offer(arrangement.Button("Arrangement 0", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.TurnedAside));
-                arrangement.Offer(arrangement.Button("Arrangement 1", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.BesideAWindow));
-                var mac = sheet.Section(SettingsText.YourMac, 1);
-                mac.Say("Paired with " + HostText.Your + " at 192.168.1.23:47801. Connecting over Wi-Fi.");
-                mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this " + HostText.Noun);
-                ComfortControls.ForRender(rail.gameObject, new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard });
-                sheet.OpenForRender(characters.ConvertAll(character => character.Target), null);
-                rail.Root.gameObject.SetActive(false);
-                return (sheet.Root.gameObject, null);
-            });
         }
 
         /// <summary>
@@ -230,7 +184,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static (ClientProjection State, WorkOverview Overview, List<(CharacterView View, CharacterTarget Target)> Characters) Stage(GameObject root, bool besideWindow)
         {
             var eyes = new Vector3(0f, EyeHeight, 0f);
-            var state = EntryRender.Portfolio(hostile: false, needsYouNow: true);
+            var state = WorkspaceRender.Portfolio(hostile: false, needsYouNow: true);
             var lineup = new CharacterLineup(besideWindow ? CharacterStage.WindowCapacity : 6);
             lineup.Update(state.Workstreams.Values);
             var shown = lineup.Slots.Where(id => id != null).Select(id => CharacterPresenter.Present(state.Workstreams[id!], state, live: true)).ToList();
@@ -262,36 +216,6 @@ namespace Halcyonic.XR.Workspace.Editor
             var panel = WorkspacePanel.Create(holder);
             panel.Show(WorkspaceScreens.Screen(workspace, WorkspaceRender.Steering(), new WorkspaceScreen()), null);
             return panel;
-        }
-
-        /// <summary>Two agents' two windows each, the five-hour one seen minutes ago, the weekly one a day ago.</summary>
-        private static UsageLimitsResponse FourWindows()
-        {
-            var now = DateTimeOffset.UtcNow;
-            string At(TimeSpan offset) => now.Add(offset).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
-            UsageLimit Reading(string label, UsageLimitWindow window, double used) => new UsageLimit
-            {
-                Agent = label.ToLowerInvariant(),
-                Label = label,
-                Window = window,
-                UsedPercent = used,
-                ObservedAt = At(TimeSpan.FromMinutes(window == UsageLimitWindow.Rolling5h ? -12 : -1440)),
-                ResetsAt = At(TimeSpan.FromHours(window == UsageLimitWindow.Rolling5h ? 2 : 100)),
-                Freshness = UsageLimitFreshness.Fresh,
-                Account = new UsageLimitAccount(),
-            };
-            return new AvailableUsageLimits
-            {
-                Source = new EvaluationSource { System = "seorak", Synthetic = false, ApiVersion = "v1" },
-                Complete = true,
-                Readings = new List<UsageLimit>
-                {
-                    Reading("Claude", UsageLimitWindow.Rolling5h, 40.2),
-                    Reading("Claude", UsageLimitWindow.Weekly, 61.5),
-                    Reading("Codex", UsageLimitWindow.Rolling5h, 7.9),
-                    Reading("Codex", UsageLimitWindow.Weekly, 97.4),
-                },
-            };
         }
 
         /// <param name="warmUp">A pass only to let the editor settle: nothing logged or checked.</param>

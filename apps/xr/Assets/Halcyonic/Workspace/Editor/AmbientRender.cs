@@ -16,15 +16,13 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// Renders the stage beside a window-sized plate, as a browser video or a Mac's Virtual Display
-    /// would stand in front of the person, in each of the three arrangements (<see cref="StageArrangement"/>),
-    /// and the large panels folded and restored as focus goes and comes back. It counts how many
+    /// would stand in front of the person, in each of the three arrangements (<see cref="StageArrangement"/>).
+    /// It counts how many
     /// characters' bodies and labels the window covers in each, and checks that turned aside
     /// (<see cref="CharacterStage.AsideDegrees"/>) it covers fewer bodies than in front, and that beside
     /// a window it covers none: every body and badge a degree or more outside the window's lane, and
     /// the banner, with what waits, what is not shown and what is still open, under the lane and
-    /// clear of the window. It logs how far out the outermost label reaches. It checks that a folded
-    /// panel leaves nothing of itself, that the banner can name it as still open, and that it comes
-    /// back pixel for pixel as it was. The window is a plate of a typical size, 1.4 by 0.79 m at
+    /// clear of the window. It logs how far out the outermost label reaches. The window is a plate of a typical size, 1.4 by 0.79 m at
     /// 1.6 m, centered at eye level: Halcyonic cannot see a real window, so this shows what each
     /// arrangement can do, not what a headset will show. It saves each render in
     /// apps/xr/Builds/AmbientRenders, which git ignores. In the editor: Halcyonic > Render the Stage
@@ -65,7 +63,6 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 failures.AddRange(BesideAWindow(folder));
-                failures.AddRange(FoldAndRestore(folder));
             }
             catch (Exception error)
             {
@@ -133,7 +130,6 @@ namespace Halcyonic.XR.Workspace.Editor
                         LogAlike(characters);
                         failures.AddRange(StripUnderTheLane(eyes, banner!, outline, camera, characters));
                         failures.AddRange(StripCounts(banner!, work!));
-                        failures.AddRange(RailUnderTheBanner(root.transform, eyes, banner!, work!));
                         failures.AddRange(NothingTouches(eyes, characters));
                     }
                 }
@@ -174,7 +170,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static Beside WindowWork()
         {
-            var state = EntryRender.Portfolio(hostile: false, needsYouNow: true);
+            var state = WorkspaceRender.Portfolio(hostile: false, needsYouNow: true);
             var third = state.Workstreams["w-c"];
             third.Status = WorkstreamStatus.WaitingForHuman;
             third.Attention = new Attention { Level = AttentionLevel.ActionRequired, Reasons = new List<AttentionReason>() };
@@ -295,38 +291,6 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>
-        /// With a field of view so short that it lifts the rail to its ceiling
-        /// (<see cref="ProjectRail.HighestBelow"/>), the rail stays a degree or more below the
-        /// banner, at its tallest beside a window: four lines, at either text size.
-        /// </summary>
-        private static IEnumerable<string> RailUnderTheBanner(Transform parent, Vector3 eyes, StageBanner banner, Beside work)
-        {
-            var kept = ViewField.Current;
-            try
-            {
-                ViewField.Current = new ViewField(40, 40, 30, 20);
-                var overview = WorkOverview.Of(work.State, new StageVisibility(), id => work.Lineup.SlotOf(id) >= 0);
-                var rail = ProjectRail.ForRender(parent, overview, null);
-                rail.ResetPosition();
-                WorkspaceRender.ForceMeshes(rail.gameObject);
-                var bannerExtent = GlazeChecks.Of("the banner", eyes, banner.gameObject);
-                var near = rail.Shown.Select(button => GlazeChecks.Of("the rail's " + button.name, eyes, button.gameObject)).ToList();
-                var railTop = near.Max(extent => extent.Top);
-                Debug.Log("Halcyonic: ambient render: beside a window, the banner reaches " + WorkspaceRender.Degrees(-bannerExtent.Bottom)
-                    + " degrees below eye level, and the rail at its highest (" + WorkspaceRender.Degrees(ProjectRail.Below(ViewField.Current))
-                    + " down) has its top at " + WorkspaceRender.Degrees(-railTop) + ".");
-                near.Add(bannerExtent);
-                var failures = GlazeChecks.Apart(near).Where(failure => failure.Contains("the banner")).Select(failure => "beside a window, with the rail at its highest: " + failure).ToList();
-                UnityEngine.Object.DestroyImmediate(rail.gameObject);
-                return failures;
-            }
-            finally
-            {
-                ViewField.Current = kept;
-            }
-        }
-
-        /// <summary>
         /// The banner hangs a degree or more under the lane and the window, clear of every label, says
         /// all it was given whole but the panel's name, and only says: nothing on it takes a press.
         /// </summary>
@@ -338,14 +302,14 @@ namespace Halcyonic.XR.Workspace.Editor
             var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
             Debug.Log("Halcyonic: ambient render: beside a window, the banner's top is " + WorkspaceRender.Degrees(-elevation) + " degrees below eye level.");
             if (elevation > -(CharacterStage.WindowLaneHalfHeightDegrees + GlazeChecks.GapDegrees) + 0.01f) failures.Add("beside a window, the banner reaches into the lane.");
-            var plate = EntryRender.ScreenBounds(camera, banner.Plate.GetComponent<Renderer>().bounds);
+            var plate = WorkspaceRender.ScreenBounds(camera, banner.Plate.GetComponent<Renderer>().bounds);
             for (var x = 0; x <= 2; x++)
             {
                 if (Inside(window, new Vector2(Mathf.Lerp(plate.xMin, plate.xMax, x / 2f), plate.yMax))) failures.Add("beside a window, the window covers the banner.");
             }
             foreach (var target in characters)
             {
-                if (EntryRender.Overlap(plate, WorkspaceRender.LabelRect(camera, target.View))) failures.Add("beside a window, the banner covers " + target.View.WorkstreamId + "'s label.");
+                if (WorkspaceRender.Overlap(plate, WorkspaceRender.LabelRect(camera, target.View))) failures.Add("beside a window, the banner covers " + target.View.WorkstreamId + "'s label.");
             }
             if (banner.Waiting == null || !banner.Waiting.gameObject.activeSelf || banner.NotShown == null || banner.StillOpen == null)
             {
@@ -392,80 +356,6 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var edge = view.transform.TransformPoint(new Vector3(side * view.LabelHalfWidth, view.LabelBottom / 2f, 0f)) - eyes;
             return Mathf.Atan2(edge.x, edge.z) * Mathf.Rad2Deg;
-        }
-
-        /// <summary>The entry panel and the Usage left panel, open, then folded, then restored.</summary>
-        private static IEnumerable<string> FoldAndRestore(string folder)
-        {
-            var failures = new List<string>();
-            var root = new GameObject("Ambient render fold");
-            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
-            try
-            {
-                var eyes = new Vector3(0f, EyeHeight, 0f);
-                var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
-                var characters = Characters(root.transform, eyes, 0f);
-                var state = EntryRender.Portfolio(hostile: false, needsYouNow: false);
-                var visibility = new StageVisibility();
-                var lineup = new CharacterLineup(6);
-                lineup.Update(state.Workstreams.Values);
-                var overview = WorkOverview.Of(state, visibility, id => lineup.SlotOf(id) >= 0);
-
-                var entry = EntryPanel.ForRender(root.transform, state, overview, characters, null);
-                entry.ShowForRender(EntryPanel.Screen.Connect);
-                failures.AddRange(Fold("entry", folder, root, camera, texture, entry.Root.gameObject, entry.ApplyFold, entry.Frame.Shown?.Title));
-                // Closed, as the person would, before Usage left opens: one foreground panel at a time.
-                entry.PressForRender(PanelModel.Close);
-
-                var rail = ProjectRail.ForRender(root.transform, overview, null);
-                rail.ResetPosition();
-                var glance = UsageLeftGlance.ForRender(rail);
-                glance.ShowForRender(UsageLeftPresenter.Message(UsageLeftPresenter.NotSetUp), characters, null);
-                rail.Root.gameObject.SetActive(false);
-                failures.AddRange(Fold("usage-left", folder, root, camera, texture, glance.Panel.gameObject, glance.ApplyFold, UsageLeftPresenter.Title));
-            }
-            finally
-            {
-                FocusGuard.FoldForRender(null);
-                UnityEngine.Object.DestroyImmediate(root);
-                texture.Release();
-                UnityEngine.Object.DestroyImmediate(texture);
-            }
-            return failures;
-        }
-
-        /// <param name="openAs">The name the banner says the folded panel is still open as.</param>
-        private static IEnumerable<string> Fold(string name, string folder, GameObject root, Camera camera, RenderTexture texture, GameObject panel, Action apply, string? openAs)
-        {
-            var failures = new List<string>();
-            FocusGuard.FoldForRender(false);
-            apply();
-            WorkspaceRender.ForceMeshes(root);
-            var open = WorkspaceRender.Render(camera, texture);
-            FocusGuard.FoldForRender(true);
-            apply();
-            var folded = WorkspaceRender.Render(camera, texture);
-            if (panel.activeInHierarchy) failures.Add(name + ": the panel still shows while folded.");
-            // Folded, it no longer covers the stage's banner, which then says what waits for the person and that it is still open.
-            if (AmbientCover.Any) failures.Add(name + ": something still covers the stage's banner while the panel is folded.");
-            if (AmbientCover.OpenPanel != openAs) failures.Add(name + ": the banner would say \"" + AmbientCover.OpenPanel + "\" is still open, not \"" + openAs + "\".");
-            FocusGuard.FoldForRender(false);
-            apply();
-            WorkspaceRender.ForceMeshes(root);
-            var restored = WorkspaceRender.Render(camera, texture);
-            var whole = new RectInt(0, 0, Size, Size);
-            var (gone, _) = WorkspaceRender.Compare(open, folded, whole);
-            var (moved, largest) = WorkspaceRender.Compare(open, restored, whole);
-            File.WriteAllBytes(Path.Combine(folder, name + "-open.png"), open.EncodeToPNG());
-            File.WriteAllBytes(Path.Combine(folder, name + "-folded.png"), folded.EncodeToPNG());
-            File.WriteAllBytes(Path.Combine(folder, name + "-restored.png"), restored.EncodeToPNG());
-            if (gone == 0) failures.Add(name + ": folding changed nothing on the render.");
-            if (moved > 0) failures.Add(name + ": " + moved + " pixels differ after restoring (largest " + largest.ToString("0.000", CultureInfo.InvariantCulture) + ").");
-            Debug.Log("Halcyonic: ambient render: " + name + " folds away " + gone + " pixels and comes back " + (moved == 0 ? "exactly." : "with " + moved + " pixels changed."));
-            UnityEngine.Object.DestroyImmediate(open);
-            UnityEngine.Object.DestroyImmediate(folded);
-            UnityEngine.Object.DestroyImmediate(restored);
-            return failures;
         }
 
         /// <summary>Six characters on the stage's arc, at the stage's default distance and height, as CharacterStage stands them.</summary>

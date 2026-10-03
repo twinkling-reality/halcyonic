@@ -54,17 +54,6 @@ namespace Halcyonic.Client
             _ => 0f,
         };
 
-        /// <summary>How the settings stand, in two sentences under Settings' heading.</summary>
-        public string Line =>
-            (Text == TextSize.Larger ? "Text is a step larger." : "Text is the standard size.")
-            + (Still ? " Badges stand still, and sounds are " : " Badges move, and sounds are ")
-            + Sounds switch
-            {
-                SoundLevel.On => "on.",
-                SoundLevel.Quieter => "quieter.",
-                _ => "off.",
-            };
-
         /// <summary>The button that changes the text's size, to the other one.</summary>
         public string TextButton => Text == TextSize.Larger ? "Make text standard" : "Make text larger";
 

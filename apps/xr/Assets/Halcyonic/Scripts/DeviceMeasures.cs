@@ -58,7 +58,7 @@ namespace Halcyonic.XR
             Log("view field left eye " + left.Line() + ", right eye " + right.Line()
                 + ", both " + both.Across.ToString("0.0", CultureInfo.InvariantCulture)
                 + " across " + both.Tall.ToString("0.0", CultureInfo.InvariantCulture) + " tall");
-            // The rail and the panels keep inside it from now on (ProjectRail.Below, WorkspacePlacement.Lowest).
+            // The panels keep inside it from now on (WorkspacePlacement.Lowest).
             ViewField.Current = both;
         }
 

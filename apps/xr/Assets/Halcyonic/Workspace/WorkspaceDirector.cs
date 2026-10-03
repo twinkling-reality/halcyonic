@@ -65,6 +65,15 @@ namespace Halcyonic.XR.Workspace
         private int historyRequests;
         private TouchScreenKeyboard? keyboard;
         private Action<string>? keyboardDone;
+        /// <summary>Which projects the stage shows, for each journal, kept on the device under the key the project rail kept it under.</summary>
+        private const string VisibilityPreference = "halcyonic.stage.visibility";
+
+        /// <summary>Set once the menu has opened by itself on a first visit, under the key the entry panel's welcome kept, so no one welcomed before is again.</summary>
+        private const string VisitedPreference = "halcyonic.entry.welcomed";
+
+        private StageVisibility visibility = null!;
+        private int savedVisibility;
+        private bool visited;
         private WorkOverview? overview;
         private (long Position, int Visibility) overviewOf = (-1, -1);
 
@@ -74,12 +83,6 @@ namespace Halcyonic.XR.Workspace
         /// not confirmed, since the runtime's answer arrives later in the state.
         /// </summary>
         public event Action<string, WorkspaceAct>? Acted;
-
-        /// <summary>Raised with the workstream when its file opens, however it was opened.</summary>
-        public event Action<string>? WorkOpened;
-
-        /// <summary>Raised with the workstream when its file closes, however it was closed.</summary>
-        public event Action<string>? WorkClosed;
 
         /// <summary>The workstream whose file is open beside the menu, or null.</summary>
         public string? OpenWorkstream => menu != null ? menu.Navigator.BesideTask : null;
@@ -100,6 +103,11 @@ namespace Halcyonic.XR.Workspace
         {
             connection = GetComponent<ControlPlaneConnection>();
             stage = GetComponent<CharacterStage>();
+            // The stage takes the choice of projects before it places anyone.
+            visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));
+            savedVisibility = visibility.Version;
+            stage.Visibility = visibility;
+            visited = PlayerPrefs.GetInt(VisitedPreference, 0) == 1;
             // The same client the session introduces itself as (ControlPlaneConnection).
             commands = new CommandFactory(new ClientInfo
             {
@@ -130,8 +138,6 @@ namespace Halcyonic.XR.Workspace
 
         private void Start()
         {
-            if (GetComponent<ProjectRail>() == null) gameObject.AddComponent<ProjectRail>();
-            if (GetComponent<UsageLeftGlance>() == null) gameObject.AddComponent<UsageLeftGlance>();
             var comfort = GetComponent<ComfortControls>() ?? gameObject.AddComponent<ComfortControls>();
             menu = MenuDirector.Create(transform, new MenuDirector.Setup
             {
@@ -246,6 +252,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
+            FirstVisit();
             PollKeyboard();
             OpenPending();
             FollowBeside();
@@ -254,9 +261,8 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>
-        /// What opens or closes beside the menu: its character faces the person while it shows, is kept
-        /// on the stage a while after, and the others learn of it. When the stage moves the character,
-        /// the plane re-centres on it.
+        /// What opens or closes beside the menu: its character faces the person while it shows, and is
+        /// kept on the stage a while after. When the stage moves the character, the plane re-centres on it.
         /// </summary>
         private void FollowBeside()
         {
@@ -266,7 +272,6 @@ namespace Halcyonic.XR.Workspace
                 if (shownBeside is string closed)
                 {
                     if (targets.TryGetValue(closed, out var was) && was != null) FacePerson(was, was == facing);
-                    WorkClosed?.Invoke(closed);
                 }
                 shownBeside = beside;
                 if (beside != null)
@@ -276,7 +281,6 @@ namespace Halcyonic.XR.Workspace
                         FacePerson(now, true);
                         besidePlacedAt = now.BodyPosition;
                     }
-                    WorkOpened?.Invoke(beside);
                 }
             }
             if (beside != null && targets.TryGetValue(beside, out var character) && character != null
@@ -396,34 +400,53 @@ namespace Halcyonic.XR.Workspace
             }
         }
 
+        /// <summary>
+        /// The first visit, connected to the person's computer rather than the demonstration: the menu
+        /// opens by itself on Projects (ADR 0026), once, and never over work already open.
+        /// </summary>
+        private void FirstVisit()
+        {
+            if (visited || menu == null || connection.Session?.Status.IsLive != true || connection.DemonstrationLine != null || OpenWorkstream != null) return;
+            visited = true;
+            PlayerPrefs.SetInt(VisitedPreference, 1);
+            PlayerPrefs.Save();
+            menu.Open(MenuPlace.Projects);
+        }
+
         /// <summary>Every project and its work as the stage counts it, the same object until the state or what the stage shows changes.</summary>
-        public WorkOverview? Overview()
+        private WorkOverview? Overview()
         {
             var state = connection.Session?.State;
-            var rail = GetComponent<ProjectRail>();
-            if (state == null || rail == null) return null;
-            var key = (state.Position, rail.Visibility.Version);
+            if (state == null) return null;
+            var key = (state.Position, visibility.Version);
             if (overview == null || key != overviewOf)
             {
-                overview = WorkOverview.Of(state, rail.Visibility, id => stage.SlotOf(id) >= 0);
+                overview = WorkOverview.Of(state, visibility, id => stage.SlotOf(id) >= 0);
                 overviewOf = key;
             }
             return overview;
         }
 
-        /// <summary>Shows or hides a project's work on the stage, kept on this device, as the rail's Show and Hide do.</summary>
-        public void ShowProject(string projectId, bool shown)
+        /// <summary>
+        /// Shows or hides a project's work on the stage, as Projects' Show on stage and Hide from stage
+        /// ask: the stage takes it at once and the device keeps it. Work brought forward from Tasks
+        /// leaves with its project when it is hidden.
+        /// </summary>
+        private void ShowProject(string projectId, bool shown)
         {
-            var rail = GetComponent<ProjectRail>();
-            if (rail == null) return;
-            if (rail.Visibility.Shows(projectId) != shown) rail.ToggleProject(projectId);
-        }
-
-        /// <summary>Shows every project's work on the stage, including projects that appear later, kept on this device.</summary>
-        public void ShowAllProjects()
-        {
-            var rail = GetComponent<ProjectRail>();
-            if (rail != null) rail.ShowAllProjects();
+            var state = connection.Session?.State;
+            if (state == null || visibility.Shows(projectId) == shown) return;
+            if (shown) visibility.Show(projectId);
+            else
+            {
+                visibility.Hide(projectId, state.Projects.Keys);
+                if (stage.Requested is string requested && state.Workstreams.TryGetValue(requested, out var work) && work.ProjectId == projectId) stage.Request(null);
+            }
+            stage.Refresh();
+            if (visibility.Version == savedVisibility) return;
+            savedVisibility = visibility.Version;
+            PlayerPrefs.SetString(VisibilityPreference, visibility.Save());
+            PlayerPrefs.Save();
         }
 
         /// <summary>
