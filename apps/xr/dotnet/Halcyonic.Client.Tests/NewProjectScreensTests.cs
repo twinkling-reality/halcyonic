@@ -259,7 +259,9 @@ public class NewProjectScreensTests
         Assert.That(Answers(frame).Where(line => line.Pressable).Select(line => line.Words), Is.EqualTo(new[] { "One organiser" }));
         Assert.That(Answers(frame).Any(line => line.Action == NewProjectScreens.TypeAnswer || line.Action == NewProjectScreens.GoOnWithout), Is.False);
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False, "the recording asks for the recap later");
-        Assert.That(frame.Reason, Is.EqualTo(CompanionText.ChooseOne));
+        var send = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((send.Reason, send.PageExplains, frame.Reason), Is.EqualTo((CompanionText.ChooseOne, true, (string?)null)),
+            "the answer waiting to be chosen says it, so the reason keeps its words undrawn");
         Assert.That(exchange.Choose(Answers(frame).ToList().FindIndex(line => line.Pressable)), Is.True);
         Assert.That(Questions(idea, recording: recording).Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.SendAnswer));
         recording.Press(exchange, exchange.Answer!);
@@ -808,7 +810,8 @@ public class NewProjectFixedQuestionsTests
         Assert.That(Answers(frame).Select(line => line.Words), Is.EqualTo(new[] { "A website", "An app", "A tool or script", "Something else" }));
         Assert.That(frame.Source, Is.EqualTo(EntryText.GuideNote), "fixed questions, not an AI");
         var next = frame.Footer[PromptSlot.FarRight]!;
-        Assert.That((next.Words, next.Available, frame.Reason), Is.EqualTo((EntryText.NextQuestion, false, EntryText.ChooseOrTypeFirst)));
+        Assert.That((next.Words, next.Available, next.Reason, next.PageExplains), Is.EqualTo((EntryText.NextQuestion, false, EntryText.ChooseOrTypeFirst, true)));
+        Assert.That(frame.Reason, Is.Null, "the answers waiting to be chosen say it");
         Assert.That(frame.Footer[PromptSlot.Secondary]!.Holds, Is.True);
         Assert.That(frame.Footer.All.Count(), Is.EqualTo(3), "forward only: no way back but the steps");
 

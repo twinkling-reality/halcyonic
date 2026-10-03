@@ -367,7 +367,7 @@ namespace Halcyonic.Client
                 else if (recorded && !recording!.RecapHere(exchange))
                 {
                     // The recording answers this question before its recap: its answer is the one to choose.
-                    main = new Prompt(SendAnswer, send.Words, send.Icon, main: true, available: false, reason: CompanionText.ChooseOne);
+                    main = new Prompt(SendAnswer, send.Words, send.Icon, main: true, available: false, reason: CompanionText.ChooseOne, pageExplains: true);
                 }
                 else
                 {
@@ -693,7 +693,7 @@ namespace Halcyonic.Client
             if (idea.GuideWrittenHeard && written != null && stands == written) lines.Add(new PageLine(VoiceText.HeardNote, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var next = new Prompt(NextQuestion, idea.LastQuestion ? CompanionText.MakeTheRecap : EntryText.NextQuestion, GlazeIcon.Next, main: true,
-                available: idea.CanGoOn, reason: EntryText.ChooseOrTypeFirst);
+                available: idea.CanGoOn, reason: EntryText.ChooseOrTypeFirst, pageExplains: true);
             var hold = voice ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true) : null;
             var (subject, isData) = Subject(idea);
             return new MenuFrame(subject, new Footer(Close(), secondary: hold, farRight: next), subjectIsData: isData,
