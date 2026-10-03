@@ -126,10 +126,9 @@ namespace Halcyonic.Client
 
         private int armingRead = -1;
         private readonly HashSet<int> drawn = new HashSet<int>();
-        private bool partDrawn;
-        private DateTimeOffset? turnedAt;
+        private DateTimeOffset? partDrawnAt;
 
-        /// <summary>A press on the part's row this soon after the last turn is a double press, and turns nothing.</summary>
+        /// <summary>A press on the part's row this soon after its part was first drawn turns nothing, so a double press can't skip a part almost unseen.</summary>
         public static readonly TimeSpan TurnGuard = TimeSpan.FromSeconds(0.4);
 
         /// <summary>The request as it was measured, so a measurement counts only for the text it was made of.</summary>
@@ -172,8 +171,7 @@ namespace Halcyonic.Client
             RequestRows = rows;
             RequestPartRows = partRows;
             drawn.Clear();
-            partDrawn = false;
-            turnedAt = null;
+            partDrawnAt = null;
             if (keep)
             {
                 for (var part = 0; part < RequestParts; part++) drawn.Add(part);
@@ -195,13 +193,14 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The view reports it drew <paramref name="part"/> of the request, the part showing, in the
-        /// layout measured now: only this counts a part as read, never building the page nor turning to
-        /// it. Once every part has been drawn, <paramref name="steering"/> holds the whole request shown.
+        /// layout measured now, at <paramref name="now"/>: only this counts a part as read, never
+        /// building the page nor turning to it. Once every part has been drawn,
+        /// <paramref name="steering"/> holds the whole request shown.
         /// </summary>
-        public void RequestDrawn(int part, WorkspaceSteering steering)
+        public void RequestDrawn(int part, WorkspaceSteering steering, DateTimeOffset now)
         {
             if (armingRead != steering.Armings || RequestRows == 0 || part != RequestPart || steering.ArmedRequest != RequestText) return;
-            partDrawn = true;
+            partDrawnAt ??= now;
             drawn.Add(part);
             if (drawn.Count >= RequestParts) RequestDrawnWhole = true;
             steering.RequestShown(RequestDrawnWhole ? RequestParts : Math.Min(part + 1, RequestParts - 1), RequestParts);
@@ -209,17 +208,17 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The person pressed the part's last row at <paramref name="now"/>: the next part shows, or from
-        /// the last the first again. It turns nothing until the part showing has been drawn, nor within
-        /// <see cref="TurnGuard"/> of the last turn, so a double press can't skip a part almost unseen; a
-        /// request of one part, or a row from an earlier confirmation, turns nothing either.
+        /// the last the first again. It turns nothing until the part showing has been drawn and stood
+        /// for <see cref="TurnGuard"/>, as lane C's review of Start building does, so a double press
+        /// can't skip a part almost unseen; a request of one part, or a row from an earlier
+        /// confirmation, turns nothing either.
         /// </summary>
         public void NextRequestPart(WorkspaceSteering steering, DateTimeOffset now)
         {
-            if (steering.Armings != armingRead || RequestParts < 2 || !partDrawn) return;
-            if (turnedAt is DateTimeOffset last && now - last < TurnGuard) return;
+            if (steering.Armings != armingRead || RequestParts < 2) return;
+            if (!(partDrawnAt is DateTimeOffset drawnAt) || now - drawnAt < TurnGuard) return;
             RequestPart = (RequestPart + 1) % RequestParts;
-            partDrawn = false;
-            turnedAt = now;
+            partDrawnAt = null;
         }
 
         /// <summary>Forgets the request's parts, as when its confirmation is answered or dropped.</summary>
@@ -232,8 +231,7 @@ namespace Halcyonic.Client
             RequestPart = 0;
             RequestDrawnWhole = false;
             drawn.Clear();
-            partDrawn = false;
-            turnedAt = null;
+            partDrawnAt = null;
         }
 
         internal static int PartsOf(int rows, int perPart) => Math.Max(1, (Math.Max(0, rows) + Math.Max(1, perPart) - 1) / Math.Max(1, perPart));

@@ -50,8 +50,8 @@ public class FileWaitingTests
 
     private DateTimeOffset clock = DateTimeOffset.Parse("2026-10-02T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
-    /// <summary>The view draws the part showing.</summary>
-    private static void Draw(FileScreen screen, WorkspaceSteering steering) => screen.RequestDrawn(screen.RequestPart, steering);
+    /// <summary>The view draws the part showing, now.</summary>
+    private void Draw(FileScreen screen, WorkspaceSteering steering) => screen.RequestDrawn(screen.RequestPart, steering, clock);
 
     /// <summary>The view draws the part showing, and a second later the person presses its row.</summary>
     private void Turn(FileScreen screen, WorkspaceSteering steering)
@@ -263,12 +263,13 @@ public class FileWaitingTests
         steering.Press(WorkspaceAction.Approve, workspace);
         screen.ReadRequest(Migration, 7, 3, steering);
         Draw(screen, steering);
-        screen.NextRequestPart(steering, clock);
-        Draw(screen, steering);
-        screen.NextRequestPart(steering, clock + TimeSpan.FromSeconds(0.2));
-        Assert.That(screen.RequestPart, Is.EqualTo(1), "a second press 0.2 s later turns nothing, though the part was drawn");
         screen.NextRequestPart(steering, clock + TimeSpan.FromSeconds(0.5));
-        Assert.That(screen.RequestPart, Is.EqualTo(2));
+        Assert.That(screen.RequestPart, Is.EqualTo(1));
+        screen.RequestDrawn(1, steering, clock + TimeSpan.FromSeconds(0.55));
+        screen.NextRequestPart(steering, clock + TimeSpan.FromSeconds(0.7));
+        Assert.That(screen.RequestPart, Is.EqualTo(1), "a second press 0.15 s after its part was drawn turns nothing");
+        screen.NextRequestPart(steering, clock + TimeSpan.FromSeconds(1.0));
+        Assert.That(screen.RequestPart, Is.EqualTo(2), "0.45 s after, it does");
     }
 
     [Test]
