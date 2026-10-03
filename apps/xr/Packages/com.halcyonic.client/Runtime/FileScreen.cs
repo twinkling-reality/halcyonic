@@ -101,12 +101,26 @@ namespace Halcyonic.Client
             get => presets;
             set
             {
+                // The same instructions offered again, as a director does on every refresh, keep
+                // what was chosen; other ones, or none, clear it.
+                if (Same(presets, value)) return;
                 presets = value;
                 ChosenPreset = null;
             }
         }
 
         private IReadOnlyList<PresetInstruction>? presets;
+
+        private static bool Same(IReadOnlyList<PresetInstruction>? a, IReadOnlyList<PresetInstruction>? b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null || a.Count != b.Count) return false;
+            for (var index = 0; index < a.Count; index++)
+            {
+                if (a[index].Label != b[index].Label || a[index].Text != b[index].Text) return false;
+            }
+            return true;
+        }
 
         /// <summary>The instruction chosen among <see cref="Presets"/>, by its index; choosing only lights it.</summary>
         public int? ChosenPreset { get; private set; }
