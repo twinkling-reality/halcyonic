@@ -582,7 +582,9 @@ the same definition names, as the JSON Schema document:
   So Try again opens the review rather than sending. A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
   refusal's or failure's code, and can be sent again as a new command built from the draft as it is
   now, reusing the project and workstream already made (`Retry`); given a newly chosen folder, a
-  project that exists is bound to it first, as after `location_required` or `location_missing`. An
+  project that exists is bound to it first, as after `location_required` or `location_missing`; a
+  move that stopped, sent again with no folder because the person chose where the project already
+  is, is dropped and the task goes on. An
   unknown outcome, a failure whose effect is unknown, or an unexpected result keeps the command id in
   `Unresolved` and offers no retry. Each step says how it went in words (`EntryText.StepStatus`):
   sent, waiting for the result, confirmed only by a completed record, effect unknown, not sent, or

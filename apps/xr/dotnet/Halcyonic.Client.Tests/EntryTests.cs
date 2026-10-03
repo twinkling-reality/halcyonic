@@ -739,6 +739,50 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void ARefusedMoveThePersonNoLongerWantsIsDroppedAndTheTaskGoesOn()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = new List<LocationFolder> { new() { Name = "recipes", Path = "/Users/person/Projects/recipes" } },
+        };
+        var there = new ProjectLocation { Path = "/Users/person/Projects/recipes", Name = "recipes", Created = false };
+        var task = new ProjectIdea("p1", "Recipes");
+        task.UseIdea("Make a website for my team.");
+        task.ChooseFolder(ProjectFolder.New(root, "recipes-v2"));
+        var draft = Draft("p1");
+        draft.Objective = task.FirstTask;
+        var sequence = new BuildSequence(draft, Commands, null, EntryScreens.FolderSent(task, there)?.ToContract());
+        var move = sequence.Begin(Read(EntryScreens.ReviewOf(task, draft, there, live: true)));
+        Assert.That(move, Is.InstanceOf<ProjectSetLocationCommand>());
+        sequence.Advance(With(new CommandView
+        {
+            CommandId = move.CommandId, Status = CommandStatus.Rejected,
+            Rejection = new CommandRejection { Code = RejectionCode.LocationMissing, Message = "That folder is gone." },
+        }));
+        Assert.That(sequence.CanRetry, Is.True);
+
+        // The person chooses the folder the project is already in: the review shows no move.
+        task.ChooseFolder(ProjectFolder.Existing(root, root.Folders[0]));
+        Assert.That(EntryScreens.FolderSent(task, there), Is.Null);
+        var again = sequence.Retry(Read(EntryScreens.ReviewOf(task, draft, there, live: true)), null, EntryScreens.FolderSent(task, there)?.ToContract());
+        Assert.That(again, Is.InstanceOf<WorkstreamCreateCommand>(), "the move is dropped and the task is sent, never a refusal on every press");
+        Assert.That(sequence.Steps.Select(step => step.Kind), Is.EqualTo(new[] { BuildStepKind.CreateWorkstream, BuildStepKind.StartWork }));
+
+        // Kept, the move is sent again.
+        task.ChooseFolder(ProjectFolder.New(root, "recipes-v2"));
+        var moving = new BuildSequence(draft, Commands, null, EntryScreens.FolderSent(task, there)?.ToContract());
+        var first = moving.Begin(Read(EntryScreens.ReviewOf(task, draft, there, live: true)));
+        moving.Advance(With(new CommandView
+        {
+            CommandId = first.CommandId, Status = CommandStatus.Rejected,
+            Rejection = new CommandRejection { Code = RejectionCode.LocationMissing, Message = "That folder is gone." },
+        }));
+        Assert.That(moving.Retry(Read(EntryScreens.ReviewOf(task, draft, there, live: true)), null, EntryScreens.FolderSent(task, there)?.ToContract()),
+            Is.InstanceOf<ProjectSetLocationCommand>());
+    }
+
+    [Test]
     public void AReviewMadeAfterAChangeIsNotTheSameRequest()
     {
         static NewWorkReview Of(string project, string task) => new(project, "Title", "Agent", "Model", "on your computer", "none", task);
