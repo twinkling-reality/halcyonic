@@ -42,12 +42,16 @@ function listingRuntime(
   };
 }
 
+/** A value the control plane holds, which a runtime's failure repeats. */
+const HELD = 'gateway-secret-value-7';
+
 let listCalls = 0;
 let server: Awaited<ReturnType<typeof startTestServer>>;
 
 before(async () => {
   server = await startTestServer({
     modelListTimeoutMs: 200,
+    secrets: () => [{ what: 'GATEWAY_KEY', value: HELD }],
     adapters: (time) => [
       new MockRuntimeAdapter({
         scenarios: SCENARIOS,
@@ -67,6 +71,12 @@ before(async () => {
       }),
       listingRuntime('broken', async () => {
         throw new Error('unexpected');
+      }),
+      listingRuntime('leaking', async () => {
+        throw new RuntimeActionError(
+          'provider_error',
+          `401 from the gateway: ${HELD} and sk-proj-AbCdEf0123456789xyzQRS were refused`,
+        );
       }),
       listingRuntime('stalled', () => new Promise(() => {})),
       listingRuntime('malformed', async () => [
@@ -111,6 +121,14 @@ describe('GET /api/runtimes/:runtime_id/models', () => {
     // Nothing is cached: every request asks the runtime again.
     await models('refusing');
     assert.equal(listCalls, calls + 2);
+    // Error text, so it loses what Halcyonic holds, named, and every credential shape.
+    assert.deepEqual((await models('leaking')).body.result, {
+      availability: 'unavailable',
+      reason: {
+        code: 'provider_error',
+        message: '401 from the gateway: [redacted: GATEWAY_KEY] and [redacted] were refused',
+      },
+    });
     assert.deepEqual((await models('broken')).body.result, {
       availability: 'unavailable',
       reason: { code: 'adapter_error', message: 'The runtime adapter failed to list its models.' },

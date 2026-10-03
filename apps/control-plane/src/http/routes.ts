@@ -27,6 +27,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import type { Companion } from '../companion/companion.ts';
 import type { ControlPlane } from '../core/control-plane.ts';
+import { type Redaction, withinLimit } from '../core/redaction.ts';
 import { MODEL_LIST_TIMEOUT_MS, readRuntimeModels } from '../core/runtime-models.ts';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
@@ -143,6 +144,7 @@ export function registerRoutes(
     const result = await readRuntimeModels(
       adapter,
       sources.modelListTimeoutMs ?? MODEL_LIST_TIMEOUT_MS,
+      controlPlane.redaction,
     );
     if (result.availability === 'unavailable') {
       request.log.info(
@@ -187,7 +189,11 @@ export function registerRoutes(
       availability: 'unavailable',
       reason: { code: 'not_configured', message: 'No usage limit source is configured.' },
     };
-    if (validateUsageLimitsResponse(answer).ok) return answer;
+    if (validateUsageLimitsResponse(answer).ok) {
+      return answer.availability === 'available'
+        ? answer
+        : { ...answer, reason: reasonWithoutCredentials(answer.reason, controlPlane.redaction) };
+    }
     request.log.warn('usage limits do not match the contract');
     return {
       availability: 'incompatible',
@@ -262,7 +268,9 @@ export function registerRoutes(
           }
         : await sources.evaluation.evaluate(execution.runtime.kind, execution.native_id);
     const body = { execution_id: execution.execution_id, result };
-    if (validateEvaluationResponse(body).ok) return body;
+    if (validateEvaluationResponse(body).ok) {
+      return { ...body, result: evaluationWithoutCredentials(result, controlPlane.redaction) };
+    }
     request.log.warn({ execution_id: executionId }, 'evaluation does not match the contract');
     return {
       execution_id: execution.execution_id,
@@ -407,6 +415,41 @@ export function registerRoutes(
     const status = { accepted: 202, rejected: 422, duplicate: 200 }[outcome.disposition];
     return reply.code(status).send(body);
   });
+}
+
+/**
+ * An evaluation source's reason, or its note on a verification that measured nothing, with
+ * credentials taken out as from any error text (redaction.ts): it is the source's own words, and a
+ * provider's can echo a key Halcyonic never held. Applied to an answer that matches the contract,
+ * and cut to the field's limit after.
+ */
+function reasonWithoutCredentials(
+  reason: { readonly code: string; readonly message: string },
+  redaction: Redaction,
+): { code: string; message: string } {
+  return { code: reason.code, message: withinLimit(redaction.errorText(reason.message)) };
+}
+
+function evaluationWithoutCredentials(
+  result: EvaluationResult,
+  redaction: Redaction,
+): EvaluationResult {
+  if (result.availability !== 'available') {
+    return { ...result, reason: reasonWithoutCredentials(result.reason, redaction) };
+  }
+  const { verification } = result.evaluation;
+  const lens = verification.lens;
+  if (lens === null || lens.empty_reason === null) return result;
+  return {
+    ...result,
+    evaluation: {
+      ...result.evaluation,
+      verification: {
+        ...verification,
+        lens: { ...lens, empty_reason: withinLimit(redaction.errorText(lens.empty_reason), 600) },
+      },
+    },
+  };
 }
 
 function toInteger(value: unknown, fallback: number): number {
