@@ -34,7 +34,6 @@ namespace Halcyonic.Client
         /// <summary>The key of the row that says why no folder is listed.</summary>
         public const string ProblemKey = "folders";
 
-
         /// <summary>What Projects shows now, gathered by the menu from the session, the listing and the person's choices.</summary>
         public sealed class State
         {
@@ -69,6 +68,12 @@ namespace Halcyonic.Client
             public FolderConnection? Connection { get; set; }
 
             /// <summary>
+            /// The folders the projects are bound to now (<c>ProjectView.location.path</c>), so a folder
+            /// connected since the listing was read is not offered again before the next read.
+            /// </summary>
+            public IReadOnlyCollection<string> BoundPaths { get; set; } = Array.Empty<string>();
+
+            /// <summary>
             /// The page asked for, from 0, counted on by each press of Next page: past the last page it
             /// starts again at the first. A chosen row's own page wins.
             /// </summary>
@@ -79,17 +84,83 @@ namespace Halcyonic.Client
             public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Utc;
         }
 
+        /// <summary>
+        /// What the chosen row is, which the frame shows and every press acts on, so the footer's prompts
+        /// and the menu's handling of them never disagree: a project, a folder with its own connection
+        /// if one was sent, or the row that says why no folder is listed; none when nothing is chosen.
+        /// </summary>
+        public sealed class Target
+        {
+            internal Target(ProjectSummary? project, ConnectableFolder? folder, FolderConnection? connection, bool problem)
+            {
+                Project = project;
+                Folder = folder;
+                Connection = connection;
+                Problem = problem;
+            }
+
+            /// <summary>The chosen project: Hide from stage, Show on stage and Add a task act on it.</summary>
+            public ProjectSummary? Project { get; }
+
+            /// <summary>The chosen folder: Connect sends it, Try again sends its connection again.</summary>
+            public ConnectableFolder? Folder { get; }
+
+            /// <summary>The chosen folder's own connection, once sent.</summary>
+            public FolderConnection? Connection { get; }
+
+            /// <summary>The row that says why no folder is listed: Try again reads the folders again.</summary>
+            public bool Problem { get; }
+
+            /// <summary>
+            /// The project Add a task adds to: the chosen project, or the project the chosen folder became;
+            /// null when Add a task is not offered.
+            /// </summary>
+            public string? AddTaskTo => Project?.ProjectId ?? (Connection?.Connected == true ? Connection.ProjectId : null);
+
+            /// <summary>That project's name, as the person will read it in New project.</summary>
+            public string? AddTaskName => Project?.Name ?? (Connection?.Connected == true ? Connection.Folder.ProjectName : null);
+        }
+
+        /// <summary>The chosen row as <see cref="Projects"/> shows it and the menu acts on it.</summary>
+        public static Target TargetOf(State state)
+        {
+            var projects = state.Overview?.Projects ?? (IReadOnlyList<ProjectSummary>)Array.Empty<ProjectSummary>();
+            var project = state.ChosenProject == null ? null : projects.FirstOrDefault(each => each.ProjectId == state.ChosenProject);
+            // Folders are listed, and so can be chosen, only while connected outside the demonstration.
+            var folder = project != null || state.ChosenFolder == null || !state.Live || state.Demonstration
+                ? null
+                : FolderConnect.Find(OffersOf(state, projects), state.ChosenFolder);
+            var connection = folder != null && state.Connection != null && state.Connection.Folder.Key == folder.Key ? state.Connection : null;
+            var problem = project == null && folder == null && state.ChosenProblem && FoldersProblem(state) != null;
+            return new Target(project, folder, connection, problem);
+        }
+
+        /// <summary>
+        /// The folders offered: the listing's free ones, each marked when its name looks like another
+        /// folder's or a project's, less any folder a project is bound to since the listing was read,
+        /// except the chosen folder whose own connection made it a project, which keeps its row and outcome.
+        /// </summary>
+        private static IReadOnlyList<ConnectableFolder> OffersOf(State state, IReadOnlyList<ProjectSummary> projects)
+        {
+            if (state.Listing == null) return Array.Empty<ConnectableFolder>();
+            var bound = new HashSet<string>(state.BoundPaths, StringComparer.Ordinal);
+            var kept = state.Connection != null && state.Connection.Folder.Key == state.ChosenFolder ? state.ChosenFolder : null;
+            return FolderConnect.Offers(state.Listing, projects.Select(each => each.Name))
+                .Where(offer => offer.Key == kept || !bound.Contains(offer.Folder?.Path ?? offer.Root.Path))
+                .ToList();
+        }
+
         public static MenuFrame Projects(State state)
         {
             // The place's purpose as its subject, every visit; the lit place under it already says "Projects".
             var subject = ProjectsText.Subject;
             var projects = state.Overview?.Projects ?? (IReadOnlyList<ProjectSummary>)Array.Empty<ProjectSummary>();
-            var offers = state.Listing == null ? (IReadOnlyList<ConnectableFolder>)Array.Empty<ConnectableFolder>() : FolderConnect.Offers(state.Listing);
-            var project = state.ChosenProject == null ? null : projects.FirstOrDefault(each => each.ProjectId == state.ChosenProject);
-            // Folders are listed, and so can be chosen, only while connected outside the demonstration.
-            var folder = project != null || state.ChosenFolder == null || !state.Live || state.Demonstration ? null : FolderConnect.Find(offers, state.ChosenFolder);
+            var offers = OffersOf(state, projects);
+            var target = TargetOf(state);
+            var project = target.Project;
+            var folder = target.Folder;
             var problem = FoldersProblem(state);
-            var problemChosen = project == null && folder == null && state.ChosenProblem && problem != null;
+            var problemChosen = target.Problem;
             var lines = Lines(state, projects, offers, project, folder, problemChosen);
 
             var pages = Paginate(lines, MenuFrame.RowsAPage(state.TextSize));
@@ -103,11 +174,13 @@ namespace Halcyonic.Client
             SidePanel? side = null;
             if (project != null)
             {
-                side = new SidePanel(project.Name, subjectIsData: true, facts: new[]
+                var facts = new List<SideFact>
                 {
-                    new SideFact(ProjectsText.ItsWork, ProjectsText.Sentence(EntryText.Counts(project))),
+                    new SideFact(ProjectsText.ItsWork, ProjectsText.Work(project)),
                     new SideFact(ProjectsText.OnTheStage, project.Shown ? ProjectsText.Shown : ProjectsText.Hidden),
-                });
+                };
+                if (LooksAlike(project, projects, offers)) facts.Add(new SideFact(ProjectsText.ItsName, ProjectsText.ProjectLooksAlike));
+                side = new SidePanel(project.Name, subjectIsData: true, facts: facts);
                 footer = new Footer(
                     close,
                     secondary: project.Shown
@@ -117,8 +190,8 @@ namespace Halcyonic.Client
             }
             else if (folder != null)
             {
-                var own = state.Connection != null && state.Connection.Folder.Key == folder.Key ? state.Connection : null;
-                var waitingOn = own == null && state.Connection?.Unresolved != null ? state.Connection.Folder : null;
+                var own = target.Connection;
+                var waitingOn = own == null && state.Connection?.Unresolved != null ? state.Connection : null;
                 side = FolderPanel(folder, own, state);
                 footer = new Footer(close, farRight: FolderAction(own, waitingOn, state));
             }
@@ -162,7 +235,7 @@ namespace Halcyonic.Client
             if (state.Overview == null) lines.Add(Say(EntryText.WaitingForMac));
             foreach (var project in projects)
             {
-                lines.Add(new PageLine(project.Name, wordsAreData: true, fact: ProjectsText.ProjectFact(project),
+                lines.Add(new PageLine(project.Name, wordsAreData: true, fact: ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers)),
                     action: ChooseProject, key: project.ProjectId, opens: true, chosen: project == chosenProject));
             }
             // The demonstration connects nothing, so it lists no folders.
@@ -193,11 +266,20 @@ namespace Halcyonic.Client
             var manyPlaces = offers.Select(offer => offer.Root.Path).Distinct(StringComparer.Ordinal).Count() > 1;
             foreach (var offer in offers)
             {
-                lines.Add(new PageLine(offer.Name, wordsAreData: true, fact: ProjectsText.FolderFact(offer, state.Now, state.Zone, manyPlaces),
-                    action: ChooseFolder, key: offer.Key, opens: true, chosen: offer == chosenFolder));
+                var (fact, factIsData) = ProjectsText.FolderFact(offer, state.Now, state.Zone, manyPlaces);
+                lines.Add(new PageLine(offer.Name, wordsAreData: true, fact: fact, factIsData: factIsData,
+                    action: ChooseFolder, key: offer.Key, opens: true, chosen: offer.Key == chosenFolder?.Key));
             }
             if (FolderConnect.AnyCut(listing)) lines.Add(Say(EntryText.FoldersCut, rows: 2));
             return lines;
+        }
+
+        /// <summary>A project whose shown name looks like another project's or a free folder's.</summary>
+        private static bool LooksAlike(ProjectSummary project, IReadOnlyList<ProjectSummary> projects, IReadOnlyList<ConnectableFolder> offers)
+        {
+            var likeness = FolderConnect.Likeness(project.Name);
+            return projects.Any(other => other != project && FolderConnect.Likeness(other.Name) == likeness)
+                || offers.Any(offer => FolderConnect.Likeness(offer.Name) == likeness);
         }
 
         /// <summary>
@@ -247,7 +329,7 @@ namespace Halcyonic.Client
         /// after a refusal, Choose a folder; after a send that never left, Try again. While it may still
         /// be on its way, or may have run, nothing but Close.
         /// </summary>
-        private static Prompt? FolderAction(FolderConnection? connection, ConnectableFolder? waitingOn, State state)
+        private static Prompt? FolderAction(FolderConnection? connection, FolderConnection? waitingOn, State state)
         {
             if (connection == null)
             {

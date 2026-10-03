@@ -19,17 +19,25 @@ namespace Halcyonic.Client
         public const string Connecting = "Sent. Waiting for " + HostText.Your + "…";
         public const string NotConnectedYet = "Couldn't connect: " + HostText.Your + " isn't connected. Try again when it is.";
         public const string Gone = "This folder isn't offered any more: a project may use it now, or it moved. Choose another.";
-        public const string LooksLikeAnother = "Looks like another folder's name";
+        public const string LooksLikeAnother = "Name looks like another";
 
         /// <summary>Under a folder whose shown name looks like another's: how to tell them apart.</summary>
-        public const string CheckWhichOne = "Another folder here has a name that looks the same. Check this is the one you mean by when it changed and where it is.";
+        public const string CheckWhichOne = "Another folder or project has a name that looks the same. Check this is the one you mean by when it changed and where it is.";
 
         /// <summary>Connect waits while another folder's connection may still be on its way.</summary>
         public static string WaitingOn(ConnectableFolder other) =>
-            "Still waiting to hear whether " + Quoted(other.ProjectName) + " was connected. Look for it in Connect projects first.";
+            "Still waiting to hear whether " + Quoted(other.ProjectName) + " was connected. Look for it in Projects first.";
+
+        /// <summary>
+        /// Connect waits on another folder's connection: still on its way, or sent with an outcome nobody
+        /// can know any more, which is said as such rather than as still coming.
+        /// </summary>
+        public static string WaitingOn(FolderConnection other) => other.Step.Status == BuildStepStatus.Waiting
+            ? WaitingOn(other.Folder)
+            : "Not sure whether " + Quoted(other.Folder.ProjectName) + " was connected. Look for it in Projects first.";
 
         /// <summary>A name from outside inside one of Halcyonic's sentences, quoted so it never reads as Halcyonic's words.</summary>
-        public static string Quoted(string name) => "\u201C" + LabelText.Plain(name) + "\u201D";
+        public static string Quoted(string name) => "\u201C" + LabelText.Name(name) + "\u201D";
 
         /// <summary>
         /// What is known about a folder, in one line: "Repository · changed 3 days ago", "Changed 3 days
@@ -65,7 +73,7 @@ namespace Halcyonic.Client
                 // A failure that may have had an effect is never put in words that say nothing happened.
                 BuildStepStatus.Failed when !step.EffectUnknown => "Couldn't connect: " + (EntryText.FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
                 BuildStepStatus.NotSent => NotConnectedYet,
-                _ => "Not sure it happened. Look for " + Quoted(connection.Folder.ProjectName) + " in Connect projects before you try again.",
+                _ => "Not sure it happened. Look for " + Quoted(connection.Folder.ProjectName) + " in Projects before you try again.",
             };
         }
 
