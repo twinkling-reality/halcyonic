@@ -156,7 +156,9 @@ namespace Halcyonic.XR.Workspace
                 SomethingWaits = SomethingWaits,
                 Comfort = comfort.Settings,
                 ComfortSaved = comfort.Keep,
-                Space = () => Room == null ? Array.Empty<MenuSetting>() : SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address)),
+                // Your space always, so Reset position is always there; Your computer where the build
+                // offers pairing (PairingBootstrap's gate), each row reading whatever stands now.
+                Space = () => SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address), pairing: Debug.isDebugBuild),
                 Commands = commands,
                 Overview = Overview,
                 ShowProject = ShowProject,
@@ -373,8 +375,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Your space and Your computer as they stand now: read each frame while Settings shows, so only what each owner holds.</summary>
         private SpaceNow SpaceNow()
         {
-            var room = Room!;
-            return new SpaceNow(room.Status, room.Offer, room.Arrangement, Pairing?.Now);
+            var room = Room;
+            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, room?.Arrangement, Pairing?.Now);
         }
 
         /// <summary>Does what a row of Your space or Your computer raised, through what owns it.</summary>

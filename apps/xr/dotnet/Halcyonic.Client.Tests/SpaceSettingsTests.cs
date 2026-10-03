@@ -13,10 +13,13 @@ public class SpaceSettingsTests
     private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now) => Of(now, new List<string>());
 
     /// <summary>The rows, what their changes raised, and in <paramref name="forgot"/> each address forgetting was asked with.</summary>
-    private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now, List<string> forgot)
+    private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now, List<string> forgot) =>
+        Of(now, forgot, pairing: now().Pairing != null);
+
+    private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now, List<string> forgot, bool pairing)
     {
         var raised = new List<string>();
-        return (SpaceSettings.Of(now, raised.Add, forgot.Add), raised);
+        return (SpaceSettings.Of(now, raised.Add, forgot.Add, pairing), raised);
     }
 
     private static SettingNow Read(IReadOnlyList<MenuSetting> rows, string key) => rows.Single(row => row.Key == key).Read();
@@ -165,6 +168,73 @@ public class SpaceSettingsTests
         Assert.That(new PairingNow(null, PairingStep.Idle, true).Forgets("192.168.1.23:47801"), Is.False, "nothing paired");
         Assert.That(new PairingNow("192.168.1.23:47801", PairingStep.Forgetting, true).Forgets("192.168.1.23:47801"), Is.False, "already forgetting");
         Assert.That(new PairingNow("192.168.1.23:47801", PairingStep.Typing, true).Forgets("192.168.1.23:47801"), Is.False, "pairing again under way");
+    }
+
+    [Test]
+    public void ABareChangeOfAPairedRowForgetsNothing()
+    {
+        var forgot = new List<string>();
+        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow("192.168.1.23:47801", PairingStep.Idle, true)), forgot);
+        rows.Single(row => row.Key == SpaceSettings.Pairing).Change();
+        Assert.That((raised.Count, forgot.Count), Is.EqualTo((0, 0)), "only Settings' Yes forgets");
+    }
+
+    [Test]
+    public void TheYesForgetsWithTheAddressArmedAndOnlyWhileItIsStillTheComputerPairedWithNothingUnderWay()
+    {
+        var forgot = new List<string>();
+        var pairing = new PairingNow("192.168.1.23:47801", PairingStep.Idle, true);
+        var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, pairing), forgot);
+        var row = rows.Single(each => each.Key == SpaceSettings.Pairing);
+        var armed = row.Read();
+        Assert.That(armed.About, Is.EqualTo("192.168.1.23:47801"), "the reading names what the Yes is about");
+
+        pairing = new PairingNow("192.168.1.24:47801", PairingStep.Idle, true);
+        row.Confirmed!(armed);
+        Assert.That(forgot, Is.Empty, "another computer paired since it was armed");
+
+        pairing = new PairingNow("192.168.1.23:47801", PairingStep.Forgetting, true);
+        row.Confirmed!(armed);
+        Assert.That(forgot, Is.Empty, "already forgetting");
+
+        pairing = new PairingNow("192.168.1.23:47801", PairingStep.Idle, true);
+        row.Confirmed!(armed);
+        Assert.That(forgot, Is.EqualTo(new[] { "192.168.1.23:47801" }));
+    }
+
+    [Test]
+    public void WithoutARoomItsRowsSayWhyAndTheMenusRowStillResets()
+    {
+        var host = new FakeMenuHost();
+        var (rows, raised) = Of(() => new SpaceNow(null, RoomOffer.None, null, null));
+        foreach (var key in new[] { SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.NextArrangement })
+        {
+            Assert.That(Read(rows, key).Reason, Is.EqualTo(SpaceSettings.RoomUnread), key);
+        }
+        Assert.That(Read(rows, SpaceSettings.ResetPosition).Reason, Is.Null, "Reset position is always there");
+        var settings = new SettingsColumn(host, rows);
+        settings.Act(SettingsColumn.OpenSetting, SpaceSettings.SwitchSpace);
+        settings.Act(SettingsColumn.ChangeSetting, null);
+        settings.Act(SettingsColumn.OpenSetting, SpaceSettings.ResetPosition);
+        settings.Act(SettingsColumn.ChangeSetting, null);
+        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.ResetPosition }));
+    }
+
+    [Test]
+    public void TheRowsStandWhateverComesOrGoesAndReadWhatStandsNow()
+    {
+        RoomStatus? room = null;
+        PairingNow? pairing = null;
+        var (rows, _) = Of(() => new SpaceNow(room, RoomOffer.None, room == null ? null : StageArrangement.InFront, pairing), new List<string>(), pairing: true);
+        Assert.That(rows.Select(row => row.Key), Is.EqualTo(new[]
+        {
+            SpaceSettings.SwitchSpace, SpaceSettings.TakeOffer, SpaceSettings.NextArrangement, SpaceSettings.ResetPosition, SpaceSettings.Pairing,
+        }), "a development build's rows, before the room or the pairing is there");
+        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not ready", (string?)SpaceSettings.PairingNotReady)));
+        room = Room;
+        pairing = new PairingNow(null, PairingStep.Idle, true);
+        Assert.That(Read(rows, SpaceSettings.SwitchSpace).Reason, Is.Null, "the room once its controls give it");
+        Assert.That((Read(rows, SpaceSettings.Pairing).Value, Read(rows, SpaceSettings.Pairing).Reason), Is.EqualTo(("Not paired", (string?)null)));
     }
 
     [Test]

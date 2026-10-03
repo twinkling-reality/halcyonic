@@ -18,8 +18,13 @@ namespace Halcyonic.Client
         /// computer": the prompt's press only arms it; null for a change made at once.
         /// </param>
         /// <param name="valueIsData">Its value and what it is now hold words that aren't Halcyonic's, as a paired computer's address: shown as data.</param>
+        /// <param name="about">
+        /// What a change that asks first is about, as the paired computer's address: given to the
+        /// setting's <see cref="MenuSetting.Confirmed"/> as it read when armed, so the Yes acts on what
+        /// the person saw; an arming lapses if it changes.
+        /// </param>
         public SettingNow(string value, string now, string next, string does, string prompt, string? reason = null, string? confirm = null,
-            bool valueIsData = false)
+            bool valueIsData = false, string? about = null)
         {
             Value = value;
             Now = now;
@@ -29,6 +34,7 @@ namespace Halcyonic.Client
             Reason = reason;
             Confirm = confirm;
             ValueIsData = valueIsData;
+            About = about;
         }
 
         public string Value { get; }
@@ -47,8 +53,10 @@ namespace Halcyonic.Client
 
         public bool ValueIsData { get; }
 
-        /// <summary>Everything a row and its side panel show of it, to tell whether it changed.</summary>
-        internal string Shown => string.Join("\u0000", Value, Now, Next, Does, Prompt, Reason ?? "", Confirm ?? "", ValueIsData ? "data" : "");
+        public string? About { get; }
+
+        /// <summary>Everything a row and its side panel show of it, and what an armed change is about, to tell whether it changed.</summary>
+        internal string Shown => string.Join("\u0000", Value, Now, Next, Does, Prompt, Reason ?? "", Confirm ?? "", ValueIsData ? "data" : "", About ?? "");
     }
 
     /// <summary>
@@ -60,7 +68,12 @@ namespace Halcyonic.Client
     /// </summary>
     public sealed class MenuSetting
     {
-        public MenuSetting(string key, string group, string name, Func<SettingNow> read, Action change)
+        /// <param name="confirmed">
+        /// For a change that asks first, what its Yes does, given the reading Settings armed; without
+        /// it, the Yes makes <paramref name="change"/>. A setting given one never has it made by a bare
+        /// <see cref="Change"/>, which then does only what needs no asking.
+        /// </param>
+        public MenuSetting(string key, string group, string name, Func<SettingNow> read, Action change, Action<SettingNow>? confirmed = null)
         {
             if (string.IsNullOrEmpty(key)) throw new ArgumentException("A setting has a key.", nameof(key));
             Key = key;
@@ -68,6 +81,7 @@ namespace Halcyonic.Client
             Name = name;
             Read = read;
             Change = change;
+            Confirmed = confirmed;
         }
 
         public string Key { get; }
@@ -82,6 +96,9 @@ namespace Halcyonic.Client
 
         /// <summary>Makes its one change; the owner keeps it.</summary>
         public Action Change { get; }
+
+        /// <summary>What its Yes does, given the reading armed, for a change that asks first; null where the Yes makes <see cref="Change"/>.</summary>
+        public Action<SettingNow>? Confirmed { get; }
     }
 
     /// <summary>
@@ -120,6 +137,7 @@ namespace Halcyonic.Client
         private string? armed;
         private double armedAt;
         private string? armedShown;
+        private SettingNow? armedReading;
 
         /// <summary>What the frame given last showed of every setting, to raise Changed when a value moves without a press.</summary>
         private string? given;
@@ -196,6 +214,7 @@ namespace Halcyonic.Client
                         armed = open.Key;
                         armedAt = host.Now;
                         armedShown = now.Shown;
+                        armedReading = now;
                     }
                     else open.Change();
                     Changed?.Invoke();
@@ -203,7 +222,8 @@ namespace Halcyonic.Client
                 case Yes when armed != null && armed == chosen && Open() is MenuSetting confirmed && confirmed.Read() is SettingNow ready && ready.Reason == null
                     && ready.Confirm != null && ready.Shown == armedShown:
                     armed = null;
-                    confirmed.Change();
+                    if (confirmed.Confirmed is Action<SettingNow> yes) yes(armedReading!);
+                    else confirmed.Change();
                     Changed?.Invoke();
                     break;
                 case Cancel when armed != null:

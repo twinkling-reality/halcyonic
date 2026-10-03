@@ -46,9 +46,10 @@ namespace Halcyonic.Client
     /// <summary>What Your space and Your computer show, read each time Settings is drawn.</summary>
     public sealed class SpaceNow
     {
+        /// <param name="room">The room as its controls give it, or null while none do, as before they start or once they have gone.</param>
         /// <param name="arrangement">Where the characters stand, or null on a desk, where the room places them.</param>
-        /// <param name="pairing">Pairing with the person's computer, or null outside a development build.</param>
-        public SpaceNow(RoomStatus room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing)
+        /// <param name="pairing">Pairing with the person's computer, or null where it isn't ready or offered.</param>
+        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing)
         {
             Room = room;
             Offer = offer;
@@ -56,7 +57,7 @@ namespace Halcyonic.Client
             Pairing = pairing;
         }
 
-        public RoomStatus Room { get; }
+        public RoomStatus? Room { get; }
 
         public RoomOffer Offer { get; }
 
@@ -68,9 +69,9 @@ namespace Halcyonic.Client
     /// <summary>
     /// Your space and, in a development build, Your computer as Settings' rows (ADR 0026): the room
     /// shown, what the room offers, where the characters stand, the menu's position, and pairing with
-    /// the person's computer. Each row's change only raises its id, or for forgetting the computer the
-    /// address Settings asked about; the headset's own layer does it, as the room placement, the stage
-    /// and the pairing own what they change.
+    /// the person's computer. Each row's change only raises its id, and forgetting the computer only
+    /// Settings' Yes, with the address it armed; the headset's own layer does it, as the room
+    /// placement, the stage and the pairing own what they change.
     /// </summary>
     public static class SpaceSettings
     {
@@ -84,27 +85,40 @@ namespace Halcyonic.Client
 
         public const string Pairing = "pairing";
 
-        /// <param name="act">Raised with a row's id when its change is pressed; for Pairing, only to pair.</param>
+        /// <summary>Why the room's rows take no change while no room is given (proposed by lane W, 2026-10-03).</summary>
+        public const string RoomUnread = "Your room can't be read now.";
+
+        /// <summary>Why Pairing takes no change while the pairing isn't there yet, or has gone.</summary>
+        public const string PairingNotReady = "Pairing isn't ready yet.";
+
+        /// <param name="act">Raised with a row's id when its change is pressed; for Pairing, only to pair, unpaired.</param>
         /// <param name="forget">
-        /// Raised with the paired computer's address when the person said Yes to forgetting it
-        /// (Settings asks first), so what forgets can check it is still the computer asked about.
+        /// Raised with the paired computer's address only by Settings' Yes to forgetting it, given the
+        /// address as Settings armed it, and only while that is still the computer paired with nothing
+        /// under way (<see cref="PairingNow.Forgets"/>). A bare change of the row never forgets.
         /// </param>
-        public static IReadOnlyList<MenuSetting> Of(Func<SpaceNow> now, Action<string> act, Action<string> forget)
+        /// <param name="pairing">The build offers pairing, a development build: Your computer's row shows, read as the pairing stands.</param>
+        public static IReadOnlyList<MenuSetting> Of(Func<SpaceNow> now, Action<string> act, Action<string> forget, bool pairing = false)
         {
+            // Every row stands whatever is there now: each reads afresh, so a room or a pairing that
+            // comes or goes while Settings shows changes what a row says, never which rows there are.
             var rows = new List<MenuSetting>
             {
                 new MenuSetting(SwitchSpace, SettingsText.YourSpace, "Around you", () => Space(now().Room), () => act(SwitchSpace)),
                 new MenuSetting(TakeOffer, SettingsText.YourSpace, "Your room's layout", () => Offer(now()), () => act(TakeOffer)),
-                new MenuSetting(NextArrangement, SettingsText.YourSpace, "The characters", () => Arranged(now().Arrangement), () => act(NextArrangement)),
+                new MenuSetting(NextArrangement, SettingsText.YourSpace, "The characters", () => Arranged(now()), () => act(NextArrangement)),
                 new MenuSetting(ResetPosition, SettingsText.YourSpace, "The menu", () => new SettingNow("Where it stands", "Where it stands now",
                     "In front of you", "The menu comes back in front of you, within reach", "Reset position"), () => act(ResetPosition)),
             };
-            if (now().Pairing != null)
+            if (pairing)
             {
                 rows.Add(new MenuSetting(Pairing, HostText.YourStart, "Pairing", () => Paired(now().Pairing), () =>
                 {
-                    if (now().Pairing?.Address is string paired) forget(paired);
-                    else act(Pairing);
+                    // Pressed without asking, it only pairs: forgetting is the Yes's alone.
+                    if (now().Pairing is PairingNow unpaired && unpaired.Address == null) act(Pairing);
+                }, armed =>
+                {
+                    if (armed.About is string address && now().Pairing is PairingNow paired && paired.Forgets(address)) forget(address);
                 }));
             }
             return rows;
@@ -118,27 +132,34 @@ namespace Halcyonic.Client
             _ => StageArrangement.InFront,
         };
 
-        private static SettingNow Space(RoomStatus room)
+        private static SettingNow Space(RoomStatus? room)
         {
+            if (room == null) return new SettingNow("Not known", RoomUnread, "Your room", RoomUnread, "Show my room", RoomUnread);
             var reason = room.CanSwitch ? null : "This headset can't show your room now.";
             return room.Shown == RoomSpace.Room
                 ? new SettingNow("Your room", room.Line, "A virtual space", "The characters stand in a virtual space instead of your room", room.SwitchLabel, reason)
                 : new SettingNow("Virtual space", room.Line, "Your room", "The characters stand in your room, seen through the headset", room.SwitchLabel, reason);
         }
 
-        private static SettingNow Offer(SpaceNow now) => now.Offer switch
-        {
-            RoomOffer.AllowRoomAccess => new SettingNow("No access", now.Room.Line, RoomStatus.OfferLabel(now.Offer),
-                "The headset asks again to read your room's layout, so the characters can stand on your desk", RoomStatus.OfferLabel(now.Offer)),
-            RoomOffer.SetUpRoom => new SettingNow("Not set up", now.Room.Line, RoomStatus.OfferLabel(now.Offer),
-                "The headset's space setup captures your room and its furniture", RoomStatus.OfferLabel(now.Offer)),
-            _ => new SettingNow("Ready", now.Room.Line, "Nothing to set up", "Your room needs nothing more", "Set up this room",
-                "Your room needs nothing set up now."),
-        };
+        private static SettingNow Offer(SpaceNow now) => now.Room is not RoomStatus room
+            ? new SettingNow("Not known", RoomUnread, "Nothing to set up", RoomUnread, "Set up this room", RoomUnread)
+            : now.Offer switch
+            {
+                RoomOffer.AllowRoomAccess => new SettingNow("No access", room.Line, RoomStatus.OfferLabel(now.Offer),
+                    "The headset asks again to read your room's layout, so the characters can stand on your desk", RoomStatus.OfferLabel(now.Offer)),
+                RoomOffer.SetUpRoom => new SettingNow("Not set up", room.Line, RoomStatus.OfferLabel(now.Offer),
+                    "The headset's space setup captures your room and its furniture", RoomStatus.OfferLabel(now.Offer)),
+                _ => new SettingNow("Ready", room.Line, "Nothing to set up", "Your room needs nothing more", "Set up this room",
+                    "Your room needs nothing set up now."),
+            };
 
-        private static SettingNow Arranged(StageArrangement? arrangement)
+        private static SettingNow Arranged(SpaceNow now)
         {
-            if (arrangement is not StageArrangement standing)
+            if (now.Room == null)
+            {
+                return new SettingNow("Not known", RoomUnread, "Nothing to change", RoomUnread, SettingsText.ChangeTo(StageArrangement.TurnedAside), RoomUnread);
+            }
+            if (now.Arrangement is not StageArrangement standing)
             {
                 return new SettingNow("On your desk", SettingsText.ArrangedByRoom, "Nothing to change", SettingsText.ArrangedByRoom,
                     SettingsText.ChangeTo(StageArrangement.TurnedAside), SettingsText.ArrangedByRoom);
@@ -160,7 +181,7 @@ namespace Halcyonic.Client
             const string Pair = "Pair with a " + HostText.Noun;
             const string Forget = "Forget this " + HostText.Noun;
             const string AgainNeeded = "This headset then needs pairing again to reach it";
-            if (pairing == null) return new SettingNow("Not paired", "This headset isn't paired", Pair, "Pairing is for development builds", Pair, "Pairing is for development builds.");
+            if (pairing == null) return new SettingNow("Not ready", PairingNotReady, Pair, PairingNotReady, Pair, PairingNotReady);
             switch (pairing.Step)
             {
                 case PairingStep.Typing:
@@ -177,7 +198,7 @@ namespace Halcyonic.Client
             }
             // Forgetting asks first, Settings' own Yes; the address is the person's typing, shown as data.
             return new SettingNow("Paired", "Paired with " + HostText.Your + " at " + pairing.Address, Forget, AgainNeeded, Forget,
-                confirm: "Yes, forget this " + HostText.Noun, valueIsData: true);
+                confirm: "Yes, forget this " + HostText.Noun, valueIsData: true, about: pairing.Address);
         }
     }
 }
