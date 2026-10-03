@@ -362,7 +362,9 @@ the same definition names, as the JSON Schema document:
   prompt and every answer must be measured, or nothing is shown. Nothing counts as read until the
   view reports it drawn (`FileQuestion.Drawn`, `SideDrawn`): a question once every part has been,
   or the page heading its answers when it is short; a chosen cut answer, or a typed one longer than
-  its row, once its side panel has shown all of it; and Your answers once every page has. A choice
+  its row, once its side panel has shown all of it; and Your answers once every page has. A typed
+  answer or a line of Your answers counts as cut and unread until the layout has measured it as it
+  reads now (`FileQuestion.MeasureTyped`, `MeasureReview`), never as one row by default. A choice
   is taken only from the page in view; turning a prompt's page clears it, keeping the typed answer;
   laid out anew, the page shows what was chosen, or the choice is cleared. A part's row turns
   nothing until its part has been drawn and stood for 0.4 seconds. Send answer waits in its place

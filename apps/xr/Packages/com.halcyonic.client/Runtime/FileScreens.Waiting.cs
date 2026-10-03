@@ -292,7 +292,7 @@ namespace Halcyonic.Client
                     var typed = draft.Typed(prompt);
                     lines.Add(new PageLine(TypedWords(typed), wordsAreData: typed != null, action: TypeAnswer,
                         key: asked.Options.Count.ToString(CultureInfo.InvariantCulture), choice: true, chosen: typed != null,
-                        rows: typed == null ? 1 : Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt))));
+                        rows: typed == null ? 1 : Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
                 }
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), action: MoreAnswers));
             }
