@@ -124,6 +124,22 @@ public class MenuFrameTests
     }
 
     [Test]
+    public void ASidePanelInItsFramesPlaceKeepsEveryPromptTheFrameOffersWithCloseDetailsWhereCloseStood()
+    {
+        var waiting = new Footer(Close, rare: Action("stop"), secondary: Action("deny"), farRight: Action("approve", main: true));
+        var carried = waiting.WithClose(SidePanel.Footer[PromptSlot.Close]!);
+        Assert.That(carried.All.Select(each => (each.Slot, each.Prompt.Id)), Is.EqualTo(new[]
+        {
+            (PromptSlot.Close, SidePanel.Close), (PromptSlot.Rare, "stop"), (PromptSlot.Secondary, "deny"), (PromptSlot.FarRight, "approve"),
+        }));
+        var confirming = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(available: false), Cancel).WithClose(SidePanel.Footer[PromptSlot.Close]!);
+        Assert.That(confirming.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Yes, PromptKind.Cancel }),
+            "a confirmation stays as it is, Yes and its reason with it");
+        Assert.That(confirming.Reason, Is.EqualTo("Read to part 3 first"));
+        Assert.Throws<ArgumentException>(() => waiting.WithClose(Action("close-it")), "only a Close stands far left");
+    }
+
+    [Test]
     public void AConfirmationsYesTakesTheFreeMiddleAndCancelThePlaceOfTheFirstPress()
     {
         var waiting = new Footer(Close, rare: Action("stop"), secondary: Action("deny"), farRight: Action("approve", main: true));

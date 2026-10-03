@@ -446,6 +446,19 @@ namespace Halcyonic.Client
         /// </summary>
         public string? Reason => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
 
+        /// <summary>
+        /// This footer with <paramref name="close"/> where its Close stood, every other prompt kept as it
+        /// is, a confirmation's Yes and Cancel too: a side panel standing in its frame's place keeps all
+        /// the frame offers, its own Close details where the frame's Close was.
+        /// </summary>
+        public Footer WithClose(Prompt close)
+        {
+            if (close.Kind != PromptKind.Close) throw new ArgumentException("Close stands far left.", nameof(close));
+            var footer = new Footer(this);
+            footer.slots[(int)PromptSlot.Close] = close;
+            return footer;
+        }
+
         /// <summary>This footer with <paramref name="prompt"/> in <paramref name="slot"/>, which must be empty and fit it.</summary>
         public Footer With(PromptSlot slot, Prompt prompt)
         {

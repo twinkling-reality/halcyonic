@@ -67,8 +67,12 @@ namespace Halcyonic.XR.UI
         /// Shows <paramref name="footer"/> on the row at <paramref name="middle"/>, between the content
         /// lines at <paramref name="left"/> and <paramref name="right"/>, in its parent's units.
         /// </summary>
+        /// <summary>The footer drawn last, for the renders' check that every prompt a frame offers is drawn.</summary>
+        public Footer? Showing { get; private set; }
+
         public void Show(Footer footer, float left, float right, float middle)
         {
+            Showing = footer;
             var margin = GlazeTokens.Units(Glaze.Menu.PromptMarginDegrees);
             var gap = Glaze.TargetGapMeters / Glaze.Menu.PlaneMeters;
             var widths = new float[Slots];

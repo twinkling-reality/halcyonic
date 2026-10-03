@@ -286,7 +286,12 @@ coordinator's first-visit words:
 - **At larger text a side panel takes the file's place** (2026-10-02): a file and a side panel come
   to about 72 degrees, whose low corners leave a 3S's field wherever the top stands. The side panel
   stands where the file stood, keeping the file's light line and the pill on its subject, so it still
-  reads as that task's, and Close details brings the file back.
+  reads as that task's, and Close details brings the file back. Amended 2026-10-03, after a render
+  showed a setting's change, Text size's own included, drawn nowhere at larger text: a side panel in
+  its frame's place, a file's or the menu's, at either text size, stands as wide as that frame and
+  carries its footer, Close details where Close stood, and its reason, so every prompt the frame
+  offers stays drawn and pressable. A press there counts only for Close details or a prompt that
+  frame offers now and allows, while that side panel is the one drawn last for the frame in front.
 - **Lane U's views set the last spacing**, measured with the split header's pill: the plane's top
   stands 17.5 degrees below eye level (`MenuPage.TopDegrees`); a subject's title stands half a grid
   step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no

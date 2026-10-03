@@ -219,7 +219,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null));
 
                 // The file's Close, then the menu's: the closed bar alone.
+                // The file's Close; then, the menu alone on Settings, its text size chosen: its change stays
+                // drawn and pressable, at the larger text too, so the person can always turn it back.
                 file?.Close();
+                director.DrawNow();
+                director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size", director.Plane.Showing(MenuColumn.Menu), null);
+                director.DrawNow();
+                failures.AddRange(PlaneState(name + " director text size chosen", folder, camera, texture, director.Plane, characters, eyes, null));
+                var change = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Settings, state)).Menu?.Footer[PromptSlot.FarRight];
+                var inPlace = director.Plane.Shown.Count == 1 && director.Plane.Shown[0].Kind == MenuColumn.Side;
+                if (change != null && inPlace && !director.Navigator.Act(MenuColumn.Side, change.Id, null, null, director.Plane.Shown[0].View.Side))
+                {
+                    failures.Add(name + ": the text size's change, drawn on its side panel in the frame's place, takes no press.");
+                }
+
+                // The menu's Close: the closed bar alone.
                 director.CloseMenu();
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": closed with no file open, the menu shows no bar.");

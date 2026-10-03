@@ -55,6 +55,13 @@ namespace Halcyonic.XR.UI
         private FooterView footer = null!;
         private MenuFrame? frame;
         private SidePanel? side;
+
+        /// <summary>
+        /// A side panel's footer and reason while it stands in its frame's place: its frame's, Close
+        /// details where Close stood, so all its frame offers stays drawn; null in a column of its own.
+        /// </summary>
+        private Footer? carried;
+        private string? carriedReason;
         private float width;
         private float reserve;
         private float subjectHeight;
@@ -214,6 +221,8 @@ namespace Halcyonic.XR.UI
         {
             frame = shown;
             side = null;
+            carried = null;
+            carriedReason = null;
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
@@ -226,12 +235,16 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Shows a side panel in a column <paramref name="columnDegrees"/> wide: its subject, then its facts
         /// or lines, its source line and its own Close. Standing in a file's place, it wears the file's
-        /// <paramref name="pill"/>, so it still reads as that task's.
+        /// <paramref name="pill"/>, so it still reads as that task's. Standing in its frame's place, it
+        /// carries <paramref name="inPlaceOf"/>'s footer, Close details where Close stood, and its reason,
+        /// so every prompt the frame offers stays drawn and pressable.
         /// </summary>
-        public void Show(SidePanel shown, float columnDegrees, float subject, bool pillRoom, StateBadge? pill = null)
+        public void Show(SidePanel shown, float columnDegrees, float subject, bool pillRoom, StateBadge? pill = null, MenuFrame? inPlaceOf = null)
         {
             frame = null;
             side = shown;
+            carried = inPlaceOf?.Footer.WithClose(SidePanel.Footer[PromptSlot.Close]!);
+            carriedReason = inPlaceOf?.Reason;
             Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = GlazeTokens.Text;
@@ -258,6 +271,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The subject plate's top edge, in its part's units from its centre: under a split header, below the pill's room.</summary>
         public float PlateTop => subjectHeight / 2f - reserve;
+
+        /// <summary>The reason drawn as the page's last content line, if any: the frame's own, or, in its place, its frame's.</summary>
+        public string? ReasonShown => reason.gameObject.activeSelf ? frame?.Reason ?? carriedReason : null;
 
         /// <summary>The side panel this column shows, or null for a frame.</summary>
         public SidePanel? Side => side;
@@ -520,7 +536,7 @@ namespace Halcyonic.XR.UI
                     else y = LayLine(lines[index++], model, left, right, y, center, zoom);
                 }
                 for (; index < lines.Count; index++) lines[index].Hide();
-                var why = frame?.Reason;
+                var why = frame?.Reason ?? carriedReason;
                 reason.gameObject.SetActive(why != null);
                 if (why != null) y = Note(reason, why, left, right, y - group);
                 var from = frame?.Source ?? side?.Source;
@@ -530,7 +546,7 @@ namespace Halcyonic.XR.UI
             }
 
             var footerMiddle = -top + U(1f) + FooterView.Height / 2f;
-            footer.Show(frame?.Footer ?? SidePanel.Footer, left, right, footerMiddle);
+            footer.Show(frame?.Footer ?? carried ?? SidePanel.Footer, left, right, footerMiddle);
             // A faint line between the page and its footer, too faint to mark anything.
             footerLine.Draw(new Vector2(width - 2f * U(1f), U(0.05f)), 0f, new Color(1f, 1f, 1f, 0.09f));
             footerLine.transform.localPosition = new Vector3(0f, footerMiddle + FooterView.Height / 2f + TargetGap / 2f, -U(0.02f));

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Halcyonic.Client
 {
@@ -29,6 +30,9 @@ namespace Halcyonic.Client
         private MenuFrame? drawnBeside;
         private SidePanel? drawnSide;
         private IMenuColumn? drawnSideOf;
+
+        /// <summary>The frame whose side panel was drawn last: a side panel standing in its place carries its footer, and a press there counts only for what that frame offers.</summary>
+        private MenuFrame? drawnSideFrame;
         private MenuBar? lastBar;
         private bool changed = true;
 
@@ -170,6 +174,9 @@ namespace Halcyonic.Client
         public bool Act(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
             if (!(Standing(from, frame, side) is IMenuColumn column)) return false;
+            // A side panel's own Close, or a prompt the frame it belongs to offers now and allows, as one
+            // standing in its frame's place draws them; nothing else.
+            if (from == MenuColumn.Side && action != SidePanel.Close && !Offers(drawnSideFrame, action)) return false;
             if (from == MenuColumn.Menu && action == MenuFrame.ChooseSection)
             {
                 if (key != null && Enum.TryParse<MenuPlace>(key, out var place) && place != Place)
@@ -223,11 +230,16 @@ namespace Halcyonic.Client
                     var front = besideFrame ?? menuFrame;
                     if (side == null || front == null || side != front.Side) return;
                     drawnSide = side;
+                    drawnSideFrame = front;
                     drawnSideOf = front == besideFrame ? Beside! : PlaceColumn;
                     drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, true);
                     return;
             }
         }
+
+        /// <summary>Whether <paramref name="frame"/>'s footer offers a prompt <paramref name="action"/>, available now.</summary>
+        private static bool Offers(MenuFrame? frame, string action) =>
+            frame != null && frame.Footer.All.Any(each => each.Prompt.Id == action && each.Prompt.Available);
 
         /// <summary>The column whose held prompt, or press, came from <paramref name="from"/>.</summary>
         public IMenuColumn? ColumnOf(MenuColumn from) => from switch
@@ -286,6 +298,7 @@ namespace Halcyonic.Client
             drawnBeside = null;
             drawnSide = null;
             drawnSideOf = null;
+            drawnSideFrame = null;
         }
 
         /// <summary>

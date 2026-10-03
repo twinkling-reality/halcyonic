@@ -19,6 +19,9 @@ public class MenuNavigatorTests
 
         public SidePanel? Side { get; set; }
 
+        /// <summary>A prompt its footer offers at the far right, as a setting's change, or none.</summary>
+        public Prompt? Offered { get; set; }
+
         public List<string> Got { get; } = new();
 
         public int Asked { get; private set; }
@@ -28,7 +31,7 @@ public class MenuNavigatorTests
             get
             {
                 Asked++;
-                return new MenuFrame(name + " " + version, new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close)),
+                return new MenuFrame(name + " " + version, new Footer(new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close), farRight: Offered),
                     lines: new[] { new PageLine("A line", action: "open", key: "k", opens: true, chosen: Side != null) }, side: Side);
             }
         }
@@ -310,5 +313,29 @@ public class MenuNavigatorTests
         Assert.That(Draw(menu).Menu, Is.SameAs(shown), "the same frame, drawn again where it now stands");
         Assert.That(menu.Act(MenuColumn.Menu, "open", "k", shown, null), Is.True);
         Assert.That(places[MenuPlace.Tasks].Got.Count(got => got.StartsWith("act")), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ASidePanelsPressCountsOnlyForItsCloseAndWhatItsFrameOffersNow()
+    {
+        var (menu, places) = Menu();
+        menu.OpenMenu(MenuPlace.Settings);
+        menu.Frames(Bar);
+        var settings = places[MenuPlace.Settings];
+        settings.Side = Details();
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true);
+        settings.Change();
+        var (_, _, side) = Draw(menu);
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.True, "standing in its frame's place, the change it carries");
+        Assert.That(menu.Act(MenuColumn.Side, "approve", null, null, side), Is.False, "nothing its frame doesn't offer");
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, available: false, reason: "Not now.");
+        settings.Change();
+        side = Draw(menu).Side;
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "nor what it offers but doesn't allow now");
+        Assert.That(menu.Act(MenuColumn.Side, SidePanel.Close, null, null, side), Is.True, "its own Close, always");
+        settings.Offered = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true);
+        settings.Change();
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, side), Is.False, "a side panel no longer drawn, as after its row was chosen again");
+        Assert.That(settings.Got.Count(got => got == "act change "), Is.EqualTo(1));
     }
 }
