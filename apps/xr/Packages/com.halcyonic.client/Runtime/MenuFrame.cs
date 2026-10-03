@@ -145,9 +145,14 @@ namespace Halcyonic.Client
         /// one, from 0, with no ellipsis, so the next part starts where this one ends and no word is
         /// lost between them.
         /// </param>
+        /// <param name="besideNext">
+        /// It shares its row with the next line, each in half of it, where both fit one row there, as
+        /// "Type my answer" beside a question's paging row; else each takes a row. Two answers next to
+        /// each other share a row without it.
+        /// </param>
         public PageLine(string words, bool wordsAreData = false, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
-            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false)
+            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false)
         {
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
             if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
@@ -165,6 +170,7 @@ namespace Halcyonic.Client
             Icon = icon;
             Fact = fact;
             FactIsData = factIsData;
+            BesideNext = besideNext;
             Tone = tone;
             Chip = chip;
             Claim = claim;
@@ -188,6 +194,9 @@ namespace Halcyonic.Client
 
         /// <summary>The fact holds text from outside, as a place's name, shown by <see cref="LabelText"/>'s rule before it is given.</summary>
         public bool FactIsData { get; }
+
+        /// <summary>It shares its row with the next line, each in half, where both fit one row there.</summary>
+        public bool BesideNext { get; }
 
         public LineTone Tone { get; }
 
@@ -335,8 +344,12 @@ namespace Halcyonic.Client
         /// <param name="main">The one main action: drawn with the accent, at the far right. Paging and confirmations never are.</param>
         /// <param name="reason">Why it can't be taken now; null when it can.</param>
         /// <param name="holds">Held rather than pressed, as Hold to talk is.</param>
+        /// <param name="pageExplains">
+        /// The page itself says why it can't be taken now, as answers waiting to be chosen, so its
+        /// reason keeps its words (<see cref="Reason"/>) but isn't drawn on the page's last line.
+        /// </param>
         public Prompt(string id, string words, GlazeIcon icon, PromptKind kind = PromptKind.Action, bool main = false, bool available = true,
-            string? reason = null, bool holds = false)
+            string? reason = null, bool holds = false, bool pageExplains = false)
         {
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("A prompt raises an id.", nameof(id));
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A prompt has its words.", nameof(words));
@@ -355,6 +368,7 @@ namespace Halcyonic.Client
             Available = available;
             Reason = available ? null : reason;
             Holds = holds;
+            PageExplains = pageExplains;
         }
 
         public string Id { get; }
@@ -372,6 +386,9 @@ namespace Halcyonic.Client
         public string? Reason { get; }
 
         public bool Holds { get; }
+
+        /// <summary>The page itself says why it can't be taken now: its reason isn't drawn.</summary>
+        public bool PageExplains { get; }
 
         /// <summary>Drawn as the main action: the accent on its cap and words. An unavailable main action keeps its place but is drawn quiet.</summary>
         public bool DrawnAsMain => Main && Available;
@@ -423,8 +440,11 @@ namespace Halcyonic.Client
         /// <summary>A confirmation is armed: Cancel stands in the place of the press it would undo, and Yes, once it shows, in the free middle.</summary>
         public bool Confirming => All.Any(each => each.Prompt.Kind == PromptKind.Cancel);
 
-        /// <summary>Why a prompt can't be taken now, said on the page's last content line: the leftmost one's.</summary>
-        public string? Reason => All.Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
+        /// <summary>
+        /// Why a prompt can't be taken now, said on the page's last content line: the leftmost one's,
+        /// past any whose page says it already (<see cref="Prompt.PageExplains"/>).
+        /// </summary>
+        public string? Reason => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
 
         /// <summary>This footer with <paramref name="prompt"/> in <paramref name="slot"/>, which must be empty and fit it.</summary>
         public Footer With(PromptSlot slot, Prompt prompt)

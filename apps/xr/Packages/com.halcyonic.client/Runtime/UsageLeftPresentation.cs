@@ -9,11 +9,13 @@ namespace Halcyonic.Client
     /// <summary>One limit window in the Usage left glance: whose window it is, and what was seen.</summary>
     public sealed class UsageLeftRow
     {
-        public UsageLeftRow(string title, string text, int left)
+        public UsageLeftRow(string title, string text, int left, string seen = "", string resets = "")
         {
             Title = title;
             Text = text;
             Left = left;
+            Seen = seen;
+            Resets = resets;
         }
 
         /// <summary>The agent's name as the control plane gives it, plain text, and the window.</summary>
@@ -24,6 +26,11 @@ namespace Halcyonic.Client
 
         /// <summary>The X of "at most X% left", rounded up so "at most" stays true: what a meter of this window draws.</summary>
         public int Left { get; }
+
+        /// <summary>When it was seen and when it resets, as "today at 15:18", for the menu's side panel.</summary>
+        public string Seen { get; }
+
+        public string Resets { get; }
     }
 
     /// <summary>What the Usage left glance shows, in words, so the XR layer only lays it out.</summary>
@@ -130,7 +137,7 @@ namespace Halcyonic.Client
                     IntelligenceText.Truncate(IntelligenceText.Plain(reading.Label), LabelLimit) + ", " + (reading.Window == UsageLimitWindow.Rolling5h ? "5-hour window" : "weekly"),
                     "At most " + left.ToString(CultureInfo.InvariantCulture) + "% left, seen " + When(observed, now, zone)
                         + ", resets " + When(resets, now, zone),
-                    left));
+                    left, When(observed, now, zone), When(resets, now, zone)));
             }
             return rows.Count == 0
                 ? Quiet(NoReadingSinceReset)

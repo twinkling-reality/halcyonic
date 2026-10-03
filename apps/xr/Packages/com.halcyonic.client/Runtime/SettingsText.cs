@@ -12,6 +12,15 @@ namespace Halcyonic.Client
 
         public const string Close = "Close";
 
+        /// <summary>The menu's Settings page's subject (ADR 0026).</summary>
+        public const string Subject = "What would you like to change?";
+
+        /// <summary>The heading over where the person is: the room, the characters and the menu (ADR 0026).</summary>
+        public const string YourSpace = "Your space";
+
+        /// <summary>A chosen setting's first fact: what it is now.</summary>
+        public const string Now = "Now";
+
         /// <summary>The section for where the characters stand: the real room or a virtual space, and room for a window (<see cref="StageArrangement"/>).</summary>
         public const string YourRoom = "Your room";
 

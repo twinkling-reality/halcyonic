@@ -74,6 +74,13 @@ public class MenuFrameTests
         Assert.That(footer.Reason, Is.EqualTo("The companion is still answering."));
         Assert.That(new Footer(Close, farRight: Action("go", main: true)).Reason, Is.Null);
         Assert.That(Action("ready", reason: "never said").Reason, Is.Null, "an available prompt has no reason");
+
+        // Answers waiting to be chosen say why Send answer waits: its reason keeps its words but isn't drawn.
+        var send = new Prompt("send", "Send answer", GlazeIcon.SendAnswer, main: true, available: false, reason: "Choose an answer first.", pageExplains: true);
+        Assert.That((send.Reason, send.PageExplains), Is.EqualTo(("Choose an answer first.", true)));
+        Assert.That(new Footer(Close, farRight: send).Reason, Is.Null, "the page's answers already say it");
+        var stop = new Prompt("stop", "Stop", GlazeIcon.Stop, available: false, reason: "It already stopped.");
+        Assert.That(new Footer(Close, rare: stop, farRight: send).Reason, Is.EqualTo("It already stopped."), "another prompt's reason still shows");
         Assert.Throws<ArgumentException>(() => _ = Action("approve", available: false), "an action that can't be taken says why");
         Assert.Throws<ArgumentException>(() => _ = new Prompt("yes", "Yes, approve", GlazeIcon.Approve, PromptKind.Yes, available: false), "so does a locked Yes");
         var frame = new MenuFrame("New project", footer);
@@ -194,6 +201,8 @@ public class MenuFrameTests
         Assert.Throws<ArgumentException>(() => _ = new PageLine("x", action: "a", opens: true, choice: true));
         Assert.Throws<ArgumentException>(() => _ = new PageLine(" "));
         Assert.Throws<ArgumentOutOfRangeException>(() => _ = new PageLine("x", rows: 0));
+        Assert.That(new PageLine("Type my answer", action: "type", key: "own", choice: true, besideNext: true).BesideNext, Is.True, "it shares its row with the paging row after it");
+        Assert.That(new PageLine("15 minutes", action: "answer", key: "0", choice: true).BesideNext, Is.False);
     }
 
     [Test]
