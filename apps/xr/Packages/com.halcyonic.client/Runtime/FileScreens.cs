@@ -382,7 +382,9 @@ namespace Halcyonic.Client
         /// </summary>
         internal static PageLine Line(SectionLine line, AnswerRoom room, string? opens = null, bool chosen = false) => new PageLine(
             line.Words,
-            wordsAreData: line.Evidence != Evidence.Halcyonic,
+            // A source line inside an answer carries the source's own words, its version or why it could
+            // not be read, so it is data, as every class but Halcyonic's own is.
+            wordsAreData: line.Source || line.Evidence != Evidence.Halcyonic,
             icon: line.File is FileKind kind ? Icon(kind) : (GlazeIcon?)null,
             tone: line.Source || line.Detail ? LineTone.Secondary : Tone(line.Tone),
             chip: line.Chip,
