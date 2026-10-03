@@ -230,8 +230,8 @@ What a client sees and can do about folders on the host
   there, for one) can name a folder to look like another or to read as Halcyonic's sentence. Connect
   a folder's words (`ConnectText`) show names by `LabelText`'s rule, quote them inside Halcyonic's
   sentences, and mark a free folder whose shown name looks like another free folder's, a folder in
-  use or a project's (spacing, case, compatibility forms and invisible characters aside) with "Name looks
-  like another", keeping its place and change time on the row to tell them apart;
+  use or a project's (spacing, case, compatibility forms and invisible characters aside) with "Look-alike
+  name", keeping its place and change time on the row to tell them apart;
   Projects marks a project whose name looks like another project's or a free folder's the same way, so
   a decoy folder named after a project, and the project it imitates, both carry the mark. A name that
   shows as nothing (only white space, or characters `LabelText` drops) shows each character's code
@@ -239,7 +239,9 @@ What a client sees and can do about folders on the host
   of other scripts that look alike are not caught, and the newest folders come first, so a decoy made
   a moment ago stands above the folder it imitates with only its facts and that mark to tell them
   apart. A row's key holds the root's absolute path and the folder's raw name: it is never shown and
-  kept out of every log.
+  kept out of every log. Every press in Projects goes through `ProjectsScreens.Allows`, which acts
+  only on a prompt or row the frame built from the same state shows as available, so a stale press,
+  a second Connect, or Add a task in the demonstration does nothing.
 - **A folder that changes after it was bound** is checked again at every start: gone or no longer
   a folder is `location_missing`, now leading elsewhere through a symbolic link is
   `location_missing` too, and outside the roots is `location_not_allowed`. Work already running

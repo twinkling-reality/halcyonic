@@ -98,6 +98,8 @@ namespace Halcyonic.Client
                     if (folder.UsedBy.Count == 0) offers.Add(new ConnectableFolder(root, folder));
                 }
             }
+            // A root listed twice gives the same folders twice: one row each.
+            offers = offers.GroupBy(offer => offer.Key, StringComparer.Ordinal).Select(group => group.First()).ToList();
             foreach (var alike in offers.GroupBy(offer => Likeness(offer.Name), StringComparer.Ordinal).Where(group => group.Count() > 1))
             {
                 foreach (var offer in alike) offer.LooksLikeAnother = true;
