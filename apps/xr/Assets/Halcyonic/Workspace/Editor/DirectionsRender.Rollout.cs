@@ -138,12 +138,42 @@ namespace Halcyonic.XR.Workspace.Editor
         // ---------------------------------------------------------------------------------------------
         // New project, slid out beside the menu on Projects: the companion's question, its answers.
 
+        /// <summary>
+        /// For the companion's question limit (ADR 0025): how many characters of a question fit the
+        /// quote's 2 rows, "The companion says: “" and "”" included, at 18 dp leaning in New project's
+        /// column, for ordinary English and for the widest letters. Logs; fails nothing.
+        /// </summary>
+        private static void MeasureQuote(Board board, float width, float column)
+        {
+            var samples = new[]
+            {
+                ("ordinary English", "Where will the club store these times? Should the page show each runner's best time for every distance, or every race they ran, newest first, with the date and the course beside each one?"),
+                ("the widest letters", string.Join(" ", System.Linq.Enumerable.Repeat("mmmmm wwwww", 30))),
+            };
+            foreach (var (name, sample) in samples)
+            {
+                var fits = 0;
+                for (var length = 1; length <= sample.Length; length++)
+                {
+                    var (label, height) = Body(board, "Quote measure", CompanionText.Says(sample.Substring(0, length)), 0f, 0f, width, GlazeTokens.Text, lines: 9, lean: true);
+                    var rows = Mathf.RoundToInt(height / GlazeText.LineHeight(label));
+                    UnityEngine.Object.DestroyImmediate(label.gameObject);
+                    if (rows > 2) break;
+                    fits = length;
+                }
+                Debug.Log("Halcyonic: directions render: quote measure, " + name + ": " + fits + " characters of the question fit the quote's 2 rows, "
+                    + CompanionText.Says(sample.Substring(0, fits)).Length + " with \"The companion says: “\" and \"”\", in a "
+                    + Mathf.RoundToInt(2f * Mathf.Atan(column / 2f) * Mathf.Rad2Deg) + " degree column.");
+            }
+        }
+
         /// <param name="view">With the companion's view that this can't be built over its question: the longest a reply shows, the quote then the question alone.</param>
-        /// <param name="tooLong">The view over a quote of three rows, the companion's line and its question: past the field, kept to show why a quote holds two.</param>
+        /// <param name="tooLong">The view over a quote of three rows, the companion's line and its question: at a file's 36 degrees it reaches the field's very edge, with nothing to spare, why a quote holds two.</param>
         private static void NewProjectQuestions(Shot shot, bool view = false, bool tooLong = false)
         {
             var menuWidth = 2f * U(16f);
-            var stepsWidth = 2f * U(19f);
+            // A file's width, as lane U's FileColumnDegrees gives every file and New project.
+            var stepsWidth = 2f * U(18f);
             var head = SubjectShape(shot, "Menu subject", "What would you like to work on?", GlazeTokens.Text, menuWidth);
             // With the view, an idea that is not software yet, and a question that looks for the software in it.
             var idea = view ? "Get more of my running club to races" : "A page for my running club's race times";
@@ -175,6 +205,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 : view
                     ? CompanionText.Says("Would a page of the club's next races help, or a reminder before each one?")
                     : CompanionText.Says("Should the page show each runner's best time, or every race?");
+            if (!view) MeasureQuote(page, pr - pl, stepsWidth);
             py -= Body(page, "Asks", says, pl, py, pr - pl, GlazeTokens.Text, lines: tooLong ? 3 : 2, lean: true).Height + U(GroupGap);
             var inset = U(RowInset);
             var tall = U(RowHeight);
