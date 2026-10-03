@@ -39,6 +39,9 @@ namespace Halcyonic.Client
         public const string AddTask = "Add a task";
         public const string WaitingForMac = "Waiting for " + HostText.Your + ".";
 
+        /// <summary>Why Start building can't be pressed while a build is on its way (the coordinator, 2026-10-02).</summary>
+        public const string AlreadyStarting = "Already starting. Wait to hear how it went.";
+
         public const string MoreTasksLine = "Tasks that aren't on the stage right now. Anything waiting for you is at the top. Choose one to open it.";
         public const string AllOnStage = "Every task is on the stage.";
 

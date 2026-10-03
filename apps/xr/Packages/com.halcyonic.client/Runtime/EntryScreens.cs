@@ -323,7 +323,7 @@ namespace Halcyonic.Client
             var model = new PanelModel(existing ? EntryText.WorkRecapTitle : EntryText.RecapTitle)
             {
                 // Moving a project changes where all its later work runs, so the recap says so before the review.
-                Lead = notice ?? (idea.Folder != null && existing ? EntryText.RebindWarning : EntryText.RecapLine),
+                Lead = notice ?? (Moves(idea, currentFolder) ? EntryText.RebindWarning : EntryText.RecapLine),
                 Columns = 2,
             };
             var named = idea.Name.Length > 0;
@@ -390,10 +390,12 @@ namespace Halcyonic.Client
         /// nothing chosen to run it, a choice no longer there, no model, the project gone, no folder,
         /// checked in that order.
         /// </summary>
+        /// <param name="sequence">The build already sent, if any: while it is on its way, nothing more starts.</param>
         public static string? StartProblem(bool demonstration, ClientProjection? state, bool connected, ProjectIdea? idea, NewWorkDraft draft,
-            ProjectLocation? currentFolder)
+            ProjectLocation? currentFolder, BuildSequence? sequence = null)
         {
             if (demonstration) return EntryText.DemoCannotStart;
+            if (sequence?.InFlight == true) return EntryText.AlreadyStarting;
             if (state == null || !connected) return EntryText.WaitingForMac;
             if (idea?.Problem is string ideaProblem) return ideaProblem;
             var runtime = draft.Runtime;
@@ -521,9 +523,12 @@ namespace Halcyonic.Client
         {
             // Reviewing changes nothing: the draft takes the first task only when its Yes is pressed.
             var model = draft.Model;
+            // A folder is sent for a new project, or to move one that exists; a project already where the choice points stays as it is.
+            var moves = Moves(idea, currentFolder);
+            var sends = idea.ExistingProjectId == null || moves ? idea.Folder : null;
             // The review spells what Halcyonic did not write by its code points, so it is given those names as they are.
-            var folder = idea.Folder?.Describe(name => name) ?? currentFolder?.Name ?? "none";
-            var before = idea.Folder != null && idea.ExistingProjectId != null ? currentFolder?.Name ?? "none" : null;
+            var folder = sends?.Describe(name => name) ?? currentFolder?.Name ?? "none";
+            var before = moves ? currentFolder?.Name ?? "none" : null;
             var (title, titleCut) = NewWorkDraft.TitleSourceOf(idea.FirstTask);
             return new NewWorkReview(
                 idea.Name,
@@ -536,8 +541,15 @@ namespace Halcyonic.Client
                 folder,
                 before,
                 titleCut,
-                idea.Folder?.ToContract());
+                sends?.ToContract());
         }
+
+        /// <summary>
+        /// The request moves a project that exists to another folder: one is chosen, and the project is
+        /// not already there, as a project made under that choice before a later step stopped is.
+        /// </summary>
+        public static bool Moves(ProjectIdea idea, ProjectLocation? currentFolder) =>
+            idea.ExistingProjectId != null && idea.Folder != null && !idea.Folder.IsAt(currentFolder?.Path);
 
         /// <summary>
         /// The whole request, a part at a time, drawn by the panel in the space the frame leaves. Yes,

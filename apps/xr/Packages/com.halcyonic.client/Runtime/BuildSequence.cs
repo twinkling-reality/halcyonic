@@ -111,6 +111,9 @@ namespace Halcyonic.Client
 
         public IReadOnlyList<BuildStep> Steps => steps;
 
+        /// <summary>On its way: it has sent, and has neither stopped nor started the work; nothing more starts until it does.</summary>
+        public bool InFlight => Sent && !Stopped && !Started;
+
         /// <summary>The draft it sends from: the runtime, model and first task as they are now.</summary>
         public NewWorkDraft Draft => draft;
 
@@ -200,7 +203,9 @@ namespace Halcyonic.Client
         public CommandEnvelope Retry(NewWorkReview reviewed, string? projectName = null, ProjectLocationChoice? folder = null)
         {
             if (!CanRetry) throw new InvalidOperationException("Only a step that cannot have run is sent again.");
-            Confirm(reviewed, steps[index].Kind == BuildStepKind.CreateProject ? projectName ?? newProjectName : null, folder ?? location);
+            // Compared with the folder this send carries: a step after the project was made carries none unless one is given.
+            var carried = folder ?? (steps[index].Kind == BuildStepKind.CreateProject || steps[index].Kind == BuildStepKind.BindFolder ? location : null);
+            Confirm(reviewed, steps[index].Kind == BuildStepKind.CreateProject ? projectName ?? newProjectName : null, carried);
             if (projectName != null) newProjectName = projectName;
             if (folder != null) location = folder;
             Stopped = false;

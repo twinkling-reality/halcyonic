@@ -208,18 +208,5 @@ namespace Halcyonic.Client
             return (objective.Substring(0, fits).TrimEnd(), true);
         }
 
-        public WorkstreamCreateCommand CreateWorkstream()
-        {
-            if (Problem is string problem) throw new InvalidOperationException(problem);
-            return commands.CreateWorkstream(ProjectId!, Title, Objective.Trim());
-        }
-
-        public ExecutionStartCommand StartExecution(string workstreamId)
-        {
-            if (Problem is string problem) throw new InvalidOperationException(problem);
-            // Problem already requires one; this keeps a start without a model for a listing runtime impossible.
-            if (Runtime!.ModelChoice == ModelChoice.Listed && Model == null) throw new InvalidOperationException("Choose a model.");
-            return commands.StartExecution(workstreamId, Runtime.RuntimeId, Objective.Trim(), modelRef: Model?.ModelRef);
-        }
     }
 }

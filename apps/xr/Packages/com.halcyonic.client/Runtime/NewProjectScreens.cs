@@ -166,7 +166,8 @@ namespace Halcyonic.Client
         /// <summary>
         /// The companion's quote takes 2 rows (lane V, by render: with its view's line and a third row,
         /// the page passes a Quest 3S's field). Its line shares the quote with its question while both
-        /// fit; else the question shows alone, never cut, taking a third row only if it alone needs one.
+        /// fit by this estimate; else the question shows alone, never cut: a question of the widest
+        /// letters can need a third row, which the view, measuring the real words, grows to.
         /// </summary>
         public const int QuoteRows = 2;
 
@@ -343,7 +344,8 @@ namespace Halcyonic.Client
                 var notBuildable = ask.View == CompanionView.NotBuildable;
                 if (notBuildable) lines.Add(new PageLine(CompanionText.ThinksNotBuildable, tone: LineTone.Secondary, rows: 2));
                 var quote = Asked(ask, withLine: !notBuildable);
-                lines.Add(new PageLine(quote, wordsAreData: true, claim: true, rows: System.Math.Max(QuoteRows, Rows(quote))));
+                // At most a third row: the view measures the real words and grows to it rather than cut the question.
+                lines.Add(new PageLine(quote, wordsAreData: true, claim: true, rows: QuoteRows + 1));
                 var choices = ask.Question?.Choices ?? new List<string>();
                 var recordedAnswer = recording?.RecordedAnswer(exchange);
                 for (var index = 0; index < choices.Count; index++)
@@ -459,7 +461,7 @@ namespace Halcyonic.Client
             var lines = new List<PageLine>();
             if (notice != null) lines.Add(new PageLine(notice, tone: LineTone.Secondary, rows: 2));
             else if (proposal != null) lines.Add(new PageLine(EntryScreens.Proposed(proposal), wordsAreData: true, claim: true, rows: 2));
-            else lines.Add(new PageLine(idea.Folder != null && existing ? EntryText.RebindWarning : EntryText.RecapLine, tone: LineTone.Secondary, rows: 2));
+            else lines.Add(new PageLine(EntryScreens.Moves(idea, currentFolder) ? EntryText.RebindWarning : EntryText.RecapLine, tone: LineTone.Secondary, rows: 2));
             var named = idea.Name.Length > 0;
             lines.Add(existing
                 ? new PageLine(LabelText.Plain(idea.Name), wordsAreData: true)
@@ -646,7 +648,7 @@ namespace Halcyonic.Client
                         new PageLine(EntryText.FolderFact(currentFolder, idea.Folder, draft.Runtime?.UsesProjectLocation == true),
                             wordsAreData: idea.Folder != null || currentFolder != null, rows: 3),
                     };
-                    if (idea.Folder != null && idea.ExistingProjectId != null) folderLines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 3));
+                    if (EntryScreens.Moves(idea, currentFolder)) folderLines.Add(new PageLine(EntryText.RebindWarning, tone: LineTone.Secondary, rows: 3));
                     return new SidePanel(EntryText.FolderTitle, lines: folderLines);
                 default:
                     var runLines = new List<PageLine> { new PageLine(EntryText.RunsWith(draft, live), wordsAreData: RuntimeIsData(draft, live), rows: 2) };

@@ -98,6 +98,10 @@ namespace Halcyonic.Client
             return IsValidNewName(name) ? name : "project";
         }
 
+        /// <summary>Whether this choice is the folder at <paramref name="path"/>, as a project bound there records it.</summary>
+        public bool IsAt(string? path) =>
+            path != null && (FolderName == null ? RootPath.TrimEnd('/') : RootPath.TrimEnd('/') + "/" + FolderName) == path.TrimEnd('/');
+
         /// <summary>What the command carries: the root and the folder's name exactly as listed.</summary>
         public ProjectLocationChoice ToContract() => IsNew
             ? new NewFolderChoice { Root = RootPath, FolderName = FolderName }
