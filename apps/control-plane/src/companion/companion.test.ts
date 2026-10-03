@@ -3,6 +3,7 @@ import { describe, type TestContext, test } from 'node:test';
 import {
   COMPANION_MAX_CHARACTERS,
   COMPANION_MAX_QUESTIONS,
+  COMPANION_QUESTION_MAX,
   type CompanionExchangeTurn,
   type CompanionReply,
   type Principal,
@@ -299,6 +300,57 @@ describe('a reply', () => {
     const refused = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
     assert.equal(refused.kind === 'refused' && refused.status, 502);
     assert.equal(refusedCode(refused), 'companion_unreadable');
+  });
+
+  test('takes a question no longer than New project can quote, asking once more for a longer one and never cutting it', async (t) => {
+    const { ollama, companion } = await setUp(t);
+    const question = (text: string): CompanionReply => ({
+      ...ASK,
+      question: { text, choices: ['Yes', 'No'] },
+    });
+    const longest = `${'q'.repeat(COMPANION_QUESTION_MAX - 1)}?`;
+    ollama.answer({ content: JSON.stringify(modelReply(question(longest))) });
+    const fits = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
+    assert.equal(
+      fits.kind === 'answered' && fits.body.reply.next === 'ask' && fits.body.reply.question.text,
+      longest,
+    );
+
+    const over = `${'q'.repeat(COMPANION_QUESTION_MAX)}?`;
+    ollama.answer(
+      { content: JSON.stringify(modelReply(question(over))) },
+      { content: JSON.stringify(modelReply(ASK)) },
+    );
+    const retried = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
+    assert.equal(
+      retried.kind,
+      'answered',
+      'the one retry is the same as for any reply out of bounds',
+    );
+    assert.equal(retried.log.attempts, 2);
+    assert.deepEqual(
+      retried.kind === 'answered' && retried.body.reply,
+      ASK,
+      'the longer question is never shown in part',
+    );
+
+    ollama.answer(
+      { content: JSON.stringify(modelReply(question(over))) },
+      { content: JSON.stringify(modelReply(question(over))) },
+    );
+    const refused = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
+    assert.equal(refusedCode(refused), 'companion_unreadable');
+  });
+
+  test('tells the model the question limit, in its instructions and its schema', () => {
+    assert.equal(COMPANION_QUESTION_MAX, 100);
+    assert.ok(
+      SYSTEM_PROMPT.includes(`one question of at most ${COMPANION_QUESTION_MAX} characters`),
+    );
+    const shape = REPLY_SCHEMA.properties.question.anyOf[1] as {
+      properties: { text: { maxLength: number } };
+    };
+    assert.equal(shape.properties.text.maxLength, COMPANION_QUESTION_MAX);
   });
 
   test('gives up on a model that is late, closing the request, and does not ask again', async (t) => {

@@ -43,6 +43,9 @@ namespace Halcyonic.Client
         /// <summary>The questions the companion asks before it only proposes, unless the Mac said otherwise.</summary>
         public const int DefaultMaxQuestions = 4;
 
+        /// <summary>The longest question of the companion's: the contract's, what New project's two-row quote holds.</summary>
+        public const int QuestionLimit = 100;
+
         /// <summary>The failure's code when the Mac could not be reached at all, so it gave none.</summary>
         public const string Unreachable = "unreachable";
 
@@ -233,7 +236,7 @@ namespace Halcyonic.Client
             if (reply == null || !Text(reply.Line, 300) || !Enum.IsDefined(typeof(CompanionView), reply.View)) return false;
             return reply switch
             {
-                AskReply ask => ask.Question != null && Text(ask.Question.Text, 160) && ask.Question.Choices != null
+                AskReply ask => ask.Question != null && Text(ask.Question.Text, QuestionLimit) && ask.Question.Choices != null
                     && ask.Question.Choices.Count <= 4 && ask.Question.Choices.All(choice => Text(choice, 48)),
                 ProposeReply propose => propose.Proposal != null && Text(propose.Proposal.ProjectName, 60) && Text(propose.Proposal.FirstTask, 1000),
                 _ => false,
