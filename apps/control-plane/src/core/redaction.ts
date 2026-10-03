@@ -62,7 +62,7 @@ const WHOLE_KEY_SHAPE = new RegExp(`^(?:${KEY_SHAPES.source})$`);
  * since base64 has no `.` and a JSON Web Token no `/`. One with `+` or `=` in it is base64 and so
  * never a path. It runs on across `=`, as in `abcdefgh=ijkl…`, but a `.` never ends it, so a full
  * stop after it, or after its padding, stays outside what is replaced, as in "…ZA==.Retry". A
- * parameter's name before it, with its quote, stays, as in `Token token="…"`.
+ * parameter's name before it, with its quote, stays, as in `Token token="…"` or `token='…'`.
  */
 const SCHEME_CREDENTIAL = (() => {
   const run = '[A-Za-z0-9._~+/=-]';
@@ -71,7 +71,7 @@ const SCHEME_CREDENTIAL = (() => {
   return new RegExp(
     [
       '\\b(Bearer|Basic|Token)(\\s+)',
-      '((?:token|access_token|auth|key|api_key|credentials?|sig|signature|password|secret)="?)?',
+      '((?:token|access_token|auth|key|api_key|credentials?|sig|signature|password|secret)=["\']?)?',
       '(?![/~.])',
       '(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\\/)[A-Za-z0-9._~/-]*\\.[A-Za-z0-9])',
       `(?=${run}*[0-9+/=])`,
