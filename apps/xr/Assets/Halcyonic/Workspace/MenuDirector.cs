@@ -294,11 +294,14 @@ namespace Halcyonic.XR.Workspace
             navigator.Drawn(from, view.Frame, view.Side);
         }
 
-        /// <summary>A held prompt: the voice records for its column, unless it is still busy with another hold's words.</summary>
-        private void OnHoldStarted(MenuColumn from, Prompt prompt)
+        /// <summary>
+        /// A held prompt, only on the frame last drawn in its slot, as a press: the voice records for its
+        /// column, unless it is still busy with another hold's words.
+        /// </summary>
+        private void OnHoldStarted(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side)
         {
             if (FocusGuard.InputSuspended) return;
-            if (navigator.ColumnOf(from) is IMenuColumn column) voice?.Hold(column, prompt.Id);
+            if (navigator.Standing(from, frame, side) is IMenuColumn column) voice?.Hold(column, prompt.Id);
         }
 
         /// <summary>A hold ended: only the hold that started the recording ends it.</summary>

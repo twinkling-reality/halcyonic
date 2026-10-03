@@ -57,8 +57,11 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A column's words are laid as the plane has them; the director passes it on to the screen that counts what was read.</summary>
         public event Action<MenuColumn, MenuFrameView>? Drawn;
 
-        /// <summary>A held prompt, as Hold to talk, started or ended (let go on it, or dropped).</summary>
-        public event Action<MenuColumn, Prompt>? HoldStarted;
+        /// <summary>
+        /// A held prompt, as Hold to talk, started, with the frame its view showed or its side panel, as a
+        /// press carries; or ended (let go on it, or dropped), which always passes, so a recording ends.
+        /// </summary>
+        public event Action<MenuColumn, Prompt, MenuFrame?, SidePanel?>? HoldStarted;
 
         public event Action<MenuColumn, Prompt, bool>? HoldEnded;
 
@@ -134,7 +137,10 @@ namespace Halcyonic.XR.Workspace
                 if (Contains(shown, view)) Acted?.Invoke(kind, action, key, view.Frame, view.Side);
             };
             view.Drawn += drawn => Drawn?.Invoke(kind, drawn);
-            view.HoldStarted += prompt => HoldStarted?.Invoke(kind, prompt);
+            view.HoldStarted += prompt =>
+            {
+                if (Contains(shown, view)) HoldStarted?.Invoke(kind, prompt, view.Frame, view.Side);
+            };
             view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
             view.Hide();
             return view;
