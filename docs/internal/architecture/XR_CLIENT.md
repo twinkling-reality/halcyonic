@@ -369,7 +369,10 @@ the same definition names, as the JSON Schema document:
   column closes, so each opening starts afresh; what must outlive it, as Projects' memory of a
   Connect in flight, `MenuMemory` keeps for the app's run on one journal, across reconnects and never
   renewed then, since a socket's drop is when an outcome turns unknown; another journal or a
-  re-pairing starts afresh. The director makes Projects (lane L's `ProjectsColumn`) over it.
+  re-pairing starts afresh. The director makes Projects (lane L's `ProjectsColumn`) over it, and
+  keeps New project's flow (lane C's) in it once first opened, ticking it while it isn't beside the
+  menu so a build confirmed in it goes on; another journal lets the flow go and takes it off the
+  plane.
   `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`, as every column's
   `IMenuHost`: it sends only through the submit its host gives it, WorkspaceDirector's command
   submissions, so what is in flight shows as sent, runs Hold to talk's one voice for any held

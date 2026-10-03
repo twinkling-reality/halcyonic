@@ -76,7 +76,9 @@ namespace Halcyonic.XR.Workspace
 
             /// <summary>
             /// New project as a column, opened for a new project (null, null) or to add a task to one: lane
-            /// C's flow, one a session, which the host opens on the project before giving it.
+            /// C's flow, kept in <see cref="Memory"/> for the journal (MenuMemory.NewProjectFor, made by
+            /// NewProjectColumn.Create), which the host opens on the project before giving it. The director
+            /// ticks it while it isn't beside the menu, so a build confirmed in it goes on.
             /// </summary>
             public Func<IMenuHost, string?, string?, IMenuColumn?> NewProject { get; set; } = (_, _, _) => null;
 
@@ -131,8 +133,6 @@ namespace Halcyonic.XR.Workspace
         /// <summary>What outlives a column and a reconnect, for the app's run on one journal.</summary>
         private readonly MenuMemory memory = new MenuMemory();
 
-        /// <summary>New project's flow once opened: it still ticks closed, so a build in flight finishes.</summary>
-        private IMenuColumn? newProject;
         private bool dirty = true;
         private MenuBar? shownBar;
 
@@ -173,6 +173,11 @@ namespace Halcyonic.XR.Workspace
                 setup.Voice.Said += words => director.holding?.Said(words);
             }
             FocusGuard.Left += director.OnFocusLeft;
+            // New project's flow let go for another journal comes off the plane.
+            director.memory.NewProjectDropped += flow =>
+            {
+                if (director.navigator.Beside == flow) director.navigator.CloseBeside();
+            };
             return director;
         }
 
@@ -197,7 +202,9 @@ namespace Halcyonic.XR.Workspace
         private void Update()
         {
             navigator.Tick();
-            if (newProject != null && navigator.Beside != newProject) newProject.Tick();
+            // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
+            memory.Journal(State?.Journal?.JournalId);
+            if (memory.NewProject is IMenuColumn flow && navigator.Beside != flow) flow.Tick();
             var bar = setup.Bar(navigator.Place);
             if (dirty || shownBar == null || !Same(bar, shownBar)) Draw(immediately: false);
         }
@@ -341,11 +348,7 @@ namespace Halcyonic.XR.Workspace
             opening = (true, null);
             try
             {
-                if (setup.NewProject(this, projectId, projectName) is IMenuColumn flow)
-                {
-                    newProject = flow;
-                    navigator.ShowBeside(flow, null);
-                }
+                if (setup.NewProject(this, projectId, projectName) is IMenuColumn flow) navigator.ShowBeside(flow, null);
             }
             finally
             {
