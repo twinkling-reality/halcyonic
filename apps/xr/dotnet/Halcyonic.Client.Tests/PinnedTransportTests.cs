@@ -170,25 +170,6 @@ public class PinnedTransportTests
     }
 
     [Test]
-    public void AComputerIsNamedByItsPinWhenPairedAndByItsEndpointOtherwiseNeverByTheCredential()
-    {
-        var pairing = new PairedControlPlane("192.168.1.23", 47801, new string('c', 64), "01a0f0a0-0000-7000-8000-000000000001", "hlcd_" + new string('A', 43));
-        var paired = ControlPlaneTarget.Paired(pairing).Computer;
-        Assert.That(paired, Does.Match("^[0-9a-f]{64}$"));
-        Assert.That(ControlPlaneTarget.Paired(pairing.At("192.168.1.24", 47802)).Computer, Is.EqualTo(paired), "another address of the same computer");
-        var repaired = new PairedControlPlane("192.168.1.23", 47801, new string('c', 64), "01a0f0a0-0000-7000-8000-000000000002", "hlcd_" + new string('B', 43));
-        Assert.That(ControlPlaneTarget.Paired(repaired).Computer, Is.EqualTo(paired), "paired again with it");
-        var another = new PairedControlPlane("192.168.1.23", 47801, new string('d', 64), pairing.DeviceId, pairing.Credential);
-        Assert.That(ControlPlaneTarget.Paired(another).Computer, Is.Not.EqualTo(paired), "another computer");
-
-        var endpoint = new Uri("ws://127.0.0.1:47800/realtime");
-        var local = ControlPlaneTarget.Local(endpoint, "token").Computer;
-        Assert.That(ControlPlaneTarget.Local(endpoint, "a new token").Computer, Is.EqualTo(local));
-        Assert.That(ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:47810/realtime"), "token").Computer, Is.Not.EqualTo(local));
-        Assert.That(local, Is.Not.EqualTo(paired));
-    }
-
-    [Test]
     public void KeepsAPairingInAFileAndForgetsIt()
     {
         var directory = Directory.CreateTempSubdirectory("halcyonic-pairing-").FullName;

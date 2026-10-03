@@ -58,8 +58,8 @@ namespace Halcyonic.XR.Workspace
         private BuildSequence? sequence;
         private Task<CommandAckMessage>? pendingAck;
 
-        /// <summary>A start whose outcome is unknown, kept for the computer and read afresh, so New project's shows here at once; the renders keep theirs in memory.</summary>
-        private IKeptCommand kept = new KeptUnknownStart();
+        /// <summary>A start whose outcome is unknown, kept for the journal and read afresh, so New project's shows here at once; the renders keep theirs in memory.</summary>
+        private IKeptCommand kept = null!;
 
         /// <summary>The kept id this panel wrote for its own build, which only it may replace or clear.</summary>
         private string? ownId;
@@ -94,6 +94,7 @@ namespace Halcyonic.XR.Workspace
         private void AwakeCreate()
         {
             draft = new NewWorkDraft(commands);
+            kept = new KeptUnknownStart(new PlayerPreferences(), () => state());
             for (var index = 0; index < ReviewLabels; index++)
             {
                 var label = RequestLabel("Request item " + index);
