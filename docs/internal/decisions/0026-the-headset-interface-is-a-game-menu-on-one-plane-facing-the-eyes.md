@@ -250,8 +250,12 @@ coordinator's first-visit words:
 - **Beside a window**, with the characters either side of a window straight ahead, the menu or a
   file opens centred under the window, between them, one at a time: the two together clear the
   characters' labels only 61 degrees below eye level, far past the field, so a file opened there
-  takes the menu's place, the menu stepping aside. The file draws no light line, which would run
-  across the window; the pill on its subject still names its task's state. Turned aside for a
+  takes the menu's place, the menu stepping aside, and a file's side panel takes the file's place at
+  both text sizes, since a file and its side panel don't clear the characters either. The file
+  draws no light line, which would run across the window; the pill on its subject still names its
+  task's state. The window is assumed in a lane straight ahead, 48 by 28 degrees
+  (`CharacterStage.WindowLaneHalfWidthDegrees`, `WindowLaneHalfHeightDegrees`), which the plane
+  clears as it clears a label. Turned aside for a
   window, the plane stands under the characters, as everywhere. Nothing of Halcyonic's comes within
   a degree of the window's assumed place, straight ahead; the renders check it.
 - **Labels are cleared where they stand** (2026-10-02, lane U's renders at the far stage on a Quest
