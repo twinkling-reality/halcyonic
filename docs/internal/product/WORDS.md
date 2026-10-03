@@ -108,6 +108,19 @@ These words were settled by the coordinator on 2026-10-02.
 | Under the limits, in place of the account note | These limits are part of the recording. |
 | A limit's Account fact, in place of who it belongs to | Part of the recording |
 
+### The agent's question in a file
+
+How a file's Waiting page pages the agent's question (ADR 0026), as settled by the coordinator on
+2026-10-02, the old words beside the new.
+
+| Where | Words | Instead of |
+| --- | --- | --- |
+| The row at the end of a prompt's page of answers | More answers, 2 of 2; from the last page, First answers, 1 of 2 | Next, the old panel's pager |
+| The row after a prompt, in a question of several | Next question, 2 of 2; after the last, Your answers | |
+| Send answer's reason while a cut question is unread | Open the question to read the rest. | Read each question to the end first. Press Next to see the rest. |
+| Send answer's reason on a prompt's page, in a question of several | Answer each question, then send from Your answers. | |
+| The row for the person's own answer | Type my answer; once typed, Your answer: "…", chosen | Type an answer; Typed: … |
+
 ## Sentence patterns
 
 | Kind | Pattern | Example |

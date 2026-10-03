@@ -97,6 +97,9 @@ namespace Halcyonic.Client
             return null;
         }
 
+        /// <summary>Unchooses every label chosen for a prompt, keeping its typed text, as when the page of its answers turns.</summary>
+        public void ClearChosen(int prompt) => chosen[prompt].Clear();
+
         /// <summary>The person has been shown the whole of a prompt's question.</summary>
         public void ShownWhole(int prompt) => shownWhole[prompt] = true;
 

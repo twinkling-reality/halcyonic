@@ -115,24 +115,14 @@ namespace Halcyonic.Client
         public FileAnswer? Checked { get; set; }
 
         /// <summary>Where the person is in the agent's question.</summary>
-        public QuestionPlace Place { get; } = new QuestionPlace();
-
-        /// <summary>The rows each prompt's text wraps to at the page's width, in the prompts' order, as the layout measured them.</summary>
-        public IReadOnlyList<int> QuestionRows { get; private set; } = Array.Empty<int>();
+        public FileQuestion Question { get; } = new FileQuestion();
 
         /// <summary>
-        /// Reads <paramref name="draft"/>'s question, each prompt's text taking <paramref name="rows"/>
-        /// rows at the page's width: from its first step when it is another question, else where the
-        /// person was. Each part of a prompt's text shows <see cref="FileScreens.QuestionRows"/> rows.
+        /// Reads <paramref name="draft"/>'s question, each prompt laid out as <paramref name="measured"/>
+        /// says on pages of <paramref name="rows"/> content rows, the source line's row already taken:
+        /// from its first prompt when it is another question, else where the person was.
         /// </summary>
-        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<int> rows)
-        {
-            Place.Show(draft);
-            QuestionRows = rows;
-            var parts = new List<int>();
-            foreach (var each in rows) parts.Add(PartsOf(each, FileScreens.QuestionRows));
-            Place.Measured(parts);
-        }
+        public void ReadQuestion(QuestionDraft draft, IReadOnlyList<PromptMeasure> measured, int rows) => Question.Show(draft, measured, rows);
 
         private int armingRead = -1;
 
@@ -178,12 +168,6 @@ namespace Halcyonic.Client
             steering.RequestShown(RequestPart + 1, RequestParts);
         }
 
-        /// <summary>The person pressed the question's part row: its next step shows, or from the last its first again.</summary>
-        public void NextQuestionPart()
-        {
-            if (Place.Steps < 2) return;
-            Place.Turn(Place.Step + 1 < Place.Steps ? 1 : -Place.Step);
-        }
 
         /// <summary>Forgets the request's parts, as when its confirmation is answered or dropped.</summary>
         public void ForgetRequest()

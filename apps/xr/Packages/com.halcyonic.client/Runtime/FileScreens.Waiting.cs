@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -39,7 +40,7 @@ namespace Halcyonic.Client
             }
             if (steering.Armed == WorkspaceAction.Answer && Asked(workspace, screen) is QuestionDraft armed)
             {
-                var before = QuestionFooter(workspace, screen);
+                var before = QuestionFooter(workspace, screen, armed);
                 if (before[PromptSlot.FarRight]?.Kind == PromptKind.Action) return Answers(armed, steering, workspace, before, source);
             }
             if (WorkspaceText.NeedFromYou(workspace) is NeedAnswer need) return Approval(workspace, need, room, source);
@@ -108,24 +109,68 @@ namespace Halcyonic.Client
         /// <summary>The agent's question the person reads here, while it is the one the work shows.</summary>
         private static QuestionDraft? Asked(WorkspacePresentation workspace, FileScreen screen)
         {
-            var draft = screen.Place.Draft;
+            var draft = screen.Question.Draft;
             var execution = workspace.Execution?.ExecutionId;
             return draft != null && execution != null && draft.Answers(execution, workspace.QuestionToAnswer) ? draft : null;
         }
 
+        // A question's words, as the coordinator settled them on 2026-10-02.
+        public const string OpenToRead = "Open the question to read the rest.";
+        public const string SendFromYourAnswers = "Answer each question, then send from Your answers.";
+        public const string TypeMyAnswer = "Type my answer";
+        public const string YourAnswers = "Your answers";
+
+        /// <summary>What a row on the question's page raises: more answers, the next question, or a prompt from the person's answers, by its index.</summary>
+        public const string MoreAnswers = "more-answers";
+        public const string NextQuestion = "next-question";
+        public const string GoToQuestion = "go-to-question";
+
+        /// <summary>The words on the row for more answers: the next page, or from the last back to the first.</summary>
+        public static string MoreAnswersWords(int page, int pages) => page + 1 < pages
+            ? "More answers, " + (page + 2).ToString(CultureInfo.InvariantCulture) + " of " + pages.ToString(CultureInfo.InvariantCulture)
+            : "First answers, 1 of " + pages.ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>The words on the row after a prompt: the next question, or after the last, the person's answers.</summary>
+        public static string NextQuestionWords(int prompt, int prompts) => prompt + 1 < prompts
+            ? "Next question, " + (prompt + 2).ToString(CultureInfo.InvariantCulture) + " of " + prompts.ToString(CultureInfo.InvariantCulture)
+            : YourAnswers;
+
+        /// <summary>The row for the person's own answer: Type my answer, or once typed, their words as written, chosen.</summary>
+        public static string TypedWords(string? typed) => typed == null ? TypeMyAnswer : "Your answer: “" + WorkspaceText.OneLine(typed) + "”";
+
+        /// <summary>
+        /// Why Send answer can't send yet, or null when it can: a question of several prompts sends only
+        /// from the person's answers; every prompt answered; and every question read whole, a cut one
+        /// only once its side panel has shown.
+        /// </summary>
+        private static string? SendProblem(QuestionDraft draft, FileQuestion question)
+        {
+            if (draft.Prompts.Count > 1 && !question.Reviewing) return SendFromYourAnswers;
+            if (!(draft.Problem is string problem)) return null;
+            var answered = Enumerable.Range(0, draft.Prompts.Count).All(draft.IsAnswered);
+            return answered && draft.Question.Answerable ? OpenToRead : problem;
+        }
+
         /// <summary>
         /// A question's footer: Close, Stop beside it, Hold to talk beside Send answer, and Send answer as
-        /// the main action; while an answer sent may still take effect, Sent… in its place, taking no press.
+        /// the main action, waiting in its place with its reason until it can send; while an answer sent
+        /// may still take effect, Sent… in its place, taking no press.
         /// </summary>
-        private static Footer QuestionFooter(WorkspacePresentation workspace, FileScreen screen)
+        private static Footer QuestionFooter(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft)
         {
             var actions = workspace.Actions;
             var secret = workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) == true;
-            var send = actions.Contains(WorkspaceAction.Answer)
-                ? Action(WorkspaceAction.Answer, SendAnswer, main: true)
-                : workspace.AnswerInFlight
-                    ? new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting)
-                    : null;
+            Prompt? send = null;
+            if (actions.Contains(WorkspaceAction.Answer))
+            {
+                var problem = SendProblem(draft, screen.Question);
+                send = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true,
+                    available: problem == null, reason: problem);
+            }
+            else if (workspace.AnswerInFlight)
+            {
+                send = new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting);
+            }
             return new Footer(
                 CloseFile,
                 rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
@@ -137,20 +182,34 @@ namespace Halcyonic.Client
         public const string SentWaiting = "Sent. Waiting for the agent…";
 
         /// <summary>
-        /// The agent's question (ADR 0022), a step at a time: a part of the prompt's text, then a page of
-        /// its answers as rows to choose, then a row to the next part, then how it is answered. Choosing
-        /// only drafts the answer; Send answer sends it. A question Halcyonic can't answer says why.
+        /// The agent's question (ADR 0022, ADR 0026), one prompt at a time: its question, quoted, heading
+        /// every page in at most two rows, a longer one cut and opening its side panel; its answers in
+        /// the agent's order as rows to choose, a longer one cut and showing all its words beside the
+        /// page once chosen; the row for the person's own answer last; then a row for more answers and a
+        /// row on to the next question. Choosing only drafts the answer; Send answer sends it. A question
+        /// Halcyonic can't answer says why. After the last of several prompts, the person's answers.
         /// </summary>
         private static Page Question(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
         {
-            var place = screen.Place;
-            var prompt = place.Prompt;
+            var question = screen.Question;
+            if (question.Reviewing) return YourAnswersPage(workspace, screen, draft, source);
+            var prompt = question.Prompt;
             var asked = draft.Prompts[prompt];
+            var cut = question.QuestionCut(prompt);
+            var opened = cut && screen.Chosen == QuestionKey;
             var lines = new List<PageLine>
             {
-                new PageLine(WorkspaceText.PromptHeading(draft.Question, prompt), wordsAreData: true, tone: LineTone.Waiting),
-                new PageLine(WorkspaceText.OneLine(asked.Text), wordsAreData: true, rows: QuestionRows, fromRow: place.TextPart * QuestionRows),
+                new PageLine("“" + WorkspaceText.OneLine(asked.Text) + "”", wordsAreData: true, rows: question.QuestionShows(prompt),
+                    action: cut ? Open : null, key: cut ? QuestionKey : null, opens: cut, chosen: opened),
             };
+            SidePanel? side = null;
+            if (opened)
+            {
+                side = new SidePanel(WorkspaceText.PromptHeading(draft.Question, prompt), subjectIsData: true,
+                    lines: new[] { new PageLine("“" + WorkspaceText.OneLine(asked.Text) + "”", wordsAreData: true, rows: question.QuestionMeasured(prompt)) },
+                    source: source);
+            }
+            question.Shown(prompt, sidePanel: opened);
             if (!draft.Question.Answerable)
             {
                 lines.Add(new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary));
@@ -158,32 +217,50 @@ namespace Halcyonic.Client
             }
             else
             {
-                foreach (var index in place.Answers) lines.Add(Answer(draft, prompt, index));
+                foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
+                if (asked.FreeText)
+                {
+                    var typed = draft.Typed(prompt);
+                    lines.Add(new PageLine(TypedWords(typed), wordsAreData: typed != null, action: TypeAnswer,
+                        key: asked.Options.Count.ToString(CultureInfo.InvariantCulture), choice: true, chosen: typed != null, rows: typed == null ? 1 : 2));
+                }
+                if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), action: MoreAnswers));
             }
-            if (place.Steps > 1) lines.Add(new PageLine(NextPartWords(place.Step, place.Steps), action: NextPart, key: QuestionKey));
-            if (draft.Question.Answerable)
-            {
-                var lead = WorkspaceText.QuestionLead(workspace);
-                lines.Add(new PageLine(WorkspaceText.PromptHow(asked) + (lead.Length == 0 ? "" : " " + lead), tone: LineTone.Secondary, rows: 2));
-            }
-            return new Page(lines, source, QuestionFooter(workspace, screen));
+            if (draft.Prompts.Count > 1) lines.Add(new PageLine(NextQuestionWords(prompt, draft.Prompts.Count), action: NextQuestion));
+            return new Page(lines, source, QuestionFooter(workspace, screen, draft), side);
         }
 
-        /// <summary>One answer offered, as a row to choose, its description after its label; or Type an answer.</summary>
-        private static PageLine Answer(QuestionDraft draft, int prompt, int index)
+        /// <summary>One answer offered, as a row to choose, its description after its label, in at most two rows.</summary>
+        private static PageLine Answer(QuestionDraft draft, FileQuestion question, int prompt, int index)
         {
-            var asked = draft.Prompts[prompt];
-            var key = index.ToString(CultureInfo.InvariantCulture);
-            if (index < asked.Options.Count)
+            var option = draft.Prompts[prompt].Options[index];
+            var description = string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!);
+            return new PageLine(WorkspaceText.OneLine(option.Label) + description, wordsAreData: true, action: Choose,
+                key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: draft.IsChosen(prompt, option.Label),
+                rows: question.AnswerShows(prompt, index));
+        }
+
+        /// <summary>A prompt's name on the person's answers: its header as the agent wrote it, else which question it is.</summary>
+        private static string Name(QuestionView question, int prompt) => string.IsNullOrWhiteSpace(question.Prompts[prompt].Header)
+            ? "Question " + (prompt + 1).ToString(CultureInfo.InvariantCulture)
+            : WorkspaceText.OneLine(question.Prompts[prompt].Header!);
+
+        /// <summary>
+        /// The person's answers to a question of several prompts, the only page it sends from: each
+        /// prompt's name, its answer as the row's small fact, and choosing a row goes back to that prompt.
+        /// </summary>
+        private static Page YourAnswersPage(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft, string source)
+        {
+            var lines = new List<PageLine>();
+            for (var prompt = 0; prompt < draft.Prompts.Count; prompt++)
             {
-                var option = asked.Options[index];
-                var description = string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!);
-                return new PageLine(WorkspaceText.OneLine(option.Label) + description, wordsAreData: true, action: Choose, key: key, choice: true,
-                    chosen: draft.IsChosen(prompt, option.Label), rows: 2);
+                var asked = draft.Prompts[prompt];
+                var given = asked.Options.Where(option => draft.IsChosen(prompt, option.Label)).Select(option => WorkspaceText.OneLine(option.Label)).ToList();
+                if (draft.Typed(prompt) is string typed) given.Add("“" + WorkspaceText.OneLine(typed) + "”");
+                lines.Add(new PageLine(Name(draft.Question, prompt), wordsAreData: true, fact: given.Count == 0 ? "Not answered" : string.Join(", ", given),
+                    action: GoToQuestion, key: prompt.ToString(CultureInfo.InvariantCulture)));
             }
-            var typed = draft.Typed(prompt);
-            return new PageLine(WorkspaceText.TypedLabel(typed), wordsAreData: typed != null, action: TypeAnswer, key: key, choice: true,
-                chosen: typed != null, rows: 2);
+            return new Page(lines, source, QuestionFooter(workspace, screen, draft));
         }
 
         /// <summary>The answers about to be sent, a line for each prompt, and the question the confirmation asks.</summary>

@@ -349,6 +349,14 @@ the same definition names, as the JSON Schema document:
   the main action, Deny beside it and Stop beside Close; the agent's question with its answers as
   rows to choose, Send answer as the main action and Hold to talk beside it (never while it asks
   for a secret), Sent… in its place, taking no press, while an answer sent may still take effect.
+  The question shows a prompt at a time (`FileQuestion`): its question quoted heading every page in
+  at most two rows, a longer one cut and opening all of it beside the page; its answers in the
+  agent's order, none left out, each in at most two rows, paged by a row at the page's end ("More
+  answers, 2 of 2"); Type my answer last; and for a question of several prompts, a row on to the
+  next question and after the last to Your answers, which lists each prompt's answer and is the only
+  page it sends from. Turning a prompt's page clears what was chosen for it, keeping its typed
+  answer, so Send answer sends only what is in view; a cut question counts as read whole only once
+  its side panel has shown, and Send answer waits in its place with its reason until then.
   Approving or denying shows the whole request again in parts, as rows of one measured line
   (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
   back to the first), with Cancel in the place of the press and Yes in the free middle only once
