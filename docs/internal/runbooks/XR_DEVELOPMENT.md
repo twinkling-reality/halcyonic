@@ -120,6 +120,16 @@ font assets as they were, which drawing text in the editor would otherwise upgra
 characters the static atlas lacks, such as the minus sign in a change summary, are drawn from it as
 look-alikes for the render only, and the log names them.
 
+The same run then walks a judge's path through the menu (ADR 0026) on the recorded demonstration,
+from the eyes on the far stage with the 3S's field. It saves `far-3s-judge-1-bar` to
+`far-3s-judge-12-closed` at each text size: the closed bar, Tasks, the file at the agent's question,
+an answer chosen, the approval, its request's first part, Yes, Checks, Tell it's recorded rows,
+Usage with a limit's side panel, Settings with a setting chosen, and the bar again. The recording
+stands where each step is reached, and nothing is sent. It fails on the plane's checks; if the
+waiting task is not Tasks' first row; if Yes shows on the request's first part or not after the
+last; if Checks does not show the recorded simulated checks; if Tell it offers other than the
+recorded instructions; or if a recorded limit's Account does not say it is part of the recording.
+
 The project rail and the entry panel render the same way, **Halcyonic > Render the Entry Panel
 Over the Stage**, or in batch mode:
 
