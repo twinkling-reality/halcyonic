@@ -83,6 +83,23 @@ public class MenuDragTests
     }
 
     [Test]
+    public void LaidAnewAPlaneKeepsAsMuchOfItsDragAsStillHoldsElseNone()
+    {
+        Assert.That(MenuDrag.Kept((10f, -6f), _ => true), Is.EqualTo((10f, -6f)), "all of it, where it all holds");
+        var kept = MenuDrag.Kept((10f, -6f), moved => moved.Yaw <= 5f);
+        Assert.That(kept.Yaw, Is.EqualTo(5f).Within(1e-4), "scaled back toward the placement until it holds");
+        Assert.That(kept.Elevation, Is.EqualTo(-3f).Within(1e-4), "both ways together, along the same line");
+        Assert.That(MenuDrag.Kept((10f, -6f), _ => false), Is.EqualTo((0f, 0f)), "none, where nothing of it holds");
+        var asked = 0;
+        Assert.That(MenuDrag.Kept((0f, 0f), _ =>
+        {
+            asked++;
+            return false;
+        }), Is.EqualTo((0f, 0f)));
+        Assert.That(asked, Is.Zero, "undragged, nothing is asked");
+    }
+
+    [Test]
     public void TurnedWrapsRoundTheEyes()
     {
         var turned = MenuDrag.Turned(new PanelDirection(170f, -20f, true, true), (20f, -2f));

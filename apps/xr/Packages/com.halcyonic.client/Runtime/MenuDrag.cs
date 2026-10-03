@@ -67,6 +67,23 @@ namespace Halcyonic.Client
             return true;
         }
 
+        /// <summary>
+        /// As much of <paramref name="moved"/> as <paramref name="allows"/> takes, as the plane is laid
+        /// anew under a drag's offset (a side panel opening, larger text, a taller subject): the whole of
+        /// it, else scaled back toward the stage's placement a tenth at a time, else none, so a drag's
+        /// rules hold on every later draw, not only while the hand moves.
+        /// </summary>
+        public static (float Yaw, float Elevation) Kept((float Yaw, float Elevation) moved, Func<(float Yaw, float Elevation), bool> allows)
+        {
+            if (moved == default) return default;
+            for (var tenths = 10; tenths > 0; tenths--)
+            {
+                var scaled = (moved.Yaw * tenths / 10f, moved.Elevation * tenths / 10f);
+                if (allows(scaled)) return scaled;
+            }
+            return default;
+        }
+
         /// <summary><paramref name="placed"/> moved by <paramref name="moved"/>: where a drag left the plane's centre.</summary>
         public static PanelDirection Turned(PanelDirection placed, (float Yaw, float Elevation) moved) =>
             new PanelDirection(WorkspacePlacement.DeltaAngle(0f, placed.Yaw + moved.Yaw), placed.Elevation + moved.Elevation, placed.Clear, placed.Above);

@@ -92,6 +92,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var targets = characters.ConvertAll(character => character.Target);
                 var state = Projection(characters);
                 var opened = characters[3];
+                // The file's title, which the drag's checks lengthen to make the file taller under a drag.
+                var fileTitle = opened.View.Presentation!.Title;
                 looking = opened.Target.BodyPosition - eyes;
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
@@ -122,8 +124,8 @@ namespace Halcyonic.XR.Workspace.Editor
                         fileHost = host;
                         // The file reads its page height while it is made: against its own character's top line.
                         made = host.PageHeight(1, besideMenu: false);
-                        return file = new StubColumn(() => WaitingFile(opened.View.Presentation!.Title, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
-                        host.PageHeight(host.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
+                        return file = new StubColumn(() => WaitingFile(fileTitle, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
+                        host.PageHeight(host.TitleRows(fileTitle, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
                     },
                     MakeNewProject = host =>
                     {
@@ -207,7 +209,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
 
                 // Holding the file's subject drags the whole plane round the eyes; nothing pressed counts meanwhile.
-                failures.AddRange(DragMenu(name, folder, camera, texture, director, characters, eyes));
+                failures.AddRange(DragMenu(name, folder, camera, texture, director, characters, eyes, title =>
+                {
+                    fileTitle = title;
+                    file?.Change();
+                }));
 
                 // Choosing a place is the menu's own; the file stays beside it.
                 // A press from the frame drawn before the file opened is passed over: it no longer stands.
@@ -440,8 +446,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// step into the labels, and Reset position places it afresh. The dragged plane is held to every
         /// check a placed one is.
         /// </summary>
+        /// <param name="retitle">Gives the file another title, as one in two rows that makes it taller.</param>
         private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
-            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes)
+            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Action<string> retitle)
         {
             var failures = new List<string>();
             var plane = director.Plane;
@@ -489,6 +496,20 @@ namespace Halcyonic.XR.Workspace.Editor
             director.DragSubjectForRender(Turned(held, 0f, -15f));
             if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged up into the characters' labels.");
             director.LetGoForRender();
+
+            // Dragged as low as it goes, then laid anew taller, a title in two rows: it keeps only as much of
+            // the drag as still holds, so it stays inside the field and clear of every character.
+            var title = subject.Frame!.Subject;
+            held = subject.Subject.position;
+            director.HoldSubjectForRender(held);
+            director.DragSubjectForRender(Turned(held, 0f, 30f));
+            director.LetGoForRender();
+            director.DrawNow();
+            retitle(title + ", and keep a record of every lockout for the security review at the end of the month");
+            director.DrawNow();
+            failures.AddRange(PlaneState(name + " director dragged then taller", folder, camera, texture, plane, characters, eyes, null));
+            retitle(title);
+            director.DrawNow();
 
             // Reset position places it afresh.
             director.ResetPosition();

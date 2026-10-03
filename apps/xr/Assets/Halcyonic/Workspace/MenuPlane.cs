@@ -99,6 +99,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Where the stage placed the composition's centre, before any drag (<see cref="Direction"/> is where it stands).</summary>
         public PanelDirection Placed { get; private set; }
 
+        /// <summary>How much of a drag's offset the plane stands at, as laid last: what still holds of it for this composition (<see cref="MenuDrag.Kept"/>).</summary>
+        public (float Yaw, float Elevation) Moved { get; private set; }
+
         /// <summary>The eyes the plane was placed from, which a drag turns it round.</summary>
         public Vector3 Eyes => eyes;
 
@@ -210,6 +213,7 @@ namespace Halcyonic.XR.Workspace
             }
             fileOf = fileFrame != null && !besideWindow ? fileCharacter : null;
             measured = -1f;
+            SeeStage(all);
             var panel = fileFrame != null ? fileFrame.Side : menuFrame?.Side;
             Front = fileFrame ?? menuFrame;
             // Standing in its frame's place, a side panel is as wide as that frame, so the footer it carries fits.
@@ -219,7 +223,7 @@ namespace Halcyonic.XR.Workspace
             // With text a step larger, a frame and its side panel are too wide for a Quest 3S together;
             // and wherever the two would not fit as the stage places them, as beside a window, the side
             // panel takes its frame's place all the same.
-            var inPlace = panel != null && (zoom > 1f || !FitWithSide(menuFrame, fileFrame, panel, pill, all, looking, surfaceHeight, besideWindow));
+            var inPlace = panel != null && (zoom > 1f || !FitWithSide(menuFrame, fileFrame, panel, pill, all, looking, surfaceHeight, besideWindow, moved));
 
             // Whether the menu and the file fit side by side, their subjects level.
             var fits = !besideWindow;
@@ -231,11 +235,13 @@ namespace Halcyonic.XR.Workspace
                 file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill);
                 var beside = new PlaneComposition(new[] { ColumnOf(menu), ColumnOf(file) }, zoom);
                 fits = MenuPage.Fits(beside);
-                // Where the stage would place the two under its labels, inside the headset's measured field.
+                // Where the stage would place the two under its labels, moved as far as the person dragged
+                // the plane, inside the headset's measured field and clear of every character.
                 if (fits && ViewField.Current is ViewField field && fileCharacter != null)
                 {
                     var placed = WorkspaceLayout.Place(fileCharacter, all, eyes, looking, surfaceHeight, scratch, beside.Size).Direction;
-                    fits = placed.Clear && MenuPage.Inside(beside, placed, field);
+                    var dragged = MenuDrag.Turned(placed, moved);
+                    fits = placed.Clear && MenuPage.Inside(beside, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, beside.Size);
                 }
             }
             var kinds = MenuColumns.Arrange(menuFrame != null, fileFrame != null, panel != null, fits, inPlace);
@@ -272,6 +278,11 @@ namespace Halcyonic.XR.Workspace
                 shown.Add((kind, view));
             }
             lineTo = fileOf == null ? null : Contains(shown, file) ? file : inPlace ? side : null;
+            lineColumn = -1;
+            for (var index = 0; index < shown.Count; index++)
+            {
+                if (shown[index].View == lineTo) lineColumn = index;
+            }
 
             if (shown.Count == 0)
             {
@@ -282,7 +293,9 @@ namespace Halcyonic.XR.Workspace
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
                 Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
                     : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, barSize)).Direction;
-                Direction = MenuDrag.Turned(Placed, moved);
+                // Only a file's subject drags the plane; the bar alone stands where the stage puts it.
+                Moved = default;
+                Direction = Placed;
                 var placed = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
                 SlideTo(bar.transform, placed, zoom, null, true);
                 line.gameObject.SetActive(false);
@@ -296,7 +309,10 @@ namespace Halcyonic.XR.Workspace
             Placed = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
                 : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
                 : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction;
-            Direction = MenuDrag.Turned(Placed, moved);
+            // A drag's offset holds only as far as every rule of a drag still does for this composition.
+            var laid = Composition;
+            Moved = MenuDrag.Kept(moved, offset => Allows(laid, MenuDrag.Turned(Placed, offset)));
+            Direction = MenuDrag.Turned(Placed, Moved);
 
             for (var c = 0; c < shown.Count; c++)
             {
@@ -373,7 +389,7 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>Whether the frame in front and its side panel fit together where the stage would place them, in the headset's measured field.</summary>
         private bool FitWithSide(MenuFrame? menuFrame, MenuFrame? fileFrame, SidePanel panel, bool pill, IReadOnlyList<CharacterTarget> all, Vector3 looking,
-            float? surfaceHeight, bool besideWindow)
+            float? surfaceHeight, bool besideWindow, (float Yaw, float Elevation) moved)
         {
             if (!(ViewField.Current is ViewField field)) return true;
             var front = fileFrame ?? menuFrame;
@@ -387,7 +403,96 @@ namespace Halcyonic.XR.Workspace
             var direction = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, together.Size).Direction
                 : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, together.Size).Direction
                 : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, together.Size).Direction;
-            return direction.Clear && MenuPage.Inside(together, direction, field);
+            // Where the person dragged the plane, as far as they did.
+            var dragged = MenuDrag.Turned(direction, moved);
+            return direction.Clear && MenuPage.Inside(together, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, together.Size);
+        }
+
+        /// <summary>The characters as seen from the eyes the plane is laid from: every body, and each label as laid, the file's own marked.</summary>
+        private void SeeStage(IReadOnlyList<CharacterTarget> all)
+        {
+            bodies.Clear();
+            standing.Clear();
+            for (var index = 0; index < all.Count; index++)
+            {
+                var character = all[index];
+                if (character == null) continue;
+                var body = WorkspaceLayout.InView(character, eyes);
+                bodies.Add(body);
+                standing.Add((body, LabelOutline(character.View), character == fileOf));
+            }
+        }
+
+        /// <summary>
+        /// Whether the plane, laid as it is now, may stand centred at <paramref name="at"/>: what a drag keeps
+        /// to, inside the headset's measured field, clear of every character's body and label, and with its
+        /// light line crossing no label or body as the eyes see them. Judged from the geometry alone, moving nothing.
+        /// </summary>
+        public bool Allows(PanelDirection at) => Composition != null && Allows(Composition, at);
+
+        private bool Allows(PlaneComposition composition, PanelDirection at)
+        {
+            if (ViewField.Current is ViewField field && !MenuPage.Inside(composition, at, field)) return false;
+            if (!WorkspacePlacement.Clears(at, bodies, composition.Size)) return false;
+            return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);
+        }
+
+        /// <summary>The light line as it would run with <paramref name="composition"/> centred at <paramref name="at"/>, as <see cref="UpdateLightLine"/> draws it; null with none.</summary>
+        private (Vector3 From, Vector3 To)? LineAt(PlaneComposition composition, PanelDirection at)
+        {
+            if (fileOf == null || lineTo == null || lineColumn < 0) return null;
+            PlanePart? first = null;
+            PlanePart? last = null;
+            var parts = composition.Parts;
+            for (var index = 0; index < parts.Count; index++)
+            {
+                if (parts[index].Column != lineColumn) continue;
+                first ??= parts[index];
+                last = parts[index];
+            }
+            if (!(first is PlanePart subject) || !(last is PlanePart content)) return null;
+            var rotation = PlaneLayout.Facing(at);
+            var scale = PlaneComposition.Distance * composition.Zoom;
+            Vector3 Point(PlanePart part, float x, float y) => PlaneLayout.PointOf(eyes, at, part.Right, part.Up) + rotation * (new Vector3(x, y, 0f) * scale);
+            var half = lineTo.Width / 2f;
+            if (at.Above)
+            {
+                var top = fileOf.BodyPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
+                var bottom = -lineTo.Content.Size.y / 2f;
+                return Joined(top, top, Point(content, -half, bottom), Point(content, half, bottom));
+            }
+            var (plate, covered) = OwnLabel();
+            return Joined(plate.TransformPoint(new Vector3(-0.5f, covered.yMin, 0f)), plate.TransformPoint(new Vector3(0.5f, covered.yMin, 0f)),
+                Point(subject, -half, lineTo.PlateTop), Point(subject, half, lineTo.PlateTop));
+        }
+
+        /// <summary>The file's own character's label, as seen when the plane was laid.</summary>
+        private (Transform Plate, Rect Covered) OwnLabel()
+        {
+            for (var index = 0; index < standing.Count; index++)
+            {
+                if (standing[index].Own) return standing[index].Label;
+            }
+            return LabelOutline(fileOf!.View);
+        }
+
+        /// <summary>Whether a light line from <paramref name="from"/> to <paramref name="to"/> passes a character's label or body as the eyes see them, as the renders check it.</summary>
+        private bool Crosses(Vector3 from, Vector3 to)
+        {
+            for (var step = 1; step < 40; step++)
+            {
+                var point = Vector3.Lerp(from, to, step / 40f);
+                var toward = point - eyes;
+                var yaw = Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg;
+                var up = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+                for (var index = 0; index < standing.Count; index++)
+                {
+                    var (body, label, _) = standing[index];
+                    if (OnLabel(label, eyes, point)) return true;
+                    if (Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -554,6 +659,18 @@ namespace Halcyonic.XR.Workspace
 
         private static readonly List<MeshFilter> labelFilters = new List<MeshFilter>();
 
+        /// <summary>Every character as seen from the eyes when the plane was laid last: each body, as placement sees it.</summary>
+        private readonly List<BodyInView> bodies = new List<BodyInView>();
+
+        /// <summary>The same characters with their labels as laid, which the light line must not cross, the file's own marked.</summary>
+        private readonly List<(BodyInView Body, (Transform Plate, Rect Covered) Label, bool Own)> standing = new List<(BodyInView, (Transform, Rect), bool)>();
+
+        /// <summary>How far, in degrees, the light line keeps from a character's body; a label is told by its own outline.</summary>
+        private const float LineMarginDegrees = 0.5f;
+
+        /// <summary>Which column of the composition the light line reaches, or -1.</summary>
+        private int lineColumn = -1;
+
         /// <summary>Whether <paramref name="point"/>, seen from <paramref name="eyes"/>, falls on a label's outline (<see cref="LabelOutline"/>).</summary>
         public static bool OnLabel((Transform Plate, Rect Covered) label, Vector3 eyes, Vector3 point)
         {
@@ -573,6 +690,15 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void Join(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
         {
+            var (from, to) = Joined(labelLeft, labelRight, plateLeft, plateRight);
+            line.gameObject.SetActive(true);
+            line.SetPosition(0, from);
+            line.SetPosition(1, to);
+        }
+
+        /// <summary>The light line's two ends between the label's edge and the plate's: straight across from the middle of their overlap, as the eyes see them, else their nearer ends.</summary>
+        private (Vector3 From, Vector3 To) Joined(Vector3 labelLeft, Vector3 labelRight, Vector3 plateLeft, Vector3 plateRight)
+        {
             float Across(Vector3 point) => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg;
             Vector3 At(Vector3 left, Vector3 right, float across) => Vector3.Lerp(left, right, Mathf.InverseLerp(Across(left), Across(right), across));
             var overlapLeft = Mathf.Max(Across(labelLeft), Across(plateLeft));
@@ -585,9 +711,7 @@ namespace Halcyonic.XR.Workspace
             }
             else if (Across(labelRight) < Across(plateLeft)) (from, to) = (labelRight, plateLeft);
             else (from, to) = (labelLeft, plateRight);
-            line.gameObject.SetActive(true);
-            line.SetPosition(0, from);
-            line.SetPosition(1, to);
+            return (from, to);
         }
 
         /// <summary>A part's slide from where it stood to where it goes.</summary>

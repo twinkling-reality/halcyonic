@@ -162,12 +162,6 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The plane held by a file's subject, while it is (ADR 0026).</summary>
         private MenuDrag? drag;
 
-        /// <summary>Every character's label, as laid, and body, as seen from the eyes, while a drag lasts: its light line crosses none.</summary>
-        private readonly List<((Transform Plate, Rect Covered) Label, BodyInView Body)> crossed = new List<((Transform, Rect), BodyInView)>();
-
-        /// <summary>How far, in degrees, the light line keeps from a character's body during a drag; a label is told by its own outline.</summary>
-        private const float LineMarginDegrees = 0.5f;
-
         /// <summary>A file's subject holds the plane, which follows the hand: nothing is pressed or held meanwhile.</summary>
         public bool Dragging => drag != null;
 
@@ -326,6 +320,8 @@ namespace Halcyonic.XR.Workspace
             var (eyes, looking) = anchor.Value;
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
             plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved);
+            // Only as much of a drag as still holds for what is laid now; none, and Settings says so.
+            moved = plane.Moved;
         }
 
         /// <summary>Two bars that read the same: a bar made again each frame draws nothing again.</summary>
@@ -394,22 +390,15 @@ namespace Halcyonic.XR.Workspace
             var stage = setup.StageNow();
             var eyes = plane.Eyes;
             var bodies = new List<BodyInView>(stage.Characters.Count);
-            crossed.Clear();
             foreach (var character in stage.Characters)
             {
-                if (character == null) continue;
-                var body = WorkspaceLayout.InView(character, eyes);
-                bodies.Add(body);
-                crossed.Add((MenuPlane.LabelOutline(character.View), body));
+                if (character != null) bodies.Add(WorkspaceLayout.InView(character, eyes));
             }
             var (grabYaw, grabElevation) = AnglesOf(point - eyes);
-            // Last of all, with the plane turned there, its light line must cross no other character.
+            // Last of all, the plane's own judgement, its light line included, from the geometry alone.
             drag = new MenuDrag(plane.Placed, moved, grabYaw, grabElevation, composition, bodies,
-                stage.SurfaceHeight is float surface ? eyes.y - surface : (float?)null, ViewField.Current, offset =>
-                {
-                    plane.Turn(offset);
-                    return !LightLineCrosses();
-                });
+                stage.SurfaceHeight is float surface ? eyes.y - surface : (float?)null, ViewField.Current,
+                offset => plane.Allows(MenuDrag.Turned(plane.Placed, offset)));
             navigator.Moved();
         }
 
@@ -423,29 +412,9 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             var (yaw, elevation) = AnglesOf(point - plane.Eyes);
-            drag.Follow(yaw, elevation);
+            if (!drag.Follow(yaw, elevation)) return;
             moved = drag.Moved;
-            // Where it stands now, also where a step was refused after the plane was turned to try it.
             plane.Turn(moved);
-        }
-
-        /// <summary>Whether the file's light line, as it stands now, passes a character's label or body as the eyes see them, as the renders check it.</summary>
-        private bool LightLineCrosses()
-        {
-            if (!(plane.LightLine is (Vector3 from, Vector3 to))) return false;
-            var eyes = plane.Eyes;
-            for (var step = 1; step < 40; step++)
-            {
-                var point = Vector3.Lerp(from, to, step / 40f);
-                var (yaw, up) = AnglesOf(point - eyes);
-                foreach (var (label, body) in crossed)
-                {
-                    if (MenuPlane.OnLabel(label, eyes, point)) return true;
-                    if (Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees
-                        && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
-                }
-            }
-            return false;
         }
 
         /// <summary>The subject let go of, or the drag ended otherwise: the plane is drawn where it was left, and presses count again once it is.</summary>
