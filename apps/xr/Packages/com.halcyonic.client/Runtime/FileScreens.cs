@@ -109,6 +109,7 @@ namespace Halcyonic.Client
                 sections: Sections(workspace, screen.Section),
                 lines: lines,
                 source: page.Source,
+                sourceIsData: page.SourceIsData,
                 side: page.Side);
         }
 
@@ -124,8 +125,9 @@ namespace Halcyonic.Client
         /// <summary>A section's page: its lines, its source line, the side panel a line opened and its footer.</summary>
         private sealed class Page
         {
-            public Page(IReadOnlyList<PageLine> lines, string? source, Footer footer, SidePanel? side = null)
+            public Page(IReadOnlyList<PageLine> lines, string? source, Footer footer, SidePanel? side = null, bool sourceIsData = false)
             {
+                SourceIsData = sourceIsData;
                 Lines = lines;
                 Source = source;
                 Footer = footer;
@@ -135,6 +137,9 @@ namespace Halcyonic.Client
             public IReadOnlyList<PageLine> Lines { get; }
 
             public string? Source { get; }
+
+            /// <summary>The source line is an answer's provenance, holding a source's version or why it could not be read: text from outside.</summary>
+            public bool SourceIsData { get; }
 
             public Footer Footer { get; }
 
@@ -332,7 +337,7 @@ namespace Halcyonic.Client
             else screen.SideParts = 0;
             if (side?.Parts is (int part, int parts) && parts > 1) footer = footer.WithNext(Next(part, parts));
             else if (pages.Count > 1) footer = footer.WithNext(Next(screen.Page, pages.Count));
-            return new Page(shown, source, footer, side);
+            return new Page(shown, source, footer, side, sourceIsData: true);
         }
 
         /// <summary>
@@ -371,7 +376,8 @@ namespace Halcyonic.Client
             screen.SidePart = Math.Min(screen.SidePart, parts.Count - 1);
             var part = parts[screen.SidePart];
             var lines = part.Lines.Select(line => Line(line, room)).ToList();
-            return new SidePanel(subject, lines: lines, source: part.Provenance, parts: parts.Count > 1 ? (screen.SidePart, parts.Count) : ((int, int)?)null);
+            return new SidePanel(subject, lines: lines, source: part.Provenance, parts: parts.Count > 1 ? (screen.SidePart, parts.Count) : ((int, int)?)null,
+                sourceIsData: true);
         }
 
         /// <summary>
