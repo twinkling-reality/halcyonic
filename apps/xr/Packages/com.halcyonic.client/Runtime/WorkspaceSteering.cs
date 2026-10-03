@@ -152,6 +152,20 @@ namespace Halcyonic.Client
         /// for it, only after a second press. Nothing else sends an answer, so the gesture that brings
         /// focus back cannot.
         /// </summary>
+        /// <summary>
+        /// The person pressed Send answer on a file's page: the answers go only when the page has no
+        /// reason to wait (<see cref="FileScreens.WhySendWaits"/>), which this always asks, so the file's
+        /// path can't send what was not read whole or is out of view.
+        /// </summary>
+        public SteeringOutcome SendAnswer(FileScreen screen, WorkspacePresentation workspace)
+        {
+            if (!(screen.Question.Draft is QuestionDraft draft)) return SteeringOutcome.Explain(FileScreens.QuestionNotReady);
+            return SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen) ?? NoReason);
+        }
+
+        /// <summary>Marks the file's path as having asked the page: no reason is no reason.</summary>
+        private const string? NoReason = null;
+
         /// <param name="waits">
         /// Why the surface showing the question can't send yet, as a file's page says it
         /// (<see cref="FileScreens.WhySendWaits"/>): what is to be sent not yet read whole or not in view.

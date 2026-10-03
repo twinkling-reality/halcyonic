@@ -459,9 +459,14 @@ the same definition names, as the JSON Schema document:
   laid out anew, the page shows what was chosen, or the choice is cleared. A part's row turns
   nothing until its part has been drawn and stood for 0.4 seconds. Send answer waits in its place
   with its reason until all of this holds (`FileScreens.WhySendWaits`), and the steering refuses
-  too, given the same reason (`WorkspaceSteering.SendAnswer`'s `waits`). A chosen cut answer's side
-  panel waits for lane U's side panel from a chosen answer; until it lands, such an answer can't be
-  sent.
+  too, given the same reason (`WorkspaceSteering.SendAnswer`'s `waits`). A chosen cut answer, or a typed
+  one longer than its row, brings a side panel with all its words, in parts worked out from its own
+  measurement at the side panel's width (`PromptMeasure.AnswerSideRows`, `FileQuestion.SideParts`),
+  turned by the footer's Next page in Hold to talk's place; the view reports only that the side
+  panel was drawn (`SideDrawn`), never which part or how many. The file's Send answer always carries
+  the page's reason (`WorkspaceSteering.SendAnswer(FileScreen, …)`). A question that waits before
+  it is laid out shows what it asks, with Send answer waiting ("Getting the question ready."), never
+  that nothing waits.
   Approving or denying shows the whole request again in parts, as rows of one measured line
   (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
   back to the first), with Cancel in the place of the press and Yes in the free middle. Approve's

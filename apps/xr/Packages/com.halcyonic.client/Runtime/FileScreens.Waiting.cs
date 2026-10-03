@@ -34,6 +34,7 @@ namespace Halcyonic.Client
             var source = AgentSource;
             if (WorkspaceText.NeedFromYou(workspace) is NeedAnswer need) return Approval(workspace, need, room, source);
             if (Asked(workspace, screen) is QuestionDraft draft) return Question(workspace, screen, draft, source);
+            if (workspace.QuestionToAnswer is QuestionView pending && pending.Prompts.Count > 0) return NotLaidOut(workspace, pending, source);
             return new Page(new[] { new PageLine(NothingWaits) }, source, new Footer(CloseFile));
         }
 
@@ -67,6 +68,26 @@ namespace Halcyonic.Client
                 _ => (PromptSlot.FarRight, SendAnswer),
             };
             return (slot, new Footer(CloseFile).With(slot, Action(armed, id, main: slot == PromptSlot.FarRight)));
+        }
+
+        /// <summary>Said while a question waits but isn't laid out on this page yet.</summary>
+        public const string QuestionNotReady = "Getting the question ready.";
+
+        /// <summary>
+        /// A question that waits but isn't laid out here yet: what it asks, cut, and Send answer waiting in
+        /// its place with why, never that nothing waits.
+        /// </summary>
+        private static Page NotLaidOut(WorkspacePresentation workspace, QuestionView pending, string source)
+        {
+            var lines = new[] { new PageLine("“" + WorkspaceText.OneLine(pending.Prompts[0].Text) + "”", wordsAreData: true, rows: FileQuestion.QuestionRows) };
+            var actions = workspace.Actions;
+            var send = actions.Contains(WorkspaceAction.Answer)
+                ? new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true, available: false,
+                    reason: QuestionNotReady)
+                : null;
+            return new Page(lines, source, new Footer(CloseFile,
+                rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
+                farRight: send));
         }
 
         /// <summary>
@@ -154,7 +175,7 @@ namespace Halcyonic.Client
         public const string YourAnswers = "Your answers";
         public const string OnToTheAnswers = "On to the answers";
         public const string ReadTheQuestion = "Read the whole question first.";
-        public const string ReadTheAnswer = "Read the whole answer you chose first.";
+        public const string ReadTheAnswer = "Read the whole answer you chose first, or choose another.";
         public const string ReadYourAnswers = "Read all your answers first.";
 
         /// <summary>What a row on the question's page raises: more answers, the next question, or a prompt from the person's answers, by its index.</summary>
@@ -297,15 +318,36 @@ namespace Halcyonic.Client
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), action: MoreAnswers));
             }
             if (draft.Prompts.Count > 1) lines.Add(new PageLine(NextQuestionWords(prompt, draft.Prompts.Count), action: NextQuestion));
-            return new Page(lines, source, QuestionFooter(workspace, screen, draft));
+            var footer = QuestionFooter(workspace, screen, draft);
+            SidePanel? side = null;
+            if (question.SideOption is int open)
+            {
+                // All the words of the chosen cut answer, or of the typed one, beside the page, in parts
+                // where they don't fit; the footer's Next page turns them, in Hold to talk's place.
+                var words = open < asked.Options.Count ? AnswerWords(asked.Options[open]) : "“" + WorkspaceText.OneLine(draft.Typed(prompt) ?? "") + "”";
+                var perPart = question.SidePartRows;
+                var parts = question.SideParts;
+                side = new SidePanel(Name(draft.Question, prompt), subjectIsData: true,
+                    lines: new[] { new PageLine(words, wordsAreData: true, rows: perPart, fromRow: question.SidePart * perPart) },
+                    source: source, parts: parts > 1 ? (question.SidePart, parts) : ((int, int)?)null);
+                if (parts > 1 && footer[PromptSlot.FarRight] is Prompt main && main.Main)
+                {
+                    footer = new Footer(footer[PromptSlot.Close], footer[PromptSlot.Rare], farRight: main)
+                        .WithNext(Next(question.SidePart, parts));
+                }
+            }
+            return new Page(lines, source, footer, side);
         }
+
+        /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
+        private static string AnswerWords(QuestionOption option) =>
+            WorkspaceText.OneLine(option.Label) + (string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!));
 
         /// <summary>One answer offered, as a row to choose, its description after its label, in at most two rows.</summary>
         private static PageLine Answer(QuestionDraft draft, FileQuestion question, int prompt, int index)
         {
             var option = draft.Prompts[prompt].Options[index];
-            var description = string.IsNullOrWhiteSpace(option.Description) ? "" : " · " + WorkspaceText.OneLine(option.Description!);
-            return new PageLine(WorkspaceText.OneLine(option.Label) + description, wordsAreData: true, action: Choose,
+            return new PageLine(AnswerWords(option), wordsAreData: true, action: Choose,
                 key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: draft.IsChosen(prompt, option.Label),
                 rows: question.AnswerShows(prompt, index));
         }
