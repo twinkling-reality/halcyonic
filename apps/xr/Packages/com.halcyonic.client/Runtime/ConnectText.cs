@@ -57,7 +57,7 @@ namespace Halcyonic.Client
 
         /// <summary>Above Connect: where the folder is, and what connecting does.</summary>
         public static string WhatConnectingDoes(ConnectableFolder folder) =>
-            (folder.Folder == null ? "The folder " + Quoted(folder.RawName) + " itself" : "In " + Quoted(folder.Root.Name))
+            (folder.Folder == null ? "The folder " + Quoted(folder.RawName) + " itself" : "In " + Quoted(ProjectFolder.LabelOf(folder.Root)))
             + ". Connecting makes a project called " + Quoted(folder.ProjectName)
             + " that works in this folder. Nothing in it changes until you add a task.";
 

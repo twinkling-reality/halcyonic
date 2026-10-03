@@ -317,6 +317,23 @@ public class FolderConnectTests
         Assert.That(screen.Actions.Primary.Reason, Does.Contain("\u201Cshop\u201D"));
     }
 
+    [Test]
+    public void AProjectIsNamedByTheFoldersOwnNameAndLookAlikesCompareOwnNames()
+    {
+        var repository = Root("Projects");
+        repository.Repository = true;
+        repository.Label = "Projects (person)";
+        var offer = FolderConnect.Offers(Listing(repository)).Single();
+        Assert.That(offer.ProjectName, Is.EqualTo("Projects"), "a project is named by the folder, not the host's label");
+        Assert.That(offer.RootName, Is.EqualTo("Projects (person)"), "the place shows the host's label");
+
+        var used = Root("svc");
+        used.Label = "svc (glen)";
+        used.UsedBy = new List<string> { ProjectA };
+        var work = Root("Work", Folder("SVC"));
+        Assert.That(FolderConnect.Offers(Listing(used, work)).Single().LooksLikeAnother, Is.True, "a free folder named like a root in use is marked, by its own name");
+    }
+
     private static CommandView Completed(CommandEnvelope command, CommandResult result) =>
         new() { CommandId = command.CommandId, Status = CommandStatus.Completed, Result = result };
 

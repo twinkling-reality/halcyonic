@@ -41,7 +41,7 @@ namespace Halcyonic.Client
         public string Name => LabelText.Name(RawName);
 
         /// <summary>The root's name to show, where the folder is.</summary>
-        public string RootName => LabelText.Name(Root.Name);
+        public string RootName => LabelText.Name(ProjectFolder.LabelOf(Root));
 
         /// <summary>A <c>.git</c> entry sits directly inside it; null when the host could not look.</summary>
         public bool? Repository { get; }
