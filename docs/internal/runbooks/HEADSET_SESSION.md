@@ -319,6 +319,21 @@ why, in the OPEN_QUESTIONS row and ADR 0026.
    needs a summon gesture that brings it to where you look, and whether the waiting character's glow
    and its Waiting for you sound were enough to find your way back (if it was already waiting when
    you turned, only its glow called). Record the answer in the closed bar's OPEN_QUESTIONS row.
+9. **Dragging the menu.** In a build where the menu's plane can be dragged, this lists
+   `MenuDrag`; no line means it can't, so record "not in this build":
+
+   ```bash
+   git grep -nF "public sealed class MenuDrag" -- apps/xr/Packages/com.halcyonic.client/Runtime/MenuDrag.cs
+   ```
+
+   Open a task's file beside the menu, then hold the file's subject plate, its title, for about a
+   third of a second and move your hand: the whole plane comes round you at the same distance,
+   still facing you. Drag it toward a character or its label, toward the edge of your view, and so
+   its light line would cross another character: it should stop there rather than go. Let go, then
+   put it back with Settings, Your space, Reset position, which brings it to where you look. Judge
+   whether the drag feels right: easy to start, following the hand, stopping sensibly where it
+   can't go. Then judge whether being able to drag the menu answers item 8's question, or turning
+   back to the closed bar is still a problem. Record both in the closed bar's OPEN_QUESTIONS row.
 
 A failure falls back as ADR 0026 says (a page shows 3 rows). Put the token back and restart the app:
 
