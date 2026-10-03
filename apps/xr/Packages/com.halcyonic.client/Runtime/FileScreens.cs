@@ -83,7 +83,9 @@ namespace Halcyonic.Client
         public static MenuFrame Screen(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
             if (steering.Request(workspace) == null) screen.ForgetRequest();
-            var page = screen.Section switch
+            // Whatever is armed asks on the section showing, whichever it is, so a press never arms
+            // something the page does not show, and changing section never hides it.
+            var page = steering.Armed is WorkspaceAction armed ? Confirmation(workspace, steering, screen, armed) : screen.Section switch
             {
                 FileSection.Waiting => Waiting(workspace, steering, screen, room),
                 FileSection.Activity => Activity(workspace, steering, screen, room),
@@ -160,15 +162,6 @@ namespace Halcyonic.Client
         {
             var source = AgentSource;
             var normal = ActivityFooter(workspace, screen);
-            if (steering.Armed is WorkspaceAction armed && (armed == WorkspaceAction.Interrupt || armed == WorkspaceAction.Instruct))
-            {
-                var pressed = armed == WorkspaceAction.Interrupt ? PromptSlot.Rare : PromptSlot.FarRight;
-                if (normal[pressed] != null)
-                {
-                    return new Page(new[] { new PageLine(steering.Prompt(workspace)!, wordsAreData: armed == WorkspaceAction.Instruct, rows: 3) }, source,
-                        Footer.Confirm(normal, pressed, YesFor(armed), CancelConfirm));
-                }
-            }
             if (steering.Typing)
             {
                 return new Page(new[] { new PageLine(WorkspaceText.TypingPrompt) }, source, new Footer(CloseFile, rare: CancelChoice));

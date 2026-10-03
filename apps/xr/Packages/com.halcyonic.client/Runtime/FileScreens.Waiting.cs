@@ -32,20 +32,41 @@ namespace Halcyonic.Client
         private static Page Waiting(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
             var source = AgentSource;
-            if (steering.Request(workspace) is string request && steering.Armed is WorkspaceAction answer)
-            {
-                var before = ApprovalFooter(workspace);
-                var pressed = answer == WorkspaceAction.Approve ? PromptSlot.FarRight : PromptSlot.Secondary;
-                if (before[pressed] != null) return Request(workspace, steering, screen, request, answer, before, pressed, source);
-            }
-            if (steering.Armed == WorkspaceAction.Answer && Asked(workspace, screen) is QuestionDraft armed)
-            {
-                var before = QuestionFooter(workspace, screen, armed);
-                if (before[PromptSlot.FarRight]?.Kind == PromptKind.Action) return Answers(armed, steering, workspace, before, source);
-            }
             if (WorkspaceText.NeedFromYou(workspace) is NeedAnswer need) return Approval(workspace, need, room, source);
             if (Asked(workspace, screen) is QuestionDraft draft) return Question(workspace, screen, draft, source);
             return new Page(new[] { new PageLine(NothingWaits) }, source, new Footer(CloseFile));
+        }
+
+        /// <summary>
+        /// The confirmation of whatever <paramref name="steering"/> has armed, on any section: the whole
+        /// request an approval or denial answers, the answers about to be sent, or what stopping or the
+        /// instruction would do; Close, Cancel in the place of the press, and Yes in the free middle.
+        /// </summary>
+        private static Page Confirmation(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, WorkspaceAction armed)
+        {
+            var source = AgentSource;
+            var (pressed, before) = Pressed(armed);
+            if ((armed == WorkspaceAction.Approve || armed == WorkspaceAction.Deny) && steering.Request(workspace) is string request)
+            {
+                return Request(workspace, steering, screen, request, armed, before, pressed, source);
+            }
+            if (armed == WorkspaceAction.Answer && Asked(workspace, screen) is QuestionDraft draft) return Answers(draft, steering, workspace, before, source);
+            return new Page(new[] { new PageLine(steering.Prompt(workspace)!, wordsAreData: armed == WorkspaceAction.Instruct, rows: 3) }, source,
+                Footer.Confirm(before, pressed, YesFor(armed), CancelConfirm));
+        }
+
+        /// <summary>Where an armed action's press stood, and a footer holding it there, which its confirmation replaces.</summary>
+        private static (PromptSlot Slot, Footer Before) Pressed(WorkspaceAction armed)
+        {
+            var (slot, id) = armed switch
+            {
+                WorkspaceAction.Approve => (PromptSlot.FarRight, Approve),
+                WorkspaceAction.Deny => (PromptSlot.Secondary, Deny),
+                WorkspaceAction.Interrupt => (PromptSlot.Rare, Stop),
+                WorkspaceAction.Instruct => (PromptSlot.FarRight, TellIt),
+                _ => (PromptSlot.FarRight, SendAnswer),
+            };
+            return (slot, new Footer(CloseFile).With(slot, Action(armed, id, main: slot == PromptSlot.FarRight)));
         }
 
         /// <summary>An approval's footer: Close, Stop beside it, Deny beside Approve, and Approve as the main action.</summary>

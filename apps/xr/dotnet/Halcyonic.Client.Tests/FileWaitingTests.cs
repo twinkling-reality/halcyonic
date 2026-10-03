@@ -145,6 +145,28 @@ public class FileWaitingTests
     }
 
     [Test]
+    public void StopPressedOnWaitingAsksThereAndWhateverIsArmedAsksOnEverySection()
+    {
+        var work = new WaitingWork();
+        var workspace = Approving(work);
+        var steering = new WorkspaceSteering(factory);
+        var screen = new FileScreen { Section = FileSection.Waiting };
+        Assert.That(steering.Press(WorkspaceAction.Interrupt, workspace).Step, Is.EqualTo(SteeringStep.Confirm));
+        foreach (FileSection section in System.Enum.GetValues(typeof(FileSection)))
+        {
+            screen.Section = section;
+            var frame = Screen(workspace, steering, screen);
+            Assert.That(FileScreensTests.Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, FileScreens.Yes, null, null }), section.ToString());
+            Assert.That(frame.Footer[PromptSlot.Free]!.Words, Is.EqualTo("Yes, stop"));
+            Assert.That(frame.Lines.Single().Words, Does.StartWith("Stop what it's doing now?"));
+            Assert.That(frame.Sections.Single(each => each.Chosen).Key, Is.EqualTo(FileScreens.Key(section)), "the section stays where the person put it");
+        }
+        steering.Cancel();
+        screen.Section = FileSection.Waiting;
+        Assert.That(Screen(workspace, steering, screen).Footer.Confirming, Is.False, "cancelled, the page is the request again");
+    }
+
+    [Test]
     public void DenyingAsksWithCancelInDenysPlace()
     {
         var work = new WaitingWork();
