@@ -127,6 +127,40 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// Sends a command as <see cref="SubmitAsync"/> does, recording how the attempt ended, and hands
+        /// back its acknowledgement for the one that asked: the acknowledgement, or the send's own
+        /// failure, so a <see cref="SessionUnavailableException"/> still reads as never sent and a retry
+        /// is safe, where anything else leaves the outcome unknown. Cancelled only where the same command
+        /// is already on its way, so this copy went nowhere. <paramref name="send"/> is called within this
+        /// call, before anything is awaited.
+        /// </summary>
+        public Task<CommandAckMessage> Submit(Func<CommandEnvelope, Task<CommandAckMessage>> send, CommandEnvelope command, string executionId)
+        {
+            var acknowledged = new TaskCompletionSource<CommandAckMessage>();
+            _ = Settle();
+            return acknowledged.Task;
+
+            async Task Settle()
+            {
+                await SubmitAsync(async sent =>
+                {
+                    try
+                    {
+                        var ack = await send(sent);
+                        acknowledged.TrySetResult(ack);
+                        return ack;
+                    }
+                    catch (Exception error)
+                    {
+                        acknowledged.TrySetException(error);
+                        throw;
+                    }
+                }, command, executionId);
+                acknowledged.TrySetCanceled();
+            }
+        }
+
+        /// <summary>
         /// Whether this client's answer to a question may still be taking effect: being sent, accepted
         /// and not yet settled, or with an outcome nobody knows, the runtime's or the connection's. While
         /// it may, another answer would only race it (Codex refuses one in flight), so none is offered.
