@@ -416,4 +416,57 @@ public class NewProjectFlowTests
         other.Open(null, null);
         Assert.That(other.Idea!.HasRecap, Is.False, "nothing for a computer whose journal isn't live yet");
     }
+
+    [Test]
+    public async Task AKeptFolderShowsItsPlaceAsTheComputerListsItNowAndAGonePlaceSendsNothing()
+    {
+        static LocationsResponse Listing(params LocationRoot[] roots) => new() { Roots = roots.ToList() };
+        static LocationRoot Place(string path, string label, LocationRootStatus status = LocationRootStatus.Available) => new()
+        {
+            Path = path, Name = "Projects", Label = label, Status = status, FoldersTruncated = false,
+            Folders = new List<LocationFolder> { new() { Name = "race-times", Path = path + "/race-times" } },
+        };
+        var routes = new Routes();
+        var listing = Listing(Place("/Users/person/Projects", "Projects"));
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(listing);
+        var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Recapped(host);
+        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        flow.Act(NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+        var index = flow.Frame!.Lines.Where(line => line.Action == NewProjectScreens.ChooseFolder).First(line => line.Words == "race-times").Key;
+        flow.Act(NewProjectScreens.ChooseFolder, index);
+        flow.Act(NewProjectScreens.Done, null);
+        Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("race-times in Projects"));
+
+        // Another place now takes the label, and this one is gone: read again when the draft opens.
+        listing = Listing(Place("/Projects", "Projects"), Place("/Users/person/Projects", "Projects (person)", LocationRootStatus.Missing));
+        flow.Close();
+        flow.Open(null, null);
+        await Until(flow, () => flow.Idea!.Folder!.PlaceGone);
+        Assert.That(flow.Idea!.Folder!.Describe(), Does.Contain("no longer lists"), "never the label now another place's");
+        var recap = flow.Frame!;
+        Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.ChooseWhereFilesLive)));
+        flow.Act(NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review, Is.Null);
+
+        // A read that fails changes nothing; the place back unblocks Start building by itself.
+        routes.Answers.Remove("GET /api/locations");
+        flow.Close();
+        flow.Open(null, null);
+        await Until(flow, () => routes.Asked.Count(asked => asked == "GET /api/locations") == 3);
+        for (var tick = 0; tick < 5; tick++)
+        {
+            await Task.Delay(10);
+            flow.Tick();
+        }
+        Assert.That(flow.Idea!.Folder!.PlaceGone, Is.True, "only a listing read marks a place, either way");
+        listing = Listing(Place("/Projects", "Projects"), Place("/Users/person/Projects", "Projects (person)"));
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(listing);
+        flow.Close();
+        flow.Open(null, null);
+        await Until(flow, () => !flow.Idea!.Folder!.PlaceGone);
+        Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("race-times in Projects (person)"));
+        Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True);
+    }
 }

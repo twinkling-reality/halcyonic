@@ -398,6 +398,8 @@ namespace Halcyonic.Client
             if (sequence?.InFlight == true) return EntryText.AlreadyStarting;
             if (state == null || !connected) return EntryText.WaitingForMac;
             if (idea?.Problem is string ideaProblem) return ideaProblem;
+            // A place the computer no longer lists: it would refuse the folder, so nothing is sent.
+            if (idea?.Folder?.PlaceGone == true) return EntryText.ChooseWhereFilesLive;
             var runtime = draft.Runtime;
             if (runtime == null) return EntryText.ChooseHowItRuns;
             if (!state.Runtimes.Any(each => each.RuntimeId == runtime.RuntimeId)) return EntryText.ChooseAgain;

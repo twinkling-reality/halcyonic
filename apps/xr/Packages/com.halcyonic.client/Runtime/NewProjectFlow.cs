@@ -188,6 +188,8 @@ namespace Halcyonic.Client
             draft.ProjectId = idea!.ExistingProjectId;
             ChooseKeptRuntime();
             ReadCompanion();
+            // A kept folder's place is read again before it shows, since labels change with the places.
+            if (idea.Folder != null && locationsRead == null) ReadFolders();
             confirmingStartOver = false;
             fact = null;
             Show(idea.HasRecap ? NewProjectStep.Recap : idea.Companion != null || idea.Guided ? NewProjectStep.Questions : NewProjectStep.YourIdea);
@@ -891,7 +893,13 @@ namespace Halcyonic.Client
             locationsRead = null;
             if (read.IsCanceled) return false;
             if (read.IsFaulted) locationsProblem = read.Exception?.GetBaseException().Message ?? "No reason given.";
-            else locations = read.Result;
+            else
+            {
+                // Only a listing read marks a place gone, and every one reads the places again: one back is no longer gone.
+                locations = read.Result;
+                idea?.ReadPlaces(read.Result);
+                foreach (var other in others.Values) other.Idea.ReadPlaces(read.Result);
+            }
             return true;
         }
 

@@ -745,7 +745,11 @@ the same definition names, as the JSON Schema document:
   whose outcome is unknown is kept on the device (`IKeptCommand`) and comes first until cleared by
   two presses. Hold to talk's heard words land where words are given, never sent unchecked; leaving
   for another window lapses an armed confirmation and sends a review back to the recap. Drafts are
-  kept across a restart through `CreationDrafts`, for the computer they were made with.
+  kept across a restart through `CreationDrafts`, for the computer they were made with. A kept
+  folder's place is read again from every listing the computer gives (`ProjectIdea.ReadPlaces`,
+  lane L's `ProjectFolder.Current`), once when a draft with a folder opens; a place it no longer
+  lists shows as gone and Start building waits, "Choose where its files live.", until a listing
+  shows it again, and a read that fails changes nothing.
 - **`NewProjectScreens`** builds New project (ADR 0026) as `MenuFrame`s, from the same models
   and checks as `EntryScreens`, which it replaces: the steps as a row of shapes (Your idea,
   Questions, Recap, Build), each reached once there is something there, the chosen one lit
