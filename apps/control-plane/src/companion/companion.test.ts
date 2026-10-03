@@ -354,12 +354,15 @@ describe('a reply', () => {
   });
 
   test('gives up on a model that is late, closing the request, and does not ask again', async (t) => {
-    const { ollama, companion } = await setUp(t, { firstTokenMs: 100 });
-    ollama.answer({ content: JSON.stringify(modelReply(ASK)), firstLineAfterMs: 1_000 });
+    // Long enough for the request to reach the model on a loaded machine, and the model ten times later still.
+    const { ollama, companion } = await setUp(t, { firstTokenMs: 2_000, totalMs: 4_000 });
+    ollama.answer({ content: JSON.stringify(modelReply(ASK)), firstLineAfterMs: 20_000 });
     const answer = await ask(companion, { start: 'idea', want: 'next', messages: [IDEA] });
     assert.equal(answer.kind === 'refused' && answer.status, 504);
     assert.equal(refusedCode(answer), 'companion_too_slow');
-    assert.equal(ollama.requests.length, 1);
+    await waitFor(() => ollama.closedEarly > 0);
+    assert.equal(ollama.requests.length, 1, 'the model had the request, once: never asked again');
+    assert.equal(ollama.closedEarly, 1, 'and the request was closed before the model answered');
   });
 
   test('says Ollama is not running, or the model went missing, in words a client can map', async (t) => {
@@ -574,3 +577,11 @@ describe("reading the model's text", () => {
       assert.equal(readReply(text), null, text);
   });
 });
+
+async function waitFor(condition: () => boolean, ms = 2_000): Promise<void> {
+  const until = Date.now() + ms;
+  while (!condition()) {
+    if (Date.now() > until) assert.fail('the condition never held');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
