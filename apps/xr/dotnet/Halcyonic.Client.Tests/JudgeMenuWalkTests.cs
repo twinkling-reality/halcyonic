@@ -109,8 +109,28 @@ internal sealed class DemonstrationMenuHost : IMenuHost
     /// <summary>What asked to open New project beside the menu: Projects' New project (null, null), or Add a task to a project.</summary>
     public List<(string? Project, string? Name)> NewProjects { get; } = new();
 
-    /// <summary>Lane C's flow, which plays its own recording in the demonstration, is walked by its own tests; here it is only asked for.</summary>
-    public void OpenNewProject(string? projectId, string? projectName) => NewProjects.Add((projectId, projectName));
+    /// <summary>The start a build may have made, kept only while the walk runs.</summary>
+    private sealed class Kept : IKeptCommand
+    {
+        public string? Id { get; set; }
+    }
+
+    private readonly CompanionRecording companion = CompanionRecording.Parse(System.IO.File.ReadAllText(Repository.PathTo(
+        "apps/xr/Assets/Halcyonic/Resources/" + CompanionRecording.ResourceName + ".json")));
+
+    /// <summary>The bundled recording of the companion, as the director gives it in the demonstration.</summary>
+    public CompanionRecording Companion => companion;
+
+    /// <summary>New project beside the menu, as the director opens it: lane C's flow, playing the companion's recording.</summary>
+    public NewProjectFlow? NewProject { get; private set; }
+
+    public void OpenNewProject(string? projectId, string? projectName)
+    {
+        NewProjects.Add((projectId, projectName));
+        NewProject = new NewProjectFlow(this, commands, new Kept(), null, companion);
+        NewProject.Open(projectId, projectName);
+        Navigator.ShowBeside(NewProject, null);
+    }
 
     private WorkspacePresentation? Present(string workstreamId)
     {
@@ -182,7 +202,8 @@ internal sealed class DemonstrationMenuHost : IMenuHost
 /// waits, the menu opened on Tasks with the waiting task first, its file beside the menu on Waiting
 /// under its pill, the question's answers and Send answer, the approval's request in parts and Yes
 /// only after the last, Checks, Tell it with the recorded instructions, Usage with the recorded
-/// limits, and Settings; then the bar closed again. Every frame drawn on the way, and every side
+/// limits, Projects and New project's recorded companion to a recap that can't start, and Settings;
+/// then the bar closed again. Every frame drawn on the way, and every side
 /// panel, is scanned for brand names.
 /// </summary>
 public class JudgeMenuWalkTests
@@ -369,6 +390,39 @@ public class JudgeMenuWalkTests
         var sentBefore = host.Sent.Count;
         host.Press(MenuColumn.Menu, ProjectsScreens.NewProject);
         Assert.That(host.NewProjects, Is.EqualTo(new[] { ((string?)null, (string?)null) }), "New project opens beside the menu");
+        Assert.That(navigator.Beside, Is.SameAs(host.NewProject));
+
+        // Your idea: nobody types; talking it through with the companion is the main action, and the recording brings its idea.
+        var (_, step) = host.Draw();
+        Assert.That(step!.Lines.Any(line => line.Action == NewProjectScreens.TypeIdea), Is.False, "no keyboard opens here");
+        Assert.That(step.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.BeginCompanion));
+        host.Press(MenuColumn.File, NewProjectScreens.BeginCompanion);
+        var flow = host.NewProject!;
+        Assert.That((flow.Step, flow.Idea!.OwnWords), Is.EqualTo((NewProjectStep.Questions, host.Companion.Idea)));
+
+        // Questions: the companion's words quoted as its own, said to be recorded, and only the recorded answer to press.
+        (_, step) = host.Draw();
+        Assert.That(step!.Source, Is.EqualTo(CompanionText.Recorded));
+        Assert.That(step.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)), Is.True,
+            "the companion's words are quoted as its own");
+        var exchange = flow.Idea.Companion!;
+        var recorded = NewProjectScreens.AnswerKey(exchange.Generation, host.Companion.RecordedAnswer(exchange)!);
+        Assert.That(step.Lines.Where(line => line.Action == NewProjectScreens.ChooseSuggestion && line.Pressable).Select(line => line.Key),
+            Is.EqualTo(new[] { recorded }));
+        host.Press(MenuColumn.File, NewProjectScreens.ChooseSuggestion, recorded);
+        host.Press(MenuColumn.File, NewProjectScreens.SendAnswer);
+
+        // The recap: the proposal marked as the companion's, the note that it is an AI, and no start in the demonstration.
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        (_, step) = host.Draw();
+        Assert.That(step!.Source, Is.EqualTo(CompanionText.Note), "the companion is an AI on the computer, and can be wrong");
+        Assert.That(step.Lines.Any(line => line.Fact == CompanionText.SuggestedShort), Is.True, "what the companion suggested is marked");
+        var start = step.Footer[PromptSlot.FarRight]!;
+        Assert.That((start.Id, start.Available, step.Reason), Is.EqualTo((NewProjectScreens.StartBuilding, false, (string?)EntryText.DemoCannotStart)));
+        host.Press(MenuColumn.File, NewProjectScreens.StartBuilding);
+        Assert.That((flow.Step, flow.Review), Is.EqualTo((NewProjectStep.Recap, (NewWorkReview?)null)), "Start building starts nothing");
+        Assert.That(host.Sent, Has.Count.EqualTo(sentBefore), "New project sent nothing");
+        host.Press(MenuColumn.File, Footer.Close);
         // A project chosen: its side panel, and Add a task opening New project for it.
         var projectRow = menu.Lines.First(line => line.Action == ProjectsScreens.ChooseProject);
         host.Press(MenuColumn.Menu, ProjectsScreens.ChooseProject, projectRow.Key);
