@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { connect } from 'node:net';
 import { PassThrough } from 'node:stream';
 import { after, before, describe, test } from 'node:test';
 import {
@@ -23,7 +24,7 @@ import {
   serverProvesToken,
   TokenNotSent,
 } from './security.ts';
-import { createHttpServer } from './server.ts';
+import { createHttpServer, errorForLog } from './server.ts';
 
 const validateSnapshot = compileValidator(Snapshot);
 const APPROVAL = DEMO_WORKSTREAMS[2] as (typeof DEMO_WORKSTREAMS)[number];
@@ -464,6 +465,57 @@ describe('realtime protocol', () => {
 });
 
 describe('the log', () => {
+  test("logs an error's type, code and frames, never its message or what else it carries", async () => {
+    let parsed: unknown;
+    try {
+      JSON.parse('PRIVATE words the person typed');
+    } catch (error) {
+      parsed = error;
+    }
+    const logged = errorForLog(parsed);
+    assert.equal(logged.type, 'SyntaxError');
+    assert.equal(logged.message, '');
+    assert.match(logged.stack, /^\s+at /);
+    assert.ok(!JSON.stringify(logged).includes('PRIVATE'));
+    const raw = Object.assign(new Error('Parse Error'), {
+      code: 'HPE_INVALID_HEADER_TOKEN',
+      rawPacket: Buffer.from('Authorization: Bearer SECRET'),
+    });
+    assert.deepEqual(Object.keys(errorForLog(raw)).sort(), ['code', 'message', 'stack', 'type']);
+    assert.deepEqual(errorForLog('not an error'), { type: 'string', message: '', stack: '' });
+
+    // A malformed request: Node gives its error the request's head, Authorization header and all.
+    const lines = new PassThrough();
+    let text = '';
+    lines.on('data', (chunk: Buffer) => {
+      text += chunk.toString('utf8');
+    });
+    const app = await createHttpServer({
+      logLevel: 'trace',
+      token: 'a'.repeat(43),
+      logStream: lines,
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address() as AddressInfo;
+    await new Promise<void>((resolve) => {
+      const socket = connect(port, '127.0.0.1', () => {
+        socket.write(
+          'GET /api/health HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer SECRET-raw-token\r\nBad Header\u0001\r\n\r\n',
+        );
+      });
+      socket.on('data', () => undefined);
+      socket.on('close', () => resolve());
+      socket.on('error', () => resolve());
+    });
+    await app.close();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(text, /"code":"HPE_INVALID_HEADER_TOKEN"/, 'the malformed request was logged');
+    // Neither as text nor as the byte array a logged Buffer becomes.
+    assert.equal(text.includes('SECRET-raw-token'), false, text);
+    assert.equal(text.includes([...Buffer.from('SECRET-raw-token')].join(',')), false, text);
+    assert.equal(text.includes('rawPacket'), false, text);
+  });
+
   test('never shows the token, a cookie or the proof, wherever a logged object carries them', async () => {
     const lines = new PassThrough();
     let logged = '';

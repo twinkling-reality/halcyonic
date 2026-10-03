@@ -50,6 +50,33 @@ export const REDACTED_PATHS = SECRET_HEADERS.flatMap((header) => {
   return [`headers${key}`, `req.headers${key}`, `*.headers${key}`];
 });
 
+/**
+ * How an error is logged: its type, its code and its stack's frames. Never its message, which can
+ * quote what it read, as a parse error does an instruction, and never its other fields, such as the
+ * `rawPacket` Node gives a malformed request's error: that request's head, its Authorization header
+ * in it.
+ */
+export function errorForLog(error: unknown): {
+  type: string;
+  message: string;
+  stack: string;
+  code?: string | number;
+} {
+  // The message stays empty: the shape Fastify's serializer has, with nothing in it.
+  if (!(error instanceof Error)) return { type: typeof error, message: '', stack: '' };
+  const code = (error as { code?: unknown }).code;
+  const frames = (error.stack ?? '')
+    .split('\n')
+    .filter((line) => /^\s+at /.test(line))
+    .join('\n');
+  return {
+    type: error.name,
+    message: '',
+    stack: frames,
+    ...(typeof code === 'string' || typeof code === 'number' ? { code } : {}),
+  };
+}
+
 export function errorBody(
   code: string,
   message: string,
@@ -67,6 +94,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Fast
     logger: {
       level: options.logLevel,
       redact: { paths: REDACTED_PATHS, censor: '[redacted]' },
+      serializers: { err: errorForLog },
       ...(options.logStream === undefined ? {} : { stream: options.logStream }),
     },
     bodyLimit: 1024 * 1024,
