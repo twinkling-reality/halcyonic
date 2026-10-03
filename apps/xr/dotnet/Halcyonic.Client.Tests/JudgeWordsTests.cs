@@ -43,8 +43,9 @@ public class JudgeWordsTests
         Assert.That(words, Is.SupersetOf(new[]
         {
             "1 task is waiting for you", TasksText.Waiting(0), UsageText.Subject, "Part of the recording", UsageLeftPresenter.Recorded,
-            SettingsText.Subject, "A step larger",
-        }), "the walk reached the bar, Tasks, Usage and Settings");
+            SettingsText.Subject, "A step larger", SettingsText.YourSpace, "Around you", "Your room's layout", "The characters", "The menu",
+        }), "the walk reached the bar, Tasks, Usage and Settings, Your space with it");
+        Assert.That(words, Has.None.EqualTo("Pairing"), "the demonstration offers no Your computer");
     }
 
     /// <summary>Every distinct string the client core gives the headset along every path of the demonstration.</summary>
@@ -75,17 +76,48 @@ public class JudgeWordsTests
             foreach (var word in WordsOf(usage.Frame!)) Add(word);
             usage.Act(SidePanel.Close, null);
         }
-        var settings = new SettingsColumn(menuHost, ComfortSettings.Of(new Comfort(), () => { }));
-        foreach (var word in WordsOf(settings.Frame!)) Add(word);
-        foreach (var row in settings.Frame!.Lines.Where(line => line.Action == SettingsColumn.OpenSetting).ToList())
+        // Settings: a page a group, each setting chosen. Comfort through each of its values; Your space as
+        // the demonstration builds it (no Your computer), in every state of the room, and with each
+        // offer and arrangement, since a row's words follow those alone.
+        void ScanSettings(IReadOnlyList<MenuSetting> rows, int changes)
         {
-            settings.Act(SettingsColumn.OpenSetting, row.Key);
-            for (var change = 0; change < 3; change++)
+            var settings = new SettingsColumn(menuHost, rows);
+            // A group longer than a page goes on under its heading again, so a page is known by all its lines.
+            string Page() => string.Join("|", settings.Frame!.Lines.Select(line => line.Words));
+            var first = Page();
+            for (var page = 0; page < 8; page++)
             {
                 foreach (var word in WordsOf(settings.Frame!)) Add(word);
-                settings.Act(SettingsColumn.ChangeSetting, null);
+                foreach (var row in settings.Frame!.Lines.Where(line => line.Action == SettingsColumn.OpenSetting).ToList())
+                {
+                    settings.Act(SettingsColumn.OpenSetting, row.Key);
+                    for (var change = 0; change <= changes; change++)
+                    {
+                        foreach (var word in WordsOf(settings.Frame!)) Add(word);
+                        if (change < changes) settings.Act(SettingsColumn.ChangeSetting, null);
+                    }
+                    settings.Act(SidePanel.Close, null);
+                }
+                settings.Act(Footer.NextPage, null);
+                if (Page() == first) break;
             }
-            settings.Act(SidePanel.Close, null);
+        }
+        ScanSettings(ComfortSettings.Of(new Comfort(), () => { }), changes: 3);
+        RoomStatus? standing = null;
+        foreach (RoomSpace space in Enum.GetValues(typeof(RoomSpace)))
+        foreach (PassthroughState passthrough in Enum.GetValues(typeof(PassthroughState)))
+        foreach (RoomScan scan in Enum.GetValues(typeof(RoomScan)))
+        foreach (StagePlacement placement in Enum.GetValues(typeof(StagePlacement)))
+        foreach (var surface in new SurfaceKind?[] { null, SurfaceKind.Desk, SurfaceKind.Other })
+        {
+            var room = new RoomStatus(space, passthrough, scan, placement, surface);
+            standing ??= room;
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(room, RoomOffer.None, null, null), _ => { }), changes: 0);
+        }
+        foreach (RoomOffer offer in Enum.GetValues(typeof(RoomOffer)))
+        foreach (var arrangement in new StageArrangement?[] { null, StageArrangement.InFront, StageArrangement.TurnedAside, StageArrangement.BesideAWindow })
+        {
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, offer, arrangement, null), _ => { }), changes: 0);
         }
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true));
