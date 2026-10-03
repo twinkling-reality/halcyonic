@@ -740,7 +740,8 @@ the same definition names, as the JSON Schema document:
   companion.
 - **`CompanionText`** writes the words around the companion, with the computer as `HostText`
   says it: its line quoted and tagged as its own ("The companion says: “…”"), its view as its
-  opinion, the note that it is an AI that can be wrong, waiting, and every failure from its code
+  opinion, the note that it is an AI that can be wrong (shorter on a side panel showing its
+  suggestion, `SideNote`, whose Change stands beside it), waiting, and every failure from its code
   with a next step. New project shows it (`NewProjectScreens.Questions`).
 - **`CreationDraft`** and **`CreationDrafts`** keep every Create draft on the device across an
   app restart: the idea or answers, the recap, the exchange with an answer written for it but not
