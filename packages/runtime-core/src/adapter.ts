@@ -24,8 +24,9 @@ export interface ExecutionContext {
 /**
  * A normalized fact an adapter observed about one execution. The control plane adds identity,
  * scope, source and ingestion time, then validates and journals it. A tool's title, an approval's
- * summary and a test run's label and summary come whole, however long: the control plane takes
- * the secrets it holds out of them, which it finds only whole, then cuts them to the contract.
+ * summary, a question's texts and a test run's label and summary come whole, however long: the
+ * control plane takes the secrets it holds out of them, which it finds only whole, then cuts them
+ * to the contract, a question with `fitQuestion`, leaving one with anything cut unanswerable.
  */
 export type RuntimeObservation = {
   [T in RuntimeEventType]: {

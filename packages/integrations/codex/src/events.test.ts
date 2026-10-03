@@ -451,7 +451,7 @@ describe('Codex approval summaries', () => {
     }
   });
 
-  test('a question with anything cut to fit is shown, marked as cut, but not answerable', () => {
+  test('a question with texts past their limits is reported whole, for the control plane to fit after redaction', () => {
     const asked = (question: Record<string, unknown>) => {
       const item = request('item/tool/requestUserInput', {
         questions: [{ id: 'q', header: 'H', question: 'Which?', isOther: true, ...question }],
@@ -460,19 +460,25 @@ describe('Codex approval summaries', () => {
       return item.payload;
     };
     assert.equal(asked({ options: [{ label: 'a', description: 'd' }] }).answerable, true);
-    for (const question of [
+    const long = [
       { question: 'q'.repeat(4001) },
       { header: 'h'.repeat(201) },
       { options: [{ label: 'l'.repeat(201), description: 'd' }] },
       { options: [{ label: 'a', description: 'd'.repeat(1001) }] },
-    ]) {
-      const payload = asked(question);
-      assert.equal(payload.answerable, false, JSON.stringify(question).slice(0, 60));
-      assert.match(JSON.stringify(payload.prompts), / \[truncated\]/);
+    ];
+    const [text, header, label, description] = long.map((question) => asked(question));
+    assert.equal(text?.prompts[0]?.text, 'q'.repeat(4001));
+    assert.equal(header?.prompts[0]?.header, 'h'.repeat(201));
+    assert.equal(label?.prompts[0]?.options[0]?.label, 'l'.repeat(201));
+    assert.equal(description?.prompts[0]?.options[0]?.description, 'd'.repeat(1001));
+    for (const payload of [text, header, label, description]) {
+      // Nothing here keeps Codex from taking an answer; the control plane's fit will.
+      assert.equal(payload?.answerable, true);
+      assert.ok(!JSON.stringify(payload).includes('[truncated]'));
     }
   });
 
-  test('a question past the size limit is reported shortened and unanswerable', () => {
+  test('a question past the size limit is reported whole, for the control plane to fit', () => {
     const questions = Array.from({ length: 10 }, (_, index) => ({
       id: `q${index}`,
       header: 'h'.repeat(200),
@@ -485,8 +491,9 @@ describe('Codex approval summaries', () => {
     }));
     const item = request('item/tool/requestUserInput', { questions }).observed.observations[0];
     assert.ok(item?.type === 'runtime.question.asked');
-    assert.equal(item.payload.answerable, false);
-    assert.ok(questionTextLength(item.payload.prompts) <= QUESTION_TEXT_LIMIT);
+    assert.equal(item.payload.answerable, true);
+    assert.ok(questionTextLength(item.payload.prompts) > QUESTION_TEXT_LIMIT);
+    assert.equal(item.payload.prompts.length, 10);
   });
 
   test('an approval for a turn that already ended is not raised', () => {

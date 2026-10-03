@@ -7,7 +7,6 @@ import type {
   RuntimeEventType,
   Timestamp,
 } from '@halcyonic/contracts';
-import { fitQuestion } from '@halcyonic/contracts';
 import type { RuntimeObservation } from '@halcyonic/runtime-core';
 
 /**
@@ -285,7 +284,10 @@ export function observeEvent(
  * A form as the agent's question (ADR 0022): OpenCode 2.0.18's `question` tool opens a form with
  * one field per question, `string`, or `multiselect` when several answers are allowed, each with
  * its options and `custom` for a typed answer. Only such forms can be answered here; any other
- * form, or one with fields of another type, is shown as waiting and is not answerable. Null for a
+ * form, or one with fields of another type, is shown as waiting and is not answerable. Its texts
+ * are reported whole: the control plane takes credentials out of them, then fits them to the
+ * contract, and a question with anything cut can't be answered, since the person would answer
+ * text they did not see whole, and a cut label would stand for a value they never read. Null for a
  * form without an id or a single field to show.
  */
 export function formQuestion(form: Readonly<Record<string, unknown>>): {
@@ -299,13 +301,6 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
   if (id === null || raw.length === 0) return null;
   const metadata = isRecord(form.metadata) ? form.metadata : {};
   let answerable = metadata.kind === 'question' && raw.length <= 10;
-  // Anything cut to fit makes the question unanswerable: the person would answer text they did
-  // not see whole, and a cut label would stand for a value they never read.
-  const fit = (value: string, max: number): string => {
-    const fitted = clip(value, max);
-    if (fitted !== value) answerable = false;
-    return fitted;
-  };
   const prompts: QuestionPrompt[] = [];
   const fields: FormFields[number][] = [];
   for (const [index, field] of raw.slice(0, 10).entries()) {
@@ -320,16 +315,15 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
     const values = new Map<string, string>();
     const options: QuestionPrompt['options'] = [];
     for (const option of offered.slice(0, 20)) {
-      const raw = nonBlank(option.label);
+      const label = nonBlank(option.label);
       const value = typeof option.value === 'string' ? option.value : null;
-      const label = raw === null ? null : fit(raw, 200);
       if (label === null || value === null || values.has(label)) {
         answerable = false;
         continue;
       }
       values.set(label, value);
       const description = nonBlank(option.description);
-      options.push({ label, description: description === null ? null : fit(description, 1000) });
+      options.push({ label, description });
     }
     const multiple = type === 'multiselect';
     // A string field without options takes only a typed answer.
@@ -337,9 +331,9 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
     const header = nonBlank(field.title);
     const text = nonBlank(field.description) ?? header ?? nonBlank(form.title) ?? 'Question';
     prompts.push({
-      key: fit(key, 256),
-      header: header === null ? null : fit(header, 200),
-      text: fit(text, 4000),
+      key,
+      header,
+      text,
       options,
       multiple,
       free_text: freeText,
@@ -347,9 +341,7 @@ export function formQuestion(form: Readonly<Record<string, unknown>>): {
     });
     fields.push({ key, multiple, values });
   }
-  // Bounded before it is reported, so the journal and every client hold it at a bounded size.
-  const fitted = fitQuestion(prompts, answerable);
-  return { id, prompts: [...fitted.prompts], answerable: fitted.answerable, fields };
+  return { id, prompts, answerable, fields };
 }
 
 /**

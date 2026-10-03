@@ -1,20 +1,16 @@
-import type {
-  CommandId,
-  ControlPlaneEvent,
-  EventOf,
-  RuntimeId,
-  Timestamp,
+import {
+  type CommandId,
+  type ControlPlaneEvent,
+  type EventOf,
+  fitQuestion,
+  type QuestionPrompt,
+  type RuntimeId,
+  type Timestamp,
 } from '@halcyonic/contracts';
 import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
 import type { EventDraft, Recorder } from './recorder.ts';
-import {
-  fits,
-  fitted,
-  type Redaction,
-  redaction as redactionOf,
-  withinLimit,
-} from './redaction.ts';
+import { fitted, type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
 
 type ControlPlaneEventType = ControlPlaneEvent['event_type'];
 type ScopeOf<T extends ControlPlaneEventType> = Pick<
@@ -74,21 +70,22 @@ export function createObservationSink(
   redaction: Redaction = redactionOf(),
 ): ObservationSink {
   return (observation) => {
-    const draft = {
-      event_type: observation.type,
-      project_id: execution.project_id,
-      workstream_id: execution.workstream_id,
-      execution_id: execution.execution_id,
-      source: { kind: 'runtime', runtime_id: runtimeId },
-      source_native_id: observation.native_event_id,
-      sequence: observation.sequence,
-      occurred_at: observation.occurred_at,
-      correlation_id: null,
-      causation_id: null,
-      provenance: observation.provenance,
-      payload: withoutCredentials(observation, redaction),
-    } as unknown as EventDraft;
     try {
+      const draft = {
+        event_type: observation.type,
+        project_id: execution.project_id,
+        workstream_id: execution.workstream_id,
+        execution_id: execution.execution_id,
+        source: { kind: 'runtime', runtime_id: runtimeId },
+        source_native_id: observation.native_event_id,
+        sequence: observation.sequence,
+        occurred_at: observation.occurred_at,
+        correlation_id: null,
+        causation_id: null,
+        provenance: observation.provenance,
+        // Inside the try: a payload too malformed to clean is an adapter defect like any other.
+        payload: withoutCredentials(observation, redaction),
+      } as unknown as EventDraft;
       recorder.record(draft);
     } catch (error) {
       logger.error(
@@ -149,7 +146,7 @@ function withoutCredentials(
         : payload;
     }
     case 'runtime.question.asked':
-      return withHeldPrompts(payload, redaction);
+      return fittedQuestion(payload, redaction);
     case 'runtime.tool.started':
       return held('title', 500);
     case 'runtime.test_run.started':
@@ -162,19 +159,14 @@ function withoutCredentials(
 }
 
 /**
- * A question's prompts with what Halcyonic holds taken out of their text, which the adapters have
- * already fitted to the contract. One that the marker pushed past it is cut, and the question can
- * no longer be answered, since the person would not see whole what they answer.
+ * A question with what Halcyonic holds taken out of each prompt's text, then fitted to the contract
+ * with `fitQuestion`, here and nowhere else: the adapters report it whole, since a secret cut in two
+ * is no longer found. A question with anything cut can no longer be answered. Its options are left
+ * as given, since an answer names them.
  */
-function withHeldPrompts(payload: Record<string, unknown>, redaction: Redaction): unknown {
-  if (!Array.isArray(payload.prompts)) return payload;
-  let answerable = payload.answerable;
-  const prompts = payload.prompts.map((prompt: unknown) => {
-    const text = (prompt as { text?: unknown } | null)?.text;
-    if (typeof text !== 'string') return prompt;
-    const held = redaction.held(text);
-    if (!fits(held, 4000)) answerable = false;
-    return { ...(prompt as object), text: fitted(held, 4000) };
-  });
-  return { ...payload, prompts, answerable };
+function fittedQuestion(payload: Record<string, unknown>, redaction: Redaction): unknown {
+  const asked = payload as { prompts: readonly QuestionPrompt[]; answerable: boolean };
+  const held = asked.prompts.map((prompt) => ({ ...prompt, text: redaction.held(prompt.text) }));
+  const fitted = fitQuestion(held, asked.answerable);
+  return { ...payload, prompts: [...fitted.prompts], answerable: fitted.answerable };
 }

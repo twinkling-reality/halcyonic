@@ -268,7 +268,7 @@ describe('mock runtime actions', () => {
     );
   });
 
-  test("a scenario's question past the size limit is reported shortened and unanswerable", async () => {
+  test("a scenario's question past the size limit is reported whole, as a real runtime's is", async () => {
     const time = createVirtualTime(new Date('2026-09-26T10:00:00.000Z'));
     const big = parseScenario(
       {
@@ -306,8 +306,10 @@ describe('mock runtime actions', () => {
     await time.runUntilIdle();
     const asked = observed.find((item) => item.type === 'runtime.question.asked');
     assert.ok(asked?.type === 'runtime.question.asked');
-    assert.equal(asked.payload.answerable, false);
-    assert.ok(questionTextLength(asked.payload.prompts) <= QUESTION_TEXT_LIMIT);
+    // The control plane fits it after redaction, and a cut question can't be answered there.
+    assert.equal(asked.payload.answerable, true);
+    assert.deepEqual(asked.payload.prompts, bigPrompts());
+    assert.ok(questionTextLength(asked.payload.prompts) > QUESTION_TEXT_LIMIT);
   });
 
   test('two answers or two decisions in the same tick: only the first is taken', async () => {

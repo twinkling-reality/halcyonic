@@ -10,7 +10,6 @@ import type {
   RuntimeModel,
   RuntimeOptions,
 } from '@halcyonic/contracts';
-import { fitQuestion } from '@halcyonic/contracts';
 import {
   type Clock,
   type ExecutionContext,
@@ -406,13 +405,8 @@ class MockSession {
       const answers = await new Promise<readonly QuestionAnswer[]>((resolve, reject) => {
         turn.question = { id: question_id, answer: resolve };
         turn.abort.signal.addEventListener('abort', () => reject(abortError()), { once: true });
-        // A scenario's question is bounded as a real runtime's is.
-        const fitted = fitQuestion(prompts, answerable);
-        this.#emit('runtime.question.asked', {
-          question_id,
-          prompts: [...fitted.prompts],
-          answerable: fitted.answerable,
-        });
+        // Reported whole, as a real runtime's is: the control plane fits it.
+        this.#emit('runtime.question.asked', { question_id, prompts: [...prompts], answerable });
       });
       this.#emit('runtime.agent_message', { text: describeAnswers(prompts, answers) });
       for (const branchStep of if_answered) {
