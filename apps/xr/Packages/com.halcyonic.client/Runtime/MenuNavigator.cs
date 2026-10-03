@@ -98,6 +98,16 @@ namespace Halcyonic.Client
             Raise();
         }
 
+        /// <summary>
+        /// Lets every place's column go, each made afresh when next shown, the menu staying where it is:
+        /// as when another session shows, so no column made for the last one stays on the plane.
+        /// </summary>
+        public void Renew()
+        {
+            foreach (var place in new List<MenuPlace>(places.Keys)) Drop(place);
+            Raise();
+        }
+
         /// <summary>Lets a place's column go, and what it had armed: the next showing makes it afresh.</summary>
         private void Drop(MenuPlace place)
         {

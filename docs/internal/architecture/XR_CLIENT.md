@@ -357,7 +357,7 @@ the same definition names, as the JSON Schema document:
   frame it gave, its page or its side panel, as the plane has it (`Drawn`), which of its held
   prompts started and ended while the director's one voice records, the words heard (`Heard`,
   `Said`), a tick, and the app losing focus, presses and holds only while the app has focus. Its own rules decide whether a press may act, and only they send, through
-  the director's `IMenuHost.Submit`; the director never sends around them. `IMenuHost` gives every
+  its host's `IMenuHost.Submit`, bound to the session it was made in; the director never sends around them. `IMenuHost` gives every
   column the session's projection, the clocks, the reading size, the computer's API, the keyboard,
   the view's measures, the page height on this stage read when the column opens, and the way to
   open a task's file or New project. A place's frame leaves its sections out; the director adds the
@@ -371,15 +371,21 @@ the same definition names, as the JSON Schema document:
   swapped, closed or its place left, gets `FocusLeft`, so an armed confirmation lapses. A
   place's column is made when the menu first shows it after opening and let go when the menu or the
   column closes, so each opening starts afresh; what must outlive it, as Projects' memory of a
-  Connect in flight, `MenuMemory` keeps for the app's run on one journal, across reconnects and never
-  renewed then, since a socket's drop is when an outcome turns unknown; another journal or a
-  re-pairing starts afresh. The director makes Projects (lane L's `ProjectsColumn`) over it, and
-  keeps New project's flow (lane C's) in it once first opened, ticking it while it isn't beside the
-  menu so a build confirmed in it goes on; another journal lets the flow go and takes it off the
-  plane.
-  `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`, as every column's
-  `IMenuHost`: it sends only through the submit its host gives it, WorkspaceDirector's command
-  submissions, so what is in flight shows as sent, runs Hold to talk's one voice for any held
+  Connect in flight, `MenuMemory` keeps for the app's run on one session and journal, across
+  reconnects and never renewed then, since a socket's drop is when an outcome turns unknown; another
+  session, another journal or a re-pairing starts afresh. The director makes Projects (lane L's `ProjectsColumn`) over it, and
+  keeps New project's flow (lane C's) in it once first opened (`NewProjectFor`), ticking it while it
+  isn't beside the menu so a build confirmed in it goes on; another session, as the computer's live
+  session taking the demonstration's place, or another journal, lets the flow go and takes it off
+  the plane.
+  `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`. It sends nothing itself:
+  every column it makes gets a `SessionBoundHost` (client core) over it, bound to the session shown
+  then, which sends only to that very session through WorkspaceDirector's command submissions, so
+  what is in flight shows as sent. Once another session shows, or that session moves to another
+  journal, the bound host sends nothing, offers no API or voice and reads as away, so a column made
+  in the demonstration never reaches a live control plane (ADR 0012); a reconnect keeps the same
+  session, so sends go on. The director then also takes the column beside the menu off the plane and
+  makes the menu's places afresh. It runs Hold to talk's one voice for any held
   prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
   what was read only while the person is there. `MenuVoice` (client core) keeps
