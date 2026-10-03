@@ -125,6 +125,9 @@ namespace Halcyonic.XR.Workspace
         private MenuNavigator navigator = null!;
         private IMenuColumn? holding;
 
+        /// <summary>The column being made beside the menu, a task's file or New project (no task), whose page height reads against it.</summary>
+        private (bool Opening, string? Task) opening;
+
         /// <summary>What outlives a column and a reconnect, for the app's run on one journal.</summary>
         private readonly MenuMemory memory = new MenuMemory();
 
@@ -287,7 +290,11 @@ namespace Halcyonic.XR.Workspace
 
         public ControlPlaneApi? Api => Demonstration ? null : setup.Api();
 
-        public Task<CommandAckMessage>? Submit(CommandEnvelope command) => Demonstration ? null : setup.Submit(command);
+        /// <summary>
+        /// Sends through the host's submissions, the demonstration's session while it plays, which
+        /// answers the recorded question and approves the recorded request as a live one would.
+        /// </summary>
+        public Task<CommandAckMessage>? Submit(CommandEnvelope command) => setup.Submit(command);
 
         public bool KeyboardOffered => setup.KeyboardOffered();
 
@@ -303,25 +310,46 @@ namespace Halcyonic.XR.Workspace
 
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
+        /// <summary>
+        /// The page height on this stage, read against the character of the file being opened while it
+        /// is made, else of the file beside the menu; New project, being opened, has none.
+        /// </summary>
         public float PageHeight(int subjectRows, bool besideMenu)
         {
             var stage = setup.StageNow();
-            var character = navigator?.BesideTask is string task ? setup.CharacterOf(task) : null;
+            var task = opening.Opening ? opening.Task : navigator?.BesideTask;
+            var character = task != null ? setup.CharacterOf(task) : null;
             var top = MenuPlane.TopLine(character, stage.Characters, stage.Eyes, stage.Looking, stage.SurfaceHeight, stage.BesideWindow, besideMenu);
             return MenuPage.Height(TextSize, subjectRows, top, ViewField.Current, besideMenu);
         }
 
         public void OpenFile(string workstreamId)
         {
-            if (setup.File(this, workstreamId) is IMenuColumn file) navigator.ShowBeside(file, workstreamId);
+            opening = (true, workstreamId);
+            try
+            {
+                if (setup.File(this, workstreamId) is IMenuColumn file) navigator.ShowBeside(file, workstreamId);
+            }
+            finally
+            {
+                opening = (false, null);
+            }
         }
 
         public void OpenNewProject(string? projectId, string? projectName)
         {
-            if (setup.NewProject(this, projectId, projectName) is IMenuColumn flow)
+            opening = (true, null);
+            try
             {
-                newProject = flow;
-                navigator.ShowBeside(flow, null);
+                if (setup.NewProject(this, projectId, projectName) is IMenuColumn flow)
+                {
+                    newProject = flow;
+                    navigator.ShowBeside(flow, null);
+                }
+            }
+            finally
+            {
+                opening = (false, null);
             }
         }
     }
