@@ -10,9 +10,11 @@ namespace Halcyonic.Client
     /// column beside it, a task's file or New project, each an <see cref="IMenuColumn"/>. Choosing a
     /// place is the director's; every other press goes to the column that showed it, its side panel's
     /// to the frame in front, and only that column's rules act on it. A draw reaches a column only for
-    /// the very frame it gave. A place's column is made when the menu first shows it after opening, and
-    /// let go when the menu closes or the column closes, so each opening starts afresh, as Tasks decides
-    /// its rows then and Projects' closed column takes nothing more.
+    /// the very frame it gave, and a press only from the frame last drawn in its slot, so a press on a
+    /// frame no longer standing, as a file swapped for another or a place left, reaches nothing. A
+    /// place's column is made when the menu first shows it after opening, and let go when the menu
+    /// closes or the column closes, so each opening starts afresh, as Tasks decides its rows then and
+    /// Projects' closed column takes nothing more; a column leaving the plane lets go of what was armed.
     /// </summary>
     public sealed class MenuNavigator
     {
@@ -21,6 +23,12 @@ namespace Halcyonic.Client
         private MenuFrame? placeFrame;
         private MenuFrame? menuFrame;
         private MenuFrame? besideFrame;
+
+        /// <summary>The frames last drawn in each slot, and the side panel, while they still stand: a press comes only from one of these.</summary>
+        private MenuFrame? drawnMenu;
+        private MenuFrame? drawnBeside;
+        private SidePanel? drawnSide;
+        private IMenuColumn? drawnSideOf;
         private MenuBar? lastBar;
         private bool changed = true;
 
@@ -79,7 +87,7 @@ namespace Halcyonic.Client
             Raise();
         }
 
-        /// <summary>Closes the menu to its bar, letting its places' columns go; a column beside it stays.</summary>
+        /// <summary>Closes the menu to its bar, letting its places' columns go, each letting go of what was armed; a column beside it stays.</summary>
         public void CloseMenu()
         {
             IsOpen = false;
@@ -87,14 +95,19 @@ namespace Halcyonic.Client
             Raise();
         }
 
-        /// <summary>Lets a place's column go: the next showing makes it afresh.</summary>
-        private void Drop(MenuPlace place) => places.Remove(place);
+        /// <summary>Lets a place's column go, and what it had armed: the next showing makes it afresh.</summary>
+        private void Drop(MenuPlace place)
+        {
+            if (!places.TryGetValue(place, out var column)) return;
+            places.Remove(place);
+            Leaving(column);
+        }
 
         /// <summary>Opens <paramref name="column"/> beside the menu in place of what stood there: a task's file, for <paramref name="task"/>, or New project.</summary>
         public void ShowBeside(IMenuColumn column, string? task)
         {
             if (Beside == column && BesideTask == task) return;
-            Unhook();
+            Leave();
             Beside = column;
             BesideTask = task;
             column.Changed += OnBesideChanged;
@@ -107,7 +120,7 @@ namespace Halcyonic.Client
         public void CloseBeside()
         {
             if (Beside == null) return;
-            Unhook();
+            Leave();
             Beside = null;
             BesideTask = null;
             besideFrame = null;
@@ -136,32 +149,65 @@ namespace Halcyonic.Client
         /// <summary>
         /// A press on the plane, as the view reports it, from the menu's column, the column beside it, or
         /// a side panel, which belongs to the frame in front: the column beside the menu where there is
-        /// one, else the menu's place. Choosing a place switches the menu; everything else goes to its
-        /// column, whose own rules decide.
+        /// one, else the menu's place. It carries what the view showed, <paramref name="frame"/> or, from
+        /// a side panel, <paramref name="side"/>, and is passed over unless that is what was drawn last
+        /// in its slot and still stands. Choosing a place switches the menu; everything else goes to its
+        /// column, whose own rules decide. True when it was taken.
         /// </summary>
-        public void Act(MenuColumn from, string action, string? key)
+        public bool Act(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
+            var standing = from switch
+            {
+                MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu,
+                MenuColumn.File => Beside != null && frame != null && frame == drawnBeside,
+                _ => side != null && side == drawnSide,
+            };
+            if (!standing) return false;
             if (from == MenuColumn.Menu && action == MenuFrame.ChooseSection)
             {
                 if (key != null && Enum.TryParse<MenuPlace>(key, out var place) && place != Place)
                 {
+                    // The place left lets go of what it had armed; it keeps its page until the menu closes.
+                    if (places.TryGetValue(Place, out var left)) Leaving(left);
                     Place = place;
                     Raise();
                 }
-                return;
+                return true;
             }
-            ColumnOf(from)?.Act(action, key);
+            (from == MenuColumn.Side ? drawnSideOf : ColumnOf(from))?.Act(action, key);
+            return true;
         }
 
         /// <summary>
-        /// A view drew <paramref name="drawn"/> whole: the column that gave it learns of it, its page or,
-        /// with <paramref name="sidePanel"/>, its side panel; a frame no column gave now is passed over.
+        /// A view in <paramref name="from"/>'s slot drew <paramref name="frame"/> whole, or a side panel's
+        /// view drew <paramref name="side"/>, which belongs to the frame in front: the column that gave it
+        /// learns of it, its page or its side panel, and presses on it count from now; a frame or side
+        /// panel no column gave now is passed over.
         /// </summary>
-        public void Drawn(MenuFrame drawn, bool sidePanel)
+        public void Drawn(MenuColumn from, MenuFrame? frame, SidePanel? side)
         {
-            // The place's column gave its frame without the menu's places; it learns of that very frame.
-            if (Beside != null && besideFrame != null && drawn == besideFrame) Beside.Drawn(drawn, sidePanel);
-            else if (IsOpen && placeFrame != null && drawn == menuFrame) PlaceColumn.Drawn(placeFrame, sidePanel);
+            switch (from)
+            {
+                case MenuColumn.Menu:
+                    // The place's column gave its frame without the menu's places; it learns of that very frame.
+                    if (!IsOpen || placeFrame == null || frame == null || frame != menuFrame) return;
+                    drawnMenu = frame;
+                    PlaceColumn.Drawn(placeFrame, false);
+                    return;
+                case MenuColumn.File:
+                    if (Beside == null || besideFrame == null || frame != besideFrame) return;
+                    drawnBeside = frame;
+                    Beside.Drawn(besideFrame, false);
+                    return;
+                default:
+                    // As the plane has it: the file's side panel where a file stands, else the menu's.
+                    var front = besideFrame ?? menuFrame;
+                    if (side == null || front == null || side != front.Side) return;
+                    drawnSide = side;
+                    drawnSideOf = front == besideFrame ? Beside! : PlaceColumn;
+                    drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, true);
+                    return;
+            }
         }
 
         /// <summary>The column whose held prompt, or press, came from <paramref name="from"/>.</summary>
@@ -195,20 +241,32 @@ namespace Halcyonic.Client
 
         private void OnBesideClosed() => CloseBeside();
 
-        private void Unhook()
+        /// <summary>The column beside the menu leaves the plane: it is heard no more and lets go of what it had armed, as a confirmation.</summary>
+        private void Leave()
         {
             if (Beside == null) return;
             Beside.Changed -= OnBesideChanged;
             Beside.Closed -= OnBesideClosed;
+            Leaving(Beside);
         }
 
-        /// <summary>What shows changed: the frames drawn so far are no longer what the columns stand by, so a late draw of one is passed over.</summary>
+        /// <summary><paramref name="column"/> leaves the plane: what it had armed, as a confirmation, lapses.</summary>
+        private static void Leaving(IMenuColumn column) => column.FocusLeft();
+
+        /// <summary>
+        /// What shows changed: the frames drawn so far are no longer what the columns stand by, so a late
+        /// draw of one, or a press on one, is passed over until they are drawn again.
+        /// </summary>
         private void Raise()
         {
             changed = true;
             placeFrame = null;
             menuFrame = null;
             besideFrame = null;
+            drawnMenu = null;
+            drawnBeside = null;
+            drawnSide = null;
+            drawnSideOf = null;
             Changed?.Invoke();
         }
     }

@@ -233,26 +233,18 @@ namespace Halcyonic.XR.Workspace
             return true;
         }
 
-        private void OnActed(MenuColumn from, string action, string? key)
+        /// <summary>A press, only while the app has focus and only on the frame last drawn in its slot; the stage's sounds answer one taken.</summary>
+        private void OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
             if (FocusGuard.InputSuspended) return;
-            navigator.Act(from, action, key);
-            setup.Acted?.Invoke(from, action, key);
+            if (navigator.Act(from, action, key, frame, side)) setup.Acted?.Invoke(from, action, key);
         }
 
         /// <summary>A view drew its frame whole: the column that gave it learns of it, never while the plane is folded away.</summary>
         private void OnDrawn(MenuColumn from, MenuFrameView view)
         {
             if (FocusGuard.Folded) return;
-            if (from == MenuColumn.Side)
-            {
-                // A side panel belongs to the frame in front.
-                var (menu, beside) = navigator.Frames(shownBar ?? setup.Bar(navigator.Place));
-                var owner = beside ?? menu;
-                if (owner != null && view.Side == owner.Side) navigator.Drawn(owner, sidePanel: true);
-                return;
-            }
-            if (view.Frame is MenuFrame frame) navigator.Drawn(frame, sidePanel: false);
+            navigator.Drawn(from, view.Frame, view.Side);
         }
 
         private void OnHoldStarted(MenuColumn from, Prompt prompt)

@@ -125,7 +125,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(PlaneState(name + " director tasks", folder, camera, texture, director.Plane, characters, eyes, null));
 
                 // Its row opens its file beside the menu, and the row stays chosen.
-                director.Navigator.Act(MenuColumn.Menu, TasksColumn.OpenTask, opened.View.WorkstreamId);
+                var drawnTasks = director.Plane.Showing(MenuColumn.Menu);
+                if (!director.Navigator.Act(MenuColumn.Menu, TasksColumn.OpenTask, opened.View.WorkstreamId, drawnTasks, null))
+                {
+                    failures.Add(name + ": a press on Tasks as drawn was not taken.");
+                }
                 director.DrawNow();
                 if (file == null || director.Navigator.Beside != file) failures.Add(name + ": pressing the waiting task's row opened no file beside the menu.");
                 var expected = MenuPage.Height(comfort.Text, 1, MenuPlane.TopLine(opened.Target, targets, eyes, opened.Target.BodyPosition - eyes, surface), ViewField.Current);
@@ -150,7 +154,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, null));
 
                 // Choosing a place is the menu's own; the file stays beside it.
-                director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
+                // A press from the frame drawn before the file opened is passed over: it no longer stands.
+                if (director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage), drawnTasks, null))
+                {
+                    failures.Add(name + ": a press on a frame no longer standing was taken.");
+                }
+                director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings), director.Plane.Showing(MenuColumn.Menu), null);
                 director.DrawNow();
                 var settings = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Settings, state)).Menu;
                 if (settings?.Subject != SettingsText.Subject) failures.Add(name + ": choosing Settings did not show Settings.");
