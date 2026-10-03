@@ -125,8 +125,22 @@ describe('error text before it is journaled', () => {
         `https://${REDACTED}@host.example failed; write to admin@example.com`,
       ],
       [
+        'mirrors: https://u:pw@host.example, admin@example.com',
+        `mirrors: https://${REDACTED}@host.example, admin@example.com`,
+      ],
+      // Glued by a comma alone, the host goes with it: the smaller harm than sparing a password.
+      [
         'mirrors: https://u:pw@host.example,admin@example.com',
-        `mirrors: https://${REDACTED}@host.example,admin@example.com`,
+        `mirrors: https://${REDACTED}@example.com`,
+      ],
+      // A comma or an apostrophe in a password, as RFC 3986 allows.
+      [
+        'https://u:pa,ss12345@db.example.test refused',
+        `https://${REDACTED}@db.example.test refused`,
+      ],
+      [
+        "https://u:pa'ss12345@db.example.test refused",
+        `https://${REDACTED}@db.example.test refused`,
       ],
     ];
     for (const [text, expected] of cases) assert.equal(redactSecrets(text, []), expected, text);

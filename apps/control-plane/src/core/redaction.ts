@@ -68,10 +68,11 @@ const SCHEME_CREDENTIAL =
 
 /**
  * A URL's user and password: `scheme://user:password@host`, up to the last `@` before the host,
- * since a password can hold a raw `@`. Whitespace, a quote, `<`, `>` or a comma ends the URL, so an
- * email address after it, or a second URL, keeps its own `@`.
+ * since a password can hold a raw `@`, and a comma or an apostrophe as RFC 3986 allows. Whitespace,
+ * a double quote, `<`, `>` or a comma before whitespace ends the URL, so an email address after it,
+ * or a second URL, keeps its own `@`; one glued to it by a comma alone loses its host with it.
  */
-const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/?#"'<>,]+@/gi;
+const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)(?:[^\s/?#"<>,]|,(?!\s))+@/gi;
 
 /**
  * A long run that reads as random: 32 or more letters, digits, `_` and `-`, with capitals, small
