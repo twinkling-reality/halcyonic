@@ -131,12 +131,15 @@ namespace Halcyonic.Client
         /// <param name="choice">An answer to choose: a shape round its words, lit when chosen.</param>
         /// <param name="rows">The most rows its words may wrap to.</param>
         /// <param name="fromRow">
-        /// The first of its wrapped rows shown, from 0, as a part of a long request starts where the
-        /// one before ended; <paramref name="rows"/> rows show from there.
+        /// Null for words shown from their start, ending in an ellipsis where they run past
+        /// <paramref name="rows"/>, as an answer cut to fit. Given, the words are shown in parts, as a
+        /// long request is: exactly <paramref name="rows"/> of the rows they wrap to whole, from this
+        /// one, from 0, with no ellipsis, so the next part starts where this one ends and no word is
+        /// lost between them.
         /// </param>
         public PageLine(string words, bool wordsAreData = false, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
-            bool chosen = false, bool available = true, int rows = 1, int fromRow = 0, bool factIsData = false)
+            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false)
         {
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
             if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
@@ -199,12 +202,15 @@ namespace Halcyonic.Client
 
         public int Rows { get; }
 
-        public int FromRow { get; }
+        public int? FromRow { get; }
 
         public bool Pressable => Action != null && Available;
     }
 
-    /// <summary>A fact in a side panel: its name in the Label size over its value in the Body size.</summary>
+    /// <summary>
+    /// A fact in a side panel: its name in the secondary colour over its value, both in the Body size,
+    /// since type only steps down and a smaller name would stand above larger type (ADR 0026).
+    /// </summary>
     public sealed class SideFact
     {
         public SideFact(string name, string value, bool valueIsData = false)
@@ -231,6 +237,9 @@ namespace Halcyonic.Client
     {
         /// <summary>What the side panel's Close raises.</summary>
         public const string Close = "close-side-panel";
+
+        /// <summary>A side panel's footer: its own Close, which closes the details and leaves the page.</summary>
+        public static Footer Footer { get; } = new Footer(new Prompt(Close, "Close details", GlazeIcon.Close, PromptKind.Close));
 
         /// <param name="source">Where its words come from, one line, last, in the secondary colour.</param>
         /// <param name="parts">The part showing, from 0, and how many there are, where it pages; null where it doesn't.</param>
@@ -498,8 +507,9 @@ namespace Halcyonic.Client
     /// subject, the title alone, drawn light, and on a file its task's state pill on the subject's top
     /// edge at its left, the same badge the character's label shows, its word at 18 dp; the row of its
     /// sections; the chosen section's page, a few short lines; why a prompt can't be taken now; the
-    /// page's one source line, last; a side panel a line opened; and the footer. What to show, never
-    /// where: the Unity layer lays it on the plane by the tokens.
+    /// page's one source line, last; a side panel a line opened, or a chosen answer whose words were
+    /// cut to fit, holding all of them, so the person reads what Send answer sends; and the footer.
+    /// What to show, never where: the Unity layer lays it on the plane by the tokens.
     /// </summary>
     public sealed class MenuFrame
     {
@@ -507,11 +517,12 @@ namespace Halcyonic.Client
         public const string ChooseSection = "section";
 
         /// <summary>
-        /// How many rows a list's page holds, as Tasks and Projects do (ADR 0026): 4 at the standard
+        /// How many rows a page holds, as Tasks, Usage and a file's do (ADR 0026): 4 at the standard
         /// size and 3 with text a step larger, where 4 would take the menu and a file past a Quest 3S's
-        /// field. A line that wraps counts each of its rows.
+        /// field. A line that wraps counts each of its rows, and a page's source line counts as one:
+        /// with a side panel open, 4 rows and a source line reach past the field.
         /// </summary>
-        public static int RowsAPage(TextSize text) => text == TextSize.Larger ? 3 : 4;
+        public static int RowsAPage(TextSize text, bool sourceLine) => (text == TextSize.Larger ? 3 : 4) - (sourceLine ? 1 : 0);
 
         /// <param name="pill">On a file, its task's state badge, as its character wears it.</param>
         /// <param name="source">Where the page's words come from, one line, last on the page, in the secondary colour.</param>
@@ -525,7 +536,10 @@ namespace Halcyonic.Client
             if (sections.Count > 0 && sections.Count(section => section.Chosen) != 1) throw new ArgumentException("A frame's sections have one chosen.", nameof(sections));
             if (sections.Select(section => section.Key).Distinct().Count() != sections.Count) throw new ArgumentException("Each section has its own key.", nameof(sections));
             if (lines.Count(line => line.Chosen && !line.Choice) > 1) throw new ArgumentException("At most one row is chosen; only answers may be chosen together.", nameof(lines));
-            if (side != null && !lines.Any(line => line.Chosen && line.Opens)) throw new ArgumentException("A side panel slides out from the chosen line that opens it.", nameof(side));
+            if (side != null && !lines.Any(line => line.Chosen && (line.Opens || line.Choice)))
+            {
+                throw new ArgumentException("A side panel slides out from the chosen line that opens it, or from a chosen answer cut to fit.", nameof(side));
+            }
             if (source != null && string.IsNullOrWhiteSpace(source)) throw new ArgumentException("A source line has its words, or is null.", nameof(source));
             Subject = subject;
             SubjectIsData = subjectIsData;
@@ -559,5 +573,177 @@ namespace Halcyonic.Client
         public SidePanel? Side { get; }
 
         public Footer Footer { get; }
+    }
+
+    /// <summary>
+    /// A page's measures (ADR 0026), engine-free, in units of the plane's distance at the designed size,
+    /// so a screen can pack a page before the view lays it: how wide its words run, how tall each kind
+    /// of line stands and the gaps between them, and how much height a page holds inside a Quest 3S's
+    /// field. The view lays pages by the same numbers, and the component render holds the two to agree.
+    /// </summary>
+    public static class MenuPage
+    {
+        /// <summary>
+        /// Where the plane's top line stands below eye level, under the lineup's labels: where a panel as
+        /// tall as designed, 26 degrees, has its top with its centre as low as a Quest 3S allows with the
+        /// head level (<see cref="ViewField.LowestCenter"/>). A plane up to that tall is read with the
+        /// head level and a taller one with it tipped by <see cref="WorkspacePlacement.ReadingPitch"/>,
+        /// with no height between the two that fits neither. The line a page's height is reckoned down from.
+        /// </summary>
+        public const float TopDegrees = 17.5f;
+
+        /// <summary>A Quest 3S's field, Meta's 96 by 90 degrees split evenly, as the renders' field checks take it.</summary>
+        public static readonly ViewField Quest3S = new ViewField(48, 48, 45, 45);
+
+        private static float U(float degrees) => Glaze.MetersAt(degrees, 1f);
+
+        /// <summary>Between two targets, 12 mm on the plane.</summary>
+        public static float TargetGap => Glaze.TargetGapMeters / Glaze.Menu.PlaneMeters;
+
+        /// <summary>Between lines of one group, a grid step.</summary>
+        public static float Grid => U(Glaze.Menu.GridDegrees);
+
+        /// <summary>Between groups, as before a reason or a source line.</summary>
+        public static float GroupGap => U(Glaze.Menu.GroupGapDegrees);
+
+        /// <summary>A column's content width: its width less its padding on each side.</summary>
+        public static float ContentWidth(float columnDegrees) => PlaneComposition.Units(columnDegrees) - 2f * U(Glaze.Menu.PaddingDegrees);
+
+        /// <summary>
+        /// The width each of two answers sharing a row gives its words: half the row of shapes, 12 mm
+        /// between them, less the inset each shape reaches past its words.
+        /// </summary>
+        public static float HalfWidth(float columnDegrees)
+        {
+            var inset = U(Glaze.Menu.InsetDegrees);
+            return (ContentWidth(columnDegrees) + 2f * inset - TargetGap) / 2f - 2f * inset;
+        }
+
+        /// <summary>A line of words <paramref name="rows"/> rows tall, at the content's size.</summary>
+        public static float Words(int rows) => rows * U(Glaze.Menu.BodyDegrees) * Glaze.Menu.LineSpacing;
+
+        /// <summary>A row or an answer: 48 dp, or taller for words in more rows than that holds, a grid step above and below them.</summary>
+        public static float Target(int rows = 1) => MathF.Max(U(Glaze.MinimumTargetDegrees), Words(rows) + 2f * Grid);
+
+        /// <summary>A page's source line and the gap before it.</summary>
+        public static float SourceLine => GroupGap + Words(1);
+
+        /// <summary>
+        /// A column's subject: its plate, at least <see cref="Glaze.Menu.SubjectDegrees"/>, round its title
+        /// in <paramref name="rows"/> rows; with <paramref name="pill"/>, half a pill above the plate and its
+        /// lower half inside it, the title half a grid step under it.
+        /// </summary>
+        public static float Subject(int rows, bool pill)
+        {
+            var room = pill ? U(Glaze.Menu.PillHeightDegrees) / 2f : 0f;
+            var inner = pill ? room - U(Glaze.Menu.SubjectPaddingDegrees) + Grid / 2f : 0f;
+            var title = rows * U(Glaze.Menu.TitleDegrees) * Glaze.Menu.LineSpacing;
+            return room + MathF.Max(U(Glaze.Menu.SubjectDegrees), inner + title + 2f * U(Glaze.Menu.SubjectPaddingDegrees));
+        }
+
+        /// <summary>The row of sections, a 48 dp target's height.</summary>
+        public static float Sections => U(Glaze.MinimumTargetDegrees);
+
+        /// <summary>A content surface <paramref name="page"/> tall in its lines: its top padding, the 12 mm before the footer, the footer and the room under it.</summary>
+        public static float Content(float page) => U(Glaze.Menu.PaddingDegrees) + page + TargetGap + U(Glaze.TargetDegrees) + U(1f);
+
+        /// <summary>
+        /// Whether <paramref name="composition"/> stands inside a Quest 3S's field less its margin, its top
+        /// <see cref="TopDegrees"/> below eye level and the head turned to its centre and tipped down by
+        /// <see cref="WorkspacePlacement.ReadingPitch"/>, as the renders' field check sees it.
+        /// </summary>
+        public static bool Fits(PlaneComposition composition)
+        {
+            const float DegreesPerRadian = 180f / MathF.PI;
+            var half = MathF.Atan(composition.Height / 2f) * DegreesPerRadian;
+            var direction = new PanelDirection(0f, -TopDegrees - half, true, false);
+            var pitch = WorkspacePlacement.ReadingPitch(composition.Size) / DegreesPerRadian;
+            var tolerance = ViewField.EdgeMarginDegrees - 0.01;
+            var shrunk = new ViewField(Quest3S.Left - tolerance, Quest3S.Right - tolerance, Quest3S.Up - tolerance, Quest3S.Down - tolerance);
+            foreach (var right in new[] { -composition.Width / 2f, composition.Width / 2f })
+            {
+                foreach (var up in new[] { -composition.Height / 2f, composition.Height / 2f })
+                {
+                    // Seen with the head tipped down: the point turned up by as much.
+                    var (x, y, z) = PlaneComposition.PointOf(direction, right, up);
+                    var seenY = y * MathF.Cos(pitch) + z * MathF.Sin(pitch);
+                    var seenZ = -y * MathF.Sin(pitch) + z * MathF.Cos(pitch);
+                    var across = MathF.Atan2(x, seenZ) * DegreesPerRadian;
+                    var elevation = MathF.Atan2(seenY, MathF.Sqrt(x * x + seenZ * seenZ)) * DegreesPerRadian;
+                    if (!shrunk.Shows(across, elevation)) return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// The most a file's page may hold in its lines, standing alone, its subject in
+        /// <paramref name="subjectRows"/> rows under its pill, at <paramref name="text"/>'s size: as tall as
+        /// keeps it inside the field (<see cref="Fits"/>). A page packs its lines against it, a source
+        /// line included (<see cref="SourceLine"/>). Beside the menu the plane is wider and the menu's
+        /// own page counts too, so the plane checks the two together and the menu steps aside where
+        /// they don't fit (<see cref="MenuColumns"/>).
+        /// </summary>
+        public static float Height(TextSize text, int subjectRows)
+        {
+            if (subjectRows < 1) throw new ArgumentOutOfRangeException(nameof(subjectRows), subjectRows, "A subject takes a row or two.");
+            var zoom = text == TextSize.Larger ? Comfort.LargerTextScale : 1f;
+            bool Holds(float page) => Fits(new PlaneComposition(new[]
+            {
+                new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), Subject(subjectRows, pill: true), Sections, Content(page)),
+            }, zoom));
+            float low = 0f, high = 2f;
+            if (!Holds(low)) return 0f;
+            for (var step = 0; step < 40; step++)
+            {
+                var middle = (low + high) / 2f;
+                if (Holds(middle)) low = middle;
+                else high = middle;
+            }
+            return low;
+        }
+
+        /// <summary>The height <paramref name="rows"/> rows of a list take, 12 mm apart, as a page of Tasks lays them.</summary>
+        public static float Rows(int rows) => rows <= 0 ? 0f : rows * Target() + (rows - 1) * TargetGap;
+    }
+
+    /// <summary>A kind of column on the menu's plane (ADR 0026).</summary>
+    public enum MenuColumn
+    {
+        /// <summary>The menu open on a place, <see cref="Glaze.Menu.MenuColumnDegrees"/> wide.</summary>
+        Menu,
+
+        /// <summary>A task's file, or New project's steps, <see cref="Glaze.Menu.FileColumnDegrees"/> wide.</summary>
+        File,
+
+        /// <summary>What a line opened, beside the frame it came from, <see cref="Glaze.Menu.SideColumnDegrees"/> wide.</summary>
+        Side,
+    }
+
+    /// <summary>
+    /// Which columns stand on the menu's plane (ADR 0026), left to right: never three, since the menu, a
+    /// file and a side panel would pass a Quest 3S's field. A side panel belongs to the frame in front,
+    /// the file where one is open. With a file beside it, the menu steps aside, leaving the plane with a
+    /// short eased slide to the left, while the file's side panel is open or while the two together
+    /// would not fit the field; it comes back once neither holds, and when the file closes. What waits
+    /// still shows on the stage and on the file's pill while it is aside.
+    /// </summary>
+    public static class MenuColumns
+    {
+        /// <param name="menuOpen">The menu is open, not closed to its bar.</param>
+        /// <param name="sidePanel">A side panel is open, the file's where a file is open, else the menu's.</param>
+        /// <param name="fitsBeside">The menu and the file together fit the field (<see cref="MenuPage.Fits"/>).</param>
+        public static IReadOnlyList<MenuColumn> Arrange(bool menuOpen, bool fileOpen, bool sidePanel, bool fitsBeside)
+        {
+            var columns = new List<MenuColumn>();
+            if (menuOpen && !(fileOpen && (sidePanel || !fitsBeside))) columns.Add(MenuColumn.Menu);
+            if (fileOpen) columns.Add(MenuColumn.File);
+            if (sidePanel && columns.Count > 0) columns.Add(MenuColumn.Side);
+            return columns;
+        }
+
+        /// <summary>The menu is open but stands aside for the file, as <see cref="Arrange"/> puts it.</summary>
+        public static bool MenuAside(bool menuOpen, bool fileOpen, bool sidePanel, bool fitsBeside) =>
+            menuOpen && fileOpen && (sidePanel || !fitsBeside);
     }
 }
