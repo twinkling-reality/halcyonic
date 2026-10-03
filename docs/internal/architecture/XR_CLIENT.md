@@ -740,8 +740,9 @@ the same definition names, as the JSON Schema document:
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
   it gave. A press acts only when the frame the director last drew offers it, available, so nothing
   the person can't see or press now runs; a row is keyed by what it chooses (a suggestion or fixed
-  answer by its words, a folder by its place's path and its own name), so a press on a frame drawn
-  before a new reply or listing never takes another. It asks the computer only to read (the
+  answer by the question it answers and its words, a folder by its place's path and its own name),
+  so a press on a frame drawn before a new reply or listing never takes another, even the same
+  words on the next question. It asks the computer only to read (the
   companion's status, folders, and an agent app's models only when the person chooses the app or
   opens How it runs, since listing may start it), the companion's next reply, and the commands a
   review read to its end confirmed, which `BuildSequence` alone builds and sends through

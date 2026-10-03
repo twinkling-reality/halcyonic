@@ -394,10 +394,10 @@ namespace Halcyonic.Client
                     break;
 
                 // The companion's question.
-                case NewProjectScreens.ChooseSuggestion when exchange != null && key != null:
-                    // By its words: a reply that came after the frame was drawn offers other suggestions, and none of them is taken for it.
-                    var suggestion = (exchange.Latest as AskReply)?.Question?.Choices?.IndexOf(key) ?? -1;
-                    if (suggestion >= 0 && (recording == null || key == recording.RecordedAnswer(exchange))) exchange.Choose(suggestion);
+                case NewProjectScreens.ChooseSuggestion when exchange != null && NewProjectScreens.AnswerWords(key, exchange.Generation) is string words:
+                    // By its question and words: a reply that came after the frame was drawn is another question, and nothing on it is taken for the press.
+                    var suggestion = (exchange.Latest as AskReply)?.Question?.Choices?.IndexOf(words) ?? -1;
+                    if (suggestion >= 0 && (recording == null || words == recording.RecordedAnswer(exchange))) exchange.Choose(suggestion);
                     break;
                 case NewProjectScreens.TypeAnswer when exchange != null && recording == null && !host.KeyboardOffered:
                     if (exchange.Written != null) exchange.Write(exchange.Written, exchange.WrittenHeard);
@@ -431,8 +431,8 @@ namespace Halcyonic.Client
                     break;
 
                 // The fixed questions.
-                case NewProjectScreens.ChooseFixedAnswer when key != null:
-                    current.ChooseGuideAnswer(key);
+                case NewProjectScreens.ChooseFixedAnswer when NewProjectScreens.AnswerWords(key, current.Question) is string answer:
+                    current.ChooseGuideAnswer(answer);
                     break;
                 case NewProjectScreens.TypeFixedAnswer when current.Question < ProjectIdea.Questions.Count && !host.KeyboardOffered:
                     if (current.GuideWritten != null) current.WriteGuideAnswer(current.GuideWritten, current.GuideWrittenHeard);
