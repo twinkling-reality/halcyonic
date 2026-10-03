@@ -343,7 +343,16 @@ namespace Halcyonic.Client
             var at = now();
             var loaded = store.Load().ToList();
             kept = loaded.Where(draft => !draft.ExpiredAt(at)).ToList();
-            if (kept.Count != loaded.Count) store.Save(kept);
+            if (kept.Count == loaded.Count) return kept;
+            try
+            {
+                store.Save(kept);
+            }
+            catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
+            {
+                // Not kept on the device as read; the next change writes the file again, without them.
+                lastWritten = null;
+            }
             return kept;
         }
 

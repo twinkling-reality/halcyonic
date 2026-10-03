@@ -154,12 +154,13 @@ internal static class Samples
 
     /// <summary>
     /// A review of what <paramref name="sequence"/> sends, under <paramref name="projectName"/> when it
-    /// renames the project, read through and confirmable, as Start building's review leaves it.
+    /// renames the project and in <paramref name="folder"/> when it moves it, read through and
+    /// confirmable, as Start building's review leaves it.
     /// </summary>
-    public static NewWorkReview Reviewed(BuildSequence sequence, string? projectName = null)
+    public static NewWorkReview Reviewed(BuildSequence sequence, string? projectName = null, ProjectLocationChoice? folder = null)
     {
         var review = new NewWorkReview(projectName ?? sequence.NewProjectName ?? "Project", "Title", "Agent", "Model", "on your computer",
-            sequence.Draft.Model?.ModelRef ?? "none", sequence.Draft.Objective);
+            sequence.Draft.Model?.ModelRef ?? "none", sequence.Draft.Objective, folderChoice: folder ?? sequence.Location);
         review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
         ReadThrough(review);
         return review;

@@ -426,7 +426,8 @@ public class LiveControlPlaneTests
             Assert.That(sequence.StoppedAt?.Refusal, Is.EqualTo(RejectionCode.LocationExists));
             Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.True);
 
-            await Drive(sequence, sequence.Retry(Samples.Reviewed(sequence), folder: ProjectFolder.Existing(taken).ToContract()));
+            var existing = ProjectFolder.Existing(taken).ToContract();
+            await Drive(sequence, sequence.Retry(Samples.Reviewed(sequence, folder: existing), folder: existing));
             Assert.That(sequence.Started, Is.True, string.Join(", ", sequence.Steps.Select(EntryText.StepStatus)));
             var project = session.State.Projects[sequence.ProjectId!];
             Assert.That((project.Location!.Name, project.Location.Created), Is.EqualTo(("recipes", false)));

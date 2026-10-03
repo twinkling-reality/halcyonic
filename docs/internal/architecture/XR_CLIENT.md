@@ -536,10 +536,14 @@ the same definition names, as the JSON Schema document:
   `workstream.create` and `execution.start`, each sent only once the control plane recorded the one
   before it completed, a projected record winning over a lost acknowledgement (`NewWorkSubmission`).
   It begins, and sends again, only on a `NewWorkReview` read to its end whose Yes it takes, once
-  (`Spend`), and that shows the new project's name, the model and the first task it sends; the
-  panel also refuses Yes for a review that is no longer the request as it stands (`SameRequest`),
-  as after a change made by way of the steps, and shows that request afresh. So Try again opens the
-  review rather than sending. A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
+  (`Spend`), and that shows the new project's name, the folder it sends (compared as the command
+  carries it, since two places can share a name), the model and the first task; it keeps what that
+  Yes confirmed and builds every later step from it, never from the draft as it changes after, and
+  reviewing changes nothing in the draft. The panel also refuses Yes for a review that is no longer
+  the request as it stands (`SameRequest`), as after a change made by way of the steps, and shows
+  that request afresh; starts nothing more while a build is on its way; and, once a project is made
+  and a later step stops, keeps that project and the name it was made with (`ProjectIdea.ProjectMade`).
+  So Try again opens the review rather than sending. A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
   refusal's or failure's code, and can be sent again as a new command built from the draft as it is
   now, reusing the project and workstream already made (`Retry`); given a newly chosen folder, a
   project that exists is bound to it first, as after `location_required` or `location_missing`. An

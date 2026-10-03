@@ -601,6 +601,44 @@ public class BuildSequenceTests
     }
 
     [Test]
+    public void EveryStepGoesOutAsConfirmedWhateverTheDraftBecomesAfterYes()
+    {
+        var draft = Draft();
+        draft.Objective = "Plan dinners for the week.";
+        var sequence = new BuildSequence(draft, Commands, "Dinners");
+        var project = sequence.Begin(Samples.Reviewed(sequence));
+        // While project.create is on its way, the steps take the person back to the recap, and they change things.
+        draft.Objective = "Something never confirmed.";
+        draft.ChooseRuntime(new RuntimeDescriptor
+        {
+            RuntimeId = "other", DisplayName = "Other runtime", Kind = "mock", Synthetic = true, ModelChoice = ModelChoice.None,
+            Capabilities = new RuntimeCapabilities { StartExecution = true },
+        });
+        var workstream = (WorkstreamCreateCommand)sequence.Advance(With(Completed(project, new ProjectCreatedResult { ProjectId = "p1" })))!;
+        Assert.That((workstream.Payload.Objective, workstream.Payload.Title), Is.EqualTo(("Plan dinners for the week.", "Plan dinners for the week.")));
+        var start = (ExecutionStartCommand)sequence.Advance(With(Completed(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+        Assert.That((start.Payload.Instruction, start.Payload.RuntimeId), Is.EqualTo(("Plan dinners for the week.", "mock")), "the runtime and task confirmed, not chosen after");
+    }
+
+    [Test]
+    public void APlaceSharingAnotherPlacesNameIsNotTheFolderReviewed()
+    {
+        var home = new NewFolderChoice { Root = "/Users/person/Projects", FolderName = "dinners" };
+        var work = new NewFolderChoice { Root = "/Volumes/Work/Projects", FolderName = "dinners" };
+        static NewWorkReview In(NewFolderChoice choice) =>
+            new("Dinners", "Title", "Agent", "Model", "on your computer", "none", "Plan dinners.", "a new folder, dinners, in Projects", folderChoice: choice);
+        Assert.That(In(home).Items.Select(item => item.Text), Is.EqualTo(In(work).Items.Select(item => item.Text)), "the words read the same");
+        Assert.That(In(home).SameRequest(In(work)), Is.False, "the folders themselves differ");
+        Assert.That(In(home).SameRequest(In(home)), Is.True);
+
+        var draft = Draft();
+        var sequence = new BuildSequence(draft, Commands, "Dinners", work);
+        Assert.Throws<InvalidOperationException>(() => sequence.Begin(Samples.Reviewed(sequence, folder: home)), "never sent to a place not reviewed");
+        Assert.That(sequence.Current, Is.Null);
+        Assert.That(sequence.Begin(Samples.Reviewed(sequence)), Is.InstanceOf<ProjectCreateCommand>());
+    }
+
+    [Test]
     public void AReviewMadeAfterAChangeIsNotTheSameRequest()
     {
         static NewWorkReview Of(string project, string task) => new(project, "Title", "Agent", "Model", "on your computer", "none", task);

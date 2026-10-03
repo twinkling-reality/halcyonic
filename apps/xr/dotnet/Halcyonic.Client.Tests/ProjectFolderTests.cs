@@ -181,7 +181,7 @@ public class FolderRefusalTests
         Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: This project has no folder on your computer yet. Choose where its files live, then try again."),
             "the next action comes from the code, not the message");
 
-        var bind = sequence.Retry(Samples.Reviewed(sequence), folder: Folder("recipes"));
+        var bind = sequence.Retry(Samples.Reviewed(sequence, folder: Folder("recipes")), folder: Folder("recipes"));
         Assert.That(bind, Is.InstanceOf<ProjectSetLocationCommand>());
         var again = (ExecutionStartCommand)sequence.Advance(With(Done(bind, null)))!;
         Assert.That(again.Payload.WorkstreamId, Is.EqualTo("w1"), "the work already created is started, not made again");
@@ -195,7 +195,8 @@ public class FolderRefusalTests
         var create = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(create, RejectionCode.LocationExists, "There is already a folder named recipes.")));
         Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Contain("Use that folder"));
-        var use = (ProjectCreateCommand)sequence.Retry(Samples.Reviewed(sequence), folder: new ExistingFolderChoice { Root = "/Users/person/Projects", FolderName = "recipes" });
+        var existing = new ExistingFolderChoice { Root = "/Users/person/Projects", FolderName = "recipes" };
+        var use = (ProjectCreateCommand)sequence.Retry(Samples.Reviewed(sequence, folder: existing), folder: existing);
         Assert.That(use.Payload.Location, Is.InstanceOf<ExistingFolderChoice>());
         Assert.That(use.CommandId, Is.Not.EqualTo(create.CommandId));
     }

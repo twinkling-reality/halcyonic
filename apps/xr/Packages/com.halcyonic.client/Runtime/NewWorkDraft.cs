@@ -180,32 +180,32 @@ namespace Halcyonic.Client
         /// What of the objective the title holds, as the person typed it, and whether Halcyonic cut it
         /// there, so a review can spell the typed text and show the ellipsis as Halcyonic's own.
         /// </summary>
-        public (string Typed, bool Cut) TitleSource
+        public (string Typed, bool Cut) TitleSource => TitleSourceOf(Objective);
+
+        /// <summary>What of <paramref name="objective"/> a title holds, as typed, and whether Halcyonic cut it there.</summary>
+        public static (string Typed, bool Cut) TitleSourceOf(string objective)
         {
-            get
+            objective = (objective ?? "").Trim();
+            if (LabelText.Plain(objective).Length <= MaxTitleLength) return (objective, false);
+            // Where each character ends; Plain of a longer prefix never gets shorter.
+            var ends = new List<int>();
+            for (var index = 0; index < objective.Length; index++)
             {
-                var objective = Objective.Trim();
-                if (LabelText.Plain(objective).Length <= MaxTitleLength) return (objective, false);
-                // Where each character ends; Plain of a longer prefix never gets shorter.
-                var ends = new List<int>();
-                for (var index = 0; index < objective.Length; index++)
-                {
-                    if (char.IsHighSurrogate(objective[index]) && index + 1 < objective.Length && char.IsLowSurrogate(objective[index + 1])) index++;
-                    ends.Add(index + 1);
-                }
-                int low = 0, high = ends.Count - 1, fits = 0;
-                while (low <= high)
-                {
-                    var middle = (low + high) / 2;
-                    if (LabelText.Plain(objective.Substring(0, ends[middle])).Length <= MaxTitleLength - 1)
-                    {
-                        fits = ends[middle];
-                        low = middle + 1;
-                    }
-                    else high = middle - 1;
-                }
-                return (objective.Substring(0, fits).TrimEnd(), true);
+                if (char.IsHighSurrogate(objective[index]) && index + 1 < objective.Length && char.IsLowSurrogate(objective[index + 1])) index++;
+                ends.Add(index + 1);
             }
+            int low = 0, high = ends.Count - 1, fits = 0;
+            while (low <= high)
+            {
+                var middle = (low + high) / 2;
+                if (LabelText.Plain(objective.Substring(0, ends[middle])).Length <= MaxTitleLength - 1)
+                {
+                    fits = ends[middle];
+                    low = middle + 1;
+                }
+                else high = middle - 1;
+            }
+            return (objective.Substring(0, fits).TrimEnd(), true);
         }
 
         public WorkstreamCreateCommand CreateWorkstream()

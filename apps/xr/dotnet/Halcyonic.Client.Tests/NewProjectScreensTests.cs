@@ -690,6 +690,55 @@ public class NewProjectStartTests
     }
 
     [Test]
+    public void NextPartShowsOnlyWhileThereIsALaterPartToTurnTo()
+    {
+        var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
+        review.Paginate(review.Items.Select(_ => 2).ToList(), 6);
+        var now = 0.0;
+        review.Drawn(now);
+        while (review.Next(now += 1)) review.Drawn(now - 0.5);
+        Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
+        Assert.That(review.Previous(), Is.True);
+        Assert.That(review.Next(now += 1), Is.False, "the page turned back to was not drawn yet");
+        review.Drawn(now);
+        Assert.That(review.Next(now += 1), Is.True);
+        var lastUndrawn = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
+        lastUndrawn.Paginate(lastUndrawn.Items.Select(_ => 2).ToList(), 6);
+        var t = 0.0;
+        lastUndrawn.Drawn(t);
+        while (lastUndrawn.Page < lastUndrawn.PageCount - 1)
+        {
+            lastUndrawn.Next(t += 1);
+            if (lastUndrawn.Page < lastUndrawn.PageCount - 1) lastUndrawn.Drawn(t);
+        }
+        Assert.That(Ids(NewProjectScreens.Review(Idea(), lastUndrawn, problem: null)), Does.Not.Contain(NewProjectScreens.NextPart),
+            "on the last part, not yet drawn: no Next part past it");
+        lastUndrawn.Drawn(t);
+        lastUndrawn.Spend();
+        Assert.That(Ids(NewProjectScreens.Review(Idea(), lastUndrawn, problem: null)), Does.Not.Contain(NewProjectScreens.NextPart).And.Not.Contain(NewProjectScreens.ConfirmStart),
+            "its Yes taken: neither again");
+    }
+
+    [Test]
+    public void AProjectMadeBeforeALaterStepWasRefusedKeepsTheNameItWasMadeWith()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("Plan dinners for the week.");
+        idea.Rename("Dinners");
+        idea.ProjectMade("p1", "Dinners");
+        idea.Rename("Renamed after it was made");
+        Assert.That((idea.ExistingProjectId, idea.Name), Is.EqualTo(("p1", "Dinners")), "the project exists: its name is not changed here");
+        var draft = Draft();
+        var before = draft.Objective;
+        var recap = NewProjectScreens.Recap(idea, draft, null, live: true, notice: null, problem: null, chosen: RecapFact.Name);
+        Assert.That(recap.Lines.Single(line => line.Words == "Dinners").Action, Is.Null, "no Rename for a made project");
+        Assert.That(recap.Side, Is.Null);
+        Assert.That(EntryScreens.ReviewOf(idea, draft, null, live: true).Items[0].Text, Is.EqualTo("Project: Dinners"));
+        Assert.That(draft.Objective, Is.EqualTo(before), "reviewing changes nothing in the draft");
+        Assert.That(before, Is.Not.EqualTo(idea.FirstTask));
+    }
+
+    [Test]
     public void TheReviewShowsEachPartWholeFromWhereItsItemWasSplit()
     {
         var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
