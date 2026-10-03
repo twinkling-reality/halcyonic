@@ -135,6 +135,17 @@ Settled by the coordinator on 2026-10-02.
 | A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
 | Answers awaiting their Yes, dropped because the question is no longer the one asked | Nothing was sent: the question changed. Read it again. (instead of Check it again) |
 
+### The headset's access code
+
+Where a person must act on the development build's access token, it is the access code. These
+lines were settled by the coordinator on 2026-10-02; the old words are kept beside them so no
+surface goes back to them.
+
+| When | Words | Instead of |
+| --- | --- | --- |
+| Your computer answered 401 to the code | Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app. | Your computer refused this headset's access token: it doesn't match your computer's. Put your computer's current access token on the headset, then restart the app. |
+| What answers can't prove it holds the code, so the headset didn't send it | This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. Put your computer's current access code on the headset, check that Halcyonic is running there, and restart the app. | |
+
 ## Sentence patterns
 
 | Kind | Pattern | Example |
