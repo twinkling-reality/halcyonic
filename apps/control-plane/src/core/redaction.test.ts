@@ -123,6 +123,15 @@ describe('error text before it is journaled', () => {
       `Bearer ${REDACTED}. Next`,
     );
     assert.equal(redactSecrets('Bearer abc.DEF-123_xyz.', []), `Bearer ${REDACTED}.`);
+    // Padding or a `+` is base64's, never a path's, whatever follows.
+    assert.equal(
+      redactSecrets('Basic dXNlcjpwYXNz/d29yZA==.Retry later', []),
+      `Basic ${REDACTED}.Retry later`,
+    );
+    assert.equal(
+      redactSecrets('Token abc123.def/GHI456+jkl== was refused', []),
+      `Token ${REDACTED} was refused`,
+    );
     // Base64 has no `.` and a JSON Web Token no `/`, so either alone is still a credential.
     assert.equal(redactSecrets('Bearer ab/cd+ef12==', []), `Bearer ${REDACTED}`);
     assert.equal(redactSecrets('Bearer abc.DEF-123_xyz', []), `Bearer ${REDACTED}`);
