@@ -136,7 +136,7 @@ namespace Halcyonic.Client
         /// </param>
         public PageLine(string words, bool wordsAreData = false, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
-            bool chosen = false, bool available = true, int rows = 1, int fromRow = 0)
+            bool chosen = false, bool available = true, int rows = 1, int fromRow = 0, bool factIsData = false)
         {
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
             if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
@@ -153,6 +153,7 @@ namespace Halcyonic.Client
             WordsAreData = wordsAreData;
             Icon = icon;
             Fact = fact;
+            FactIsData = factIsData;
             Tone = tone;
             Chip = chip;
             Claim = claim;
@@ -173,6 +174,9 @@ namespace Halcyonic.Client
         public GlazeIcon? Icon { get; }
 
         public string? Fact { get; }
+
+        /// <summary>The fact holds text from outside, as a place's name, shown by <see cref="LabelText"/>'s rule before it is given.</summary>
+        public bool FactIsData { get; }
 
         public LineTone Tone { get; }
 
