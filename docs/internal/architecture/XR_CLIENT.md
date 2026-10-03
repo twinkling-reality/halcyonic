@@ -407,8 +407,9 @@ the same definition names, as the JSON Schema document:
   `TasksColumn` (every task, what waits first, its project where there are several, as many rows as
   fit beside a file on this stage), `UsageColumn` (each limit's share left in words, its side panel
   when it was seen, when it resets and whose account) and `SettingsColumn` (each setting under its
-  group's heading, its one change the main action; the comfort settings from `ComfortSettings`, the
-  rest from what owns them; a change that asks first, as forgetting the computer, arms on that press
+  group's heading, its one change the main action; the comfort settings from `ComfortSettings`, and
+  Your space and, in a development build, Your computer from `SpaceSettings`, each row's change only
+  raising its id for what owns it (`IRoomSettings`, `IPairingSettings`, `MenuDirector.ResetPosition`); a change that asks first, as forgetting the computer, arms on that press
   with `Footer.Confirm`, Cancel in its place and Yes in the free middle, lapsing after 6 seconds, on
   focus leaving, when Settings leaves the plane, once the change can't be made, or once anything the
   setting shows changes, so a Forget armed for one computer never forgets another; each row is read
@@ -1556,10 +1557,10 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   another window has focus its controls take no input and the chip hides, and once focus stays away
   the panel folds with what it read and comes back as it was. It is not Workstream status and not
   part of starting work. Rendered off the device (`UsageLeftRender`); not yet seen on a Quest.
-- **Beside a window:** while the stage stands in front of the person, Settings' Your room says where
-  the characters stand, under the room's own line and switch, and offers the other two arrangements
-  (`StageArrangement`, `CharacterStage.SetArrangement`, kept on the device), so a session on the
-  headset can compare all three: Characters in front (the arc, the default), Make room for a window
+- **Beside a window:** while the stage stands in front of the person, the menu's Settings, Your
+  space, The characters, says where the characters stand and steps to the next arrangement in turn
+  (`StageArrangement`, `SpaceSettings.Next`, `CharacterStage.SetArrangement`, kept on the device), so
+  a session on the headset can compare all three: Characters in front (the arc, the default), Make room for a window
   (the arc turned 32 degrees to the person's right) and Either side of a window. Beside a window, at
   most four characters stand either side of a window lane straight ahead (24 degrees to each side
   and 14 above and below eye level), two on each side at 32 degrees: one 4 degrees above eye level,
@@ -1800,12 +1801,13 @@ neither the scene nor the stage refers to it; the stage finds it as its `IStageP
   (`OVRScene.RequestSpaceSetup`, which pauses the app until the person finishes or cancels), and
   the room is read again afterwards. A placement without a saved anchor holds for the session.
   Nothing waits on the room before the characters appear.
-- **Controls.** `RoomControls` puts the switch ("Show a virtual space" or "Show my room") and the
-  offer ("Allow room access" or "Set up this room") in the Your room section of Settings, under its
-  line from `RoomStatus.Line`, and under them where the characters stand; they ignore input while
-  `FocusGuard.InputSuspended` or the sheet is closed. When the line changes, and when the room is
-  about to ask for access, the stage's banner shows it as a notice for eight seconds, instead of the
-  controls coming up in front of the person as they used to.
+- **Controls.** `RoomControls` gives the workspace director the room's part of the menu's
+  Settings, Your space (`IRoomSettings`, its rows from `SpaceSettings`): Around you, whose change
+  is the switch ("Show a virtual space" or "Show my room"), Your room's layout, whose change is the
+  offer ("Allow room access" or "Set up this room"), each side panel saying `RoomStatus.Line`, and
+  The characters; its changes are ignored while `FocusGuard.InputSuspended`. When the line changes,
+  and when the room is about to ask for access, the stage's banner shows it as a notice for eight
+  seconds, instead of the controls coming up in front of the person as they used to.
 - **Logs.** `Halcyonic: room ...` lines say what was shown, asked, read, chosen, restored, kept,
   lost and erased, and why, with distances and angles, and never an anchor or room id or a
   position.
@@ -1972,12 +1974,14 @@ the room's and the sound's bootstraps do, so neither the scene nor the stage ref
 release build, such as the one judges run, offers no pairing
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 
-- **The panel** is a button and a line in the Your computer section of Settings (ADR 0023); the line
-  shows while something is in progress or for ten seconds after it changed, and the stage's banner
-  shows each line as a notice too, for a result reached with the sheet closed. Moving into Settings
-  changed only where it shows and how it looks: the code entry, the confirmation and every message
-  are as they were. "Forget this computer" and its confirmation are outlined in red. The button ignores
-  input while `FocusGuard.InputSuspended` or the sheet is closed.
+- **The panel** is the Pairing row of the menu's Settings, under Your computer (`SpaceSettings`;
+  `PairingPanel` gives the workspace director its state and its press, `IPairingSettings`): its
+  value Not paired, Pairing…, Paired or Forgetting…, and, paired, its side panel naming the
+  computer's address, shown as data, being the person's own typing. While pairing or forgetting is
+  under way it says so and takes no press. Each line pairing says shows on the stage's banner as a
+  notice, by the banner's rule for words Halcyonic did not write. Moving into the menu changed only
+  where pairing is offered and who asks before forgetting: the code entry and every message are as
+  they were.
 - **Pairing.** "Pair with a computer" opens the system keyboard for the Mac's address, as `pnpm pair`
   prints it (the last one typed is offered, and the port may be left out), then the number pad for
   the code. The exchange runs in the background; its answer is shown in words, with the attempts
@@ -1986,9 +1990,11 @@ release build, such as the one judges run, offers no pairing
   is saved through
   `ControlPlaneSettings.PairingStore` and the `ControlPlaneConnection` is disabled and enabled
   again, so it connects to the paired control plane as at startup.
-- **Forgetting.** Once paired, the button reads "Forget this computer", and a second, deliberate press
-  within six seconds ("Yes, forget this computer") asks the Mac to revoke this headset, deletes the
-  pairing, and connects again as before pairing. If the Mac cannot be reached, the line says to
+- **Forgetting.** Once paired, the row's change reads "Forget this computer", and Settings asks
+  first: Cancel in its place and "Yes, forget this computer" in the free middle, lapsing after six
+  seconds, on focus leaving, when Settings leaves the plane or once forgetting can't be done. Yes
+  asks the computer to revoke this headset, deletes the pairing, and connects again as before
+  pairing. If the Mac cannot be reached, the line says to
   revoke the headset there.
 - **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` and the access
   token in `access-token`, both in app-internal storage on Android (`Context.getFilesDir()`, which no

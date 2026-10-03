@@ -11,29 +11,25 @@ using UnityEngine;
 namespace Halcyonic.XR.Pairing
 {
     /// <summary>
-    /// Pairs this headset with a control plane over the network (ADR 0017): one button and a line in
-    /// the Your computer section of the Settings sheet (ADR 0023). "Pair with a computer" asks on the system
-    /// keyboard for the address and the eight-digit code <c>pnpm pair</c> shows on the Mac, pairs in
-    /// the background, keeps the pairing through <see cref="ControlPlaneSettings.PairingStore"/>, and
-    /// connects again. Once paired, the same button forgets the Mac, after a second, deliberate
-    /// press, and asks the Mac to revoke this headset's credential. What it says also shows on the
-    /// stage's banner as a short notice, so a result reached while the sheet is closed is not missed.
+    /// Pairs this headset with a control plane over the network (ADR 0017), as the Pairing row of the
+    /// menu's Settings, under Your computer (<see cref="SpaceSettings"/>, ADR 0026), in a development
+    /// build. Its press, unpaired, asks on the system keyboard for the address and the eight-digit
+    /// code <c>pnpm pair</c> shows on the computer, pairs in the background, keeps the pairing through
+    /// <see cref="ControlPlaneSettings.PairingStore"/>, and connects again. Paired, Settings asks
+    /// first, with its own Yes, and then the press forgets the computer and asks it to revoke this
+    /// headset's credential. What it says shows on the stage's banner as a short notice, by the
+    /// banner's rule for words Halcyonic did not write, so a result reached with Settings closed is
+    /// not missed.
     /// </summary>
     /// <remarks>
-    /// Moving into Settings changed only where the button and line show and how they look; the
-    /// pairing itself, the code entry, the confirmation and every message are as they were. The
-    /// button ignores input while <see cref="FocusGuard.InputSuspended"/> or the sheet is closed. The
-    /// keyboard's answer counts anyway, since focus returns only after the keyboard closes. The code
-    /// is passed to the pairing and kept nowhere, and neither it nor the credential is logged.
+    /// Moving into the menu's Settings changed only where pairing is offered and who asks before
+    /// forgetting; the pairing itself, the code entry and every message are as they were. The
+    /// keyboard's answer counts whatever the focus, since focus returns only after the keyboard
+    /// closes. The code is passed to the pairing and kept nowhere, and neither it nor the credential
+    /// is logged.
     /// </remarks>
-    internal sealed class PairingPanel : MonoBehaviour
+    internal sealed class PairingPanel : MonoBehaviour, IPairingSettings
     {
-        /// <summary>How long the line shows after it changes, once nothing is in progress.</summary>
-        private const float LineSeconds = 10f;
-
-        /// <summary>How long the second press that forgets the Mac is waited for.</summary>
-        private const float ConfirmSeconds = 6f;
-
         /// <summary>The network listener's port when the typed address names none.</summary>
         private const int DefaultPort = 47801;
 
@@ -51,8 +47,6 @@ namespace Halcyonic.XR.Pairing
 
         private ControlPlaneConnection connection = null!;
         private CharacterStage? stage;
-        private SettingsSection section = null!;
-        private GlazeButton button = null!;
         private Step step;
         private TouchScreenKeyboard? keyboard;
         private string host = "";
@@ -60,48 +54,31 @@ namespace Halcyonic.XR.Pairing
         private Task<Outcome>? pairing;
         private Task<bool>? forgetting;
         private PairedControlPlane? paired;
-        private string shownLine = "";
-        private float lineUntil;
-        private float confirmUntil;
-        private bool lineShown;
+
+        public PairingNow Now => new PairingNow(paired?.Address, step switch
+        {
+            Step.Address or Step.Code => PairingStep.Typing,
+            Step.Pairing => PairingStep.Pairing,
+            Step.Forgetting => PairingStep.Forgetting,
+            _ => PairingStep.Idle,
+        }, TouchScreenKeyboard.isSupported);
 
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
             stage = GetComponent<CharacterStage>();
             paired = ControlPlaneSettings.ReadPairing();
-            section = SettingsSheet.On(gameObject).Section(SettingsText.YourMac, 1);
-            button = section.Button("Pairing", ButtonRole.Secondary);
-            button.Pressed += OnPressed;
-            Layout();
-        }
-
-        private void OnEnable() => FocusGuard.Left += OnFocusLeft;
-
-        private void OnDisable() => FocusGuard.Left -= OnFocusLeft;
-
-        /// <summary>A Forget half confirmed when focus went to another window is asked again once back.</summary>
-        private void OnFocusLeft()
-        {
-            if (confirmUntil <= 0f) return;
-            confirmUntil = 0f;
-            Layout();
+            // The menu's Settings offers pairing through the workspace director, on the same stage.
+            if (TryGetComponent<WorkspaceDirector>(out var director)) director.Pairing = this;
         }
 
         private void Update()
         {
             PollKeyboard();
             PollWork();
-            var now = Time.unscaledTime;
-            if (confirmUntil > 0f && now >= confirmUntil)
-            {
-                confirmUntil = 0f;
-                Layout();
-            }
-            if (lineShown != LineShown(now)) Layout();
         }
 
-        private void OnPressed()
+        public void Press()
         {
             if (step != Step.Idle) return;
             if (paired == null)
@@ -109,13 +86,6 @@ namespace Halcyonic.XR.Pairing
                 BeginPairing();
                 return;
             }
-            if (confirmUntil <= 0f)
-            {
-                confirmUntil = Time.unscaledTime + ConfirmSeconds;
-                Say("Forget the " + HostText.Noun + " at " + paired.Address + "? This headset then needs pairing again to reach it.");
-                return;
-            }
-            confirmUntil = 0f;
             step = Step.Forgetting;
             var forgotten = paired;
             forgetting = Task.Run(() => PairingClient.RevokeAsync(forgotten));
@@ -231,37 +201,14 @@ namespace Halcyonic.XR.Pairing
             }
         }
 
+        /// <summary>
+        /// Says it on the stage's banner. A refusal can carry the words of whatever answered at the
+        /// typed address, and a failure an exception's: the banner shows them by its one rule for text
+        /// Halcyonic did not write.
+        /// </summary>
         private void Say(string text)
         {
-            shownLine = text;
-            lineUntil = Time.unscaledTime + LineSeconds;
-            // The banner says it too, for a result reached with the sheet closed.
             if (stage != null) stage.ShowNotice(text);
-            Layout();
-        }
-
-        private bool LineShown(float now) => shownLine.Length > 0 && (now < lineUntil || step != Step.Idle);
-
-        /// <summary>
-        /// The section's button, Forget and its confirmation outlined in red, and, while it shows, the
-        /// line above it. A refusal can carry the words of whatever answered at the typed address, and
-        /// a failure an exception's: the section shows them by the one rule for text Halcyonic did not write.
-        /// </summary>
-        private void Layout()
-        {
-            if (step == Step.Idle)
-            {
-                var confirming = paired != null && confirmUntil > 0f;
-                var text = paired == null ? "Pair with a " + HostText.Noun : confirming ? "Yes, forget this " + HostText.Noun : "Forget this " + HostText.Noun;
-                button.Role = paired == null ? ButtonRole.Secondary : ButtonRole.Destructive;
-                section.Offer(button, text);
-            }
-            else
-            {
-                section.Offer(button, null);
-            }
-            lineShown = LineShown(Time.unscaledTime);
-            section.Say(lineShown ? shownLine : "");
         }
 
         /// <summary>
