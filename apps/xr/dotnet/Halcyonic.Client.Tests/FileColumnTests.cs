@@ -8,11 +8,13 @@ using NUnit.Framework;
 namespace Halcyonic.Client.Tests;
 
 /// <summary>A host for one column: a clock to move, words wrapped forty to a row, and every send kept.</summary>
-internal sealed class FakeMenuHost : IMenuHost
+internal sealed class FileMenuHost : IMenuHost
 {
     public List<CommandEnvelope> Sent { get; } = new();
 
     public bool Live { get; set; } = true;
+
+    public bool KeyboardOffered { get; set; } = true;
 
     public (string Text, string Prompt, Action<string> Done)? Keyboard { get; private set; }
 
@@ -75,11 +77,11 @@ public class FileColumnTests
 {
     private readonly CommandFactory factory = new(Samples.Client);
 
-    private FileColumn Column(FakeMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
+    private FileColumn Column(FileMenuHost host, Func<WorkspacePresentation?> present, IReadOnlyList<PresetInstruction>? recorded = null) =>
         new(host, present, factory, () => null, _ => recorded, () => "");
 
     /// <summary>The director draws the column's frame, and a second later it is read.</summary>
-    private static void Draw(FakeMenuHost host, FileColumn column)
+    private static void Draw(FileMenuHost host, FileColumn column)
     {
         column.Drawn(column.Frame!, sidePanel: false);
         host.Wait(1);
@@ -91,7 +93,7 @@ public class FileColumnTests
     [Test]
     public void ItOpensOnWhatWaitsAndRaisesChangedForEachNewFrame()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         Assert.That(column.Screen.Section, Is.EqualTo(FileSection.Waiting));
@@ -110,7 +112,7 @@ public class FileColumnTests
     [Test]
     public void ApprovingSendsOnlyThroughTheHostOnceTheWholeRequestWasDrawnAndYesOnlyOnce()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         column.Act(FileScreens.Approve, null);
@@ -129,7 +131,7 @@ public class FileColumnTests
     [Test]
     public void ADrawOfAFrameTheColumnNoLongerStandsByCountsForNothing()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         column.Act(FileScreens.Approve, null);
@@ -144,7 +146,7 @@ public class FileColumnTests
     [Test]
     public void FocusLeavingLapsesAnArmedConfirmationAndSaysSo()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         column.Act(FileScreens.Approve, null);
@@ -159,7 +161,7 @@ public class FileColumnTests
     [Test]
     public void WithoutASessionNothingIsSentAndThePageSaysWhy()
     {
-        var host = new FakeMenuHost { Live = false };
+        var host = new FileMenuHost { Live = false };
         var work = new WaitingWork();
         var column = Column(host, () => Approving(work));
         column.Act(FileScreens.Approve, null);
@@ -171,7 +173,7 @@ public class FileColumnTests
     [Test]
     public void AnAnswerGoesOnlyByChoosingOnThePageThenSendAnswerOnceTheQuestionWasDrawn()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var work = new AskingWork(new QuestionView
         {
             QuestionId = "question-1",
@@ -203,7 +205,7 @@ public class FileColumnTests
     [Test]
     public void HoldToTalkUnderTheQuestionDraftsAnAnswerAndForAnInstructionAsksBeforeSending()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var work = new AskingWork();
         var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Instruct));
         column.HoldStarted(FileScreens.SpeakAnswer);
@@ -221,7 +223,7 @@ public class FileColumnTests
     [Test]
     public void TellItOffersTheRecordedInstructionsToChooseAndSendsExactlyTheChosenWords()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var running = new WaitingWork();
         running.Change(execution =>
         {
@@ -242,9 +244,31 @@ public class FileColumnTests
     }
 
     [Test]
+    public void WhereNoKeyboardOpensTellItOffersTheInstructionsAndTypeMyAnswerSaysToChoose()
+    {
+        var host = new FileMenuHost { KeyboardOffered = false };
+        var running = new WaitingWork();
+        running.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.Status = ExecutionStatus.Running;
+        }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct));
+        column.Act(FileScreens.TellIt, null);
+        Assert.That(host.Keyboard, Is.Null, "no keyboard is asked for");
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(WorkspaceText.PresetInstructions.Select(preset => preset.Text)));
+
+        var asking = new AskingWork();
+        var answering = Column(host, () => FileScreensTests.Offering(asking.Present(), WorkspaceAction.Answer));
+        answering.Act(FileScreens.TypeAnswer, null);
+        Assert.That(host.Keyboard, Is.Null);
+        Assert.That(answering.Frame!.Lines.Last().Words, Is.EqualTo("There's no keyboard here. Choose one of the answers offered."));
+    }
+
+    [Test]
     public void TellItWithoutRecordedInstructionsTakesTheKeyboardsWordsOnlyWhenFinished()
     {
-        var host = new FakeMenuHost();
+        var host = new FileMenuHost();
         var running = new WaitingWork();
         running.Change(execution =>
         {

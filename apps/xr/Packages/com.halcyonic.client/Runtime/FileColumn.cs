@@ -134,6 +134,9 @@ namespace Halcyonic.Client
                     // Only an answer on the page in view is taken; nothing is sent.
                     question.Choose(option);
                     break;
+                case FileScreens.TypeAnswer when draft != null && !host.KeyboardOffered:
+                    Notify("There's no keyboard here. Choose one of the answers offered.");
+                    break;
                 case FileScreens.TypeAnswer when draft != null:
                     var typing = question.Prompt;
                     var typingFor = draft;
@@ -229,7 +232,9 @@ namespace Halcyonic.Client
         {
             var execution = Now?.Execution?.ExecutionId;
             recordedNow = execution == null ? null : recorded(execution);
-            if (recordedNow?.Count > 0)
+            // Where no keyboard opens, the instructions offered stand in for it: the demonstration's own,
+            // else the generic ones; the host invents none.
+            if (recordedNow?.Count > 0 || !host.KeyboardOffered)
             {
                 Steering.StopTyping();
                 presets = true;

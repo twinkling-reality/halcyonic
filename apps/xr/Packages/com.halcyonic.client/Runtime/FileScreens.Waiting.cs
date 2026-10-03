@@ -259,7 +259,7 @@ namespace Halcyonic.Client
             {
                 var problem = WhySendWaits(screen);
                 send = new Prompt(SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), WorkspaceText.IconOf(WorkspaceAction.Answer), main: true,
-                    available: problem == null, reason: problem);
+                    available: problem == null, reason: problem, pageExplains: problem != null && PageExplains(draft, screen.Question, problem));
             }
             else if (workspace.AnswerInFlight)
             {
@@ -272,6 +272,20 @@ namespace Halcyonic.Client
                     ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
                     : null,
                 farRight: send);
+        }
+
+        /// <summary>
+        /// The page itself says why Send answer waits, so its reason isn't drawn (lane V, 2026-10-02): a
+        /// question of one prompt waiting only for a choice, as its answers above say what to do; a short
+        /// question before its first drawing; or a chosen answer read whole beside the page, whose side
+        /// panel shows what to read. A question of several prompts always says to send from Your answers.
+        /// </summary>
+        private static bool PageExplains(QuestionDraft draft, FileQuestion question, string problem)
+        {
+            if (draft.Prompts.Count > 1 || question.Reviewing) return false;
+            if (!draft.IsAnswered(0)) return true;
+            if (problem == ReadTheQuestion) return !question.QuestionCut(0);
+            return problem == ReadTheAnswer && question.SideOption != null;
         }
 
         /// <summary>Why Send answer takes no press while an answer sent may still take effect.</summary>
@@ -326,12 +340,14 @@ namespace Halcyonic.Client
             else
             {
                 foreach (var index in question.Answers) lines.Add(Answer(draft, question, prompt, index));
+                var paging = question.Pages > 1 || draft.Prompts.Count > 1;
                 if (asked.FreeText)
                 {
+                    // Beside the paging row after it, one row for the two (lane V's rule 4).
                     var typed = draft.Typed(prompt);
                     lines.Add(new PageLine(TypedWords(typed), wordsAreData: typed != null, action: TypeAnswer,
                         key: asked.Options.Count.ToString(CultureInfo.InvariantCulture), choice: true, chosen: typed != null,
-                        rows: typed == null ? 1 : Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt)))));
+                        rows: typed == null ? 1 : Math.Max(1, Math.Min(FileQuestion.AnswerRows, question.TypedMeasured(prompt))), besideNext: paging));
                 }
                 if (question.Pages > 1) lines.Add(new PageLine(MoreAnswersWords(question.Page, question.Pages), action: MoreAnswers));
             }
