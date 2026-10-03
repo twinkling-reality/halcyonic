@@ -779,12 +779,14 @@ the same definition names, as the JSON Schema document:
   `IMenuHost.Submit`. A command whose outcome is unknown is kept on the device for the journal it
   was sent to, as drafts are (`IKeptCommand`; `KeptUnknownStart` over the device's preferences, in
   Unity its PlayerPrefs), so the same computer over USB or paired finds it and another never shows
-  it; it is read afresh at every use, so the entry panel and New project each see the other's at
-  once, and nothing is read or kept before a live journal shows. While one is kept and no build is on its
+  it; it is read afresh at every use, and nothing is read or kept before a live journal shows. One
+  the retired entry panel kept for every journal alike, under the key its builds used, moves once to
+  the first live journal read unless that journal keeps its own; the move stays until no headset can
+  still carry a build of the entry panel's creating. While one is kept and no build is on its
   way, it comes first on opening, Build shows it, Start building and Start over wait with "Your last
   start may have gone through.", and only the person's Clear, then Yes, clear removes it; the flow
-  replaces or clears only an id it kept for its own build, never one kept by an earlier run or the
-  entry panel. A build the person confirmed goes on after Close: the director keeps one flow for the
+  replaces or clears only an id it kept for its own build, never one kept by an earlier run or by
+  the entry panel's retired creating. A build the person confirmed goes on after Close: the director keeps one flow for the
   app's run on one journal, in `MenuMemory`, across reconnects and never renewed on one, and ticks it
   every frame whether it shows or not, so an acknowledgement lost with the socket is settled by the
   command's record once the session is back, the next step is sent, and opening New project again
