@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { JOURNALED_TEXT, REDACTED, redactSecrets, withinLimit } from './redaction.ts';
+import {
+  JOURNALED_TEXT,
+  looksLikeCredential,
+  REDACTED,
+  redaction,
+  redactSecrets,
+  withinLimit,
+} from './redaction.ts';
 
 describe('error text before it is journaled', () => {
   test("a gateway's 401 that echoes the key loses the key and keeps the rest", () => {
@@ -19,19 +26,28 @@ describe('error text before it is journaled', () => {
   test('a validation error that echoes an instruction keeps it word for word', () => {
     const text =
       'Invalid request: "text" was "Add a login page to the settings screen, and test it on 2 devices"';
-    assert.equal(redactSecrets(text, ['a-secret-value']), text);
+    assert.equal(redactSecrets(text, [{ what: 'GATEWAY_KEY', value: 'a-secret-value' }]), text);
   });
 
-  test('every value Halcyonic holds or passes to a runtime goes, wherever it appears', () => {
+  test('every value Halcyonic holds or passes to a runtime goes, wherever it appears, named', () => {
     const agentValue = 'my-gateway-secret-42';
     const token = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_-Z';
     const out = redactSecrets(
       `proxy said ${agentValue}; header was ${token}; again ${agentValue}`,
-      [agentValue, token, 'short'],
+      [
+        { what: 'access token', value: token },
+        { what: 'GATEWAY_KEY', value: agentValue },
+        { what: 'SHORT', value: 'short' },
+        // The same value under a second name reads as the first.
+        { what: 'OTHER_KEY', value: agentValue },
+      ],
     );
-    assert.equal(out, `proxy said ${REDACTED}; header was ${REDACTED}; again ${REDACTED}`);
     assert.equal(
-      redactSecrets('a short word stays', ['short']),
+      out,
+      'proxy said [redacted: GATEWAY_KEY]; header was [redacted: access token]; again [redacted: GATEWAY_KEY]',
+    );
+    assert.equal(
+      redactSecrets('a short word stays', [{ what: 'SHORT', value: 'short' }]),
       'a short word stays',
       'too short to be replaced everywhere',
     );
@@ -120,6 +136,40 @@ describe('error text before it is journaled', () => {
     assert.ok(
       pair.length <= JOURNALED_TEXT && !/[\uD800-\uDBFF]…$/.test(pair),
       'no half of a pair before the ellipsis',
+    );
+  });
+
+  test('a value reads as a credential by itself when it is random, hex or a known key shape', () => {
+    const credentials = [
+      'q7Xk2pLm9vRt4wZb8nHc',
+      'sk-ant-api03-AbCdEf0123456789',
+      '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b',
+      'glpat-AbCdEfGhIjKlMnOpQrSt',
+    ];
+    for (const value of credentials) assert.ok(looksLikeCredential(value), value);
+    const plain = [
+      'https://gateway.example/v1',
+      'ap-southeast-1',
+      'claude-sonnet-4-5-20250929',
+      '/Users/someone/.ssh/agent.sock',
+      'true',
+      'GatewayForTheTeamInSingapore2',
+    ];
+    for (const value of plain) assert.ok(!looksLikeCredential(value), value);
+  });
+
+  test('text a person reads as given loses only what Halcyonic holds; error text loses shapes too', () => {
+    const { held, errorText } = redaction(() => [
+      { what: 'Anthropic key', value: 'held-value-123' },
+    ]);
+    const text = 'curl -H "x-api-key: held-value-123" -H "Authorization: Bearer abc123def456"';
+    assert.equal(
+      held(text, 2000),
+      'curl -H "x-api-key: [redacted: Anthropic key]" -H "Authorization: Bearer abc123def456"',
+    );
+    assert.equal(
+      errorText(text),
+      `curl -H "x-api-key: [redacted: Anthropic key]" -H "Authorization: Bearer ${REDACTED}"`,
     );
   });
 });

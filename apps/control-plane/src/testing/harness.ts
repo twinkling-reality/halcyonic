@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { Companion, type CompanionBounds } from '../companion/companion.ts';
 import type { CompanionConfig, LogLevel } from '../config.ts';
 import { ControlPlane } from '../core/control-plane.ts';
+import type { HeldSecret } from '../core/redaction.ts';
 import { createCommandFactory } from '../demo-plan.ts';
 import { registerDeviceRoutes } from '../http/device-routes.ts';
 import { registerRealtime } from '../http/realtime.ts';
@@ -66,8 +67,8 @@ export interface TestControlPlaneOptions {
   readonly adapters?: (time: VirtualTime) => RuntimeAdapter[];
   readonly logger?: Logger;
   readonly commandTimeoutMs?: number;
-  /** The secrets taken out of runtime error text before it is journaled; none by default. */
-  readonly secrets?: () => Iterable<string>;
+  /** The secrets taken out of a runtime's text before a device sees it; none by default. */
+  readonly secrets?: () => Iterable<HeldSecret>;
   /** Defaults to Salidium at a location where it never runs. */
   readonly understanding?: UnderstandingSource;
   /** Defaults to Seorak without a credential, so it is never sent a request. */

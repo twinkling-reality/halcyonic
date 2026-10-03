@@ -8,7 +8,7 @@ import type {
 import type { ExecutionContext, ObservationSink } from '@halcyonic/runtime-core';
 import type { Logger } from '../logger.ts';
 import type { EventDraft, Recorder } from './recorder.ts';
-import { withinLimit } from './redaction.ts';
+import { type Redaction, redaction as redactionOf, withinLimit } from './redaction.ts';
 
 type ControlPlaneEventType = ControlPlaneEvent['event_type'];
 type ScopeOf<T extends ControlPlaneEventType> = Pick<
@@ -65,7 +65,7 @@ export function createObservationSink(
   logger: Logger,
   execution: ExecutionContext,
   runtimeId: RuntimeId,
-  redact: (text: string) => string = (text) => text,
+  redaction: Redaction = redactionOf(),
 ): ObservationSink {
   return (observation) => {
     const draft = {
@@ -80,7 +80,7 @@ export function createObservationSink(
       correlation_id: null,
       causation_id: null,
       provenance: observation.provenance,
-      payload: withoutCredentials(observation, redact),
+      payload: withoutCredentials(observation, redaction),
     } as unknown as EventDraft;
     try {
       recorder.record(draft);
@@ -99,27 +99,49 @@ export function createObservationSink(
 }
 
 /**
- * An observation's payload with credentials taken out of the runtime's error text, cut to the
- * journal's limit after, since "[redacted]" can be longer than what it replaced: a turn's failure
- * and why the connection was lost or restored. Everything else is the runtime's account as given.
+ * An observation's payload with credentials taken out, cut to the journal's limit after, since
+ * "[redacted]" can be longer than what it replaced. The runtime's error text, a turn's failure and
+ * why the connection was lost or restored, loses what Halcyonic holds and every credential shape.
+ * What a person must read as given, a tool's title, what an approval asks for, a test run's label
+ * and summary, loses only exact copies of what Halcyonic holds, so the command a person approves
+ * is never guessed away. Everything else, the agent's own account included, is reported as given.
  */
 function withoutCredentials(
   observation: Parameters<ObservationSink>[0],
-  redact: (text: string) => string,
+  redaction: Redaction,
 ): unknown {
   const payload = observation.payload as Record<string, unknown>;
+  const held = (field: string, limit: number) =>
+    typeof payload[field] === 'string'
+      ? { ...payload, [field]: redaction.held(payload[field], limit) }
+      : payload;
   switch (observation.type) {
     case 'runtime.turn.failed': {
       const error = payload.error as { message?: unknown } | undefined;
       return typeof error?.message === 'string'
-        ? { ...payload, error: { ...error, message: withinLimit(redact(error.message)) } }
+        ? {
+            ...payload,
+            error: { ...error, message: withinLimit(redaction.errorText(error.message)) },
+          }
         : payload;
     }
     case 'runtime.connection.lost':
     case 'runtime.connection.restored':
       return typeof payload.reason === 'string'
-        ? { ...payload, reason: withinLimit(redact(payload.reason)) }
+        ? { ...payload, reason: withinLimit(redaction.errorText(payload.reason)) }
         : payload;
+    case 'runtime.approval.requested': {
+      const subject = payload.subject as { summary?: unknown } | undefined;
+      return typeof subject?.summary === 'string'
+        ? { ...payload, subject: { ...subject, summary: redaction.held(subject.summary, 2000) } }
+        : payload;
+    }
+    case 'runtime.tool.started':
+      return held('title', 500);
+    case 'runtime.test_run.started':
+      return held('label', 500);
+    case 'runtime.test_run.completed':
+      return held('summary', 2000);
     default:
       return payload;
   }

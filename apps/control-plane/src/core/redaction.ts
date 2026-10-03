@@ -1,12 +1,25 @@
 /**
- * Credentials taken out of a runtime's or a provider's error text before it is journaled. The
- * journal is append-only and replayed to every device, and such text can repeat what it was given:
- * a gateway's 401 that echoes the key, Codex's or OpenCode's error answer. Only credentials are
- * taken out, and what only looks like one; the rest stays as given, so a person still reads what
- * went wrong ([logging-audit.md](../../../../docs/internal/validation/logging-audit.md)).
+ * Credentials taken out of a runtime's or a provider's text before a device sees it. The journal is
+ * append-only and replayed to every device, and such text can repeat what it was given: a gateway's
+ * 401 that echoes the key, Codex's or OpenCode's error answer, a command that sends a key. Error
+ * text loses exact copies of what Halcyonic holds and every credential shape; what a person reads
+ * to decide, such as the command they approve, loses only the exact copies. Each copy reads as
+ * which secret it was; the rest stays as given, so a person still reads what went wrong or what is
+ * asked ([logging-audit.md](../../../../docs/internal/validation/logging-audit.md)).
  */
 
+/** What stands in for a credential found by its shape. */
 export const REDACTED = '[redacted]';
+
+/** A secret Halcyonic holds or passes to a runtime, with what a person reads in its place. */
+export interface HeldSecret {
+  /** What it is, as "Anthropic key" or a variable's name: it is replaced by "[redacted: what]". */
+  readonly what: string;
+  readonly value: string;
+}
+
+/** What stands in for an exact copy of a held secret: which one it was, never any of its value. */
+export const redactedHeld = (what: string) => `[redacted: ${what}]`;
 
 /** The most a journaled error text holds: the contracts' `Text(2000)`. */
 export const JOURNALED_TEXT = 2000;
@@ -39,6 +52,7 @@ const KEY_SHAPES = new RegExp(
     .join('|'),
   'g',
 );
+const WHOLE_KEY_SHAPE = new RegExp(`^(?:${KEY_SHAPES.source})$`);
 
 /**
  * A credential after its scheme, as an Authorization header carries it: one with a digit or a
@@ -78,17 +92,40 @@ function looksRandom(run: string): boolean {
 }
 
 /**
+ * `text` with every exact copy of a held secret replaced by which one it was, longest first, and
+ * nothing else. A value held under two names reads as the first.
+ */
+export function redactHeld(text: string, secrets: Iterable<HeldSecret>): string {
+  const exact = new Map<string, string>();
+  for (const { what, value } of secrets) {
+    const trimmed = value.trim();
+    if (trimmed.length >= SHORTEST_SECRET && !exact.has(trimmed)) exact.set(trimmed, what);
+  }
+  let out = text;
+  for (const [value, what] of [...exact].sort(([a], [b]) => b.length - a.length)) {
+    out = out.split(value).join(redactedHeld(what));
+  }
+  return out;
+}
+
+/**
+ * Whether a value reads as a credential by itself, whatever it is called: a well-known key shape,
+ * 32 or more hex digits, or 16 or more token characters that read as random (as RANDOM_RUN).
+ */
+export function looksLikeCredential(value: string): boolean {
+  const trimmed = value.trim();
+  if (WHOLE_KEY_SHAPE.test(trimmed)) return true;
+  if (/^[0-9A-Fa-f]{32,}$/.test(trimmed)) return true;
+  return /^[A-Za-z0-9_+/=.-]{16,}$/.test(trimmed) && looksRandom(trimmed);
+}
+
+/**
  * `text` with every exact copy of a value in `secrets` replaced, longest first, then every
  * credential-shaped run: a scheme's credential, a URL's user and password, a well-known key shape,
  * and a long random run.
  */
-export function redactSecrets(text: string, secrets: Iterable<string>): string {
-  let out = text.length > READ ? text.slice(0, READ) : text;
-  const exact = [...new Set([...secrets].map((secret) => secret.trim()))]
-    .filter((secret) => secret.length >= SHORTEST_SECRET)
-    .sort((a, b) => b.length - a.length);
-  for (const secret of exact) out = out.split(secret).join(REDACTED);
-  return out
+export function redactSecrets(text: string, secrets: Iterable<HeldSecret>): string {
+  return redactHeld(text.length > READ ? text.slice(0, READ) : text, secrets)
     .replace(SCHEME_CREDENTIAL, `$1$2${REDACTED}`)
     .replace(URL_USERINFO, `$1${REDACTED}@`)
     .replace(KEY_SHAPES, REDACTED)
@@ -96,13 +133,40 @@ export function redactSecrets(text: string, secrets: Iterable<string>): string {
 }
 
 /**
- * `text` within JOURNALED_TEXT characters, cut with an ellipsis, never splitting a surrogate pair:
- * after redaction, since "[redacted]" can be longer than what it replaced.
+ * `text` within `limit` characters, cut with an ellipsis, never splitting a surrogate pair: after
+ * redaction, since "[redacted]" can be longer than what it replaced.
  */
-export function withinLimit(text: string): string {
-  if (text.length <= JOURNALED_TEXT) return text;
-  const end = /[\uD800-\uDBFF]/.test(text.charAt(JOURNALED_TEXT - 2))
-    ? JOURNALED_TEXT - 2
-    : JOURNALED_TEXT - 1;
+export function withinLimit(text: string, limit: number = JOURNALED_TEXT): string {
+  if (text.length <= limit) return text;
+  const end = /[\uD800-\uDBFF]/.test(text.charAt(limit - 2)) ? limit - 2 : limit - 1;
   return `${text.slice(0, end)}…`;
+}
+
+/**
+ * How text from a runtime or a provider is cleaned before a device sees it, from what Halcyonic
+ * holds when it is asked, since some of that changes (a server's password with each launch).
+ */
+export interface Redaction {
+  /**
+   * Error text, a runtime's or a provider's, which can echo a key Halcyonic never held: every exact
+   * copy of what Halcyonic holds, then every credential shape.
+   */
+  errorText(text: string): string;
+  /**
+   * Text a person must read as given, such as the command they are asked to approve: only exact
+   * copies of what Halcyonic holds go, so nothing that only looks like a credential is guessed
+   * away. Cut to `limit` only when "[redacted]" made a text that fitted longer than that; one that
+   * was already too long is left to fail validation, as it did before.
+   */
+  held(text: string, limit: number): string;
+}
+
+export function redaction(secrets: () => Iterable<HeldSecret> = () => []): Redaction {
+  return {
+    errorText: (text) => redactSecrets(text, secrets()),
+    held: (text, limit) => {
+      const out = redactHeld(text, secrets());
+      return text.length <= limit ? withinLimit(out, limit) : out;
+    },
+  };
 }

@@ -6,6 +6,7 @@ import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
+import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
 import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
 
@@ -148,30 +149,54 @@ export function openCodeEnvironment(
 }
 
 /**
- * Every secret Halcyonic holds or passes to a runtime, taken out of a runtime's error text before
- * it is journaled (core/redaction.ts): the access token, the Anthropic key, the values of the
- * HALCYONIC_AGENT_ENV names that read as secret (SECRET_NAME), OpenCode's server password, and
- * Salidium's and Seorak's credentials. Read
- * each time it is asked, since a server's password changes with each launch and a credential when
- * it is replaced; a file that can't be read gives nothing. Device credentials are kept only as
- * hashes, so their shape is what takes them out.
+ * The words of a variable name that read as a secret's, matched whole: GIT_AUTHOR_NAME is no
+ * secret's name, SSH_AUTH_SOCK is (its value is only a path, and reads as its name).
  */
-/**
- * A variable name that reads as a secret's. Only these values are taken out wherever they appear,
- * so an address or a region passed to agents, such as ANTHROPIC_BASE_URL or AWS_REGION, stays in
- * the text a person reads; a credential under another name is still taken out by its shape.
- */
-const SECRET_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL/i;
+const SECRET_WORDS: ReadonlySet<string> = new Set([
+  'KEY',
+  'APIKEY',
+  'TOKEN',
+  'SECRET',
+  'PASSWORD',
+  'PASSWD',
+  'PASS',
+  'PASSPHRASE',
+  'PAT',
+  'AUTH',
+  'CREDENTIAL',
+  'CREDENTIALS',
+  'COOKIE',
+  'SESSION',
+]);
 
+/** Whether a variable's name reads as a secret's: one of its words is in SECRET_WORDS. */
+export function secretName(name: string): boolean {
+  return name
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/)
+    .some((word) => SECRET_WORDS.has(word));
+}
+
+/**
+ * Every secret Halcyonic holds or passes to a runtime, each with what a person reads in its place,
+ * taken out of a runtime's text before a device sees it (core/redaction.ts): the access token, the
+ * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
+ * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
+ * themselves, under their variable's name. An address or a region passed to agents, such as
+ * ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
+ * since a server's password changes with each launch and a credential when it is replaced; a file
+ * that can't be read gives nothing. Device credentials are kept only as hashes, so their shape is
+ * what takes them out of error text.
+ */
 export function heldSecrets(
   config: ControlPlaneConfig,
   dependencies: { readonly environment: NodeJS.ProcessEnv; readonly dataDir: string },
   accessToken: string,
   adapters: readonly RuntimeAdapter[],
-): () => string[] {
+): () => HeldSecret[] {
   const agentValues = Object.entries(passThrough(config.agentEnvironment, dependencies.environment))
-    .filter(([name]) => SECRET_NAME.test(name))
-    .map(([, value]) => value);
+    .filter(([name, value]) => secretName(name) || looksLikeCredential(value))
+    .map(([name, value]) => ({ what: name, value }));
   return () => {
     let anthropic: string | undefined;
     try {
@@ -182,21 +207,28 @@ export function heldSecrets(
     } catch {
       anthropic = dependencies.environment.ANTHROPIC_API_KEY;
     }
-    const credentials = [SALIDIUM_CREDENTIAL_FILE, SEORAK_CREDENTIAL_FILE].flatMap((name) => {
+    const credentials = (
+      [
+        [SALIDIUM_CREDENTIAL_FILE, 'Salidium credential'],
+        [SEORAK_CREDENTIAL_FILE, 'Seorak credential'],
+      ] as const
+    ).flatMap(([file, what]) => {
       try {
-        return [readPrivateFile(join(dependencies.dataDir, name), 4096).trim()];
+        return [{ what, value: readPrivateFile(join(dependencies.dataDir, file), 4096).trim() }];
       } catch {
         return [];
       }
     });
     return [
-      accessToken,
-      ...(anthropic === undefined ? [] : [anthropic]),
-      ...agentValues,
+      { what: 'access token', value: accessToken },
+      ...(anthropic === undefined ? [] : [{ what: 'Anthropic key', value: anthropic }]),
       ...adapters.flatMap((adapter) =>
-        adapter instanceof OpenCodeRuntimeAdapter ? adapter.secrets() : [],
+        adapter instanceof OpenCodeRuntimeAdapter
+          ? adapter.secrets().map((value) => ({ what: 'OpenCode server password', value }))
+          : [],
       ),
       ...credentials,
+      ...agentValues,
     ];
   };
 }
