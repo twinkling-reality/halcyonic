@@ -135,7 +135,7 @@ namespace Halcyonic.Client
                     question.Choose(option);
                     break;
                 case FileScreens.TypeAnswer when draft != null && !host.KeyboardOffered:
-                    Notify("There's no keyboard here. Choose one of the answers offered.");
+                    // A row holding words heard stays their choice; no keyboard is asked to open.
                     break;
                 case FileScreens.TypeAnswer when draft != null:
                     var typing = question.Prompt;
@@ -352,6 +352,7 @@ namespace Halcyonic.Client
             if (notice != null && host.Now > noticeUntil) notice = null;
             if (Screen.Section == FileSection.Waiting && !WorkspaceText.SomethingWaits(presentation) && Steering.Armed == null) Screen.Section = FileSection.Activity;
             Screen.Notice = notice;
+            Screen.KeyboardOffered = host.KeyboardOffered;
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
@@ -432,9 +433,12 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The rows of a request a part shows: what is left of the page beside the part's row and the confirmation's question.</summary>
-        public int RequestPartRows(string asking, PageBudget page)
+        public int RequestPartRows(string asking, PageBudget page) => RequestPartRows(host.RowsOf(asking, Glaze.Menu.FileColumnDegrees), page);
+
+        /// <summary>The rows of a request a part shows, beside the part's row and a question of <paramref name="askingRows"/> rows, at most two.</summary>
+        public static int RequestPartRows(int askingRows, PageBudget page)
         {
-            var asked = Math.Min(2, host.RowsOf(asking, Glaze.Menu.FileColumnDegrees));
+            var asked = Math.Min(2, Math.Max(1, askingRows));
             return page.WordsIn(page.Room - page.GroupGap - page.Target() - page.GroupGap - page.Words(asked));
         }
     }

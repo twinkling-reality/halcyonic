@@ -1388,23 +1388,31 @@ scripts use only long-stable core Unity APIs:
 
 ### The task's file
 
-Opening a character opens its task's file (ADR 0026) in place of the workspace panel:
-`WorkspaceDirector` keeps a `FileScreen` for it and builds its `MenuFrame` with `FileScreens.Screen`,
-and `FilePlane` lays the file's column, and beside it the side panel a line opened, on one plane
-facing the eyes, its top `MenuPage.TopDegrees` below eye level, turned toward the character and
-turned again when the stage moves it. The menu itself is not drawn here. The director measures with
-the view (`MenuFrameView.RowsOf`) before it builds: every prompt and every answer at the file's and the
-side panel's widths, each typed answer and each line of Your answers as they read now, the request
-an approval answers, and the brief answers' lines for `AnswerRoom`; pages hold
-`MenuFrame.RowsAPage`'s rows. What counts as read is counted only as the view reports it drawn
-(`MenuFrameView.Drawn`): a request's part or the question's page when the frame drawn is the one this
-state last built, and a chosen answer's side panel when it is the one built with it. Presses count only
-while the app has focus; a row only chooses or takes the person somewhere; the director is the one
-place that sends, through `WorkspaceSteering` (Send answer through
-`SendAnswer(FileScreen, WorkspacePresentation)`, which always asks the page). Changes and Checks
-read through `WorkspaceSections.ShowFile`, `Understand` and `Checked`, brief for the page and full
-for the side panel, null while nothing is read yet. Not yet built: the file's opening out of its
-character and the light line to it, and the menu beside it.
+Opening a character opens its task's file (ADR 0026) beside the menu. `WorkspaceDirector` keeps the
+realtime session, what the journal says, the stage, the peek and the one way anything is sent, and
+hosts the menu's director (`MenuDirector`, lane U), which draws every column on one plane. A task's
+file is a `FileColumn` (client core) behind the menu's column contract (`IMenuColumn`): its
+`FileScreen` and `WorkspaceSteering`, its frame built by `FileScreens`, and Changes and Checks read
+through two feeds it polls each frame. Every press is judged by the steering's rules and the page's
+own, and only they send, through the host's `Submit`, which the director routes through
+`CommandSubmissions` to the session the column was made in, and only while that is still the live
+session shown: a file opened in the demonstration or before a re-pairing sends nothing, and nothing
+is queued to send later. So a command still on its way shows as sent ("Sent…" in Approve's or Send
+answer's place) and a second decision waits for the first. The column measures with the view
+(`IMenuHost.RowsOf`) before it builds: every prompt and every answer at the file's and the side
+panel's widths, each typed answer and each line of Your answers as they read now, the request an
+approval answers, and the brief answers' lines. It packs the question and the request's parts by
+height against what a page holds on its stage (`IMenuHost.PageHeight`), read once when the file
+opens, the lower of alone and beside the menu, so a page never packs again while it shows. What
+counts as read counts only when the director hands back the very frame the column last built
+(`IMenuColumn.Drawn`), the page or its side panel. Hold to talk's one voice tells the column whether
+it held Hold to talk under the question (an answer, drafted) or on Activity (an instruction, asked
+before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and an
+empty Type my answer row is left off (a typed answer heard through Hold to talk stays as a choice,
+and pressing it opens nothing). The page still keeps that row's room, so an answer heard lands
+without packing the page again. Another window taking focus lapses an armed confirmation. Not yet
+built: the file's opening out of its character and the light line to it, which the menu's plane
+owns.
 
 ### The workspace
 

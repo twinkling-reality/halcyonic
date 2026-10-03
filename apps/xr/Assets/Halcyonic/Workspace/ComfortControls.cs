@@ -62,6 +62,21 @@ namespace Halcyonic.XR.Workspace
             Layout();
         }
 
+        /// <summary>
+        /// Keeps the settings as they stand on the device and lets them take effect now, as after the
+        /// menu's Settings changed them.
+        /// </summary>
+        public void Keep()
+        {
+            if (!rendering)
+            {
+                PlayerPrefs.SetString(Preference, comfort.Save());
+                PlayerPrefs.Save();
+                Apply();
+            }
+            Layout();
+        }
+
         /// <summary>Changes a setting, keeps it on the device and lets it take effect now.</summary>
         private void Change(Action<Comfort> change)
         {
