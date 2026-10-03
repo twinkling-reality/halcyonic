@@ -563,6 +563,88 @@ public class NewProjectFlowTests
         Assert.That(flow.Frame!.Lines.Any(line => line.Words == EntryText.StepName(BuildStepKind.CreateWorkstream, true)), Is.True);
     }
 
+    private static ClientProjection OnJournal(string id, JournalOrigin origin = JournalOrigin.Live, IEnumerable<CommandView>? commands = null)
+    {
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1, journal: Samples.Journal(id, origin));
+        snapshot.Commands = (commands ?? Array.Empty<CommandView>()).ToList();
+        state.ApplySnapshot(snapshot, new StateChanges());
+        return state;
+    }
+
+    [Test]
+    public void ABuildBegunOnOneJournalSendsNothingMoreOnceTheSessionIsOnAnother()
+    {
+        var host = new Host { State = OnJournal("journal-1") };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "mock");
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        var create = host.Sent.Single();
+        Press(flow, Footer.Close, null);
+
+        // The session is now on another journal, and the first one's record of the create comes late.
+        host.State = OnJournal("journal-2", commands: new[] { Completed(create, new ProjectCreatedResult { ProjectId = "p1" }) });
+        flow.Tick();
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "no workstream.create for the first journal's project goes to the second");
+        Assert.That(flow.ForAnotherSession, Is.True);
+        flow.Open(null, null);
+        Assert.That(flow.IsOpen, Is.False);
+    }
+
+    [Test]
+    public void NewProjectMadeInTheDemonstrationNeverReadsOrSendsOnceARealSessionTakesItsPlace()
+    {
+        var routes = new Routes();
+        var host = new Host { Demonstration = true, State = OnJournal("demonstration", JournalOrigin.Fixture) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        host.Typed.Enqueue("A page of race times for my running club");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+
+        // The computer answers, and its session takes the demonstration's place.
+        host.Demonstration = false;
+        host.State = OnJournal("journal-1");
+        host.Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        Assert.That(flow.ForAnotherSession, Is.True);
+        flow.Tick();
+        Assert.That(flow.IsOpen, Is.False);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review, Is.Null, "a draft made in the demonstration never starts on the computer");
+        flow.Open(null, null);
+        Assert.That(flow.IsOpen, Is.False, "the director makes New project afresh for this session");
+        Assert.That(host.Sent, Is.Empty);
+        Assert.That(routes.Asked, Is.Empty, "nothing was read from the computer either");
+    }
+
+    [Test]
+    public void ALiveNewProjectActsOnlyForTheJournalItWasMadeFor()
+    {
+        var host = new Host { State = OnJournal("journal-1") };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Assert.That(flow.Review!.CanConfirm, Is.True);
+
+        host.State = OnJournal("journal-2");
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        Assert.That(host.Sent, Is.Empty, "a review read for one computer is never sent to another");
+        flow.Tick();
+        Assert.That((flow.IsOpen, flow.ForAnotherSession), Is.EqualTo((false, true)));
+        host.State = OnJournal("journal-1");
+        Assert.That(flow.ForAnotherSession, Is.True, "for good: the director makes it afresh");
+    }
+
     [Test]
     public void WhereTheKeyboardCantOpenNoRowOpensItAndHeardWordsStayAChoice()
     {

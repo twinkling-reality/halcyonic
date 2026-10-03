@@ -46,6 +46,15 @@ namespace Halcyonic.Client
         private readonly CompanionRecording? recording;
         private readonly IKeptCommand unknownOutcome;
 
+        /// <summary>Made while the demonstration played: it never reads from or sends to a computer, even once a real session takes the demonstration's place.</summary>
+        private readonly bool madeForDemonstration;
+
+        /// <summary>The journal it was made to work on, the first a live session showed it.</summary>
+        private string? boundJournal;
+
+        /// <summary>The session it was made for has given way to another, for good.</summary>
+        private bool retired;
+
         /// <summary>The drafts of the places not open now, each with how far its start got.</summary>
         private readonly Dictionary<string, (ProjectIdea Idea, BuildSequence? Sequence)> others =
             new Dictionary<string, (ProjectIdea, BuildSequence?)>();
@@ -118,6 +127,7 @@ namespace Halcyonic.Client
             this.draftStore = draftStore;
             this.recording = recording;
             draft = new NewWorkDraft(commands);
+            madeForDemonstration = host.Demonstration;
         }
 
         public event Action? Changed;
@@ -145,7 +155,30 @@ namespace Halcyonic.Client
         private static bool Pending(ProjectIdea? idea, BuildSequence? sequence) =>
             idea != null && (idea.HasRecap || idea.Guided || idea.Companion != null) && sequence?.Started != true;
 
-        private bool Live => !host.Demonstration;
+        private bool Live => !madeForDemonstration && !host.Demonstration;
+
+        /// <summary>
+        /// The session showing is not the one it was made for: a real session took the place of the
+        /// demonstration it was made in, or a live session shows another journal than the one it first
+        /// worked on. Then, for good, it closes and acts, reads and sends no more, so nothing made for
+        /// one session ever reaches another; the director makes New project afresh for the session
+        /// showing (<see cref="MenuMemory"/>). The demonstration showing while a live one was made, as
+        /// before the computer answers, only pauses it.
+        /// </summary>
+        public bool ForAnotherSession
+        {
+            get
+            {
+                if (retired) return true;
+                if (madeForDemonstration) retired = !host.Demonstration;
+                else if (!host.Demonstration && host.State?.Journal is JournalInfo now)
+                {
+                    boundJournal ??= now.JournalId;
+                    retired = now.JournalId != boundJournal;
+                }
+                return retired;
+            }
+        }
 
         private bool Voice => host.VoiceOffered && Live;
 
@@ -158,6 +191,7 @@ namespace Halcyonic.Client
         /// </summary>
         public void Open(string? projectId, string? projectName)
         {
+            if (ForAnotherSession) return;
             IsOpen = true;
             RestoreDrafts();
             if (UnknownId() != null && sequence == null)
@@ -287,7 +321,7 @@ namespace Halcyonic.Client
         private string? StartProblem() =>
             Building() ? EntryText.AlreadyStarting
             : OutcomeUnknown ? EntryText.PreviousRequestLine
-            : EntryScreens.StartProblem(host.Demonstration, host.State, host.Connected, idea, draft, CurrentFolder(), sequence);
+            : EntryScreens.StartProblem(!Live, host.State, host.Connected, idea, draft, CurrentFolder(), sequence);
 
         /// <summary>A start may have run without this headset knowing: an id is kept, and no build is on its way to settle it.</summary>
         private bool OutcomeUnknown => !Building() && UnknownId() != null;
@@ -309,7 +343,7 @@ namespace Halcyonic.Client
         /// </summary>
         public void Act(string id, string? key)
         {
-            if (!IsOpen || !(seen is MenuFrame showing) || !Offers(showing, id, key)) return;
+            if (!IsOpen || ForAnotherSession || !(seen is MenuFrame showing) || !Offers(showing, id, key)) return;
             var current = idea ??= new ProjectIdea();
             var exchange = current.Companion;
             switch (id)
@@ -637,6 +671,11 @@ namespace Halcyonic.Client
 
         public void Tick()
         {
+            if (ForAnotherSession)
+            {
+                Close();
+                return;
+            }
             RestoreDrafts();
             var changed = PollCompanion() | PollModels() | PollFolders() | AdvanceBuild();
             var from = BuiltFrom();

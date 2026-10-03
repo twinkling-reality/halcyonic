@@ -758,7 +758,13 @@ the same definition names, as the JSON Schema document:
   command's record once the session is back, the next step is sent, and opening New project again
   shows where the build stands. A build left behind when the journal changes or the headset is
   paired again keeps its id in that computer's own slot, shown on no other computer, and it comes
-  first when the person returns to that computer. The flow is that holder whole, not a part of it: `BuildSequence`
+  first when the person returns to that computer. A flow serves only the session it was made for
+  (`ForAnotherSession`): one made in the demonstration never reads from or sends to a computer once
+  a real session takes the demonstration's place, and a live one works on the first journal it is
+  shown; once the session shows another, it closes for good and acts, reads and sends no more, so a
+  late acknowledgement or record never sends the next step of one journal's build to another. The
+  director makes it afresh through `MenuMemory` when the one kept is for another session, and on a
+  re-pairing. The flow is that holder whole, not a part of it: `BuildSequence`
   builds from the flow's `NewWorkDraft`, and a companion's reply or a folder listing on its way
   belongs to the same draft. Where the system keyboard can't open (`IMenuHost.KeyboardOffered` false,
   as in the editor), a row that only types is left off, since it would do nothing; one already
