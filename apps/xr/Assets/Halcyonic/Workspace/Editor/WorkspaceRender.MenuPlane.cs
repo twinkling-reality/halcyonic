@@ -371,18 +371,25 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
             }
 
-            // The light line crosses no label and no character, seen from the eyes.
+            // The light line crosses no label and no character, seen from the eyes: a label by its own
+            // outline, since a flat label's bottom edge rises toward its ends as seen from below, which a
+            // box round it in angles would count as crossed; a body by its extent.
             if (plane.LightLine is (Vector3 from, Vector3 to))
             {
-                foreach (var extent in others)
+                foreach (var character in characters.Where(character => character.View.gameObject.activeInHierarchy))
                 {
+                    var label = MenuPlane.LabelOutline(character.View);
+                    var body = BodyExtent(character.View, eyes);
                     for (var step = 1; step < 40; step++)
                     {
-                        var point = Vector3.Lerp(from, to, step / 40f) - eyes;
+                        var at = Vector3.Lerp(from, to, step / 40f);
+                        var point = at - eyes;
                         var across = Mathf.Atan2(point.x, point.z) * Mathf.Rad2Deg;
                         var up = Mathf.Atan2(point.y, new Vector2(point.x, point.z).magnitude) * Mathf.Rad2Deg;
-                        if (across < extent.Left || across > extent.Right || up < extent.Bottom || up > extent.Top) continue;
-                        failures.Add(what + ": the light line crosses " + extent.Name + "; it leaves from under its label and crosses no label or character.");
+                        var onBody = across >= body.Left && across <= body.Right && up >= body.Bottom && up <= body.Top;
+                        if (!onBody && !MenuPlane.OnLabel(label, eyes, at)) continue;
+                        failures.Add(what + ": the light line crosses " + (onBody ? body.Name : character.View.WorkstreamId + "'s label")
+                            + "; it leaves from under its label and crosses no label or character.");
                         break;
                     }
                 }
