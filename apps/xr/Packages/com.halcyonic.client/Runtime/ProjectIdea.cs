@@ -132,6 +132,16 @@ namespace Halcyonic.Client
         /// <summary>Chooses where the project's files live, or clears the choice with null.</summary>
         public void ChooseFolder(ProjectFolder? folder) => Folder = folder;
 
+        /// <summary>
+        /// The folder chosen, its place's name read again from <paramref name="listing"/>, a listing the
+        /// computer gave, or marked gone where it no longer lists that place (<see cref="ProjectFolder.Current"/>),
+        /// so a kept choice never shows a name that now belongs to another place.
+        /// </summary>
+        public void ReadPlaces(LocationsResponse listing)
+        {
+            if (Folder != null) Folder = Folder.Current(listing);
+        }
+
         /// <summary>The exchange with the companion, once the person began one; null for the fixed questions or a typed idea alone.</summary>
         public CompanionExchange? Companion { get; private set; }
 
