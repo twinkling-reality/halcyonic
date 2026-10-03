@@ -200,7 +200,7 @@ namespace Halcyonic.Client
         public const string ChooseHowItRuns = "Choose how it runs in More options.";
         public const string ChooseAgain = "What you chose in More options isn't available now. Choose again.";
         public const string FinishChoosing = "Finish choosing how it runs in More options.";
-        public const string ProjectGone = "This project isn't on " + HostText.Your + " any more. Close this, then choose a project in Connect projects.";
+        public const string ProjectGone = "This project isn't on " + HostText.Your + " any more. Close this, then choose another in Projects.";
         public const string ChooseWhereFilesLive = "Choose where its files live.";
 
         public static string CreateTitle(string? existingProject) => existingProject == null ? CreateProject : "New task in " + existingProject;
