@@ -84,11 +84,14 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 var eyes = new Vector3(0f, EyeHeight, 0f);
+                // Where the head points; turned below to check the plane stays put until Reset position.
+                var looking = Vector3.zero;
                 var camera = MakeCamera(root.transform, eyes, texture);
                 var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation);
                 var targets = characters.ConvertAll(character => character.Target);
                 var state = Projection(characters);
                 var opened = characters[3];
+                looking = opened.Target.BodyPosition - eyes;
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
@@ -132,7 +135,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     Demonstration = () => demonstrationPlays,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, opened.Target.BodyPosition - eyes, targets, surface, false),
+                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surface, false),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
@@ -218,6 +221,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": closed with no file open, the menu shows no bar.");
                 failures.AddRange(PlaneState(name + " director closed", folder, camera, texture, director.Plane, characters, eyes, null));
+
+                // The head turns: a redraw keeps the plane where it was; Reset position places it where the person looks.
+                var stood = director.Plane.Direction.Yaw;
+                var ahead = looking;
+                looking = Quaternion.Euler(0f, 25f, 0f) * ahead;
+                director.Redraw();
+                director.DrawNow();
+                if (Mathf.Abs(Mathf.DeltaAngle(director.Plane.Direction.Yaw, stood)) > 0.01f) failures.Add(name + ": a redraw moved the plane after the head turned; it stays until Reset position.");
+                director.ResetPosition();
+                director.DrawNow();
+                if (Mathf.Abs(Mathf.DeltaAngle(director.Plane.Direction.Yaw, stood)) < 5f) failures.Add(name + ": Reset position left the plane where it was, not where the person looks.");
+                looking = ahead;
+                director.ResetPosition();
+                director.DrawNow();
 
                 // The computer's live session takes the demonstration's place: the file made in it sends nothing there.
                 var live = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
