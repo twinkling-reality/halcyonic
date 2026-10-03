@@ -386,6 +386,114 @@ public class FileColumnTests
         Assert.That(column.Screen.Question.SidePart, Is.EqualTo(0));
     }
 
+    private static string LongWords(string what) =>
+        string.Join(" ", Enumerable.Range(1, 120).Select(step => what + " " + step));
+
+    /// <summary>A file asking <paramref name="prompts"/>, its first answers' page in view.</summary>
+    private (FileMenuHost Host, FileColumn Column) Asking(params QuestionPrompt[] prompts)
+    {
+        var host = new FileMenuHost();
+        var work = new AskingWork(new QuestionView { QuestionId = "question-1", Answerable = true, AskedAt = Samples.Time, Prompts = prompts.ToList() });
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        return (host, column);
+    }
+
+    [Test]
+    public void ALongTypedAnswerClosedBeforeItsEndOpensAgainFromItsRowAtThePartToReadNextAndSends()
+    {
+        var (host, column) = TypedLongAnswer();
+        column.Drawn(column.Frame!, sidePanel: true);
+        host.Wait(1);
+        column.Act(Footer.NextPage, null);
+        column.Act(SidePanel.Close, null);
+        Assert.That(column.Frame!.Side, Is.Null, "closed before its last part");
+        var keyboard = host.Keyboard;
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That((column.Screen.Question.SideOption, column.Screen.Question.SidePart), Is.EqualTo(((int?)2, 1)),
+            "its row opens it again at the first part not yet drawn");
+        Assert.That(host.Keyboard, Is.EqualTo(keyboard), "and asks for no new words");
+        var parts = column.Screen.Question.SideParts;
+        for (var part = 1; part < parts; part++)
+        {
+            column.Drawn(column.Frame!, sidePanel: true);
+            host.Wait(1);
+            if (part < parts - 1) column.Act(Footer.NextPage, null);
+        }
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "the same words, read to their end, are sent");
+
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That(host.Keyboard, Is.Not.EqualTo(keyboard), "read whole, the row edits them again");
+    }
+
+    [Test]
+    public void WithSeveralAnswersAllowedCloseDetailsOnACutAnswerBringsThePageBackNotTheTypedOne()
+    {
+        var (host, column) = Asking(new QuestionPrompt
+        {
+            Key = "q0", Header = "Checks", Text = "Which checks should run?", Multiple = true, FreeText = true,
+            Options = new List<QuestionOption>
+            {
+                new() { Label = "Unit tests, then the end to end suite against a fresh database, then a load test of the sign-in endpoint for ten minutes" },
+                new() { Label = "Lint" },
+            },
+        });
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done(LongWords("Also the accessibility audit, step"));
+        Assert.That(column.Screen.Question.SideOption, Is.EqualTo(2), "the typed answer's panel");
+        column.Act(FileScreens.Choose, "0");
+        Assert.That(column.Screen.Question.SideOption, Is.EqualTo(0), "the cut answer's panel in its place");
+        column.Act(SidePanel.Close, null);
+        Assert.That(column.Frame!.Side, Is.Null, "Close details always brings the page back");
+    }
+
+    [Test]
+    public void BackOnAPromptWhoseLongTypedAnswerIsUnreadItsPanelOpensAtThePartToReadNext()
+    {
+        var (host, column) = Asking(
+            new QuestionPrompt
+            {
+                Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = true,
+                Options = new List<QuestionOption> { new() { Label = "15 minutes" } },
+            },
+            new QuestionPrompt
+            {
+                Key = "q1", Header = "Notice", Text = "Should the person be told?", Multiple = false, FreeText = false,
+                Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = "No" } },
+            });
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done(LongWords("Lock it for a minute after try"));
+        Assert.That(column.Screen.Question.SideParts, Is.GreaterThan(2));
+        column.Drawn(column.Frame!, sidePanel: true);
+        host.Wait(1);
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        Assert.That(column.Screen.Question.Prompt, Is.EqualTo(1));
+        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        Assert.That(column.Screen.Question.Reviewing, Is.True, "on the person's answers");
+        column.Act(FileScreens.GoToQuestion, "0");
+        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Assert.That((column.Screen.Question.Prompt, column.Screen.Question.SideOption, column.Screen.Question.SidePart), Is.EqualTo((0, (int?)1, 1)),
+            "back on the prompt, the unread typed answer's panel opens at the first part not yet drawn");
+    }
+
     [Test]
     public void NextPageOnALongTypedAnswerAdvancesAndARebuildKeepsThePart()
     {
