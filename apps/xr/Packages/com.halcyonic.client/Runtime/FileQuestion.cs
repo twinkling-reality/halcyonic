@@ -63,6 +63,9 @@ namespace Halcyonic.Client
         private readonly Dictionary<int, HashSet<int>> answersRead = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, string> typedRead = new Dictionary<int, string>();
         private readonly Dictionary<int, (string Words, int Rows, int SideRows)> typedRows = new Dictionary<int, (string Words, int Rows, int SideRows)>();
+
+        /// <summary>The words of each prompt's typed answer whose side panel the person closed, so a rebuild leaves it closed.</summary>
+        private readonly Dictionary<int, string> typedClosed = new Dictionary<int, string>();
         private PageBudget side = new RowBudget(1);
         private int? sideOption;
         private readonly Dictionary<(int Prompt, int Option), HashSet<int>> sidePartsDrawn = new Dictionary<(int Prompt, int Option), HashSet<int>>();
@@ -215,6 +218,7 @@ namespace Halcyonic.Client
                 answersRead.Clear();
                 typedRead.Clear();
                 typedRows.Clear();
+                typedClosed.Clear();
                 reviewDrawn.Clear();
                 sidePartsDrawn.Clear();
                 sideOption = null;
@@ -353,11 +357,27 @@ namespace Halcyonic.Client
         public void MeasureTyped(int prompt, int measured, int sideMeasured)
         {
             if (!(draft?.Typed(prompt) is string typed)) return;
+            // Every rebuild measures again: only new words open the panel, from their first part, and
+            // what was drawn of the old words counts for nothing. The same words leave it as the person
+            // has it, closed or on the part they turned to.
+            var fresh = !typedRows.TryGetValue(prompt, out var before) || before.Words != typed;
             typedRows[prompt] = (typed, Math.Max(1, measured), Math.Max(1, sideMeasured));
-            if (prompt != Prompt || Reviewing || QuestionPart != null) return;
             var index = draft.Prompts[prompt].Options.Count;
-            if (TypedCut(prompt)) OpenSide(index);
-            else if (sideOption == index) sideOption = null;
+            if (fresh) sidePartsDrawn.Remove((prompt, index));
+            if (prompt != Prompt || Reviewing || QuestionPart != null) return;
+            if (fresh) typedClosed.Remove(prompt);
+            if (!TypedCut(prompt))
+            {
+                if (sideOption == index) sideOption = null;
+            }
+            else if (fresh) OpenSide(index);
+            else if (sideOption == index)
+            {
+                if (SidePart >= SideParts) SidePart = Math.Max(0, SideParts - 1);
+            }
+            // Back on the prompt with nothing beside it, the panel opens again, unless the person
+            // closed it for these words.
+            else if (sideOption == null && !(typedClosed.TryGetValue(prompt, out var closed) && closed == typed)) OpenSide(index);
         }
 
         /// <summary>
@@ -504,8 +524,19 @@ namespace Halcyonic.Client
             sideOption = null;
         }
 
-        /// <summary>The chosen answer's side panel closed: the page shows again, the answer still chosen.</summary>
-        public void CloseSide() => sideOption = null;
+        /// <summary>
+        /// The chosen answer's side panel closed: the page shows again, the answer still chosen. A typed
+        /// answer's stays closed while its words stay the same.
+        /// </summary>
+        public void CloseSide()
+        {
+            if (draft != null && Prompt < draft.Prompts.Count && sideOption == draft.Prompts[Prompt].Options.Count
+                && draft.Typed(Prompt) is string typed)
+            {
+                typedClosed[Prompt] = typed;
+            }
+            sideOption = null;
+        }
 
         /// <summary>The row on to the next question, or after the last, to the person's answers.</summary>
         public void NextQuestion(DateTimeOffset now)
