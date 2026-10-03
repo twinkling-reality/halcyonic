@@ -73,7 +73,7 @@ namespace Halcyonic.XR.Workspace
 
         private StageVisibility visibility = null!;
         private int savedVisibility;
-        private bool visited;
+        private FirstVisit firstVisit = null!;
         private WorkOverview? overview;
         private (long Position, int Visibility) overviewOf = (-1, -1);
 
@@ -107,7 +107,7 @@ namespace Halcyonic.XR.Workspace
             visibility = StageVisibility.Load(PlayerPrefs.GetString(VisibilityPreference, ""));
             savedVisibility = visibility.Version;
             stage.Visibility = visibility;
-            visited = PlayerPrefs.GetInt(VisitedPreference, 0) == 1;
+            firstVisit = new FirstVisit(PlayerPrefs.GetInt(VisitedPreference, 0) == 1);
             // The same client the session introduces itself as (ControlPlaneConnection).
             commands = new CommandFactory(new ClientInfo
             {
@@ -156,7 +156,7 @@ namespace Halcyonic.XR.Workspace
                 SomethingWaits = SomethingWaits,
                 Comfort = comfort.Settings,
                 ComfortSaved = comfort.Keep,
-                Space = () => Room == null ? Array.Empty<MenuSetting>() : SpaceSettings.Of(SpaceNow, ActInSpace),
+                Space = () => Room == null ? Array.Empty<MenuSetting>() : SpaceSettings.Of(SpaceNow, ActInSpace, address => Pairing?.Forget(address)),
                 Commands = commands,
                 Overview = Overview,
                 ShowProject = ShowProject,
@@ -252,7 +252,7 @@ namespace Halcyonic.XR.Workspace
 
         private void Update()
         {
-            FirstVisit();
+            OpenOnFirstVisit();
             PollKeyboard();
             OpenPending();
             FollowBeside();
@@ -395,7 +395,7 @@ namespace Halcyonic.XR.Workspace
                     menu.ResetPosition();
                     break;
                 case SpaceSettings.Pairing:
-                    Pairing?.Press();
+                    Pairing?.Pair();
                     break;
             }
         }
@@ -404,10 +404,9 @@ namespace Halcyonic.XR.Workspace
         /// The first visit, connected to the person's computer rather than the demonstration: the menu
         /// opens by itself on Projects (ADR 0026), once, and never over work already open.
         /// </summary>
-        private void FirstVisit()
+        private void OpenOnFirstVisit()
         {
-            if (visited || menu == null || connection.Session?.Status.IsLive != true || connection.DemonstrationLine != null || OpenWorkstream != null) return;
-            visited = true;
+            if (menu == null || !firstVisit.Due(connection.Session?.Status.IsLive == true, connection.DemonstrationLine != null, OpenWorkstream != null)) return;
             PlayerPrefs.SetInt(VisitedPreference, 1);
             PlayerPrefs.Save();
             menu.Open(MenuPlace.Projects);
@@ -435,13 +434,10 @@ namespace Halcyonic.XR.Workspace
         private void ShowProject(string projectId, bool shown)
         {
             var state = connection.Session?.State;
-            if (state == null || visibility.Shows(projectId) == shown) return;
-            if (shown) visibility.Show(projectId);
-            else
-            {
-                visibility.Hide(projectId, state.Projects.Keys);
-                if (stage.Requested is string requested && state.Workstreams.TryGetValue(requested, out var work) && work.ProjectId == projectId) stage.Request(null);
-            }
+            if (state == null) return;
+            var change = ProjectShowing.Apply(visibility, projectId, shown, state, stage.Requested);
+            if (!change.Changed) return;
+            if (change.WithdrawRequest) stage.Request(null);
             stage.Refresh();
             if (visibility.Version == savedVisibility) return;
             savedVisibility = visibility.Version;

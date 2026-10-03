@@ -35,7 +35,13 @@ namespace Halcyonic.XR.Workspace
     {
         PairingNow Now { get; }
 
-        /// <summary>Pairs where unpaired, and forgets the paired computer once Settings has confirmed it.</summary>
-        void Press();
+        /// <summary>Pairs with a computer, where none is paired.</summary>
+        void Pair();
+
+        /// <summary>
+        /// Forgets the paired computer, only when it is the one at <paramref name="confirmedAddress"/>,
+        /// the address Settings asked about and the person said Yes to (<see cref="PairingNow.Forgets"/>).
+        /// </summary>
+        void Forget(string confirmedAddress);
     }
 }

@@ -34,6 +34,13 @@ namespace Halcyonic.Client
         public PairingStep Step { get; }
 
         public bool Keyboard { get; }
+
+        /// <summary>
+        /// Forgetting may go ahead: nothing is under way, and the computer paired now is the one whose
+        /// address Settings asked about and the person said Yes to.
+        /// </summary>
+        public bool Forgets(string confirmedAddress) =>
+            Step == PairingStep.Idle && Address != null && string.Equals(Address, confirmedAddress, StringComparison.Ordinal);
     }
 
     /// <summary>What Your space and Your computer show, read each time Settings is drawn.</summary>
@@ -61,8 +68,9 @@ namespace Halcyonic.Client
     /// <summary>
     /// Your space and, in a development build, Your computer as Settings' rows (ADR 0026): the room
     /// shown, what the room offers, where the characters stand, the menu's position, and pairing with
-    /// the person's computer. Each row's change only raises its id; the headset's own layer does it,
-    /// as the room placement, the stage and the pairing own what they change.
+    /// the person's computer. Each row's change only raises its id, or for forgetting the computer the
+    /// address Settings asked about; the headset's own layer does it, as the room placement, the stage
+    /// and the pairing own what they change.
     /// </summary>
     public static class SpaceSettings
     {
@@ -76,8 +84,12 @@ namespace Halcyonic.Client
 
         public const string Pairing = "pairing";
 
-        /// <param name="act">Raised with a row's id when its change is pressed.</param>
-        public static IReadOnlyList<MenuSetting> Of(Func<SpaceNow> now, Action<string> act)
+        /// <param name="act">Raised with a row's id when its change is pressed; for Pairing, only to pair.</param>
+        /// <param name="forget">
+        /// Raised with the paired computer's address when the person said Yes to forgetting it
+        /// (Settings asks first), so what forgets can check it is still the computer asked about.
+        /// </param>
+        public static IReadOnlyList<MenuSetting> Of(Func<SpaceNow> now, Action<string> act, Action<string> forget)
         {
             var rows = new List<MenuSetting>
             {
@@ -89,7 +101,11 @@ namespace Halcyonic.Client
             };
             if (now().Pairing != null)
             {
-                rows.Add(new MenuSetting(Pairing, HostText.YourStart, "Pairing", () => Paired(now().Pairing), () => act(Pairing)));
+                rows.Add(new MenuSetting(Pairing, HostText.YourStart, "Pairing", () => Paired(now().Pairing), () =>
+                {
+                    if (now().Pairing?.Address is string paired) forget(paired);
+                    else act(Pairing);
+                }));
             }
             return rows;
         }

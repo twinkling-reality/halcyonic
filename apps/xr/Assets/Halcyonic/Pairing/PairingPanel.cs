@@ -16,8 +16,8 @@ namespace Halcyonic.XR.Pairing
     /// build. Its press, unpaired, asks on the system keyboard for the address and the eight-digit
     /// code <c>pnpm pair</c> shows on the computer, pairs in the background, keeps the pairing through
     /// <see cref="ControlPlaneSettings.PairingStore"/>, and connects again. Paired, Settings asks
-    /// first, with its own Yes, and then the press forgets the computer and asks it to revoke this
-    /// headset's credential. What it says shows on the stage's banner as a short notice, by the
+    /// first, with its own Yes, and only that Yes, naming the address it asked about, forgets the
+    /// computer and asks it to revoke this headset's credential. What it says shows on the stage's banner as a short notice, by the
     /// banner's rule for words Halcyonic did not write, so a result reached with Settings closed is
     /// not missed.
     /// </summary>
@@ -47,6 +47,7 @@ namespace Halcyonic.XR.Pairing
 
         private ControlPlaneConnection connection = null!;
         private CharacterStage? stage;
+        private WorkspaceDirector? director;
         private Step step;
         private TouchScreenKeyboard? keyboard;
         private string host = "";
@@ -69,7 +70,13 @@ namespace Halcyonic.XR.Pairing
             stage = GetComponent<CharacterStage>();
             paired = ControlPlaneSettings.ReadPairing();
             // The menu's Settings offers pairing through the workspace director, on the same stage.
-            if (TryGetComponent<WorkspaceDirector>(out var director)) director.Pairing = this;
+            if (TryGetComponent(out director)) director!.Pairing = this;
+        }
+
+        /// <summary>Gone, it offers Settings nothing more: no row that would press it, or say it is under way, for good.</summary>
+        private void OnDestroy()
+        {
+            if (director != null && ReferenceEquals(director.Pairing, this)) director.Pairing = null;
         }
 
         private void Update()
@@ -78,14 +85,16 @@ namespace Halcyonic.XR.Pairing
             PollWork();
         }
 
-        public void Press()
+        public void Pair()
         {
-            if (step != Step.Idle) return;
-            if (paired == null)
-            {
-                BeginPairing();
-                return;
-            }
+            if (step != Step.Idle || paired != null) return;
+            BeginPairing();
+        }
+
+        public void Forget(string confirmedAddress)
+        {
+            // Settings' Yes alone forgets, and only the computer it asked about.
+            if (!Now.Forgets(confirmedAddress) || paired == null) return;
             step = Step.Forgetting;
             var forgotten = paired;
             forgetting = Task.Run(() => PairingClient.RevokeAsync(forgotten));

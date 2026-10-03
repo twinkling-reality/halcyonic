@@ -28,6 +28,7 @@ namespace Halcyonic.XR.Room
 
         private RoomPlacement placement = null!;
         private CharacterStage? stage;
+        private WorkspaceDirector? director;
         private string shownLine = "";
 
         public static RoomControls Create(Transform parent, RoomPlacement placement)
@@ -59,7 +60,7 @@ namespace Halcyonic.XR.Room
         {
             stage = placement.GetComponent<CharacterStage>();
             // The menu's Settings offers the room through the workspace director, on the same stage.
-            if (placement.TryGetComponent<WorkspaceDirector>(out var director)) director.Room = this;
+            if (placement.TryGetComponent(out director)) director!.Room = this;
             placement.StatusChanged += OnStatusChanged;
             FocusGuard.FoldChanged += OnFoldChanged;
             OnStatusChanged(placement.Status);
@@ -68,6 +69,8 @@ namespace Halcyonic.XR.Room
         private void OnDestroy()
         {
             FocusGuard.FoldChanged -= OnFoldChanged;
+            // Gone, it offers Settings nothing more.
+            if (director != null && ReferenceEquals(director.Room, this)) director.Room = null;
             if (placement == null) return;
             placement.StatusChanged -= OnStatusChanged;
         }
