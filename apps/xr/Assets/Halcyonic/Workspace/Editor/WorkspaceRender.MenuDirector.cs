@@ -464,6 +464,7 @@ namespace Halcyonic.XR.Workspace.Editor
             director.LetGoForRender();
             director.DrawNow();
             if (director.Dragging) failures.Add(name + ": let go, the plane still followed the hand.");
+            if (!director.MovedByHand) failures.Add(name + ": dragged, the director does not say the person moved the plane, so Settings would not.");
             failures.AddRange(PlaneState(name + " director dragged", folder, camera, texture, plane, characters, eyes, null));
             if (!director.Navigator.Act(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null))
             {
@@ -489,7 +490,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // Reset position places it afresh.
             director.ResetPosition();
             director.DrawNow();
-            if (Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) > 0.01f || Mathf.Abs(placed.Elevation - plane.Direction.Elevation) > 0.01f)
+            if (Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) > 0.01f || Mathf.Abs(placed.Elevation - plane.Direction.Elevation) > 0.01f || director.MovedByHand)
             {
                 failures.Add(name + ": Reset position kept the drag.");
             }

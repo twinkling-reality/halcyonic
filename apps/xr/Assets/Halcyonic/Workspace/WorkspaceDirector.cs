@@ -376,7 +376,7 @@ namespace Halcyonic.XR.Workspace
         private SpaceNow SpaceNow()
         {
             var room = Room;
-            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, room?.Arrangement, Pairing?.Now);
+            return new SpaceNow(room?.Status, room?.Offer ?? RoomOffer.None, room?.Arrangement, Pairing?.Now, menu.MovedByHand);
         }
 
         /// <summary>Does what a row of Your space or Your computer raised, through what owns it.</summary>

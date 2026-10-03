@@ -49,12 +49,14 @@ namespace Halcyonic.Client
         /// <param name="room">The room as its controls give it, or null while none do, as before they start or once they have gone.</param>
         /// <param name="arrangement">Where the characters stand, or null on a desk, where the room places them.</param>
         /// <param name="pairing">Pairing with the person's computer, or null where it isn't ready or offered.</param>
-        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing)
+        /// <param name="menuMoved">The person dragged the menu from where it stands by itself, until Reset position puts it back.</param>
+        public SpaceNow(RoomStatus? room, RoomOffer offer, StageArrangement? arrangement, PairingNow? pairing, bool menuMoved = false)
         {
             Room = room;
             Offer = offer;
             Arrangement = arrangement;
             Pairing = pairing;
+            MenuMoved = menuMoved;
         }
 
         public RoomStatus? Room { get; }
@@ -64,6 +66,8 @@ namespace Halcyonic.Client
         public StageArrangement? Arrangement { get; }
 
         public PairingNow? Pairing { get; }
+
+        public bool MenuMoved { get; }
     }
 
     /// <summary>
@@ -107,8 +111,7 @@ namespace Halcyonic.Client
                 new MenuSetting(SwitchSpace, SettingsText.YourSpace, "Around you", () => Space(now().Room), () => act(SwitchSpace)),
                 new MenuSetting(TakeOffer, SettingsText.YourSpace, "Your room's layout", () => Offer(now()), () => act(TakeOffer)),
                 new MenuSetting(NextArrangement, SettingsText.YourSpace, "The characters", () => Arranged(now()), () => act(NextArrangement)),
-                new MenuSetting(ResetPosition, SettingsText.YourSpace, "The menu", () => new SettingNow("Where it stands", "Where it stands now",
-                    "In front of you", "The menu comes back in front of you, within reach", "Reset position"), () => act(ResetPosition)),
+                new MenuSetting(ResetPosition, SettingsText.YourSpace, "The menu", () => Menu(now().MenuMoved), () => act(ResetPosition)),
             };
             if (pairing)
             {
@@ -131,6 +134,11 @@ namespace Halcyonic.Client
             StageArrangement.TurnedAside => StageArrangement.BesideAWindow,
             _ => StageArrangement.InFront,
         };
+
+        /// <summary>The menu's row: where it stands by itself, or where the person dragged it until Reset position.</summary>
+        private static SettingNow Menu(bool moved) => moved
+            ? new SettingNow("Where you moved it", "Where you moved it", "In front of you", "The menu comes back in front of you, within reach", "Reset position")
+            : new SettingNow("Where it stands", "Where it stands now", "In front of you", "The menu comes back in front of you, within reach", "Reset position");
 
         private static SettingNow Space(RoomStatus? room)
         {
