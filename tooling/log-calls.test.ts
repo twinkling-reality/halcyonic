@@ -1,9 +1,12 @@
 /**
- * Every log call in the code that ships names no private text: AGENTS.md forbids logging secrets,
- * the access token, or instruction and agent message text, and the headset's log is readable over
- * adb ([logging-audit.md](../docs/internal/validation/logging-audit.md)). A call whose arguments,
- * outside their string literals and comments, name something that can be private must be one a
- * person reviewed and listed below with why it is safe; a new or changed one fails until it is.
+ * A guard for the logging audit ([logging-audit.md](../docs/internal/validation/logging-audit.md)):
+ * AGENTS.md forbids logging secrets, the access token, or instruction and agent message text, and
+ * the headset's log is readable over adb. The scan reads the arguments of every log call it knows
+ * the shape of in the code that ships, outside their string literals and comments, and a call that
+ * names something that can be private (by the words below, an error, or a spread) must be one a
+ * person reviewed and listed with why it is safe; a new or changed one fails until it is. It reads
+ * names, not values, so it narrows what a review must look at; it proves nothing about a call it
+ * passes.
  */
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -15,7 +18,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /** What a log call may not name outside a literal, unless reviewed. */
 const PRIVATE =
-  /\b(message|getmessage|getbaseexception|detail|credential|accesstoken|token|titles?|text|instructions?|answers?|transcript|transcription|reply|replies|summary|body|content|prompt|words|label|code|path|address|host|password|authorization|cookie|proof|challenge|snapshot|json)\b/i;
+  /\b(message|getmessage|getbaseexception|detail|credential|accesstoken|token|titles?|text|instructions?|answers?|transcript|transcription|reply|replies|summary|body|content|prompt|words|label|code|path|address|host|password|authorization|cookie|proof|challenge|snapshot|json|err|errors?|exceptions?)\b|\.\.\./i;
 
 type Kind = 'ts' | 'cs' | 'java';
 
@@ -35,19 +38,19 @@ const SOURCES: readonly Source[] = [
       !path.endsWith('.test.ts') &&
       !path.includes('/testing/') &&
       !path.includes('/node_modules/'),
-    call: /\b(?:log|logger)\.(?:trace|debug|info|warn|error|fatal)\s*\(/g,
+    call: /\b(?:log|logger)\.(?:trace|debug|info|warn|error|fatal)\s*\(|\bconsole\.(?:log|info|warn|error|debug|trace)\s*\(|\bprocess\.stderr\.write\s*\(/g,
   },
   {
     kind: 'cs',
     roots: ['apps/xr/Assets/Halcyonic', 'apps/xr/Packages/com.halcyonic.client/Runtime'],
     include: (path) => path.endsWith('.cs') && !path.includes('/Editor/'),
-    call: /(?:\bDebug\.Log(?:Warning|Error|Format|Exception)?|(?<![\w.])Log(?:Warning|Error)?)\s*\(/g,
+    call: /(?:\bDebug\.Log(?:Warning|Error|Format|Exception|Assertion|ErrorFormat|WarningFormat|AssertionFormat)?|\bunityLogger\.Log(?:Warning|Error|Format|Exception)?|(?<![\w.])Log(?:Warning|Error)?)\s*\(/g,
   },
   {
     kind: 'java',
     roots: ['apps/xr/Android'],
     include: (path) => path.endsWith('.java') && !path.includes('/test/'),
-    call: /\bLog\.[viwde]\s*\(/g,
+    call: /\bLog\.(?:[viwde]|wtf)\s*\(/g,
   },
 ];
 
@@ -212,6 +215,161 @@ const REVIEWED: readonly { readonly file: string; readonly args: string; readonl
       args: 'TAG, String.format(Locale.ROOT, "" , poll.code, poll.cause == null ? "" : "" + poll.cause + "" , took, waiting, working, visible ? 1 : 0)',
       why: "a poll code from GlancePoll's fixed set, the exception's class name and counts",
     },
+    {
+      file: 'apps/control-plane/src/cli/demo.ts',
+      args: '" parsed.error "',
+      why: "the demo's own argument problem, about the arguments the person typed",
+    },
+    {
+      file: 'apps/control-plane/src/cli/demo.ts',
+      args: '" new TokenNotSent(proven, `port $' + '{config.port}`).message "',
+      why: "TokenNotSent's fixed words, naming the port only",
+    },
+    {
+      file: 'apps/control-plane/src/cli/demo.ts',
+      args: '" error instanceof Error ? error.message : String(error) "',
+      why: "the demo's failure: fixed words, the control plane's refusal of the demo's own commands, a path or a network error",
+    },
+    {
+      file: 'apps/control-plane/src/cli/devices.ts',
+      args: '" error instanceof Error ? error.message : String(error) "',
+      why: "pnpm devices' failure: fixed words, the control plane's own refusal, or a network error",
+    },
+    {
+      file: 'apps/control-plane/src/cli/mac-setup.ts',
+      args: '" error instanceof Error ? error.message : String(error) "',
+      why: "mac-setup's failure: a configuration error, which never repeats a credential, or a file error with its path",
+    },
+    {
+      file: 'apps/control-plane/src/cli/record-companion.ts',
+      args: '" error instanceof Error ? error.message : String(error) " ,',
+      why: "the recorder's failure: fixed words or a path",
+    },
+    {
+      file: 'apps/control-plane/src/cli/record-demonstration.ts',
+      args: '" path "',
+      why: "the recording's path",
+    },
+    {
+      file: 'apps/control-plane/src/cli/record-demonstration.ts',
+      args: '" error instanceof Error ? error.message : String(error) " ,',
+      why: "the recorder's failure: fixed words or a path",
+    },
+    {
+      file: 'apps/control-plane/src/cli/record-fixtures.ts',
+      args: '" path "',
+      why: "the trace's path",
+    },
+    {
+      file: 'apps/control-plane/src/cli/record-fixtures.ts',
+      args: '" error instanceof Error ? error.message : String(error) " ,',
+      why: "the recorder's failure: fixed words or a path",
+    },
+    {
+      file: 'apps/control-plane/src/cli/replay.ts',
+      args: '" error instanceof Error ? error.message : String(error) " ,',
+      why: "a trace's problem: its path, line and TypeBox's issues, which carry no values",
+    },
+    {
+      file: 'apps/control-plane/src/core/command-service.ts',
+      args: '{ command_id: command.command_id, err: first.error }, "" ,',
+      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message; an adapter's bug, for the owner to find",
+    },
+    {
+      file: 'apps/control-plane/src/core/command-service.ts',
+      args: '{ err: error, command_id: command.command_id }, "" ,',
+      why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message',
+    },
+    {
+      file: 'apps/control-plane/src/core/drafts.ts',
+      args: '{ err: error, execution_id: execution.execution_id, runtime_id: runtimeId, observation_type: observation.type, }, "" ,',
+      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message; the journal's refusal of an adapter's observation",
+    },
+    {
+      file: 'apps/control-plane/src/core/publisher.ts',
+      args: '{ err: error, position: published.position }, ""',
+      why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message',
+    },
+    {
+      file: 'apps/control-plane/src/core/runtime-registry.ts',
+      args: '{ err: error, runtime_id: runtimeId }, ""',
+      why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message',
+    },
+    {
+      file: 'apps/control-plane/src/http/realtime.ts',
+      args: '{ err: error }, ""',
+      why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message',
+    },
+    {
+      file: 'apps/control-plane/src/http/realtime.ts',
+      args: '{ err: error }, ""',
+      why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message',
+    },
+    {
+      file: 'apps/control-plane/src/http/realtime.ts',
+      args: '{ err: error, command_id: command.command_id, command_type: command.command_type }, "" ,',
+      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message, with the command's id and type",
+    },
+    {
+      file: 'apps/control-plane/src/http/server.ts',
+      args: '{ err: error }, ""',
+      why: 'an error through errorForLog (http/server.ts): its type, code and frames, never its message; a request that failed, answered in fixed words',
+    },
+    {
+      file: 'apps/control-plane/src/main.ts',
+      args: '{ err: error }, ""',
+      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message; the speech engine's warm-up",
+    },
+    {
+      file: 'apps/control-plane/src/main.ts',
+      args: '" error instanceof Error ? error.message : String(error) " ,',
+      why: "a startup failure: a configuration error, which never repeats a credential, or the system's own error",
+    },
+    {
+      file: 'apps/control-plane/src/network/server.ts',
+      args: '{ err: error }, ""',
+      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message; a pairing connection's error",
+    },
+    {
+      file: 'apps/control-plane/src/network/server.ts',
+      args: '{ err: error }, ""',
+      why: "an error through errorForLog (http/server.ts): its type, code and frames, never its message; a pairing exchange's error, whose SRP and protocol errors carry no values",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Room/RoomPlacement.cs',
+      args: 'error',
+      why: 'a Meta SDK failure, which holds room data only',
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Room/RoomPlacement.cs',
+      args: '"" + error.GetType().Name',
+      why: "an exception's type name",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Scripts/ControlPlaneConnection.cs',
+      args: 'error',
+      why: "a bug while pausing: connection failures are caught inside the session's loop",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Workspace/NewProjectColumn.cs',
+      args: '"" + error.GetType().Name + ""',
+      why: "an exception's type name: the recorded exchange bundled in the app couldn't be read",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Workspace/WorkspaceDirector.cs',
+      args: 'LogType.Log, LogOption.NoStacktrace, this, "" , "" + error.GetType().Name',
+      why: "an exception's type name",
+    },
+    {
+      file: 'apps/xr/Assets/Halcyonic/Workspace/WorkspaceDirector.cs',
+      args: 'error',
+      why: "a bug in a task: SubmitAsync's submissions and ReadHistoryAsync catch every failure themselves",
+    },
+    {
+      file: 'apps/control-plane/src/cli/record-companion.ts',
+      args: '" path problems.join(\'; \') "',
+      why: "the recorded exchange's path and its rule problems: fixed words, and brand names from a fixed list",
+    },
   ];
 
 interface Call {
@@ -362,6 +520,35 @@ describe('log calls', () => {
     );
     assert.equal(argumentsAt('Log("a (b" + /* the token */ c)', 3, 'cs'), '"" + c');
     assert.equal(PRIVATE.test(argumentsAt('Log(draft.Text)', 3, 'cs')), true);
+    assert.equal(
+      PRIVATE.test(argumentsAt("log.warn({ err: error }, 'x')", 8, 'ts')),
+      true,
+      'an error is reviewed',
+    );
+    assert.equal(
+      PRIVATE.test(argumentsAt("log.info({ ...context }, 'x')", 8, 'ts')),
+      true,
+      'a spread is reviewed',
+    );
+    assert.equal(PRIVATE.test(argumentsAt("log.info({ command_id }, 'x')", 8, 'ts')), false);
+    const ts = SOURCES.find((source) => source.kind === 'ts')?.call;
+    assert.ok(ts !== undefined);
+    for (const call of [
+      'console.error(x)',
+      'process.stderr.write(x)',
+      'this.#deps.logger.warn(x)',
+    ]) {
+      assert.ok(new RegExp(ts.source).test(call), call);
+    }
+    const cs = SOURCES.find((source) => source.kind === 'cs')?.call;
+    assert.ok(cs !== undefined);
+    for (const call of [
+      'Debug.LogErrorFormat(x)',
+      'Debug.LogAssertion(x)',
+      'Debug.unityLogger.Log(x)',
+    ]) {
+      assert.ok(new RegExp(cs.source).test(call), call);
+    }
   });
 
   test('every call that names something private was reviewed, and every review still applies', () => {
