@@ -461,6 +461,40 @@ namespace Halcyonic.XR.UI.Editor
         }
 
         /// <summary>
+        /// How far a flat part's outline stands from <paramref name="other"/>, in degrees as the eyes see
+        /// them: its edges sampled where they lie, so a plane far below eye level, whose low corners spread
+        /// wider than its top, is measured as it looks, not by the box round it. Negative where they
+        /// overlap, as <see cref="Extent.Apart"/>.
+        /// </summary>
+        public static float OutlineApart(PlaneShape part, Vector3 eyes, Extent other)
+        {
+            const int Steps = 40;
+            var corners = new[] { new Vector2(-0.5f, -0.5f), new Vector2(0.5f, -0.5f), new Vector2(0.5f, 0.5f), new Vector2(-0.5f, 0.5f) };
+            var least = float.MaxValue;
+            var seen = new List<Vector2>();
+            for (var edge = 0; edge < 4; edge++)
+            {
+                for (var step = 0; step < Steps; step++)
+                {
+                    var at = Vector2.Lerp(corners[edge], corners[(edge + 1) % 4], step / (float)Steps);
+                    var toward = part.Root.position + part.Root.right * (at.x * part.Size.x) + part.Root.up * (at.y * part.Size.y) - eyes;
+                    var yaw = Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg;
+                    var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+                    seen.Add(new Vector2(yaw, elevation));
+                    least = Mathf.Min(least, Mathf.Max(Mathf.Max(other.Left - yaw, yaw - other.Right), Mathf.Max(other.Bottom - elevation, elevation - other.Top)));
+                }
+            }
+            // The other inside the outline altogether: as far inside as its middle is.
+            var middle = new Vector2((other.Left + other.Right) / 2f, (other.Bottom + other.Top) / 2f);
+            var inside = false;
+            for (int a = 0, b = seen.Count - 1; a < seen.Count; b = a++)
+            {
+                if ((seen[a].y > middle.y) != (seen[b].y > middle.y) && middle.x < (seen[b].x - seen[a].x) * (middle.y - seen[a].y) / (seen[b].y - seen[a].y) + seen[a].x) inside = !inside;
+            }
+            return inside ? -Mathf.Abs(least) : least;
+        }
+
+        /// <summary>
         /// A content surface's light ends above its first target (ADR 0026): no target whose top stands
         /// higher than <paramref name="glass"/>'s top less its light's reach, so no row looks lit but the
         /// chosen one.
@@ -606,25 +640,43 @@ namespace Halcyonic.XR.UI.Editor
                     + GlazeIcons.MinimumDegrees.ToString("0.000", CultureInfo.InvariantCulture) + ".";
             }
             // A word beside it: a label of its own parent that shows words, level with it and no more than
-            // an em away, measured along the plane they lie on: seen from the eyes as yaw, a gap far below
-            // eye level would look wider than it is.
+            // an em away as the eyes see the gap (IconGapDegrees); seen as yaw, a gap far below eye level
+            // would look wider than it is.
             var plane = icon.transform.parent;
-            var seen = OnPlane(icon, plane);
             var beside = false;
             var nearest = "";
             foreach (Transform sibling in plane)
             {
                 if (sibling == icon.transform || !sibling.gameObject.activeInHierarchy) continue;
                 if (!sibling.TryGetComponent<TMP_Text>(out var word) || GlazeIcons.IsIcon(word) || string.IsNullOrWhiteSpace(word.text)) continue;
-                var words = OnPlane(word, plane);
-                if (words.width <= 0f) continue;
-                var level = words.yMin < seen.yMax && seen.yMin < words.yMax;
-                var gap = Mathf.Max(words.xMin - seen.xMax, seen.xMin - words.xMax) * plane.lossyScale.x;
-                var near = Glaze.DegreesOf(gap, PlaneDistance(eyes, icon.transform)) <= degrees;
-                if (level && near) beside = true;
-                nearest += " " + sibling.name + " (" + Degrees(Glaze.DegreesOf(gap, PlaneDistance(eyes, icon.transform))) + " degrees away" + (level ? ")" : ", not level)");
+                if (!(IconGapDegrees(icon, word, eyes) is float gap)) continue;
+                var near = gap <= degrees;
+                beside |= near;
+                nearest += " " + sibling.name + " (" + Degrees(gap) + " degrees away)";
             }
             if (!beside) yield return name + " " + Of("the icon", eyes, new[] { icon.GetComponent<Renderer>() }) + " has no words beside it:" + (nearest.Length > 0 ? nearest : " none") + ".";
+        }
+
+        /// <summary>
+        /// The gap between an icon and a word beside it as the eyes see it: the angle between the rays to
+        /// the icon's and the word's nearest edges, level with both, measured where their heights overlap;
+        /// 0 or less where they overlap across; null where they are not level, sharing no height.
+        /// </summary>
+        public static float? IconGapDegrees(TMP_Text icon, TMP_Text word, Vector3 eyes)
+        {
+            var plane = icon.transform.parent;
+            var seen = OnPlane(icon, plane);
+            var words = OnPlane(word, plane);
+            if (words.width <= 0f || seen.width <= 0f) return null;
+            var bottom = Mathf.Max(words.yMin, seen.yMin);
+            var top = Mathf.Min(words.yMax, seen.yMax);
+            if (bottom >= top) return null;
+            var middle = (bottom + top) / 2f;
+            var (near, far) = words.xMin >= seen.xMax ? (seen.xMax, words.xMin) : words.xMax <= seen.xMin ? (seen.xMin, words.xMax) : (0f, 0f);
+            if (near == far) return 0f;
+            var a = plane.TransformPoint(new Vector3(near, middle, 0f)) - eyes;
+            var b = plane.TransformPoint(new Vector3(far, middle, 0f)) - eyes;
+            return Vector3.Angle(a, b);
         }
 
         /// <summary>The rectangle a label's mesh covers on the plane of <paramref name="plane"/>, in that plane's units.</summary>

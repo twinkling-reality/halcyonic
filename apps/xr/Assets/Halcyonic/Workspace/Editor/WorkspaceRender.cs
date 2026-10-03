@@ -36,7 +36,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// In the editor: Halcyonic > Render the Workspace Over the Stage. In batch mode, with the editor
     /// closed, see docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1 when a check fails.
     /// </summary>
-    public static class WorkspaceRender
+    public static partial class WorkspaceRender
     {
         private const int Size = 1024;
         private const float EyeHeight = 1.2f;
@@ -94,6 +94,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 ViewField.Current = FieldChecks.Quest3S;
                 failures.AddRange(RenderStage("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 failures.AddRange(RenderStage("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                // The menu's plane (ADR 0026) on the same stages, in the same field.
+                failures.AddRange(RenderMenuPlane("far-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                failures.AddRange(RenderMenuPlane("desk-3s-plane", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                failures.AddRange(RenderMenuPlane("window-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
             }
             catch (Exception error)
             {
@@ -138,10 +142,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 Backdrop(characters[3].View.transform, eyes, pose);
                 if (ViewField.Current is ViewField field)
                 {
-                    // Read with the head turned toward it, over a desk as well, where it opens above the lineup: level,
-                    // or tipped down a little for a workspace taller than designed (WorkspacePlacement.ReadingPitch).
+                    // Read with the head turned toward it, over a desk as well, where it opens above the lineup, tipped
+                    // down as much as its bottom needs, at most 8 degrees (WorkspacePlacement.ReadingPitch).
                     failures.AddRange(FieldChecks.Inside(name + ": the workspace", FieldChecks.Corners(view.Frame), eyes, pose.position,
-                        WorkspacePlacement.ReadingPitch(WorkspaceLayout.FrameSize), field));
+                        WorkspacePlacement.ReadingPitch(WorkspaceLayout.FrameSize, direction.Elevation, field), field));
                 }
 
                 var both = Render(camera, texture);

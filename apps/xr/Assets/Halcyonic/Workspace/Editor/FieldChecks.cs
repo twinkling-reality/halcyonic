@@ -37,6 +37,13 @@ namespace Halcyonic.XR.Workspace.Editor
             }
         }
 
+        /// <summary>How far above eye level <paramref name="point"/> stands as seen from <paramref name="eyes"/>, in degrees: a panel's centre, for its reading pitch.</summary>
+        internal static float ElevationOf(Vector3 eyes, Vector3 point)
+        {
+            var toward = point - eyes;
+            return Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+        }
+
         /// <summary>Every point inside <paramref name="field"/> less its margin, as the head sees it (<see cref="GlazeChecks.InsideField"/>).</summary>
         internal static IEnumerable<string> Inside(string what, IEnumerable<Vector3> points, Vector3 eyes, Vector3 toward, float pitchDown, ViewField field) =>
             GlazeChecks.InsideField(what, points, eyes, toward, pitchDown, field);

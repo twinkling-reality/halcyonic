@@ -81,7 +81,7 @@ namespace Halcyonic.XR.UI.Editor
                 var composition = Composition(columns);
                 var corners = shapes.SelectMany(column => column).SelectMany(Corners);
                 var outside = GlazeChecks.InsideField(what, corners, eyes, GlazeChecks.CompositionCenter(shapes.SelectMany(column => column)),
-                    WorkspacePlacement.ReadingPitch(composition.Size), MenuPage.Quest3S).ToList();
+                    WorkspacePlacement.ReadingPitch(composition.Size, direction.Elevation, MenuPage.Quest3S), MenuPage.Quest3S).ToList();
                 failures.AddRange(outside);
                 // The client core's measure, which screens pack pages by, sees the field as the render does.
                 if (MenuPage.Fits(composition) != (outside.Count == 0))
@@ -95,6 +95,7 @@ namespace Halcyonic.XR.UI.Editor
             failures.AddRange(FooterCatchesWhatDoesNotFit());
             failures.AddRange(PartsLoseNoWord());
             failures.AddRange(GlowCatchesARowUnderIt());
+            failures.AddRange(OutlineApartCatchesALabelOverAPart());
             return failures;
         }
 
@@ -165,13 +166,13 @@ namespace Halcyonic.XR.UI.Editor
         private static List<FrameColumn> TasksAndFile(Transform holder)
         {
             const string task = "Add rate limiting to the sign-in endpoint";
-            var menu = new MenuFrame("1 task is waiting for you", new Footer(CloseFrame).WithNext(new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage)),
+            var menu = new MenuFrame("1 task is waiting for you", new Footer(CloseFrame).WithNext(new Prompt(Footer.NextPage, "Next page", GlazeIcon.Next, PromptKind.NextPage)), subjectWaits: true,
                 sections: Places(MenuPlace.Tasks, MenuPlace.Tasks),
                 lines: new[]
                 {
                     new PageLine(task, wordsAreData: true, icon: GlazeIcon.WaitingForYou, fact: "Storefront API", factIsData: true, tone: LineTone.Waiting, action: "open-task", key: "t1", opens: true, chosen: true),
-                    new PageLine("Paginate the order history endpoint", wordsAreData: true, icon: GlazeIcon.Working, fact: "4 min", action: "open-task", key: "t2", opens: true),
-                    new PageLine("Send an order confirmation email", wordsAreData: true, icon: GlazeIcon.FinishedThisRound, fact: "Finished", tone: LineTone.Good, action: "open-task", key: "t3", opens: true),
+                    new PageLine("Paginate the order history endpoint", wordsAreData: true, icon: GlazeIcon.Working, fact: "Storefront API", factIsData: true, action: "open-task", key: "t2", opens: true),
+                    new PageLine("Send an order confirmation email", wordsAreData: true, icon: GlazeIcon.FinishedThisRound, fact: "Storefront API", factIsData: true, tone: LineTone.Good, action: "open-task", key: "t3", opens: true),
                     new PageLine("Refresh the checkout copy", wordsAreData: true, icon: GlazeIcon.CheckingItsWork, fact: "Docs site", factIsData: true, action: "open-task", key: "t4", opens: true),
                 }.Take(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false)).ToList());
             var file = new MenuFrame(task, new Footer(CloseFrame, secondary: new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true),
@@ -182,7 +183,7 @@ namespace Halcyonic.XR.UI.Editor
                     new PageLine("How long should a sign-in lockout last?", wordsAreData: true, chip: "Agent says", claim: true, rows: 2),
                     new PageLine("15 minutes", wordsAreData: true, action: "answer", key: "0", choice: true, chosen: true),
                     new PageLine("1 hour", wordsAreData: true, action: "answer", key: "1", choice: true),
-                    new PageLine("Type my own answer", icon: GlazeIcon.Type, action: "type", key: "own"),
+                    new PageLine("Type my answer", icon: GlazeIcon.Type, action: "answer", key: "own", choice: true),
                 });
             var subject = Subject(true, (menu.Subject, Glaze.Menu.MenuColumnDegrees), (file.Subject, Glaze.Menu.FileColumnDegrees));
             var menuView = View(holder, "Menu");
@@ -235,7 +236,7 @@ namespace Halcyonic.XR.UI.Editor
                     new PageLine("No tests changed", tone: LineTone.Secondary),
                     new PageLine("Where it worked", fact: "storefront-api-checkout-and-orders-service-with-a-long-folder-name", factIsData: true, tone: LineTone.Secondary),
                 },
-                side: side);
+                source: "From Salidium 0.9, read at 15:20", sourceIsData: true, side: side);
             var subject = Subject(true, (file.Subject, Glaze.Menu.FileColumnDegrees), (side.Subject, Glaze.Menu.SideColumnDegrees));
             var fileView = View(holder, "File");
             fileView.Show(file, Glaze.Menu.FileColumnDegrees, subject, pillRoom: true);
@@ -328,6 +329,60 @@ namespace Halcyonic.XR.UI.Editor
             {
                 yield return "component render: a request's parts put together are not the whole request: " + string.Join(" | ", shown);
             }
+        }
+
+        /// <summary>
+        /// An icon's gap to its word reads as the eyes see it, the same laid gap the same at eye level and
+        /// 49 degrees below it, where a gap seen as yaw would read half again as wide.
+        /// </summary>
+        private static IEnumerable<string> IconGapReadsTheSameBelowEyeLevel()
+        {
+            float GapAt(float elevation)
+            {
+                var holder = Holder("Icon gap at " + elevation, 0f, elevation);
+                var icon = GlazeIcons.Create(holder, "Icon", Glaze.Menu.BodyDegrees, GlazeTokens.Text, 1);
+                GlazeIcons.Show(icon, GlazeIcon.Close);
+                var word = GlazeText.Create(holder, "Word", GlazeType.Body, GlazeTokens.Text, TextAlignmentOptions.Left, 1);
+                word.rectTransform.pivot = new Vector2(0f, 0.5f);
+                GlazeText.SetLiteral(word, "Close");
+                GlazeText.Lay(word, GlazeTokens.Units(10f), 1);
+                word.transform.localPosition = new Vector3(GlazeTokens.Units(1.2f), 0f, 0f);
+                icon.ForceMeshUpdate();
+                word.ForceMeshUpdate();
+                var gap = GlazeChecks.IconGapDegrees(icon, word, galleryEyes) ?? float.NaN;
+                UnityEngine.Object.DestroyImmediate(holder.gameObject);
+                return gap;
+            }
+            var level = GapAt(0f);
+            var below = GapAt(-49f);
+            Debug.Log("Halcyonic: component render: an icon's gap to its word reads " + level.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                + " degrees at eye level and " + below.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + " at 49 degrees below it.");
+            if (float.IsNaN(level) || float.IsNaN(below) || Mathf.Abs(level - below) > 0.01f)
+            {
+                yield return "component render: an icon's gap to its word reads " + level + " degrees at eye level but " + below + " at 49 degrees below; the eyes see the same gap.";
+            }
+        }
+
+        /// <summary>
+        /// A part's outline measures how far a label stands from it as the eyes see it: a label over its
+        /// middle overlaps, and one two degrees above its top corner, the highest point of its top edge
+        /// below eye level, stands two degrees off.
+        /// </summary>
+        private static IEnumerable<string> OutlineApartCatchesALabelOverAPart()
+        {
+            var (holder, column) = OneColumn("Outline", 24f);
+            var part = column[0];
+            var center = part.Root.position - galleryEyes;
+            var yaw = Mathf.Atan2(center.x, center.z) * Mathf.Rad2Deg;
+            var elevation = Mathf.Atan2(center.y, new Vector2(center.x, center.z).magnitude) * Mathf.Rad2Deg;
+            var over = GlazeChecks.OutlineApart(part, galleryEyes, new GlazeChecks.Extent("over", yaw - 1f, yaw + 1f, elevation - 1f, elevation + 1f));
+            var corner = part.Root.position + part.Root.right * (0.5f * part.Size.x) + part.Root.up * (0.5f * part.Size.y) - galleryEyes;
+            var cornerYaw = Mathf.Atan2(corner.x, corner.z) * Mathf.Rad2Deg;
+            var cornerUp = Mathf.Atan2(corner.y, new Vector2(corner.x, corner.z).magnitude) * Mathf.Rad2Deg;
+            var past = GlazeChecks.OutlineApart(part, galleryEyes, new GlazeChecks.Extent("past", cornerYaw - 1f, cornerYaw + 1f, cornerUp + 2f, cornerUp + 4f));
+            UnityEngine.Object.DestroyImmediate(holder.gameObject);
+            if (!(over < 0f)) yield return "component render: the outline check measured a label over a part's middle " + over + " degrees off; it overlaps.";
+            if (Mathf.Abs(past - 2f) > 0.05f) yield return "component render: the outline check measured a label 2 degrees above a part's top corner as " + past + ".";
         }
 
         /// <summary>A content's light that reaches past its top padding, over its first row, fails the glow check.</summary>

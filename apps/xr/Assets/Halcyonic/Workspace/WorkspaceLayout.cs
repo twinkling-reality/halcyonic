@@ -24,14 +24,17 @@ namespace Halcyonic.XR.Workspace
         /// character and clear of every other and its label. <paramref name="scratch"/> is filled and reused.
         /// </summary>
         public static (Pose Pose, PanelDirection Direction) Place(CharacterTarget opened, IEnumerable<CharacterTarget> all, Vector3 eyes,
-            Vector3 looking, float? surfaceHeight, List<BodyInView> scratch)
+            Vector3 looking, float? surfaceHeight, List<BodyInView> scratch) => Place(opened, all, eyes, looking, surfaceHeight, scratch, FrameSize);
+
+        /// <summary>The same for a panel of <paramref name="size"/>, as the menu's plane is placed beside a file's character.</summary>
+        public static (Pose Pose, PanelDirection Direction) Place(CharacterTarget opened, IEnumerable<CharacterTarget> all, Vector3 eyes,
+            Vector3 looking, float? surfaceHeight, List<BodyInView> scratch, PanelSize size)
         {
             scratch.Clear();
             foreach (var other in all)
             {
                 if (other != null) scratch.Add(InView(other, eyes));
             }
-            var size = FrameSize;
             var direction = WorkspacePlacement.Place(Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg, InView(opened, eyes), scratch, size,
                 surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null, ViewField.Current);
             var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
@@ -61,6 +64,29 @@ namespace Halcyonic.XR.Workspace
             // Without characters, a point just above where its upper edge would be at rest: it opens below it.
             var opened = nearest ?? new BodyInView(lookYaw, WorkspacePlacement.NaturalDegrees + size.HalfHeightDegrees + WorkspacePlacement.ClearanceDegrees, 0f);
             var direction = WorkspacePlacement.Place(lookYaw, opened, scratch, size, surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null, ViewField.Current);
+            var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
+            return (new Pose(eyes + forward * size.Distance, Quaternion.LookRotation(forward, Vector3.up)), direction);
+        }
+
+        /// <summary>
+        /// The pose of a panel of <paramref name="size"/> centred where the person looks, never turned
+        /// toward a character, and clear of every character and its label all the same: the menu's plane
+        /// beside a window straight ahead, between the characters either side of it, opening under the
+        /// window's lane (<see cref="CharacterStage.WindowLaneHalfHeightDegrees"/>) as under a label (ADR 0026).
+        /// </summary>
+        public static (Pose Pose, PanelDirection Direction) PlaceAhead(IEnumerable<CharacterTarget> all, Vector3 eyes, Vector3 looking,
+            float? surfaceHeight, List<BodyInView> scratch, PanelSize size)
+        {
+            scratch.Clear();
+            foreach (var other in all)
+            {
+                if (other != null) scratch.Add(InView(other, eyes));
+            }
+            var lookYaw = Mathf.Atan2(looking.x, looking.z) * Mathf.Rad2Deg;
+            // The window's lane straight ahead, which it opens under as under a label.
+            var under = -CharacterStage.WindowLaneHalfHeightDegrees;
+            var ahead = new BodyInView(lookYaw, under, 0f, under, CharacterStage.WindowLaneHalfWidthDegrees);
+            var direction = WorkspacePlacement.Place(lookYaw, ahead, scratch, size, surfaceHeight.HasValue ? eyes.y - surfaceHeight.Value : (float?)null, ViewField.Current);
             var forward = Quaternion.Euler(-direction.Elevation, direction.Yaw, 0f) * Vector3.forward;
             return (new Pose(eyes + forward * size.Distance, Quaternion.LookRotation(forward, Vector3.up)), direction);
         }
