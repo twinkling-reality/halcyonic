@@ -352,14 +352,24 @@ the same definition names, as the JSON Schema document:
   rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
   secret prompt can't be answered here whatever its adapter says (`WorkspaceText.Answerable`, asked
   by every place that offers or sends an answer): it shows why and the way on, Stop; Sent… in its place, taking no press, while an answer sent may still take effect.
-  The question shows a prompt at a time (`FileQuestion`): its question quoted heading every page in
-  at most two rows, a longer one cut and opening all of it beside the page; its answers in the
-  agent's order, none left out, each in at most two rows, paged by a row at the page's end ("More
-  answers, 2 of 2"); Type my answer last; and for a question of several prompts, a row on to the
-  next question and after the last to Your answers, which lists each prompt's answer and is the only
-  page it sends from. Turning a prompt's page clears what was chosen for it, keeping its typed
-  answer, so Send answer sends only what is in view; a cut question counts as read whole only once
-  its side panel has shown, and Send answer waits in its place with its reason until then.
+  The question shows a prompt at a time (`FileQuestion`). A question longer than two rows shows
+  first on pages of its own, a part at a time, each ending in a row to the next and the last in "On
+  to the answers"; its answers' pages are headed by its first row, cut, and a short question heads
+  them whole. The answers keep the agent's order, none left out, each in at most two rows, paged by
+  a row at the page's end ("More answers, 2 of 2"), with Type my answer last; for a question of
+  several prompts, a row on to the next question and after the last to Your answers, which lists
+  each prompt's answer whole, paged where it doesn't fit, and is the only page it sends from. Every
+  prompt and every answer must be measured, or nothing is shown. Nothing counts as read until the
+  view reports it drawn (`FileQuestion.Drawn`, `SideDrawn`): a question once every part has been,
+  or the page heading its answers when it is short; a chosen cut answer, or a typed one longer than
+  its row, once its side panel has shown all of it; and Your answers once every page has. A choice
+  is taken only from the page in view; turning a prompt's page clears it, keeping the typed answer;
+  laid out anew, the page shows what was chosen, or the choice is cleared. A part's row turns
+  nothing until its part has been drawn and stood for 0.4 seconds. Send answer waits in its place
+  with its reason until all of this holds (`FileScreens.WhySendWaits`), and the steering refuses
+  too, given the same reason (`WorkspaceSteering.SendAnswer`'s `waits`). A chosen cut answer's side
+  panel waits for lane U's side panel from a chosen answer; until it lands, such an answer can't be
+  sent.
   Approving or denying shows the whole request again in parts, as rows of one measured line
   (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
   back to the first), with Cancel in the place of the press and Yes in the free middle. Approve's
