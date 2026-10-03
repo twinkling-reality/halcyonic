@@ -367,6 +367,40 @@ public class CommandSubmissionsTests
     }
 
     [Test]
+    public void ASendRefusedBeforeItLeftHandsBackItsOwnFailureSoItReadsAsNeverSent()
+    {
+        var submissions = new CommandSubmissions();
+        var command = new CommandFactory(Samples.Client).Interrupt("e1");
+        var called = false;
+        var ack = submissions.Submit(_ =>
+        {
+            called = true;
+            throw new SessionUnavailableException("Welcomed to another journal.");
+        }, command, "e1");
+        Assert.That(called, Is.True, "the send is called within the call");
+        Assert.That(ack.IsFaulted, Is.True, "not cancelled: the one that asked hears why");
+        Assert.That(ack.Exception!.GetBaseException(), Is.InstanceOf<SessionUnavailableException>());
+        Assert.That(submissions.StateOf(command.CommandId), Is.EqualTo(SubmissionState.NotSent));
+    }
+
+    [Test]
+    public void ASendWhoseOutcomeIsUnknownHandsBackThatFailureAndOneAcknowledgedItsAcknowledgement()
+    {
+        var submissions = new CommandSubmissions();
+        var factory = new CommandFactory(Samples.Client);
+        var lost = factory.Interrupt("e1");
+        var unknown = submissions.Submit(_ => Task.FromException<CommandAckMessage>(new CommandOutcomeUnknownException(lost.CommandId, "The connection closed.")), lost, "e1");
+        Assert.That(unknown.Exception!.GetBaseException(), Is.InstanceOf<CommandOutcomeUnknownException>());
+        Assert.That(submissions.StateOf(lost.CommandId), Is.EqualTo(SubmissionState.OutcomeUnknown));
+
+        var taken = factory.Interrupt("e1");
+        var answer = new CommandAckMessage { CommandId = taken.CommandId, Disposition = CommandAckDisposition.Accepted, Command = null };
+        var acknowledged = submissions.Submit(_ => Task.FromResult(answer), taken, "e1");
+        Assert.That(acknowledged.Result, Is.SameAs(answer));
+        Assert.That(submissions.StateOf(taken.CommandId), Is.EqualTo(SubmissionState.Acknowledged));
+    }
+
+    [Test]
     public void TheVersionChangesWithEverySubmissionChange()
     {
         var submissions = new CommandSubmissions();

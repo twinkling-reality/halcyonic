@@ -326,24 +326,12 @@ namespace Halcyonic.XR.Workspace
         private Task<CommandAckMessage>? Submit(RealtimeSession madeIn, CommandEnvelope command)
         {
             if (!ReferenceEquals(madeIn, connection.Session) || !madeIn.Status.IsLive) return null;
-            var acknowledged = new TaskCompletionSource<CommandAckMessage>();
-            Report(SubmitAsync(madeIn, command, acknowledged));
-            Refresh();
-            return acknowledged.Task;
-        }
-
-        private async Task SubmitAsync(RealtimeSession session, CommandEnvelope command, TaskCompletionSource<CommandAckMessage> acknowledged)
-        {
             // The session's send is called within this call, before anything is awaited: it refuses a
-            // connection welcomed to another journal than the one shown, and only checks that now.
-            await submissions.SubmitAsync(async sent =>
-            {
-                var ack = await session.SubmitAsync(sent);
-                acknowledged.TrySetResult(ack);
-                return ack;
-            }, command, ExecutionOf(command));
-            // Not sent, or sent with an outcome nobody knows: the submissions say so in the activity.
-            acknowledged.TrySetCanceled();
+            // connection welcomed to another journal than the one shown, and only checks that now. The
+            // column hears the send's own failure, so one never sent reads as never sent.
+            var acknowledged = submissions.Submit(sent => madeIn.SubmitAsync(sent), command, ExecutionOf(command));
+            Refresh();
+            return acknowledged;
         }
 
         /// <summary>The execution a command acts on, for the submissions' record; empty for one that acts on no execution.</summary>
