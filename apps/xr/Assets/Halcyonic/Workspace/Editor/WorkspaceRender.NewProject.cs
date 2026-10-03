@@ -17,8 +17,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Every New project footer (ADR 0026: never four prompts), laid in the file's column at this
         /// pass's text size: each step's screens in every state that changes its footer, and each again
         /// with the footer's Next page, "Next page" and "First page", wherever the flow pages there
-        /// (<see cref="NewProjectFlow.PagesInFooter"/>). A footer of four prompts fails, and so does one
-        /// whose words don't fit its column.
+        /// (<see cref="NewProjectFlow.PagesInFooter"/>): not a question's answers, which turn by More
+        /// answers rows, nor the review or the unknown start, which read in parts. A footer of four
+        /// prompts fails, and so does one whose words don't fit its column.
         /// </summary>
         private static IEnumerable<string> RenderNewProjectFooters(string pass)
         {
@@ -31,7 +32,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 foreach (var (name, frame) in NewProjectFrames())
                 {
                     var footers = new List<(string What, Footer Footer)> { (name, frame.Footer) };
-                    if (NewProjectFlow.PagesInFooter(frame.Footer))
+                    if (FooterPages(frame) && NewProjectFlow.PagesInFooter(frame.Footer))
                     {
                         foreach (var page in new[] { 0, 1 })
                         {
@@ -71,6 +72,18 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         private static string Measured(float value) => value.ToString("0.0000", CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// Whether the flow may turn <paramref name="frame"/> by the footer's Next page: a question's page
+        /// with answers on offer turns them by More answers rows, and the review and the unknown start
+        /// read in parts by Next part rows.
+        /// </summary>
+        private static bool FooterPages(MenuFrame frame)
+        {
+            var step = frame.Sections.FirstOrDefault(section => section.Chosen)?.Key;
+            if (step == NewProjectScreens.Key(NewProjectStep.Questions)) return !frame.Lines.Any(line => line.Choice);
+            return !frame.Lines.Any(line => line.Words == EntryText.ReviewLine || line.Words == EntryText.PreviousRequestTitle);
+        }
 
         /// <summary>New project's screens, built by the client core as the flow builds them, in each state that changes the footer.</summary>
         private static IEnumerable<(string Name, MenuFrame Frame)> NewProjectFrames()
