@@ -117,6 +117,7 @@ How a file's Waiting page pages the agent's question (ADR 0026), as settled by t
 | --- | --- | --- |
 | The row at the end of a prompt's page of answers | More answers, 2 of 2; from the last page, First answers, 1 of 2 | Next, the old panel's pager |
 | The row after a prompt, in a question of several | Next question, 2 of 2; after the last, Your answers | |
+| The row ending a long question's last part, before its answers | On to the answers; where the answers page, On to the answers, 1 of 2 | |
 | Send answer's reason while a cut question is unread | Open the question to read the rest. | Read each question to the end first. Press Next to see the rest. |
 | Send answer's reason on a prompt's page, in a question of several | Answer each question, then send from Your answers. | |
 | The row for the person's own answer | Type my answer; once typed, Your answer: "…", chosen | Type an answer; Typed: … |
