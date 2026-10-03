@@ -73,7 +73,7 @@ namespace Halcyonic.Client
                 // A failure that may have had an effect is never put in words that say nothing happened.
                 BuildStepStatus.Failed when !step.EffectUnknown => "Couldn't connect: " + (EntryText.FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
                 BuildStepStatus.NotSent => NotConnectedYet,
-                _ => "Not sure it happened. Look for " + Quoted(connection.Folder.ProjectName) + " in Projects.",
+                _ => "Not sure whether " + Quoted(connection.Folder.ProjectName) + " was connected. Look for it in Projects.",
             };
         }
 

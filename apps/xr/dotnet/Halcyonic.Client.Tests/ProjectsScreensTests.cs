@@ -184,7 +184,7 @@ public class ProjectsScreensTests
         state.ChosenFolder = notes.Key;
         var own = ProjectsScreens.Projects(state);
         Assert.That(own.Footer[PromptSlot.FarRight], Is.Null, "a connection that may have run is never offered again");
-        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Not sure it happened."));
+        Assert.That(own.Side!.Facts.Last().Value, Does.StartWith("Not sure whether"));
         state.ChosenFolder = shop.Key;
         state.Connection = connection;
 
