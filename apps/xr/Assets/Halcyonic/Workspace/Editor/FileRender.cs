@@ -121,6 +121,8 @@ namespace Halcyonic.XR.Workspace.Editor
             PageLine? before = null;
             foreach (var line in frame.Lines)
             {
+                // A line beside the one before it shares that one's row and target.
+                if (before?.BesideNext == true) continue;
                 var rows = Mathf.Min(line.Rows, MenuFrameView.RowsOf(line, Glaze.Menu.FileColumnDegrees));
                 var target = line.Action != null;
                 if (before != null)

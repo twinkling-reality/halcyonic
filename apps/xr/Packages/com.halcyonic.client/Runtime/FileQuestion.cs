@@ -113,18 +113,28 @@ namespace Halcyonic.Client
             if (draft == null) return true;
             var asked = draft.Prompts[prompt];
             if (asked.Options.Count == 0) return true;
-            var room = page.Room - Head(headRows) - Below(asked.FreeText, draft.Prompts.Count > 1);
+            var several = draft.Prompts.Count > 1;
+            var room = page.Room - Head(headRows) - Below(asked.FreeText, several);
             if (page.Targets(Enumerable.Range(0, asked.Options.Count).Select(option => AnswerShows(prompt, option)).ToArray()) <= room + 1e-6f) return true;
             var least = Enumerable.Range(0, asked.Options.Count).Min(option => AnswerShows(prompt, option));
-            return page.Target(least) + page.Target() + page.TargetGap <= room + 1e-6f;
+            return page.Target(least) + MoreRow(asked.FreeText, several) <= room + 1e-6f;
         }
 
         /// <summary>A head of words and the group's gap after it; none for no head.</summary>
         private float Head(int rows) => rows <= 0 ? 0f : page.Words(rows) + page.GroupGap;
 
-        /// <summary>What a page of answers takes besides its head and answers: the typed answer's row, the row on, their gaps, and the reason.</summary>
+        /// <summary>
+        /// What a page of answers takes besides its head and answers: Type my answer, sharing its row with
+        /// the paging row after it (lane V's rule 4), the row on to the next question, and their gaps; and
+        /// for a question of several prompts the reason Send answer waits, which always shows there. A
+        /// question of one prompt draws no reason while it waits only for a choice, or while the page
+        /// explains it (<see cref="Prompt.PageExplains"/>).
+        /// </summary>
         private float Below(bool typed, bool several) =>
-            (typed ? page.Target() + page.TargetGap : 0f) + (several ? page.Target() + page.TargetGap : 0f) + page.Reason;
+            (typed || several ? page.Target() + page.TargetGap : 0f) + (several ? page.Reason : 0f);
+
+        /// <summary>The row for more answers, where a page needs it: beside Type my answer it takes no row of its own.</summary>
+        private float MoreRow(bool typed, bool several) => typed && !several ? 0f : page.Target() + page.TargetGap;
 
         /// <summary>The rows the prompt's whole question wraps to.</summary>
         public int QuestionMeasured(int prompt) => measures[prompt].QuestionRows;
@@ -282,8 +292,9 @@ namespace Halcyonic.Client
         {
             var asked = answering.Prompts[prompt];
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
-            var room = page.Room - Head(HeadRows(prompt)) - Below(asked.FreeText, answering.Prompts.Count > 1);
-            if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= page.Target() + page.TargetGap;
+            var several = answering.Prompts.Count > 1;
+            var room = page.Room - Head(HeadRows(prompt)) - Below(asked.FreeText, several);
+            if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, several);
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;
             foreach (var option in options)

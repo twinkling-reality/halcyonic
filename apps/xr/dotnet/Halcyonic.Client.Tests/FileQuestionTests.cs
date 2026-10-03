@@ -162,15 +162,17 @@ public class FileQuestionTests
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
         var question = OnePrompt(labels);
         var measured = new[] { new PromptMeasure(1, labels.Select(_ => 2).ToList(), labels.Select(_ => 2).ToList()) };
-        // 7 rows: the question 1, Type my answer 1, the reason 1, the row for more answers 1, leaves 3, one 2-row answer a page.
-        var (_, workspace, screen, draft) = Asking(question, measured, rows: 7);
+        // 5 rows: the question 1, Type my answer beside the row for more answers 1, no reason while only a
+        // choice is wanted, leaves 3, one 2-row answer a page.
+        var (_, workspace, screen, draft) = Asking(question, measured, rows: 5);
         Assert.That(screen.Question.Pages, Is.EqualTo(5));
         var seen = new List<int>();
         for (var page = 0; page < screen.Question.Pages; page++)
         {
             var frame = Screen(workspace, screen);
             seen.AddRange(screen.Question.Answers);
-            Assert.That(frame.Lines.Sum(line => line.Rows) + 1, Is.LessThanOrEqualTo(7), "the page and its reason line fit its rows");
+            Assert.That(Height(frame, new RowBudget(5)), Is.LessThanOrEqualTo(5), "the page fits its rows, Type my answer beside the row for more answers");
+            Assert.That(frame.Lines[frame.Lines.Count - 2].BesideNext, Is.True);
             Assert.That(frame.Lines[frame.Lines.Count - 2].Words, Is.EqualTo(FileScreens.TypeMyAnswer), "Type my answer stands last among the answers");
             Assert.That(frame.Lines.Last().Words, Is.EqualTo(FileScreens.MoreAnswersWords(page, 5)));
             screen.Question.MoreAnswers(Later(screen));
@@ -196,6 +198,8 @@ public class FileQuestionTests
         PageLine? before = null;
         foreach (var line in frame.Lines)
         {
+            // A line beside the one before it shares that one's row and target.
+            if (before?.BesideNext == true) continue;
             var target = line.Action != null;
             if (before != null)
             {
@@ -212,10 +216,7 @@ public class FileQuestionTests
     [Test]
     public void OnAHeadsetPageFourAnswersOfTwoRowsPackByHeightWithinTheField()
     {
-        // At the larger text size a page of one two-row answer, Type my answer, More answers and the
-        // reason stands taller than the page until the view pairs Type my answer with the paging row
-        // (lane V's rule 4), so only the standard size is held here for now.
-        foreach (var text in new[] { TextSize.Standard })
+        foreach (var text in new[] { TextSize.Standard, TextSize.Larger })
         {
             var budget = HeightBudget.Of(text, subjectRows: 1);
             var labels = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
@@ -248,7 +249,7 @@ public class FileQuestionTests
     {
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
         var question = OnePrompt(labels);
-        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, rows: 6);
+        var (_, workspace, screen, draft) = Asking(question, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, rows: 4);
         Assert.That(screen.Question.Answers, Is.EqualTo(new[] { 0, 1 }));
         screen.Question.Choose(4);
         Assert.That(draft.IsChosen(0, "Redis"), Is.False, "an answer not on the page in view can't be chosen");
@@ -260,8 +261,8 @@ public class FileQuestionTests
         screen.Question.Choose(4);
         Assert.That(draft.IsChosen(0, "Redis"), Is.True);
 
-        // The text grows a size: two rows fewer a page.
-        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(4), new RowBudget(3));
+        // The text grows a size: a row fewer a page.
+        screen.ReadQuestion(draft, new[] { new PromptMeasure(1, labels.Select(_ => 1).ToList(), labels.Select(_ => 1).ToList()) }, new RowBudget(3), new RowBudget(3));
         Assert.That(screen.Question.Answers, Does.Contain(4), "laid out anew, the page shows what was chosen");
         Assert.That(FileScreens.WhySendWaits(screen), Is.Null.Or.Not.EqualTo(FileScreens.ReadTheAnswer));
         var frame = Screen(workspace, screen);
@@ -447,7 +448,10 @@ public class FileQuestionTests
         var (_, workspace, screen, draft) = Asking(OnePrompt("Postgres", "SQLite"));
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Has.None.EqualTo(FileScreens.YourAnswers));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Reason, Is.EqualTo("Choose or type an answer first."));
+        var waiting = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((waiting.Available, waiting.Reason, waiting.PageExplains), Is.EqualTo((false, (string?)"Choose or type an answer first.", true)),
+            "waiting only for a choice, Send answer keeps its reason undrawn: the answers above say what to do");
+        Assert.That(frame.Reason, Is.Null, "no reason line on the page");
         Draw(screen);
         screen.Question.Choose(1);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Available, Is.True);
