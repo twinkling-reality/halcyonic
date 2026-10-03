@@ -984,8 +984,9 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
   was seen and resets, and Account "Part of the recording" (`judge-10-usage`).
 - **Projects.** The demonstration's one project, "Storefront API", with no folders. New project
   opens New project beside the menu, which in the demo plays its own recording.
-- **Settings.** Comfort: Text size, Moving badges and Sounds, each changing on this headset only
-  (`judge-11-settings`).
+- **Settings.** A page a group: Your space first (Around you, Your room's layout, The characters, The
+  menu), then Comfort (Text size, Moving badges, Sounds), each changing on this headset only
+  (`judge-11-settings`). The release build offers no Your computer, since it never pairs.
 - **Closed.** Close the file and the menu: the bar alone (`judge-12-closed`), reading "Nothing is
   waiting for you." once nothing waits.
 - **The end.** Once the story has ended the line adds "This recording has ended and starts again
