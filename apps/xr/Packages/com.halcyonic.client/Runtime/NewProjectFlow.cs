@@ -91,8 +91,6 @@ namespace Halcyonic.Client
         /// <summary>What the pages belong to: the step, its page, the question and the idea. Any change, or opening, starts at the first page.</summary>
         private (string Key, ProjectIdea? Idea)? pagedFor;
 
-        /// <summary>The page showing when the director last drew it, so a turn is taken only from the page the person saw.</summary>
-        private int seenPage = -1;
 
         /// <summary>
         /// The page's room on this stage (<see cref="IMenuHost.PageHeight"/>), read once for what shows and
@@ -143,8 +141,19 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>The frame the director last drew: what the person saw, and so the only frame a press is checked against.</summary>
-        private MenuFrame? seen;
+        /// <summary>
+        /// The page the director last drew whole, and the page of its lines it stood on: what the person
+        /// saw of it, so a press on its lines or its footer is checked against it, and a turn taken only
+        /// from the page it shows. Its page is -1 once what shows has changed since.
+        /// </summary>
+        private (MenuFrame Frame, int Page)? drawnPage;
+
+        /// <summary>
+        /// The side panel the director last drew, beside its page or in its place, with only what it
+        /// carries there (<see cref="Footer.InPlace"/>), and the page its row stood on: a press from it
+        /// takes its own Close or what it carried, never a line or prompt of the page it may hide.
+        /// </summary>
+        private (MenuFrame Frame, Footer Carried, int Page)? drawnSide;
 
         /// <summary>The unknown-outcome id this flow kept for its own build, which only it may replace or clear.</summary>
         private string? ownId;
@@ -294,7 +303,8 @@ namespace Halcyonic.Client
             fact = null;
             Show(idea.HasRecap ? NewProjectStep.Recap : idea.Companion != null || idea.Guided ? NewProjectStep.Questions : NewProjectStep.YourIdea);
             shown = null;
-            seen = null;
+            drawnPage = null;
+            drawnSide = null;
             // Opened again, it reads from the first page, its room afresh where it stands now.
             pagedFor = null;
         }
@@ -306,7 +316,8 @@ namespace Halcyonic.Client
             IsOpen = false;
             review = null;
             shown = null;
-            seen = null;
+            drawnPage = null;
+            drawnSide = null;
             confirmingStartOver = false;
             recoveryArmed = false;
             KeepDrafts();
@@ -341,7 +352,9 @@ namespace Halcyonic.Client
             if (pagedFor is { } was && was.Key == key && ReferenceEquals(was.Idea, idea)) return false;
             pagedFor = (key, idea);
             linePage = 0;
-            seenPage = -1;
+            // What was drawn stays pressable, but no longer turns a page: its page was another thing's.
+            if (drawnPage is { } page) drawnPage = (page.Frame, -1);
+            if (drawnSide is { } side) drawnSide = (side.Frame, side.Carried, -1);
             pageRoom = null;
             answersLayout = null;
             unresolvedDrawn.Clear();
@@ -445,13 +458,13 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// What a press raised. Only what the frame showing offers acts, and only while it can be taken:
-        /// a prompt that is there and available, a line that takes a press, a step reached, so nothing a
-        /// person can't see or press now ever runs.
+        /// What a press raised. Only what the director last drew offers acts (<see cref="DrawnWith"/>), and
+        /// only while it can be taken: a prompt that is there and available, a line that takes a press, a
+        /// step reached, so nothing a person can't see or press now ever runs.
         /// </summary>
         public void Act(string id, string? key)
         {
-            if (!IsOpen || ForAnotherSession || !(seen is MenuFrame showing) || !Offers(showing, id, key)) return;
+            if (!IsOpen || ForAnotherSession || !(DrawnWith(id, key) is int from)) return;
             var current = idea ??= new ProjectIdea();
             var exchange = current.Companion;
             switch (id)
@@ -462,13 +475,13 @@ namespace Halcyonic.Client
                 case SidePanel.Close:
                     fact = null;
                     break;
-                case Footer.NextPage when seenPage == linePage:
-                case NewProjectScreens.NextPage when seenPage == linePage && key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture):
+                case Footer.NextPage when from == linePage:
+                case NewProjectScreens.NextPage when from == linePage && key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture):
                     // The next page, or the first again from the last; a fact's side panel stays with its page.
                     linePage++;
                     fact = null;
                     break;
-                case NewProjectScreens.MoreAnswers when seenPage == linePage && shownAnswers is AnswersPage answering && key == answering.Row().Key
+                case NewProjectScreens.MoreAnswers when from == linePage && shownAnswers is AnswersPage answering && key == answering.Row().Key
                     && answersLayout?.Layout is AnswersLayout answersPages:
                     // On to the answers, or their next page, or from the last the first; nothing stays chosen, so nothing out of view is sent.
                     linePage = linePage + 1 < answersPages.Total ? linePage + 1 : answersPages.FirstAnswers;
@@ -675,7 +688,7 @@ namespace Halcyonic.Client
                     break;
 
                 // Build.
-                case NewProjectScreens.NextPart when step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && seenPage == linePage
+                case NewProjectScreens.NextPart when step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && from == linePage
                     && key == linePage.ToString(System.Globalization.CultureInfo.InvariantCulture) && host.Now - unresolvedDrawnAt >= NewWorkReview.NextPause:
                     linePage++;
                     break;
@@ -721,17 +734,23 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The director drew <paramref name="drawn"/>, its page or, with <paramref name="sidePanel"/>, its
-        /// side panel, which in the page's place carries its footer: what it offers may be pressed either
-        /// way. A part of the review or of the unknown start counts as read only when its page is drawn,
-        /// the very frame this column gave and still stands by.
+        /// The director drew <paramref name="drawn"/>, the very frame this column gave and still stands by:
+        /// its page, or with <paramref name="sidePanel"/> only its side panel, which in the page's place
+        /// carries what <see cref="Footer.InPlace"/> carries. Each is recorded as drawn, and a page another
+        /// frame's no longer stands. A part of the review or of the unknown start counts as read only when
+        /// its page is drawn.
         /// </summary>
         public void Drawn(MenuFrame drawn, bool sidePanel)
         {
             if (!IsOpen || !ReferenceEquals(drawn, shown)) return;
-            seen = drawn;
-            seenPage = linePage;
-            if (sidePanel) return;
+            if (sidePanel)
+            {
+                drawnSide = (drawn, drawn.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!), linePage);
+                if (drawnPage?.Frame != drawn) drawnPage = null;
+                return;
+            }
+            drawnPage = (drawn, linePage);
+            if (drawnSide?.Frame != drawn) drawnSide = null;
             // A part of the unknown start counts as read once drawn; with the last, Clear can be pressed.
             if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedParts > 1 && unresolvedDrawn.Add(linePage))
             {
@@ -1039,6 +1058,23 @@ namespace Halcyonic.Client
         }
 
         /// <summary>Whether <paramref name="frame"/> offers what a press raised, as the person sees it now.</summary>
+        /// <summary>
+        /// The page of lines the drawing that offers <paramref name="id"/> stood on: the page drawn whole,
+        /// where it offers it, else the side panel drawn, for its own Close or a prompt it carried and
+        /// allows now; null where nothing drawn offers it.
+        /// </summary>
+        private int? DrawnWith(string id, string? key)
+        {
+            if (drawnPage is { } page && Offers(page.Frame, id, key)) return page.Page;
+            if (drawnSide is { } side && (id == SidePanel.Close
+                ? side.Frame.Side != null
+                : side.Carried.All.Any(each => each.Prompt.Id == id && each.Prompt.Available)))
+            {
+                return side.Page;
+            }
+            return null;
+        }
+
         private static bool Offers(MenuFrame frame, string id, string? key)
         {
             if (id == SidePanel.Close) return frame.Side != null;

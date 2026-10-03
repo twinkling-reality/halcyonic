@@ -279,26 +279,81 @@ public class NewProjectFlowTests
         Assert.That(host.Sent, Has.Count.EqualTo(1), "a review confirms one send");
     }
 
+    /// <summary>What the plane draws of <paramref name="frame"/> with text a step larger, its side panel in the page's place (MenuPlane, MenuFrameView): the prompts that panel carries.</summary>
+    private static IEnumerable<string> DrawnInPlace(MenuFrame frame)
+    {
+        Assert.That(MenuColumns.Arrange(menuOpen: false, fileOpen: true, sidePanel: true, fitsBeside: true, sideInPlace: true), Is.EqualTo(new[] { MenuColumn.Side }));
+        return frame.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!).All.Select(each => each.Prompt.Id);
+    }
+
     [Test]
-    [Ignore("Pending lane U: an in-place side panel draws only Close details (MenuFrameView), so a chosen fact's change isn't drawn at larger text; lane U is to give it its frame's footer, Close details in Close's place. Update what's drawn here with it.")]
     public void AtLargerTextAChosenFactsChangeIsOfferedInWhatIsDrawn()
+    {
+        foreach (var fact in new[] { RecapFact.Name, RecapFact.FirstTask, RecapFact.Folder, RecapFact.HowItRuns, RecapFact.StartOver })
+        {
+            var host = new Host();
+            var flow = Recapped(host);
+            host.TextSize = TextSize.Larger;
+            flow.Tick();
+            Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(fact));
+            var frame = flow.Frame!;
+            var change = frame.Footer[PromptSlot.Rare];
+            Assert.That((frame.Side != null, change != null), Is.EqualTo((true, true)), fact + ": its side panel open and its change in the frame's footer");
+            // Only the side panel drawn, in the page's place: its change and Start building stand there, and its change acts.
+            flow.Drawn(frame, sidePanel: true);
+            Assert.That(DrawnInPlace(frame), Is.SupersetOf(new[] { SidePanel.Close, change!.Id, NewProjectScreens.StartBuilding }), fact + "'s change is drawn");
+            flow.Act(change.Id, null);
+            if (fact == RecapFact.StartOver) Assert.That(flow.Frame!.Footer.Confirming, Is.True, "Start over asks");
+            else Assert.That(flow.Frame!.Lines.Any(line => line.Key == NewProjectScreens.FactKey(fact)), Is.False, fact + "'s change opened its page");
+        }
+    }
+
+    [Test]
+    public void AfterASidePanelDrawnInThePagesPlaceOnlyItAndWhatItCarriesTakeAPress()
+    {
+        // The director tells of a side panel drawn alone the same way at any size; here its page holds another row.
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        var frame = flow.Frame!;
+        flow.Drawn(frame, sidePanel: true);
+        Assert.That(frame.Lines.Any(line => line.Key == NewProjectScreens.FactKey(RecapFact.StartOver)), Is.True, "Start over's row on this page, undrawn");
+
+        // The page it hides: its rows, its steps and the frame's own Close are not drawn, so none acts.
+        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.YourIdea));
+        flow.Act(Footer.Close, null);
+        Assert.That((flow.IsOpen, flow.Step, flow.Frame!.Side?.Subject), Is.EqualTo((true, NewProjectStep.Recap, EntryText.HowItRuns)), "nothing on the undrawn page took a press");
+
+        // What it carried does, and so does its Close.
+        flow.Act(SidePanel.Close, null);
+        Assert.That(flow.Frame!.Side, Is.Null, "Close details took");
+    }
+
+    [Test]
+    public void AtLargerTextStartOverAsksWithCancelAndYesAndItsYesActsOnlyOnItsOwnFrame()
     {
         var host = new Host();
         var flow = Recapped(host);
         host.TextSize = TextSize.Larger;
         flow.Tick();
-        foreach (var fact in new[] { RecapFact.Name, RecapFact.FirstTask, RecapFact.Folder, RecapFact.HowItRuns, RecapFact.StartOver })
-        {
-            Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(fact));
-            var frame = flow.Frame!;
-            var change = frame.Footer[PromptSlot.Rare];
-            Assert.That((frame.Side != null, change != null), Is.EqualTo((true, true)), fact + ": its side panel open and its change in the frame's footer");
-            // What the plane draws (MenuPlane, MenuFrameView): with text a step larger, the side panel stands in New project's place.
-            var drawn = MenuColumns.Arrange(menuOpen: false, fileOpen: true, sidePanel: true, fitsBeside: true, sideInPlace: true)
-                .SelectMany(column => (column == MenuColumn.Side ? SidePanel.Footer : frame.Footer).All.Select(each => each.Prompt.Id));
-            Assert.That(drawn, Does.Contain(change!.Id), fact + "'s change is drawn");
-            Press(flow, SidePanel.Close, null);
-        }
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        var chosen = flow.Frame!;
+        flow.Drawn(chosen, sidePanel: true);
+        flow.Act(NewProjectScreens.StartOver, null);
+        var asking = flow.Frame!;
+        Assert.That(asking.Footer.Confirming, Is.True);
+
+        // Not yet drawn, its Yes is not what the person sees: the panel drawn carried Start over, not Yes.
+        flow.Act(NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Idea!.HasRecap, Is.True, "a Yes no one saw takes nothing");
+
+        // Drawn in the page's place, both Cancel and Yes stand there, and the panel says what Yes clears.
+        flow.Drawn(asking, sidePanel: true);
+        Assert.That(DrawnInPlace(asking), Is.SupersetOf(new[] { NewProjectScreens.Cancel, NewProjectScreens.ConfirmStartOver }));
+        Assert.That(asking.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears(false)));
+        flow.Act(NewProjectScreens.ConfirmStartOver, null);
+        Assert.That((flow.Step, flow.Idea!.HasRecap), Is.EqualTo((NewProjectStep.YourIdea, false)), "Yes, start over took, from its own frame");
     }
 
     [Test]
@@ -311,7 +366,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.StartOver, null);
         Assert.That(flow.Frame!.Footer.Confirming, Is.False, "Start over arms nothing until its row is chosen");
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
-        Assert.That(flow.Frame!.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears));
+        Assert.That(flow.Frame!.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears(false)));
         Press(flow, NewProjectScreens.StartOver, null);
         Press(flow, NewProjectScreens.ConfirmStartOver, null);
         Assert.That((flow.Step, flow.Idea!.HasRecap), Is.EqualTo((NewProjectStep.YourIdea, false)));
@@ -321,6 +376,28 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.UseIdea, null);
         Assert.That((flow.Step, flow.Frame!.Side), Is.EqualTo((NewProjectStep.Recap, (SidePanel?)null)), "no fact chosen on the new recap");
         Assert.That(RunsWith(), Is.EqualTo(runsWith), "how it runs stays");
+    }
+
+    [Test]
+    public void StartOverForATaskKeepsTheProjectAndItsNameAsItsSidePanelSays()
+    {
+        var host = new Host();
+        var flow = Flow(host);
+        flow.Open(Samples.ProjectId, "Sample");
+        host.Typed.Enqueue("Add a page of results");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "mock");
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That((flow.Step, flow.Idea!.HasRecap), Is.EqualTo((NewProjectStep.Recap, true)));
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
+        Assert.That(flow.Frame!.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears(true)));
+        Press(flow, NewProjectScreens.StartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That((flow.Step, flow.Idea!.HasRecap, flow.Idea.ExistingProjectId, flow.Idea.Name),
+            Is.EqualTo((NewProjectStep.YourIdea, false, Samples.ProjectId, "Sample")), "the task's idea cleared, the project and its name kept");
     }
 
     [Test]

@@ -838,7 +838,7 @@ public class EntryWordsTests
             EntryText.ShowAll, EntryText.AddTask, EntryText.WaitingForMac, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
             EntryText.NothingStartsYet, EntryText.GuideNote,
             EntryText.Back, EntryText.Chosen, EntryText.ChosenForYou,
-            EntryText.RecapLine, EntryText.StartBuilding, EntryText.StartOver, EntryText.StartOverQuestion, EntryText.ConfirmStartOver, EntryText.StartOverClears,
+            EntryText.RecapLine, EntryText.StartBuilding, EntryText.StartOver, EntryText.ConfirmStartOver, EntryText.StartOverClears(false), EntryText.StartOverClears(true),
             EntryText.MoreOptions, EntryText.ProjectName, EntryText.FirstTask, EntryText.NotNamedYet, EntryText.HowItRuns, EntryText.NameTheProject,
             EntryText.WhatFirstTask, EntryText.FolderTitle, EntryText.FolderLine, EntryText.ReadingFolders, EntryText.NoFolders, EntryText.FoldersCut,
             EntryText.NewFolderPrompt, EntryText.NewFolderRule, EntryText.UseThatFolder, EntryText.ChooseAnotherFolder,

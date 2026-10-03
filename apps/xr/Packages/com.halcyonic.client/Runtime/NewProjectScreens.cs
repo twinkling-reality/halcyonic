@@ -607,22 +607,27 @@ namespace Halcyonic.Client
             lines.Add(new PageLine(EntryText.StartOver, icon: GlazeIcon.StartOver, action: ChooseFact, key: FactKey(RecapFact.StartOver), opens: true,
                 chosen: chosen == RecapFact.StartOver));
             // The footer's middle acts on the row chosen; with none chosen, a recap that pages turns there.
+            // Each is safe on its side panel standing in the page's place, which shows all it acts on, so it
+            // is reached at larger text too: the fact it changes, or all starting over clears.
             var change = chosen switch
             {
-                RecapFact.Name => words ? new Prompt(Rename, EntryText.Change, GlazeIcon.Change) : null,
-                RecapFact.FirstTask => words || ChangeFor(idea) != TaskChange.Words ? new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change) : null,
-                RecapFact.Folder => new Prompt(ChooseWhere, EntryText.ChooseAnotherFolder, GlazeIcon.Change),
-                RecapFact.HowItRuns => new Prompt(MoreOptions, EntryText.MoreOptions, GlazeIcon.Change),
-                RecapFact.StartOver => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem),
+                RecapFact.Name => words ? new Prompt(Rename, EntryText.Change, GlazeIcon.Change, safeInPlace: true) : null,
+                RecapFact.FirstTask => words || ChangeFor(idea) != TaskChange.Words ? new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change, safeInPlace: true) : null,
+                RecapFact.Folder => new Prompt(ChooseWhere, EntryText.ChooseAnotherFolder, GlazeIcon.Change, safeInPlace: true),
+                RecapFact.HowItRuns => new Prompt(MoreOptions, EntryText.MoreOptions, GlazeIcon.Change, safeInPlace: true),
+                RecapFact.StartOver => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem,
+                    safeInPlace: true),
                 _ => null,
             };
+            // Start building opens the review, which shows everything before its Yes.
             var footer = new Footer(Close(), rare: change,
-                farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem));
+                farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem,
+                    safeInPlace: true));
             if (confirmingStartOver && chosen == RecapFact.StartOver && startOverProblem == null)
             {
-                lines.Add(new PageLine(EntryText.StartOverQuestion, rows: 2));
+                lines.Add(new PageLine(EntryText.StartOverClears(existing), rows: 3));
                 footer = Footer.Confirm(footer, PromptSlot.Rare,
-                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes),
+                    new Prompt(ConfirmStartOver, EntryText.ConfirmStartOver, GlazeIcon.StartOver, PromptKind.Yes, safeInPlace: true),
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             var (subject, isData) = Subject(idea);
@@ -783,7 +788,7 @@ namespace Halcyonic.Client
                     return new SidePanel(EntryText.FirstTask, lines: new[] { new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, rows: 8) },
                         source: idea.TaskSuggested ? CompanionText.Note : null);
                 case RecapFact.StartOver:
-                    return new SidePanel(EntryText.StartOver, lines: new[] { new PageLine(EntryText.StartOverClears, rows: 3) });
+                    return new SidePanel(EntryText.StartOver, lines: new[] { new PageLine(EntryText.StartOverClears(idea.ExistingProjectId != null), rows: 4) });
                 case RecapFact.Folder:
                     var folderLines = new List<PageLine>
                     {

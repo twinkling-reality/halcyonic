@@ -5,6 +5,8 @@ using System.Linq;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
+using TMPro;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -19,7 +21,11 @@ namespace Halcyonic.XR.Workspace.Editor
         /// with the footer's Next page, "Next page" and "First page", wherever the flow pages there
         /// (<see cref="NewProjectFlow.PagesInFooter"/>): not a question's answers, which turn by More
         /// answers rows, nor the review or the unknown start, which read in parts. A footer of four
-        /// prompts fails, and so does one whose words don't fit its column.
+        /// prompts fails, and so does one whose words don't fit its column; so do any of Halcyonic's own
+        /// words cut short on a page or its side panel, as Start over's, which must say all it clears.
+        /// A side panel stands as the plane stands it (<c>MenuPlane</c>): beside its page in a side
+        /// panel's column, and with text a step larger in its page's place, as wide, carrying what
+        /// <see cref="Footer.InPlace"/> carries, whose footer must fit too.
         /// </summary>
         private static IEnumerable<string> RenderNewProjectFooters(string pass)
         {
@@ -58,6 +64,25 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (!view.Footer.Fits)
                         {
                             failures.Add("New project's " + what + ": its footer (" + prompts + ") needs " + Measured(needed) + " of " + Measured(room) + "; it does not fit.");
+                        }
+                        failures.AddRange(GlazeChecks.NothingCut(view.GetComponentsInChildren<TMP_Text>(false).Except(view.MayCut), "New project's " + what));
+                    }
+                    if (frame.Side is SidePanel side)
+                    {
+                        var inPlace = GlazeText.Scale > 1f;
+                        var degrees = inPlace ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.SideColumnDegrees;
+                        var what = "New project's " + name + ", its side panel" + (inPlace ? " in the page's place" : "");
+                        var panel = MenuFrameView.Create(root.transform, what);
+                        panel.Show(side, degrees, MenuFrameView.SubjectHeight(side.Subject, degrees, false), pillRoom: false, inPlaceOf: inPlace ? frame : null);
+                        failures.AddRange(GlazeChecks.NothingCut(panel.GetComponentsInChildren<TMP_Text>(false).Except(panel.MayCut), what));
+                        if (inPlace)
+                        {
+                            var carried = frame.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!);
+                            var prompts = string.Join(", ", carried.All.Select(each => each.Prompt.Words));
+                            var (needed, room) = panel.Footer.Measure;
+                            laid++;
+                            if (needed / room > tightest.Needed / tightest.Room) tightest = (what + " (" + prompts + ")", needed, room);
+                            if (!panel.Footer.Fits) failures.Add(what + ": the footer it carries (" + prompts + ") needs " + Measured(needed) + " of " + Measured(room) + "; it does not fit.");
                         }
                     }
                 }
@@ -162,6 +187,12 @@ namespace Halcyonic.XR.Workspace.Editor
             yield return ("recap, Start over confirming", NewProjectScreens.Recap(proposed, draft, null, true, null, null, RecapFact.StartOver, confirmingStartOver: true));
             yield return ("recap, Start over waiting", NewProjectScreens.Recap(proposed, draft, null, true, null, EntryText.AlreadyStarting, RecapFact.StartOver,
                 startOverProblem: EntryText.AlreadyStarting));
+            // Adding a task to a project, whose Start over keeps the project.
+            var forTask = new ProjectIdea("proj_render", "Race Times");
+            forTask.UseIdea("Add a page of results for each race");
+            yield return ("recap for a task, Start over chosen", NewProjectScreens.Recap(forTask, draft, null, true, null, null, RecapFact.StartOver));
+            yield return ("recap for a task, Start over confirming", NewProjectScreens.Recap(forTask, draft, null, true, null, null, RecapFact.StartOver,
+                confirmingStartOver: true));
 
             // What a recap's row changes: the first task, the folder, how it runs, and words.
             yield return ("first task", NewProjectScreens.RecapTask(proposed, false, voice: true));
