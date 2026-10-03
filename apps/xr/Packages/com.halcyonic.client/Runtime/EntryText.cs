@@ -148,6 +148,9 @@ namespace Halcyonic.Client
         /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
         public static string NextPart(int part, int parts) => "Next part, " + Count(part) + " of " + Count(parts);
 
+        /// <summary>Start over's side panel on New project's recap: what starting over clears, before the person presses it. The agent app and model are the draft's, kept.</summary>
+        public const string StartOverClears = "This clears your idea, its answers, the name, first task and folder. How it runs stays.";
+
         /// <summary>
         /// New project's row at the end of a page that needs more than one, on page <paramref name="page"/>
         /// (from 0) of <paramref name="pages"/>: the page it turns to, or First page on the last, as the

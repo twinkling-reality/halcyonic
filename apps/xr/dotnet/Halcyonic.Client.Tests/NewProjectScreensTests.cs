@@ -160,7 +160,8 @@ public class NewProjectScreensTests
         frame = Questions(idea);
         Assert.That(Answers(frame).Single(line => line.Chosen).Words, Is.EqualTo(CompanionText.GoOnWithout));
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.MakeRecapFromMyWords));
-        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Make the recap from my words"));
+        Assert.That(frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Recap from my words"), "beside Hold to talk, the whole words don't fit");
+        Assert.That(Questions(idea, voice: false).Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Make the recap from my words"), "beside Close alone, they do");
         Assert.That(frame.Lines.Any(line => line.Words == VoiceText.HeardAnswer), Is.False);
     }
 
@@ -416,8 +417,9 @@ public class NewProjectRecapTests
         Assert.That(Fact(frame, RecapFact.FirstTask).Fact, Is.EqualTo(CompanionText.SuggestedShort));
         Assert.That(Fact(frame, RecapFact.Folder).Fact, Is.Null);
         Assert.That(frame.Lines.Where(line => line.Key != null).All(line => line.Opens && !line.Choice), Is.True, "each fact opens its side panel");
+        Assert.That(frame.Lines.Last().Key, Is.EqualTo(NewProjectScreens.FactKey(RecapFact.StartOver)), "Start over, the last row, chosen like a fact");
         Assert.That(frame.Side, Is.Null, "no fact chosen");
-        Assert.That(frame.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.StartOver));
+        Assert.That(frame.Footer[PromptSlot.Rare], Is.Null, "with no row chosen, the footer's middle is free for paging");
         var start = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((start.Id, start.Main, start.Available), Is.EqualTo((NewProjectScreens.StartBuilding, true, false)));
         Assert.That(frame.Reason, Is.EqualTo(EntryText.ChooseWhereFilesLive), "the reason is the page's last line");
@@ -465,13 +467,23 @@ public class NewProjectRecapTests
         var forTask = NewProjectScreens.Recap(task, Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.Name);
         Assert.That(forTask.Lines.Single(line => line.Words == "Race Times").Action, Is.Null, "an existing project's name is not changed here");
         Assert.That(forTask.Side, Is.Null);
-        Assert.That(forTask.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.StartOver));
+        Assert.That(forTask.Footer[PromptSlot.Rare], Is.Null);
     }
 
     [Test]
     public void StartOverIsConfirmedInPlaceWithYesWhereNothingStood()
     {
-        var frame = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, confirmingStartOver: true);
+        // Chosen, its side panel says what starting over clears, and Start over stands in the footer's middle.
+        var chosen = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver);
+        HoldsThreePrompts(chosen);
+        Assert.That(chosen.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears));
+        Assert.That((chosen.Footer[PromptSlot.Rare]!.Id, chosen.Footer[PromptSlot.Rare]!.Available), Is.EqualTo((NewProjectScreens.StartOver, true)));
+        var held = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver,
+            startOverProblem: EntryText.AlreadyStarting);
+        Assert.That((held.Footer[PromptSlot.Rare]!.Available, held.Reason), Is.EqualTo((false, EntryText.AlreadyStarting)));
+
+        var frame = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver,
+            confirmingStartOver: true);
         HoldsThreePrompts(frame);
         Assert.That(frame.Footer.Confirming, Is.True);
         Assert.That(frame.Footer[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Start over was pressed");
@@ -568,7 +580,9 @@ public class NewProjectRecapTests
         HoldsThreePrompts(models);
         Assert.That(models.Lines.Where(line => line.Choice).Select(line => line.Key), Is.EqualTo(new[] { "ollama/qwen", "hosted/x" }));
         Assert.That(models.Lines.Single(line => line.Chosen).Fact, Does.StartWith(EntryText.ChosenForYou));
-        Assert.That(models.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.ChangeRuntime));
+        Assert.That(models.Lines[1].Action, Is.EqualTo(NewProjectScreens.ChangeRuntime), "another agent app, a row before the models");
+        Assert.That(models.Footer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { Footer.Close, NewProjectScreens.Done }),
+            "the footer's middle free for Next page");
         Assert.That(draft.ChooseModel(remote), Is.False);
         var pending = NewProjectScreens.RecapOptions(idea, startReached: false, draft, new[] { Listing() }, showModels: true, live: true);
         Assert.That(pending.Lines.Single(line => line.Key == "hosted/x").Fact, Is.EqualTo(EntryText.ConfirmElsewhere(remote)));

@@ -611,6 +611,7 @@ namespace Halcyonic.Client
                     confirmingStartOver = true;
                     break;
                 case NewProjectScreens.ConfirmStartOver when confirmingStartOver && !Building() && !OutcomeUnknown:
+                    fact = null;
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                     LeaveCompanion(exchange);
                     review = null;
@@ -719,12 +720,18 @@ namespace Halcyonic.Client
             Done();
         }
 
-        /// <summary>The director drew <paramref name="drawn"/>: a part of the review counts as read only when it is the very frame this column gave and still stands by.</summary>
+        /// <summary>
+        /// The director drew <paramref name="drawn"/>, its page or, with <paramref name="sidePanel"/>, its
+        /// side panel, which in the page's place carries its footer: what it offers may be pressed either
+        /// way. A part of the review or of the unknown start counts as read only when its page is drawn,
+        /// the very frame this column gave and still stands by.
+        /// </summary>
         public void Drawn(MenuFrame drawn, bool sidePanel)
         {
             if (!IsOpen || !ReferenceEquals(drawn, shown)) return;
             seen = drawn;
             seenPage = linePage;
+            if (sidePanel) return;
             // A part of the unknown start counts as read once drawn; with the last, Clear can be pressed.
             if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedParts > 1 && unresolvedDrawn.Add(linePage))
             {
@@ -834,11 +841,22 @@ namespace Halcyonic.Client
         private float Note(string? words) => words == null ? 0f : MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(words, Column)));
 
         /// <summary>
+        /// Never four prompts (ADR 0026): where a page of New project needs more than the stage gives, it
+        /// turns by the footer's Next page only where the footer's middle is free, nothing in the secondary
+        /// or rare place, no confirmation and no far right action but the main one.
+        /// </summary>
+        public static bool PagesInFooter(Footer footer) =>
+            !footer.Confirming && footer[PromptSlot.Secondary] == null && footer[PromptSlot.Rare] == null
+            && (footer[PromptSlot.FarRight] is not Prompt right || right.Main);
+
+        /// <summary>
         /// <paramref name="frame"/> as the page the stage gives holds it (ADR 0026): its lines whole when
         /// they fit beside its reason and its source line, which stand on every page; otherwise a page of
         /// whole lines at a time, in order, turned as the menu's lists turn, by the footer's Next page,
-        /// "First page" on the last, where its footer has the place, and else by a row at the page's end,
-        /// keyed to the page it stands on. A chosen line that opens the side panel keeps its page showing.
+        /// "First page" on the last, where its footer has the place (<see cref="PagesInFooter"/>); else by a
+        /// row at the page's end, keyed to the page it stands on, except while a row's details are open,
+        /// when its action holds the footer's middle and the page waits for them to close. A chosen line
+        /// that opens the side panel keeps its page showing.
         /// </summary>
         private MenuFrame Paged(MenuFrame frame)
         {
@@ -849,9 +867,12 @@ namespace Halcyonic.Client
                 linePage = 0;
                 return frame;
             }
+            // A chosen row's action holds the footer's middle, and turning waits until the row's details close;
+            // elsewhere, as on Starting, a row turns.
             var footer = frame.Footer;
-            var byFooter = !footer.Confirming && footer[PromptSlot.Secondary] == null && (footer[PromptSlot.FarRight] is not Prompt right || right.Main);
-            var starts = Starts(all, room - (byFooter ? 0f : MenuPage.TargetGap + MenuPage.Target()));
+            var byFooter = PagesInFooter(footer);
+            var byRow = !byFooter && frame.Side == null;
+            var starts = Starts(all, room - (byRow ? MenuPage.TargetGap + MenuPage.Target() : 0f));
             var pages = starts.Count;
             var opens = frame.Side == null ? -1 : all.ToList().FindIndex(line => line.Chosen && (line.Opens || line.Choice));
             if (opens >= 0) linePage = starts.FindLastIndex(start => start <= opens);
@@ -859,7 +880,7 @@ namespace Halcyonic.Client
             var (from, to) = (starts[linePage], linePage + 1 < pages ? starts[linePage + 1] : all.Count);
             var lines = all.Skip(from).Take(to - from).ToList();
             if (byFooter) footer = footer.WithNext(new Prompt(Footer.NextPage, Footer.NextPageWords(linePage, pages), GlazeIcon.Next, PromptKind.NextPage));
-            else lines.Add(new PageLine(EntryText.NextPage(linePage, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
+            else if (byRow) lines.Add(new PageLine(EntryText.NextPage(linePage, pages), icon: GlazeIcon.Next, action: NewProjectScreens.NextPage,
                 key: linePage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             var side = opens >= from && opens < to ? frame.Side : null;
             return new MenuFrame(frame.Subject, footer, frame.SubjectIsData, frame.Pill, frame.Sections, lines, frame.Source, side, frame.SourceIsData,
