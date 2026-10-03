@@ -356,9 +356,15 @@ the same definition names, as the JSON Schema document:
   in the failure colour: "Usage left can't be read right now. Try again later.", or "Couldn't reach
   your computer. Press Refresh to try again." When the source could read only some limits, the note
   starts "Some limits couldn't be read this time." and no missing window is inferred. No reading
-  reads "No usage reading yet.", never 0%. While the recorded demonstration plays, the rail offers no
-  Usage left at all and an open panel closes; should it ever show then, it says "Usage left isn't
-  part of the demo." **`UsageLeftScreens`** builds its panel model.
+  reads "No usage reading yet.", never 0%. While the recorded demonstration plays, Usage left shows
+  the recording's limits for one practice agent ("Practice agent, 5-hour window", "Practice agent,
+  weekly") as if read when opened, every time moved by as long as has passed since the recording
+  read them (`DemonstrationRecording.UsageLimitsAt`), so a reading is always seen two minutes ago
+  and resets ahead. They say "Recorded for the demo, not from any account" where a source is named
+  and "These limits are part of the recording." in place of the account note; Refresh plays them
+  again and sends nothing. Limits read from the control plane close when the demonstration starts,
+  and the recording's when it stops. A recording without limits says "Usage left isn't part of
+  the demo." with no Refresh. **`UsageLeftScreens`** builds its panel model.
 - **`ControlPlaneApi.GetRuntimeModelsAsync`** reads the models a runtime whose `ModelChoice` is
   `Listed` can use now, from the runtime's own list
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)): each

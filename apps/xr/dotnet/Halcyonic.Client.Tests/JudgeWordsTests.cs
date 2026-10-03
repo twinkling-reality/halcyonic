@@ -69,6 +69,10 @@ public class JudgeWordsTests
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true));
         Add(UsageLeftPresenter.NotInDemo);
+        // Usage while the demonstration plays: its recorded limits, and while they are read again.
+        var limits = UsageLeftPresenter.Present(recording.UsageLimitsAt(DateTimeOffset.UtcNow)!, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, recorded: true);
+        Add(UsageLeftScreens.Screen(limits, reading: false, canRead: true));
+        Add(UsageLeftScreens.Screen(limits, reading: true, canRead: true));
         Add(EntryText.DemoCannotStart);
         foreach (var field in typeof(SettingsText).GetFields().Where(field => field.IsLiteral)) Add(field.GetRawConstantValue());
         foreach (StageArrangement arrangement in Enum.GetValues(typeof(StageArrangement)))
@@ -191,6 +195,24 @@ public class JudgeWordsTests
         yield return line.Words;
         if (line.Fact != null) yield return line.Fact;
         if (line.Chip != null) yield return line.Chip;
+    }
+
+    [Test]
+    public void TheRecordedUsageLimitsNameNoBrand()
+    {
+        var recording = Demonstration.Recording();
+        var shown = UsageLeftPresenter.Present(recording.UsageLimitsAt(DateTimeOffset.UtcNow)!, DateTimeOffset.UtcNow, TimeZoneInfo.Utc, recorded: true);
+        var words = recording.UsageLimits!.Readings.Select(reading => reading.Label)
+            .Concat(shown.Rows.SelectMany(row => new[] { row.Title, row.Text }))
+            .Append(shown.Source!).Append(shown.Note).ToList();
+        Assert.That(words, Has.Member("Recorded for the demo, not from any account"));
+        foreach (var word in words)
+        {
+            foreach (var brand in Brands)
+            {
+                Assert.That(Regex.IsMatch(word, @"\b" + Regex.Escape(brand) + @"\b"), Is.False, "\"" + word + "\" names " + brand);
+            }
+        }
     }
 
     [Test]

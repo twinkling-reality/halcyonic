@@ -160,8 +160,8 @@ namespace Halcyonic.Client
     /// A demonstration the control plane recorded (<c>pnpm demonstration:record</c>): the realtime
     /// messages it sent while its scripted operator gave each answer the recording offers, as a tree
     /// of nodes that shares its beginning, and its REST answers about each execution's understanding
-    /// and evaluation along the way, read from stand-ins for the sources and marked as simulated
-    /// (ADR 0019). The control plane computed every state in it, so playing it derives nothing. Only
+    /// and evaluation along the way, and about the practice agent's usage limits, read from stand-ins
+    /// for the sources and marked as simulated (ADR 0019). The control plane computed every state in it, so playing it derives nothing. Only
     /// a recording of a fixture journal is accepted, so everything it shows is labeled as recorded,
     /// and only answers a stand-in gave, so none passes for a real source's. Keys this client does
     /// not know are ignored.
@@ -204,6 +204,45 @@ namespace Halcyonic.Client
 
         /// <summary>The recorded stretches; the first is the beginning, and every other one is an answer's.</summary>
         public IReadOnlyList<DemonstrationNode> Nodes { get; }
+
+        /// <summary>
+        /// The practice agent's usage limits as the control plane answered them at
+        /// <see cref="UsageLimitsReadAt"/>, the recording's own start; null in a recording without them.
+        /// </summary>
+        public AvailableUsageLimits? UsageLimits { get; private set; }
+
+        public DateTimeOffset UsageLimitsReadAt { get; private set; }
+
+        /// <summary>
+        /// The recorded usage limits as if read at <paramref name="now"/>: every time in them moved by as
+        /// long as has passed since the recording read them, so a limit is seen as long ago and resets as
+        /// far ahead as it did then, whenever the demonstration plays. Null when the recording holds none.
+        /// </summary>
+        public AvailableUsageLimits? UsageLimitsAt(DateTimeOffset now)
+        {
+            if (UsageLimits == null) return null;
+            var shift = now - UsageLimitsReadAt;
+            string Moved(string at) =>
+                IntelligenceText.TryParse(at, out var parsed)
+                    ? (parsed + shift).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture)
+                    : at;
+            var readings = new List<UsageLimit>(UsageLimits.Readings.Count);
+            foreach (var reading in UsageLimits.Readings)
+            {
+                readings.Add(new UsageLimit
+                {
+                    Agent = reading.Agent,
+                    Label = reading.Label,
+                    Window = reading.Window,
+                    UsedPercent = reading.UsedPercent,
+                    ResetsAt = Moved(reading.ResetsAt),
+                    ObservedAt = Moved(reading.ObservedAt),
+                    Freshness = reading.Freshness,
+                    Account = reading.Account,
+                });
+            }
+            return new AvailableUsageLimits { Source = UsageLimits.Source, Complete = UsageLimits.Complete, Readings = readings };
+        }
 
         /// <summary>The control plane's understanding answers, by execution id, as the playback reaches them.</summary>
         public IReadOnlyDictionary<string, IReadOnlyList<RecordedAnswer<UnderstandingResponse>>> Understanding { get; private set; } = NoUnderstanding;
@@ -298,7 +337,33 @@ namespace Halcyonic.Client
                 (response, key) => response.ExecutionId == key && Simulated(response.Result));
             recording.Evaluation = ReadAnswers<EvaluationResponse>(document["evaluation"], "evaluation", serializer, nodes,
                 (response, key) => response.ExecutionId == key && Simulated(response.Result));
+            ReadUsageLimits(document["usage_limits"], serializer, recording);
             return recording;
+        }
+
+        /// <summary>
+        /// The recorded usage limits, when there are any: only a stand-in's answer, available and marked
+        /// synthetic, with every time readable, so no reading passes for a real account's.
+        /// </summary>
+        private static void ReadUsageLimits(JToken? token, JsonSerializer serializer, DemonstrationRecording recording)
+        {
+            if (token == null) return;
+            var readAt = token.Value<string>("read_at") ?? throw Missing("read_at of the usage limits");
+            if (!IntelligenceText.TryParse(readAt, out var read)) throw new InvalidDataException("The demonstration's usage limits have no readable read_at.");
+            var answer = token["answer"]?.ToObject<UsageLimitsResponse>(serializer) ?? throw Missing("answer of the usage limits");
+            if (!(answer is AvailableUsageLimits available) || !available.Source.Synthetic || available.Readings.Count == 0)
+            {
+                throw new InvalidDataException("The demonstration's usage limits are not a stand-in's readings marked as simulated.");
+            }
+            foreach (var reading in available.Readings)
+            {
+                if (!IntelligenceText.TryParse(reading.ObservedAt, out _) || !IntelligenceText.TryParse(reading.ResetsAt, out _))
+                {
+                    throw new InvalidDataException("A recorded usage limit has a time that can't be read.");
+                }
+            }
+            recording.UsageLimits = available;
+            recording.UsageLimitsReadAt = read;
         }
 
         /// <summary>

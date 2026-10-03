@@ -235,5 +235,13 @@ Decided on 2026-09-29: (a), with the scripted interactive variant; no hosted con
 - 2026-10-02, decided by the coordinator for the competition's "clean pause and resume": after a
   pause the demonstration goes on where it stood, through the realtime protocol's resume, instead of
   starting again; the rail offers no Usage left while it plays.
+- 2026-10-02, decided by the coordinator, replacing the line above on Usage left: the menu of ADR
+  0026 keeps Usage as a place, so the demonstration shows recorded limits instead of an empty page.
+  The recording holds one usage-limits answer, read through the control plane's route from the
+  stand-in for Seorak (ADR 0019) and marked synthetic: one practice agent, its 5-hour and weekly
+  windows. A player moves its times by as long as has passed since the recording's start, so a
+  reading is always seen two minutes ago and resets ahead; Refresh plays it again and sends
+  nothing. It says "Recorded for the demo, not from any account" and "These limits are part of the
+  recording.", and the judge words check scans it for brand names.
 - Revisit if the organizers accept a hosted service and the owner wants the control loop shown, or
   once device pairing and encrypted transport exist.

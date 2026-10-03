@@ -3,11 +3,17 @@ import type {
   EventEnvelope,
   ExecutionView,
   UnderstandingResult,
+  UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { SalidiumClient } from '@halcyonic/integration-salidium';
 import { FakeSalidium } from '@halcyonic/integration-salidium/testing';
 import { SeorakClient } from '@halcyonic/integration-seorak';
-import { type CapturedSession, FakeSeorak } from '@halcyonic/integration-seorak/testing';
+import {
+  type CapturedSession,
+  FakeSeorak,
+  usageLimitsDocument,
+  usageReading,
+} from '@halcyonic/integration-seorak/testing';
 import type { EvaluationSource } from '../intelligence/evaluation.ts';
 import type { UnderstandingSource } from '../intelligence/understanding.ts';
 
@@ -284,6 +290,28 @@ export const SIMULATED_VERSION = 'simulated';
 
 /** The stand-in for Salidium's instance id: a real daemon's is random, never all zeros. */
 export const SIMULATED_INSTANCE_ID = '0'.repeat(32);
+
+/** One limit window of the practice agent, as the stand-in for Seorak serves it at a read. */
+export interface StoryUsage {
+  readonly window: 'rolling-5h' | 'weekly';
+  readonly usedPercent: number;
+  /** How long before the read it was observed. */
+  readonly seenBeforeMs: number;
+  /** How long after the read it resets. */
+  readonly resetsAfterMs: number;
+}
+
+/** The stand-in for Seorak's id for the demonstration's one agent; no provider's agent. */
+export const USAGE_AGENT = 'practice-agent';
+
+/**
+ * The practice agent's usage limits: one agent, its two windows, seen two minutes before the read,
+ * the 5-hour window resetting in two and a half hours and the weekly one in four days.
+ */
+export const DEMONSTRATION_USAGE: readonly StoryUsage[] = [
+  { window: 'rolling-5h', usedPercent: 38, seenBeforeMs: 120_000, resetsAfterMs: 9_000_000 },
+  { window: 'weekly', usedPercent: 21, seenBeforeMs: 120_000, resetsAfterMs: 345_600_000 },
+];
 
 /** List prices the stand-in for Seorak estimates the cost at, per million tokens. */
 const PRICE_PER_MILLION = { input: 3, output: 15 } as const;
@@ -1034,6 +1062,7 @@ export class DemonstrationSources {
   readonly #salidiumClient: SalidiumClient;
   readonly #seorakClient: SeorakClient;
   readonly #sessions = new Map<string, CapturedSession>();
+  #usageLabel: string | null = null;
 
   private constructor(salidium: FakeSalidium, seorak: FakeSeorak) {
     this.#salidium = salidium;
@@ -1072,6 +1101,27 @@ export class DemonstrationSources {
     session.lens = documents.lens;
   }
 
+  /**
+   * Has the stand-in for Seorak serve the practice agent's limits (`DEMONSTRATION_USAGE`) as read
+   * at `now`, and has the control plane name that agent `label`, as the demonstration names its
+   * runtimes: the real client shows an agent it does not know by its id.
+   */
+  serveUsage(now: number, label: string): void {
+    this.#seorak.scopes.add('limits:read');
+    this.#seorak.usageLimits = usageLimitsDocument(
+      DEMONSTRATION_USAGE.map((usage) =>
+        usageReading({
+          agent: USAGE_AGENT,
+          window: usage.window,
+          usedPercent: usage.usedPercent,
+          observedAt: new Date(now - usage.seenBeforeMs).toISOString(),
+          resetsAt: new Date(now + usage.resetsAfterMs).toISOString(),
+        }),
+      ),
+    );
+    this.#usageLabel = label;
+  }
+
   /** The control plane's sources: Halcyonic's real clients reading the stand-ins, every answer marked synthetic. */
   get sources(): { understanding: UnderstandingSource; evaluation: EvaluationSource } {
     return {
@@ -1087,6 +1137,11 @@ export class DemonstrationSources {
             await this.#seorakClient.evaluate(observedAs(runtimeKind), nativeId, {
               credential: this.#seorak.token,
             }),
+          ),
+        usageLimits: async () =>
+          simulatedUsageLimits(
+            await this.#seorakClient.usageLimits({ credential: this.#seorak.token }),
+            this.#usageLabel,
           ),
       },
     };
@@ -1123,5 +1178,23 @@ export function simulatedEvaluation(result: EvaluationResult): EvaluationResult 
   return {
     ...result,
     evaluation: { ...evaluation, source: { ...evaluation.source, synthetic: true } },
+  };
+}
+
+/**
+ * An answer of the stand-in for Seorak about usage limits, marked as not Seorak's, with the practice
+ * agent named `label` when there is one.
+ */
+export function simulatedUsageLimits(
+  result: UsageLimitsResponse,
+  label: string | null,
+): UsageLimitsResponse {
+  if (result.availability !== 'available') return result;
+  return {
+    ...result,
+    source: { ...result.source, synthetic: true },
+    readings: result.readings.map((reading) =>
+      reading.agent === USAGE_AGENT && label !== null ? { ...reading, label } : reading,
+    ) as typeof result.readings,
   };
 }

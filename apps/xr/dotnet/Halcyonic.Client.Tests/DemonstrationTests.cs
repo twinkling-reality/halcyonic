@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -166,6 +167,30 @@ public class DemonstrationRecordingTests
     }
 
     [Test]
+    public void ItsUsageLimitsAreReadAsIfNowSoTheyAreSeenAsLongAgoAndResetAsFarAhead()
+    {
+        var recording = Demonstration.Recording();
+        Assert.That(recording.UsageLimits!.Source.Synthetic, Is.True);
+        var now = DateTimeOffset.Parse("2027-01-15T20:30:00Z", CultureInfo.InvariantCulture);
+        var limits = recording.UsageLimitsAt(now)!;
+        Assert.That(limits.Readings.Select(reading => (reading.Label, reading.Window)), Is.EqualTo(new[]
+        {
+            ("Practice agent", UsageLimitWindow.Rolling5h),
+            ("Practice agent", UsageLimitWindow.Weekly),
+        }));
+        foreach (var (moved, recorded) in limits.Readings.Zip(recording.UsageLimits.Readings))
+        {
+            TimeSpan Since(string at, DateTimeOffset from) => DateTimeOffset.Parse(at, CultureInfo.InvariantCulture) - from;
+            Assert.That(Since(moved.ObservedAt, now), Is.EqualTo(Since(recorded.ObservedAt, recording.UsageLimitsReadAt)));
+            Assert.That(Since(moved.ResetsAt, now), Is.EqualTo(Since(recorded.ResetsAt, recording.UsageLimitsReadAt)));
+            Assert.That(Since(moved.ResetsAt, now), Is.GreaterThan(TimeSpan.Zero));
+        }
+        Assert.That(Times(recording.UsageLimitsAt(now)!), Is.EqualTo(Times(limits)), "reading again plays the same limits");
+
+        static string Times(AvailableUsageLimits answer) => string.Join(" ", answer.Readings.Select(reading => reading.ObservedAt + reading.ResetsAt));
+    }
+
+    [Test]
     public void AnythingElseItCannotPlayTruthfullyIsRefused()
     {
         JArray Nodes(JObject document) => (JArray)document["nodes"]!;
@@ -203,6 +228,15 @@ public class DemonstrationRecordingTests
                 ending["ending"]!["snapshot"]!["snapshot"]!["journal"]!["journal_id"] = "01a0dcf1-5a80-7000-8000-000000000009";
             }),
             ["an unknown answer"] = Demonstration.Edit(document => AnswersOf(document, 0)[0]["answer"]!["kind"] = "undo"),
+            ["usage limits not marked simulated"] = Demonstration.Edit(document =>
+                document["usage_limits"]!["answer"]!["source"]!["synthetic"] = false),
+            ["usage limits that are not available"] = Demonstration.Edit(document =>
+                document["usage_limits"]!["answer"] = new JObject
+                {
+                    ["availability"] = "unavailable",
+                    ["reason"] = new JObject { ["code"] = "not_captured", ["message"] = "None." },
+                }),
+            ["usage limits read at no time"] = Demonstration.Edit(document => document["usage_limits"]!["read_at"] = "soon"),
             ["not json"] = "not json",
             ["not a document"] = "[]",
         };

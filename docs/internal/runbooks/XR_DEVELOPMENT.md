@@ -969,8 +969,10 @@ headset):
   recorded simulated answers with their provenance and the time they were recorded. At the
   question, Understand still reads Working: the simulated explanation does not yet treat a
   question as waiting (lane W).
-- **Not in the demo.** Create a project says the demo can't start new work; the rail offers no
-  Usage left; Connect projects says these are demo projects.
+- **Usage left.** The rail offers it, with the recording's limits for one practice agent, marked
+  "Recorded for the demo, not from any account"; Refresh plays them again and sends nothing.
+- **Not in the demo.** Create a project says the demo can't start new work; Connect projects says
+  these are demo projects.
 - **The end.** Once the story has ended the line adds "This recording has ended and starts again
   shortly.", and about 20 seconds later the characters go back to Not started and it plays again,
   never Disconnected or Last known on the way. Unanswered instructions give way after a minute.

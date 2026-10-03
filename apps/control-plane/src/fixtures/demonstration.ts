@@ -20,6 +20,7 @@ import {
   EvaluationResponse,
   REALTIME_PROTOCOL_VERSION,
   UnderstandingResponse,
+  UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { admitCommand, COMMAND_POLICY } from '@halcyonic/domain';
 import { MockRuntimeAdapter, type Scenario } from '@halcyonic/integration-mock';
@@ -124,12 +125,23 @@ export interface RecordedAnswer<T> {
 export type RecordedAnswers<T> = Readonly<Record<string, readonly RecordedAnswer<T>[]>>;
 
 /**
+ * `GET /api/usage-limits` as the control plane answered it at `read_at`, the recording's own start.
+ * A player moves every time in it by as long as has passed since `read_at` when it is read, so a
+ * reading is always seen as long ago and resets as far ahead as when it was recorded.
+ */
+export interface RecordedUsageLimits {
+  readonly read_at: string;
+  readonly answer: UsageLimitsResponse;
+}
+
+/**
  * What the XR client plays when no control plane is configured or reachable: the realtime messages
  * the control plane sent while its scripted operator gave every answer the recording offers, as a
  * tree that shares its beginning. Its journal is a `fixture`, so every surface labels it as
  * recorded, and its runtimes are synthetic, so the work reads as simulated. Beside them it holds the
  * control plane's REST answers about each execution's understanding and evaluation, read through
- * its own routes from stand-ins for the sources and marked synthetic (ADR 0019). A reader ignores
+ * its own routes from stand-ins for the sources and marked synthetic (ADR 0019), and its answer
+ * about the practice agent's usage limits, read the same way (ADR 0012). A reader ignores
  * top-level keys it does not know, so a reader of this version without those answers still plays it.
  */
 export interface Demonstration {
@@ -145,6 +157,8 @@ export interface Demonstration {
   readonly understanding: RecordedAnswers<UnderstandingResponse>;
   /** `GET /api/executions/:execution_id/evaluation` as the playback reaches each answer. */
   readonly evaluation: RecordedAnswers<EvaluationResponse>;
+  /** The practice agent's usage limits, the same along every path. */
+  readonly usage_limits: RecordedUsageLimits;
 }
 
 const ROOT = new URL('../../../../', import.meta.url);
@@ -323,6 +337,7 @@ export async function recordDemonstration(
   await build(beginning, [], 0);
   const prologue = (await demonstrationPrologue(scenarios, plan)).map(({ event }) => event);
   const answers = await recordAnswers(prologue, nodes, storiesOf(prologue, plan));
+  const usageLimits = await recordUsageLimits(prologue, beginning.welcome.server_time);
   return serializeDemonstration({
     version: 2,
     source: DEMONSTRATION_SOURCE,
@@ -331,6 +346,7 @@ export async function recordDemonstration(
     nodes,
     understanding: answers.understanding,
     evaluation: answers.evaluation,
+    usage_limits: usageLimits,
   });
 }
 
@@ -444,6 +460,59 @@ async function recordAnswers(
     await sources.close();
   }
   return { understanding, evaluation };
+}
+
+const validateUsageLimits = compileValidator(UsageLimitsResponse);
+
+/**
+ * Records the control plane's answer about usage limits, read through its own route from the
+ * stand-in for Seorak serving the practice agent's limits, and moves its times so the read happened
+ * at `readAt`; the recording then holds the same file however late it is made.
+ */
+async function recordUsageLimits(
+  prologue: readonly EventEnvelope[],
+  readAt: string,
+): Promise<RecordedUsageLimits> {
+  const sources = await DemonstrationSources.start();
+  const replay = replayOf(prologue);
+  const token = randomBytes(32).toString('base64url');
+  const app = await createHttpServer({ logLevel: 'silent', token });
+  registerRoutes(app, replay, sources.sources);
+  try {
+    const now = Date.now();
+    sources.serveUsage(now, DIRECTED_RUNTIME_NAME);
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const address = app.server.address();
+    if (address === null || typeof address === 'string') throw new Error('no port');
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/usage-limits`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body: unknown = await response.json();
+    if (response.status !== 200 || !validateUsageLimits(body).ok) {
+      throw new Error(`the control plane answered ${response.status}: ${JSON.stringify(body)}`);
+    }
+    const answer = body as UsageLimitsResponse;
+    if (answer.availability !== 'available' || !answer.source.synthetic) {
+      throw new Error(`the stand-in for Seorak answered usage limits ${JSON.stringify(answer)}`);
+    }
+    const shift = Date.parse(readAt) - now;
+    const moved = (at: string) => new Date(Date.parse(at) + shift).toISOString();
+    return {
+      read_at: readAt,
+      answer: {
+        ...answer,
+        readings: answer.readings.map((reading) => ({
+          ...reading,
+          observed_at: moved(reading.observed_at),
+          resets_at: moved(reading.resets_at),
+        })) as typeof answer.readings,
+      },
+    };
+  } finally {
+    await app.close();
+    await replay.close();
+    await sources.close();
+  }
 }
 
 /** A control plane without runtimes that holds this journal, written through its recorder. */
@@ -1075,7 +1144,8 @@ function serializeDemonstration(demonstration: Demonstration): string {
     ...nodes,
     '  ],',
     ...byExecution('understanding', demonstration.understanding, false),
-    ...byExecution('evaluation', demonstration.evaluation, true),
+    ...byExecution('evaluation', demonstration.evaluation, false),
+    `  "usage_limits": ${json(demonstration.usage_limits)}`,
     '}',
     '',
   ].join('\n');

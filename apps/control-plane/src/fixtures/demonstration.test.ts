@@ -12,6 +12,7 @@ import {
   type RuntimeDescriptor,
   ServerMessage,
   UnderstandingResponse,
+  UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { admitCommand, Projection } from '@halcyonic/domain';
 import { loadScenarios } from '@halcyonic/integration-mock';
@@ -34,7 +35,12 @@ import {
   WATCHED_RUNTIME_ID,
   WATCHED_RUNTIME_NAME,
 } from './demonstration.ts';
-import { SIMULATED_INSTANCE_ID, SIMULATED_VERSION } from './demonstration-sources.ts';
+import {
+  DEMONSTRATION_USAGE,
+  SIMULATED_INSTANCE_ID,
+  SIMULATED_VERSION,
+  USAGE_AGENT,
+} from './demonstration-sources.ts';
 
 const SCENARIOS = loadScenarios(fileURLToPath(DEMONSTRATION_SCENARIOS));
 const COMMITTED = readFileSync(DEMONSTRATION_FILE, 'utf8');
@@ -518,6 +524,33 @@ describe('the XR client demonstration', () => {
         assert.equal(cost.note, ESTIMATED_COST_NOTE);
       }
     }
+  });
+
+  test('its usage limits are the practice agent’s two windows, marked synthetic, seen before the read and resetting after it', () => {
+    const { read_at, answer } = DEMONSTRATION.usage_limits;
+    assert.ok(compileValidator(UsageLimitsResponse)(answer).ok);
+    assert.equal(read_at, DEMONSTRATION.welcome.server_time);
+    if (answer.availability !== 'available') assert.fail('only an available answer');
+    assert.equal(answer.source.synthetic, true, 'never taken for a real Seorak');
+    assert.equal(answer.complete, true);
+    const read = Date.parse(read_at);
+    assert.deepEqual(
+      answer.readings.map((reading) => ({
+        agent: reading.agent,
+        label: reading.label,
+        window: reading.window,
+        usedPercent: reading.used_percent,
+        seenBeforeMs: read - Date.parse(reading.observed_at),
+        resetsAfterMs: Date.parse(reading.resets_at) - read,
+        account: reading.account.state,
+      })),
+      DEMONSTRATION_USAGE.map((usage) => ({
+        agent: USAGE_AGENT,
+        label: DIRECTED_RUNTIME_NAME,
+        ...usage,
+        account: 'unidentified',
+      })),
+    );
   });
 
   test('wherever the playback stands, each execution it shows has the answer the control plane gave there', () => {
