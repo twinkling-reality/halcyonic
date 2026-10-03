@@ -239,11 +239,13 @@ coordinator's first-visit words:
   (`MenuFrame`), packed for the file alone, the menu stepping aside when the page needs it. The
   question, quoted, heads the page in at most 2 rows, and it and its answers are one group, 8 dp
   apart rather than 16; the 12 mm between targets, Meta's spacing, and the source line's 16 dp stay.
-  When it and one row of answers don't fit together, the question has its own page or pages first,
-  in parts, the last ending in a row to the answers, whose pages repeat its first line, cut, where
-  it fits; it counts as read whole, as ADR 0022 requires before sending, once its last part has
-  shown. Answers keep the agent's order, short ones two a row, long ones one a row in at most 2 rows
-  of words; a longer answer is cut, and choosing it slides out its side panel with all its words, so
+  When it and one row of answers don't fit together, or when its own page would leave fewer pages
+  in all, its answers' pages then holding more answers each under its first line (four 2-row
+  answers: a question page and 2 answer pages rather than 4), the question has its own page or pages
+  first, in parts, the last ending in a row to the answers, whose pages repeat its first line, cut,
+  where it fits; on a tie it stays with its answers, read beside them. It counts as read whole, as
+  ADR 0022 requires before sending, once its last part has shown. Answers keep the agent's order,
+  short ones two a row, long ones one a row in at most 2 rows of words; a longer answer is cut, and choosing it slides out its side panel with all its words, so
   what Send answer sends can be read first. "Type my answer" and the paging row stand side by side
   last on every page: "More answers, 2 of 2", and "First answers, 1 of 2" on the last, a row since
   Hold to talk holds the place beside Send answer. Paging clears what was chosen, so Send answer
