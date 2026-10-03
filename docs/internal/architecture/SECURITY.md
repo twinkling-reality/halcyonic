@@ -251,9 +251,16 @@ What a client sees and can do about folders on the host
 - **Listing reads a bounded part of each root**: at most 10,000 entries, in the order the file
   system returns them, then sorts the folders among them and keeps 200; a root with more entries is
   marked truncated, and its folders past the first 10,000 entries are not offered.
-- **A root's name** is its folder's own name, or, where two roots share one, that name with the
-  nearest folder above that tells them apart ("Projects (Work)", `rootLabels`), so a person can tell
-  two places apart without the listing showing a path. A root configured as `/` itself is named `/`.
+- **A root's label** (`label`, beside its folder's own `name`) is that name, or, where another root
+  shares it, the name with a folder above that tells them apart ("Projects (Work)", "Work (drive)"
+  for a drive's own folder in `/Volumes`), or a number where nothing does (`rootLabels`). No two
+  labels read alike once case and compatibility forms are folded, and none holds a path; startup
+  refuses `/`, `/Users` and `/Volumes` as roots (`assessFolder`). A label can change when the roots
+  change, so it is shown, never kept as a choice's identity: a kept choice sends the root's path and
+  reads its label again from the latest listing (`ProjectFolder.Current`), saying a place is gone
+  rather than showing an old label. Labels come from folder names, so they may hold control, bidi or
+  private-use characters; the host leaves them as they are and the headset shows them by `LabelText`'s
+  rule, as it does every name. Projects are named, and look-alikes compared, by `name`.
 - **What the listing tells about a folder** comes from the folder's own entry and from one name
   inside it, never from a file's contents: whether a `.git` folder or file sits directly inside it
   (`repository`), the newer modification time of the folder and of that `.git` entry
