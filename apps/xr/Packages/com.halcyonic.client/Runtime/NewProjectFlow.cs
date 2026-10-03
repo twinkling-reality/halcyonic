@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,6 +75,12 @@ namespace Halcyonic.Client
 
         /// <summary>The frame given to the director, built once for each change, so a drawn report names the very frame it drew.</summary>
         private MenuFrame? shown;
+
+        /// <summary>The frame the director last drew: what the person saw, and so the only frame a press is checked against.</summary>
+        private MenuFrame? seen;
+
+        /// <summary>The unknown-outcome id this flow kept for its own build, which only it may replace or clear.</summary>
+        private string? ownId;
 
         /// <summary>What the frame was built from that changes without a press: the start's problem, the connection, a long wait, the journal and the text size.</summary>
         private string? shownFrom;
@@ -194,6 +199,7 @@ namespace Halcyonic.Client
             fact = null;
             Show(idea.HasRecap ? NewProjectStep.Recap : idea.Companion != null || idea.Guided ? NewProjectStep.Questions : NewProjectStep.YourIdea);
             shown = null;
+            seen = null;
         }
 
         /// <summary>Takes New project off the plane; its draft stays where it is.</summary>
@@ -203,6 +209,7 @@ namespace Halcyonic.Client
             IsOpen = false;
             review = null;
             shown = null;
+            seen = null;
             confirmingStartOver = false;
             recoveryArmed = false;
             KeepDrafts();
@@ -215,7 +222,7 @@ namespace Halcyonic.Client
         {
             var current = idea ??= new ProjectIdea();
             var problem = StartProblem();
-            var reached = problem == null && current.HasRecap;
+            var reached = BuildReached(problem);
             switch (step)
             {
                 case NewProjectStep.YourIdea:
@@ -240,7 +247,8 @@ namespace Halcyonic.Client
                         RecapPage.Options => NewProjectScreens.RecapOptions(current, reached, draft, host.State?.Runtimes ?? new List<RuntimeDescriptor>(),
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot),
-                        _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver),
+                        _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
+                            Building() || OutcomeUnknown ? problem : null),
                     };
                 default:
                     switch (buildPage)
@@ -271,9 +279,21 @@ namespace Halcyonic.Client
             return Live ? companion : null;
         }
 
-        /// <summary>Why Start building can't go ahead now, or null.</summary>
+        /// <summary>
+        /// Why Start building can't go ahead now, or null: first a build on its way, then a start whose
+        /// outcome is unknown, kept on the device or this build's own, which must be checked before
+        /// anything starts again, so nothing is made twice.
+        /// </summary>
         private string? StartProblem() =>
-            EntryScreens.StartProblem(host.Demonstration, host.State, host.Connected, idea, draft, CurrentFolder(), sequence);
+            Building() ? EntryText.AlreadyStarting
+            : OutcomeUnknown ? EntryText.PreviousRequestLine
+            : EntryScreens.StartProblem(host.Demonstration, host.State, host.Connected, idea, draft, CurrentFolder(), sequence);
+
+        /// <summary>A start may have run without this headset knowing: an id is kept, and no build is on its way to settle it.</summary>
+        private bool OutcomeUnknown => !Building() && UnknownId() != null;
+
+        /// <summary>Build's step can be chosen: nothing stops a start, or a start whose outcome is unknown waits there to be checked.</summary>
+        private bool BuildReached(string? problem) => (problem == null && idea?.HasRecap == true) || OutcomeUnknown;
 
         /// <summary>An existing project's folder as the computer bound it, or null for a new project or one without.</summary>
         private ProjectLocation? CurrentFolder()
@@ -289,7 +309,7 @@ namespace Halcyonic.Client
         /// </summary>
         public void Act(string id, string? key)
         {
-            if (!IsOpen || !(Frame is MenuFrame showing) || !Offers(showing, id, key)) return;
+            if (!IsOpen || !(seen is MenuFrame showing) || !Offers(showing, id, key)) return;
             var current = idea ??= new ProjectIdea();
             var exchange = current.Companion;
             switch (id)
@@ -337,9 +357,10 @@ namespace Halcyonic.Client
                     break;
 
                 // The companion's question.
-                case NewProjectScreens.ChooseSuggestion when exchange != null && Index(key) is int suggestion:
-                    var answer = (exchange.Latest as AskReply)?.Question?.Choices?.ElementAtOrDefault(suggestion);
-                    if (recording == null || answer == recording.RecordedAnswer(exchange)) exchange.Choose(suggestion);
+                case NewProjectScreens.ChooseSuggestion when exchange != null && key != null:
+                    // By its words: a reply that came after the frame was drawn offers other suggestions, and none of them is taken for it.
+                    var suggestion = (exchange.Latest as AskReply)?.Question?.Choices?.IndexOf(key) ?? -1;
+                    if (suggestion >= 0 && (recording == null || key == recording.RecordedAnswer(exchange))) exchange.Choose(suggestion);
                     break;
                 case NewProjectScreens.TypeAnswer when exchange != null && recording == null:
                     host.OpenKeyboard(exchange.Written ?? "", CompanionText.TypeAnswer, text =>
@@ -370,8 +391,8 @@ namespace Halcyonic.Client
                     break;
 
                 // The fixed questions.
-                case NewProjectScreens.ChooseFixedAnswer when Index(key) is int choice && choice < current.Choices.Count:
-                    current.ChooseGuideAnswer(current.Choices[choice]);
+                case NewProjectScreens.ChooseFixedAnswer when key != null:
+                    current.ChooseGuideAnswer(key);
                     break;
                 case NewProjectScreens.TypeFixedAnswer when current.Question < ProjectIdea.Questions.Count:
                     var asked = current.Question;
@@ -418,12 +439,14 @@ namespace Halcyonic.Client
                     break;
                 case NewProjectScreens.MoreOptions:
                     showModels = draft.Runtime?.ModelChoice == ModelChoice.Listed;
+                    // An agent app kept with the draft lists its models only now, on the person's press: listing may start it.
+                    if (showModels && draft.Models.Count == 0 && modelsRead == null && draft.Runtime is RuntimeDescriptor kept) ReadModels(kept);
                     Show(NewProjectStep.Recap, page: RecapPage.Options);
                     break;
-                case NewProjectScreens.StartOver when step == NewProjectStep.Recap:
+                case NewProjectScreens.StartOver when step == NewProjectStep.Recap && !Building() && !OutcomeUnknown:
                     confirmingStartOver = true;
                     break;
-                case NewProjectScreens.ConfirmStartOver when confirmingStartOver:
+                case NewProjectScreens.ConfirmStartOver when confirmingStartOver && !Building() && !OutcomeUnknown:
                     idea = new ProjectIdea(current.ExistingProjectId, current.ExistingProjectId == null ? null : current.Name);
                     LeaveCompanion(exchange);
                     review = null;
@@ -456,8 +479,8 @@ namespace Halcyonic.Client
                         Done();
                     });
                     return;
-                case NewProjectScreens.ChooseFolder when Index(key) is int option && locations != null:
-                    ChooseOption(current, option);
+                case NewProjectScreens.ChooseFolder when key != null && locations != null:
+                    ChooseOption(current, key);
                     break;
                 case NewProjectScreens.ReadFolders:
                     ReadFolders();
@@ -512,7 +535,9 @@ namespace Halcyonic.Client
                     recoveryArmed = false;
                     pendingAck = null;
                     sequence = null;
-                    Remember(null);
+                    // Cleared by the person's two presses: whichever start it was, kept here or by an earlier run.
+                    unknownOutcome.Id = null;
+                    ownId = null;
                     idea = new ProjectIdea();
                     said = (NewProjectStep.YourIdea, EntryText.Cleared);
                     Show(NewProjectStep.YourIdea);
@@ -526,7 +551,9 @@ namespace Halcyonic.Client
         /// <summary>The director drew <paramref name="drawn"/>: a part of the review counts as read only when it is the very frame this column gave and still stands by.</summary>
         public void Drawn(MenuFrame drawn, bool sidePanel)
         {
-            if (!IsOpen || !ReferenceEquals(drawn, shown) || Review is not NewWorkReview reading || !reading.Paginated) return;
+            if (!IsOpen || !ReferenceEquals(drawn, shown)) return;
+            seen = drawn;
+            if (Review is not NewWorkReview reading || !reading.Paginated) return;
             if (reading.Drawn(host.Now)) Redraw();
         }
 
@@ -636,14 +663,16 @@ namespace Halcyonic.Client
         private void ChooseStep(NewProjectStep chosen)
         {
             var current = idea!;
-            var sections = NewProjectScreens.Sections(step, current, StartProblem() == null && current.HasRecap);
+            var sections = NewProjectScreens.Sections(step, current, BuildReached(StartProblem()));
             if (!sections.Any(section => section.Key == NewProjectScreens.Key(chosen) && section.Reached)) return;
             review = null;
             confirmingStartOver = false;
             recoveryArmed = false;
             if (chosen == NewProjectStep.Build)
             {
-                StartBuilding();
+                // A start whose outcome is unknown is what Build shows, until it is checked and cleared.
+                if (OutcomeUnknown) Show(NewProjectStep.Build, BuildPage.Unresolved);
+                else StartBuilding();
                 return;
             }
             if (chosen == NewProjectStep.Questions && current.Companion == null && current.Guided && current.Question >= ProjectIdea.Questions.Count)
@@ -670,9 +699,6 @@ namespace Halcyonic.Client
             KeepDrafts();
             Redraw();
         }
-
-        private static int? Index(string? key) =>
-            int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var index) ? index : (int?)null;
 
         // ---------------------------------------------------------------------------------------------
         // The companion (ADR 0025).
@@ -857,11 +883,11 @@ namespace Halcyonic.Client
             return true;
         }
 
-        private void ChooseOption(ProjectIdea current, int index)
+        /// <summary>The folder row pressed, by what it chooses: a list read again since offers none that isn't still there.</summary>
+        private void ChooseOption(ProjectIdea current, string key)
         {
-            var options = ProjectFolder.Options(locations!);
-            if (index < 0 || index >= options.Count || !options[index].Choosable) return;
-            var option = options[index];
+            var option = ProjectFolder.Options(locations!).FirstOrDefault(each => NewProjectScreens.FolderKey(each) == key);
+            if (option == null || !option.Choosable) return;
             if (option.Kind == FolderOptionKind.NewFolder)
             {
                 OpenWords(WordsFor.FolderName, option.Root);
@@ -912,7 +938,13 @@ namespace Halcyonic.Client
             draft.ChooseRuntime(runtime);
             review = null;
             if (runtime.ModelChoice != ModelChoice.Listed) return;
-            // Listing may start the runtime, so it is read when the person chooses it, never on a timer.
+            ReadModels(runtime);
+            showModels = true;
+        }
+
+        /// <summary>Reads an agent app's models: listing may start the runtime, so only on the person's press, never on a timer or on opening.</summary>
+        private void ReadModels(RuntimeDescriptor runtime)
+        {
             if (host.Api is ControlPlaneApi api && Live)
             {
                 modelsFor = runtime.RuntimeId;
@@ -920,7 +952,6 @@ namespace Halcyonic.Client
                 modelsRead = api.GetRuntimeModelsAsync(runtime.RuntimeId, modelsCancellation.Token);
             }
             else draft.ModelReadFailed(EntryText.WaitingForMac);
-            showModels = true;
         }
 
         private bool PollModels()
@@ -1047,10 +1078,17 @@ namespace Halcyonic.Client
 
         private string? UnknownId() => unknownOutcome.Id ?? sequence?.Unresolved;
 
-        /// <summary>Keeps the command whose outcome may be unknown on the device, so a restart still blocks a blind retry.</summary>
+        /// <summary>
+        /// Keeps the command of this flow's own build whose outcome may be unknown on the device, so a
+        /// restart still blocks a blind retry. An id kept for another start, by an earlier run, is never
+        /// replaced or cleared here: only the person's Clear, then Yes, clear does that.
+        /// </summary>
         private void Remember(string? commandId)
         {
-            if (unknownOutcome.Id != commandId) unknownOutcome.Id = commandId;
+            var kept = unknownOutcome.Id;
+            if (kept == commandId || (kept != null && kept != ownId)) return;
+            unknownOutcome.Id = commandId;
+            ownId = commandId;
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -1106,12 +1144,13 @@ namespace Halcyonic.Client
             keptModel = kept[0].ModelRef;
         }
 
+        /// <summary>The agent app kept with the draft, chosen again if the computer still offers it; its models are read only when the person opens How it runs.</summary>
         private void ChooseKeptRuntime()
         {
             var wanted = keptRuntime;
             keptRuntime = null;
             if (wanted == null || draft.Runtime != null) return;
-            if (host.State?.Runtimes.FirstOrDefault(each => each.RuntimeId == wanted) is RuntimeDescriptor runtime) ChooseRuntime(runtime);
+            if (host.State?.Runtimes.FirstOrDefault(each => each.RuntimeId == wanted) is RuntimeDescriptor runtime) draft.ChooseRuntime(runtime);
         }
 
         /// <summary>A model kept with the draft, chosen again once the runtime lists it, and only if it runs on the computer.</summary>
