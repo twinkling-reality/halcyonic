@@ -75,6 +75,58 @@ public class MenuMemoryTests
         Assert.That(host.Sent, Has.Count.EqualTo(1), "no second project.create, for that folder or another, while the first may have run");
     }
 
+    /// <summary>A column standing in for New project's flow.</summary>
+    private sealed class Flow : IMenuColumn
+    {
+        public MenuFrame? Frame => null;
+#pragma warning disable CS0067
+        public event System.Action? Changed;
+        public event System.Action? Closed;
+#pragma warning restore CS0067
+        public void Act(string id, string? key) { }
+        public void Drawn(MenuFrame drawn, bool sidePanel) { }
+        public void HoldStarted(string id) { }
+        public void HoldEnded(string id, bool letGo) { }
+        public void Heard(string text) { }
+        public void Said(string words) { }
+        public void Tick() { }
+        public void FocusLeft() { }
+    }
+
+    [Test]
+    public void NewProjectsFlowIsMadeOnceAndKeptAcrossReconnectsToTheSameJournal()
+    {
+        var memory = new MenuMemory();
+        var made = 0;
+        Flow Make()
+        {
+            made++;
+            return new Flow();
+        }
+        Assert.That(memory.NewProject, Is.Null, "before New project first opens, nothing is kept or ticked");
+        var flow = memory.NewProjectFor("journal-1", Make);
+        Assert.That(memory.NewProjectFor("journal-1", Make), Is.SameAs(flow), "opened again, the same flow: its draft and its build");
+        memory.Journal(null);
+        Assert.That(memory.NewProjectFor(null, Make), Is.SameAs(flow), "a reconnect before its first snapshot keeps it");
+        Assert.That((made, memory.NewProject), Is.EqualTo((1, (IMenuColumn)flow)));
+    }
+
+    [Test]
+    public void AnotherJournalOrARepairingLetsNewProjectsFlowGoAndSaysSo()
+    {
+        var memory = new MenuMemory();
+        var dropped = new System.Collections.Generic.List<IMenuColumn>();
+        memory.NewProjectDropped += dropped.Add;
+        var demonstration = memory.NewProjectFor("demonstration", () => new Flow());
+        memory.Journal("live-journal");
+        Assert.That(dropped, Is.EqualTo(new[] { demonstration }), "the demonstration giving way to a live session is another journal");
+        Assert.That(memory.NewProject, Is.Null);
+        var live = memory.NewProjectFor("live-journal", () => new Flow());
+        Assert.That(live, Is.Not.SameAs(demonstration));
+        memory.Forget();
+        Assert.That(dropped, Is.EqualTo(new IMenuColumn[] { demonstration, live }), "a re-pairing lets it go too");
+    }
+
     [Test]
     public void TheSameJournalKeepsItsMemoryAndAnotherJournalOrARepairingStartsAfresh()
     {
