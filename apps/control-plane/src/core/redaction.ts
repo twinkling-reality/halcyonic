@@ -66,8 +66,12 @@ const WHOLE_KEY_SHAPE = new RegExp(`^(?:${KEY_SHAPES.source})$`);
 const SCHEME_CREDENTIAL =
   /\b(Bearer|Basic|Token)(\s+)([A-Za-z][A-Za-z0-9_-]{0,31}=)?(?![/~.])(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\/)[A-Za-z0-9._~/-]*\.[A-Za-z0-9])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/-]{7,}[A-Za-z0-9_~+/-]={0,2}/gi;
 
-/** A URL's user and password: `scheme://user:password@host`. */
-const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
+/**
+ * A URL's user and password: `scheme://user:password@host`, up to the last `@` before the host,
+ * since a password can hold a raw `@`. Whitespace, a quote, `<`, `>` or a comma ends the URL, so an
+ * email address after it, or a second URL, keeps its own `@`.
+ */
+const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/?#"'<>,]+@/gi;
 
 /**
  * A long run that reads as random: 32 or more letters, digits, `_` and `-`, with capitals, small

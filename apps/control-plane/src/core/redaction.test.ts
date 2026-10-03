@@ -107,6 +107,34 @@ describe('error text before it is journaled', () => {
     }
   });
 
+  test("a URL's user and password go up to the last @ before its host, and nothing past it", () => {
+    const cases: [string, string][] = [
+      // A raw @ in a password Halcyonic doesn't hold.
+      [
+        'GET https://deploy:p@ss-W0rd@gateway.example/v1 failed',
+        `GET https://${REDACTED}@gateway.example/v1 failed`,
+      ],
+      // Two URLs in one message: each loses only its own.
+      [
+        'tried https://a:pw1@one.example/x and ftp://b:p@w2@two.example then gave up',
+        `tried https://${REDACTED}@one.example/x and ftp://${REDACTED}@two.example then gave up`,
+      ],
+      // An email address after the URL keeps its @, with or without a space between.
+      [
+        'https://u:pw@host.example failed; write to admin@example.com',
+        `https://${REDACTED}@host.example failed; write to admin@example.com`,
+      ],
+      [
+        'mirrors: https://u:pw@host.example,admin@example.com',
+        `mirrors: https://${REDACTED}@host.example,admin@example.com`,
+      ],
+    ];
+    for (const [text, expected] of cases) assert.equal(redactSecrets(text, []), expected, text);
+    // An @ in a path is no user's.
+    const scoped = 'npm could not fetch https://registry.example/@scope/pkg';
+    assert.equal(redactSecrets(scoped, []), scoped);
+  });
+
   test('a scheme word before a path keeps the path', () => {
     const kept = [
       'could not read token /Users/me/.config/gh/hosts.yml',
