@@ -476,7 +476,7 @@ public class NewProjectRecapTests
         // Chosen, its side panel says what starting over clears, and Start over stands in the footer's middle.
         var chosen = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver);
         HoldsThreePrompts(chosen);
-        Assert.That(chosen.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears));
+        Assert.That(chosen.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears(false)));
         Assert.That((chosen.Footer[PromptSlot.Rare]!.Id, chosen.Footer[PromptSlot.Rare]!.Available), Is.EqualTo((NewProjectScreens.StartOver, true)));
         var held = NewProjectScreens.Recap(Proposed(), Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver,
             startOverProblem: EntryText.AlreadyStarting);
@@ -489,7 +489,19 @@ public class NewProjectRecapTests
         Assert.That(frame.Footer[PromptSlot.Rare]!.Kind, Is.EqualTo(PromptKind.Cancel), "Cancel where Start over was pressed");
         Assert.That(frame.Footer[PromptSlot.Free]!.Id, Is.EqualTo(NewProjectScreens.ConfirmStartOver));
         Assert.That(frame.Footer[PromptSlot.FarRight], Is.Null, "Start building steps aside until it is answered");
-        Assert.That(frame.Lines.Last().Words, Is.EqualTo(EntryText.StartOverQuestion));
+        Assert.That(frame.Lines.Last().Words, Is.EqualTo(chosen.Side.Lines.Single().Words), "the question says just what the side panel says it clears");
+    }
+
+    [Test]
+    public void StartOverForATaskSaysTheProjectStays()
+    {
+        var task = new ProjectIdea("proj_1", "Race Times");
+        task.UseIdea("Add a page of results.");
+        var chosen = NewProjectScreens.Recap(task, Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver);
+        Assert.That(chosen.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears(true)));
+        Assert.That(chosen.Side.Lines.Single().Words, Does.Not.Contain("the name"), "a task keeps its project's name");
+        var asking = NewProjectScreens.Recap(task, Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.StartOver, confirmingStartOver: true);
+        Assert.That(asking.Lines.Last().Words, Is.EqualTo(EntryText.StartOverClears(true)));
     }
 
     [Test]

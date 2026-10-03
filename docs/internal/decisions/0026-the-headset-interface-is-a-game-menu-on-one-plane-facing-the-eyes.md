@@ -349,9 +349,10 @@ coordinator's first-visit words:
   anyway: the person closes its details or chooses another row on the page, then turns. New
   project's Start over is the recap's last row, on its last page even when the recap fits one,
   chosen as a fact is, its side panel saying what starting over clears and its action arming the
-  confirmation in place; How it runs' Change agent app is a row before the models. The workspace
-  render lays every New project footer at both text sizes and fails on four prompts or a footer
-  that doesn't fit.
+  confirmation in place; How it runs' Change agent app is a row before the models. Each chosen
+  row's action, Start over's Yes and Start building are safe in place, so a side panel standing in
+  the recap's place carries them. The workspace render lays every New project footer at both text
+  sizes and fails on four prompts or a footer that doesn't fit.
 
 ## Alternatives considered
 

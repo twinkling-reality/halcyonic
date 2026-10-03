@@ -812,8 +812,13 @@ the same definition names, as the JSON Schema document:
   read once for what shows (`Follow`: the step, its page, the question, the idea) and again only
   when that, the subject's rows or the text size change, so nothing re-packs as the head moves; the
   review's part rows likewise, once a review; and anything new, opening New project included, starts
-  at its first page. A press acts only when the frame the director last drew offers it, available, so nothing
-  the person can't see or press now runs; a row is keyed by what it chooses (a suggestion or fixed
+  at its first page. A press acts only when what the director last drew offers it, available, so nothing
+  the person can't see or press now runs: the page drawn whole, or its side panel drawn alone, which
+  takes only its Close details and what it carries in the page's place (`Footer.InPlace`), never a
+  line or prompt of the page it hides, and counts no part read (`NewProjectFlow.DrawnWith`). The
+  recap marks safe there a fact's Change, Choose another folder, More options, Start over and its
+  Yes, start over, whose side panels show all they act on, and Start building, whose review shows
+  everything before its Yes, so each is reached at larger text too; a row is keyed by what it chooses (a suggestion or fixed
   answer by the question it answers and its words, a folder by its place's path and its own name),
   so a press on a frame drawn before a new reply or listing never takes another, even the same
   words on the next question. It asks the computer only to read (the
@@ -869,8 +874,10 @@ the same definition names, as the JSON Schema document:
   it is an AI as the source line of any page showing its words. The Recap shows each fact as a row,
   Suggested beside what the companion suggested, opening a side panel with the whole of it; the
   chosen fact's change stands beside Close; Start over is its last row, on its last page, chosen as
-  a fact is, its side panel saying what starting over clears (the idea, its answers, the name, first
-  task and folder; how it runs stays) and its Start over confirmed in place. Changing a suggested
+  a fact is, its side panel and its confirmation saying alike what starting over clears (the idea,
+  its answers, the name, first task and folder; for a task added to a project, which keeps its name
+  and folder, the first task and any change of folder; how it runs stays) and its Start over
+  confirmed in place. Changing a suggested
   first task, the folder or how it runs is a page of answers with Done, another agent app a row
   before the models. The render lays every New project footer at both text sizes and fails on any
   of four prompts or one that doesn't fit.

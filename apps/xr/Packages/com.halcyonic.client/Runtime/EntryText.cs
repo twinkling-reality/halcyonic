@@ -65,7 +65,6 @@ namespace Halcyonic.Client
         public const string RecapLine = "Change anything before you start building.";
         public const string StartBuilding = "Start building";
         public const string StartOver = "Start over";
-        public const string StartOverQuestion = "This clears your idea and every choice here.";
         public const string ConfirmStartOver = "Yes, start over";
         public const string MoreOptions = "More options";
         public const string ProjectName = "Project name";
@@ -148,8 +147,15 @@ namespace Halcyonic.Client
         /// <summary>New project's row to the review's next part, which replaces <see cref="ReadToPart"/> (ADR 0026).</summary>
         public static string NextPart(int part, int parts) => "Next part, " + Count(part) + " of " + Count(parts);
 
-        /// <summary>Start over's side panel on New project's recap: what starting over clears, before the person presses it. The agent app and model are the draft's, kept.</summary>
-        public const string StartOverClears = "This clears your idea, its answers, the name, first task and folder. How it runs stays.";
+        /// <summary>
+        /// What starting over clears, as Start over's side panel on New project's recap and its
+        /// confirmation both say: for a new project its idea, answers, name, first task and folder; for a
+        /// task added to a project, which keeps its name and folder, the task's idea, answers, first task
+        /// and a folder chosen in place of the project's. The agent app and model are the draft's, kept.
+        /// </summary>
+        public static string StartOverClears(bool forTask) => forTask
+            ? "This clears your idea, its answers, the first task and any change of folder. The project and how it runs stay."
+            : "This clears your idea, its answers, the name, first task and folder. How it runs stays.";
 
         /// <summary>
         /// New project's row at the end of a page that needs more than one, on page <paramref name="page"/>
