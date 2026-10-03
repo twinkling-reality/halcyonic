@@ -269,13 +269,14 @@ describe('naming the roots for people', () => {
       '/Users/two/PROJECTS',
       '/Users/three/Ｐrojects',
     ]);
-    assert.deepEqual(
-      [...labels.values()],
-      ['Projects (one)', 'PROJECTS (two)', 'Ｐrojects (three)'],
-    );
+    assert.deepEqual(Object.fromEntries(labels), {
+      '/Users/one/Projects': 'Projects (one)',
+      '/Users/two/PROJECTS': 'PROJECTS (two)',
+      '/Users/three/Ｐrojects': 'Ｐrojects (three)',
+    });
   });
 
-  test('a root at the top of a volume, or with nothing above it, is named by itself', () => {
+  test('a drive says so, and a root with nothing above it is named by itself', () => {
     const labels = rootLabels([
       '/Volumes/Work',
       '/Users/person/Work',
@@ -283,7 +284,7 @@ describe('naming the roots for people', () => {
       '/Users/person/Projects',
     ]);
     assert.deepEqual(Object.fromEntries(labels), {
-      '/Volumes/Work': 'Work (Volumes)',
+      '/Volumes/Work': 'Work (drive)',
       '/Users/person/Work': 'Work (person)',
       '/Projects': 'Projects',
       '/Users/person/Projects': 'Projects (person)',
@@ -306,6 +307,81 @@ describe('naming the roots for people', () => {
     assert.equal(new Set(labels.values()).size, 2);
   });
 
+  test('no two labels read alike, even where one folder is named like another root label', () => {
+    const labels = rootLabels([
+      '/Users/glen/Personal/Projects',
+      '/Users/glen/Personal/Work/Projects',
+      '/Users/glen/Projects (old)',
+      '/Users/glen/old/Projects',
+      `/x/${'n'.repeat(253)}`,
+      `/y/${'n'.repeat(253)}`,
+    ]);
+    const values = [...labels.values()];
+    assert.equal(
+      new Set(values.map((label) => label.normalize('NFKC').toLowerCase())).size,
+      values.length,
+      values.join(' | '),
+    );
+    assert.ok(
+      values.every((label) => label.length > 0 && label.length <= 255 && !label.includes('/')),
+    );
+  });
+
+  test('any set of distinct real paths gets labels that never read alike', () => {
+    const names = [
+      'Projects',
+      'projects',
+      'Work',
+      'Projects (old)',
+      'old',
+      'drive',
+      'Ｐrojects',
+      '🙂',
+      'a',
+    ];
+    let seed = 7;
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed;
+    };
+    for (let trial = 0; trial < 500; trial += 1) {
+      const count = 2 + (next() % 7);
+      const paths = new Set<string>();
+      while (paths.size < count) {
+        const depth = 1 + (next() % 4);
+        const parts = Array.from({ length: depth }, () => names[next() % names.length]);
+        paths.add(`/${next() % 3 === 0 ? 'Volumes/' : ''}${parts.join('/')}`);
+      }
+      const labels = rootLabels([...paths]);
+      assert.equal(labels.size, paths.size);
+      const values = [...labels.values()];
+      assert.equal(
+        new Set(values.map((label) => label.normalize('NFKC').toLowerCase())).size,
+        values.length,
+        `${[...paths].join(', ')} gave ${values.join(' | ')}`,
+      );
+      assert.ok(
+        values.every((label) => label.length > 0 && label.length <= 255 && !label.includes('/')),
+      );
+    }
+  });
+
+  test('a long name is cut on a whole character', () => {
+    const emoji = '\u{1F642}'.repeat(130);
+    for (const label of rootLabels([`/a/${emoji}`, `/b/${emoji}`]).values()) {
+      assert.ok(label.length <= 255);
+      assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(label), 'no lone high surrogate');
+    }
+  });
+
+  test('a root configured twice is listed once', () => {
+    const root = join(base, 'twice', 'Projects');
+    mkdirSync(join(root, 'app'), { recursive: true });
+    const listed = createHostLocations([root, root]).list();
+    assert.equal(listed.roots.length, 1);
+    assert.equal(listed.roots[0]?.label, 'Projects');
+  });
+
   test('the listing names two roots that share a folder name apart, and never by a path', () => {
     const top = join(base, 'labels');
     const first = join(top, 'home', 'Projects');
@@ -315,10 +391,14 @@ describe('naming the roots for people', () => {
     const listed = createHostLocations([first, second]).list();
     assert.ok(validLocations(listed).ok);
     assert.deepEqual(
-      listed.roots.map((root) => root.name),
-      ['Projects (home)', 'Projects (work)'],
+      listed.roots.map((root) => [root.name, root.label]),
+      [
+        ['Projects', 'Projects (home)'],
+        ['Projects', 'Projects (work)'],
+      ],
+      'the name stays the folder own name; the label tells them apart',
     );
-    assert.ok(listed.roots.every((root) => !root.name.includes('/')));
+    assert.ok(listed.roots.every((root) => !root.label.includes('/')));
   });
 });
 

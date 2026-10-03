@@ -72,7 +72,7 @@ export interface HostLocations {
 interface Root {
   /** As configured. */
   readonly configured: string;
-  /** Its name for people ({@link rootLabels}). */
+  /** Its name for people, unlike every other root's ({@link rootLabels}). */
   readonly label: string;
   /** Its real path when the control plane started, which is what clients are shown. */
   readonly real: string;
@@ -97,10 +97,10 @@ export function createHostLocations(
     return { configured, real, device: dev, inode: ino };
   });
   const labels = rootLabels(found.map((root) => root.real));
-  const known: Root[] = found.map((root) => ({
-    ...root,
-    label: labels.get(root.real) ?? nameOf(root.real),
-  }));
+  // A root configured twice, by the same or another spelling, is listed once.
+  const known: Root[] = found
+    .filter((root, index) => found.findIndex((other) => other.real === root.real) === index)
+    .map((root) => ({ ...root, label: labels.get(root.real) ?? nameOf(root.real) }));
 
   const rootOf = (path: string): Root | LocationRefusal =>
     known.find((root) => root.real === path || root.configured === path) ?? {
@@ -311,7 +311,8 @@ function listRoot(root: Root, users: ReadonlyMap<string, ProjectId[]>): Location
   if (available && rootChanged(root) !== null) {
     return {
       path: root.real,
-      name: root.label,
+      name: nameOf(root.real),
+      label: root.label,
       status: 'missing',
       repository: null,
       changed_at: null,
@@ -322,7 +323,8 @@ function listRoot(root: Root, users: ReadonlyMap<string, ProjectId[]>): Location
   }
   return {
     path: root.real,
-    name: root.label,
+    name: nameOf(root.real),
+    label: root.label,
     status: available ? 'available' : 'missing',
     ...(rootFacts ?? { repository: null, changed_at: null, used_by: [] }),
     folders,
@@ -524,55 +526,89 @@ function nameOf(path: string): string {
 /** The longest name a root is given, as the contract's `DisplayName` allows. */
 const MAX_LABEL = 255;
 
+/** Names alike but for case or compatibility forms count as the same name. */
+function folded(name: string): string {
+  return name.normalize('NFKC').toLowerCase();
+}
+
+/** At most `limit` UTF-16 units of `text`, never splitting a character in two, ending in "…" when cut. */
+function cut(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  let end = Math.max(0, limit - 1);
+  const last = text.charCodeAt(end - 1);
+  if (end > 0 && last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return `${text.slice(0, end)}…`;
+}
+
 /**
- * Each root's name for people, by its real path: its folder's own name, or, where two roots share
- * one (case and compatibility forms aside), that name with the nearest folder above it that tells
- * them apart, as "Projects (Work)" beside "Projects (person)". A level further up is named only
- * where the one below still leaves them alike. Never a path; the same path, configured twice, is
- * one root with one name.
+ * Each root's name for people, by its real path: its folder's own name, or, where that name is
+ * another root's too, the name with a folder above it that tells them apart, as "Projects (Work)"
+ * beside "Projects (person)". A root directly inside `/Volumes`, a drive, says "(drive)". The nearest
+ * folder above is tried first, and one further up only for the roots still alike; where nothing above
+ * tells them apart, a number does, "Projects (old) 2", in the order of their paths. Every label differs
+ * from every other once case and compatibility forms are folded, so no two roots ever read the same.
+ * Never a path; the same path, configured twice, is one root with one name.
  */
 export function rootLabels(paths: readonly string[]): Map<string, string> {
-  const unique = [...new Set(paths)];
-  const alike = (name: string) => name.normalize('NFKC').toLowerCase();
+  const unique = [...new Set(paths)].sort();
+  const segments = new Map(
+    unique.map((path) => [path, path.split(sep).filter((part) => part.length > 0)]),
+  );
   const above = (path: string, depth: number): string | null => {
-    const segments = path.split(sep).filter((segment) => segment.length > 0);
-    return segments[segments.length - 1 - depth] ?? null;
+    const parts = segments.get(path) ?? [];
+    const index = parts.length - 1 - depth;
+    if (index < 0) return null;
+    // A drive's own folder sits in /Volumes, which says nothing a person knows it by.
+    if (depth === 1 && parts.length === 2 && parts[0] === 'Volumes') return 'drive';
+    return parts[index] ?? null;
   };
   const labelled = (path: string, depth: number): string => {
     const name = nameOf(path);
     const parent = depth === 0 ? null : above(path, depth);
-    if (parent === null) return name;
-    const room = MAX_LABEL - name.length - 3;
-    if (room < 2) return name;
-    return `${name} (${parent.length <= room ? parent : `${parent.slice(0, room - 1)}…`})`;
+    if (parent === null || name.length + 5 > MAX_LABEL) return cut(name, MAX_LABEL);
+    return `${name} (${cut(parent, MAX_LABEL - name.length - 3)})`;
   };
-  const labels = new Map<string, string>();
-  const groups = new Map<string, string[]>();
-  for (const path of unique) {
-    const key = alike(nameOf(path));
-    groups.set(key, [...(groups.get(key) ?? []), path]);
-  }
-  for (const group of groups.values()) {
-    let pending = group;
-    let depth = 0;
-    while (pending.length > 0) {
-      const current = new Map(pending.map((path) => [path, labelled(path, depth)]));
-      const byLabel = new Map<string, string[]>();
-      for (const path of pending) {
-        const key = alike(current.get(path) ?? '');
-        byLabel.set(key, [...(byLabel.get(key) ?? []), path]);
-      }
-      pending = [];
-      for (const same of byLabel.values()) {
-        // Alone, or nothing above is left to tell them apart: named as they are now.
-        if (same.length === 1 || same.every((path) => above(path, depth + 1) === null)) {
-          for (const path of same) labels.set(path, current.get(path) ?? nameOf(path));
-        } else {
-          pending.push(...same);
-        }
-      }
-      depth += 1;
+  const groups = (labels: Map<string, string>): string[][] => {
+    const byLabel = new Map<string, string[]>();
+    for (const [path, label] of labels) {
+      const key = folded(label);
+      byLabel.set(key, [...(byLabel.get(key) ?? []), path]);
     }
+    return [...byLabel.values()].filter((same) => same.length > 1);
+  };
+  const labels = new Map(unique.map((path) => [path, labelled(path, 0)]));
+  const depthOf = new Map(unique.map((path) => [path, 0]));
+  for (let round = 0; round < 64; round += 1) {
+    const movable: string[] = [];
+    for (const same of groups(labels)) {
+      // A root named by its own folder alone keeps it: only a label made from a folder above moves on,
+      // unless every root that reads alike is named by its own folder.
+      const made = same.filter((path) => (depthOf.get(path) ?? 0) > 0);
+      const moving = made.length > 0 && made.length < same.length ? made : same;
+      // Only roots that still have a folder above to name go a level up.
+      movable.push(...moving.filter((path) => above(path, (depthOf.get(path) ?? 0) + 1) !== null));
+    }
+    if (movable.length === 0) break;
+    for (const path of movable) {
+      const depth = (depthOf.get(path) ?? 0) + 1;
+      depthOf.set(path, depth);
+      labels.set(path, labelled(path, depth));
+    }
+  }
+  // Whatever still reads alike is told apart by a number, the first by path keeping its label.
+  const clash = new Set(groups(labels).flat());
+  const seen = new Set<string>();
+  for (const path of unique.filter((each) => clash.has(each))) {
+    const label = labels.get(path) ?? nameOf(path);
+    if (!seen.has(folded(label))) {
+      seen.add(folded(label));
+      continue;
+    }
+    const taken = new Set([...labels.values()].map(folded));
+    let count = 2;
+    const numbered = () => `${cut(label, MAX_LABEL - String(count).length - 1)} ${count}`;
+    while (taken.has(folded(numbered()))) count += 1;
+    labels.set(path, numbered());
   }
   return labels;
 }
