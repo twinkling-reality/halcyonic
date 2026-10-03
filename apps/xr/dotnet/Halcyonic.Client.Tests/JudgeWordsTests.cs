@@ -64,6 +64,8 @@ public class JudgeWordsTests
             Gather(JToken.FromObject(model, Serializer), words);
         }
 
+        // New project's companion as recorded, every turn whole, whether or not a path draws it.
+        foreach (var word in CompanionWords(Companion())) Add(word);
         // The menu's places (ADR 0026), on its bar whichever is open.
         foreach (var place in MenuBar.Places) Add(MenuBar.Word(place));
         // Usage in the demonstration, and each limit's side panel; Settings, each setting chosen, before and after its change.
@@ -205,6 +207,54 @@ public class JudgeWordsTests
             }
         });
         return words;
+    }
+
+    /// <summary>The companion's recording the headset bundles.</summary>
+    private static CompanionRecording Companion() => CompanionRecording.Parse(System.IO.File.ReadAllText(Repository.PathTo(
+        "apps/xr/Assets/Halcyonic/Resources/" + CompanionRecording.ResourceName + ".json")));
+
+    /// <summary>
+    /// Every word of the companion's recording a judge can be shown: the idea, the person's turns, each
+    /// reply's line, a question's text and choices, and the proposal's name and first task. Named field
+    /// by field, so the model's name, kept in the file for the record and never shown, stays out.
+    /// </summary>
+    internal static IEnumerable<string> CompanionWords(CompanionRecording recording)
+    {
+        yield return recording.Idea;
+        foreach (var turn in recording.Turns)
+        {
+            switch (turn)
+            {
+                case PersonTurn person:
+                    yield return person.Text;
+                    break;
+                case CompanionTurn companion:
+                    yield return companion.Reply.Line;
+                    if (companion.Reply is AskReply ask)
+                    {
+                        yield return ask.Question.Text;
+                        foreach (var choice in ask.Question.Choices) yield return choice;
+                    }
+                    if (companion.Reply is ProposeReply propose)
+                    {
+                        yield return propose.Proposal.ProjectName;
+                        yield return propose.Proposal.FirstTask;
+                    }
+                    break;
+            }
+        }
+    }
+
+    [Test]
+    public void TheCompanionsRecordingShowsNoBrandAndNeverItsModel()
+    {
+        var recording = Companion();
+        var words = CompanionWords(recording).ToList();
+        Assert.That(words.Count, Is.GreaterThan(recording.Turns.Count), "every turn's words, and the question's choices");
+        Assert.That(Branded(words), Is.Empty);
+        var file = System.IO.File.ReadAllText(Repository.PathTo("apps/xr/Assets/Halcyonic/Resources/" + CompanionRecording.ResourceName + ".json"));
+        var model = Newtonsoft.Json.Linq.JObject.Parse(file).Value<string>("model")!;
+        Assert.That(words.Any(word => word.Contains(model, StringComparison.OrdinalIgnoreCase)), Is.False, "the model's name is kept for the record and never shown");
     }
 
     /// <summary>A menu's host for its words alone, in the demonstration: the session as it stands, sending nothing.</summary>
