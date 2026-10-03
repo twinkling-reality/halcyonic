@@ -371,7 +371,7 @@ public class CompanionWordsTests
     {
         var all = new[]
         {
-            CompanionText.Note, CompanionText.NotSetUp, CompanionText.CantRun, CompanionText.TooSlow, CompanionText.Unreadable,
+            CompanionText.Note, CompanionText.SideNote, CompanionText.NotSetUp, CompanionText.CantRun, CompanionText.TooSlow, CompanionText.Unreadable,
             CompanionText.Busy, CompanionText.Unreached, CompanionText.TooMany, CompanionText.CouldNotAsk, CompanionText.Full,
             CompanionText.WaitingLong, CompanionText.Recorded, CompanionText.TalkItThrough, CompanionText.Suggested,
             CompanionText.MakeTheRecap, CompanionText.GoOnWithout, CompanionText.UseMyWords, CompanionText.TypeAnswer, CompanionText.TooLong(2000),

@@ -444,7 +444,10 @@ public class NewProjectRecapTests
         {
             (CompanionText.Suggested, idea.FirstTask), (CompanionText.YourOwnWords, "something for my running club"),
         }));
-        Assert.That(frame.Side.Source, Is.EqualTo(CompanionText.Note));
+        Assert.That((frame.Side.Source, frame.Source), Is.EqualTo((CompanionText.SideNote, CompanionText.Note)),
+            "the side panel's shorter note, the page keeping the whole");
+        Assert.That(NewProjectScreens.Recap(idea, Draft(), null, live: true, notice: null, problem: null, chosen: RecapFact.Name).Side!.Source,
+            Is.EqualTo(CompanionText.SideNote), "a suggested name's side panel too");
         Assert.That(frame.Footer[PromptSlot.Rare]!.Id, Is.EqualTo(NewProjectScreens.ChangeTask));
         Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "no prompt beyond Close, the change and Start building");
 

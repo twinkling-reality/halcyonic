@@ -777,16 +777,16 @@ namespace Halcyonic.Client
                     var named = idea.Name.Length > 0;
                     return new SidePanel(EntryText.ProjectName,
                         lines: new[] { new PageLine(named ? LabelText.Plain(idea.Name) : EntryText.NotNamedYet, wordsAreData: named, rows: 2) },
-                        source: idea.NameSuggested ? CompanionText.Note : null);
+                        source: idea.NameSuggested ? CompanionText.SideNote : null);
                 case RecapFact.FirstTask when idea.TaskSuggested && idea.OwnWords != null:
                     return new SidePanel(EntryText.FirstTask, facts: new[]
                     {
                         new SideFact(CompanionText.Suggested, LabelText.Plain(idea.FirstTask), valueIsData: true),
                         new SideFact(CompanionText.YourOwnWords, LabelText.Plain(idea.OwnWords), valueIsData: true),
-                    }, source: CompanionText.Note);
+                    }, source: CompanionText.SideNote);
                 case RecapFact.FirstTask:
                     return new SidePanel(EntryText.FirstTask, lines: new[] { new PageLine(LabelText.Plain(idea.FirstTask), wordsAreData: true, rows: 8) },
-                        source: idea.TaskSuggested ? CompanionText.Note : null);
+                        source: idea.TaskSuggested ? CompanionText.SideNote : null);
                 case RecapFact.StartOver:
                     return new SidePanel(EntryText.StartOver, lines: new[] { new PageLine(EntryText.StartOverClears(idea.ExistingProjectId != null), rows: 4) });
                 case RecapFact.Folder:

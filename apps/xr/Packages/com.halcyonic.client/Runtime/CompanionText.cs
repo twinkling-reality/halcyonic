@@ -21,6 +21,13 @@ namespace Halcyonic.Client
         /// <summary>Over the exchange: what the companion is, and that it can be wrong.</summary>
         public const string Note = "The companion is an AI on " + HostText.Your + ". It can be wrong, and you can change everything before you start.";
 
+        /// <summary>
+        /// The same on a side panel showing what the companion suggested, where <see cref="Note"/> needs
+        /// three rows of a 26 degree column and a note has two; the side panel's Change stands beside it
+        /// (the coordinator, 2026-10-03).
+        /// </summary>
+        public const string SideNote = "An AI on " + HostText.Your + " suggested this. It can be wrong.";
+
         /// <summary>The companion's line, quoted and tagged as its own.</summary>
         public static string Says(string line) => "The companion says: “" + LabelText.Plain(line) + "”";
 
