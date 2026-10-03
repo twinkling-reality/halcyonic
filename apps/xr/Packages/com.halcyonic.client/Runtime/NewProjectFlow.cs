@@ -226,12 +226,12 @@ namespace Halcyonic.Client
             switch (step)
             {
                 case NewProjectStep.YourIdea:
-                    return NewProjectScreens.YourIdea(current, ideaRow, reached, Voice, Said(step), CompanionShown());
+                    return NewProjectScreens.YourIdea(current, ideaRow, reached, Voice, Said(step), CompanionShown(), host.KeyboardOffered);
                 case NewProjectStep.Questions when current.Companion != null && !(current.Companion.Left && current.Guided):
                     var waited = current.Companion.Waiting ? host.Now - companionSince : 0;
-                    return NewProjectScreens.Questions(current, reached, Voice, Said(step), waited, recording);
+                    return NewProjectScreens.Questions(current, reached, Voice, Said(step), waited, recording, host.KeyboardOffered);
                 case NewProjectStep.Questions when current.Guided && current.Question < ProjectIdea.Questions.Count:
-                    return NewProjectScreens.FixedQuestion(current, reached, Voice, Said(step));
+                    return NewProjectScreens.FixedQuestion(current, reached, Voice, Said(step), host.KeyboardOffered);
                 case NewProjectStep.Questions:
                     step = current.HasRecap ? NewProjectStep.Recap : NewProjectStep.YourIdea;
                     return Build();
@@ -242,11 +242,11 @@ namespace Halcyonic.Client
                 case NewProjectStep.Recap:
                     return recapPage switch
                     {
-                        RecapPage.Task => NewProjectScreens.RecapTask(current, reached, Voice, Said(step)),
+                        RecapPage.Task => NewProjectScreens.RecapTask(current, reached, Voice, Said(step), host.KeyboardOffered),
                         RecapPage.Folder => NewProjectScreens.RecapFolder(current, reached, locations, locationsProblem, Said(step)),
                         RecapPage.Options => NewProjectScreens.RecapOptions(current, reached, draft, host.State?.Runtimes ?? new List<RuntimeDescriptor>(),
                             showModels, Live),
-                        RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot),
+                        RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
                             Building() || OutcomeUnknown ? problem : null),
                     };
@@ -325,6 +325,9 @@ namespace Halcyonic.Client
                     break;
 
                 // Your idea.
+                case NewProjectScreens.TypeIdea when !host.KeyboardOffered:
+                    if (current.OwnWords != null) ideaRow = IdeaRow.Typed;
+                    break;
                 case NewProjectScreens.TypeIdea:
                     host.OpenKeyboard(current.OwnWords ?? "", current.ExistingProjectId == null ? EntryText.IdeaPrompt : EntryText.WorkPrompt, text =>
                     {
@@ -362,6 +365,9 @@ namespace Halcyonic.Client
                     var suggestion = (exchange.Latest as AskReply)?.Question?.Choices?.IndexOf(key) ?? -1;
                     if (suggestion >= 0 && (recording == null || key == recording.RecordedAnswer(exchange))) exchange.Choose(suggestion);
                     break;
+                case NewProjectScreens.TypeAnswer when exchange != null && recording == null && !host.KeyboardOffered:
+                    if (exchange.Written != null) exchange.Write(exchange.Written, exchange.WrittenHeard);
+                    break;
                 case NewProjectScreens.TypeAnswer when exchange != null && recording == null:
                     host.OpenKeyboard(exchange.Written ?? "", CompanionText.TypeAnswer, text =>
                     {
@@ -393,6 +399,9 @@ namespace Halcyonic.Client
                 // The fixed questions.
                 case NewProjectScreens.ChooseFixedAnswer when key != null:
                     current.ChooseGuideAnswer(key);
+                    break;
+                case NewProjectScreens.TypeFixedAnswer when current.Question < ProjectIdea.Questions.Count && !host.KeyboardOffered:
+                    if (current.GuideWritten != null) current.WriteGuideAnswer(current.GuideWritten, current.GuideWrittenHeard);
                     break;
                 case NewProjectScreens.TypeFixedAnswer when current.Question < ProjectIdea.Questions.Count:
                     var asked = current.Question;
@@ -470,6 +479,9 @@ namespace Halcyonic.Client
                     break;
                 case NewProjectScreens.UseMyWords:
                     current.UseOwnWords();
+                    break;
+                case NewProjectScreens.TypeTask when !host.KeyboardOffered:
+                    // Shown only once it holds the task, which is then the one chosen.
                     break;
                 case NewProjectScreens.TypeTask:
                     host.OpenKeyboard(current.FirstTask, EntryText.WhatFirstTask, text =>
@@ -640,7 +652,7 @@ namespace Halcyonic.Client
         private string BuiltFrom()
         {
             var waitedLong = idea?.Companion?.Waiting == true && host.Now - companionSince >= CompanionText.WaitingLongSeconds;
-            return string.Join("|", StartProblem() ?? "", host.Connected, waitedLong, host.State?.Position ?? -1, host.TextSize);
+            return string.Join("|", StartProblem() ?? "", host.Connected, waitedLong, host.State?.Position ?? -1, host.TextSize, host.KeyboardOffered);
         }
 
         /// <summary>The frame changed: built again when asked, and the director told.</summary>
