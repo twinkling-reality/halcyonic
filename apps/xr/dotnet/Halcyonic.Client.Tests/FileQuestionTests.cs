@@ -255,7 +255,7 @@ public class FileQuestionTests
         Assert.That(draft.WasShownWhole(0), Is.True, "every part drawn");
 
         var answers = Screen(workspace, screen);
-        Assert.That((answers.Lines[0].Rows, answers.Lines[0].FromRow), Is.EqualTo((1, 0)), "its answers are headed by its first row, cut");
+        Assert.That((answers.Lines[0].Rows, answers.Lines[0].FromRow), Is.EqualTo((1, (int?)null)), "its answers are headed by its first row, cut with an ellipsis");
         screen.Question.Choose(0);
         Assert.That(Screen(workspace, screen).Footer[PromptSlot.FarRight]!.Available, Is.True);
     }
