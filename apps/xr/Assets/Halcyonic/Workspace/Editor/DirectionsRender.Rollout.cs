@@ -24,7 +24,7 @@ namespace Halcyonic.XR.Workspace.Editor
             ("r14-creating-questions-too-long", false, shot => Lay(Facing.Eyes, () => NewProjectQuestions(shot, view: true, tooLong: true))),
         };
 
-        private static readonly string[] Steps = { "Your idea", "Questions", "Recap", "Start building" };
+        private static readonly string[] Steps = { "Your idea", "Questions", "Recap", "Build" };
 
         private static Color Plain => new Color(0.93f, 0.95f, 0.97f, 0.9f);
 

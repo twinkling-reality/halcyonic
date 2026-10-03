@@ -52,8 +52,8 @@ the page's shape at its bottom.
   at its left: the same badge as the character's label on the stage, its word at 18 dp. Every
   column's subject keeps the pill's room, so the plates and titles stay level.
 - **The row of shapes**: the menu's places (Tasks, Projects, Usage, Settings), a file's sections
-  (Waiting, Activity, Changes, Checks) or New project's steps (Your idea, Questions, Recap, Start
-  building). Each is its own rounded shape, the chosen one lit, an amber dot on the one that waits.
+  (Waiting, Activity, Changes, Checks) or New project's steps (Your idea, Questions, Recap, Build).
+  Each is its own rounded shape, the chosen one lit, an amber dot on the one that waits.
   New project's steps are its way back; there is no Back prompt.
 - **The page**: a few short lines, rows and answers, then the footer.
 - **A side panel**: its subject, then facts, each a name in the secondary colour over its value, both

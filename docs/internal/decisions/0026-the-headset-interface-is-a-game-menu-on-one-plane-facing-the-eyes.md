@@ -61,7 +61,7 @@ centre, which keeps every word at its size.
   subject keeps the pill's room, so the plates and titles stay level. The section tabs stay a row of
   separate shapes.
 - **New project** shows its steps as a row of shapes, as a file shows its sections: Your idea,
-  Questions, Recap, Start building. The companion's turn is the Questions page; the recap and the
+  Questions, Recap, Build. The companion's turn is the Questions page; the recap and the
   paged review before Yes, start building keep their rules.
 - **A footer of prompts.** Each action is a round key cap holding its icon, then its words, with no
   plate. Hit areas are 60 dp tall, unseen, 12 mm apart. Close is always far left; the one main action
