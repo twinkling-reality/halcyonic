@@ -171,7 +171,6 @@ namespace Halcyonic.XR.Workspace
             if (director == null) return;
             director.WorkOpened += OnWorkOpened;
             director.WorkClosed += OnWorkClosed;
-            FocusGuard.Left += OnFocusLeft;
         }
 
         private void OnDisable()
@@ -179,7 +178,6 @@ namespace Halcyonic.XR.Workspace
             if (director == null) return;
             director.WorkOpened -= OnWorkOpened;
             director.WorkClosed -= OnWorkClosed;
-            FocusGuard.Left -= OnFocusLeft;
         }
 
         private void OnDestroy()
