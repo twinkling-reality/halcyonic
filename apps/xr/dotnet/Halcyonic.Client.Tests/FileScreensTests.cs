@@ -219,6 +219,20 @@ public class FileScreensTests
     }
 
     [Test]
+    public void AnAnswersSourceLineIsDataAndTheAgentsIsHalcyonicsOwn()
+    {
+        var screen = Read(FileSection.Checks);
+        screen.Chosen = FileScreens.ChecksKey;
+        var checks = Screen(screen, room: AnswerRoom.Unlimited);
+        Assert.That((checks.Source, checks.SourceIsData), Is.EqualTo((checks.Source, true)), "an answer's provenance holds a source's version and errors");
+        Assert.That(checks.Side!.SourceIsData, Is.True);
+        var changes = Screen(Read(FileSection.Changes));
+        Assert.That(changes.SourceIsData, Is.True);
+        var activity = Screen(new FileScreen { Section = FileSection.Activity });
+        Assert.That((activity.Source, activity.SourceIsData), Is.EqualTo((FileScreens.AgentSource, false)));
+    }
+
+    [Test]
     public void ASidePanelInPartsTakesTheFootersNextPage()
     {
         var screen = Read(FileSection.Checks);
