@@ -90,7 +90,8 @@ namespace Halcyonic.Client
     /// change does, and the footer offers that change as its main action, while paging waits. A change
     /// that asks first (<see cref="SettingNow.Confirm"/>) arms on that press: Cancel takes its place and
     /// Yes stands in the free middle (ADR 0023), lapsing after <see cref="ConfirmSeconds"/>, when focus
-    /// leaves, when Settings leaves the plane, or when the change can no longer be made. What a row shows
+    /// leaves, when Settings leaves the plane, when the change can no longer be made, or when anything the
+    /// setting shows changes, so a Forget armed for one computer never forgets another. What a row shows
     /// is read each frame, so a change made elsewhere, as pairing finishing, shows without a press.
     /// Settings sends nothing: each change is its owner's, on this device.
     /// </summary>
@@ -115,9 +116,10 @@ namespace Halcyonic.Client
         private string? chosen;
         private int page;
 
-        /// <summary>The setting whose change is armed, and when it was.</summary>
+        /// <summary>The setting whose change is armed, when it was, and all it showed then.</summary>
         private string? armed;
         private double armedAt;
+        private string? armedShown;
 
         /// <summary>What the frame given last showed of every setting, to raise Changed when a value moves without a press.</summary>
         private string? given;
@@ -193,12 +195,13 @@ namespace Halcyonic.Client
                     {
                         armed = open.Key;
                         armedAt = host.Now;
+                        armedShown = now.Shown;
                     }
                     else open.Change();
                     Changed?.Invoke();
                     break;
                 case Yes when armed != null && armed == chosen && Open() is MenuSetting confirmed && confirmed.Read() is SettingNow ready && ready.Reason == null
-                    && ready.Confirm != null:
+                    && ready.Confirm != null && ready.Shown == armedShown:
                     armed = null;
                     confirmed.Change();
                     Changed?.Invoke();
@@ -246,7 +249,7 @@ namespace Halcyonic.Client
         public void Tick()
         {
             if (armed != null && (host.Now - armedAt >= ConfirmSeconds || !(Open() is MenuSetting open) || open.Key != armed
-                || open.Read() is SettingNow now && (now.Reason != null || now.Confirm == null)))
+                || open.Read() is SettingNow now && (now.Reason != null || now.Confirm == null || now.Shown != armedShown)))
             {
                 armed = null;
                 Changed?.Invoke();

@@ -277,6 +277,18 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The plane moved, as on Reset position: the same frames stand, but not where they were drawn, so
+        /// a press on them is passed over until they are drawn in their new place.
+        /// </summary>
+        public void Moved()
+        {
+            drawnMenu = null;
+            drawnBeside = null;
+            drawnSide = null;
+            drawnSideOf = null;
+        }
+
+        /// <summary>
         /// What shows changed: the frames drawn so far are no longer what the columns stand by, so a late
         /// draw of one, or a press on one, is passed over until they are drawn again.
         /// </summary>
@@ -286,10 +298,7 @@ namespace Halcyonic.Client
             placeFrame = null;
             menuFrame = null;
             besideFrame = null;
-            drawnMenu = null;
-            drawnBeside = null;
-            drawnSide = null;
-            drawnSideOf = null;
+            Moved();
             Changed?.Invoke();
         }
     }
