@@ -61,6 +61,13 @@ namespace Halcyonic.Client
         /// <summary>The column beside the menu, a task's file or New project, or null.</summary>
         public IMenuColumn? Beside { get; private set; }
 
+        /// <summary>
+        /// The menu's details stand in front of the column beside it: the menu's chosen row opened its side
+        /// panel, so that column steps aside off the plane until they close, and nothing on its last drawn
+        /// frame counts meanwhile.
+        /// </summary>
+        public bool BesideAside => IsOpen && Beside != null && placeFrame?.Side != null;
+
         /// <summary>The task whose file stands beside the menu, for its character's light line and the chosen row on Tasks; null for New project.</summary>
         public string? BesideTask { get; private set; }
 
@@ -200,7 +207,7 @@ namespace Halcyonic.Client
         public IMenuColumn? Standing(MenuColumn from, MenuFrame? frame, SidePanel? side) => from switch
         {
             MenuColumn.Menu => IsOpen && frame != null && frame == drawnMenu ? PlaceColumn : null,
-            MenuColumn.File => Beside != null && frame != null && frame == drawnBeside ? Beside : null,
+            MenuColumn.File => Beside != null && !BesideAside && frame != null && frame == drawnBeside ? Beside : null,
             _ => side != null && side == drawnSide ? drawnSideOf : null,
         };
 
@@ -221,13 +228,14 @@ namespace Halcyonic.Client
                     PlaceColumn.Drawn(placeFrame, false);
                     return;
                 case MenuColumn.File:
-                    if (Beside == null || besideFrame == null || frame != besideFrame) return;
+                    if (Beside == null || BesideAside || besideFrame == null || frame != besideFrame) return;
                     drawnBeside = frame;
                     Beside.Drawn(besideFrame, false);
                     return;
                 default:
-                    // As the plane has it: the file's side panel where a file stands, else the menu's.
-                    var front = besideFrame ?? menuFrame;
+                    // As the plane has it: the file's side panel where a file stands, else the menu's, as
+                    // when the menu's details stand in front of the file.
+                    var front = BesideAside ? menuFrame : besideFrame ?? menuFrame;
                     if (side == null || front == null || side != front.Side) return;
                     drawnSide = side;
                     drawnSideFrame = front;
@@ -259,7 +267,7 @@ namespace Halcyonic.Client
         {
             MenuColumn.Menu => IsOpen ? PlaceColumn : null,
             MenuColumn.File => Beside,
-            _ => Beside ?? (IsOpen ? PlaceColumn : null),
+            _ => BesideAside ? PlaceColumn : Beside ?? (IsOpen ? PlaceColumn : null),
         };
 
         /// <summary>Once a frame: every open column looks at what it awaits.</summary>

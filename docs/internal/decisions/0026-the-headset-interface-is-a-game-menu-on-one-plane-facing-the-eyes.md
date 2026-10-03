@@ -258,7 +258,11 @@ coordinator's first-visit words:
   gaps, past a Quest 3S's 93. When a file beside the menu opens a side panel, or the two don't fit
   the field together, as with a page taller than the menu's rows leave or a file's title on two
   rows, the menu steps aside, off the plane, with the re-centring's eased slide; it comes back once
-  the side panel is closed and the two fit again, or the file closes.
+  the side panel is closed and the two fit again, or the file closes. Amended 2026-10-03: the other
+  way round too, when a row chosen in the menu opens its details with a file beside it, the menu's
+  details take the front and the file steps aside, off the plane to the right, with the same slide,
+  taking no press meanwhile; when the details close, it comes back. So no menu action acts on details
+  the person never sees, and they see what they just chose.
 - **Beside a window**, with the characters either side of a window straight ahead, the menu or a
   file opens centred under the window, between them, one at a time: the two together clear the
   characters' labels only 61 degrees below eye level, far past the field, so a file opened there

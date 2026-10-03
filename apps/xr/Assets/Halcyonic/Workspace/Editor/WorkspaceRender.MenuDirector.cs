@@ -218,6 +218,23 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Navigator.Beside != file) failures.Add(name + ": choosing a place took the file away.");
                 failures.AddRange(PlaneState(name + " director settings", folder, camera, texture, director.Plane, characters, eyes, null));
 
+                // A setting chosen with the file beside the menu: the details take the front, the file steps
+                // aside and takes nothing meanwhile; another setting chosen, then Close details, and it is back.
+                var fileDrawn = director.Plane.Showing(MenuColumn.File);
+                director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size", director.Plane.Showing(MenuColumn.Menu), null);
+                director.DrawNow();
+                if (!director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) != null) failures.Add(name + ": a setting chosen beside the file, and the file still stands on the plane.");
+                if (director.Navigator.Act(MenuColumn.File, "render-press", null, fileDrawn, null)) failures.Add(name + ": the file took a press while it stood aside.");
+                failures.AddRange(PlaneState(name + " director setting over a file", folder, camera, texture, director.Plane, characters, eyes, null));
+                director.Navigator.Act(MenuColumn.Menu, SettingsColumn.OpenSetting, "sounds", director.Plane.Showing(MenuColumn.Menu), null);
+                director.DrawNow();
+                failures.AddRange(PlaneState(name + " director another setting over a file", folder, camera, texture, director.Plane, characters, eyes, null));
+                var details = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View;
+                if (details == null || !director.Navigator.Act(MenuColumn.Side, SidePanel.Close, null, null, details.Side)) failures.Add(name + ": the setting's details took no Close.");
+                director.DrawNow();
+                if (director.Plane.FileAside || director.Plane.Showing(MenuColumn.File) == null) failures.Add(name + ": the details closed, and the file did not come back.");
+                failures.AddRange(PlaneState(name + " director file back from a setting", folder, camera, texture, director.Plane, characters, eyes, null));
+
                 // The file's Close, then the menu's: the closed bar alone.
                 // The file's Close; then, the menu alone on Settings, its text size chosen: its change stays
                 // drawn and pressable, at the larger text too, so the person can always turn it back.

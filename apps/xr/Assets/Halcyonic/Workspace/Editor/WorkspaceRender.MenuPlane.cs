@@ -103,6 +103,29 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 failures.AddRange(PlaneState(name + " menu back", folder, camera, texture, plane, characters, eyes, window));
 
+                // A setting chosen with the file beside the menu: the menu's details take the front, and the
+                // file steps aside to the right, off the plane, until they close.
+                var fileShown = plane.Shown.Where(column => column.Kind == MenuColumn.File).Select(column => column.View.Subject.position).ToList();
+                plane.Show(bar, SettingChosen(), WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface,
+                    besideWindow: besideWindow);
+                plane.Advance(MenuPlane.SlideSeconds / 2f);
+                var fileView = FindView(plane, "File");
+                if (fileShown.Count > 0 && fileView != null && fileView.gameObject.activeSelf && Vector3.Dot(fileView.Subject.position - fileShown[0], PlaneLayout.Facing(plane.Direction) * Vector3.right) <= 0f)
+                {
+                    failures.Add(name + ": halfway through stepping aside for the menu's details, the file has not moved right.");
+                }
+                plane.Advance(MenuPlane.SlideSeconds);
+                if (!plane.FileAside || plane.Shown.Any(column => column.Kind == MenuColumn.File)) failures.Add(name + ": a setting chosen beside a file, and the file still stands on the plane.");
+                if (fileView != null && fileView.gameObject.activeSelf) failures.Add(name + ": the file still shows after stepping aside.");
+                if (plane.Shown.All(column => column.Kind != MenuColumn.Side)) failures.Add(name + ": a setting chosen beside a file, and its details don't show.");
+                failures.AddRange(PlaneState(name + " details over a file", folder, camera, texture, plane, characters, eyes, window));
+
+                // Close details: the file comes back.
+                plane.Show(bar, menu, WaitingFile(opened.View.Presentation!.Title, badge, chosen: false, budget), opened.Target, targets, eyes, looking, surface, besideWindow: besideWindow);
+                plane.Advance(MenuPlane.SlideSeconds);
+                if (plane.FileAside || plane.Shown.All(column => column.Kind != MenuColumn.File)) failures.Add(name + ": the menu's details closed, and the file did not come back.");
+                failures.AddRange(PlaneState(name + " file back", folder, camera, texture, plane, characters, eyes, window));
+
                 // Closed, with no file open: the bar alone.
                 plane.Show(bar, null, null, null, targets, eyes, looking, surface, immediately: true, besideWindow: besideWindow);
                 if (plane.Bar == null) failures.Add(name + ": the menu closed with no file open shows no bar.");
@@ -161,6 +184,18 @@ namespace Halcyonic.XR.Workspace.Editor
         private static readonly Prompt PlaneClose = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
 
         /// <summary>Tasks: the waiting task chosen, <paramref name="count"/> rows, as many as the stage holds beside a file.</summary>
+        /// <summary>Settings with Text size chosen: its details beside it, its change the main action, safe on them.</summary>
+        private static MenuFrame SettingChosen() => new MenuFrame(SettingsText.Subject,
+            new Footer(PlaneClose, farRight: new Prompt("change", "Make text larger", GlazeIcon.Change, main: true, safeInPlace: true)),
+            sections: MenuBar.Places.Select(place => new FrameSection(place.ToString(), MenuBar.Word(place), chosen: place == MenuPlace.Settings)).ToList(),
+            lines: new[]
+            {
+                new PageLine("Comfort", tone: LineTone.Secondary),
+                new PageLine("Text size", fact: "Standard", action: "settings-open-setting", key: "text-size", opens: true, chosen: true),
+                new PageLine("Moving badges", fact: "On", action: "settings-open-setting", key: "moving-badges", opens: true),
+            },
+            side: new SidePanel("Text size", facts: new[] { new SideFact("Now", "The standard size"), new SideFact("A step larger", "Text 15 percent larger, and 3 rows a page") }));
+
         private static MenuFrame Tasks(TextSize text, string waiting, int count)
         {
             var rows = new[]

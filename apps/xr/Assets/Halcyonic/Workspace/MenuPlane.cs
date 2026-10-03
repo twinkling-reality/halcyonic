@@ -90,6 +90,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The menu is open but stands aside for the file.</summary>
         public bool MenuAside { get; private set; }
 
+        /// <summary>
+        /// The menu's details stand in front of the file beside it: the menu's chosen row opened its side
+        /// panel, so the file steps aside off the plane, to the right, until they close (ADR 0026).
+        /// </summary>
+        public bool FileAside { get; private set; }
+
         /// <summary>The closed bar, while it shows.</summary>
         public MenuBarView? Bar => bar.gameObject.activeSelf ? bar : null;
 
@@ -166,6 +172,15 @@ namespace Halcyonic.XR.Workspace
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false)
         {
             eyes = at;
+            // The menu's details take the front over a file beside it: laid as if no file stood there, the
+            // file stepping aside until they close, so what the person just chose is what they see.
+            var wasFileAside = FileAside;
+            FileAside = menuFrame?.Side != null && fileFrame != null;
+            if (FileAside)
+            {
+                fileFrame = null;
+                fileCharacter = null;
+            }
             fileOf = fileFrame != null && !besideWindow ? fileCharacter : null;
             measured = -1f;
             var panel = fileFrame != null ? fileFrame.Side : menuFrame?.Side;
@@ -259,8 +274,9 @@ namespace Halcyonic.XR.Workspace
                 foreach (var placed in Composition.Parts)
                 {
                     if (placed.Column != c) continue;
-                    // The menu coming back slides in from where it stepped aside to.
-                    Vector3? from = kind == MenuColumn.Menu && wasAside ? Aside(placed, zoom) : (Vector3?)null;
+                    // The menu coming back slides in from where it stepped aside to, and the file from its side.
+                    Vector3? from = kind == MenuColumn.Menu && wasAside ? Aside(placed, zoom)
+                        : kind == MenuColumn.File && wasFileAside ? Aside(placed, zoom, toTheRight: true) : (Vector3?)null;
                     SlideTo(parts[index], placed, zoom, from, immediately || !WasShown(before, view));
                     if (index == parts.Count - 1) view.Settle(placed, zoom);
                     index++;
@@ -273,6 +289,11 @@ namespace Halcyonic.XR.Workspace
                 {
                     // Steps aside: slides left by its width and the gap, off the plane, then hides.
                     foreach (var part in view.Parts) SlideAway(part, Vector3.left);
+                }
+                else if (kind == MenuColumn.File && FileAside && !immediately)
+                {
+                    // Steps aside for the menu's details: slides right, off the plane, then hides.
+                    foreach (var part in view.Parts) SlideAway(part, Vector3.right);
                 }
                 else view.Hide();
             }
@@ -363,11 +384,11 @@ namespace Halcyonic.XR.Workspace
             return false;
         }
 
-        /// <summary>Where a part stood aside: its place on the plane, left by its column's width and the gap.</summary>
-        private Vector3 Aside(PlanePart placed, float zoom)
+        /// <summary>Where a part stood aside: its place on the plane, left, or for a file to the right, by its column's width and the gap.</summary>
+        private Vector3 Aside(PlanePart placed, float zoom, bool toTheRight = false)
         {
             var shift = placed.Width + PlaneComposition.ColumnGapMeters / PlaneComposition.Distance * zoom;
-            return PlaneLayout.PointOf(eyes, Direction, placed.Right - shift, placed.Up);
+            return PlaneLayout.PointOf(eyes, Direction, placed.Right + (toTheRight ? shift : -shift), placed.Up);
         }
 
         private void SlideTo(Transform part, PlanePart placed, float zoom, Vector3? from, bool immediately)
