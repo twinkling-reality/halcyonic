@@ -64,6 +64,39 @@ describe('error text before it is journaled', () => {
     for (const text of kept) assert.equal(redactSecrets(text, []), text, text);
   });
 
+  test('names built of words stay, however long, and random tokens of the same length go', () => {
+    const names = [
+      'SignInRateLimit2FactorAuthHandlerV2',
+      'RejectedExecutionExceptionHandler2024',
+      'feature-AddLoginPage-2026-10-03-final',
+      'MyComponentTest01UserProfileSettingsPage',
+      'HttpClientHandlerTests_SendAsync_Returns200',
+      'test_upgrade_on_the_proven_connection_v2_ok',
+    ];
+    for (const name of names) {
+      const text = `branch ${name} failed to build`;
+      assert.equal(redactSecrets(text, []), text, name);
+    }
+    const tokens = [
+      'q7Xk2pLm9vRt4wZb8nHc3jYd6fGs1aKe5uNo0iVx',
+      'Ab3dE7gH1jK5mN9pQ2sT6vW0yZ4bC8eF',
+      'x9Q_2mZ-7Lk4Pw8Rt1Vn5Hj3Bc6Gf0Ds-eYa',
+    ];
+    for (const token of tokens) {
+      assert.equal(redactSecrets(`key ${token} refused`, []), `key ${REDACTED} refused`, token);
+    }
+  });
+
+  test('a scheme word before a path keeps the path', () => {
+    const kept = [
+      'could not read token /Users/me/.config/gh/hosts.yml',
+      'Token ~/.netrc2 is not readable',
+      'bearer ./secrets/key1.txt not found',
+    ];
+    for (const text of kept) assert.equal(redactSecrets(text, []), text, text);
+    assert.equal(redactSecrets('token abc123def456', []), `token ${REDACTED}`);
+  });
+
   test('reads only the first 4096 characters, so a runtime line of any length takes no time', () => {
     // A long run joined by - . +, which a scheme pattern could restart at every boundary.
     const line = 'a-'.repeat(100_000);
