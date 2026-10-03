@@ -251,6 +251,14 @@ export class OpenCodeRuntimeAdapter implements RuntimeAdapter {
     return this.#current?.server.pid ?? null;
   }
 
+  /**
+   * The running server's password, which the host takes out of any runtime error text before it is
+   * journaled; nothing while no server runs.
+   */
+  secrets(): readonly string[] {
+    return this.#current === null ? [] : [this.#current.server.secret];
+  }
+
   validateStartOptions(options: RuntimeOptions, modelRef: string | null): OptionsValidation {
     const parsed = parseStartOptions(options, modelRef);
     return parsed.ok ? { ok: true } : { ok: false, message: parsed.message };

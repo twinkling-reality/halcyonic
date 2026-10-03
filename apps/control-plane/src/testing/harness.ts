@@ -66,6 +66,8 @@ export interface TestControlPlaneOptions {
   readonly adapters?: (time: VirtualTime) => RuntimeAdapter[];
   readonly logger?: Logger;
   readonly commandTimeoutMs?: number;
+  /** The secrets taken out of runtime error text before it is journaled; none by default. */
+  readonly secrets?: () => Iterable<string>;
   /** Defaults to Salidium at a location where it never runs. */
   readonly understanding?: UnderstandingSource;
   /** Defaults to Seorak without a credential, so it is never sent a request. */
@@ -97,6 +99,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     logger: options.logger ?? capturingLogger().logger,
     commandTimeoutMs: options.commandTimeoutMs ?? 30_000,
     ...(options.locations !== undefined && { locations: options.locations }),
+    ...(options.secrets !== undefined && { secrets: options.secrets }),
   });
   const commands = createCommandFactory(
     createUuidV7Generator({ now: () => time.now().getTime() }),

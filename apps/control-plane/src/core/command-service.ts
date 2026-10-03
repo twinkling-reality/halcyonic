@@ -59,6 +59,8 @@ export interface CommandServiceDeps {
   readonly logger: Logger;
   /** How long to wait for a runtime to confirm an action before recording it as failed. */
   readonly commandTimeoutMs: number;
+  /** A runtime's or provider's error text, credentials taken out, as it may be journaled (redaction.ts). */
+  readonly redact: (text: string) => string;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -389,6 +391,7 @@ export class CommandService {
           this.#deps.logger,
           execution,
           runtime.runtime_id,
+          this.#deps.redact,
         );
         void this.#perform(
           command,
@@ -464,7 +467,15 @@ export class CommandService {
           outcome.succeeded();
           return;
         case 'failed':
-          outcome.failed(toFailure(first.error));
+          if (!(first.error instanceof RuntimeActionError)) {
+            // A bug in an adapter: its type and where it happened, for the owner to find, never its
+            // message (errorForLog in http/server.ts).
+            this.#deps.logger.warn(
+              { command_id: command.command_id, err: first.error },
+              'runtime adapter failed unexpectedly',
+            );
+          }
+          outcome.failed(toFailure(first.error, this.#deps.redact));
           return;
         case 'timed_out':
           outcome.failed({
@@ -702,11 +713,12 @@ function unimplemented(action: string): CommandFailure {
 
 const CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
-function toFailure(error: unknown): CommandFailure {
+function toFailure(error: unknown, redact: (text: string) => string): CommandFailure {
   if (error instanceof RuntimeActionError) {
     return {
       code: CODE_PATTERN.test(error.code) ? error.code : 'runtime_error',
-      message: clip(error.message, 'The runtime refused the action.'),
+      // The runtime's own words, as Codex's error answer at start, credentials taken out.
+      message: clip(redact(error.message), 'The runtime refused the action.'),
       effect: error.effect,
     };
   }

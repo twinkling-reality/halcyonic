@@ -100,14 +100,26 @@ export class OpenCodeServer {
   readonly pid: number;
   /** Resolves when the server process has exited, for whatever reason. */
   readonly exited: Promise<ExitStatus>;
+  /**
+   * The password the server was started with, for taking out of error text before it is journaled;
+   * it goes nowhere else.
+   */
+  readonly secret: string;
   readonly #recordFile: string;
   #watchdog: ChildProcess | null = null;
   #exitStatus: ExitStatus | null = null;
   #cleanup: Promise<void> | null = null;
 
-  constructor(child: ChildProcess, pid: number, client: OpenCodeClient, recordFile: string) {
+  constructor(
+    child: ChildProcess,
+    pid: number,
+    client: OpenCodeClient,
+    recordFile: string,
+    secret: string,
+  ) {
     this.pid = pid;
     this.client = client;
+    this.secret = secret;
     this.#recordFile = recordFile;
     this.exited = new Promise((resolve) => {
       child.once('exit', (code, signal) => {
@@ -198,6 +210,7 @@ export async function launchServer(options: LaunchOptions): Promise<OpenCodeServ
     pid,
     new OpenCodeClient(`http://${LOOPBACK}:${port}`, password),
     options.recordFile,
+    password,
   );
   try {
     const record = await identify(server, options.binaryPath, port);

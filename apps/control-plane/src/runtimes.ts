@@ -5,7 +5,9 @@ import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import type { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import type { DirectoryPolicy, RuntimeAdapter } from '@halcyonic/runtime-core';
-import { ConfigError, type ControlPlaneConfig } from './config.ts';
+import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
+import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
+import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
 
 /** The file in the data directory that may hold the Anthropic API key, instead of the environment. */
 export const ANTHROPIC_KEY_FILE = 'anthropic-api-key';
@@ -143,6 +145,50 @@ export function openCodeEnvironment(
 ): Record<string, string> {
   if (config.opencodeConfigHome === null) return additions;
   return { ...additions, XDG_CONFIG_HOME: config.opencodeConfigHome };
+}
+
+/**
+ * Every secret Halcyonic holds or passes to a runtime, taken out of a runtime's error text before
+ * it is journaled (core/redaction.ts): the access token, the Anthropic key, the values named in
+ * HALCYONIC_AGENT_ENV, OpenCode's server password, and Salidium's and Seorak's credentials. Read
+ * each time it is asked, since a server's password changes with each launch and a credential when
+ * it is replaced; a file that can't be read gives nothing. Device credentials are kept only as
+ * hashes, so their shape is what takes them out.
+ */
+export function heldSecrets(
+  config: ControlPlaneConfig,
+  dependencies: { readonly environment: NodeJS.ProcessEnv; readonly dataDir: string },
+  accessToken: string,
+  adapters: readonly RuntimeAdapter[],
+): () => string[] {
+  const agentValues = Object.values(passThrough(config.agentEnvironment, dependencies.environment));
+  return () => {
+    let anthropic: string | undefined;
+    try {
+      anthropic = withAnthropicKey(
+        dependencies.environment,
+        dependencies.dataDir,
+      ).ANTHROPIC_API_KEY;
+    } catch {
+      anthropic = dependencies.environment.ANTHROPIC_API_KEY;
+    }
+    const credentials = [SALIDIUM_CREDENTIAL_FILE, SEORAK_CREDENTIAL_FILE].flatMap((name) => {
+      try {
+        return [readPrivateFile(join(dependencies.dataDir, name), 4096).trim()];
+      } catch {
+        return [];
+      }
+    });
+    return [
+      accessToken,
+      ...(anthropic === undefined ? [] : [anthropic]),
+      ...agentValues,
+      ...adapters.flatMap((adapter) =>
+        adapter instanceof OpenCodeRuntimeAdapter ? adapter.secrets() : [],
+      ),
+      ...credentials,
+    ];
+  };
 }
 
 function passThrough(

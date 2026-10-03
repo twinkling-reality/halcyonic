@@ -499,6 +499,86 @@ describe('truthful failure handling', () => {
     }
   });
 
+  test("a runtime's refusal loses what Halcyonic holds and credential shapes, and keeps the rest word for word", async () => {
+    const held = 'my-gateway-secret-42';
+    const instruction = 'Add a login page to the settings screen';
+    const harness = createTestControlPlane({
+      secrets: () => [held],
+      adapters: () => [
+        stubRuntime('gateway', async (request) => {
+          throw new RuntimeActionError(
+            'runtime_unavailable',
+            `unexpected status 401: invalid key sk-proj-AbCdEf0123456789xyzQRS for ${held}; the request was "${request.instruction}"`,
+          );
+        }),
+      ],
+    });
+    const { controlPlane, commands, time, journal } = harness;
+    const workstreamId = await createWorkstream(harness);
+    controlPlane.commands.submit(
+      {
+        ...commands.startExecution(workstreamId, FEATURE),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'gateway' as RuntimeId,
+          instruction,
+          options: {},
+          model_ref: null,
+        },
+      },
+      'internal',
+    );
+    await time.runUntilIdle();
+    const failures = [...journal.readAll()].filter((stored) =>
+      ['command.failed', 'execution.start_failed'].includes(stored.event.event_type),
+    );
+    assert.ok(failures.length > 0);
+    for (const stored of failures) {
+      const text = JSON.stringify(stored.event);
+      assert.ok(!text.includes(held) && !text.includes('sk-proj'), text);
+      assert.ok(
+        text.includes(
+          `unexpected status 401: invalid key [redacted] for [redacted]; the request was \\"${instruction}\\"`,
+        ),
+        text,
+      );
+    }
+    await controlPlane.close();
+  });
+
+  test("an adapter's bug is logged with its type and frames, for the owner to find", async () => {
+    const { logger, entries } = capturingLogger();
+    const harness = createTestControlPlane({
+      logger,
+      adapters: () => [
+        stubRuntime('buggy', async (request) => JSON.parse(request.instruction) as never),
+      ],
+    });
+    const { controlPlane, commands, time } = harness;
+    const workstreamId = await createWorkstream(harness);
+    controlPlane.commands.submit(
+      {
+        ...commands.startExecution(workstreamId, FEATURE),
+        payload: {
+          workstream_id: workstreamId,
+          runtime_id: 'buggy' as RuntimeId,
+          instruction: 'PRIVATE words',
+          options: {},
+          model_ref: null,
+        },
+      },
+      'internal',
+    );
+    await time.runUntilIdle();
+    const logged = entries.find((entry) => entry.message === 'runtime adapter failed unexpectedly');
+    assert.ok(logged, 'the bug leaves a trace on the Mac');
+    assert.ok(
+      (logged.context as { err?: unknown }).err instanceof SyntaxError,
+      'the error itself, for the logger to serialize',
+    );
+    await controlPlane.close();
+  });
+
   test('an invalid observation from an adapter is logged and never journaled', async () => {
     const { logger, entries } = capturingLogger();
     const harness = createTestControlPlane({
