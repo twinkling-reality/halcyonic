@@ -52,7 +52,7 @@ public class JudgeFileWalkTests
     /// <paramref name="questionRows"/> rows and each answer, its description after it, across two.
     /// </summary>
     private static IReadOnlyList<PromptMeasure> Measured(QuestionView question, int questionRows) =>
-        question.Prompts.Select(prompt => new PromptMeasure(questionRows, prompt.Options.Select(_ => 2).ToList())).ToList();
+        question.Prompts.Select(prompt => new PromptMeasure(questionRows, prompt.Options.Select(_ => 2).ToList(), prompt.Options.Select(_ => 2).ToList())).ToList();
 
     /// <param name="rows">A page's rows, its source line's included: four, or three with larger text.</param>
     /// <param name="questionRows">The rows the question wraps to at that size.</param>
@@ -76,7 +76,7 @@ public class JudgeFileWalkTests
         var question = workspace.QuestionToAnswer!;
         var draft = new QuestionDraft(workspace.Execution!.ExecutionId, question);
         // The page's rows less the one its source line takes, as the director gives them.
-        screen.ReadQuestion(draft, Measured(question, questionRows), room.Rows - 1);
+        screen.ReadQuestion(draft, Measured(question, questionRows), new RowBudget(room.Rows - 1), new RowBudget(room.Rows - 1));
         var frame = Frame(workspace);
         Assert.That(StateLanguage.WordOf(frame.Pill!.State), Is.EqualTo("Waiting for you"));
         Assert.That(frame.Sections.Single(section => section.Waits).Words, Is.EqualTo("Waiting"));
@@ -130,7 +130,14 @@ public class JudgeFileWalkTests
         frame = Frame(workspace);
         Assert.That(frame.Lines.Single(line => line.Chosen).Words, Does.StartWith(Demonstration.FirstOption));
         Assert.That(FileScreens.WhySendWaits(screen), Is.Null);
-        Assert.That(JudgePath.Offered(frame), Is.EquivalentTo(recordedOptions), "the file offers what the recording answers at its question");
+        // Stop stands on Activity (ADR 0026); Waiting offers the answer. Together the file offers what
+        // the recording answers at its question.
+        screen.Section = FileSection.Activity;
+        var stopping = Frame(workspace);
+        screen.Section = FileSection.Waiting;
+        frame = Frame(workspace);
+        Assert.That(JudgePath.Offered(frame).Union(JudgePath.Offered(stopping)), Is.EquivalentTo(recordedOptions),
+            "the file offers what the recording answers at its question");
 
         var sending = steering.SendAnswer(draft, workspace, FileScreens.WhySendWaits(screen));
         if (sending.Step == SteeringStep.Confirm)
@@ -145,14 +152,16 @@ public class JudgeFileWalkTests
         await submissions.SubmitAsync(c => session!.SubmitAsync(c), sending.Command!, workspace.Execution.ExecutionId);
         Assert.That(submissions.FeedbackFor(workspace.Execution.ExecutionId, session!.State, 5).First().Text, Does.Contain(Demonstration.FirstOption));
 
-        // The approval: Waiting again, Approve the main action, Deny beside it, Stop beside Close.
+        // The approval: Waiting again, Approve the main action and Deny beside it; Stop stands on Activity.
         activity.Record((await Pumping.Until(session, Demonstration.AsksForApproval, "the directed work asks for approval")).Events);
         workspace = Directed(activity, submissions);
+        screen.Section = FileSection.Activity;
+        var stoppingAtApproval = Frame(workspace);
         screen.Section = FileScreens.Opening(workspace);
         frame = Frame(workspace);
         Assert.That(screen.Section, Is.EqualTo(FileSection.Waiting));
         Assert.That(frame.Lines[0].Tone, Is.EqualTo(LineTone.Waiting));
-        Assert.That(JudgePath.Offered(frame), Is.EquivalentTo(Recorded(Demonstration.Answered())),
+        Assert.That(JudgePath.Offered(frame).Union(JudgePath.Offered(stoppingAtApproval)), Is.EquivalentTo(Recorded(Demonstration.Answered())),
             "the file offers what the recording answers at its approval");
 
         // Deny's Yes stands from the first part; Cancel sends nothing.
@@ -244,7 +253,7 @@ public class JudgeFileWalkTests
         Assert.That(workspace.Actions, Has.None.EqualTo(WorkspaceAction.Answer).And.None.EqualTo(WorkspaceAction.Instruct));
         var screen = new FileScreen { Section = FileScreens.Opening(workspace) };
         var draft = new QuestionDraft(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer!);
-        screen.ReadQuestion(draft, Measured(workspace.QuestionToAnswer!, 2), 3);
+        screen.ReadQuestion(draft, Measured(workspace.QuestionToAnswer!, 2), new RowBudget(3), new RowBudget(3));
         var steering = new WorkspaceSteering(factory);
         var frame = FileScreens.Screen(workspace, steering, screen, new AnswerRoom(4));
         Assert.That(JudgePath.Options(frame), Is.Empty, "no answer to choose");

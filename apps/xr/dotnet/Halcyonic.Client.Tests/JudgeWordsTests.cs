@@ -186,8 +186,8 @@ public class JudgeWordsTests
             };
             if (workspace.QuestionToAnswer is QuestionView question && executionId != null)
             {
-                var measures = question.Prompts.Select(prompt => new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList())).ToList();
-                screen.ReadQuestion(new QuestionDraft(executionId, question), measures, room.Rows);
+                var measures = question.Prompts.Select(prompt => new PromptMeasure(1, prompt.Options.Select(_ => 1).ToList(), prompt.Options.Select(_ => 1).ToList())).ToList();
+                screen.ReadQuestion(new QuestionDraft(executionId, question), measures, new RowBudget(room.Rows), new RowBudget(room.Rows));
             }
             return screen;
         }
