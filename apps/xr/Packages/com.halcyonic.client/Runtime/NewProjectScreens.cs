@@ -145,6 +145,9 @@ namespace Halcyonic.Client
         /// <summary>The review's row to the next part; only once the last part has shown is Yes, start building offered.</summary>
         public const string NextPart = "next-part";
 
+        /// <summary>The row at the end of a page that needs more than one, keyed by the page it stands on (<see cref="EntryText.NextPage"/>).</summary>
+        public const string NextPage = "page-next";
+
         public const string ConfirmStart = "confirm-start";
 
         // Start building, once Yes was pressed, and a start whose outcome is unknown.

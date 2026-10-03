@@ -131,12 +131,45 @@ public class NewProjectFlowTests
     private static NewProjectFlow Flow(Host host, Kept? kept = null, ICreationDraftStore? store = null) =>
         new(host, Commands, kept ?? new Kept(), store);
 
-    /// <summary>A press as the person makes one: on the frame the director drew for them.</summary>
+    /// <summary>
+    /// A press as the person makes one: on the frame the director drew for them, turning the page by its
+    /// row first, as they would, while the keyed line they press stands on another page of it. A
+    /// prompt stands on every page, so none is looked for elsewhere.
+    /// </summary>
     private static void Press(NewProjectFlow flow, string id, string? key)
     {
-        if (flow.Frame is MenuFrame frame) flow.Drawn(frame, false);
+        for (var turned = 0; turned < 10 && key != null && flow.Frame is MenuFrame frame && !Shows(frame, id, key)
+            && frame.Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } turn && turn.Key != null; turned++)
+        {
+            flow.Drawn(frame, false);
+            flow.Act(NewProjectScreens.NextPage, turn.Key);
+            if (Shows(flow.Frame!, id, key)) break;
+        }
+        if (flow.Frame is MenuFrame drawn) flow.Drawn(drawn, false);
         flow.Act(id, key);
     }
+
+    /// <summary>
+    /// Every page of what shows, as the person turns them by the row at each page's end, from the one
+    /// showing back round to it; one page when everything fits.
+    /// </summary>
+    private static List<MenuFrame> Pages(NewProjectFlow flow)
+    {
+        var pages = new List<MenuFrame> { flow.Frame! };
+        while (pages.Count < 10 && pages[^1].Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } turn)
+        {
+            flow.Drawn(pages[^1], false);
+            flow.Act(NewProjectScreens.NextPage, turn.Key);
+            if (flow.Frame!.Lines.Last().Key == pages[0].Lines.Last().Key) break;
+            pages.Add(flow.Frame!);
+        }
+        return pages;
+    }
+
+    /// <summary>Whether a frame shows a line or prompt raising <paramref name="id"/> with <paramref name="key"/>, whatever it allows now.</summary>
+    private static bool Shows(MenuFrame frame, string id, string? key) =>
+        frame.Footer.All.Any(each => each.Prompt.Id == id) || frame.Lines.Any(line => line.Action == id && line.Key == key) || id == MenuFrame.ChooseSection
+        || id == Footer.Close;
 
     /// <summary>A suggestion's key, on the companion's question showing now.</summary>
     private static string Suggestion(NewProjectFlow flow, string words) => NewProjectScreens.AnswerKey(flow.Idea!.Companion!.Generation, words);
@@ -664,8 +697,10 @@ public class NewProjectFlowTests
         // The recording's proposal fills the recap, marked as the companion's, and the demonstration can't start it.
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         var recap = flow.Frame!;
-        Assert.That(recap.Source, Is.EqualTo(CompanionText.Note), "the note that it is an AI that can be wrong");
-        Assert.That(recap.Lines.Any(line => line.Fact == CompanionText.SuggestedShort), Is.True);
+        var pages = Pages(flow);
+        Assert.That(pages.All(page => page.Source == CompanionText.Note), Is.True, "the note that it is an AI that can be wrong, on every page");
+        Assert.That(pages.All(page => page.Reason == EntryText.DemoCannotStart), Is.True);
+        Assert.That(pages.SelectMany(page => page.Lines).Any(line => line.Fact == CompanionText.SuggestedShort), Is.True);
         var start = recap.Footer[PromptSlot.FarRight]!;
         Assert.That((start.Id, start.Available, recap.Reason), Is.EqualTo((NewProjectScreens.StartBuilding, false, EntryText.DemoCannotStart)));
         Assert.That(recap.Sections.Single(step => step.Key == NewProjectScreens.Key(NewProjectStep.Build)).Reached, Is.False);
@@ -724,6 +759,191 @@ public class NewProjectFlowTests
         host.VoiceOffered = true;
         flow.Tick();
         Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.Rename), "Hold to talk can give the name");
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Pages that need more than the stage gives (ADR 0026): each packed into a Quest 3S's page.
+
+    private const float Column = Glaze.Menu.FileColumnDegrees;
+
+    /// <summary>What a page's lines take as the view lays them, measured on its own here, to check the flow's packing against.</summary>
+    private static float LinesHeight(Host host, IReadOnlyList<PageLine> lines)
+    {
+        var total = 0f;
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var line = lines[index];
+            if (index > 0) total += lines[index - 1].Action != null && line.Action != null ? MenuPage.TargetGap : MenuPage.Grid;
+            var next = index + 1 < lines.Count ? lines[index + 1] : null;
+            if (next != null && ((line.Choice && next.Choice) || line.BesideNext) && host.FitsHalf(line, Column) && host.FitsHalf(next, Column))
+            {
+                total += MenuPage.Target();
+                index++;
+                continue;
+            }
+            var rows = Math.Max(1, Math.Min(line.Rows, host.RowsOf(line, Column)));
+            total += line.Action != null ? MenuPage.Target(rows) : MenuPage.Words(rows);
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Every page of what shows, at both text sizes, inside the page a Quest 3S gives it beside its
+    /// reason and source line, each ending in the row that turns it where there are several; returns
+    /// every line shown, the turning rows left out.
+    /// </summary>
+    private static List<PageLine> FitsEveryPage(NewProjectFlow flow, Host host, string what)
+    {
+        var shown = new List<PageLine>();
+        foreach (var size in new[] { TextSize.Standard, TextSize.Larger })
+        {
+            host.TextSize = size;
+            flow.Tick();
+            var pages = Pages(flow);
+            for (var index = 0; index < pages.Count; index++)
+            {
+                var page = pages[index];
+                var room = host.PageHeight(Math.Max(1, host.TitleRows(page.Subject, Column)), besideMenu: true);
+                if (page.Source != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Source, Column)));
+                if (page.Reason != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Reason, Column)));
+                var name = what + " at " + size + ", page " + (index + 1) + " of " + pages.Count;
+                Assert.That(LinesHeight(host, page.Lines), Is.LessThanOrEqualTo(room + 1e-5f), name + " fits");
+                if (pages.Count > 1)
+                {
+                    Assert.That((page.Lines[^1].Words, page.Lines[^1].Key), Is.EqualTo((EntryText.NextPage(index, pages.Count), index.ToString())), name + " turns");
+                }
+                if (size == TextSize.Standard) shown.AddRange(page.Lines.Where(line => line.Action != NewProjectScreens.NextPage));
+            }
+        }
+        host.TextSize = TextSize.Standard;
+        flow.Tick();
+        return shown;
+    }
+
+    private static ClientProjection WithRuntimes(params RuntimeDescriptor[] runtimes)
+    {
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Runtimes = runtimes.ToList();
+        state.ApplySnapshot(snapshot, new StateChanges());
+        return state;
+    }
+
+    private static RuntimeDescriptor Runtime(string id, ModelChoice choice = ModelChoice.None)
+    {
+        var runtime = Samples.MockRuntime();
+        runtime.RuntimeId = id;
+        runtime.DisplayName = "Agent app " + id;
+        runtime.ModelChoice = choice;
+        return runtime;
+    }
+
+    [Test]
+    public void TheRecapPagesItsFactsAndKeepsItsFirstLineOnItsFirstPage()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        var shown = FitsEveryPage(flow, host, "the recap");
+        Assert.That(shown.Where(line => line.Action == NewProjectScreens.ChooseFact).Select(line => line.Key), Is.EquivalentTo(new[]
+        {
+            NewProjectScreens.FactKey(RecapFact.Name), NewProjectScreens.FactKey(RecapFact.FirstTask),
+            NewProjectScreens.FactKey(RecapFact.Folder), NewProjectScreens.FactKey(RecapFact.HowItRuns),
+        }), "every fact once");
+        Assert.That(flow.Frame!.Lines[0].Action, Is.Null, "the recap's line first");
+
+        // A fact chosen on a later page keeps that page, and its side panel slides out from it.
+        host.TextSize = TextSize.Larger;
+        flow.Tick();
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        var chosen = flow.Frame!;
+        Assert.That(chosen.Side, Is.Not.Null);
+        Assert.That(chosen.Lines.Single(line => line.Chosen).Key, Is.EqualTo(NewProjectScreens.FactKey(RecapFact.HowItRuns)));
+
+        // Turning the page closes it, and the pages turn round as before.
+        var turn = chosen.Lines[^1];
+        Press(flow, NewProjectScreens.NextPage, turn.Key);
+        Assert.That((flow.Frame!.Side, flow.Frame.Lines[^1].Key == turn.Key), Is.EqualTo(((SidePanel?)null, false)));
+    }
+
+    [Test]
+    public void ALongListOfFoldersPagesAndEveryFolderShowsOnce()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = Enumerable.Range(1, 12).Select(index => new LocationFolder { Name = "folder-" + index, Path = "/Users/person/Projects/folder-" + index }).ToList(),
+        };
+        var routes = new Routes();
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(new LocationsResponse { Roots = new List<LocationRoot> { root } });
+        var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder)).Wait();
+        var shown = FitsEveryPage(flow, host, "where its files live");
+        Assert.That(shown.Count(line => line.Action == NewProjectScreens.ChooseFolder), Is.EqualTo(14), "a new folder, the place itself and 12 folders, each once");
+        Press(flow, NewProjectScreens.ChooseFolder, shown.Single(line => line.Words == "folder-12").Key);
+        Press(flow, NewProjectScreens.Done, null);
+        Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("folder-12 in Projects"), "a folder on a later page is chosen like any other");
+    }
+
+    [Test]
+    public void ManyAgentAppsAndModelsPage()
+    {
+        var local = Runtime("local", ModelChoice.Listed);
+        var host = new Host { State = WithRuntimes(new[] { Runtime("mock"), local }.Concat(Enumerable.Range(1, 6).Select(index => Runtime("app-" + index))).ToArray()) };
+        var routes = new Routes();
+        routes.Answers["GET /api/runtimes/local/models"] = () => HalcyonicJson.Serialize(new RuntimeModelsResponse
+        {
+            RuntimeId = "local",
+            Result = new AvailableModels
+            {
+                Models = Enumerable.Range(1, 10).Select(index => new RuntimeModel
+                {
+                    ModelRef = "ollama/model-" + index, DisplayName = "Model " + index, Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared,
+                }).ToList(),
+            },
+        });
+        host.Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes);
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        var apps = FitsEveryPage(flow, host, "how it runs, its agent apps");
+        Assert.That(apps.Count(line => line.Action == NewProjectScreens.ChooseRuntime), Is.EqualTo(8), "every agent app once");
+
+        Press(flow, NewProjectScreens.ChooseRuntime, "local");
+        Until(flow, () => flow.Frame!.Lines.Count(line => line.Action == NewProjectScreens.ChooseModel) > 0).Wait();
+        var models = FitsEveryPage(flow, host, "how it runs, its models");
+        Assert.That(models.Count(line => line.Action == NewProjectScreens.ChooseModel), Is.EqualTo(10), "every model once");
+    }
+
+    [Test]
+    public void StartingPagesItsStepsAtTheLargerSize()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+        var shown = FitsEveryPage(flow, host, "starting");
+        Assert.That(shown.Count(line => line.Words == EntryText.StepName(BuildStepKind.CreateProject, true)), Is.EqualTo(1), "every step once");
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "turning a page sends nothing");
+    }
+
+    [Test]
+    public void APageTurnsOnlyFromThePageItWasPressedOn()
+    {
+        var host = new Host { TextSize = TextSize.Larger };
+        var flow = Recapped(host);
+        var first = flow.Frame!;
+        flow.Drawn(first, false);
+        var turn = first.Lines[^1];
+        Assert.That(turn.Action, Is.EqualTo(NewProjectScreens.NextPage));
+        flow.Act(NewProjectScreens.NextPage, turn.Key);
+        var second = flow.Frame!;
+        flow.Act(NewProjectScreens.NextPage, turn.Key);
+        Assert.That(flow.Frame!.Lines.Select(line => line.Key), Is.EqualTo(second.Lines.Select(line => line.Key)), "a second press on the page left behind turns nothing");
     }
 
     [Test]

@@ -788,7 +788,15 @@ the same definition names, as the JSON Schema document:
   the entry panel's creation screens. It keeps each place's draft and how far its start got, the step
   and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
-  it gave. A press acts only when the frame the director last drew offers it, available, so nothing
+  it gave. Every page but the review, which pages by its parts, is packed into the page the stage
+  gives (`IMenuHost.PageHeight`): its lines counted as the view lays them (a row or answer a
+  target's height, 12 mm between two targets and a grid step otherwise, two short answers sharing a
+  row) beside its reason and its source line in the rows they take; where they need more, a page of
+  whole lines at a time, in order, each ending in a row that turns to the next, "Next page, 2 of 3",
+  and from the last to the first, "First page", keyed to the page it stands on, so the recap's first
+  line stands on its first page only, and a chosen fact keeps its page, its side panel sliding out
+  from it, until a turn of the page closes it. The recap's facts, the folders, the agent apps and models and the build's steps page so
+  on a Quest 3S at both text sizes. A press acts only when the frame the director last drew offers it, available, so nothing
   the person can't see or press now runs; a row is keyed by what it chooses (a suggestion or fixed
   answer by the question it answers and its words, a folder by its place's path and its own name),
   so a press on a frame drawn before a new reply or listing never takes another, even the same
