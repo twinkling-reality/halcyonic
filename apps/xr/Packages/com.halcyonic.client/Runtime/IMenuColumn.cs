@@ -136,7 +136,7 @@ namespace Halcyonic.Client
         /// <summary>Once a frame: what it awaits, as a read, an acknowledgement or a build, is looked at.</summary>
         void Tick();
 
-        /// <summary>Another window took focus: an armed confirmation lapses, a review is read again.</summary>
+        /// <summary>Another window took focus, or this column left the plane: an armed confirmation lapses, a review is read again.</summary>
         void FocusLeft();
     }
 }

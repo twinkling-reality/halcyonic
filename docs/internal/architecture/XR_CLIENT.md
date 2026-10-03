@@ -364,7 +364,11 @@ the same definition names, as the JSON Schema document:
   menu's places (`MenuBar.Sections`, `MenuFrame.WithSections`) and handles choosing one.
   `MenuNavigator` (client core) is what the menu shows and where each press and draw goes: open on a
   place or closed to its bar, the column beside it, a press to the column that showed it (a side
-  panel's to the frame in front), a draw only for the very frame a column gave, and nothing else. A
+  panel's to the frame in front), a draw only for the very frame a column gave, and nothing else.
+  Each press carries the frame its view showed, or its side panel, and counts only if that is what
+  was drawn last in its slot and still stands, so a press on a file swapped for another, or on a
+  place left, reaches nothing; a view leaving the plane raises none. A column leaving the plane,
+  swapped, closed or its place left, gets `FocusLeft`, so an armed confirmation lapses. A
   place's column is made when the menu first shows it after opening and let go when the menu or the
   column closes, so each opening starts afresh; what must outlive it, as Projects' memory of a
   Connect in flight, `MenuMemory` keeps for the app's run on one journal, across reconnects and never

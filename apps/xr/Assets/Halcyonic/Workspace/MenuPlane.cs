@@ -44,8 +44,12 @@ namespace Halcyonic.XR.Workspace
         private float lowest = -0.5f;
         private float measured = -1f;
 
-        /// <summary>Something on the plane was pressed: in which column, the action and its key.</summary>
-        public event Action<MenuColumn, string, string?>? Acted;
+        /// <summary>
+        /// Something on the plane was pressed: in which column, the action and its key, with the frame the
+        /// view showed, or the side panel for a side panel's view, so a press on a frame no longer standing
+        /// reaches nothing. A view leaving the plane, as the menu stepping aside, raises none.
+        /// </summary>
+        public event Action<MenuColumn, string, string?, MenuFrame?, SidePanel?>? Acted;
 
         /// <summary>The closed bar was pressed.</summary>
         public event Action? Opened;
@@ -66,6 +70,16 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>The columns that stand on the plane, left to right, with their views.</summary>
         public IReadOnlyList<(MenuColumn Kind, MenuFrameView View)> Shown => shown;
+
+        /// <summary>The frame <paramref name="kind"/>'s view shows on the plane, or null where it shows a side panel or nothing.</summary>
+        public MenuFrame? Showing(MenuColumn kind)
+        {
+            foreach (var (column, view) in shown)
+            {
+                if (column == kind) return view.Frame;
+            }
+            return null;
+        }
 
         /// <summary>The menu is open but stands aside for the file.</summary>
         public bool MenuAside { get; private set; }
@@ -115,7 +129,10 @@ namespace Halcyonic.XR.Workspace
         private MenuFrameView View(string name, MenuColumn kind)
         {
             var view = MenuFrameView.Create(transform, name);
-            view.Acted += (action, key) => Acted?.Invoke(kind, action, key);
+            view.Acted += (action, key) =>
+            {
+                if (Contains(shown, view)) Acted?.Invoke(kind, action, key, view.Frame, view.Side);
+            };
             view.Drawn += drawn => Drawn?.Invoke(kind, drawn);
             view.HoldStarted += prompt => HoldStarted?.Invoke(kind, prompt);
             view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
