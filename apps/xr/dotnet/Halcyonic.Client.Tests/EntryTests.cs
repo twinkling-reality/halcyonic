@@ -7,7 +7,7 @@ using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
 
-/// <summary>Projects and their work, as a snapshot carries them, for the rail, Connect projects and More work.</summary>
+/// <summary>Projects and their work, as a snapshot carries them, for Projects and the stage.</summary>
 internal sealed class Portfolio
 {
     private readonly List<ProjectView> projects = new();
@@ -834,7 +834,7 @@ public class EntryWordsTests
     {
         var words = new List<string>
         {
-            EntryText.ConnectProjects, EntryText.CreateProject, EntryText.CreateInvite, EntryText.NotNow,
+            EntryText.CreateProject, EntryText.CreateInvite, EntryText.NotNow,
             EntryText.ShowAll, EntryText.AddTask, EntryText.WaitingForMac, EntryText.IdeaPrompt, EntryText.WorkPrompt, EntryText.TypeIdea,
             EntryText.NothingStartsYet, EntryText.GuideNote,
             EntryText.Back, EntryText.Chosen, EntryText.ChosenForYou,
@@ -874,6 +874,8 @@ public class EntryWordsTests
         Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(runtime|workstream|control plane)\b", RegexOptions.IgnoreCase)), Is.Empty,
             "the glossary's words: an agent app, a task, your computer");
         Assert.That(EntryText.GuideNote, Does.Contain("not an AI"));
+        Assert.That(words.Where(word => Regex.IsMatch(word, @"\b(Connect projects|More tasks|See other tasks)\b")), Is.Empty,
+            "no word sends the person to a place the menu retired (ADR 0026)");
     }
 
     [Test]

@@ -15,7 +15,7 @@ namespace Halcyonic.Client.Tests;
 /// build is the recorded demonstration. This walks every point of every path of the bundled
 /// recording and gathers every word the client core gives the headset there: each character's badge,
 /// marks and peek, each workspace tab with its sections as recorded, the line above the stage, the
-/// panels a judge can open (Connect projects, More tasks, Create, Usage left and Settings), and
+/// places a judge can open (Tasks, Projects, New project, Usage and Settings), and
 /// checks them against names of products, companies and platforms.
 /// </summary>
 public class JudgeWordsTests
