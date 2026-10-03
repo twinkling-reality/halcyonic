@@ -19,7 +19,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// Renders a task's file as the director shows it (ADR 0026): <see cref="FileScreens"/>' frames laid
     /// on one plane facing the eyes as the menu's plane lays a file and its side panel alone, at each text size, into
     /// apps/xr/Builds/FileRenders, which git ignores. The agent's question with four answers of two
-    /// rows each, one of them chosen and cut with its side panel, an approval's request in parts, the
+    /// rows each, one of them chosen and cut with its side panel, the same under a question of two rows
+    /// that takes its own page, an approval's request in parts, the
     /// work's activity, and what changed with a line's side panel open. Each must lay its lines within
     /// the rows a page holds as the view wraps them, beside its reason and its source line, and raise
     /// the view's Drawn once it settles; a chosen cut answer must bring its side panel.
@@ -57,6 +58,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 failures.AddRange(Question(folder));
+                failures.AddRange(LongQuestion(folder));
                 failures.AddRange(Approval(folder));
                 failures.AddRange(Activity(folder));
                 failures.AddRange(Changes(folder));
@@ -191,13 +193,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     new QuestionPrompt
                     {
                         Key = "q0", Header = "Lockout", Text = "How long should a sign-in lockout last?",
-                        Options = new List<QuestionOption>
-                        {
-                            new QuestionOption { Label = "15 minutes", Description = "Short enough that a person who mistyped can try again over a coffee break" },
-                            new QuestionOption { Label = "1 hour", Description = "Slows a guessing attack a great deal while still letting people back in the same day" },
-                            new QuestionOption { Label = "Until reset", Description = "Locks the account until the person resets their password from the email we send" },
-                            new QuestionOption { Label = "Grows each time", Description = "Starts at one minute and doubles after each failed attempt, up to a day at most, then resets after a successful sign-in from a known device" },
-                        },
+                        Options = LockoutAnswers(),
                         Multiple = false, FreeText = true, Secret = false,
                     },
                 },
@@ -226,6 +222,65 @@ namespace Halcyonic.XR.Workspace.Editor
             screen.Question.Choose(3);
             var cut = screen.Question.AnswerCut(0, 3);
             failures.AddRange(Shoot(folder, "waiting-answer-chosen", FileScreens.Screen(workspace, steering, screen, room), sideExpected: cut));
+            return failures;
+        }
+
+        private static List<QuestionOption> LockoutAnswers() => new List<QuestionOption>
+        {
+            new QuestionOption { Label = "15 minutes", Description = "Short enough that a person who mistyped can try again over a coffee break" },
+            new QuestionOption { Label = "1 hour", Description = "Slows a guessing attack a great deal while still letting people back in the same day" },
+            new QuestionOption { Label = "Until reset", Description = "Locks the account until the person resets their password from the email we send" },
+            new QuestionOption { Label = "Grows each time", Description = "Starts at one minute and doubles after each failed attempt, up to a day at most, then resets after a successful sign-in from a known device" },
+        };
+
+        /// <summary>
+        /// The same four answers under a question of two rows: at the standard size it takes its own page,
+        /// as that leaves fewer pages in all, and its answers' pages hold two each under its first line.
+        /// </summary>
+        private static IEnumerable<string> LongQuestion(string folder)
+        {
+            var failures = new List<string>();
+            var question = new QuestionView
+            {
+                QuestionId = "render-long-question",
+                Answerable = true,
+                AskedAt = Time,
+                Prompts = new List<QuestionPrompt>
+                {
+                    new QuestionPrompt
+                    {
+                        Key = "q0", Header = "Lockout",
+                        Text = "How long should a sign-in lockout last once someone has mistyped their password five times in a row?",
+                        Options = LockoutAnswers(),
+                        Multiple = false, FreeText = true, Secret = false,
+                    },
+                },
+            };
+            var work = WorkspaceRender.Work.Asking(question);
+            var workspace = work.Present();
+            var draft = new QuestionDraft("render-execution", question);
+            var screen = new FileScreen { Section = FileSection.Waiting, Speak = true };
+            var titleRows = MenuFrameView.TitleRows(workspace.Character.Title, Glaze.Menu.FileColumnDegrees);
+            var budget = HeightBudget.Of(TextSizeNow, titleRows);
+            screen.ReadQuestion(draft, Measure(draft), budget, budget);
+            // At the standard size, its own case; larger text wraps it longer, and it takes its own page anyway.
+            var standard = TextSizeNow == TextSize.Standard && titleRows == 1;
+            if (standard && screen.Question.QuestionMeasured(0) != 2) failures.Add("waiting-long-question: the question wraps to " + screen.Question.QuestionMeasured(0) + " rows, not 2.");
+            else if (standard && (screen.Question.QuestionParts(0), screen.Question.Pages) != (1, 2))
+            {
+                failures.Add("waiting-long-question: " + screen.Question.QuestionParts(0) + " question page and " + screen.Question.Pages + " answer pages, not 1 and 2.");
+            }
+            var steering = new WorkspaceSteering(new CommandFactory(new ClientInfo { Name = "halcyonic-render", Version = "0", DeviceLabel = "editor" }));
+            var room = new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false));
+            failures.AddRange(Shoot(folder, "waiting-long-question", FileScreens.Screen(workspace, steering, screen, room)));
+            var at = DateTimeOffset.UtcNow;
+            for (var step = 0; step < 5 && screen.Question.QuestionPart != null; step++)
+            {
+                screen.Question.Drawn(at);
+                at = at.AddSeconds(1);
+                screen.Question.NextPart(at);
+            }
+            failures.AddRange(Shoot(folder, "waiting-long-question-answers", FileScreens.Screen(workspace, steering, screen, room)));
             return failures;
         }
 
