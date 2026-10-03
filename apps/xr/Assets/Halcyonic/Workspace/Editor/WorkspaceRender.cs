@@ -1448,7 +1448,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// the dynamic fallback font asset at runtime; in the editor that would write the glyph into the
         /// committed fallback asset, which this check must never change.
         /// </summary>
-        private static SectionPresentation InStaticAtlas(SectionPresentation section, TMP_FontAsset font, SortedSet<char> swapped) =>
+        internal static SectionPresentation InStaticAtlas(SectionPresentation section, TMP_FontAsset font, SortedSet<char> swapped) =>
             new SectionPresentation(section.Kind, Swap(section.Provenance, font, swapped), section.ProvenanceTone,
                 section.Lines.Select(line => InStaticAtlas(line, font, swapped)).ToList(), section.Simulated, section.Steps);
 

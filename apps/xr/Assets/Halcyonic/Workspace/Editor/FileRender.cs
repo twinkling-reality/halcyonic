@@ -8,6 +8,7 @@ using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -240,9 +241,14 @@ namespace Halcyonic.XR.Workspace.Editor
             var now = DateTimeOffset.UtcNow;
             var room = new AnswerRoom(MenuFrame.RowsAPage(TextSizeNow, sourceLine: false), line =>
                 MenuFrameView.RowsOf(new PageLine(line.Words, wordsAreData: true, chip: line.Chip), Glaze.Menu.FileColumnDegrees));
+            // Each character the committed static atlas lacks, as the minus sign in "(+71 −0)", swapped for
+            // one it has, for the render only: drawn from the dynamic fallback in the editor, it would be
+            // written into the committed fallback font asset, which no render may change.
+            var font = TMP_Settings.defaultFontAsset;
+            var swapped = new SortedSet<char>();
             FileAnswer Answer(UnderstandPrompt prompt) => new FileAnswer(
-                UnderstandingPresenter.Present(prompt, executionId, read, false, null, now, TimeZoneInfo.Local, room, AnswerDepth.Brief),
-                UnderstandingPresenter.Present(prompt, executionId, read, false, null, now, TimeZoneInfo.Local, AnswerRoom.Unlimited, AnswerDepth.Full));
+                WorkspaceRender.InStaticAtlas(UnderstandingPresenter.Present(prompt, executionId, read, false, null, now, TimeZoneInfo.Local, room, AnswerDepth.Brief), font, swapped),
+                WorkspaceRender.InStaticAtlas(UnderstandingPresenter.Present(prompt, executionId, read, false, null, now, TimeZoneInfo.Local, AnswerRoom.Unlimited, AnswerDepth.Full), font, swapped));
             var screen = new FileScreen
             {
                 Section = FileSection.Changes,
