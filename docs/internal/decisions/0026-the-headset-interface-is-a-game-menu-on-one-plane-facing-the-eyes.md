@@ -160,8 +160,10 @@ coordinator's first-visit words:
   starts again. Paging is never the main action, and there is no Previous page: beside Close and a
   main action, two paging prompts do not fit.
 - **A confirmation pages by a row.** A request in parts shows one part a page, with a row at the end,
-  "Next part, 2 of 3", which only takes you on, and Yes appears once the last part has shown. Its
-  footer is Close, Yes in the middle, and Cancel where the pressed prompt stood.
+  "Next part, 2 of 3", which only takes you on. Approve's Yes appears once the last part has shown;
+  Deny's at once, as denying runs nothing and a person who sees part 1 of something dangerous must be
+  able to refuse it then (the coordinator, 2026-10-02). Its footer is Close, Yes in the middle, and
+  Cancel where the pressed prompt stood.
 - **Each action is one footer prompt in its place.** On an approval: Approve as the main action, Deny
   beside it. Under a question's answer rows: Send answer as the main action. On a working task's
   Activity: Stop beside Close, and Tell it as the main action, opening a page whose rows are

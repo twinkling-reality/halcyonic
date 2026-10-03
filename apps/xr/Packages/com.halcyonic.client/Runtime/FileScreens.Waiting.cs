@@ -114,15 +114,19 @@ namespace Halcyonic.Client
         private static Page Request(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, string request, WorkspaceAction armed,
             Footer before, PromptSlot pressed, string source)
         {
-            var measured = screen.RequestRows > 0;
+            // A measurement counts only for this arming and this very text; one left from another
+            // confirmation, or of a request that has since read differently, is none.
+            var measured = screen.Measured(steering, request);
             var perPart = measured ? screen.RequestPartRows : RequestRows;
             var parts = measured ? screen.RequestParts : 1;
             var part = measured ? screen.RequestPart : 0;
             var lines = new List<PageLine> { new PageLine(request, wordsAreData: true, rows: perPart, fromRow: part * perPart) };
             if (parts > 1) lines.Add(new PageLine(NextPartWords(part, parts), action: NextPart, key: RequestKey));
             lines.Add(new PageLine(steering.Prompt(workspace)!, tone: LineTone.Secondary, rows: 2));
-            // Yes only once the whole request has shown: until the layout measured it and the person
-            // reached its last part, there is none to press.
+            // Approve's Yes only once the whole request has shown: until the layout measured it and
+            // the person reached its last part, there is none to press. Deny's shows at once, as
+            // denying runs nothing and a person who sees part 1 of something dangerous must be able to
+            // refuse it then.
             var yes = measured && steering.CanConfirm ? YesFor(armed) : null;
             return new Page(lines, source, Footer.Confirm(before, pressed, yes, CancelConfirm));
         }

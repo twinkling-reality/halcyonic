@@ -82,6 +82,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static MenuFrame Screen(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, AnswerRoom room)
         {
+            // A confirmation that no longer holds is dropped before anything is drawn: too late, no
+            // longer offered, already answered, or a request that now reads differently.
+            if (steering.Refresh(workspace) is string lapse) screen.Notice = lapse;
             if (steering.Request(workspace) == null) screen.ForgetRequest();
             // Whatever is armed asks on the section showing, whichever it is, so a press never arms
             // something the page does not show, and changing section never hides it.
