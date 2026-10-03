@@ -39,8 +39,8 @@ import type { DevicesResponse, LocationsResponse, Snapshot } from '@halcyonic/co
 import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
+  companionOllamaAddress,
   DEFAULT_NETWORK_PORT,
-  DEFAULT_OLLAMA_URL,
   defaultDataDir,
   isLocalOllamaModel,
   loadConfig,
@@ -63,6 +63,7 @@ import { ANTHROPIC_KEY_FILE } from '../runtimes.ts';
 import {
   type HostSettings,
   readHostSettings,
+  SETTINGS_FILE,
   type SettingName,
   settingRoots,
   withSettings,
@@ -646,15 +647,18 @@ class MacSetup {
         ],
       };
     }
-    const address = present(env.HALCYONIC_COMPANION_OLLAMA_URL)
-      ? env.HALCYONIC_COMPANION_OLLAMA_URL
-      : DEFAULT_OLLAMA_URL;
-    const listed =
-      address.replace(/\/$/, '') === this.#io.ollamaUrl.replace(/\/$/, '')
-        ? ollama
-        : await this.#ollama(address);
     const cantRun =
       "The headset says “The companion can't run on your computer right now. Type your idea, or answer a few fixed questions.”";
+    // Checked before anything asks it or prints it: an address with credentials in it would print them.
+    let address: string;
+    try {
+      address = companionOllamaAddress(env.HALCYONIC_COMPANION_OLLAMA_URL).origin;
+    } catch (error) {
+      if (!(error instanceof ConfigError)) throw error;
+      return { title, status: 'todo', lines: [`${error.message} ${cantRun}`, about] };
+    }
+    const listed =
+      address === this.#io.ollamaUrl.replace(/\/$/, '') ? ollama : await this.#ollama(address);
     const wanted = named.includes(':') ? [named] : [named, `${named}:latest`];
     const model = listed?.find((candidate) => wanted.includes(candidate.name));
     const lines: string[] = [];
@@ -1165,9 +1169,17 @@ class MacSetup {
       );
       return 1;
     }
-    const address = present(settings.HALCYONIC_COMPANION_OLLAMA_URL)
-      ? settings.HALCYONIC_COMPANION_OLLAMA_URL
-      : DEFAULT_OLLAMA_URL;
+    // Checked before anything asks it or prints it: an address with credentials in it would print them.
+    let address: string;
+    try {
+      address = companionOllamaAddress(settings.HALCYONIC_COMPANION_OLLAMA_URL).origin;
+    } catch (error) {
+      if (!(error instanceof ConfigError)) throw error;
+      io.print(
+        `${error.message} Change it in ${this.#tilde(join(this.#dataDir, SETTINGS_FILE))}, then try again.`,
+      );
+      return 1;
+    }
     const ollama = await this.#ollama(address);
     if (ollama === null) {
       io.print(

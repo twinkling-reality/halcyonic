@@ -436,6 +436,36 @@ function parseSpeech(env: NodeJS.ProcessEnv): SpeechConfig | null {
 /** An Ollama model name as it lists it, such as `qwen3.6:35b-a3b-nvfp4` or `library/model:tag`. */
 const OLLAMA_MODEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/;
 
+/**
+ * The companion's Ollama address, from HALCYONIC_COMPANION_OLLAMA_URL or the default: http:// on a
+ * loopback address with a port and nothing else. Refuses anything else without repeating it, since
+ * an address with credentials in it would print them.
+ */
+export function companionOllamaAddress(given: string | undefined): URL {
+  let ollama: URL;
+  try {
+    ollama = new URL(given === undefined || given === '' ? DEFAULT_OLLAMA_URL : given);
+  } catch {
+    throw new ConfigError('HALCYONIC_COMPANION_OLLAMA_URL is not a URL.');
+  }
+  const host = ollama.hostname.replace(/^\[|\]$/g, '');
+  if (
+    ollama.protocol !== 'http:' ||
+    !LOOPBACK_HOSTS.has(host) ||
+    ollama.port === '' ||
+    ollama.username !== '' ||
+    ollama.password !== '' ||
+    ollama.pathname !== '/' ||
+    ollama.search !== '' ||
+    ollama.hash !== ''
+  ) {
+    throw new ConfigError(
+      `HALCYONIC_COMPANION_OLLAMA_URL must be http:// on a loopback address with a port and nothing else, such as ${DEFAULT_OLLAMA_URL}.`,
+    );
+  }
+  return ollama;
+}
+
 function parseCompanion(env: NodeJS.ProcessEnv): CompanionConfig | null {
   const model = env.HALCYONIC_COMPANION_MODEL;
   const address = env.HALCYONIC_COMPANION_OLLAMA_URL;
@@ -455,29 +485,7 @@ function parseCompanion(env: NodeJS.ProcessEnv): CompanionConfig | null {
       `HALCYONIC_COMPANION_MODEL ${model} is one of Ollama's cloud models; the companion runs only on this computer.`,
     );
   }
-  const given = address === undefined || address === '' ? DEFAULT_OLLAMA_URL : address;
-  let ollama: URL;
-  try {
-    ollama = new URL(given);
-  } catch {
-    throw new ConfigError('HALCYONIC_COMPANION_OLLAMA_URL is not a URL.');
-  }
-  const host = ollama.hostname.replace(/^\[|\]$/g, '');
-  if (
-    ollama.protocol !== 'http:' ||
-    !LOOPBACK_HOSTS.has(host) ||
-    ollama.port === '' ||
-    ollama.username !== '' ||
-    ollama.password !== '' ||
-    ollama.pathname !== '/' ||
-    ollama.search !== '' ||
-    ollama.hash !== ''
-  ) {
-    // Not echoed: an address with credentials in it would print them.
-    throw new ConfigError(
-      `HALCYONIC_COMPANION_OLLAMA_URL must be http:// on a loopback address with a port and nothing else, such as ${DEFAULT_OLLAMA_URL}.`,
-    );
-  }
+  const ollama = companionOllamaAddress(address);
   if (proxied(env, ollama)) {
     throw new ConfigError(
       "Node's environment proxy is on (NODE_USE_ENV_PROXY or --use-env-proxy with HTTP_PROXY), and NO_PROXY does not name Ollama's loopback address: the companion's requests would leave through the proxy. Add the address to NO_PROXY, or turn the proxy off.",

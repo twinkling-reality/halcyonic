@@ -17,7 +17,13 @@ import { describe, type TestContext, test } from 'node:test';
 import { loadConfig } from '../config.ts';
 import { loopbackProof, PROOF_CHALLENGE_HEADER, PROOF_HEADER } from '../http/security.ts';
 import type { Pins } from '../pins.ts';
-import { readHostSettings, SETTINGS_FILE, settingRoots, withSettings } from '../settings.ts';
+import {
+  readHostSettings,
+  SETTINGS_FILE,
+  settingRoots,
+  withSettings,
+  writeHostSettings,
+} from '../settings.ts';
 import { FOLDER_MEANING, type MacSetupIo, runMacSetup } from './mac-setup.ts';
 
 /** The access token of the fake running Halcyonic. */
@@ -772,6 +778,47 @@ describe('pnpm mac-setup', () => {
     await machine.run();
     assert.doesNotMatch(text(machine), /ollama pull qwen3\.5:9b/, 'already on this Mac');
     assert.match(text(machine), /pnpm mac-setup companion qwen3\.5:9b/);
+  });
+
+  test('an Ollama address with credentials in it is never printed or asked, from the environment or the settings', async (t) => {
+    const secret = 'S3CRET-not-real';
+    const machine = mac(t);
+    machine.routes.set('ollama /api/tags', {
+      status: 200,
+      body: { models: [...OLLAMA_MODELS, COMPANION] },
+    });
+    machine.env.HALCYONIC_COMPANION_MODEL = 'qwen3.5:9b';
+    for (const address of [
+      `http://u:${secret}@127.0.0.1:11434`,
+      `http://elsewhere.example:11434/?key=${secret}`,
+    ]) {
+      machine.env.HALCYONIC_COMPANION_OLLAMA_URL = address;
+      machine.lines.length = 0;
+      machine.requests.length = 0;
+      await machine.run();
+      assert.equal(status(machine, 'Companion'), 'To do', address);
+      assert.match(
+        text(machine),
+        /must be http:\/\/ on a loopback address with a port and nothing else/,
+      );
+      assert.doesNotMatch(text(machine), new RegExp(secret), address);
+      assert.ok(
+        !machine.requests.some((request) => request.url.includes('elsewhere')),
+        'nothing asks it',
+      );
+    }
+    machine.env.HALCYONIC_COMPANION_MODEL = undefined;
+    machine.env.HALCYONIC_COMPANION_OLLAMA_URL = undefined;
+
+    writeHostSettings(machine.dataDir, {
+      HALCYONIC_COMPANION_OLLAMA_URL: `http://u:${secret}@127.0.0.1:11434`,
+    });
+    machine.lines.length = 0;
+    machine.requests.length = 0;
+    assert.equal(await machine.run('companion', 'qwen3.5:9b'), 1);
+    assert.match(text(machine), /settings\.json, then try again/);
+    assert.doesNotMatch(text(machine), new RegExp(secret));
+    assert.equal(machine.requests.length, 0, 'nothing asks it');
   });
 
   test('companion records a model this Mac serves, and refuses a remote or missing one', async (t) => {
