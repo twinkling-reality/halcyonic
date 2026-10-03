@@ -19,6 +19,7 @@ import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { ConfigError, loadConfig } from './config.ts';
+import { redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
 import {
   ANTHROPIC_KEY_FILE,
@@ -387,5 +388,39 @@ describe("the secrets taken out of a runtime's text", () => {
       { what: 'ANTHROPIC_CUSTOM_HEADERS', value: token },
       { what: 'GATEWAY_OPTIONS', value: `${token}x` },
     ]);
+  });
+
+  test("hold the password in a URL in an agent value, however it looks, under the variable's name", () => {
+    const environment = {
+      ...HOST,
+      DATABASE_URL: 'postgres://app:pa55W0rdXYZ123abc@db.internal:5432/app',
+      CACHE_URL: 'redis://:Zx9Yw8Vu7Ts6Rq5Po4@cache:6379',
+      MIRROR_URL: 'https://deploy:p%40ss-word-1@mirror.example/repo, https://plain.example/',
+      DOCS_URL: 'https://docs.example/start',
+    };
+    const config = loadConfig({
+      ...HOST,
+      HALCYONIC_AGENT_ENV: 'DATABASE_URL,CACHE_URL,MIRROR_URL,DOCS_URL',
+    });
+    const dataDir = join(base, 'urls');
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    assert.deepEqual(held.slice(1), [
+      { what: 'DATABASE_URL', value: 'app:pa55W0rdXYZ123abc' },
+      { what: 'DATABASE_URL', value: 'pa55W0rdXYZ123abc' },
+      { what: 'CACHE_URL', value: ':Zx9Yw8Vu7Ts6Rq5Po4' },
+      { what: 'CACHE_URL', value: 'Zx9Yw8Vu7Ts6Rq5Po4' },
+      { what: 'MIRROR_URL', value: 'deploy:p%40ss-word-1' },
+      { what: 'MIRROR_URL', value: 'p%40ss-word-1' },
+      { what: 'MIRROR_URL', value: 'p@ss-word-1' },
+    ]);
+    // A connection string an agent prints loses the password, and keeps where it connects.
+    assert.equal(
+      redactSecrets(
+        'could not connect to postgres://app:pa55W0rdXYZ123abc@db.internal:5432/app',
+        held,
+      ),
+      'could not connect to postgres://[redacted: DATABASE_URL]@db.internal:5432/app',
+    );
   });
 });
