@@ -449,27 +449,54 @@ namespace Halcyonic.XR.Workspace
                 Join(top, top, content.TransformPoint(new Vector3(-to.Width / 2f, bottom, 0f)), content.TransformPoint(new Vector3(to.Width / 2f, bottom, 0f)));
                 return;
             }
-            var label = fileOf.View.Label;
-            var plate = label.Plate.transform;
+            var plate = fileOf.View.Label.Plate.transform;
             if (measured < 0f || Time.unscaledTime - measured > MeasureSeconds)
             {
                 measured = Time.unscaledTime;
-                lowest = -0.5f;
-                foreach (var filter in label.GetComponentsInChildren<MeshFilter>(false))
-                {
-                    if (filter.sharedMesh == null || !filter.TryGetComponent<Renderer>(out var drawn) || !drawn.enabled) continue;
-                    var bounds = filter.sharedMesh.bounds;
-                    foreach (var y in new[] { bounds.min.y, bounds.max.y })
-                    {
-                        foreach (var x in new[] { bounds.min.x, bounds.max.x })
-                        {
-                            lowest = Mathf.Min(lowest, plate.InverseTransformPoint(filter.transform.TransformPoint(new Vector3(x, y, bounds.center.z))).y);
-                        }
-                    }
-                }
+                lowest = LabelOutline(fileOf.View).Covered.yMin;
             }
             Join(plate.TransformPoint(new Vector3(-0.5f, lowest, 0f)), plate.TransformPoint(new Vector3(0.5f, lowest, 0f)),
                 subject.TransformPoint(new Vector3(-to.Width / 2f, to.PlateTop, 0f)), subject.TransformPoint(new Vector3(to.Width / 2f, to.PlateTop, 0f)));
+        }
+
+        /// <summary>
+        /// A character's label as laid on its plate: the plate, and the rectangle its parts cover in the
+        /// plate's own space, the plate itself included, so what falls on it as the eyes see it can be told
+        /// exactly (<see cref="OnLabel"/>): a flat label's bottom edge rises toward its ends as seen from
+        /// below, which a box round it in angles misses.
+        /// </summary>
+        public static (Transform Plate, Rect Covered) LabelOutline(CharacterView view)
+        {
+            var plate = view.Label.Plate.transform;
+            float left = -0.5f, right = 0.5f, bottom = -0.5f, top = 0.5f;
+            foreach (var filter in view.Label.GetComponentsInChildren<MeshFilter>(false))
+            {
+                if (filter.sharedMesh == null || !filter.TryGetComponent<Renderer>(out var drawn) || !drawn.enabled) continue;
+                var bounds = filter.sharedMesh.bounds;
+                for (var corner = 0; corner < 4; corner++)
+                {
+                    var local = plate.InverseTransformPoint(filter.transform.TransformPoint(new Vector3(
+                        corner % 2 == 0 ? bounds.min.x : bounds.max.x, corner < 2 ? bounds.min.y : bounds.max.y, bounds.center.z)));
+                    left = Mathf.Min(left, local.x);
+                    right = Mathf.Max(right, local.x);
+                    bottom = Mathf.Min(bottom, local.y);
+                    top = Mathf.Max(top, local.y);
+                }
+            }
+            return (plate, Rect.MinMaxRect(left, bottom, right, top));
+        }
+
+        /// <summary>Whether <paramref name="point"/>, seen from <paramref name="eyes"/>, falls on a label's outline (<see cref="LabelOutline"/>).</summary>
+        public static bool OnLabel((Transform Plate, Rect Covered) label, Vector3 eyes, Vector3 point)
+        {
+            var toward = point - eyes;
+            var normal = label.Plate.forward;
+            var across = Vector3.Dot(toward, normal);
+            if (Mathf.Abs(across) < 1e-6f) return false;
+            var along = Vector3.Dot(label.Plate.position - eyes, normal) / across;
+            if (along <= 0f) return false;
+            var local = label.Plate.InverseTransformPoint(eyes + toward * along);
+            return label.Covered.Contains(new Vector2(local.x, local.y));
         }
 
         /// <summary>
