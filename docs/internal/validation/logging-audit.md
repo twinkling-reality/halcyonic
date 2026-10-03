@@ -33,13 +33,19 @@ Each fix is its own commit; the test named fails on main and passes with the fix
 | `pnpm demo` printed the titles of every project's tasks, the person's own work included | `apps/control-plane/src/cli/demo.ts` | Only the demo's own project is printed (`workstreamLine` in demo-scenario.ts) | `demo-scenario.test.ts`, "only the demo's own project" |
 | `pnpm devices` and `pnpm demo` failed with a parse error that quotes part of a body | `cli/devices.ts`, `demo-scenario.ts` | `readJson` fails in fixed words | `demo-scenario.test.ts`, "an answer that is not JSON" |
 | A failed `adb` call in `pnpm quest:session` and `quest:cold-start` was printed whole by Node: everything adb printed, which names the headset | `tooling/quest/adb.ts` | The error names the subcommand and its exit status only | `tooling/quest/adb.test.ts` |
+| A runtime's or provider's error text was journaled as given: a gateway's 401 that echoes the key, Codex's error answer at start, OpenCode's | `core/redaction.ts`, used by `command-service.ts` (failures) and `drafts.ts` (a turn's failure, a lost or restored connection) | Every secret Halcyonic holds or passes to a runtime is replaced, exactly, then every credential shape; the rest stays word for word (the coordinator's decision) | `redaction.test.ts`; `control-plane.test.ts`, "a runtime's refusal loses what Halcyonic holds"; `drafts.test.ts`; `runtimes.test.ts`, "the secrets taken out of runtime error text" |
+| An error logged with `{ err }` showed its message, which can quote an instruction, and Node's `rawPacket` for a malformed request: its head, Authorization header and all, as a byte array | `http/server.ts` | Errors are logged by `errorForLog`: type, code and stack frames only | `server.test.ts`, "logs an error's type, code and frames": a malformed request carrying a token |
+| An adapter's bug, journaled as its type since the audit, left no trace for the owner | `command-service.ts` | It is logged on the Mac with its type and frames | `control-plane.test.ts`, "an adapter's bug is logged" |
 
 A scan guards what the sweeps reviewed: `tooling/log-calls.test.ts` reads every log call in the code
 that ships (the control plane and packages through pino, the headset's `Debug.Log` and `Log`
 helpers outside `Editor/`, the glance's `Log`) and fails on one whose arguments, outside their
 literals, name something that can be private, unless it is listed as reviewed with why it is safe.
-Thirty-one are listed; a new or changed one fails until a person reviews it, and a listed one that
-went fails too.
+It also reads `console.*`, `process.stderr.write`, the headset's
+`LogErrorFormat`, `LogWarningFormat`, `LogAssertion` and `unityLogger`, and the glance's `Log.wtf`,
+and flags a call that passes an error or a spread. Sixty-two are listed; a new or changed one fails
+until a person reviews it, and a listed one that went fails too. It reads names, not values, so it
+narrows what a review must look at and proves nothing about a call it passes.
 
 ## Sites checked
 
@@ -117,22 +123,18 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
 
 ## Open
 
-- **Runtime error text in the journal.** A turn's failure (`runtime.turn.failed`) and a refused
-  action (`command.failed`) carry the runtime's or provider's own message: Codex's
-  "unexpected status 401: <body>", OpenCode's HTTP error `message`, Claude Code's `result` for a
-  result flagged as an error. A gateway that repeats the key it was given in its 401, or a
-  validation error that repeats the value it rejected, would put a key or an instruction into an
-  error field every device sees. Curating it (codes only, or removing known secret values and
-  token-shaped text) changes what a person reads when work fails, so it is an open question
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)), not a fix here.
+- **Runtime error text in the journal.** Credentials are now taken out (above). The text is
+  otherwise the runtime's or provider's own, so a validation error that repeats the instruction it
+  rejected still repeats it, which is work content where an error is expected; whether to curate
+  error text further is an open question ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). A
+  credential in a shape the patterns don't know, and held nowhere Halcyonic can see (in Codex's own
+  configuration, for one), still passes.
 - **Tool input in titles and summaries.** Codex's tool title is the whole command line, and Claude
   Code's approval summary falls back to a tool's whole input as JSON, which for an MCP tool could
   hold a credential argument. A person needs them to decide on a request (SECURITY.md), but
   EVENTS.md doesn't say these fields carry tool input.
 - **Seorak's own reason** passes through to the headset, and Seorak's response is read with no
   size limit (not a privacy problem).
-- **pino's `err` serializer** logs an error's other own fields; none of the errors logged today
-  carry request text, but a future error type could.
 - **Host paths** in failure messages: binary paths and the data folder's in some adapter errors,
   credential file paths in Salidium's and Seorak's reasons. Devices already see project paths.
 
