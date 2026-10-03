@@ -207,6 +207,8 @@ namespace Halcyonic.Client
             if (!CanRetry) throw new InvalidOperationException("Only a step that cannot have run is sent again.");
             // A move refused or never sent, with no folder now: the project stays where it is.
             var dropMove = steps[index].Kind == BuildStepKind.BindFolder && folder == null;
+            // A move is never the last step today; were it, there would be nothing to send in its place.
+            if (dropMove && index + 1 >= steps.Count) throw new InvalidOperationException("A move with no step after it can't be dropped; send it again or close.");
             var sending = dropMove ? steps[index + 1].Kind : steps[index].Kind;
             // Compared with the folder this send carries: a step after the project was made carries none unless one is given.
             var carried = folder ?? (sending == BuildStepKind.CreateProject || sending == BuildStepKind.BindFolder ? location : null);
