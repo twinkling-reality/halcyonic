@@ -503,7 +503,7 @@ describe('truthful failure handling', () => {
     const held = 'my-gateway-secret-42';
     const instruction = 'Add a login page to the settings screen';
     const harness = createTestControlPlane({
-      secrets: () => [held],
+      secrets: () => [{ what: 'GATEWAY_KEY', value: held }],
       adapters: () => [
         stubRuntime('gateway', async (request) => {
           throw new RuntimeActionError(
@@ -538,7 +538,7 @@ describe('truthful failure handling', () => {
       assert.ok(!text.includes(held) && !text.includes('sk-proj'), text);
       assert.ok(
         text.includes(
-          `unexpected status 401: invalid key [redacted] for [redacted]; the request was \\"${instruction}\\"`,
+          `unexpected status 401: invalid key [redacted] for [redacted: GATEWAY_KEY]; the request was \\"${instruction}\\"`,
         ),
         text,
       );

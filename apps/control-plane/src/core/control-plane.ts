@@ -8,7 +8,7 @@ import type { Logger } from '../logger.ts';
 import { CommandService } from './command-service.ts';
 import { EventPublisher } from './publisher.ts';
 import { Recorder } from './recorder.ts';
-import { redactSecrets } from './redaction.ts';
+import { type HeldSecret, type Redaction, redaction } from './redaction.ts';
 import { RuntimeRegistry } from './runtime-registry.ts';
 
 export interface ControlPlaneOptions {
@@ -27,10 +27,11 @@ export interface ControlPlaneOptions {
   /** How many finished commands a snapshot includes alongside the pending ones. */
   readonly snapshotFinishedCommands?: number;
   /**
-   * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's error text
-   * is journaled, since some change (redaction.ts). None by default; credential shapes still go.
+   * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
+   * journaled or read through to a device, since some change (redaction.ts). None by default;
+   * credential shapes still go from error text.
    */
-  readonly secrets?: () => Iterable<string>;
+  readonly secrets?: () => Iterable<HeldSecret>;
 }
 
 /**
@@ -46,6 +47,8 @@ export class ControlPlane {
   readonly commands: CommandService;
   readonly locations: HostLocations;
   readonly clock: Clock;
+  /** How a runtime's or a provider's text loses credentials before a device sees it. */
+  readonly redaction: Redaction;
   readonly #logger: Logger;
   readonly #snapshotFinishedCommands: number;
 
@@ -54,6 +57,7 @@ export class ControlPlane {
     this.clock = options.clock;
     this.locations = options.locations ?? createHostLocations([]);
     this.#logger = options.logger;
+    this.redaction = redaction(options.secrets);
     this.#snapshotFinishedCommands = options.snapshotFinishedCommands ?? 50;
     this.publisher = new EventPublisher(options.logger);
     for (const adapter of options.adapters) this.registry.register(adapter);
@@ -75,7 +79,7 @@ export class ControlPlane {
       scheduler: options.scheduler,
       logger: options.logger,
       commandTimeoutMs: options.commandTimeoutMs,
-      redact: (text) => redactSecrets(text, options.secrets?.() ?? []),
+      redaction: this.redaction,
     });
     this.#rebuild();
   }

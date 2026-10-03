@@ -41,7 +41,7 @@ import {
   NO_CAUSE,
 } from './drafts.ts';
 import type { Recorder } from './recorder.ts';
-import { withinLimit } from './redaction.ts';
+import { type Redaction, withinLimit } from './redaction.ts';
 import type { RuntimeRegistry } from './runtime-registry.ts';
 
 export type SubmitOutcome =
@@ -60,8 +60,8 @@ export interface CommandServiceDeps {
   readonly logger: Logger;
   /** How long to wait for a runtime to confirm an action before recording it as failed. */
   readonly commandTimeoutMs: number;
-  /** A runtime's or provider's error text, credentials taken out, as it may be journaled (redaction.ts). */
-  readonly redact: (text: string) => string;
+  /** How a runtime's text loses credentials before it is journaled (redaction.ts). */
+  readonly redaction: Redaction;
 }
 
 type Admitted = Admission & { admitted: true };
@@ -392,7 +392,7 @@ export class CommandService {
           this.#deps.logger,
           execution,
           runtime.runtime_id,
-          this.#deps.redact,
+          this.#deps.redaction,
         );
         void this.#perform(
           command,
@@ -476,7 +476,7 @@ export class CommandService {
               'runtime adapter failed unexpectedly',
             );
           }
-          outcome.failed(toFailure(first.error, this.#deps.redact));
+          outcome.failed(toFailure(first.error, this.#deps.redaction));
           return;
         case 'timed_out':
           outcome.failed({
@@ -714,12 +714,12 @@ function unimplemented(action: string): CommandFailure {
 
 const CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
-function toFailure(error: unknown, redact: (text: string) => string): CommandFailure {
+function toFailure(error: unknown, redaction: Redaction): CommandFailure {
   if (error instanceof RuntimeActionError) {
     return {
       code: CODE_PATTERN.test(error.code) ? error.code : 'runtime_error',
       // The runtime's own words, as Codex's error answer at start, credentials taken out.
-      message: clip(redact(error.message), 'The runtime refused the action.'),
+      message: clip(redaction.errorText(error.message), 'The runtime refused the action.'),
       effect: error.effect,
     };
   }

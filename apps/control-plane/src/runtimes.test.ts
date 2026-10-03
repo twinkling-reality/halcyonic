@@ -28,6 +28,7 @@ import {
   createRuntimeAdapters,
   heldSecrets,
   openCodeEnvironment,
+  secretName,
   stopStaleRuntimeServers,
 } from './runtimes.ts';
 import { SCENARIOS } from './testing/harness.ts';
@@ -283,30 +284,42 @@ describe('runtime composition', () => {
   });
 });
 
-describe('the secrets taken out of runtime error text', () => {
-  test('are the token, the Anthropic key, the secret agent values and the credentials, read when asked', () => {
+describe("the secrets taken out of a runtime's text", () => {
+  test('are the token, the Anthropic key, the credentials and the secret agent values, named and read when asked', () => {
     const dataDir = join(base, 'held');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     const environment = {
       ...HOST,
       GATEWAY_KEY: 'gateway-value-1',
       PROXY_AUTH: 'proxy-value-2',
+      GITLAB_PAT: 'gitlab-value-3',
+      SESSION_COOKIE: 'cookie-value-4',
+      // A credential under a name that does not say so, held because it reads as one.
+      GATEWAY_HEADER: 'q7Xk2pLm9vRt4wZb8nHc3jYd',
       ANTHROPIC_BASE_URL: 'https://gateway.example/v1',
       AWS_REGION: 'ap-southeast-1',
+      GIT_AUTHOR_NAME: 'Someone Who Commits',
       ANTHROPIC_API_KEY: 'sk-ant-env-key',
     };
     const config = loadConfig({
       ...HOST,
       HALCYONIC_DATA_DIR: dataDir,
-      HALCYONIC_AGENT_ENV: 'GATEWAY_KEY,ANTHROPIC_BASE_URL,PROXY_AUTH,AWS_REGION',
+      HALCYONIC_AGENT_ENV:
+        'GATEWAY_KEY,ANTHROPIC_BASE_URL,PROXY_AUTH,AWS_REGION,GITLAB_PAT,SESSION_COOKIE,GIT_AUTHOR_NAME,GATEWAY_HEADER',
     });
     const secrets = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', []);
-    // An address and a region are passed to agents but stay in the text a person reads.
+    // An address, a region and an author's name are passed to agents but stay in the text a person reads.
+    const agentValues = [
+      { what: 'GATEWAY_KEY', value: 'gateway-value-1' },
+      { what: 'PROXY_AUTH', value: 'proxy-value-2' },
+      { what: 'GITLAB_PAT', value: 'gitlab-value-3' },
+      { what: 'SESSION_COOKIE', value: 'cookie-value-4' },
+      { what: 'GATEWAY_HEADER', value: 'q7Xk2pLm9vRt4wZb8nHc3jYd' },
+    ];
     assert.deepEqual(secrets(), [
-      'the-access-token-value',
-      'sk-ant-env-key',
-      'gateway-value-1',
-      'proxy-value-2',
+      { what: 'access token', value: 'the-access-token-value' },
+      { what: 'Anthropic key', value: 'sk-ant-env-key' },
+      ...agentValues,
     ]);
     // A credential put in place later is read the next time.
     for (const [name, value] of [
@@ -316,9 +329,39 @@ describe('the secrets taken out of runtime error text', () => {
       writeFileSync(join(dataDir, name), `${value}\n`, { mode: 0o600 });
       chmodSync(join(dataDir, name), 0o600);
     }
-    assert.deepEqual(secrets().slice(4), ['salidium-value', 'srkx_seorak-value']);
+    assert.deepEqual(secrets().slice(2), [
+      { what: 'Salidium credential', value: 'salidium-value' },
+      { what: 'Seorak credential', value: 'srkx_seorak-value' },
+      ...agentValues,
+    ]);
     // One others can read is not read, and gives nothing.
     chmodSync(join(dataDir, 'seorak-credential'), 0o644);
-    assert.deepEqual(secrets().slice(4), ['salidium-value']);
+    assert.deepEqual(secrets().slice(2, 4), [
+      { what: 'Salidium credential', value: 'salidium-value' },
+      { what: 'GATEWAY_KEY', value: 'gateway-value-1' },
+    ]);
+  });
+
+  test("names read as a secret's by their whole words", () => {
+    const secret = [
+      'ANTHROPIC_API_KEY',
+      'GITHUB_TOKEN',
+      'GITLAB_PAT',
+      'SMTP_PASS',
+      'SSH_KEY_PASSPHRASE',
+      'SESSION_COOKIE',
+      'AWS_SESSION_TOKEN',
+      'OPENAI_APIKEY',
+      'proxy_auth',
+    ];
+    for (const name of secret) assert.ok(secretName(name), name);
+    const plain = [
+      'GIT_AUTHOR_NAME',
+      'ANTHROPIC_BASE_URL',
+      'AWS_REGION',
+      'KEYBOARD_LAYOUT',
+      'PATH',
+    ];
+    for (const name of plain) assert.ok(!secretName(name), name);
   });
 });
