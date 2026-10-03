@@ -110,6 +110,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
                 var commands = new CommandFactory(client);
                 FileColumn? file = null;
+                NewProjectFlow? flow = null;
+                var companionAsset = Resources.Load<TextAsset>(CompanionRecording.ResourceName);
+                var companion = CompanionRecording.Parse(companionAsset.text);
+                Resources.UnloadAsset(companionAsset);
                 WorkspacePresentation? Present(string task) =>
                     state.Workstreams.TryGetValue(task, out var workstream) ? WorkspacePresenter.Present(workstream, state, activity, true) : null;
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
@@ -120,6 +124,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     RecordedUsage = at => recording.UsageLimitsAt(at),
                     File = (host, task) => file = new FileColumn(host, () => Present(task), commands, () => reads,
                         execution => instructions.TryGetValue(execution, out var offered) ? offered : null, () => ""),
+                    // Lane C's flow, playing the companion's recording, keeping nothing on this machine.
+                    MakeNewProject = host => flow = new NewProjectFlow(host, commands, new KeptInMemory(), null, companion),
                     // Your space as the release build gives it: no Your computer.
                     Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null), _ => { }, _ => { }),
                     Demonstration = () => true,
@@ -143,7 +149,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     foreach (var (view, _) in characters) view.Show(CharacterPresenter.Present(state.Workstreams[view.WorkstreamId], state, true));
                 }
-                void Shot(string step) => failures.AddRange(PlaneState(name + " judge " + step, folder, camera, texture, director.Plane, characters, eyes, null));
+                void Shot(string step, bool lightLine = true) =>
+                    failures.AddRange(PlaneState(name + " judge " + step, folder, camera, texture, director.Plane, characters, eyes, null, lightLine));
                 // A side panel's Close details, through its own column: with text a step larger it stands in its frame's place.
                 void CloseSide()
                 {
@@ -244,10 +251,48 @@ namespace Halcyonic.XR.Workspace.Editor
                 Shot("11 settings");
                 CloseSide();
 
+                // New project from Projects: the companion's recorded questions, quoted as its own, then its recap, which can't start here.
+                Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Projects));
+                Press(MenuColumn.Menu, ProjectsScreens.NewProject);
+                Press(MenuColumn.File, NewProjectScreens.BeginCompanion);
+                if (flow?.Step != NewProjectStep.Questions) failures.Add(name + ": Talk it through did not bring the companion's recorded questions.");
+                else if (Shown(MenuColumn.File)?.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)) != true)
+                {
+                    failures.Add(name + ": the companion's words are not quoted as its own.");
+                }
+                Shot("12 new project questions", lightLine: false);
+                if (flow?.Idea?.Companion is CompanionExchange exchange && companion.RecordedAnswer(exchange) is string answer)
+                {
+                    // Where the page holds less than the question and its answers, they follow under it by More answers: turn to them.
+                    var key = NewProjectScreens.AnswerKey(exchange.Generation, answer);
+                    for (var turn = 0; turn < 4 && Shown(MenuColumn.File)?.Lines.Any(line => line.Action == NewProjectScreens.ChooseSuggestion && line.Key == key) != true; turn++)
+                    {
+                        var more = Shown(MenuColumn.File)?.Lines.FirstOrDefault(line => line.Action == NewProjectScreens.MoreAnswers);
+                        if (more == null) break;
+                        Press(MenuColumn.File, NewProjectScreens.MoreAnswers, more.Key);
+                    }
+                    Press(MenuColumn.File, NewProjectScreens.ChooseSuggestion, key);
+                    Press(MenuColumn.File, NewProjectScreens.SendAnswer);
+                }
+                if (flow?.Step != NewProjectStep.Recap) failures.Add(name + ": the recorded answer did not bring the recap.");
+                var start = Shown(MenuColumn.File)?.Footer[PromptSlot.FarRight];
+                if (start?.Id != NewProjectScreens.StartBuilding || start.Available) failures.Add(name + ": the demonstration's recap offers a start it can't make.");
+                if (Shown(MenuColumn.File)?.Source != CompanionText.Note) failures.Add(name + ": the recap does not say the companion is an AI that can be wrong.");
+                Shot("13 new project recap", lightLine: false);
+                // Every page of the recap, each held to the plane's checks, as a judge turns them with the footer's Next page.
+                for (var page = 2; page < 10; page++)
+                {
+                    var next = Shown(MenuColumn.File)?.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Kind == PromptKind.NextPage);
+                    if (next == null || next.Words.StartsWith("First page", StringComparison.Ordinal)) break;
+                    Press(MenuColumn.File, Footer.NextPage);
+                    Shot("13 new project recap page " + page, lightLine: false);
+                }
+                Press(MenuColumn.File, Footer.Close);
+
                 // Closed again: the bar alone.
                 director.CloseMenu();
                 director.DrawNow();
-                Shot("12 closed");
+                Shot("14 closed");
             }
             finally
             {

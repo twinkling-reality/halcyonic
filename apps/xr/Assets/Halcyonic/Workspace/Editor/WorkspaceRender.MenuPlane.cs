@@ -259,8 +259,9 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>One state of the plane, checked and rendered as the eyes see it, aimed at its centre.</summary>
+        /// <param name="lightLine">The column beside the menu is a task's file, joined to its character by the light line; false for New project, which has no character.</param>
         private static IEnumerable<string> PlaneState(string what, string folder, Camera camera, RenderTexture texture, MenuPlane plane,
-            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Transform? window)
+            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Transform? window, bool lightLine = true)
         {
             var failures = new List<string>();
             ForceMeshes(plane.gameObject);
@@ -360,7 +361,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                 }
             }
-            else if (window == null && plane.Shown.Any(column => column.Kind == MenuColumn.File)) failures.Add(what + ": a file shows without its light line.");
+            else if (lightLine && window == null && plane.Shown.Any(column => column.Kind == MenuColumn.File)) failures.Add(what + ": a file shows without its light line.");
             if (window != null)
             {
                 // Beside a window nothing of the plane comes within a degree of it, and no light line runs across it.

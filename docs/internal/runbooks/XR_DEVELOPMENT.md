@@ -122,13 +122,16 @@ look-alikes for the render only, and the log names them.
 
 The same run then walks a judge's path through the menu (ADR 0026) on the recorded demonstration,
 from the eyes on the far stage with the 3S's field. It saves `far-3s-judge-1-bar` to
-`far-3s-judge-12-closed` at each text size: the closed bar, Tasks, the file at the agent's question,
+`far-3s-judge-14-closed` at each text size: the closed bar, Tasks, the file at the agent's question,
 an answer chosen, the approval, its request's first part, Yes, Checks, Tell it's recorded rows,
-Usage with a limit's side panel, Settings with a setting chosen, and the bar again. The recording
+Usage with a limit's side panel, Settings with a setting chosen, New project's recorded questions
+and its recap, and the bar again. The recording
 stands where each step is reached, and nothing is sent. It fails on the plane's checks; if the
 waiting task is not Tasks' first row; if Yes shows on the request's first part or not after the
 last; if Checks does not show the recorded simulated checks; if Tell it offers other than the
-recorded instructions; or if a recorded limit's Account does not say it is part of the recording.
+recorded instructions; if a recorded limit's Account does not say it is part of the recording; or
+if New project's companion is not quoted as its own, or its recap offers a start or lacks the note
+that the companion is an AI.
 
 The stage beside a window renders the same way, **Halcyonic > Render the Stage Beside a Window**,
 or in batch mode:
@@ -982,12 +985,20 @@ Then, with hands only, through the menu (ADR 0026). This is intended behaviour, 
 - **Usage.** Two limits for one practice agent, "At most 62% left" and "At most 79% left", under
   "Recorded for the demo, not from any account", with no Refresh. A limit's side panel says when it
   was seen and resets, and Account "Part of the recording" (`judge-10-usage`).
-- **Projects.** The demonstration's one project, "Storefront API", with no folders. New project
-  opens New project beside the menu, which in the demo plays its own recording.
+- **Projects.** The demonstration's one project, "Storefront API", with no folders.
+- **New project.** Projects' New project opens it beside the menu. Nobody types: press Talk it
+  through, and the companion's recording brings its idea. Its question is quoted as its own ("The
+  companion says: “…”"), under "Recorded replies. Nothing here asks the companion."
+  (`judge-12-new-project-questions`). Only the recorded answer can be pressed; choose it and press
+  Send answer. The recap follows, its suggestions marked Suggested, under "The companion is an AI
+  on your computer. It can be wrong, and you can change everything before you start." Start
+  building waits: "The demo can't start new work. Real work runs on your computer."
+  (`judge-13-new-project-recap`); where the facts need more than a page, the footer's Next page
+  turns them. Nothing is sent.
 - **Settings.** A page a group: Your space first (Around you, Your room's layout, The characters, The
   menu), then Comfort (Text size, Moving badges, Sounds), each changing on this headset only
   (`judge-11-settings`). The release build offers no Your computer, since it never pairs.
-- **Closed.** Close the file and the menu: the bar alone (`judge-12-closed`), reading "Nothing is
+- **Closed.** Close the file and the menu: the bar alone (`judge-14-closed`), reading "Nothing is
   waiting for you." once nothing waits.
 - **The end.** Once the story has ended the line adds "This recording has ended and starts again
   shortly.", and about 20 seconds later the characters go back to Not started and it plays again,
