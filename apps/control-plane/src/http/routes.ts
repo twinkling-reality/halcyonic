@@ -418,10 +418,10 @@ export function registerRoutes(
 }
 
 /**
- * An evaluation source's reason, or its note on a verification that measured nothing, with
- * credentials taken out as from any error text (redaction.ts): it is the source's own words, and a
- * provider's can echo a key Halcyonic never held. Applied to an answer that matches the contract,
- * and cut to the field's limit after.
+ * An evaluation source's reason, its labels for the kinds of check it measured, and its note on a
+ * verification that measured nothing, with credentials taken out as from any error text
+ * (redaction.ts): they are the source's own words, and a provider's can echo a key Halcyonic never
+ * held. Applied to an answer that matches the contract, and cut to the field's limit after.
  */
 function reasonWithoutCredentials(
   reason: { readonly code: string; readonly message: string },
@@ -439,14 +439,24 @@ function evaluationWithoutCredentials(
   }
   const { verification } = result.evaluation;
   const lens = verification.lens;
-  if (lens === null || lens.empty_reason === null) return result;
+  if (lens === null) return result;
   return {
     ...result,
     evaluation: {
       ...result.evaluation,
       verification: {
         ...verification,
-        lens: { ...lens, empty_reason: withinLimit(redaction.errorText(lens.empty_reason), 600) },
+        lens: {
+          ...lens,
+          by_kind: lens.by_kind.map((kind) => ({
+            ...kind,
+            label: withinLimit(redaction.errorText(kind.label), 120),
+          })),
+          empty_reason:
+            lens.empty_reason === null
+              ? null
+              : withinLimit(redaction.errorText(lens.empty_reason), 600),
+        },
       },
     },
   };

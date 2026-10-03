@@ -203,7 +203,13 @@ describe('GET /api/executions/:id/evaluation', () => {
       availability: 'available',
       evaluation: {
         ...EVALUATION,
-        verification: { ...EVALUATION.verification, lens: { by_kind: [], empty_reason: words } },
+        verification: {
+          ...EVALUATION.verification,
+          lens: {
+            by_kind: [{ label: `lint ${HELD}`, runs: 1, passed: 1, pass_rate: 1 }],
+            empty_reason: words,
+          },
+        },
       },
     };
     const measured = await evaluation(executionId);
@@ -212,7 +218,15 @@ describe('GET /api/executions/:id/evaluation', () => {
       availability: 'available',
       evaluation: {
         ...EVALUATION,
-        verification: { ...EVALUATION.verification, lens: { by_kind: [], empty_reason: cleaned } },
+        verification: {
+          ...EVALUATION.verification,
+          lens: {
+            by_kind: [
+              { label: 'lint [redacted: Seorak credential]', runs: 1, passed: 1, pass_rate: 1 },
+            ],
+            empty_reason: cleaned,
+          },
+        },
       },
     });
     limits = { availability: 'unavailable', reason: { code: 'server_error', message: words } };
