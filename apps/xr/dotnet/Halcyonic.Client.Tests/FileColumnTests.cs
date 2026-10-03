@@ -129,6 +129,72 @@ public class FileColumnTests
     }
 
     [Test]
+    public void DrawingAnArmedRequestBuildsAgainOnlyWhenYesMayShowSoAPressStandsOnTheFrameDrawn()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        var column = Column(host, () => Approving(work));
+        column.Act(FileScreens.Approve, null);
+        var changes = 0;
+        column.Changed += () => changes++;
+        Draw(host, column);
+        Assert.That((changes, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo((1, FileScreens.Yes)), "Yes may show: built once");
+        var shown = column.Frame;
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        Assert.That((changes, column.Frame), Is.EqualTo((1, shown)), "drawn again, it stands as it is");
+        column.Act(FileScreens.Yes, null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(1), "Yes is taken, once");
+    }
+
+    [Test]
+    public void ARequestInPartsDrawnOverAndOverTurnsByNextPartAndCancelsOrConfirmsAsPressed()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        var command = string.Join(" && ", Enumerable.Range(1, 30).Select(step => "psql -c 'ALTER TABLE t" + step + " DROP COLUMN legacy'"));
+        work.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(WaitingWork.Approval("approval-long", command, Samples.Time));
+        });
+        var column = Column(host, () => Approving(work));
+        column.Act(FileScreens.Approve, null);
+        Assert.That(column.Screen.RequestParts, Is.GreaterThan(2), "a request of several parts");
+        var changes = 0;
+        column.Changed += () => changes++;
+        for (var part = 0; part < column.Screen.RequestParts; part++)
+        {
+            var shown = column.Frame;
+            for (var draw = 0; draw < 3; draw++) Draw(host, column);
+            var last = part == column.Screen.RequestParts - 1;
+            Assert.That(column.Frame, last ? Is.Not.SameAs(shown) : Is.SameAs(shown), "part " + part + ": built again only once Yes may show");
+            if (last) break;
+            Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.Not.EqualTo(FileScreens.Yes), "no Yes before the last part");
+            var before = changes;
+            column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+            Assert.That((changes - before, column.Screen.RequestPart), Is.EqualTo((1, part + 1)), "Next part is taken");
+        }
+        Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.EqualTo(FileScreens.Yes));
+        var settled = changes;
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        Assert.That(changes, Is.EqualTo(settled), "a confirmation drawn again and again raises nothing more");
+        column.Act(FileScreens.Cancel, null);
+        Assert.That((column.Steering.Armed, host.Sent.Count), Is.EqualTo(((WorkspaceAction?)null, 0)), "Cancel is taken and sends nothing");
+
+        column.Act(FileScreens.Approve, null);
+        for (var part = 0; part < column.Screen.RequestParts; part++)
+        {
+            Draw(host, column);
+            Draw(host, column);
+            if (part < column.Screen.RequestParts - 1) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        }
+        column.Act(FileScreens.Yes, null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(1), "Yes is taken and sends once");
+    }
+
+    [Test]
     public void ADrawOfAFrameTheColumnNoLongerStandsByCountsForNothing()
     {
         var host = new FileMenuHost();
