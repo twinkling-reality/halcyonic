@@ -100,6 +100,20 @@ public class MenuDragTests
     }
 
     [Test]
+    public void ADragNeverTakesThePlanesCentreOutOfTheFieldAsSeenTurnedToTheStage()
+    {
+        var quest3S = new ViewField(48, 48, 45, 45);
+        Assert.That(MenuDrag.WithinReach(new PanelDirection(40f, -25f, true, false), 0f, quest3S), Is.True);
+        Assert.That(MenuDrag.WithinReach(new PanelDirection(50f, -25f, true, false), 0f, quest3S), Is.False, "past the field less its margin");
+        Assert.That(MenuDrag.WithinReach(new PanelDirection(50f, -25f, true, false), 32f, quest3S), Is.True, "the stage turned aside, its centre 32 degrees right");
+        var drag = new MenuDrag(Placed, (0f, 0f), 0f, -20f, MenuAndFile(), Array.Empty<BodyInView>(), field: quest3S, stageYaw: 0f);
+        drag.Follow(100f, -20f);
+        Assert.That(drag.Moved, Is.EqualTo((0f, 0f)), "a sweep a hundred degrees right is not taken");
+        Assert.That(drag.Follow(30f, -20f), Is.True);
+        Assert.That(MenuDrag.WithinReach(drag.At, 0f, quest3S), Is.True);
+    }
+
+    [Test]
     public void TurnedWrapsRoundTheEyes()
     {
         var turned = MenuDrag.Turned(new PanelDirection(170f, -20f, true, true), (20f, -2f));

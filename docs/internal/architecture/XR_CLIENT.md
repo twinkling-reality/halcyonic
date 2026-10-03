@@ -426,7 +426,8 @@ the same definition names, as the JSON Schema document:
   a time, else none (`MenuDrag.Kept`, `MenuPlane.Allows`, which judges the light line from the
   geometry alone), and the menu stands beside the file, or a side panel beside its frame, only where
   the two fit where the plane was dragged; with none of it kept, Settings says "Where it stands".
-  A step is taken only where the plane stays inside the measured field, clear of every character's
+  A step is taken only where the plane stays inside the measured field, its centre in that field as
+  seen with the head turned to the stage's centre (`MenuDrag.WithinReach`), clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
   each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. The
   hold counts only on the file's frame last drawn, never while a confirmation stands on the plane,
