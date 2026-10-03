@@ -487,7 +487,12 @@ the same definition names, as the JSON Schema document:
   one longer than its row, brings a side panel with all its words, in parts worked out from its own
   measurement at the side panel's width (`PromptMeasure.AnswerSideRows`, `FileQuestion.SideParts`),
   turned by the footer's Next page in Hold to talk's place; the view reports only that the side
-  panel was drawn (`SideDrawn`), never which part or how many. The file's Send answer always carries
+  panel was drawn (`SideDrawn`), never which part or how many. A typed answer's panel opens for new
+  words, from their own first part; the same words keep it as the person has it, open on their part
+  or closed, and laid into another number of parts are read again from the first. While they are
+  unread, its row opens the panel again at the first part not yet drawn (`FileQuestion.ReopenTyped`),
+  and so does coming back to the prompt; read whole, the row edits them. Close details always brings
+  the page back. The file's Send answer always carries
   the page's reason (`WorkspaceSteering.SendAnswer(FileScreen, …)`). A question that waits before
   it is laid out shows what it asks, with Send answer waiting ("Getting the question ready."), never
   that nothing waits.
