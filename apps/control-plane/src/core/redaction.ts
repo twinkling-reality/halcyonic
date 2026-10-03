@@ -61,10 +61,10 @@ const WHOLE_KEY_SHAPE = new RegExp(`^(?:${KEY_SHAPES.source})$`);
  * holds both `/` and a `.` before a letter or digit, as in "invalid token src/config/settings.json",
  * since base64 has no `.` and a JSON Web Token no `/`. One with `+` or `=` in it is base64 and so
  * never a path. `=` ends it only as padding, and a full stop after it is a sentence's: both stay
- * outside what is replaced, as in "...ZA==.Retry".
+ * outside what is replaced, as in "...ZA==.Retry". A name before it, as in `Token token=…`, stays.
  */
 const SCHEME_CREDENTIAL =
-  /\b(Bearer|Basic|Token)(\s+)(?![/~.])(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\/)[A-Za-z0-9._~/-]*\.[A-Za-z0-9])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/-]{7,}[A-Za-z0-9_~+/-]={0,2}/gi;
+  /\b(Bearer|Basic|Token)(\s+)([A-Za-z][A-Za-z0-9_-]{0,31}=)?(?![/~.])(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\/)[A-Za-z0-9._~/-]*\.[A-Za-z0-9])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/-]{7,}[A-Za-z0-9_~+/-]={0,2}/gi;
 
 /** A URL's user and password: `scheme://user:password@host`. */
 const URL_USERINFO = /\b([a-z][a-z0-9+.-]{0,31}:\/\/)[^\s/@:]+(?::[^\s/@]*)?@/gi;
@@ -128,7 +128,7 @@ export function looksLikeCredential(value: string): boolean {
  */
 export function redactSecrets(text: string, secrets: Iterable<HeldSecret>): string {
   return redactHeld(text.length > READ ? withoutHalfPair(text.slice(0, READ)) : text, secrets)
-    .replace(SCHEME_CREDENTIAL, `$1$2${REDACTED}`)
+    .replace(SCHEME_CREDENTIAL, `$1$2$3${REDACTED}`)
     .replace(URL_USERINFO, `$1${REDACTED}@`)
     .replace(KEY_SHAPES, REDACTED)
     .replace(RANDOM_RUN, (run) => (looksRandom(run) ? REDACTED : run));

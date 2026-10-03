@@ -132,6 +132,11 @@ describe('error text before it is journaled', () => {
       redactSecrets('Token abc123.def/GHI456+jkl== was refused', []),
       `Token ${REDACTED} was refused`,
     );
+    // A name before the credential, as Rails' `Token token=…` has, stays; the credential goes.
+    assert.equal(
+      redactSecrets('Authorization: Token token=abc123def456ghi789jkl', []),
+      `Authorization: Token token=${REDACTED}`,
+    );
     // Base64 has no `.` and a JSON Web Token no `/`, so either alone is still a credential.
     assert.equal(redactSecrets('Bearer ab/cd+ef12==', []), `Bearer ${REDACTED}`);
     assert.equal(redactSecrets('Bearer abc.DEF-123_xyz', []), `Bearer ${REDACTED}`);
