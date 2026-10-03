@@ -1,4 +1,5 @@
 import type { EventEnvelope, JournalInfo, StoredEvent } from '@halcyonic/contracts';
+import { OwnWordsError } from '../logger.ts';
 
 export type AppendResult =
   | { readonly status: 'appended'; readonly position: number }
@@ -44,7 +45,7 @@ export interface EventJournal {
   close(): void;
 }
 
-export class JournalError extends Error {
+export class JournalError extends OwnWordsError {
   constructor(message: string) {
     super(message);
     this.name = 'JournalError';

@@ -8,7 +8,7 @@ import type { Projection } from '@halcyonic/domain';
 import type { Clock } from '@halcyonic/runtime-core';
 import type { IdGenerator } from '../ids.ts';
 import type { AppendResult, EventJournal } from '../journal/journal.ts';
-import type { Logger } from '../logger.ts';
+import { type Logger, OwnWordsError } from '../logger.ts';
 import type { EventPublisher } from './publisher.ts';
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -23,7 +23,7 @@ export type RecordResult =
   | { readonly status: 'recorded'; readonly position: number; readonly event: EventEnvelope }
   | { readonly status: 'duplicate'; readonly position: number };
 
-export class InvalidEventError extends Error {
+export class InvalidEventError extends OwnWordsError {
   readonly issues: ValidationIssue[];
 
   constructor(issues: ValidationIssue[]) {

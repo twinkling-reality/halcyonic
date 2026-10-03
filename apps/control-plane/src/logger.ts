@@ -10,6 +10,13 @@ export interface Logger {
   error(context: object, message: string): void;
 }
 
+/**
+ * An error whose message is Halcyonic's own fixed words, never text from outside: a setting's
+ * problem, a contract's issue paths, a speech engine's state. Its message is logged; any other
+ * error's is not, since it can quote what it read (errorForLog in http/server.ts).
+ */
+export class OwnWordsError extends Error {}
+
 export const silentLogger: Logger = {
   debug: () => {},
   info: () => {},

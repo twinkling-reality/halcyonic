@@ -16,6 +16,7 @@ import { delimiter, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isCloudName } from './companion/ollama.ts';
 import { assessFolder, type FolderContext } from './folder-safety.ts';
+import { OwnWordsError } from './logger.ts';
 
 export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -97,7 +98,7 @@ export interface ControlPlaneConfig {
   readonly exitOnStdinEnd: boolean;
 }
 
-export class ConfigError extends Error {
+export class ConfigError extends OwnWordsError {
   constructor(message: string) {
     super(message);
     this.name = 'ConfigError';

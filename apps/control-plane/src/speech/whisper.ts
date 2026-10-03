@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TranscriptionEngine } from '@halcyonic/contracts';
 import type { SpeechConfig } from '../config.ts';
+import { OwnWordsError } from '../logger.ts';
 import { writeWav } from './wav.ts';
 
 /** How long one transcription may take before the engine is stopped. */
@@ -58,6 +59,11 @@ export interface SpeechEngine {
   transcribe(wav: Buffer): Promise<EngineResult>;
   /** Readies the engine before anyone speaks; returns how long it took, in milliseconds. */
   warmUp(): Promise<number>;
+}
+
+/** The speech engine's failure, in its own fixed words: "The engine took longer than 15 s.". */
+export class SpeechEngineError extends OwnWordsError {
+  override name = 'SpeechEngineError';
 }
 
 /**
@@ -129,7 +135,7 @@ export class WhisperEngine implements SpeechEngine {
   async warmUp(): Promise<number> {
     const started = performance.now();
     const result = await this.#run(writeWav(Buffer.alloc(32_000)), false, this.#warmUpTimeoutMs);
-    if (result.kind === 'failed') throw new Error(result.message);
+    if (result.kind === 'failed') throw new SpeechEngineError(result.message);
     return Math.round(performance.now() - started);
   }
 
