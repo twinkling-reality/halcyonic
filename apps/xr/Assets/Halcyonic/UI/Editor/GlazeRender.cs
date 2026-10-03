@@ -29,7 +29,7 @@ namespace Halcyonic.XR.UI.Editor
     /// Halcyonic > Render Every Component. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md;
     /// it exits with 1 when a check fails.
     /// </summary>
-    public static class GlazeRender
+    public static partial class GlazeRender
     {
         private const int Size = 2048;
 
@@ -140,6 +140,16 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(Check(folder, "gallery-menu.png", camera, texture, root, eyes, controls.ConvertAll(control => (control.Button, control.What))));
                 failures.AddRange(GlazeChecks.OneSelectionTreatment(root.GetComponentsInChildren<Surface>(false), eyes, "component render: the menu's controls"));
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(controls.Select(control => control.Button), "component render"));
+
+                // The menu's frames, each composition on one plane, rendered as the eyes see it.
+                var fifth = new List<Transform>();
+                foreach (Transform holder in gallery)
+                {
+                    if (holder != behind && holder.gameObject.activeSelf) fifth.Add(holder);
+                }
+                foreach (var holder in fifth) holder.gameObject.SetActive(false);
+                failures.AddRange(Frames(folder, camera, texture, root, eyes));
+                foreach (var holder in fifth) holder.gameObject.SetActive(true);
                 foreach (var holder in fourth) holder.gameObject.SetActive(true);
                 foreach (var holder in third) holder.gameObject.SetActive(true);
                 failures.AddRange(EveryIconShows(badges, marks, actions, files));
@@ -175,8 +185,9 @@ namespace Halcyonic.XR.UI.Editor
         /// Renders what shows now as <paramref name="file"/> and checks it: words large enough, targets
         /// large enough, nothing cut, and each button's label contrasting with its own fill as drawn.
         /// </summary>
+        /// <param name="mayCut">Labels showing text from outside, which may end in an ellipsis where it doesn't fit.</param>
         private static IEnumerable<string> Check(string folder, string file, Camera camera, RenderTexture texture, GameObject root, Vector3 eyes,
-            List<(GlazeButton Button, string What)> buttons)
+            List<(GlazeButton Button, string What)> buttons, IEnumerable<TMP_Text>? mayCut = null)
         {
             var failures = new List<string>();
             ForceMeshes(root);
@@ -185,7 +196,7 @@ namespace Halcyonic.XR.UI.Editor
             failures.AddRange(GlazeChecks.TextLargeEnough(root, eyes, "component render"));
             GlazeChecks.ListTextAsSeen(root, eyes, "component render");
             failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons.Where(button => !button.Button.Static).Select(button => button.Button), eyes, "component render"));
-            failures.AddRange(GlazeChecks.NothingCut(root.GetComponentsInChildren<TMP_Text>(false), "component render"));
+            failures.AddRange(GlazeChecks.NothingCut(root.GetComponentsInChildren<TMP_Text>(false).Except(mayCut ?? Enumerable.Empty<TMP_Text>()), "component render"));
             failures.AddRange(GlazeChecks.IconsBesideWords(root, eyes, "component render"));
             foreach (var label in root.GetComponentsInChildren<TMP_Text>(false)) failures.AddRange(GlazeChecks.NotFromIcons(label, "component render"));
             foreach (var (button, what) in buttons)
@@ -454,22 +465,22 @@ namespace Halcyonic.XR.UI.Editor
             float Room(float column) => PlaneComposition.Units(column) - 2f * Units(Glaze.Menu.PaddingDegrees) + 2f * Units(0.6f);
             var cases = new (string Name, float Column, (string Words, bool Main)[] Prompts)[]
             {
-                ("a file waiting for an approval", 38f, new[] { ("Close", false), ("Stop", false), ("Deny", false), ("Approve", true) }),
-                ("a file waiting for an approval, without Stop", 38f, new[] { ("Close", false), ("Deny", false), ("Approve", true) }),
-                ("a file waiting for an answer", 38f, new[] { ("Close", false), ("Hold to talk", false), ("Send answer", true) }),
-                ("a file's Activity", 38f, new[] { ("Close", false), ("Stop", false), ("Hold to talk", false), ("Tell it", true) }),
-                ("a file's Activity, without Stop", 38f, new[] { ("Close", false), ("Hold to talk", false), ("Tell it", true) }),
-                ("a file's approval, confirming", 38f, new[] { ("Close", false), ("Yes, approve", false), ("Cancel", false) }),
-                ("New project's Questions with Start over", 38f, new[] { ("Close", false), ("Start over", false), ("Hold to talk", false), ("Make the recap", true) }),
-                ("New project's Questions", 38f, new[] { ("Close", false), ("Hold to talk", false), ("Make the recap", true) }),
-                ("New project's Start over, confirming", 38f, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),
-                ("New project's review, confirming", 38f, new[] { ("Close", false), ("Yes, start building", false), ("Cancel", false) }),
-                ("Tasks, paging", 32f, new[] { ("Close", false), ("Next page", false) }),
-                ("Projects, a project shown", 32f, new[] { ("Close", false), (ProjectsText.HideFromStage, false), ("Add a task", true) }),
-                ("Projects, a project hidden", 32f, new[] { ("Close", false), (ProjectsText.ShowOnStage, false), ("Add a task", true) }),
-                ("Projects, a folder chosen", 32f, new[] { ("Close", false), ("Connect", true) }),
-                ("Projects, a folder refused", 32f, new[] { ("Close", false), ("Choose a folder", true) }),
-                ("Projects, paging", 32f, new[] { ("Close", false), ("Next page", false), ("New project", true) }),
+                ("a file waiting for an approval", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Stop", false), ("Deny", false), ("Approve", true) }),
+                ("a file waiting for an approval, without Stop", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Deny", false), ("Approve", true) }),
+                ("a file waiting for an answer", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Send answer", true) }),
+                ("a file's Activity", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Stop", false), ("Hold to talk", false), ("Tell it", true) }),
+                ("a file's Activity, without Stop", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Tell it", true) }),
+                ("a file's approval, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Yes, approve", false), ("Cancel", false) }),
+                ("New project's Questions with Start over", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Start over", false), ("Hold to talk", false), ("Make the recap", true) }),
+                ("New project's Questions", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Hold to talk", false), ("Make the recap", true) }),
+                ("New project's Start over, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Cancel", false), ("Yes, start over", false) }),
+                ("New project's review, confirming", Glaze.Menu.FileColumnDegrees, new[] { ("Close", false), ("Yes, start building", false), ("Cancel", false) }),
+                ("Tasks, paging", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Next page", false) }),
+                ("Projects, a project shown", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), (ProjectsText.HideFromStage, false), ("Add a task", true) }),
+                ("Projects, a project hidden", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), (ProjectsText.ShowOnStage, false), ("Add a task", true) }),
+                ("Projects, a folder chosen", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Connect", true) }),
+                ("Projects, a folder refused", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Choose a folder", true) }),
+                ("Projects, paging", Glaze.Menu.MenuColumnDegrees, new[] { ("Close", false), ("Next page", false), ("New project", true) }),
             };
             var words = cases.SelectMany(each => each.Prompts).Distinct().OrderBy(prompt => prompt.Words);
             Debug.Log("Halcyonic: component render: footer prompts at 18 dp, in degrees: "

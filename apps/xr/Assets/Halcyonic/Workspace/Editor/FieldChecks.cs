@@ -1,8 +1,8 @@
 #nullable enable
 using System.Collections.Generic;
-using System.Globalization;
 using Halcyonic.Client;
 using Halcyonic.XR.UI;
+using Halcyonic.XR.UI.Editor;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -37,40 +37,8 @@ namespace Halcyonic.XR.Workspace.Editor
             }
         }
 
-        /// <summary>
-        /// Every point inside <paramref name="field"/> less <see cref="ViewField.EdgeMarginDegrees"/>,
-        /// seen from <paramref name="eyes"/> with the head turned toward <paramref name="toward"/> and
-        /// pitched <paramref name="pitchDown"/> degrees down. Logs the lowest point, in the head's view.
-        /// </summary>
-        internal static IEnumerable<string> Inside(string what, IEnumerable<Vector3> points, Vector3 eyes, Vector3 toward, float pitchDown, ViewField field)
-        {
-            var margin = ViewField.EdgeMarginDegrees;
-            // A hundredth of a degree for rounding: a plate placed at its lowest has its corners on the edge.
-            var tolerance = margin - 0.01;
-            var shrunk = new ViewField(field.Left - tolerance, field.Right - tolerance, field.Up - tolerance, field.Down - tolerance);
-            var flat = new Vector3(toward.x - eyes.x, 0f, toward.z - eyes.z);
-            var yaw = Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
-            var head = Quaternion.Euler(pitchDown, yaw, 0f);
-            var outside = 0;
-            var lowest = 90f;
-            var widest = 0f;
-            foreach (var point in points)
-            {
-                var local = Quaternion.Inverse(head) * (point - eyes);
-                var across = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
-                var up = Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg;
-                lowest = Mathf.Min(lowest, up);
-                widest = Mathf.Max(widest, Mathf.Abs(across));
-                if (shrunk.Shows(across, up)) continue;
-                outside++;
-                Debug.Log("Halcyonic: field check " + what + ": a corner at " + Degrees(across) + " across and " + Degrees(up) + " up is outside.");
-            }
-            Debug.Log("Halcyonic: field check " + what + ": lowest point " + Degrees(-lowest) + " degrees below the view's middle, widest "
-                + Degrees(widest) + " to the side, looking " + Degrees(pitchDown) + " down; the field less its margin reaches "
-                + Degrees((float)shrunk.Down) + " down and " + Degrees((float)shrunk.Right) + " across.");
-            if (outside > 0) yield return what + ": " + outside + " corners lie outside the field less its margin.";
-        }
-
-        private static string Degrees(float value) => value.ToString("0.0", CultureInfo.InvariantCulture);
+        /// <summary>Every point inside <paramref name="field"/> less its margin, as the head sees it (<see cref="GlazeChecks.InsideField"/>).</summary>
+        internal static IEnumerable<string> Inside(string what, IEnumerable<Vector3> points, Vector3 eyes, Vector3 toward, float pitchDown, ViewField field) =>
+            GlazeChecks.InsideField(what, points, eyes, toward, pitchDown, field);
     }
 }

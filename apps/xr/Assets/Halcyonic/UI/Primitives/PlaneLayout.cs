@@ -25,11 +25,15 @@ namespace Halcyonic.XR.UI
             return eyes + new Vector3(x, y, z);
         }
 
-        /// <summary>Stands <paramref name="part"/> where the composition lays <paramref name="placed"/>, its centre on its origin, scaled to units of the plane's distance.</summary>
-        public static void Lay(Transform part, Vector3 eyes, PanelDirection direction, PlanePart placed)
+        /// <summary>
+        /// Stands <paramref name="part"/> where the composition lays <paramref name="placed"/>, its centre
+        /// on its origin, scaled to units of the plane's distance and grown by the composition's
+        /// <paramref name="zoom"/>, so a part built at the designed size takes its place whole.
+        /// </summary>
+        public static void Lay(Transform part, Vector3 eyes, PanelDirection direction, PlanePart placed, float zoom = 1f)
         {
             part.SetPositionAndRotation(PointOf(eyes, direction, placed.Right, placed.Up), Facing(direction));
-            part.localScale = Vector3.one * PlaneComposition.Distance;
+            part.localScale = Vector3.one * (PlaneComposition.Distance * zoom);
         }
     }
 }
