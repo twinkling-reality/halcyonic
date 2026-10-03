@@ -120,6 +120,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     RecordedUsage = at => recording.UsageLimitsAt(at),
                     File = (host, task) => file = new FileColumn(host, () => Present(task), commands, () => reads,
                         execution => instructions.TryGetValue(execution, out var offered) ? offered : null, () => ""),
+                    // Your space as the release build gives it: no Your computer.
+                    Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null), _ => { }),
                     Demonstration = () => true,
                     State = () => state,
                     StageNow = () => new MenuDirector.Stage(eyes, waiting.BodyPosition - eyes, targets, surface, false),
@@ -142,6 +144,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var (view, _) in characters) view.Show(CharacterPresenter.Present(state.Workstreams[view.WorkstreamId], state, true));
                 }
                 void Shot(string step) => failures.AddRange(PlaneState(name + " judge " + step, folder, camera, texture, director.Plane, characters, eyes, null));
+                // A side panel's Close details, through its own column: with text a step larger it stands in its frame's place.
+                void CloseSide()
+                {
+                    var side = director.Plane.Shown.FirstOrDefault(column => column.Kind == MenuColumn.Side).View?.Side;
+                    if (side == null) return;
+                    navigator.Act(MenuColumn.Side, SidePanel.Close, null, null, side);
+                    director.DrawNow();
+                }
                 // A part's or a page's row turns nothing until what it shows has stood a moment.
                 void Settle() => Thread.Sleep(TimeSpan.FromSeconds(0.45));
 
@@ -227,9 +237,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 // With text a step larger the side panel takes its frame's place; it is the menu's either way.
                 if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Side?.Facts.LastOrDefault()?.Value != "Part of the recording") failures.Add(name + ": a recorded limit's Account does not say it is part of the recording.");
                 Shot("10 usage");
+                CloseSide();
                 Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
-                Press(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size");
+                Press(MenuColumn.Menu, SettingsColumn.OpenSetting, SpaceSettings.SwitchSpace);
+                if (navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Lines.FirstOrDefault()?.Words != SettingsText.YourSpace) failures.Add(name + ": Settings does not open on Your space.");
                 Shot("11 settings");
+                CloseSide();
 
                 // Closed again: the bar alone.
                 director.CloseMenu();
