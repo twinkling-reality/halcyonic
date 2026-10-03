@@ -100,6 +100,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderMenuPlane("window-3s-plane", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
                 // The menu's director driving the plane, as WorkspaceDirector will host it.
                 failures.AddRange(RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
+                // A judge's walk through the menu on the recorded demonstration, from the eyes.
+                failures.AddRange(RenderJudgeWalk("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
             }
             catch (Exception error)
             {
