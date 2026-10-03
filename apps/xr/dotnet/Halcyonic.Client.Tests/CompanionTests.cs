@@ -390,117 +390,9 @@ public class CompanionWordsTests
     }
 }
 
-public class CompanionScreensTests
+/// <summary>The command factory the companion's draft tests make their drafts with.</summary>
+internal static class CompanionCommands
 {
-    private static ProjectIdea Asked(out CompanionExchange exchange)
-    {
-        var idea = new ProjectIdea();
-        idea.UseIdea("something for my running club");
-        exchange = idea.BeginCompanion(CompanionStart.Idea);
-        exchange.Ask(CompanionWant.Next);
-        exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
-        return idea;
-    }
-
-    [Test]
-    public void TheQuestionShowsTheCompanionsLineQuotedItsChoicesAndOneHoldToTalkBesideTypeMyAnswer()
-    {
-        var model = EntryScreens.Companion(Asked(out _), voice: true, said: null, waitedSeconds: 0);
-        Assert.That(model.Lead, Is.EqualTo(CompanionText.Note));
-        Assert.That(model.Context, Is.EqualTo(CompanionText.ThinksUnclear));
-        var said = model.Rows[0];
-        Assert.That(said.Line && said.Claim && said.TitleIsData, Is.True);
-        Assert.That(said.Title, Does.StartWith("The companion says: “"));
-        Assert.That(model.Rows.Where(row => row.Action == EntryScreens.CompanionChoice).Select(row => row.Title),
-            Is.EqualTo(new[] { "Each runner", "One organiser" }));
-        var typed = model.Rows.Single(row => row.Action == EntryScreens.CompanionType);
-        Assert.That(typed.Side!.Holds, Is.True);
-        Assert.That(model.Actions.All.Any(action => action.Holds), Is.False, "no hold to talk on the bar");
-        Assert.That(model.Rows.Count(row => row.Side?.Holds == true), Is.EqualTo(1));
-        Assert.That(model.Actions.Back!.Id, Is.EqualTo(EntryScreens.Back));
-        Assert.That(model.Actions.Secondary.Single().Id, Is.EqualTo(EntryScreens.GoOnWithout));
-        Assert.That(model.Actions.Primary!.Id, Is.EqualTo(EntryScreens.MakeRecap));
-        Assert.That(model.Actions.Primary.Icon, Is.Null, "no icon stands for making the recap");
-    }
-
-    [Test]
-    public void WaitingAndFailingKeepEveryActionInItsPlace()
-    {
-        var idea = Asked(out var exchange);
-        exchange.Say("One organiser");
-        exchange.Ask(CompanionWant.Next);
-        var waiting = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 1);
-        Assert.That(waiting.Rows.Select(row => row.Title), Is.EqualTo(new[] { CompanionText.Waiting }));
-        Assert.That(waiting.Actions.Primary!.Available, Is.False);
-        var long_ = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 6);
-        Assert.That(long_.Rows.Select(row => row.Title), Does.Contain(CompanionText.WaitingLong));
-        exchange.Failed(exchange.Generation, "companion_too_slow");
-        var failed = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 0);
-        Assert.That(failed.Rows.Single().Title, Is.EqualTo(CompanionText.TooSlow));
-        Assert.That(failed.Rows.Single().Tone, Is.EqualTo(GlazeTone.Failure));
-        Assert.That(failed.Actions.Primary!.Id, Is.EqualTo(EntryScreens.CompanionRetry));
-        Assert.That(failed.Actions.Primary.Icon, Is.EqualTo(GlazeIcon.Refresh));
-        foreach (var model in new[] { waiting, long_, failed })
-        {
-            Assert.That(model.Actions.Back!.Id, Is.EqualTo(EntryScreens.Back));
-            Assert.That(model.Actions.Secondary.Single().Id, Is.EqualTo(EntryScreens.GoOnWithout));
-        }
-    }
-
-    [Test]
-    public void TheRecordedExchangeSaysSoAndOffersOnlyTheRecordedAnswer()
-    {
-        var recording = CompanionRecording.Parse(CompanionRecordingTests.Sample);
-        var idea = new ProjectIdea();
-        var exchange = recording.Begin(idea);
-        var model = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 0, recording: recording);
-        Assert.That(model.Lead, Is.EqualTo(CompanionText.Recorded));
-        Assert.That(model.Rows.Any(row => row.Action == EntryScreens.CompanionType), Is.False);
-        Assert.That(model.Rows.Any(row => row.Side != null), Is.False);
-        Assert.That(model.Actions.Secondary, Is.Empty);
-        var pressable = model.Rows.Where(row => row.Action == EntryScreens.CompanionChoice).Select(row => row.Title);
-        Assert.That(pressable, Is.EqualTo(new[] { "One organiser" }));
-        Assert.That(model.Rows.Count(row => row.Key != null && !row.Available), Is.EqualTo(1));
-        Assert.That(model.Actions.Primary!.Available, Is.False, "the recording asks for the recap later");
-        recording.Press(exchange, "One organiser");
-        model = EntryScreens.Companion(idea, voice: true, said: null, waitedSeconds: 0, recording: recording);
-        Assert.That(model.Actions.Primary!.Available, Is.True, "here the recording asked for the recap");
-    }
-
-    [Test]
-    public void HelpMeFigureItOutSaysWhichHelperItOpensAndWhyTheCompanionCant()
-    {
-        var available = new AvailableCompanion { Companion = new CompanionModel { Name = "m", Served = "this_mac" }, MaxQuestions = 4 };
-        var start = EntryScreens.CreateStart(new ProjectIdea(), voice: false, said: null, companion: available);
-        Assert.That(start.Rows.Single(row => row.Action == EntryScreens.HelpMe).Detail, Is.EqualTo(CompanionText.TalkItThrough));
-        var unavailable = new UnavailableCompanion { Reason = new ErrorInfo { Code = "companion_not_set_up", Message = "x" } };
-        start = EntryScreens.CreateStart(new ProjectIdea(), voice: false, said: null, companion: unavailable);
-        Assert.That(start.Rows.Single(row => row.Action == EntryScreens.HelpMe).Detail, Is.EqualTo(EntryText.HelpMeInvite));
-        Assert.That(start.Rows.Last().Title, Is.EqualTo(CompanionText.NotSetUp));
-        var task = EntryScreens.CreateStart(new ProjectIdea("01a0dcf1-5a80-7000-8000-0000000000a1", "Shop"), voice: false, said: null, companion: available);
-        Assert.That(task.Rows.Single(row => row.Action == EntryScreens.HelpMe).Detail, Is.EqualTo(EntryText.HelpMeInvite),
-            "the companion helps with a new project only");
-    }
-
-    [Test]
-    public void TheRecapMarksWhatTheCompanionSuggestedAndOffersTheTypedWordsBack()
-    {
-        var idea = new ProjectIdea();
-        idea.UseIdea("something for my running club");
-        idea.UseProposal(Companions.Propose().Proposal);
-        var recap = EntryScreens.Recap(idea, new NewWorkDraft(CommandFactoryFor()), null, live: true, notice: null, problem: null);
-        Assert.That(recap.Rows[0].Detail, Is.EqualTo(CompanionText.Suggested));
-        Assert.That(recap.Rows[1].Detail, Is.EqualTo(CompanionText.Suggested));
-        Assert.That(recap.Rows[1].Side!.Id, Is.EqualTo(EntryScreens.UseMyWords));
-        Assert.That(recap.Actions.Secondary, Is.Empty, "the bar keeps its places");
-        idea.Rewrite("Make a page of race times.");
-        recap = EntryScreens.Recap(idea, new NewWorkDraft(CommandFactoryFor()), null, live: true, notice: null, problem: null);
-        Assert.That(recap.Rows[1].Detail, Is.Null);
-        Assert.That(recap.Rows[1].Side, Is.Null);
-        Assert.That(EntryScreens.Proposed(Companions.Propose(view: CompanionView.NotBuildable)),
-            Is.EqualTo(CompanionText.ThinksNotBuildable + " The companion says: “That is clear enough to start.”"));
-    }
-
     internal static CommandFactory CommandFactoryFor() => new(new ClientInfo { Name = "test", Version = null, DeviceLabel = null });
 }
 
@@ -530,7 +422,7 @@ public class CreationDraftTests
         exchange.Replied(exchange.Generation, Companions.Response(Companions.Propose()));
         idea.UseProposal(exchange.Proposal!.Proposal);
         idea.ChooseFolder(ProjectFolder.Restore("/Users/someone/Projects", "Projects", "race-times", isNew: true));
-        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var draft = new NewWorkDraft(CompanionCommands.CommandFactoryFor());
         var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
         var store = new CreationDrafts(new FileCreationDraftStore(FilePath), () => now);
         Assert.That(store.Keep(Journal, new[] { CreationDraft.Of(Journal, "", idea, null, draft, now)! }), Is.True);
@@ -596,7 +488,7 @@ public class CreationDraftTests
         var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
         var idea = new ProjectIdea();
         idea.UseIdea("a tide table");
-        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var draft = new NewWorkDraft(CompanionCommands.CommandFactoryFor());
         var other = "01a0dcf1-5a80-7000-8000-00000000j002";
         new CreationDrafts(new FileCreationDraftStore(FilePath), () => now).Keep(other, new[] { CreationDraft.Of(other, "", idea, null, draft, now)! });
         new CreationDrafts(new FileCreationDraftStore(FilePath), () => now).Keep(Journal, new[] { CreationDraft.Of(Journal, "", idea, null, draft, now)! });
@@ -622,7 +514,7 @@ public class CreationDraftTests
         var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
         var idea = new ProjectIdea();
         idea.UseIdea("a tide table");
-        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var draft = new NewWorkDraft(CompanionCommands.CommandFactoryFor());
         var old = CreationDraft.Of(Journal, "", idea, null, draft, now.AddDays(-8))!;
         var fresh = CreationDraft.Of(Journal, "p", idea, null, draft, now)!;
         var drafts = new CreationDrafts(new FailingSaves(new[] { old, fresh }), () => now);
@@ -639,7 +531,7 @@ public class CreationDraftTests
         exchange.Ask(CompanionWant.Next);
         exchange.Replied(exchange.Generation, Companions.Response(Companions.Ask()));
         exchange.Write("my private words, not yet sent");
-        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var draft = new NewWorkDraft(CompanionCommands.CommandFactoryFor());
         var other = "01a0dcf1-5a80-7000-8000-00000000j002";
         new CreationDrafts(new FileCreationDraftStore(FilePath), () => now).Keep(other, new[] { CreationDraft.Of(other, "", idea, null, draft, now)! });
         new CreationDrafts(new FileCreationDraftStore(FilePath), () => now.AddDays(6)).Keep(Journal, new[] { CreationDraft.Of(Journal, "", idea, null, draft, now.AddDays(6))! });
@@ -657,7 +549,7 @@ public class CreationDraftTests
     public void NothingWorthKeepingIsNotKeptAndAnUnchangedDraftIsNotWrittenAgain()
     {
         var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
-        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var draft = new NewWorkDraft(CompanionCommands.CommandFactoryFor());
         Assert.That(CreationDraft.Of(Journal, "", new ProjectIdea(), null, draft, now), Is.Null);
         var idea = new ProjectIdea();
         idea.UseIdea("a tide table");
@@ -704,7 +596,7 @@ public class CreationDraftTests
     [Test]
     public void AProjectTheMacAlreadyMadeComesBackAsATaskForItSoNothingIsMadeTwice()
     {
-        var commands = CompanionScreensTests.CommandFactoryFor();
+        var commands = CompanionCommands.CommandFactoryFor();
         var draft = new NewWorkDraft(commands) { Objective = "Make a page of race times." };
         draft.ChooseRuntime(new RuntimeDescriptor
         {
@@ -1006,7 +898,7 @@ public class DraftHardeningTests
             var store = new CreationDrafts(new FileCreationDraftStore(path), () => at);
             var idea = new ProjectIdea();
             idea.UseIdea("a tide table");
-            var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+            var draft = new NewWorkDraft(CompanionCommands.CommandFactoryFor());
             store.Keep(journal, new[] { CreationDraft.Of(journal, "", idea, null, draft, at)! });
             at = start.AddDays(5);
             store.Keep(journal, new[] { CreationDraft.Of(journal, "", idea, null, draft, at)! });

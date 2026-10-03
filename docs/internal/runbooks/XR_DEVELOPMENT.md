@@ -137,16 +137,12 @@ Over the Stage**, or in batch mode:
 /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Workspace.Editor.EntryRender.Check -logFile ~/Library/Logs/Unity/halcyonic-xr-entry-render.log
 ```
 
-It saves the rail alone and every screen of the entry panel (welcome, Connect projects, More tasks,
-Create a project with and without hold to talk's words, the guided questions, the recap with and
-without the needs-you banner and with Start over's confirmation, More options, the review reached
-with Start building and its last part reached with Next, the first and last part of each hard
-review, a refused start, and a start that may have run, before and after its first press)
-over both stages in `apps/xr/Builds/EntryRenders`, each with a close-up at a Quest 3's density
-(`-closeup.png`) and the whole panel (`-panel.png`), and logs where the rail and the panel stand
-(`Halcyonic: entry render ...`). It renders the far and desk stages again with a Quest 3S's field
-of view set (`far-3s`, `desk-3s`), and fails if a corner of the rail (with the head level, or
-pitched down to a desk's lineup) or of a panel (head level) leaves the field less 1.5 degrees; the
+It saves every screen of the entry panel (welcome, Connect projects, More tasks) and the Settings
+sheet over both stages in `apps/xr/Builds/EntryRenders`, each with a close-up at a Quest 3's density
+(`-closeup.png`) and the whole panel (`-panel.png`), and logs where the panel stands
+(`Halcyonic: entry render ...`). New project, which replaced the panel's creating, renders with the
+menu. It renders the far and desk stages again with a Quest 3S's field of view set (`far-3s`,
+`desk-3s`), and fails if a corner of a panel (head level) leaves the field less 1.5 degrees; the
 log says how low each reaches (`Halcyonic: field check ...`). The checks are in [XR_CLIENT.md](../architecture/XR_CLIENT.md),
 "Scene".
 
@@ -906,37 +902,37 @@ Before the session, on the Mac:
 
 In the headset:
 
-1. **Welcome.** Once connected: "Welcome", one line, the Connect projects and Create a project
-   cards, and Not now where Close usually is. Running work stays on the stage behind it. Once any of
+1. **Welcome.** Once connected: "Welcome", one line, the Connect projects card, and Not now where
+   Close usually is. Running work stays on the stage behind it. Once any of
    them is chosen it does not come back.
 2. **Connect projects.** It says these are the projects already set up on your computer. Hide the project
    whose work waits for approval: its characters leave the stage, its tile and its rail chip read
    "Hidden · 1 waiting", and See other tasks lists that work first in More tasks. Press it there: it
    stands on the stage and opens; collapse it, show the project again.
-3. **Create from a typed idea.** Create a project, Type my idea, type a sentence on the system
-   keyboard: the recap names the project from its first words. How it runs, More options: choose the
-   agent app, then the local model; Done; the recap reads "On your computer". Start building stays
-   unavailable, saying to choose where its files live.
-4. **Choose a new folder.** Where its files live, Choose: the places your computer allows, each with New
-   folder, Directly in the place and its folders. New folder, accept the offered name: the recap
-   shows "A new folder, ..., in ...".
-5. **The review.** Start building: the whole request in whole words across the panel, the folder
-   among it. Press where Start building was: it is Change, so nothing starts. Next to the end; Yes,
-   start building, left of Change, unlocks only on the last part.
+3. **Create from a typed idea.** Open the menu, Projects, New project. Type my idea, type a
+   sentence on the system keyboard, Make the recap: the recap names the project from its first
+   words. Choose how it runs, More options: choose the agent app, then the local model; Done; the
+   recap reads "On your computer". Start building stays unavailable, saying to choose where its
+   files live.
+4. **Choose a new folder.** Choose where its files live, Choose another folder: the places your
+   computer allows, each with New folder, Directly in the place and its folders. New folder, accept
+   the offered name, Done: the recap shows "A new folder, ..., in ...".
+5. **The review.** Start building: the whole request in parts, the folder among it. Yes, start
+   building stays locked, saying which part to read to, until the last part; Next part to the end,
+   and it unlocks only there.
 6. **Start building.** Each step reads "Sent. Waiting for your computer…" (the start, "Waiting for the
    agent…"), then "Confirmed". A character appears reading Starting, and Working only once the
    runtime confirms; note how long that took. The new folder exists on the Mac, and the work runs
    there.
-7. **Create from the fixed questions.** Create a project, Help me figure it out: four questions,
-   said to be fixed questions and not an AI. Answer with choices, type one answer, skip the name:
-   the recap reads "Make ... First, ...". Choose a new folder with the name used in step 4 and
-   start building: it is refused because the folder exists, offering Use that folder; it returns
-   through the review and starts there.
-8. **Open now from creating.** With a recap showing, start another approval
-   (`pnpm demo | sed '/approval requested/q'`): an amber banner under the title names the work that
-   waits for you, with Open now and Keep creating, the four facts still showing, and nothing switches
-   by itself. Open now: that work opens
-   on What do you need from me?; collapse it: the recap returns exactly as it was.
+7. **Create from the fixed questions.** New project again, Answer a few questions: four questions,
+   said to be fixed questions and not an AI. Choose answers, type one, skip the name, each given by
+   Next question: the recap reads "Make ... First, ...". Choose a new folder with the name used in
+   step 4 and start building: it is refused because the folder exists, offering Use that folder;
+   it returns through the review and starts there.
+8. **Work that waits while creating.** With a recap showing, start another approval
+   (`pnpm demo | sed '/approval requested/q'`): the menu's bar says something waits, and nothing
+   switches by itself. Open that work from Tasks, collapse it, and open New project again: the
+   recap is as it was.
 9. **The four questions.** In the opened workspace, What is it doing?, Help me understand and What
    was checked? read whole on their tabs, and What do you need from me? shows only while the approval
    waits. Approve, read the whole request, confirm: the answer counts once the runtime confirms it.
@@ -949,7 +945,7 @@ In the headset:
 
 Throughout, note whether the rail sits over a character, its label or a system window, whether
 anything needs leaning in to read, and whether any button pressed did nothing. Afterwards, the cases
-the journey does not reach: Add a task to a project in another folder (the recap says every later
+the journey does not reach: Add a task (Projects, the project, Add a task) to a project in another folder (the recap says every later
 task uses the new folder, and the review shows the folder now and from now on), and a control plane
 without roots (the choice says your computer doesn't allow any folder yet).
 
@@ -960,14 +956,14 @@ In a development build, with voice set up on the Mac
 control plane. The control plane's log names the engine and its warm-up at startup. Seated, in
 the virtual space:
 
-1. **The permission.** Create a project, then hold Hold to talk, beside Type my idea: the first hold
-   asks for the microphone and records nothing, and the line under them says to allow it and hold
-   again. Allow it.
+1. **The permission.** Open New project from the menu's Projects, then hold Hold to talk in its
+   footer: the first hold asks for the microphone and records nothing, and a line on the page says
+   to allow it and hold again. Allow it.
 2. **An idea.** Hold, say "A website for my bakery that shows the menu and the opening hours", let
-   go: under the button, "Listening", then "Writing down what you said.", then the recap,
-   which says "This is what your computer heard. Check it before you go on." with the sentence as the first task
-   and a name from its first words. Nothing has been sent; note how long from letting go to the
-   recap.
+   go: a line on the page says "Listening", then "Writing down what you said.", then the sentence
+   stands in Type my idea's row, chosen, with "This is what your computer heard. Check it before
+   you go on." under it. Make the recap: the sentence is the first task, with a name from its first
+   words. Nothing has been sent; note how long from letting go to the words.
 3. **A tap and silence.** A tap says it was too quick. Hold a few seconds without speaking:
    "I didn't catch anything". Press the Meta button while holding: it says it stopped listening, and
    nothing was sent. Hold, then move the ray off the button while still pinching, and poke and
@@ -1191,7 +1187,7 @@ adb logcat -s Unity | grep --line-buffered -E "Halcyonic: (focus|large panels|so
 2. **Watch.** Select the video. The log says focus went to another window; three seconds later,
    large panels are folded. Open a workspace or the entry panel first to see it fold; nothing else
    on the stage moves. Characters keep animating. The banner under the characters says the panel is
-   still open ("Still open: Create a project"), and beside a window, how many more tasks are not
+   still open ("Still open: Connect projects"), and beside a window, how many more tasks are not
    shown. On a device that has never shown it, coming back the first time with the characters in
    front, the banner says once "Window in the way? Settings can move the characters."
 3. **Waiting for you while watching.** Make a workstream need you. The character rises and turns,
@@ -1245,7 +1241,7 @@ For each step write down what you saw and how it felt, in
 1. **Reading at touch distance (3 minutes).** Open the character that waits for you: the workspace
    opens 0.46 m away, 44 by 26 degrees, beside it. Read the whole request, part by part, and poke
    Next, Approve and Cancel. On Doing, press Show details: can you tell what runs the work and
-   where? Then press Create a project and read the first screen. Hold its Move and drag: does the
+   where? Then press Connect projects and read the first screen. Hold its Move and drag: does the
    panel follow your hand smoothly, with the ray and with a poke? Can you read for
    a few minutes without strain, and poke every button without leaning or stretching? If reading
    strains, say so: the fallback is the same panel at 1 m, ray only.
@@ -1287,7 +1283,7 @@ For each step write down what you saw and how it felt, in
 8. **Usage left (1 minute).** Open it from the rail. Each window's meter ends in dots: does it read
    as "at most"? Press Refresh: the meters empty to their tracks and Refresh waits until the read
    is back.
-9. **The same places (1 minute).** Through Connect projects, Create a project, a question and the
+9. **The same places (1 minute).** Through Connect projects, More tasks, a question and the
    review: Close stays at the top right, Back at the bottom left, the button the screen leads to at
    the bottom right, the pager above it at the right. Does your hand learn where to go?
 10. **Comfort (2 minutes).** In Settings' Comfort section press Make text larger: the sheet grows

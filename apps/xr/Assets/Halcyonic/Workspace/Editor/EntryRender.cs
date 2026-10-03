@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
@@ -17,15 +16,15 @@ using UnityEngine;
 namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
-    /// Renders the project rail and every screen of the entry panel over the stage, with the
+    /// Renders every screen of the entry panel and the Settings sheet over the stage, with the
     /// characters 2.4 m away and on a desk half a meter away, and checks what the headset showed wrong
     /// with the New work panel: that the panel covers no character, lets nothing behind it show
-    /// through, stays in the comfortable band and clear of the rail; that the rail keeps its right end
-    /// free and its buttons apart; that none of Halcyonic's own words is cut short; that the whole
-    /// request fits its pages; and that names and titles from outside show by the one rule. It saves
-    /// each render in apps/xr/Builds/EntryRenders, which git ignores, with a close-up at a Quest 3's
-    /// 25 pixels per degree. In the editor: Halcyonic > Render the Entry Panel Over the Stage. In batch
-    /// mode, see docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1 when a check fails.
+    /// through and stays in the comfortable band; that none of Halcyonic's own words is cut short; and
+    /// that names and titles from outside show by the one rule. Creating is New project's, on the menu,
+    /// rendered with it. It saves each render in apps/xr/Builds/EntryRenders, which git ignores, with a
+    /// close-up at a Quest 3's 25 pixels per degree. In the editor: Halcyonic > Render the Entry Panel
+    /// Over the Stage. In batch mode, see docs/internal/runbooks/XR_DEVELOPMENT.md; it exits with 1
+    /// when a check fails.
     /// </summary>
     public static class EntryRender
     {
@@ -68,7 +67,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(RenderStage("far", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: false));
                 failures.AddRange(RenderStage("desk", folder, radius: 0.55f, surfaceDrop: 0.46f, hostile: false));
                 failures.AddRange(RenderStage("far-untrusted", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: true));
-                // Again with a Quest 3S's narrower field measured: the rail and every panel stay inside it.
+                // Again with a Quest 3S's narrower field measured: every panel stays inside it.
                 ViewField.Current = FieldChecks.Quest3S;
                 failures.AddRange(RenderStage("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, hostile: false));
                 failures.AddRange(RenderStage("desk-3s", folder, radius: 0.55f, surfaceDrop: 0.46f, hostile: false));
@@ -100,7 +99,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 var targets = characters.ConvertAll(character => character.Target);
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
 
-                var before = Portfolio(hostile, needsYouNow: false);
                 var state = Portfolio(hostile, needsYouNow: true);
                 var visibility = new StageVisibility();
                 visibility.UseJournal(Journal);
@@ -109,40 +107,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 lineup.Update(state.Workstreams.Values.Where(work => visibility.Shows(work.ProjectId)));
                 var overview = WorkOverview.Of(state, visibility, id => lineup.SlotOf(id) >= 0);
 
-                var rail = ProjectRail.ForRender(root.transform, overview, surface);
-                rail.ResetPosition();
-                failures.AddRange(RailFits(name, rail, camera, hostile));
-                // With a measured field, the rail as the person looks at the characters: ahead and level, or down to a desk's lineup.
-                var pitchDown = surfaceDrop.HasValue ? Mathf.Atan2(surfaceDrop.Value, radius) * Mathf.Rad2Deg : 0f;
-                if (ViewField.Current is ViewField field)
-                {
-                    failures.AddRange(FieldChecks.Inside(name + ": the rail", rail.Shown.SelectMany(FieldChecks.Corners), eyes, rail.Root.position, pitchDown, field));
-                }
-                WorkspaceRender.ForceMeshes(root);
-                var railRender = WorkspaceRender.Render(camera, texture);
-                File.WriteAllBytes(Path.Combine(folder, name + "-rail.png"), railRender.EncodeToPNG());
-                UnityEngine.Object.DestroyImmediate(railRender);
-                var railCloseUp = WorkspaceRender.CloseUp(camera, texture, rail.Root);
-                File.WriteAllBytes(Path.Combine(folder, name + "-rail-closeup.png"), railCloseUp.EncodeToPNG());
-                UnityEngine.Object.DestroyImmediate(railCloseUp);
-                // Every rail button a degree or more from every label and body, as the eyes see them.
-                foreach (var button in rail.Shown)
-                {
-                    var near = new List<GlazeChecks.Extent> { GlazeChecks.Of("the rail's " + button.name, eyes, button.gameObject) };
-                    foreach (var (view, _) in characters)
-                    {
-                        near.Add(GlazeChecks.Of(view.WorkstreamId + "'s label", eyes, view.Label.gameObject));
-                        near.Add(WorkspaceRender.BodyExtent(view, eyes));
-                    }
-                    failures.AddRange(GlazeChecks.Apart(near).Where(failure => failure.Contains("the rail's")).Select(failure => name + ": " + failure));
-                }
-                failures.AddRange(SettingsFits(name, folder, root, rail, camera, texture, characters, surface, hostile));
-                // The rail steps out of the way while the entry panel is open, as on the headset.
-                rail.Root.gameObject.SetActive(false);
+                // The Settings sheet, on a host of its own, as the stage gives it one.
+                var host = new GameObject("Settings host");
+                host.transform.SetParent(root.transform, false);
+                failures.AddRange(SettingsFits(name, folder, root, host, camera, texture, characters, surface, hostile));
 
                 var panel = EntryPanel.ForRender(root.transform, state, overview, targets, surface);
                 var places = new List<(string Screen, Places Places)>();
-                foreach (var (suffix, show) in Screens(state, before, hostile))
+                foreach (var (suffix, show) in Screens())
                 {
                     show(panel);
                     WorkspaceRender.ForceMeshes(root);
@@ -180,32 +152,14 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.AddRange(FieldChecks.Inside(what + ": the panel", FieldChecks.Corners(frame), eyes, frame.transform.position, pitch, shownField));
                     }
                     if (!hostile) failures.AddRange(NothingOfOursCut(panel.ShownParts, what, frame));
-                    failures.AddRange(NoticesStayOnTheirScreen(panel.ShownParts, suffix, what));
-                    if (suffix == "options-models-pages") failures.AddRange(PagesAndDone(frame, what));
                     places.Add((suffix, Places.Of(frame)));
                     // Every confirmation, reached by showing its screen and then pressing: Yes clear of every control shown before it and since.
                     if (frame.Shown?.Confirm != null) failures.AddRange(WorkspaceRender.YesClear(frame, what));
                     if (frame.Shown?.Confirm != null && frame.Shown.Parts is (_, var parts) && parts > 1) failures.AddRange(PagerOnTop(frame, what));
-                    if (hostile && !suffix.StartsWith("review", StringComparison.Ordinal))
-                    {
-                        failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what, eyes));
-                    }
-                    else if (hostile)
-                    {
-                        // The whole request spells what the headset font may lack as ASCII code points instead
-                        // (NewWorkReview); the only other character is Halcyonic's own ellipsis on a cut title.
-                        foreach (var request in panel.RequestLabels)
-                        {
-                            if (request.text.Any(character => (character < ' ' || character > '~') && character != '…'))
-                            {
-                                failures.Add(what + ": the whole request shows a character beyond ASCII.");
-                            }
-                        }
-                        failures.AddRange(WorkspaceRender.AllShowLiterally(frame.Title.gameObject, "entry render " + what, eyes));
-                    }
+                    if (hostile) failures.AddRange(WorkspaceRender.AllShowLiterally(panel.Root.gameObject, "entry render " + what, eyes));
                 }
                 failures.AddRange(PlacesHold(name, places));
-                if (!hostile) failures.AddRange(MovesByHand(name, panel, eyes, state));
+                if (!hostile) failures.AddRange(MovesByHand(name, panel, eyes));
                 var size = new PanelSize(PanelFrame.Distance, panel.Frame.Size.x / 2f * PanelFrame.Scale, panel.Frame.Size.y / 2f * PanelFrame.Scale);
                 var (_, direction) = WorkspaceLayout.PlaceForeground(targets, eyes, camera.transform.forward, surface, new List<BodyInView>(), size);
                 Debug.Log("Halcyonic: entry render " + name + ": the panel's center is " + WorkspaceRender.Degrees(direction.Elevation)
@@ -215,14 +169,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (direction.Elevation < WorkspacePlacement.Lowest(size) - 0.01f || direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
                 {
                     failures.Add(name + ": the panel's center is outside the comfortable band.");
-                }
-                if (!hostile) failures.AddRange(ReviewShowsEverything(name, folder, camera, texture, panel, state));
-                if (hostile)
-                {
-                    // The rail as it shows, which stepped aside for the panel: its icons are measured as drawn.
-                    rail.Root.gameObject.SetActive(true);
-                    failures.AddRange(WorkspaceRender.AllShowLiterally(rail.Root.gameObject, "entry render " + name + " rail", eyes));
-                    rail.Root.gameObject.SetActive(false);
                 }
             }
             finally
@@ -234,95 +180,19 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
-        /// <summary>Each screen, as the person reaches it, with what it needs in place.</summary>
-        private static IEnumerable<(string Suffix, Action<EntryPanel> Show)> Screens(ClientProjection state, ClientProjection before, bool hostile)
+        /// <summary>Each screen, as the person reaches it.</summary>
+        private static IEnumerable<(string Suffix, Action<EntryPanel> Show)> Screens()
         {
-            var listing = Listing(hostile);
             yield return ("welcome", panel => panel.ShowForRender(EntryPanel.Screen.Welcome));
             yield return ("connect", panel => panel.ShowForRender(EntryPanel.Screen.Connect));
             yield return ("more-work", panel => panel.ShowForRender(EntryPanel.Screen.MoreWork));
-            yield return ("create", panel => panel.ShowForRender(EntryPanel.Screen.CreateStart, new ProjectIdea(), Draft(state, listed: false)));
-            // Hold to talk's longest words, beside it.
-            yield return ("create-voice", panel =>
-            {
-                panel.ShowForRender(EntryPanel.Screen.CreateStart, new ProjectIdea(), Draft(state, listed: false));
-                panel.SayForRender(VoiceText.Shown.OrderByDescending(words => words.Length).First());
-            });
-            yield return ("guide", panel =>
-            {
-                var idea = new ProjectIdea();
-                idea.BeginGuide();
-                idea.Answer("A website");
-                idea.Answer("My team");
-                panel.ShowForRender(EntryPanel.Screen.Guide, idea, Draft(state, listed: false));
-            });
-            yield return ("recap", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true)));
-            yield return ("recap-needs-you", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true), before: before));
-            // Start over asks to be confirmed in place, Cancel where Start building stood.
-            yield return ("recap-start-over", panel =>
-            {
-                panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
-                panel.PressForRender(EntryScreens.StartOver);
-            });
-            yield return ("recap-long", panel =>
-            {
-                var idea = new ProjectIdea();
-                idea.UseIdea(string.Join(" ", Enumerable.Repeat("Track recipes, plan the week's dinners and write the shopping list.", 40)));
-                panel.ShowForRender(EntryPanel.Screen.Recap, idea, Draft(state, listed: false));
-            });
-            yield return ("options-runtimes", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: false)));
-            yield return ("options-models", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: true)));
-            // More models than a page holds: Next page and Done each keep a place.
-            yield return ("options-models-pages", panel => panel.ShowForRender(EntryPanel.Screen.Options, Idea(), Draft(state, listed: true, extra: 7)));
-            // A model on the Mac chosen for the person, and the first press on one that runs elsewhere, which chooses nothing yet.
-            yield return ("recap-chosen-for-you", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true, chosen: false)));
-            yield return ("options-models-elsewhere", panel =>
-            {
-                var draft = Draft(state, listed: true, chosen: false);
-                draft.ChooseModel(draft.Models[1]);
-                panel.ShowForRender(EntryPanel.Screen.Options, Idea(), draft);
-            });
-            // The review as the person reaches it: the recap, then Start building; then every part with Next.
-            yield return ("review", panel =>
-            {
-                panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
-                panel.PressForRender(EntryScreens.StartBuilding);
-            });
-            yield return ("review-last", panel =>
-            {
-                panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
-                panel.PressForRender(EntryScreens.StartBuilding);
-                while (panel.Review != null && !panel.Review.CanConfirm) panel.PressForRender(PanelModel.NextPart);
-            });
-            yield return ("sending-refused", panel => panel.ShowForRender(EntryPanel.Screen.Sending, Idea(), Draft(state, listed: true), Refused(state)));
-            yield return ("folder", panel => panel.ShowForRender(EntryPanel.Screen.Folder, Idea(), Draft(state, listed: true), listing: listing));
-            yield return ("folder-none", panel => panel.ShowForRender(EntryPanel.Screen.Folder, Idea(), Draft(state, listed: true), listing: new LocationsResponse()));
-            yield return ("recap-move", panel => panel.ShowForRender(EntryPanel.Screen.Recap, Moving(), Draft(state, listed: true)));
-            yield return ("review-move", panel =>
-            {
-                panel.ShowForRender(EntryPanel.Screen.Recap, Moving(), Draft(state, listed: true));
-                panel.PressForRender(EntryScreens.StartBuilding);
-            });
-            yield return ("sending-folder-exists", panel =>
-            {
-                var idea = Idea();
-                panel.ShowForRender(EntryPanel.Screen.Sending, idea, Draft(state, listed: true), FolderTaken(state, idea));
-            });
-            yield return ("previous", panel => panel.ShowForRender(EntryPanel.Screen.Previous, unresolvedCommand: "0192f3c1-7e2a-7b3c-8d4e-5f6a7b8c9d0e"));
-            // The second of the two presses, which stands where the first did not.
-            yield return ("previous-armed", panel =>
-            {
-                panel.ShowForRender(EntryPanel.Screen.Previous, unresolvedCommand: "0192f3c1-7e2a-7b3c-8d4e-5f6a7b8c9d0e");
-                panel.PressForRender(EntryScreens.Clear);
-            });
         }
 
         /// <summary>
         /// Move held and dragged 10 degrees right and 4 up, as a hand would: the panel follows by as
-        /// much, at its distance and facing the eyes. While Start over asks to be confirmed, Move and
-        /// Reset position take no press, and a drag moves nothing.
+        /// much, at its distance and facing the eyes.
         /// </summary>
-        private static IEnumerable<string> MovesByHand(string name, EntryPanel panel, Vector3 eyes, ClientProjection state)
+        private static IEnumerable<string> MovesByHand(string name, EntryPanel panel, Vector3 eyes)
         {
             var failures = new List<string>();
             static (float Yaw, float Elevation) Angles(Vector3 toward) =>
@@ -332,7 +202,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var (yaw, elevation) = Angles(point - eyes);
                 return eyes + Quaternion.Euler(-(elevation + up), yaw + right, 0f) * Vector3.forward * Vector3.Distance(eyes, point);
             }
-            panel.ShowForRender(EntryPanel.Screen.Recap, Idea(), Draft(state, listed: true));
+            panel.ShowForRender(EntryPanel.Screen.Connect);
             var root = panel.Root;
             var move = panel.Frame.ButtonFor(PanelModel.Move);
             if (move == null || !move.Holds)
@@ -353,166 +223,8 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (Mathf.Abs(Vector3.Distance(eyes, root.position) - distance) > 1e-4f) failures.Add(name + " move: the panel leaves touch distance as it moves.");
             if (Vector3.Angle(root.forward, root.position - eyes) > 0.1f) failures.Add(name + " move: the panel no longer faces the eyes once moved.");
-
-            panel.PressForRender(EntryScreens.StartOver);
-            var still = (root.position, root.rotation);
-            foreach (var id in new[] { PanelModel.Move, PanelModel.ResetPosition })
-            {
-                var button = panel.Frame.ButtonFor(id);
-                if (button == null || button.Available) failures.Add(name + " move: " + id + " takes a press while Start over asks to be confirmed.");
-            }
-            panel.DragForRender(eyes, move.transform.position, Turned(move.transform.position, -10f, 0f));
-            if ((root.position, root.rotation) != still) failures.Add(name + " move: a drag moves the panel while Start over asks to be confirmed.");
             return failures;
         }
-
-        private static ProjectIdea Idea()
-        {
-            var idea = new ProjectIdea();
-            idea.UseIdea("A recipe tracker that suggests dinners from what is in my fridge.");
-            idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], ProjectFolder.SuggestName("Recipe tracker")));
-            return idea;
-        }
-
-        /// <summary>New work in the storefront project, which moves it to a new folder.</summary>
-        private static ProjectIdea Moving()
-        {
-            var idea = new ProjectIdea("p-store", "Storefront API");
-            idea.UseIdea("Add a search page to the storefront.");
-            idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], "storefront-v2"));
-            return idea;
-        }
-
-        /// <summary>
-        /// What the Mac lists: a place with folders, more of them than it lists, and a place no longer
-        /// on the Mac; with <paramref name="hostile"/>, folder and place names at their worst.
-        /// </summary>
-        private static LocationsResponse Listing(bool hostile)
-        {
-            string Named(string plain, string field) => hostile ? WorkspaceRender.Hostile(field) : plain;
-            return new LocationsResponse
-            {
-                Roots = new List<LocationRoot>
-                {
-                    new()
-                    {
-                        Path = "/Users/person/Projects", Name = Named("Projects", "root"), Status = LocationRootStatus.Available, FoldersTruncated = true,
-                        Folders = new List<LocationFolder>
-                        {
-                            new() { Name = Named("recipe-tracker", "folder"), Path = "/Users/person/Projects/recipe-tracker" },
-                            new() { Name = Named("storefront-api", "folder"), Path = "/Users/person/Projects/storefront-api" },
-                        },
-                    },
-                    new() { Path = "/Volumes/Old/Code", Name = Named("Code", "root"), Status = LocationRootStatus.Missing, Folders = new List<LocationFolder>(), FoldersTruncated = false },
-                },
-            };
-        }
-
-        /// <summary>The request read through and confirmable, as Start building's review leaves it, for a render's sequence.</summary>
-        private static NewWorkReview Read(NewWorkDraft draft, string project, ProjectLocationChoice? folder = null)
-        {
-            var review = new NewWorkReview(project, "Title", "Agent", "Model", "on your computer", draft.Model?.ModelRef ?? "none", draft.Objective,
-                folderChoice: folder);
-            review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
-            review.Drawn(0);
-            return review;
-        }
-
-        /// <summary>A new project whose new folder's name the Mac already has: refused, offering to use that folder.</summary>
-        private static BuildSequence FolderTaken(ClientProjection shown, ProjectIdea idea)
-        {
-            var draft = Draft(shown, listed: true);
-            draft.Objective = idea.FirstTask;
-            var sequence = new BuildSequence(draft, Commands(), idea.Name, idea.Folder!.ToContract());
-            var project = sequence.Begin(Read(draft, idea.Name, idea.Folder!.ToContract()));
-            sequence.Advance(With(new CommandView
-            {
-                CommandId = project.CommandId, Status = CommandStatus.Rejected, IssuedAt = Time, UpdatedAt = Time,
-                Rejection = new CommandRejection { Code = RejectionCode.LocationExists, Message = "A folder with that name already exists." },
-            }));
-            return sequence;
-        }
-
-        /// <param name="chosen">Whether the person chose the model on the Mac themselves; otherwise it stands as chosen for them.</param>
-        /// <param name="extra">More local models than one page holds, to page through.</param>
-        private static NewWorkDraft Draft(ClientProjection state, bool listed, bool chosen = true, int extra = 0)
-        {
-            var draft = new NewWorkDraft(Commands());
-            var runtime = state.Runtimes.First(each => (each.ModelChoice == ModelChoice.Listed) == listed);
-            draft.ChooseRuntime(runtime);
-            if (!listed) return draft;
-            draft.SetModels(new RuntimeModelsResponse
-            {
-                RuntimeId = runtime.RuntimeId,
-                Result = new AvailableModels
-                {
-                    Models = new List<RuntimeModel>
-                    {
-                        new() { ModelRef = "ollama/render-local:latest", DisplayName = "Local model (render)", Served = ModelServed.ThisMac, ToolCalling = ModelToolCalling.Declared },
-                        new() { ModelRef = "hosted/render-remote", DisplayName = "Hosted model (render)", Served = ModelServed.Remote, ToolCalling = ModelToolCalling.Unknown },
-                    }.Concat(Enumerable.Range(1, extra).Select(index => new RuntimeModel
-                    {
-                        ModelRef = "ollama/render-" + index.ToString(CultureInfo.InvariantCulture),
-                        DisplayName = "Local model " + index.ToString(CultureInfo.InvariantCulture) + " (render)",
-                        Served = ModelServed.ThisMac,
-                        ToolCalling = ModelToolCalling.Declared,
-                    })).ToList(),
-                },
-            });
-            if (chosen) draft.ChooseModel(draft.Models[0]);
-            return draft;
-        }
-
-        /// <summary>A list of more than a page shows both Next and Done, 12 mm apart or more, so every page and the way back can be reached.</summary>
-        private static IEnumerable<string> PagesAndDone(PanelFrame frame, string what)
-        {
-            var next = frame.NextPage;
-            var done = frame.ButtonFor(EntryScreens.Done);
-            if (next == null) yield return what + ": a list longer than a page offers no Next.";
-            if (done == null) yield return what + ": Done does not show beside a list longer than a page.";
-            if (next != null && done != null && !Apart(RectOf(next), RectOf(done), TargetGap(frame)))
-            {
-                yield return what + ": Next and Done are closer than 12 mm.";
-            }
-        }
-
-        /// <summary>A start the runtime refused after the project and its work were made, as a runtime without a folder refuses.</summary>
-        private static BuildSequence Refused(ClientProjection shown)
-        {
-            var draft = Draft(shown, listed: true);
-            draft.Objective = Idea().FirstTask;
-            var sequence = new BuildSequence(draft, Commands(), "Recipe tracker");
-            var project = sequence.Begin(Read(draft, "Recipe tracker"));
-            var workstream = sequence.Advance(With(Done(project, new ProjectCreatedResult { ProjectId = "p-new" })))!;
-            var start = sequence.Advance(With(Done(workstream, new WorkstreamCreatedResult { WorkstreamId = "w-new" })))!;
-            sequence.Advance(With(new CommandView
-            {
-                CommandId = start.CommandId, Status = CommandStatus.Rejected, IssuedAt = Time, UpdatedAt = Time,
-                Rejection = new CommandRejection { Code = RejectionCode.LocationRequired, Message = "The project has no folder to work in." },
-            }));
-            return sequence;
-        }
-
-        private static CommandView Done(CommandEnvelope command, CommandResult result) =>
-            new() { CommandId = command.CommandId, Status = CommandStatus.Completed, IssuedAt = Time, UpdatedAt = Time, Result = result };
-
-        private static ClientProjection With(CommandView command)
-        {
-            var state = new ClientProjection();
-            state.ApplySnapshot(new Snapshot
-            {
-                Journal = new JournalInfo { JournalId = Journal, Origin = JournalOrigin.Live },
-                Position = 1,
-                Projects = new List<ProjectView>(),
-                Workstreams = new List<WorkstreamView>(),
-                Executions = new List<ExecutionView>(),
-                Commands = new List<CommandView> { command },
-                Runtimes = new List<RuntimeDescriptor>(),
-            }, new StateChanges());
-            return state;
-        }
-
-        private static CommandFactory Commands() => new(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" });
 
         /// <summary>
         /// Three projects with the demonstration's kind of work: ten workstreams, of which six stand on
@@ -596,66 +308,16 @@ namespace Halcyonic.XR.Workspace.Editor
         };
 
         /// <summary>
-        /// The rail keeps its buttons inside its width, 24 degrees to either side, 12 mm apart in each
-        /// row, each at least 60 dp tall (48 compact), and its own words whole (ADR 0023). Nothing rests
-        /// beside it any more: the room and pairing controls are in Settings.
-        /// </summary>
-        private static IEnumerable<string> RailFits(string name, ProjectRail rail, Camera camera, bool hostile)
-        {
-            var failures = new List<string>();
-            WorkspaceRender.ForceMeshes(rail.gameObject);
-            var buttons = rail.Shown.ToList();
-            var gap = Glaze.TargetGapMeters / rail.Root.lossyScale.x;
-            foreach (var row in buttons.GroupBy(button => Mathf.Round(button.transform.localPosition.y * 1000f)))
-            {
-                var ordered = row.OrderBy(button => button.transform.localPosition.x).ToList();
-                for (var index = 0; index < ordered.Count; index++)
-                {
-                    var button = ordered[index];
-                    var left = button.transform.localPosition.x - button.Width / 2f;
-                    var right = button.transform.localPosition.x + button.Width / 2f;
-                    if (right > ProjectRail.Width / 2f + 1e-4f) failures.Add(name + ": the rail's " + button.name + " runs past its right end.");
-                    if (left < -ProjectRail.Width / 2f - 1e-4f) failures.Add(name + ": the rail's " + button.name + " runs past its left end.");
-                    if (index > 0 && ordered[index - 1].transform.localPosition.x + ordered[index - 1].Width / 2f > left - gap + 1e-4f)
-                    {
-                        failures.Add(name + ": the rail's " + ordered[index - 1].name + " and " + button.name + " are closer than 12 mm.");
-                    }
-                }
-            }
-            if (!hostile) failures.AddRange(NothingOfOursCut(rail.Shown.Cast<Component>(), name + " rail"));
-            var eyes = camera.transform.position;
-            failures.AddRange(GlazeChecks.TargetsLargeEnough(buttons, eyes, name + " rail"));
-            failures.AddRange(GlazeChecks.TextLargeEnough(rail.Root.gameObject, eyes, name + " rail"));
-            GlazeChecks.ListTextAsSeen(rail.Root.gameObject, eyes, name + " rail");
-            // How far to the side, as the angle from the rail's middle as seen from the eyes, whatever its height.
-            var widest = 0f;
-            var center = rail.Root.position - eyes;
-            foreach (var button in buttons)
-            {
-                foreach (var side in new[] { -1f, 1f })
-                {
-                    var edge = button.transform.TransformPoint(new Vector3(side * button.Width / 2f, 0f, 0f)) - eyes;
-                    widest = Mathf.Max(widest, Vector3.Angle(center, edge));
-                }
-            }
-            Debug.Log("Halcyonic: entry render " + name + ": the rail shows " + buttons.Count + " buttons, reaches " + WorkspaceRender.Degrees(widest)
-                + " degrees to the side and stands " + WorkspaceRender.Degrees(Mathf.Atan2(-center.y, new Vector2(center.x, center.z).magnitude) * Mathf.Rad2Deg)
-                + " degrees below eye level.");
-            if (widest > ProjectRail.HalfWidthDegrees + 0.5f) failures.Add(name + ": the rail reaches " + WorkspaceRender.Degrees(widest) + " degrees to the side.");
-            return failures;
-        }
-
-        /// <summary>
         /// The Settings sheet, opened as the rail's Settings opens it, with the sections the room, where
         /// the characters stand under it, and pairing fill: it opens clear of every character and label, a degree or more, in the
         /// comfortable band, its targets 60 dp, its words whole and large enough, and a refusal from
         /// whatever answered at the typed address shows as written.
         /// </summary>
-        private static IEnumerable<string> SettingsFits(string name, string folder, GameObject root, ProjectRail rail, Camera camera, RenderTexture texture,
+        private static IEnumerable<string> SettingsFits(string name, string folder, GameObject root, GameObject host, Camera camera, RenderTexture texture,
             List<(CharacterView View, CharacterTarget Target)> characters, float? surface, bool hostile)
         {
             var failures = new List<string>();
-            var sheet = SettingsSheet.On(rail.gameObject);
+            var sheet = SettingsSheet.On(host);
             var room = sheet.Section(SettingsText.YourRoom, 0);
             room.Say(surface.HasValue ? "Your agents are on your desk." : "No free desk or table in reach, so your agents stand in front of you.");
             room.Offer(room.Button("Space switch", ButtonRole.Secondary), "Show a virtual space");
@@ -668,12 +330,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 window.Offer(window.Button("Arrangement 1", ButtonRole.Secondary), SettingsText.ChangeTo(StageArrangement.TurnedAside));
             }
             // The comfort settings, as the text's size stands in this pass.
-            ComfortControls.ForRender(rail.gameObject, new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard });
+            ComfortControls.ForRender(host, new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard });
             var mac = sheet.Section(SettingsText.YourMac, 1);
             mac.Say(hostile ? "Pairing failed: " + WorkspaceRender.Hostile("refusal") : "Paired with " + HostText.Your + " at 192.168.1.23:47801. Connecting over Wi-Fi.");
             mac.Offer(mac.Button("Pairing", ButtonRole.Destructive), "Forget this " + HostText.Noun);
             sheet.OpenForRender(characters.ConvertAll(character => character.Target), surface);
-            rail.Root.gameObject.SetActive(false);
             WorkspaceRender.ForceMeshes(root);
             var image = WorkspaceRender.Render(camera, texture);
             File.WriteAllBytes(Path.Combine(folder, name + "-settings.png"), image.EncodeToPNG());
@@ -705,23 +366,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(name + ": Settings opens outside the comfortable band.");
             }
             sheet.Close();
-            rail.Root.gameObject.SetActive(true);
             return failures;
-        }
-
-        /// <summary>
-        /// A line said on one screen never shows on another: hold to talk's words only on the Create
-        /// start screen that said them. The screens render one after another on the same panel, so a
-        /// line left over from an earlier screen shows here.
-        /// </summary>
-        private static IEnumerable<string> NoticesStayOnTheirScreen(IEnumerable<Component> parts, string suffix, string what)
-        {
-            if (suffix == "create-voice") yield break;
-            var voice = new HashSet<string>(VoiceText.Shown.Select(LabelText.ForTextMeshPro));
-            foreach (var part in parts)
-            {
-                if (part is TMP_Text label && voice.Contains(label.text)) yield return what + ": " + label.name + " still shows hold to talk's words: " + label.text;
-            }
         }
 
         /// <summary>
@@ -887,133 +532,6 @@ namespace Halcyonic.XR.Workspace.Editor
             var dx = Mathf.Max(a.xMin - b.xMax, b.xMin - a.xMax);
             var dy = Mathf.Max(a.yMin - b.yMax, b.yMin - a.yMax);
             return dx >= gap * 0.99f || dy >= gap * 0.99f;
-        }
-
-        /// <summary>
-        /// The whole request, page by page, for ideas at their hardest: the longest name and task in
-        /// one unbroken word, a task made only of characters shown as code points, a task with no place
-        /// to break, and a long task in ordinary words. Every character of every item shows exactly
-        /// once across the pages, inside the space above the page buttons; an item that fits a page is
-        /// never split; a line breaks inside a word only where the word is longer than a line; and Yes,
-        /// start building shows on the last page only.
-        /// </summary>
-        private static IEnumerable<string> ReviewShowsEverything(string name, string folder, Camera camera, RenderTexture texture, EntryPanel panel, ClientProjection state)
-        {
-            var failures = new List<string>();
-            var cases = new (string Suffix, string Name, string Task)[]
-            {
-                ("longest", new string('P', ProjectIdea.NameLimit), new string('W', ProjectIdea.TaskLimit)),
-                ("code-points", "Recipe tracker", string.Concat(Enumerable.Repeat("\u202E\u200B\u0003\u2066", 250))),
-                ("unbroken", "Recipe tracker", new string('x', ProjectIdea.TaskLimit)),
-                ("words", "Recipe tracker", string.Join(" ", Enumerable.Repeat("Track recipes, plan the week's dinners and write the shopping list.", 55))),
-            };
-            foreach (var (suffix, projectName, task) in cases)
-            {
-                var what = name + " review " + suffix;
-                var idea = new ProjectIdea();
-                idea.UseIdea(task);
-                idea.Rename(projectName);
-                idea.ChooseFolder(ProjectFolder.New(Listing(false).Roots[0], "recipe-tracker"));
-                // As the person reaches it: the recap, then Start building.
-                panel.ShowForRender(EntryPanel.Screen.Recap, idea, Draft(state, listed: true));
-                panel.PressForRender(EntryScreens.StartBuilding);
-                var review = panel.Review;
-                if (review == null || !review.Paginated)
-                {
-                    failures.Add(what + ": the review shows no request.");
-                    continue;
-                }
-                var shown = review.Items.Select(_ => new StringBuilder()).ToList();
-                for (var page = 0; page < review.PageCount; page++)
-                {
-                    WorkspaceRender.ForceMeshes(panel.gameObject);
-                    var labels = panel.RequestLabels;
-                    var parts = review.Parts;
-                    if (labels.Count != parts.Count) failures.Add(what + ": page " + (page + 1) + " shows " + labels.Count + " labels for " + parts.Count + " items.");
-                    for (var index = 0; index < parts.Count && index < labels.Count; index++)
-                    {
-                        var part = parts[index];
-                        var label = labels[index];
-                        label.ForceMeshUpdate(true);
-                        var info = label.textInfo;
-                        var lines = info.lineCount;
-                        var bottom = float.MaxValue;
-                        for (var character = 0; character < info.characterCount; character++)
-                        {
-                            var each = info.characterInfo[character];
-                            shown[part.Item].Append(each.character);
-                            if (each.isVisible) bottom = Mathf.Min(bottom, label.transform.parent.InverseTransformPoint(label.transform.TransformPoint(each.bottomLeft)).y);
-                        }
-                        if (index > 0 && label.rectTransform.localPosition.y > labels[index - 1].rectTransform.localPosition.y - (parts[index - 1].Lines - 0.01f) * LinePitch(labels[index - 1]))
-                        {
-                            failures.Add(what + ": item " + part.Item + " overlaps the item above it on page " + (page + 1) + ".");
-                        }
-                        if (lines != part.Lines) failures.Add(what + ": item " + part.Item + " takes " + lines + " lines on page " + (page + 1) + " where " + part.Lines + " were measured.");
-                        if (bottom < panel.Frame.CustomBody.yMin - 1e-4f) failures.Add(what + ": item " + part.Item + " runs below the page on page " + (page + 1) + ".");
-                        failures.AddRange(BreaksBetweenWords(label, what + " item " + part.Item));
-                    }
-                    var confirming = panel.Frame.ButtonFor(EntryScreens.ConfirmStart) is GlazeButton yes && yes.Available
-                        && yes.Label.text == LabelText.ForTextMeshPro(EntryText.ConfirmStart);
-                    if (confirming != review.CanConfirm) failures.Add(what + ": Yes, start building " + (confirming ? "shows before" : "does not show on") + " the last page.");
-                    if (review.PageCount > 1) failures.AddRange(PagerOnTop(panel.Frame, what + " page " + (page + 1)));
-                    // Every part stepped through with Next first, so Yes keeps clear of the pager on every part too.
-                    if (review.CanConfirm) failures.AddRange(WorkspaceRender.YesClear(panel.Frame, what));
-                    if (page == 0 && suffix == "words" && name == "far")
-                    {
-                        var closeUp = WorkspaceRender.CloseUp(camera, texture, panel.Root);
-                        File.WriteAllBytes(Path.Combine(folder, name + "-review-words-closeup.png"), closeUp.EncodeToPNG());
-                        UnityEngine.Object.DestroyImmediate(closeUp);
-                    }
-                    if (page == 0 || page == review.PageCount - 1)
-                    {
-                        // The first and last part of each hard case, the whole panel, to see the pager and Yes.
-                        var whole = Whole(camera, texture, panel.Root);
-                        File.WriteAllBytes(Path.Combine(folder, name + "-review-" + suffix + "-" + (page + 1).ToString(CultureInfo.InvariantCulture) + "-panel.png"), whole.EncodeToPNG());
-                        UnityEngine.Object.DestroyImmediate(whole);
-                    }
-                    if (page < review.PageCount - 1) panel.PressForRender(PanelModel.NextPart);
-                }
-                for (var item = 0; item < review.Items.Count; item++)
-                {
-                    if (shown[item].ToString() != review.Items[item].Text)
-                    {
-                        failures.Add(what + ": item " + item + " shows " + shown[item].Length + " of its " + review.Items[item].Text.Length + " characters across the pages, or not in order.");
-                    }
-                }
-                Debug.Log("Halcyonic: entry render " + what + ": " + review.Items.Sum(item => item.Text.Length) + " characters in " + review.PageCount + " pages, each shown once.");
-            }
-            return failures;
-        }
-
-        /// <summary>The distance between the baselines of a label's first two lines, or one line's height when it has one.</summary>
-        private static float LinePitch(TMP_Text label)
-        {
-            var info = label.textInfo;
-            return info.lineCount > 1 ? info.lineInfo[0].baseline - info.lineInfo[1].baseline : info.lineInfo[0].lineHeight;
-        }
-
-        /// <summary>
-        /// Where a label wraps, it wraps between words, unless the word it breaks is wider than a whole
-        /// line and so has to be broken somewhere.
-        /// </summary>
-        private static IEnumerable<string> BreaksBetweenWords(TMP_Text label, string what)
-        {
-            var info = label.textInfo;
-            var width = label.rectTransform.sizeDelta.x;
-            for (var line = 0; line + 1 < info.lineCount; line++)
-            {
-                var last = info.lineInfo[line].lastCharacterIndex;
-                var next = info.lineInfo[line + 1].firstCharacterIndex;
-                if (info.characterInfo[last].character == ' ' || info.characterInfo[next].character == ' ') continue;
-                // The word broken here, whole.
-                var text = new StringBuilder();
-                var from = last;
-                while (from > 0 && info.characterInfo[from - 1].character != ' ') from--;
-                for (var character = from; character < info.characterCount && info.characterInfo[character].character != ' '; character++) text.Append(info.characterInfo[character].character);
-                if (label.GetPreferredValues(text.ToString().Replace("\\", "\\\\")).x > width) continue;
-                yield return what + ": a line breaks inside the word " + text + ", which fits a line.";
-                yield break;
-            }
         }
 
         internal static bool Overlap(Rect a, Rect b) => a.xMin < b.xMax && a.xMax > b.xMin && a.yMin < b.yMax && a.yMax > b.yMin;
