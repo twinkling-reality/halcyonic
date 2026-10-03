@@ -192,7 +192,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     } catch (error) {
       throw new RuntimeActionError(
         'runtime_start_failed',
-        clip(errorText(error), 2000) ?? 'The SDK refused to start Claude Code.',
+        wholeError(errorText(error)) ?? 'The SDK refused to start Claude Code.',
       );
     }
     try {
@@ -200,7 +200,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
     } catch (error) {
       throw new RuntimeActionError(
         'runtime_unavailable',
-        clip(`Claude Code could not list its models: ${errorText(error)}`, 2000) ??
+        wholeError(`Claude Code could not list its models: ${errorText(error)}`) ??
           'Claude Code could not list its models.',
       );
     } finally {
@@ -255,7 +255,7 @@ export class ClaudeAgentRuntimeAdapter implements RuntimeAdapter {
       this.#sessions.delete(executionId);
       throw new RuntimeActionError(
         'runtime_start_failed',
-        clip(errorText(error), 2000) ?? 'The SDK refused to start Claude Code.',
+        wholeError(errorText(error)) ?? 'The SDK refused to start Claude Code.',
       );
     }
     return { native_id: await started };
@@ -557,7 +557,7 @@ class ClaudeSession {
     } catch (error) {
       throw new RuntimeActionError(
         'interrupt_failed',
-        clip(`Claude Code did not confirm the interrupt: ${errorText(error)}`, 2000) ??
+        wholeError(`Claude Code did not confirm the interrupt: ${errorText(error)}`) ??
           'Claude Code did not confirm the interrupt.',
         'unknown',
       );
@@ -840,11 +840,10 @@ class ClaudeSession {
   #lose(failure: unknown): void {
     this.#state = 'lost';
     const reason =
-      clip(
+      wholeError(
         failure === undefined
           ? 'The Claude Code process ended.'
           : `The Claude Code process ended: ${errorText(failure)}`,
-        2000,
       ) ?? 'The Claude Code process ended.';
     const turn = this.#turn;
     this.#turn = null;
@@ -857,9 +856,8 @@ class ClaudeSession {
             error: {
               code: 'no_result',
               message:
-                clip(
+                wholeError(
                   `The turn ended without a result, so whether its work took effect is unknown. ${reason}`,
-                  2000,
                 ) ?? reason,
             },
           },
@@ -950,12 +948,12 @@ function resultError(result: SDKResultMessage): ErrorInfo {
     // A success result flagged as an error carries the API error text.
     return {
       code: 'api_error',
-      message: clip(result.result, 2000) ?? 'The turn ended with an API error.',
+      message: wholeError(result.result) ?? 'The turn ended with an API error.',
     };
   }
   return {
     code: CODE_PATTERN.test(result.subtype) ? result.subtype : 'turn_failed',
-    message: clip(result.errors.join('; '), 2000) ?? `The turn ended with ${result.subtype}.`,
+    message: wholeError(result.errors.join('; ')) ?? `The turn ended with ${result.subtype}.`,
   };
 }
 
@@ -1041,6 +1039,14 @@ function approvalSummary(input: Record<string, unknown>): string {
 function clip(text: string, max: number): string | null {
   const clipped = text.slice(0, max);
   return /\S/.test(clipped) ? clipped : null;
+}
+
+/**
+ * Error text, whole: the control plane takes credentials out of it, which it finds only whole,
+ * then cuts it to the contract. Null when nothing visible is in it.
+ */
+function wholeError(text: string): string | null {
+  return /\S/.test(text) ? text : null;
 }
 
 function errorText(error: unknown): string {

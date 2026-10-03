@@ -601,10 +601,9 @@ function turnError(error: unknown): ErrorInfo {
   const message = nonBlank(details.message);
   return {
     code: `codex_${snake === '' ? 'turn_failed' : snake}`.slice(0, 64),
+    // Whole: the control plane takes credentials out, which it finds only whole, then cuts it.
     message:
-      message === null
-        ? 'Codex reported the turn as failed without a message.'
-        : clip(message.trim(), 2000),
+      message === null ? 'Codex reported the turn as failed without a message.' : message.trim(),
   };
 }
 
