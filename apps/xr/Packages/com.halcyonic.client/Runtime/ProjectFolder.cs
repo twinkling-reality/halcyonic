@@ -144,10 +144,12 @@ namespace Halcyonic.Client
         public string Describe(Func<string, string>? name = null, bool startOfLine = false)
         {
             name ??= LabelText.Plain;
-            var root = PlaceGone ? "a place " + HostText.Your + " doesn't list now" : name(RootName);
+            var root = PlaceGone ? "a place " + HostText.Your + " no longer lists" : name(RootName);
             if (FolderName == null) return (startOfLine ? "Directly in " : "directly in ") + root;
             var folder = name(FolderName);
-            return IsNew ? (startOfLine ? "A new folder, " : "a new folder, ") + folder + ", in " + root : folder + " in " + root;
+            if (IsNew) return (startOfLine ? "A new folder, " : "a new folder, ") + folder + ", in " + root;
+            // A gone place reads as a clause of its own: "shop, in a place your computer no longer lists".
+            return folder + (PlaceGone ? ", in " : " in ") + root;
         }
 
         /// <summary>
