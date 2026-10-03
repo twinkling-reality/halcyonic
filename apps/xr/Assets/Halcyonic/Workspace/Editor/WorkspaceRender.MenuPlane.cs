@@ -278,6 +278,22 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(GlazeChecks.InsideField(what, corners, eyes, GlazeChecks.CompositionCenter(shapes), WorkspacePlacement.ReadingPitch(size, plane.Direction.Elevation, field), field));
             }
 
+            // Every prompt the frame in front offers is drawn somewhere on the plane, its side panel in its
+            // place or not, so nothing a chosen row offers, as a setting's change, is out of reach; and a
+            // side panel in its frame's place says its frame's own reason.
+            if (plane.Front is MenuFrame front)
+            {
+                var drawn = plane.Shown.SelectMany(column => column.View.Footer.Showing?.All.Select(each => each.Prompt.Id) ?? Enumerable.Empty<string>()).ToHashSet();
+                foreach (var (_, prompt) in front.Footer.All)
+                {
+                    if (prompt.Kind != PromptKind.Close && !drawn.Contains(prompt.Id)) failures.Add(what + ": the frame in front offers \"" + prompt.Words + "\", but nothing on the plane draws it.");
+                }
+                if (plane.Shown.Count == 1 && plane.Shown[0].Kind == MenuColumn.Side && plane.Shown[0].View.ReasonShown != front.Reason)
+                {
+                    failures.Add(what + ": the side panel in its frame's place says \"" + plane.Shown[0].View.ReasonShown + "\", not its frame's reason \"" + front.Reason + "\".");
+                }
+            }
+
             // The light line crosses no label and no character, seen from the eyes.
             if (plane.LightLine is (Vector3 from, Vector3 to))
             {

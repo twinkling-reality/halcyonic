@@ -421,7 +421,10 @@ the same definition names, as the JSON Schema document:
   composition: the columns by `MenuColumns`, the menu standing beside the file only where the two
   fit as the stage would place them in the headset's measured field (`MenuPage.Inside`), and a side
   panel taking its frame's place with text a step larger, or wherever the two don't fit, wearing
-  the file's pill and keeping its light line. It places the composition as one panel of its size
+  the file's pill and keeping its light line. There it stands as wide as its frame and carries the
+  frame's footer, Close details where Close stood (`Footer.WithClose`), and its reason, so every
+  prompt the frame offers, as a setting's change, stays drawn; the navigator takes a press there
+  only for Close details or a prompt that frame offers now and allows. It places the composition as one panel of its size
   beside the file's character (`WorkspaceLayout.Place`), where the person looks
   (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
   (`PlaceAhead`), and slides every part to its new place over 0.25 s, so the plane re-centres as
@@ -436,7 +439,8 @@ the same definition names, as the JSON Schema document:
   the far, desk and window stages in a Quest 3S's field at both text sizes, in four states each,
   halfway through the slide as well as at its end, and holds each to one plane, type, selection,
   text as seen, its targets, a degree from every label, body and the window by their outlines as
-  the eyes see them (`GlazeChecks.OutlineApart`), the field, and the light line crossing nothing.
+  the eyes see them (`GlazeChecks.OutlineApart`), the field, the light line crossing nothing, and
+  every prompt the frame in front offers drawn somewhere on the plane (`FooterView.Showing`).
   `PanelModel` stays until nothing draws it.
 - **`FileScreens`** builds a task's file as a `MenuFrame` (ADR 0026) from its presentation, the
   steering and what the file is in the middle of (`FileScreen`: the section chosen, the line whose

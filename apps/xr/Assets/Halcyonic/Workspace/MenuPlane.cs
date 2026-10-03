@@ -84,6 +84,9 @@ namespace Halcyonic.XR.Workspace
             return null;
         }
 
+        /// <summary>The frame in front as laid last, the file's where one stands, else the menu's: its side panel is the one shown.</summary>
+        public MenuFrame? Front { get; private set; }
+
         /// <summary>The menu is open but stands aside for the file.</summary>
         public bool MenuAside { get; private set; }
 
@@ -166,6 +169,9 @@ namespace Halcyonic.XR.Workspace
             fileOf = fileFrame != null && !besideWindow ? fileCharacter : null;
             measured = -1f;
             var panel = fileFrame != null ? fileFrame.Side : menuFrame?.Side;
+            Front = fileFrame ?? menuFrame;
+            // Standing in its frame's place, a side panel is as wide as that frame, so the footer it carries fits.
+            var frontDegrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
             var pill = fileFrame?.Pill != null;
             var zoom = GlazeText.Scale;
             // With text a step larger, a frame and its side panel are too wide for a Quest 3S together;
@@ -202,7 +208,7 @@ namespace Halcyonic.XR.Workspace
                 {
                     MenuColumn.Menu => (menuFrame!.Subject, Glaze.Menu.MenuColumnDegrees),
                     MenuColumn.File => (fileFrame!.Subject, Glaze.Menu.FileColumnDegrees),
-                    _ => (panel!.Subject, Glaze.Menu.SideColumnDegrees),
+                    _ => (panel!.Subject, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees),
                 };
                 subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(words, degrees, pill));
             }
@@ -215,7 +221,9 @@ namespace Halcyonic.XR.Workspace
                 if (kind == MenuColumn.Menu) menu.Show(menuFrame!, Glaze.Menu.MenuColumnDegrees, subject, pill);
                 else if (kind == MenuColumn.File) file.Show(fileFrame!, Glaze.Menu.FileColumnDegrees, subject, pill);
                 // In the file's place, the side panel wears its pill and keeps its light line.
-                else side.Show(panel!, Glaze.Menu.SideColumnDegrees, subject, pill, inPlace ? fileFrame?.Pill : null);
+                // In its frame's place it also carries the frame's footer and reason, so nothing the frame offers is lost.
+                else side.Show(panel!, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees, subject, pill, inPlace ? fileFrame?.Pill : null,
+                    inPlace ? Front : null);
                 shown.Add((kind, view));
             }
             lineTo = fileOf == null ? null : Contains(shown, file) ? file : inPlace ? side : null;
