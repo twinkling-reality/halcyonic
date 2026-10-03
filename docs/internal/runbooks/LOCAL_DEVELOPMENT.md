@@ -5,6 +5,9 @@
 - Node.js 24.15 or newer: `node --version`.
 - pnpm 10 or newer. It switches to the pinned version (see `packageManager` in `package.json`).
 - `pnpm install` from the repository root.
+- For `pnpm check`: a JDK and Android's platform jar, which the glance's tests (`tooling/glance`)
+  compile against. Unity 6000.3.25f1 with Android Build Support brings both; otherwise set
+  `JAVA_HOME` and `ANDROID_JAR`. Without them `pnpm check` fails there, rather than skip it.
 - For C# work only: the .NET 10 SDK. A user-local install works:
   `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0`, then
   `export PATH="$HOME/.dotnet:$PATH"`.
