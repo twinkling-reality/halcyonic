@@ -125,7 +125,9 @@ namespace Halcyonic.XR.Workspace
         private Setup setup = new Setup();
         private MenuPlane plane = null!;
         private MenuNavigator navigator = null!;
-        private IMenuColumn? holding;
+
+        /// <summary>Hold to talk's one voice, its words only for the column that held; null where the build has none.</summary>
+        private MenuVoice? voice;
 
         /// <summary>The column being made beside the menu, a task's file or New project (no task), whose page height reads against it.</summary>
         private (bool Opening, string? Task) opening;
@@ -167,10 +169,14 @@ namespace Halcyonic.XR.Workspace
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
-            if (setup.Voice != null)
+            if (setup.Voice is HoldToTalk talk)
             {
-                setup.Voice.Heard += text => director.holding?.Heard(text);
-                setup.Voice.Said += words => director.holding?.Said(words);
+                var voice = new MenuVoice(() => talk.Busy, talk.Begin, () => talk.End(true), talk.Drop);
+                talk.Heard += voice.Heard;
+                talk.Said += voice.Said;
+                // The column that held leaving the plane stops the voice: its words would reach no one.
+                director.navigator.Left += voice.Left;
+                director.voice = voice;
             }
             FocusGuard.Left += director.OnFocusLeft;
             // New project's flow let go for another journal comes off the plane.
@@ -247,24 +253,19 @@ namespace Halcyonic.XR.Workspace
             navigator.Drawn(from, view.Frame, view.Side);
         }
 
+        /// <summary>A held prompt: the voice records for its column, unless it is still busy with another hold's words.</summary>
         private void OnHoldStarted(MenuColumn from, Prompt prompt)
         {
             if (FocusGuard.InputSuspended) return;
-            holding = navigator.ColumnOf(from);
-            holding?.HoldStarted(prompt.Id);
-            setup.Voice?.Begin();
+            if (navigator.ColumnOf(from) is IMenuColumn column) voice?.Hold(column, prompt.Id);
         }
 
-        private void OnHoldEnded(MenuColumn from, Prompt prompt, bool letGo)
-        {
-            holding?.HoldEnded(prompt.Id, letGo);
-            if (letGo) setup.Voice?.End(true);
-            else setup.Voice?.Drop();
-        }
+        /// <summary>A hold ended: only the hold that started the recording ends it.</summary>
+        private void OnHoldEnded(MenuColumn from, Prompt prompt, bool letGo) => voice?.Ended(navigator.ColumnOf(from), prompt.Id, letGo);
 
         private void OnFocusLeft()
         {
-            setup.Voice?.Drop();
+            voice?.FocusLeft();
             navigator.FocusLeft();
         }
 

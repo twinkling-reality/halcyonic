@@ -45,6 +45,9 @@ namespace Halcyonic.Client
         /// <summary>What shows changed: the director draws again.</summary>
         public event Action? Changed;
 
+        /// <summary>A column left the plane, swapped, closed or its place left: the voice it held stops.</summary>
+        public event Action<IMenuColumn>? Left;
+
         /// <summary>The menu is open on a place, not closed to its bar.</summary>
         public bool IsOpen { get; private set; }
 
@@ -250,8 +253,12 @@ namespace Halcyonic.Client
             Leaving(Beside);
         }
 
-        /// <summary><paramref name="column"/> leaves the plane: what it had armed, as a confirmation, lapses.</summary>
-        private static void Leaving(IMenuColumn column) => column.FocusLeft();
+        /// <summary><paramref name="column"/> leaves the plane: what it had armed, as a confirmation, lapses, and the director hears of it.</summary>
+        private void Leaving(IMenuColumn column)
+        {
+            column.FocusLeft();
+            Left?.Invoke(column);
+        }
 
         /// <summary>
         /// What shows changed: the frames drawn so far are no longer what the columns stand by, so a late
