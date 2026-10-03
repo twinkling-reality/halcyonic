@@ -310,6 +310,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     surfaceNow = standOn;
                 }, () => surfaceNow, Extra));
 
+                // Folded while another window keeps focus: the plane goes, the banner shows again naming the task still open.
+                failures.AddRange(FoldMenu(name, folder, camera, texture, root, director, opened.View.Presentation!.Title));
+
                 // Choosing a place is the menu's own; the file stays beside it.
                 // A press from the frame drawn before the file opened is passed over: it no longer stands.
                 if (director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage), drawnTasks, null))
@@ -375,6 +378,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.CloseMenu();
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": closed with no file open, the menu shows no bar.");
+                if (AmbientCover.PanelShowing) failures.Add(name + ": the closed bar alone covers the stage's banner.");
                 failures.AddRange(PlaneState(name + " director closed", folder, camera, texture, director.Plane, characters, eyes, null));
 
                 // The head turns: a redraw keeps the plane where it was; Reset position places it where the person looks.
@@ -1000,6 +1004,50 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             if (bytes > 0) failures.Add(name + ": twenty steps of a drag allocate " + bytes + " bytes; a drag step allocates nothing.");
             Debug.Log("Halcyonic: workspace render: " + name + " drags twenty steps allocating " + bytes + " bytes.");
+            return failures;
+        }
+
+        /// <summary>
+        /// The menu and a file folded while another window keeps focus, then restored (ADR 0023's fold,
+        /// on the menu): open, the plane covers the stage's banner; folded, nothing of it shows, nothing
+        /// covers the banner, and the banner names <paramref name="title"/> as still open; restored, it
+        /// comes back pixel for pixel.
+        /// </summary>
+        private static IEnumerable<string> FoldMenu(string name, string folder, Camera camera, RenderTexture texture, GameObject root, MenuDirector director, string title)
+        {
+            var failures = new List<string>();
+            try
+            {
+                FocusGuard.FoldForRender(false);
+                director.DrawNow();
+                if (!AmbientCover.PanelShowing) failures.Add(name + ": the open menu leaves the stage's banner where it stands.");
+                ForceMeshes(root);
+                var open = Render(camera, texture);
+                FocusGuard.FoldForRender(true);
+                director.DrawNow();
+                var folded = Render(camera, texture);
+                if (director.Plane.gameObject.activeInHierarchy) failures.Add(name + ": the menu still shows while folded.");
+                if (AmbientCover.PanelShowing) failures.Add(name + ": the menu still covers the stage's banner while folded.");
+                if (AmbientCover.OpenPanel != title) failures.Add(name + ": the banner would say \"" + AmbientCover.OpenPanel + "\" is still open, not \"" + title + "\".");
+                FocusGuard.FoldForRender(false);
+                director.DrawNow();
+                ForceMeshes(root);
+                var restored = Render(camera, texture);
+                var whole = new RectInt(0, 0, texture.width, texture.height);
+                var (gone, _) = Compare(open, folded, whole);
+                var (moved, largest) = Compare(open, restored, whole);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder, name + "-director-folded.png"), folded.EncodeToPNG());
+                if (gone == 0) failures.Add(name + ": folding the menu changed nothing on the render.");
+                if (moved > 0) failures.Add(name + ": " + moved + " pixels differ after the menu was restored (largest " + largest.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ").");
+                Debug.Log("Halcyonic: workspace render: " + name + " folds the menu away (" + gone + " pixels) and it comes back " + (moved == 0 ? "exactly." : "with " + moved + " pixels changed."));
+                UnityEngine.Object.DestroyImmediate(open);
+                UnityEngine.Object.DestroyImmediate(folded);
+                UnityEngine.Object.DestroyImmediate(restored);
+            }
+            finally
+            {
+                FocusGuard.FoldForRender(null);
+            }
             return failures;
         }
 

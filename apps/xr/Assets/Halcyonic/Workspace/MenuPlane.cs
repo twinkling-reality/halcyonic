@@ -38,6 +38,9 @@ namespace Halcyonic.XR.Workspace
         private MenuFrameView side = null!;
         private MenuBarView bar = null!;
         private LineRenderer line = null!;
+
+        /// <summary>Covers the stage's banner's place while the menu is open or a file stands on the plane, not for the closed bar alone (<see cref="AmbientCover"/>).</summary>
+        private GameObject cover = null!;
         private CharacterTarget? fileOf;
         private MenuFrameView? lineTo;
         private Vector3 eyes;
@@ -164,11 +167,19 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The light line's two ends, while it shows.</summary>
         public (Vector3 From, Vector3 To)? LightLine => line.gameObject.activeSelf ? (line.GetPosition(0), line.GetPosition(1)) : ((Vector3, Vector3)?)null;
 
-        public static MenuPlane Create(Transform parent)
+        /// <param name="openAs">
+        /// What the stage's banner names as still open while the plane is folded away, as a task's
+        /// title or the menu's place; null while nothing is open (<see cref="AmbientCover.OpenPanel"/>).
+        /// </param>
+        public static MenuPlane Create(Transform parent, Func<string?>? openAs = null)
         {
             var go = new GameObject("Menu plane");
             go.transform.SetParent(parent, false);
             var plane = go.AddComponent<MenuPlane>();
+            plane.cover = new GameObject("Covers the banner");
+            plane.cover.transform.SetParent(go.transform, false);
+            AmbientCover.Add(plane.cover, panel: true, openAs);
+            plane.cover.SetActive(false);
             plane.menu = plane.View("Menu", MenuColumn.Menu);
             plane.file = plane.View("File", MenuColumn.File);
             // A file's subject drags the whole plane (ADR 0026).
@@ -355,7 +366,8 @@ namespace Halcyonic.XR.Workspace
 
             if (shown.Count == 0)
             {
-                // Closed with no file: the bar alone, where the person looks.
+                // Closed with no file: the bar alone, where the person looks, which leaves the banner be.
+                cover.SetActive(false);
                 Composition = null;
                 foreach (var (_, view) in before) view.Hide();
                 bar.Show(menuBar, Glaze.Menu.MenuColumnDegrees);
@@ -371,6 +383,7 @@ namespace Halcyonic.XR.Workspace
                 return;
             }
             bar.Hide();
+            cover.SetActive(true);
             Direction = MenuDrag.Turned(Placed, Moved);
 
             for (var c = 0; c < shown.Count; c++)
