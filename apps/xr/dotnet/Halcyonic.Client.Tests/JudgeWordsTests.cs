@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Halcyonic.Contracts;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -32,22 +33,18 @@ public class JudgeWordsTests
     public void NoBrandIsShownAlongAnyPathOfTheDemonstration()
     {
         var words = WordsAJudgeCanRead();
-        var found = new SortedDictionary<string, SortedSet<string>>();
-        foreach (var text in words)
-        {
-            foreach (var brand in Brands)
-            {
-                if (!Regex.IsMatch(text, @"\b" + Regex.Escape(brand) + @"\b")) continue;
-                if (!found.TryGetValue(brand, out var where)) found[brand] = where = new SortedSet<string>();
-                where.Add(text.Length > 120 ? text.Substring(0, 120) + "…" : text);
-            }
-        }
+        var found = Branded(words);
         var report = string.Join("\n", found.Select(entry => entry.Key + ": " + string.Join(" | ", entry.Value.Take(4))));
         TestContext.Out.WriteLine(report);
         Assert.That(found.Keys, Is.Empty, report);
         Assert.That(words.Count, Is.GreaterThan(100), "the walk reached the words");
         Assert.That(words, Is.SupersetOf(new[] { FileScreens.AgentSource, "Yes, approve", "Yes, deny", "Yes, stop", "Checks", WorkspaceText.WhatWasChecked }),
             "the walk reached every file, its confirmations and its side panels");
+        Assert.That(words, Is.SupersetOf(new[]
+        {
+            "1 task is waiting for you", TasksText.Waiting(0), UsageText.Subject, "Part of the recording", UsageLeftPresenter.Recorded,
+            SettingsText.Subject, "A step larger",
+        }), "the walk reached the bar, Tasks, Usage and Settings");
     }
 
     /// <summary>Every distinct string the client core gives the headset along every path of the demonstration.</summary>
@@ -68,6 +65,28 @@ public class JudgeWordsTests
 
         // The menu's places (ADR 0026), on its bar whichever is open.
         foreach (var place in MenuBar.Places) Add(MenuBar.Word(place));
+        // Usage in the demonstration, and each limit's side panel; Settings, each setting chosen, before and after its change.
+        var menuHost = new StateMenuHost(null);
+        var usage = new UsageColumn(menuHost, at => recording.UsageLimitsAt(at));
+        foreach (var word in WordsOf(usage.Frame!)) Add(word);
+        for (var limit = 0; limit < usage.Frame!.Lines.Count; limit++)
+        {
+            usage.Act(UsageColumn.OpenLimit, limit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var word in WordsOf(usage.Frame!)) Add(word);
+            usage.Act(SidePanel.Close, null);
+        }
+        var settings = new SettingsColumn(menuHost, ComfortSettings.Of(new Comfort(), () => { }));
+        foreach (var word in WordsOf(settings.Frame!)) Add(word);
+        foreach (var row in settings.Frame!.Lines.Where(line => line.Action == SettingsColumn.OpenSetting).ToList())
+        {
+            settings.Act(SettingsColumn.OpenSetting, row.Key);
+            for (var change = 0; change < 3; change++)
+            {
+                foreach (var word in WordsOf(settings.Frame!)) Add(word);
+                settings.Act(SettingsColumn.ChangeSetting, null);
+            }
+            settings.Act(SidePanel.Close, null);
+        }
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true));
         Add(UsageLeftPresenter.NotInDemo);
@@ -108,6 +127,9 @@ public class JudgeWordsTests
                     state.ApplySnapshot(node.EndingSnapshot.Snapshot, new StateChanges());
                 }
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
+                // The menu's bar, closed and open, and Tasks, as the session stands here.
+                foreach (var place in MenuBar.Places) Add(TasksColumn.Bar(place, state).ClosedLine);
+                foreach (var word in WordsOf(new TasksColumn(new StateMenuHost(state)).Frame!)) Add(word);
                 Add(EntryScreens.ConnectProjects(overview, connected: false, demonstration: true));
                 Add(EntryScreens.MoreTasks(overview, connected: false));
                 foreach (var workstream in state.Workstreams.Values)
@@ -154,6 +176,49 @@ public class JudgeWordsTests
             }
         });
         return words;
+    }
+
+    /// <summary>A menu's host for its words alone, in the demonstration: the session as it stands, sending nothing.</summary>
+    private sealed class StateMenuHost : IMenuHost
+    {
+        public StateMenuHost(ClientProjection? state) => State = state;
+        public ClientProjection? State { get; }
+        public bool Connected => true;
+        public bool Demonstration => true;
+        public double Now => 0;
+        public DateTimeOffset Clock => DateTimeOffset.UtcNow;
+        public TimeZoneInfo Zone => TimeZoneInfo.Utc;
+        public TextSize TextSize => TextSize.Standard;
+        public bool VoiceOffered => false;
+        public ControlPlaneApi? Api => null;
+        public Task<CommandAckMessage>? Submit(CommandEnvelope command) => null;
+        public bool KeyboardOffered => false;
+        public void OpenKeyboard(string text, string prompt, Action<string> done) { }
+        public int RowsOf(string words, float columnDegrees) => 1;
+        public int RowsOf(PageLine line, float columnDegrees) => line.Rows;
+        public bool FitsHalf(PageLine answer, float columnDegrees) => false;
+        public int TitleRows(string subject, float columnDegrees) => 1;
+        // Room for every row, so no word a judge could page to escapes.
+        public int PageRows(bool sourceLine) => 64;
+        public float PageHeight(int subjectRows, bool besideMenu) => float.MaxValue;
+        public void OpenFile(string workstreamId) { }
+        public void OpenNewProject(string? projectId, string? projectName) { }
+    }
+
+    /// <summary>Each brand named in <paramref name="words"/>, with up to the first 120 characters of each text naming it.</summary>
+    internal static SortedDictionary<string, SortedSet<string>> Branded(IEnumerable<string> words)
+    {
+        var found = new SortedDictionary<string, SortedSet<string>>();
+        foreach (var text in words)
+        {
+            foreach (var brand in Brands)
+            {
+                if (!Regex.IsMatch(text, @"\b" + Regex.Escape(brand) + @"\b")) continue;
+                if (!found.TryGetValue(brand, out var where)) found[brand] = where = new SortedSet<string>();
+                where.Add(text.Length > 120 ? text.Substring(0, 120) + "…" : text);
+            }
+        }
+        return found;
     }
 
     /// <summary>
@@ -236,23 +301,29 @@ public class JudgeWordsTests
         if (frame.Reason != null) yield return frame.Reason;
         if (frame.Side is SidePanel side)
         {
-            yield return side.Subject;
-            foreach (var fact in side.Facts)
-            {
-                yield return fact.Name;
-                yield return fact.Value;
-            }
-            foreach (var line in side.Lines)
-            {
-                foreach (var word in WordsOf(line)) yield return word;
-            }
-            if (side.Source != null) yield return side.Source;
+            foreach (var word in WordsOf(side)) yield return word;
         }
         foreach (var (_, prompt) in frame.Footer.All)
         {
             yield return prompt.Words;
             if (prompt.Reason != null) yield return prompt.Reason;
         }
+    }
+
+    /// <summary>Every word a side panel shows: its subject, its facts' names and values, its lines and its source.</summary>
+    internal static IEnumerable<string> WordsOf(SidePanel side)
+    {
+        yield return side.Subject;
+        foreach (var fact in side.Facts)
+        {
+            yield return fact.Name;
+            yield return fact.Value;
+        }
+        foreach (var line in side.Lines)
+        {
+            foreach (var word in WordsOf(line)) yield return word;
+        }
+        if (side.Source != null) yield return side.Source;
     }
 
     private static IEnumerable<string> WordsOf(PageLine line)
