@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Halcyonic.Contracts;
+using Newtonsoft.Json;
 
 namespace Halcyonic.Client
 {
@@ -427,6 +428,12 @@ namespace Halcyonic.Client
             {
                 // An endpoint by name, never sent the token: trying again would not change it.
                 return Ending.RefuseAccess(notSent.Message);
+            }
+            catch (JsonException error)
+            {
+                // Never the parser's own words: they quote the value it could not read, which can be an
+                // instruction, agent text or a title, and the status is logged (XR_CLIENT.md).
+                return Ending.Failed("The control plane sent a message this app cannot read (" + error.GetType().Name + ").", live);
             }
             catch (Exception error)
             {

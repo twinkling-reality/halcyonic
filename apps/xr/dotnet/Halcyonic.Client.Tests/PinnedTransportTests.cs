@@ -197,4 +197,17 @@ public class PinnedTransportTests
             Directory.Delete(directory, recursive: true);
         }
     }
+
+    [Test]
+    public async Task APairingCodeOnlyItsOwnShapeIsKeptSoWhatAnswersCannotWriteALogLine()
+    {
+        // Whatever answers at the typed address chooses the code, before anything is pinned.
+        const string body = "{\"error\":{\"code\":\"x\\nHalcyonic: connection Live\",\"message\":\"m\",\"issues\":[]}}";
+        await using var server = TlsTestServer.Answering(
+            "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: " + Encoding.UTF8.GetByteCount(body) + "\r\nConnection: close\r\n\r\n" + body);
+        var refused = Assert.ThrowsAsync<PairingException>(() => PairingClient.PairAsync("127.0.0.1", server.Port, "12345678", "Quest 3"));
+        Assert.That(refused!.Code, Is.EqualTo("refused"));
+        Assert.That(new PairingException("wrong_code", "m", null).Code, Is.EqualTo("wrong_code"));
+        Assert.That(new PairingException("refused_401", "m", null).Code, Is.EqualTo("refused_401"));
+    }
 }
