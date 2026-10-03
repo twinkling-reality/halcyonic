@@ -286,6 +286,30 @@ describe("Codex and the project's folder", () => {
   });
 });
 
+describe('Codex start failures', () => {
+  test("never carry the server's error output, which may hold a key", async (t) => {
+    const secret = 'sk-FAKE-not-real-0123456789';
+    for (const [mode, said] of [
+      // Whichever it sees first: the exit, or the connection ending before initialize was answered.
+      [
+        'startup-fails',
+        /^(?:Codex exited during startup \(exit code 1\)|Could not start Codex: [^.]+)\. Its/,
+      ],
+      ['version-fails', /^Could not read the version of the Codex binary at .+ \(exit code 3\)\./],
+    ] as const) {
+      const { start } = fake(t, [mode], {}, { FAKE_CODEX_SECRET: secret });
+      await assert.rejects(start(), (error: unknown) => {
+        const message = (error as Error).message;
+        assert.ok(actionError('runtime_unavailable')(error), message);
+        assert.match(message, said);
+        assert.match(message, /not reported, since it may hold secrets/);
+        assert.ok(!message.includes('sk-FAKE'), message);
+        return true;
+      });
+    }
+  });
+});
+
 describe('Codex server environment', () => {
   test('inherits only the allowlist, keeps HOME and CODEX_HOME, and disables remote control', () => {
     const environment = buildEnvironment(

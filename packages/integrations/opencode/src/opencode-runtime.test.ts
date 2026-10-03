@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { compileValidator, RuntimeDescriptor } from '@halcyonic/contracts';
 import {
@@ -105,6 +113,48 @@ describe('OpenCode start options', () => {
         message: `${modelRef} is not a model OpenCode lists.`,
       });
     }
+  });
+});
+
+describe('OpenCode start failures', () => {
+  test("never carry the server's error output, which may hold a key", async (t) => {
+    const directory = temporary(t);
+    const secret = 'sk-FAKE-not-real-0123456789';
+    // A stand-in that, like a configuration error, prints a provider's key and exits.
+    const binary = join(directory, 'opencode');
+    writeFileSync(
+      binary,
+      '#!/usr/bin/env node\nprocess.stderr.write(\'{"apiKey":"\' + process.env.FAKE_SECRET + \'"}\\n\');\nprocess.exit(1);\n',
+      { mode: 0o755 },
+    );
+    const runtime = new OpenCodeRuntimeAdapter({
+      binaryPath: binary,
+      serverRecordFile: join(directory, 'server.json'),
+      directoryPolicy: allowOnly(directory),
+      env: {
+        PATH: [dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
+        FAKE_SECRET: secret,
+      },
+    });
+    t.after(() => runtime.close());
+    await assert.rejects(
+      runtime.startExecution({
+        execution: TEST_EXECUTION,
+        instruction: 'Do the work.',
+        options: {},
+        model_ref: null,
+        directory,
+        emit: () => undefined,
+      }),
+      (error: unknown) => {
+        const message = (error as Error).message;
+        assert.ok(actionError('runtime_unavailable')(error), message);
+        assert.match(message, /exit code 1/);
+        assert.match(message, /not reported, since it may hold secrets/);
+        assert.ok(!message.includes('sk-FAKE'), message);
+        return true;
+      },
+    );
   });
 });
 

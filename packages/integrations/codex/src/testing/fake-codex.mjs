@@ -19,7 +19,10 @@
  *   and `ask-secret` one whose question is secret; an answer to it is confirmed with
  *   `serverRequest/resolved`, as Codex does, except the first with `deaf-once`, which is ignored
  *   as Codex ignores a message it cannot read;
- * - `elicit`: every turn raises an `mcpServer/elicitation/request`.
+ * - `elicit`: every turn raises an `mcpServer/elicitation/request`;
+ * - `version-fails` and `startup-fails`: `--version`, or `app-server` before it answers anything,
+ *   prints FAKE_CODEX_SECRET to its error output, as a configuration error can print a key, and
+ *   exits with 3 or 1.
  *
  * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
  * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page.
@@ -35,10 +38,22 @@ const option = (name, fallback) =>
   [...flags].find((flag) => flag.startsWith(`${name}=`))?.slice(name.length + 1) ?? fallback;
 
 if (process.argv[2] === '--version') {
+  if (flags.has('version-fails')) {
+    process.stderr.write(
+      `error: experimental_bearer_token = "${process.env.FAKE_CODEX_SECRET ?? ''}"\n`,
+    );
+    process.exit(3);
+  }
   process.stdout.write(`codex-cli ${option('version', '0.157.0')}\n`);
   process.exit(0);
 }
 if (process.argv[2] !== 'app-server') process.exit(2);
+if (flags.has('startup-fails')) {
+  process.stderr.write(
+    `ERROR config: experimental_bearer_token = "${process.env.FAKE_CODEX_SECRET ?? ''}"\n`,
+  );
+  process.exit(1);
+}
 
 const SANDBOX_TYPES = {
   'read-only': 'readOnly',

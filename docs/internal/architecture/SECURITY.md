@@ -48,8 +48,11 @@ installation id, the thread and session ids, the sandbox mode, whether analytics
 workspace that is a git repository, its path, latest commit hash and whether it has uncommitted
 changes; the working directory also reaches the provider in the conversation's environment
 context. Codex writes each thread's rollout to the developer's `CODEX_HOME`, tagged `halcyonic`. The
-adapter writes no logs; when a server fails to start, the end of its error output becomes part of
-the start failure's message.
+adapter writes no logs. The Codex and OpenCode adapters drain their server's error output without
+keeping it, as the Claude Code adapter does: it may hold secrets, such as a key that verbose
+logging or a configuration error prints, and a start failure is journaled and shown on every
+device. A start failure says the exit status and how to see the output: run the binary in a
+terminal on the Mac.
 
 When the OpenCode runtime is enabled, its server gets the same kind of allowlist, plus the names in
 `HALCYONIC_AGENT_ENV`, and uses the developer's own OpenCode configuration and providers. What
