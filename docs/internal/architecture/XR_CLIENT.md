@@ -416,7 +416,17 @@ the same definition names, as the JSON Schema document:
   makes the menu's places afresh. It places the plane from the eyes and gaze taken when what stands
   on it changes, the menu opening or closing or the column beside it, and on Settings' Reset position
   (`ResetPosition`), which takes no press until the plane is drawn in its new place
-  (`MenuNavigator.Moved`); any other redraw stays where it was rather than following the head. It runs
+  (`MenuNavigator.Moved`); any other redraw stays where it was rather than following the head.
+  Holding a task's file by its subject plate past `GlazeButton.HoldSeconds` drags the whole plane
+  round the eyes at its distance, still facing them (`MenuDrag` over `PanelDrag`, client core), as an
+  offset on that placement kept across redraws until the plane is placed afresh or Reset position.
+  A step is taken only where the plane stays inside the measured field, clear of every character's
+  body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
+  each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. The
+  hold counts only on the file's frame last drawn, never while a confirmation stands on the plane,
+  and it is apart from every prompt, so it never starts Hold to talk and no held prompt drags. While
+  it lasts nothing is pressed or held and nothing is laid again under the hand; let go, the plane is
+  drawn where it was left and presses count again. A drag step allocates nothing. It runs
   Hold to talk's one voice for any held
   prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns

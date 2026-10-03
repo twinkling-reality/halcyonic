@@ -132,18 +132,18 @@ namespace Halcyonic.Client
             var e = elevation / DegreesPerRadian;
             var across = Math.Tan(halfWidth / DegreesPerRadian);
             var tall = Math.Tan(halfHeight / DegreesPerRadian);
-            foreach (var x in new[] { -1.0, 1.0 })
+            // Each corner, allocating nothing, since a drag asks every frame it moves.
+            for (var corner = 0; corner < 4; corner++)
             {
-                foreach (var y in new[] { -1.0, 1.0 })
-                {
-                    // The center's direction, plus the plate's right and up, which face the eyes.
-                    var px = x * across;
-                    var py = Math.Sin(e) + y * tall * Math.Cos(e);
-                    var pz = Math.Cos(e) - y * tall * Math.Sin(e);
-                    var yaw = Math.Atan2(px, pz) * DegreesPerRadian;
-                    var up = Math.Atan2(py, Math.Sqrt(px * px + pz * pz)) * DegreesPerRadian;
-                    if (!Shows(yaw, up)) return false;
-                }
+                var x = corner % 2 == 0 ? -1.0 : 1.0;
+                var y = corner < 2 ? -1.0 : 1.0;
+                // The center's direction, plus the plate's right and up, which face the eyes.
+                var px = x * across;
+                var py = Math.Sin(e) + y * tall * Math.Cos(e);
+                var pz = Math.Cos(e) - y * tall * Math.Sin(e);
+                var yaw = Math.Atan2(px, pz) * DegreesPerRadian;
+                var up = Math.Atan2(py, Math.Sqrt(px * px + pz * pz)) * DegreesPerRadian;
+                if (!Shows(yaw, up)) return false;
             }
             return true;
         }

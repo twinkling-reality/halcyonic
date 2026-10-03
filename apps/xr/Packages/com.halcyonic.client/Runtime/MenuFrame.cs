@@ -747,20 +747,20 @@ namespace Halcyonic.Client
             var yaw = direction.Yaw / DegreesPerRadian;
             var tolerance = ViewField.EdgeMarginDegrees - 0.01;
             var shrunk = new ViewField(field.Left - tolerance, field.Right - tolerance, field.Up - tolerance, field.Down - tolerance);
-            foreach (var right in new[] { -composition.Width / 2f, composition.Width / 2f })
+            // Each corner, allocating nothing, since a drag asks every frame it moves.
+            for (var corner = 0; corner < 4; corner++)
             {
-                foreach (var up in new[] { -composition.Height / 2f, composition.Height / 2f })
-                {
-                    // Seen with the head turned to the centre and tipped down: the point turned back by as much.
-                    var (x, y, z) = PlaneComposition.PointOf(direction, right, up);
-                    var turnedX = x * MathF.Cos(yaw) - z * MathF.Sin(yaw);
-                    var turnedZ = x * MathF.Sin(yaw) + z * MathF.Cos(yaw);
-                    var seenY = y * MathF.Cos(pitch) + turnedZ * MathF.Sin(pitch);
-                    var seenZ = -y * MathF.Sin(pitch) + turnedZ * MathF.Cos(pitch);
-                    var across = MathF.Atan2(turnedX, seenZ) * DegreesPerRadian;
-                    var elevation = MathF.Atan2(seenY, MathF.Sqrt(turnedX * turnedX + seenZ * seenZ)) * DegreesPerRadian;
-                    if (!shrunk.Shows(across, elevation)) return false;
-                }
+                var right = (corner % 2 == 0 ? -0.5f : 0.5f) * composition.Width;
+                var up = (corner < 2 ? -0.5f : 0.5f) * composition.Height;
+                // Seen with the head turned to the centre and tipped down: the point turned back by as much.
+                var (x, y, z) = PlaneComposition.PointOf(direction, right, up);
+                var turnedX = x * MathF.Cos(yaw) - z * MathF.Sin(yaw);
+                var turnedZ = x * MathF.Sin(yaw) + z * MathF.Cos(yaw);
+                var seenY = y * MathF.Cos(pitch) + turnedZ * MathF.Sin(pitch);
+                var seenZ = -y * MathF.Sin(pitch) + turnedZ * MathF.Cos(pitch);
+                var across = MathF.Atan2(turnedX, seenZ) * DegreesPerRadian;
+                var elevation = MathF.Atan2(seenY, MathF.Sqrt(turnedX * turnedX + seenZ * seenZ)) * DegreesPerRadian;
+                if (!shrunk.Shows(across, elevation)) return false;
             }
             return true;
         }

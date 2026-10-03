@@ -48,6 +48,28 @@ public class PerFrameTests
     }
 
     [Test]
+    public void DraggingTheMenusPlaneAllocatesNothingAFrame()
+    {
+        var subject = MenuPage.Subject(1, pill: true);
+        var page = MenuPage.Content(MenuPage.Rows(4));
+        var composition = new PlaneComposition(new[]
+        {
+            new PlaneColumn(PlaneComposition.Units(Glaze.Menu.MenuColumnDegrees), subject, MenuPage.Sections, page),
+            new PlaneColumn(PlaneComposition.Units(Glaze.Menu.FileColumnDegrees), subject, MenuPage.Sections, page),
+        });
+        var bodies = new[] { new BodyInView(30f, -2f, 3f, lowest: -9f, halfWidth: 6f), new BodyInView(-30f, -2f, 3f, lowest: -9f, halfWidth: 6f) };
+        var drag = new MenuDrag(new PanelDirection(0f, -25f, true, false), (0f, 0f), 0f, -20f, composition, bodies,
+            field: new ViewField(48, 48, 45, 45), holds: _ => true);
+        var frame = 0;
+        // The hand sweeps back and forth, past where the characters' labels stop it.
+        Assert.That(AllocatedBy(() =>
+        {
+            frame++;
+            drag.Follow(MathF.Sin(frame * 0.05f) * 40f, -20f + MathF.Cos(frame * 0.03f) * 6f);
+        }), Is.Zero);
+    }
+
+    [Test]
     public void ThePeeksChoiceAllocatesNothingAFrame()
     {
         var choice = new PeekChoice();
