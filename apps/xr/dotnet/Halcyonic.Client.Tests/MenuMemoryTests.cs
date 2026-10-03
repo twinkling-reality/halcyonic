@@ -76,33 +76,23 @@ public class MenuMemoryTests
         Assert.That(host.Sent, Has.Count.EqualTo(1), "no second project.create, for that folder or another, while the first may have run");
     }
 
-    /// <summary>A column standing in for New project's flow.</summary>
-    private sealed class Flow : IMenuColumn
+    private sealed class Kept : IKeptCommand
     {
-        public MenuFrame? Frame => null;
-#pragma warning disable CS0067
-        public event System.Action? Changed;
-        public event System.Action? Closed;
-#pragma warning restore CS0067
-        public void Act(string id, string? key) { }
-        public void Drawn(MenuFrame drawn, bool sidePanel) { }
-        public void HoldStarted(string id) { }
-        public void HoldEnded(string id, bool letGo) { }
-        public void Heard(string text) { }
-        public void Said(string words) { }
-        public void Tick() { }
-        public void FocusLeft() { }
+        public string? Id { get; set; }
     }
+
+    /// <summary>New project's flow over a host, keeping nothing on the device.</summary>
+    private static NewProjectFlow Flow(FakeMenuHost? host = null) => new(host ?? new FakeMenuHost(), Commands, new Kept());
 
     [Test]
     public void NewProjectsFlowIsMadeOnceAndKeptAcrossReconnectsToTheSameJournal()
     {
         var memory = new MenuMemory();
         var made = 0;
-        Flow Make()
+        NewProjectFlow Make()
         {
             made++;
-            return new Flow();
+            return Flow();
         }
         Assert.That(memory.NewProject, Is.Null, "before New project first opens, nothing is kept or ticked");
         var flow = memory.NewProjectFor("journal-1", Make);
@@ -117,13 +107,13 @@ public class MenuMemoryTests
     public void AnotherJournalOrARepairingLetsNewProjectsFlowGoAndSaysSo()
     {
         var memory = new MenuMemory();
-        var dropped = new System.Collections.Generic.List<IMenuColumn>();
+        var dropped = new List<NewProjectFlow>();
         memory.NewProjectDropped += dropped.Add;
-        var demonstration = memory.NewProjectFor("demonstration", () => new Flow());
+        var demonstration = memory.NewProjectFor("demonstration", () => Flow());
         memory.Journal("live-journal");
         Assert.That(dropped, Is.EqualTo(new[] { demonstration }), "the demonstration giving way to a live session is another journal");
         Assert.That(memory.NewProject, Is.Null);
-        var live = memory.NewProjectFor("live-journal", () => new Flow());
+        var live = memory.NewProjectFor("live-journal", () => Flow());
         Assert.That(live, Is.Not.SameAs(demonstration));
         memory.Forget();
         Assert.That(dropped, Is.EqualTo(new[] { demonstration, live }), "a re-pairing lets it go too");
@@ -138,10 +128,10 @@ public class MenuMemoryTests
         var memory = new MenuMemory();
         var demonstration = Session();
         var live = Session();
-        var dropped = new List<IMenuColumn>();
+        var dropped = new List<NewProjectFlow>();
         memory.NewProjectDropped += dropped.Add;
         Assert.That(memory.Session(demonstration), Is.False, "the first session shown changes nothing");
-        var flow = memory.NewProjectFor("journal", () => new Flow());
+        var flow = memory.NewProjectFor("journal", () => Flow());
         var projects = memory.ProjectsFor("journal");
         Assert.That(memory.Session(demonstration), Is.False, "the same session, as across a reconnect");
         Assert.That((memory.NewProject, memory.ProjectsFor("journal")), Is.EqualTo((flow, projects)));
@@ -152,6 +142,22 @@ public class MenuMemoryTests
         Assert.That(memory.ProjectsFor("journal"), Is.Not.SameAs(projects), "even on a journal of the same id");
         Assert.That(memory.Journal("journal"), Is.False);
         Assert.That(memory.Journal("another"), Is.True, "another journal says it let go too");
+    }
+
+    [Test]
+    public void AKeptFlowThatSaysItIsForAnotherSessionIsMadeAfreshEvenWhereTheMemorySawNoChange()
+    {
+        var memory = new MenuMemory();
+        var dropped = new List<NewProjectFlow>();
+        memory.NewProjectDropped += dropped.Add;
+        var host = new FakeMenuHost { Demonstration = true };
+        var demonstration = memory.NewProjectFor("journal", () => Flow(host));
+        // A real session took the demonstration's place on a journal of the same id, unseen by the memory.
+        host.Demonstration = false;
+        var live = memory.NewProjectFor("journal", () => Flow(host));
+        Assert.That(live, Is.Not.SameAs(demonstration));
+        Assert.That(dropped, Is.EqualTo(new[] { demonstration }), "let go, so what showed it takes it off the plane");
+        Assert.That(live!.ForAnotherSession, Is.False);
     }
 
     [Test]

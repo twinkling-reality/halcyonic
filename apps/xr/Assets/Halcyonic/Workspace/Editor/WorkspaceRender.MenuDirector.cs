@@ -12,6 +12,12 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>The id of a start whose outcome is unknown, kept only while the render runs.</summary>
+        private sealed class KeptInMemory : IKeptCommand
+        {
+            public string? Id { get; set; }
+        }
+
         /// <summary>A column standing in for another lane's, that keeps what reached it.</summary>
         private sealed class StubColumn : IMenuColumn
         {
@@ -87,7 +93,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
                 StubColumn? file = null;
-                StubColumn? flow = null;
+                NewProjectFlow? flow = null;
                 IMenuHost? fileHost = null;
                 IMenuHost? flowHost = null;
                 float? made = null;
@@ -96,6 +102,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Sessions never started: only which one is shown, and which one a send was for, matter here.
                 var demonstration = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
                 var shownSession = demonstration;
+                var demonstrationPlays = true;
                 var sent = new List<(RealtimeSession Session, CommandEnvelope Command)>();
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
@@ -114,8 +121,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     MakeNewProject = host =>
                     {
                         flowHost = host;
-                        return flow = new StubColumn(() => WaitingFile(opened.View.Presentation!.Title, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
-                            host.PageHeight(host.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
+                        // Lane C's flow, keeping nothing on this machine.
+                        return flow = new NewProjectFlow(host, commands, new KeptInMemory());
                     },
                     Session = () => shownSession,
                     Submit = (session, command) =>
@@ -123,7 +130,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         sent.Add((session, command));
                         return null;
                     },
-                    Demonstration = () => true,
+                    Demonstration = () => demonstrationPlays,
                     State = () => state,
                     StageNow = () => new MenuDirector.Stage(eyes, opened.Target.BodyPosition - eyes, targets, surface, false),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
@@ -212,7 +219,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (director.Plane.Bar == null) failures.Add(name + ": closed with no file open, the menu shows no bar.");
                 failures.AddRange(PlaneState(name + " director closed", folder, camera, texture, director.Plane, characters, eyes, null));
 
-                // New project, a build begun in the demonstration; then the computer's live session takes its place.
+                // The computer's live session takes the demonstration's place: the file made in it sends nothing there.
+                var live = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
+                shownSession = live;
+                demonstrationPlays = false;
+                director.DrawNow();
+                if (fileHost?.Submit(commands.SendInstruction("render-execution", "Yes")) != null || sent.Count != 1)
+                {
+                    failures.Add(name + ": a column made in the demonstration sent once the live session showed.");
+                }
+
+                // New project, its build begun live; then the headset is paired again, another session showing.
                 director.OpenNewProject(null, null);
                 director.DrawNow();
                 var first = flow;
@@ -220,16 +237,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 flowHost?.Submit(commands.CreateProject("Shop"));
                 shownSession = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
                 director.DrawNow();
-                if (director.Memory.NewProject != null || director.Navigator.Beside != null) failures.Add(name + ": the demonstration's New project stayed, to tick, once the live session showed.");
-                var nextStep = flowHost?.Submit(commands.SendInstruction("render-execution", "Begin"));
-                var lateYes = fileHost?.Submit(commands.SendInstruction("render-execution", "Yes"));
-                if (nextStep != null || lateYes != null || sent.Count != 2 || sent.Any(each => each.Session != demonstration))
+                if (director.Memory.NewProject != null || director.Navigator.Beside != null) failures.Add(name + ": New project made for the last session stayed, to tick, once another showed.");
+                if (flowHost?.Submit(commands.SendInstruction("render-execution", "Begin")) != null || sent.Count != 2 || sent[1].Session != live)
                 {
-                    failures.Add(name + ": a column made in the demonstration sent once the live session showed.");
+                    failures.Add(name + ": a build begun on one session sent its next step to another.");
                 }
                 director.OpenNewProject(null, null);
                 flowHost?.Submit(commands.CreateProject("Shop"));
-                if (flow == first || sent.Count != 3 || sent[2].Session != shownSession) failures.Add(name + ": opened again, New project was not made afresh for the live session.");
+                if (flow == first || sent.Count != 3 || sent[2].Session != shownSession) failures.Add(name + ": opened again, New project was not made afresh for the session showing.");
             }
             finally
             {

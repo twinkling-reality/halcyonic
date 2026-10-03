@@ -20,10 +20,10 @@ namespace Halcyonic.Client
         private ProjectsMemory projects = new ProjectsMemory();
 
         /// <summary>New project's flow, kept since it was first opened, which a build confirmed in it goes on in; null before.</summary>
-        public IMenuColumn? NewProject { get; private set; }
+        public NewProjectFlow? NewProject { get; private set; }
 
         /// <summary>New project's flow was let go, for another session or journal or a re-pairing: what showed it takes it off the plane.</summary>
-        public event Action<IMenuColumn>? NewProjectDropped;
+        public event Action<NewProjectFlow>? NewProjectDropped;
 
         /// <summary>
         /// Projects' memory for <paramref name="journalId"/>, the session's journal; null, as before the
@@ -38,11 +38,14 @@ namespace Halcyonic.Client
         /// <summary>
         /// New project's flow for <paramref name="journalId"/>: the one kept, or one made by
         /// <paramref name="make"/> when none is, once for the session and journal; null when none can be
-        /// made. A null journal keeps the one it was.
+        /// made. A null journal keeps the one it was. A kept flow that says it is for another session
+        /// (<see cref="NewProjectFlow.ForAnotherSession"/>) is let go and made afresh, even where this
+        /// memory saw no change: two guards on one rule.
         /// </summary>
-        public IMenuColumn? NewProjectFor(string? journalId, Func<IMenuColumn?> make)
+        public NewProjectFlow? NewProjectFor(string? journalId, Func<NewProjectFlow?> make)
         {
             Journal(journalId);
+            if (NewProject?.ForAnotherSession == true) DropNewProject();
             if (NewProject != null) return NewProject;
             NewProject = make();
             return NewProject;
@@ -82,11 +85,14 @@ namespace Halcyonic.Client
         private void Renew()
         {
             projects = new ProjectsMemory();
-            if (NewProject is IMenuColumn dropped)
-            {
-                NewProject = null;
-                NewProjectDropped?.Invoke(dropped);
-            }
+            DropNewProject();
+        }
+
+        private void DropNewProject()
+        {
+            if (!(NewProject is NewProjectFlow dropped)) return;
+            NewProject = null;
+            NewProjectDropped?.Invoke(dropped);
         }
     }
 }
