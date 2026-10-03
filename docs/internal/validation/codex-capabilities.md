@@ -308,4 +308,6 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   model, an Ollama tag verbatim.
 - The adapter now takes `model_provider`, `context_window` and `auto_compact_token_limit`, and
   refuses a thread for which Codex reports another model or provider than asked.
-- App-server made no request beyond loopback, and never asked Ollama to pull a model.
+- App-server made no request beyond loopback, and never asked Ollama to pull a model, with
+  `features.plugins = false` in its home; without it, it reaches GitHub at startup
+  ([local-models.md](local-models.md), 2026-10-03).

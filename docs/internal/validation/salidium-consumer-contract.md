@@ -220,3 +220,30 @@ file by its repository path where there is one, and "(+5 −1 or more)" for a lo
   Halcyonic shows null anchors and `none` as given.
 - **Not yet verified:** a waiting request or the `unavailable` explanation read from a live OpenCode
   session, and commit anchors from one.
+
+## The 0.8.2 baseline, repeated (2026-10-03)
+
+Salidium's fix for these (abb7a93, "Fix live OpenCode anchors, explanation status, and reads held
+until a step finishes") is on its main but in no release on this date; the owner's service runs
+0.8.2. This run is the baseline a run after the upgrade compares with, read the same way.
+
+- **How:** the same task as before (change `add`, add a test, run `node --test`, commit), driven by
+  Halcyonic's OpenCode adapter on the pinned OpenCode 2.0.18 and the local
+  `qwen3.6:35b-a3b-nvfp4`, its settings enabling Ollama alone, in a fresh scratch git repository,
+  read through the control plane's own Salidium and Seorak sources from a scratch data directory
+  (links to the owner's credential files, mode 600, never copied or printed), not the owner's
+  control plane or journal. The two shell commands were approved; the round took about 6 minutes
+  with the Mac's load average between 20 and 167 from other work.
+- **Verified, read 4 minutes after the round (330 ms):** `available`, Salidium 0.8.2, contract
+  1.1, `synthetic` false; both files by their repository paths with the line counts git gives
+  (`math.test.js` +6, `math.js` +3), checked after the change (`inferred`); the one commit; the test
+  run observed passing 2 of 2 with exit 0; the agent's words `reported`; the verdict passing.
+- **As before, the known bug:** both commit anchors null, and the explanation `none` with nothing
+  generated. Expected on 0.8.2.
+- **Under load:** the read while the approval waited ran out of Halcyonic's 10 s budget
+  (`timed_out`), and two reads just after the round failed after about 8 s (`unreachable`: the
+  connection failed without an answer). The daemon had run for 10 hours and did not restart. With
+  the load as high as it was, this says nothing about Salidium, and the waiting state was again not
+  seen.
+- **Still not verified:** a waiting request, the `unavailable` explanation and commit anchors from a
+  live OpenCode session. All three wait for a Salidium release with abb7a93 and the service upgraded.

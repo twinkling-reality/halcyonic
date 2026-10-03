@@ -155,3 +155,58 @@ So a real "What changed?" with files from a local model has still not been seen:
 that edits through Codex's patch tool, or Salidium reading file changes another way. The check line
 ("Tests passed at 16:16: 2/2 tests passed (node-test)", ran after no recorded change) and the
 measurement are real.
+
+## A Codex run for Checks that did not finish (2026-10-03)
+
+To read Seorak's measurements of a live Codex session again (Seorak collects Codex and Claude
+Code, not OpenCode, so an OpenCode session reads "not observed" by design), Halcyonic's Codex
+adapter drove the pinned Codex 0.157.0 with `model_provider: "ollama"`,
+`qwen3.6:35b-a3b-nvfp4`, a 65,536 token context and `approval_policy: "untrusted"`, on the same
+small task in a scratch git repository, read through the control plane's own sources from a scratch
+data directory.
+
+- **The model never answered.** The Mac's load average was between 280 and 530 and its swap nearly
+  full from other work; the thread recorded its context and then nothing for 14 minutes, when the
+  run's time limit closed it (`turn_aborted`). The repository was untouched.
+- **The provider was local:** the thread's start reported `ollama/qwen3.6:35b-a3b-nvfp4`, the
+  rollout records `model_provider` `ollama` and that model, and the adapter refuses a thread whose
+  provider or model differs from what it asked. No model request completed at all.
+- **A gap, as it was:** Codex ran with its default `CODEX_HOME`, `~/.codex`, so that Seorak and
+  Salidium would see the rollout, and that folder holds the owner's Codex login (`auth.json`) and
+  configuration. The 2026-09-29 runs that saw app-server make no request beyond loopback used a
+  scratch `CODEX_HOME` with no login, and nothing captured the network this time. Non-model
+  requests to OpenAI at startup, such as an account or feature check made with that login, are
+  therefore unverified for this run. Nothing found suggests a hosted model call.
+- **The repeat's home:** a scratch `CODEX_HOME` with no login, naming only the `ollama` provider,
+  with `features.plugins = false`, `analytics.enabled = false` and `check_for_update_on_startup =
+  false`, its `sessions` folder holding only a link to the day's folder of `~/.codex/sessions`, so
+  Seorak's collector and Salidium see the rollout. Without `features.plugins = false` app-server
+  reached GitHub at startup; the runtime test is in [local-models.md](local-models.md). A watcher
+  listed the app-server's internet sockets every second for the whole of each run.
+
+### The repeats (2026-10-03)
+
+- **Network, verified:** in both watched runs the only socket was 127.0.0.1:11434 (Ollama); nothing
+  left loopback. One short run went unwatched: the watcher read the previous run's log, saw it had
+  ended and stopped at once; the run was stopped seconds into its turn, with the same home.
+- **A run that did nothing:** under `approval_policy: "untrusted"` Codex asks before even reading,
+  and the run's allowlist then approved only `node --test` and git, so all 19 requests (`cat`,
+  `ls`, `find`, `pwd`, `echo`) were denied and nothing was read, changed or committed.
+- **A run that stalled:** with the coordinator's allowlist (`cat`, `ls`, `pwd`, `head`, `echo`,
+  print-only `sed -n`, `find` without actions, `node --test`, and git `add`, `commit`, `status`,
+  `diff` and `log`, each argument a relative path inside the repository, no shell operator), the
+  model read the files, then asked for multi-line commands and one with an operator, all denied,
+  and after 42 s produced nothing more for 14 minutes, when the run closed it.
+- **Seorak, as Checks would read it:** for the run that did nothing, `available`, not synthetic,
+  one matched and included session, complete and fresh, while the approval waited, just after the
+  turn and 3 minutes later; cost `estimated_usd` `null` (a local model has no list price: unknown,
+  never zero); every outcome measure `null` (commits landed, uncommitted, line survival, errors,
+  end reason); the verification lens empty. 12 s into the stalled run it was still `not_found`
+  (`not_captured`): Seorak had not yet captured the session.
+- **Salidium 0.8.2:** `available` for both, true to sessions that changed nothing: no files, no
+  commits, no checks, the explanation `none`, both anchors null.
+
+So neither run gives Checks a measured outcome. The evidence for Checks stays the 2026-10-02 run
+above: Seorak's measurements with their provenance, the cost honestly unknown for a local model,
+and a measured outcome (`error_count` 0, the rest pending). A numeric cost needs a hosted model and
+the owner's approved spend.
