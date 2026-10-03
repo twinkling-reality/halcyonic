@@ -196,11 +196,12 @@ namespace Halcyonic.XR.Workspace
                 [MenuPlace.Settings] = () => new SettingsColumn(director.Bound(), setup.Space().Concat(ComfortSettings.Of(setup.Comfort, setup.ComfortSaved)).ToList()),
             });
             director.navigator.Changed += () => director.dirty = true;
-            director.plane.Acted += director.OnActed;
+            director.plane.Acted += (from, action, key, frame, side) => director.OnActed(from, action, key, frame, side);
             director.plane.Opened += () => director.navigator.OpenMenu(somethingWaits: setup.SomethingWaits());
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
+            director.plane.SubjectPressed += director.OnSubjectPressed;
             director.plane.SubjectHeld += director.OnSubjectHeld;
             director.plane.SubjectDragged += director.OnSubjectDragged;
             director.plane.SubjectLetGo += director.EndDrag;
@@ -244,7 +245,29 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>For the editor's renders: the file's subject held at <paramref name="point"/>, past the hold's time, as a hand would.</summary>
-        public void HoldSubjectForRender(Vector3 point) => OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
+        public void HoldSubjectForRender(Vector3 point)
+        {
+            OnSubjectPressed(MenuColumn.File, plane.Showing(MenuColumn.File));
+            OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
+        }
+
+        /// <summary>For the editor's renders: the subject pressed, its hold to mature only by <see cref="MatureHoldForRender"/>.</summary>
+        public void PressSubjectForRender() => OnSubjectPressed(MenuColumn.File, plane.Showing(MenuColumn.File));
+
+        /// <summary>For the editor's renders: the subject's hold matures at <paramref name="point"/>, after a press made earlier.</summary>
+        public void MatureHoldForRender(Vector3 point) => OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
+
+        /// <summary>For the editor's renders: a press on the plane, through the director's own handler; true when a column took it.</summary>
+        public bool PressForRender(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side) => OnActed(from, action, key, frame, side);
+
+        /// <summary>For the editor's renders: a held prompt, through the director's own handler.</summary>
+        public void HoldPromptForRender(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side) => OnHoldStarted(from, prompt, frame, side);
+
+        /// <summary>For the editor's renders, which have no microphone: the voice the director's holds go to.</summary>
+        public void VoiceForRender(MenuVoice voice) => this.voice = voice;
+
+        /// <summary>For the editor's renders: another window took focus.</summary>
+        public void FocusLeftForRender() => OnFocusLeft();
 
         /// <summary>For the editor's renders: the held point moved to <paramref name="point"/>.</summary>
         public void DragSubjectForRender(Vector3 point) => OnSubjectDragged(point);
@@ -256,6 +279,7 @@ namespace Halcyonic.XR.Workspace
         public void DrawNow()
         {
             Follow();
+            LetGoIfMoved();
             Draw(immediately: true);
             plane.Advance(MenuPlane.SlideSeconds);
         }
@@ -271,8 +295,7 @@ namespace Halcyonic.XR.Workspace
             var nowAway = Away;
             if (away && !nowAway) dirty = true;
             away = nowAway;
-            // What stands on the plane changed under a drag: it lets go, and the plane is placed afresh.
-            if (drag != null && (navigator.IsOpen, navigator.Beside) != anchoredFor) EndDrag();
+            LetGoIfMoved();
             // Mid-drag nothing is laid again under the hand; the plane is drawn where it was left once let go.
             if (drag != null) return;
             var bar = setup.Bar(navigator.Place);
@@ -336,10 +359,12 @@ namespace Halcyonic.XR.Workspace
         }
 
         /// <summary>A press, only while the app has focus and only on the frame last drawn in its slot; the stage's sounds answer one taken.</summary>
-        private void OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
+        private bool OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
-            if (FocusGuard.InputSuspended || drag != null) return;
-            if (navigator.Act(from, action, key, frame, side)) setup.Acted?.Invoke(from, action, key);
+            if (FocusGuard.InputSuspended || drag != null) return false;
+            if (!navigator.Act(from, action, key, frame, side)) return false;
+            setup.Acted?.Invoke(from, action, key);
+            return true;
         }
 
         /// <summary>
@@ -373,20 +398,45 @@ namespace Halcyonic.XR.Workspace
             navigator.FocusLeft();
         }
 
+        /// <summary>What stands on the plane changed under a drag: it lets go, and the plane is placed afresh.</summary>
+        private void LetGoIfMoved()
+        {
+            if (drag != null && (navigator.IsOpen, navigator.Beside) != anchoredFor) EndDrag();
+        }
+
+        /// <summary>The subject's press, taken only where a drag may start now; its hold matures into a drag only if this one was.</summary>
+        private bool subjectPressTaken;
+
+        private void OnSubjectPressed(MenuColumn from, MenuFrame? frame) => subjectPressTaken = MayDrag(from, frame);
+
+        /// <summary>
+        /// Whether a hold on <paramref name="from"/>'s subject, showing <paramref name="frame"/>, may drag the
+        /// plane now: a task's file on the frame last drawn in its slot, as a press, with input there, no
+        /// drag already, and no confirmation standing on the plane, so a Yes never moves.
+        /// </summary>
+        private bool MayDrag(MenuColumn from, MenuFrame? frame)
+        {
+            if (FocusGuard.InputSuspended || drag != null || from != MenuColumn.File || navigator.BesideTask == null) return false;
+            if (navigator.Standing(MenuColumn.File, frame, null) == null || plane.Composition == null) return false;
+            if (plane.Front?.Footer.Confirming == true) return false;
+            foreach (var (_, view) in plane.Shown)
+            {
+                if (view.Frame?.Footer.Confirming == true) return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// A file's subject held long enough (ADR 0026): the whole plane follows the hand round the eyes,
-        /// only from a task's file on the frame last drawn in its slot, as a press, never while a
-        /// confirmation stands on the plane, so a Yes never moves; it starts no voice, and no prompt held
-        /// drags. Until the plane is drawn where it is left, nothing pressed counts.
+        /// only where a drag might start both when the subject was pressed and now (<see cref="MayDrag"/>);
+        /// it starts no voice, and no prompt held drags. Until the plane is drawn where it is left, nothing
+        /// pressed counts.
         /// </summary>
         private void OnSubjectHeld(MenuColumn from, MenuFrame? frame, Vector3 point)
         {
-            if (FocusGuard.InputSuspended || drag != null || from != MenuColumn.File || navigator.BesideTask == null) return;
-            if (navigator.Standing(MenuColumn.File, frame, null) == null || !(plane.Composition is PlaneComposition composition)) return;
-            foreach (var (_, view) in plane.Shown)
-            {
-                if (view.Frame?.Footer.Confirming == true) return;
-            }
+            var taken = subjectPressTaken;
+            subjectPressTaken = false;
+            if (!taken || !MayDrag(from, frame) || !(plane.Composition is PlaneComposition composition)) return;
             var stage = setup.StageNow();
             var eyes = plane.Eyes;
             var bodies = new List<BodyInView>(stage.Characters.Count);

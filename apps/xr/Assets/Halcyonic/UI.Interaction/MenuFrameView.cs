@@ -93,9 +93,12 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public event Action<MenuFrameView>? Drawn;
 
+        /// <summary>The subject plate was pressed, once <see cref="EnableSubjectHold"/>: whether a drag may start is judged now as well as when the hold matures.</summary>
+        public event Action? SubjectPressed;
+
         /// <summary>
         /// The subject plate was held past <see cref="GlazeButton.HoldSeconds"/>, once
-        /// <see cref="EnableSubjectHold"/>, at this point in the world: the plane may be dragged by it.
+        /// <see cref="EnableSubjectHold"/>, at this point in the world, the hand still on it: the plane may be dragged by it.
         /// </summary>
         public event Action<Vector3>? SubjectHeld;
 
@@ -467,6 +470,7 @@ namespace Halcyonic.XR.UI
             {
                 subjectPressedAt = Time.unscaledTime;
                 subjectHolding = false;
+                SubjectPressed?.Invoke();
             };
             subjectHold.Dragged += point =>
             {
@@ -530,7 +534,14 @@ namespace Halcyonic.XR.UI
         {
             if (subjectHold == null) return;
             PaintSubjectCue(subjectHold.Hovered, subjectPressedAt >= 0f);
-            if (subjectHolding || subjectPressedAt < 0f || Time.unscaledTime - subjectPressedAt < GlazeButton.HoldSeconds) return;
+            if (subjectHolding || subjectPressedAt < 0f) return;
+            // As a held prompt: the hand that pressed must still be on the plate, else the press lapses.
+            if (!subjectHold.HandHovered)
+            {
+                subjectPressedAt = -1f;
+                return;
+            }
+            if (Time.unscaledTime - subjectPressedAt < GlazeButton.HoldSeconds) return;
             if (!(subjectHold.HeldPoint is Vector3 point)) return;
             subjectHolding = true;
             SubjectHeld?.Invoke(point);

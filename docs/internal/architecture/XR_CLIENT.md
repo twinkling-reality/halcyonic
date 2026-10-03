@@ -430,7 +430,9 @@ the same definition names, as the JSON Schema document:
   seen with the head turned to the stage's centre (`MenuDrag.WithinReach`), clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
   each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. The
-  hold counts only on the file's frame last drawn, never while a confirmation stands on the plane,
+  hold counts only on the file's frame last drawn, judged both when the subject is pressed and when
+  the hold matures, with the hand still on the plate as a held prompt's, never while a confirmation
+  stands on the plane,
   and it is apart from every prompt, so it never starts Hold to talk and no held prompt drags. While
   it lasts nothing is pressed or held and nothing is laid again under the hand; let go, the plane is
   drawn where it was left and presses count again. A drag step allocates nothing. The subject plate
