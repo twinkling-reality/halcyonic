@@ -152,10 +152,16 @@ namespace Halcyonic.Client
         /// for it, only after a second press. Nothing else sends an answer, so the gesture that brings
         /// focus back cannot.
         /// </summary>
-        public SteeringOutcome SendAnswer(QuestionDraft draft, WorkspacePresentation workspace)
+        /// <param name="waits">
+        /// Why the surface showing the question can't send yet, as a file's page says it
+        /// (<see cref="FileScreens.WhySendWaits"/>): what is to be sent not yet read whole or not in view.
+        /// Nothing is sent while there is a reason.
+        /// </param>
+        public SteeringOutcome SendAnswer(QuestionDraft draft, WorkspacePresentation workspace, string? waits = null)
         {
             if (Typing) return SteeringOutcome.Nothing;
             Cancel();
+            if (waits != null) return SteeringOutcome.Explain(waits);
             if (!workspace.Actions.Contains(WorkspaceAction.Answer))
             {
                 return SteeringOutcome.Explain(WorkspaceText.WhyNoActions(workspace) ?? "Nothing was sent: it's no longer waiting for this answer.");
