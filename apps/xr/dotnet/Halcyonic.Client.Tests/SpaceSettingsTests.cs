@@ -10,10 +10,13 @@ public class SpaceSettingsTests
 {
     private static readonly RoomStatus Room = new(RoomSpace.Room, PassthroughState.Running, RoomScan.Read, StagePlacement.InFront, null);
 
-    private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now)
+    private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now) => Of(now, new List<string>());
+
+    /// <summary>The rows, what their changes raised, and in <paramref name="forgot"/> each address forgetting was asked with.</summary>
+    private static (IReadOnlyList<MenuSetting> Rows, List<string> Raised) Of(Func<SpaceNow> now, List<string> forgot)
     {
         var raised = new List<string>();
-        return (SpaceSettings.Of(now, raised.Add), raised);
+        return (SpaceSettings.Of(now, raised.Add, forgot.Add), raised);
     }
 
     private static SettingNow Read(IReadOnlyList<MenuSetting> rows, string key) => rows.Single(row => row.Key == key).Read();
@@ -126,19 +129,42 @@ public class SpaceSettingsTests
     }
 
     [Test]
-    public void ForgettingIsArmedBySettingsAndRunsOnlyOnItsYes()
+    public void ForgettingIsArmedBySettingsAndRunsOnlyOnItsYesWithTheAddressItAskedAbout()
     {
         var host = new FakeMenuHost();
-        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow("192.168.1.23:47801", PairingStep.Idle, true)));
+        var forgot = new List<string>();
+        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow("192.168.1.23:47801", PairingStep.Idle, true)), forgot);
         var settings = new SettingsColumn(host, rows);
         settings.Act(SettingsColumn.OpenSetting, SpaceSettings.Pairing);
         settings.Act(SettingsColumn.ChangeSetting, null);
-        Assert.That(raised, Is.Empty, "the first press only asks");
+        Assert.That((raised.Count, forgot.Count), Is.EqualTo((0, 0)), "the first press only asks");
         Assert.That(settings.Frame!.Footer.Confirming, Is.True);
         var yes = settings.Frame!.Footer[PromptSlot.Free]!;
         Assert.That(yes.Words, Is.EqualTo("Yes, forget this computer"));
         settings.Act(yes.Id, null);
-        Assert.That(raised, Is.EqualTo(new[] { SpaceSettings.Pairing }));
+        Assert.That(forgot, Is.EqualTo(new[] { "192.168.1.23:47801" }), "Yes forgets the computer it asked about");
+        Assert.That(raised, Is.Empty, "and never through the id that pairs");
+    }
+
+    [Test]
+    public void UnpairedThePairingRowOnlyPairsAndNeverForgets()
+    {
+        var forgot = new List<string>();
+        var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)), forgot);
+        rows.Single(row => row.Key == SpaceSettings.Pairing).Change();
+        Assert.That((raised.Single(), forgot.Count), Is.EqualTo((SpaceSettings.Pairing, 0)));
+    }
+
+    [Test]
+    public void ForgettingGoesAheadOnlyForTheComputerConfirmedAndWithNothingUnderWay()
+    {
+        var paired = new PairingNow("192.168.1.23:47801", PairingStep.Idle, true);
+        Assert.That(paired.Forgets("192.168.1.23:47801"), Is.True);
+        Assert.That(paired.Forgets("192.168.1.24:47801"), Is.False, "another computer than the one asked about");
+        Assert.That(paired.Forgets("192.168.1.23:4780"), Is.False, "compared whole");
+        Assert.That(new PairingNow(null, PairingStep.Idle, true).Forgets("192.168.1.23:47801"), Is.False, "nothing paired");
+        Assert.That(new PairingNow("192.168.1.23:47801", PairingStep.Forgetting, true).Forgets("192.168.1.23:47801"), Is.False, "already forgetting");
+        Assert.That(new PairingNow("192.168.1.23:47801", PairingStep.Typing, true).Forgets("192.168.1.23:47801"), Is.False, "pairing again under way");
     }
 
     [Test]

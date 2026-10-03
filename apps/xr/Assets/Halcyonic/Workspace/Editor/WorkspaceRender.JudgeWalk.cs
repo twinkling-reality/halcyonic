@@ -121,7 +121,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     File = (host, task) => file = new FileColumn(host, () => Present(task), commands, () => reads,
                         execution => instructions.TryGetValue(execution, out var offered) ? offered : null, () => ""),
                     // Your space as the release build gives it: no Your computer.
-                    Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null), _ => { }),
+                    Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null), _ => { }, _ => { }),
                     Demonstration = () => true,
                     State = () => state,
                     StageNow = () => new MenuDirector.Stage(eyes, waiting.BodyPosition - eyes, targets, surface, false),

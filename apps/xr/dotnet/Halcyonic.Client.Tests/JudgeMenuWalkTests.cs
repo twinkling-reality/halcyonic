@@ -33,7 +33,7 @@ internal sealed class DemonstrationMenuHost : IMenuHost
             [MenuPlace.Usage] = () => new UsageColumn(this, at => player.Recording?.UsageLimitsAt(at)),
             // As the director gives them in the release build: Your space, with no Your computer, then Comfort.
             [MenuPlace.Settings] = () => new SettingsColumn(this, SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront, null),
-                id => SpaceActs.Add(id)).Concat(ComfortSettings.Of(Comfort, () => { })).ToList()),
+                id => SpaceActs.Add(id), _ => { }).Concat(ComfortSettings.Of(Comfort, () => { })).ToList()),
         });
         Navigator.Changed += () => changed = true;
     }

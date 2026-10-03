@@ -112,12 +112,12 @@ public class JudgeWordsTests
         {
             var room = new RoomStatus(space, passthrough, scan, placement, surface);
             standing ??= room;
-            ScanSettings(SpaceSettings.Of(() => new SpaceNow(room, RoomOffer.None, null, null), _ => { }), changes: 0);
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(room, RoomOffer.None, null, null), _ => { }, _ => { }), changes: 0);
         }
         foreach (RoomOffer offer in Enum.GetValues(typeof(RoomOffer)))
         foreach (var arrangement in new StageArrangement?[] { null, StageArrangement.InFront, StageArrangement.TurnedAside, StageArrangement.BesideAWindow })
         {
-            ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, offer, arrangement, null), _ => { }), changes: 0);
+            ScanSettings(SpaceSettings.Of(() => new SpaceNow(standing!, offer, arrangement, null), _ => { }, _ => { }), changes: 0);
         }
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null));
         Add(DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null, ended: true));

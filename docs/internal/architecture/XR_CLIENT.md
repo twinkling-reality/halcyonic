@@ -1494,10 +1494,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   device for each journal (`StageVisibility`, under the key the retired project rail kept it
   under), hands it to the stage before it places anyone, and counts every project and its work for
   Projects (`WorkOverview`). Hiding a project hides its characters only: its work is still listed
-  in Tasks, and work brought forward from there leaves with its project. On the first visit,
-  connected to the person's computer rather than the demonstration, the director opens the menu on
-  Projects by itself, once (ADR 0026), under the key the retired entry panel's welcome kept, so no
-  one welcomed before is again.
+  in Tasks, and work brought forward from there leaves with its project (`ProjectShowing`, in the
+  client core). On the first visit, connected to the person's computer rather than the
+  demonstration and with nothing open, the director opens the menu on Projects by itself, once (ADR
+  0026, `FirstVisit`), under the key the retired entry panel's welcome kept, so no one welcomed
+  before is again.
 - **Settings:** the menu's Settings (`SettingsColumn`, above): Your space, from `SpaceSettings`
   (the room shown and what it offers, given by the room's controls, where the characters stand, and
   the menu's Reset position, `MenuDirector.ResetPosition`), Comfort (`ComfortSettings`), and, in a
@@ -1908,7 +1909,8 @@ release build, such as the one judges run, offers no pairing
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md)).
 
 - **The panel** is the Pairing row of the menu's Settings, under Your computer (`SpaceSettings`;
-  `PairingPanel` gives the workspace director its state and its press, `IPairingSettings`): its
+  `PairingPanel` gives the workspace director its state, Pair and Forget, `IPairingSettings`, and
+  takes them back when it is destroyed, as `RoomControls` does the room's): its
   value Not paired, Pairing…, Paired or Forgetting…, and, paired, its side panel naming the
   computer's address, shown as data, being the person's own typing. While pairing or forgetting is
   under way it says so and takes no press. Each line pairing says shows on the stage's banner as a
@@ -1925,8 +1927,10 @@ release build, such as the one judges run, offers no pairing
   again, so it connects to the paired control plane as at startup.
 - **Forgetting.** Once paired, the row's change reads "Forget this computer", and Settings asks
   first: Cancel in its place and "Yes, forget this computer" in the free middle, lapsing after six
-  seconds, on focus leaving, when Settings leaves the plane or once forgetting can't be done. Yes
-  asks the computer to revoke this headset, deletes the pairing, and connects again as before
+  seconds, on focus leaving, when Settings leaves the plane or once forgetting can't be done. Only
+  that Yes forgets (`IPairingSettings.Forget`, given the address Settings asked about), and only the
+  computer at that address, with nothing under way (`PairingNow.Forgets`); the row's press unpaired
+  only pairs. Yes asks the computer to revoke this headset, deletes the pairing, and connects again as before
   pairing. If the Mac cannot be reached, the line says to
   revoke the headset there.
 - **Storage.** `ControlPlaneSettings` keeps the pairing in `halcyonic-pairing.json` and the access
