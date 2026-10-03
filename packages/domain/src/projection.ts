@@ -392,7 +392,9 @@ export class Projection {
         return;
       default: {
         const unhandled: never = event;
-        throw new Error(`unhandled event ${JSON.stringify(unhandled)}`);
+        throw new Error(
+          `unhandled event ${String((unhandled as { event_type?: unknown }).event_type)}`,
+        );
       }
     }
   }
@@ -530,7 +532,9 @@ export class Projection {
         break;
       default: {
         const unhandled: never = event;
-        throw new Error(`unhandled runtime event ${JSON.stringify(unhandled)}`);
+        throw new Error(
+          `unhandled runtime event ${String((unhandled as { event_type?: unknown }).event_type)}`,
+        );
       }
     }
     this.#touchExecution(execution, event.ingested_at, changes);

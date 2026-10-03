@@ -207,7 +207,7 @@ class RealtimeConnection {
         return;
       default: {
         const unhandled: never = message;
-        throw new Error(`unhandled message ${JSON.stringify(unhandled)}`);
+        throw new Error(`unhandled message ${String((unhandled as { type?: unknown }).type)}`);
       }
     }
   }

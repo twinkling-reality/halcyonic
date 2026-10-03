@@ -449,6 +449,56 @@ describe('truthful failure handling', () => {
     await controlPlane.close();
   });
 
+  test("an adapter's unexpected error is journaled as its type, never its words, which can quote the instruction", async () => {
+    const instruction = 'PRIVATE instruction text';
+    for (const [name, failing] of [
+      // A parse error quotes what it read.
+      ['parsing', (request: StartExecutionRequest) => JSON.parse(request.instruction) as never],
+      [
+        'echoing',
+        (request: StartExecutionRequest) => {
+          throw new Error(request.instruction);
+        },
+      ],
+    ] as const) {
+      const harness = createTestControlPlane({
+        adapters: () => [stubRuntime(name, async (request) => failing(request))],
+      });
+      const { controlPlane, commands, time, journal } = harness;
+      const workstreamId = await createWorkstream(harness);
+      controlPlane.commands.submit(
+        {
+          ...commands.startExecution(workstreamId, FEATURE),
+          payload: {
+            workstream_id: workstreamId,
+            runtime_id: name as RuntimeId,
+            instruction,
+            options: {},
+            model_ref: null,
+          },
+        },
+        'internal',
+      );
+      await time.runUntilIdle();
+      const failures = [...journal.readAll()].filter((stored) =>
+        ['command.failed', 'execution.start_failed', 'execution.state_unknown'].includes(
+          stored.event.event_type,
+        ),
+      );
+      assert.ok(failures.length > 0, name);
+      for (const stored of failures) {
+        const text = JSON.stringify(stored.event);
+        assert.ok(!text.includes('PRIVATE'), `${name}: ${stored.event.event_type}`);
+        assert.match(
+          text,
+          /The runtime adapter failed unexpectedly \((SyntaxError|Error)\)\./,
+          name,
+        );
+      }
+      await controlPlane.close();
+    }
+  });
+
   test('an invalid observation from an adapter is logged and never journaled', async () => {
     const { logger, entries } = capturingLogger();
     const harness = createTestControlPlane({

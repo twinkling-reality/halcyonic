@@ -72,7 +72,9 @@ export class DeviceRegistry {
       }
       default: {
         const unhandled: never = event;
-        throw new Error(`unhandled device event ${JSON.stringify(unhandled)}`);
+        throw new Error(
+          `unhandled device event ${String((unhandled as { event_type?: unknown }).event_type)}`,
+        );
       }
     }
   }

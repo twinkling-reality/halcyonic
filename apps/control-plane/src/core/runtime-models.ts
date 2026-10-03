@@ -62,7 +62,7 @@ export async function readRuntimeModels(
       }
       default: {
         const unhandled: never = outcome;
-        throw new Error(`unhandled outcome ${JSON.stringify(unhandled)}`);
+        throw new Error(`unhandled outcome ${String((unhandled as { kind?: unknown }).kind)}`);
       }
     }
   } finally {

@@ -254,7 +254,9 @@ export function admitCommand(
 
     default: {
       const unhandled: never = command;
-      throw new Error(`unhandled command ${JSON.stringify(unhandled)}`);
+      throw new Error(
+        `unhandled command ${String((unhandled as { command_type?: unknown }).command_type)}`,
+      );
     }
   }
 }
