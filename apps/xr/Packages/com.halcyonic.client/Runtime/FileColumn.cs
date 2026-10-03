@@ -261,9 +261,11 @@ namespace Halcyonic.Client
                 var from = Screen.RequestPart * Screen.RequestPartRows;
                 if (Screen.Measured(Steering, request) && drawn.Lines.Any(line => line.Words == request && line.FromRow == from))
                 {
+                    var could = Steering.CanConfirm;
                     Screen.RequestDrawn(Screen.RequestPart, Steering, clock);
-                    // Yes may show now: the frame is built again with it.
-                    Rebuild();
+                    // Built again only when Yes may show now. Building on every draw would hand the
+                    // director a new frame each time, so no press would ever stand on the one drawn.
+                    if (Steering.CanConfirm != could) Rebuild();
                 }
                 return;
             }
