@@ -317,6 +317,89 @@ public class FileColumnTests
         Assert.That(column.Frame!.Lines.Last().Words, Does.StartWith("Couldn't send"));
     }
 
+    /// <summary>A question taking a typed answer, its answers' page in view, with a typed answer long enough for its side panel to take several parts.</summary>
+    private (FileMenuHost Host, FileColumn Column) TypedLongAnswer()
+    {
+        var host = new FileMenuHost();
+        var work = new AskingWork(new QuestionView
+        {
+            QuestionId = "question-1",
+            Answerable = true,
+            AskedAt = Samples.Time,
+            Prompts = new List<QuestionPrompt>
+            {
+                new()
+                {
+                    Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = true,
+                    Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
+                },
+            },
+        });
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        column.Act(FileScreens.TypeAnswer, null);
+        var words = string.Join(" ", Enumerable.Range(1, 120).Select(step => "Lock it for a minute after the " + step + "th failed try"));
+        host.Keyboard!.Value.Done(words);
+        Assert.That(column.Screen.Question.SideOption, Is.Not.Null, "the typed answer is cut, so its whole words open beside the page");
+        Assert.That(column.Screen.Question.SideParts, Is.GreaterThan(2), "in several parts");
+        return (host, column);
+    }
+
+    [Test]
+    public void ALongTypedAnswerIsReadPartByPartToItsEndAndThenSends()
+    {
+        var (host, column) = TypedLongAnswer();
+        var parts = column.Screen.Question.SideParts;
+        for (var part = 0; part < parts; part++)
+        {
+            Assert.That(column.Screen.Question.SidePart, Is.EqualTo(part), "a rebuild never sends it back to the first part");
+            column.Drawn(column.Frame!, sidePanel: true);
+            host.Wait(1);
+            column.Tick();
+            if (part < parts - 1) column.Act(Footer.NextPage, null);
+        }
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True, "read to its last part");
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "and sent");
+    }
+
+    [Test]
+    public void CloseDetailsOnALongTypedAnswerStaysClosedUntilItsWordsChange()
+    {
+        var (host, column) = TypedLongAnswer();
+        column.Act(SidePanel.Close, null);
+        Assert.That(column.Frame!.Side, Is.Null, "the page shows again");
+        Draw(host, column);
+        column.Tick();
+        host.Wait(1);
+        column.Tick();
+        Assert.That((column.Screen.Question.SideOption, column.Frame!.Side), Is.EqualTo(((int?)null, (SidePanel?)null)), "rebuilds leave it closed");
+        column.Act(FileScreens.TypeAnswer, null);
+        host.Keyboard!.Value.Done("Ten minutes, then a day after the fifth time, then a reset by email only, with every lockout written to the audit log and the person told why");
+        Assert.That(column.Screen.Question.SideOption, Is.Not.Null, "new words open it again, from their first part");
+        Assert.That(column.Screen.Question.SidePart, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void NextPageOnALongTypedAnswerAdvancesAndARebuildKeepsThePart()
+    {
+        var (host, column) = TypedLongAnswer();
+        column.Drawn(column.Frame!, sidePanel: true);
+        host.Wait(1);
+        column.Act(Footer.NextPage, null);
+        Assert.That(column.Screen.Question.SidePart, Is.EqualTo(1));
+        column.Tick();
+        host.Wait(1);
+        column.Tick();
+        Assert.That(column.Screen.Question.SidePart, Is.EqualTo(1), "the next rebuild keeps the part turned to");
+    }
+
     [Test]
     public void CloseDetailsOnAChosenAnswersSidePanelBringsThePageBack()
     {
