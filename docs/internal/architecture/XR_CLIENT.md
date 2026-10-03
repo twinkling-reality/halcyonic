@@ -369,8 +369,8 @@ the same definition names, as the JSON Schema document:
   only for the confirmation it was made in and the very text it measured, and a part counts as read
   only when the view reports it drawn (`FileScreen.RequestDrawn`), never by building the page or the
   press that turns to it; the whole request has shown once every part has. The part's row turns
-  nothing until the part showing was drawn, nor within 0.4 seconds of the last turn, so a double
-  press can't skip a part almost unseen. Armed again, even for the same request, it starts at the
+  nothing until the part showing has been drawn and stood for 0.4 seconds, so a double press can't
+  skip a part almost unseen. Armed again, even for the same request, it starts at the
   first part (`WorkspaceSteering.Armings`). Measured differently under one confirmation, as at
   another text size, a request drawn whole stays read and shows its last part, and one drawn only in
   part is read again from its first (`WorkspaceSteering.ReadAgain`), as lane C's review of Start
