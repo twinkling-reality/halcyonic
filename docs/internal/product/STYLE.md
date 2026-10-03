@@ -39,8 +39,9 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
 - **At larger text a side panel takes the file's place**, keeping the file's light line and pill;
   Close details brings the file back. A file and a side panel together would leave the field.
 - **Beside a window**, with the characters either side of one straight ahead, the menu or a file
-  stands centred under the window, one at a time, never within a degree of it, and the file draws
-  no light line, which would cross the window.
+  stands centred under the window, one at a time, never within a degree of it; a file's side panel
+  takes the file's place there at both text sizes; and the file draws no light line, which would
+  cross the window.
 - **Text shrinks away from the centre**, as the eyes see it: a word x across and y up, in units of
   the distance, spans sqrt(1 + x²) / (1 + x² + y²) of its size (`PlaneComposition.ShrinkAt`), down
   to 84 percent at the far corners of a menu and file side by side.
