@@ -208,7 +208,9 @@ namespace Halcyonic.Client
             return new Footer(
                 CloseFile,
                 rare: actions.Contains(WorkspaceAction.Interrupt) ? Action(WorkspaceAction.Interrupt, Stop) : null,
-                secondary: screen.Speak && !secret && actions.Contains(WorkspaceAction.Answer) ? Talk : null,
+                secondary: screen.Speak && !secret && actions.Contains(WorkspaceAction.Answer)
+                    ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
+                    : null,
                 farRight: send);
         }
 
