@@ -4,7 +4,8 @@ using System;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// A foreground panel moved by hand (ADR 0023): while Move is held, the panel turns round the eyes
+    /// A foreground panel moved by hand (ADR 0023), and the menu's plane held by a file's subject
+    /// (ADR 0026, <see cref="MenuDrag"/>): while it is held, the panel turns round the eyes
     /// with the point the hand took hold of, keeping its distance, so it stays at touch distance and
     /// facing the person, and its center stays in the comfortable band, inside the headset's measured
     /// field and above any surface under the characters (<see cref="WorkspacePlacement"/>), but never

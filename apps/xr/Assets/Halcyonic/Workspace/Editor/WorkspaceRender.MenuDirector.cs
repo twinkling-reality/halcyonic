@@ -205,6 +205,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (file.DrawnFrames.Count != counted + 1) failures.Add(name + ": drawn again on return, the file did not learn of it.");
                 }
 
+                // Holding the file's subject drags the whole plane round the eyes; nothing pressed counts meanwhile.
+                failures.AddRange(DragMenu(name, folder, camera, texture, director, characters, eyes));
+
                 // Choosing a place is the menu's own; the file stays beside it.
                 // A press from the frame drawn before the file opened is passed over: it no longer stands.
                 if (director.Navigator.Act(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Usage), drawnTasks, null))
@@ -426,6 +429,69 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(root);
                 texture.Release();
                 UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// The menu and a file dragged by the file's subject (ADR 0026): it follows the hand round the
+        /// eyes, takes no press until let go and drawn, keeps where it was left across a redraw, refuses a
+        /// step into the labels, and Reset position places it afresh. The dragged plane is held to every
+        /// check a placed one is.
+        /// </summary>
+        private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
+            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes)
+        {
+            var failures = new List<string>();
+            var plane = director.Plane;
+            var placed = plane.Direction;
+            var subject = plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View;
+            if (subject == null)
+            {
+                failures.Add(name + ": no file stands on the plane to drag it by.");
+                return failures;
+            }
+            Vector3 Turned(Vector3 point, float right, float down) => eyes + Quaternion.Euler(down, right, 0f) * (point - eyes);
+            var held = subject.Subject.position;
+            director.HoldSubjectForRender(held);
+            if (!director.Dragging) failures.Add(name + ": holding the file's subject did not take hold of the plane.");
+            director.DragSubjectForRender(Turned(held, 4f, 0f));
+            if (Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw) - 4f) > 0.05f)
+            {
+                failures.Add(name + ": the plane turned " + GlazeChecks.Degrees(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) + " degrees with a hand that moved 4.");
+            }
+            if (director.Navigator.Act(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null)) failures.Add(name + ": a press counted mid-drag.");
+            director.LetGoForRender();
+            director.DrawNow();
+            if (director.Dragging) failures.Add(name + ": let go, the plane still followed the hand.");
+            failures.AddRange(PlaneState(name + " director dragged", folder, camera, texture, plane, characters, eyes, null));
+            if (!director.Navigator.Act(MenuColumn.File, "render-press", null, plane.Showing(MenuColumn.File), null))
+            {
+                failures.Add(name + ": drawn where it was left, the plane took no press.");
+            }
+
+            // A redraw keeps it where it was left.
+            var left = plane.Direction;
+            director.Redraw();
+            director.DrawNow();
+            if (Mathf.Abs(Mathf.DeltaAngle(left.Yaw, plane.Direction.Yaw)) > 0.01f || Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f)
+            {
+                failures.Add(name + ": a redraw moved the dragged plane.");
+            }
+
+            // Up into the characters' labels, holding does nothing.
+            held = subject.Subject.position;
+            director.HoldSubjectForRender(held);
+            director.DragSubjectForRender(Turned(held, 0f, -15f));
+            if (Mathf.Abs(left.Elevation - plane.Direction.Elevation) > 0.01f) failures.Add(name + ": the plane was dragged up into the characters' labels.");
+            director.LetGoForRender();
+
+            // Reset position places it afresh.
+            director.ResetPosition();
+            director.DrawNow();
+            if (Mathf.Abs(Mathf.DeltaAngle(placed.Yaw, plane.Direction.Yaw)) > 0.01f || Mathf.Abs(placed.Elevation - plane.Direction.Elevation) > 0.01f)
+            {
+                failures.Add(name + ": Reset position kept the drag.");
             }
             return failures;
         }

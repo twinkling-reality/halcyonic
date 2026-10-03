@@ -96,6 +96,24 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public bool FileAside { get; private set; }
 
+        /// <summary>Where the stage placed the composition's centre, before any drag (<see cref="Direction"/> is where it stands).</summary>
+        public PanelDirection Placed { get; private set; }
+
+        /// <summary>The eyes the plane was placed from, which a drag turns it round.</summary>
+        public Vector3 Eyes => eyes;
+
+        /// <summary>
+        /// A file's subject was held long enough to drag the plane by, from a view on the plane: its
+        /// column, the frame it showed, and the point taken hold of in the world.
+        /// </summary>
+        public event Action<MenuColumn, MenuFrame?, Vector3>? SubjectHeld;
+
+        /// <summary>While a subject is held: the held point moved, to here in the world.</summary>
+        public event Action<Vector3>? SubjectDragged;
+
+        /// <summary>The subject's hold ended.</summary>
+        public event Action? SubjectLetGo;
+
         /// <summary>The closed bar, while it shows.</summary>
         public MenuBarView? Bar => bar.gameObject.activeSelf ? bar : null;
 
@@ -122,6 +140,8 @@ namespace Halcyonic.XR.Workspace
             var plane = go.AddComponent<MenuPlane>();
             plane.menu = plane.View("Menu", MenuColumn.Menu);
             plane.file = plane.View("File", MenuColumn.File);
+            // A file's subject drags the whole plane (ADR 0026).
+            plane.file.EnableSubjectHold();
             plane.side = plane.View("Side panel", MenuColumn.Side);
             plane.bar = MenuBarView.Create(go.transform, "Menu, closed");
             plane.bar.Acted += _ => plane.Opened?.Invoke();
@@ -151,6 +171,12 @@ namespace Halcyonic.XR.Workspace
                 if (Contains(shown, view)) HoldStarted?.Invoke(kind, prompt, view.Frame, view.Side);
             };
             view.HoldEnded += (prompt, letGo) => HoldEnded?.Invoke(kind, prompt, letGo);
+            view.SubjectHeld += point =>
+            {
+                if (Contains(shown, view)) SubjectHeld?.Invoke(kind, view.Frame, point);
+            };
+            view.SubjectDragged += point => SubjectDragged?.Invoke(point);
+            view.SubjectLetGo += () => SubjectLetGo?.Invoke();
             view.Hide();
             return view;
         }
@@ -163,13 +189,14 @@ namespace Halcyonic.XR.Workspace
         /// the surface they stand on at <paramref name="surfaceHeight"/>, if any. The parts slide to
         /// their places, or stand there at once when <paramref name="immediately"/>.
         /// </summary>
+        /// <param name="moved">How far a drag left the plane from where the stage places it (<see cref="MenuDrag"/>).</param>
         /// <param name="besideWindow">
         /// The characters stand either side of a window straight ahead (along <paramref name="looking"/>):
         /// the plane opens centred under it, a file not turned toward its character, the menu and a file
         /// one at a time, and no light line, which would run across the window.
         /// </param>
         public void Show(MenuBar menuBar, MenuFrame? menuFrame, MenuFrame? fileFrame, CharacterTarget? fileCharacter, IReadOnlyList<CharacterTarget> all,
-            Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false)
+            Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default)
         {
             eyes = at;
             // The menu's details take the front over a file beside it: laid as if no file stood there, the
@@ -253,8 +280,9 @@ namespace Halcyonic.XR.Workspace
                 foreach (var (_, view) in before) view.Hide();
                 bar.Show(menuBar, Glaze.Menu.MenuColumnDegrees);
                 var barSize = new PanelSize(PlaneComposition.Distance, bar.Size.x * zoom / 2f * PlaneComposition.Distance, bar.Size.y * zoom / 2f * PlaneComposition.Distance);
-                Direction = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
+                Placed = (besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, barSize)
                     : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, barSize)).Direction;
+                Direction = MenuDrag.Turned(Placed, moved);
                 var placed = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
                 SlideTo(bar.transform, placed, zoom, null, true);
                 line.gameObject.SetActive(false);
@@ -265,9 +293,10 @@ namespace Halcyonic.XR.Workspace
             var columns = new List<PlaneColumn>();
             foreach (var (_, view) in shown) columns.Add(ColumnOf(view));
             Composition = new PlaneComposition(columns, zoom);
-            Direction = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
+            Placed = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
                 : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
                 : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction;
+            Direction = MenuDrag.Turned(Placed, moved);
 
             for (var c = 0; c < shown.Count; c++)
             {
@@ -306,6 +335,37 @@ namespace Halcyonic.XR.Workspace
                 if (!Contains(shown, view) && !Contains(before, view)) view.Hide();
             }
             Advance(0f);
+        }
+
+        /// <summary>
+        /// A drag: the plane stands <paramref name="moved"/> from where the stage placed it, every part
+        /// there at once, as laid; its words are not laid again.
+        /// </summary>
+        public void Turn((float Yaw, float Elevation) moved)
+        {
+            if (Composition == null) return;
+            Direction = MenuDrag.Turned(Placed, moved);
+            var zoom = Composition.Zoom;
+            for (var c = 0; c < shown.Count; c++)
+            {
+                var parts = shown[c].View.Parts;
+                var index = 0;
+                foreach (var placed in Composition.Parts)
+                {
+                    if (placed.Column != c) continue;
+                    Stand(parts[index], placed, zoom);
+                    index++;
+                }
+            }
+            UpdateLightLine();
+        }
+
+        /// <summary>A part at its place at once, any slide it had dropped, allocating nothing: a drag moves it every frame.</summary>
+        private void Stand(Transform part, PlanePart placed, float zoom)
+        {
+            slides.Remove(part);
+            part.SetPositionAndRotation(PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up), PlaneLayout.Facing(Direction));
+            part.localScale = Vector3.one * (PlaneComposition.Distance * zoom);
         }
 
         /// <summary>Whether the frame in front and its side panel fit together where the stage would place them, in the headset's measured field.</summary>

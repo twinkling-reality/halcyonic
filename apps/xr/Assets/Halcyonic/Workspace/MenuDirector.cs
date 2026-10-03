@@ -156,6 +156,21 @@ namespace Halcyonic.XR.Workspace
         private (Vector3 Eyes, Vector3 Looking)? anchor;
         private (bool Open, IMenuColumn? Beside) anchoredFor;
 
+        /// <summary>How far a drag left the plane from where the stage places it, kept until the plane is placed afresh.</summary>
+        private (float Yaw, float Elevation) moved;
+
+        /// <summary>The plane held by a file's subject, while it is (ADR 0026).</summary>
+        private MenuDrag? drag;
+
+        /// <summary>Every character's label, as laid, and body, as seen from the eyes, while a drag lasts: its light line crosses none.</summary>
+        private readonly List<((Transform Plate, Rect Covered) Label, BodyInView Body)> crossed = new List<((Transform, Rect), BodyInView)>();
+
+        /// <summary>How far, in degrees, the light line keeps from a character's body during a drag; a label is told by its own outline.</summary>
+        private const float LineMarginDegrees = 0.5f;
+
+        /// <summary>A file's subject holds the plane, which follows the hand: nothing is pressed or held meanwhile.</summary>
+        public bool Dragging => drag != null;
+
         /// <summary>What the menu keeps for the session; its host forgets it on a re-pairing.</summary>
         public MenuMemory Memory => memory;
 
@@ -189,6 +204,9 @@ namespace Halcyonic.XR.Workspace
             director.plane.Drawn += director.OnDrawn;
             director.plane.HoldStarted += director.OnHoldStarted;
             director.plane.HoldEnded += director.OnHoldEnded;
+            director.plane.SubjectHeld += director.OnSubjectHeld;
+            director.plane.SubjectDragged += director.OnSubjectDragged;
+            director.plane.SubjectLetGo += director.EndDrag;
             if (setup.Voice is HoldToTalk talk)
             {
                 var voice = new MenuVoice(() => talk.Busy, talk.Begin, () => talk.End(true), talk.Drop);
@@ -218,14 +236,24 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>
         /// Settings' Reset position: the plane is placed afresh where the person looks now, as when the menu
-        /// opens, and takes no press until it is drawn there.
+        /// opens, any drag let go of, and takes no press until it is drawn there.
         /// </summary>
         public void ResetPosition()
         {
+            drag = null;
             anchor = null;
             navigator.Moved();
             dirty = true;
         }
+
+        /// <summary>For the editor's renders: the file's subject held at <paramref name="point"/>, past the hold's time, as a hand would.</summary>
+        public void HoldSubjectForRender(Vector3 point) => OnSubjectHeld(MenuColumn.File, plane.Showing(MenuColumn.File), point);
+
+        /// <summary>For the editor's renders: the held point moved to <paramref name="point"/>.</summary>
+        public void DragSubjectForRender(Vector3 point) => OnSubjectDragged(point);
+
+        /// <summary>For the editor's renders: the subject let go of.</summary>
+        public void LetGoForRender() => EndDrag();
 
         /// <summary>Draws what shows now, its parts at their places at once, for the renders.</summary>
         public void DrawNow()
@@ -246,6 +274,10 @@ namespace Halcyonic.XR.Workspace
             var nowAway = Away;
             if (away && !nowAway) dirty = true;
             away = nowAway;
+            // What stands on the plane changed under a drag: it lets go, and the plane is placed afresh.
+            if (drag != null && (navigator.IsOpen, navigator.Beside) != anchoredFor) EndDrag();
+            // Mid-drag nothing is laid again under the hand; the plane is drawn where it was left once let go.
+            if (drag != null) return;
             var bar = setup.Bar(navigator.Place);
             if (dirty || shownBar == null || !Same(bar, shownBar)) Draw(immediately: false);
         }
@@ -286,10 +318,11 @@ namespace Halcyonic.XR.Workspace
             {
                 anchor = (stage.Eyes, stage.Looking);
                 anchoredFor = standing;
+                moved = default;
             }
             var (eyes, looking) = anchor.Value;
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
-            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow);
+            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow, moved);
         }
 
         /// <summary>Two bars that read the same: a bar made again each frame draws nothing again.</summary>
@@ -306,7 +339,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A press, only while the app has focus and only on the frame last drawn in its slot; the stage's sounds answer one taken.</summary>
         private void OnActed(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
-            if (FocusGuard.InputSuspended) return;
+            if (FocusGuard.InputSuspended || drag != null) return;
             if (navigator.Act(from, action, key, frame, side)) setup.Acted?.Invoke(from, action, key);
         }
 
@@ -327,7 +360,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         private void OnHoldStarted(MenuColumn from, Prompt prompt, MenuFrame? frame, SidePanel? side)
         {
-            if (FocusGuard.InputSuspended) return;
+            if (FocusGuard.InputSuspended || drag != null) return;
             if (navigator.Taking(from, prompt.Id, frame, side) is IMenuColumn column) voice?.Hold(column, prompt.Id);
         }
 
@@ -336,9 +369,93 @@ namespace Halcyonic.XR.Workspace
 
         private void OnFocusLeft()
         {
+            EndDrag();
             voice?.FocusLeft();
             navigator.FocusLeft();
         }
+
+        /// <summary>
+        /// A file's subject held long enough (ADR 0026): the whole plane follows the hand round the eyes,
+        /// only from a task's file on the frame last drawn in its slot, as a press, never while a
+        /// confirmation stands on the plane, so a Yes never moves; it starts no voice, and no prompt held
+        /// drags. Until the plane is drawn where it is left, nothing pressed counts.
+        /// </summary>
+        private void OnSubjectHeld(MenuColumn from, MenuFrame? frame, Vector3 point)
+        {
+            if (FocusGuard.InputSuspended || drag != null || from != MenuColumn.File || navigator.BesideTask == null) return;
+            if (navigator.Standing(MenuColumn.File, frame, null) == null || !(plane.Composition is PlaneComposition composition)) return;
+            foreach (var (_, view) in plane.Shown)
+            {
+                if (view.Frame?.Footer.Confirming == true) return;
+            }
+            var stage = setup.StageNow();
+            var eyes = plane.Eyes;
+            var bodies = new List<BodyInView>(stage.Characters.Count);
+            crossed.Clear();
+            foreach (var character in stage.Characters)
+            {
+                if (character == null) continue;
+                var body = WorkspaceLayout.InView(character, eyes);
+                bodies.Add(body);
+                crossed.Add((MenuPlane.LabelOutline(character.View), body));
+            }
+            var (grabYaw, grabElevation) = AnglesOf(point - eyes);
+            // Last of all, with the plane turned there, its light line must cross no other character.
+            drag = new MenuDrag(plane.Placed, moved, grabYaw, grabElevation, composition, bodies,
+                stage.SurfaceHeight is float surface ? eyes.y - surface : (float?)null, ViewField.Current, offset =>
+                {
+                    plane.Turn(offset);
+                    return !LightLineCrosses();
+                });
+            navigator.Moved();
+        }
+
+        /// <summary>The held point moved: the plane follows where its rules allow, every part at once.</summary>
+        private void OnSubjectDragged(Vector3 point)
+        {
+            if (drag == null) return;
+            if (FocusGuard.InputSuspended)
+            {
+                EndDrag();
+                return;
+            }
+            var (yaw, elevation) = AnglesOf(point - plane.Eyes);
+            drag.Follow(yaw, elevation);
+            moved = drag.Moved;
+            // Where it stands now, also where a step was refused after the plane was turned to try it.
+            plane.Turn(moved);
+        }
+
+        /// <summary>Whether the file's light line, as it stands now, passes a character's label or body as the eyes see them, as the renders check it.</summary>
+        private bool LightLineCrosses()
+        {
+            if (!(plane.LightLine is (Vector3 from, Vector3 to))) return false;
+            var eyes = plane.Eyes;
+            for (var step = 1; step < 40; step++)
+            {
+                var point = Vector3.Lerp(from, to, step / 40f);
+                var (yaw, up) = AnglesOf(point - eyes);
+                foreach (var (label, body) in crossed)
+                {
+                    if (MenuPlane.OnLabel(label, eyes, point)) return true;
+                    if (Mathf.Abs(Mathf.DeltaAngle(body.Yaw, yaw)) <= body.Radius + LineMarginDegrees
+                        && Mathf.Abs(up - body.Elevation) <= body.Radius + LineMarginDegrees) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The subject let go of, or the drag ended otherwise: the plane is drawn where it was left, and presses count again once it is.</summary>
+        private void EndDrag()
+        {
+            if (drag == null) return;
+            drag = null;
+            dirty = true;
+        }
+
+        /// <summary>A direction's yaw to the right and elevation up, in degrees.</summary>
+        private static (float Yaw, float Elevation) AnglesOf(Vector3 toward) =>
+            (Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg, Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg);
 
         // ---------------------------------------------------------------------------------------------
         // IMenuHost: what every column may use.

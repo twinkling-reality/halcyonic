@@ -145,22 +145,16 @@ namespace Halcyonic.Client
             // is cleared where it stands, by the edge under its outer side, or under the panel's corner
             // where the label reaches past it; the bodies, by the corners.
             var halfWidth = size.HalfWidthDegrees;
-            float Under(BodyInView body)
-            {
-                var limit = body.Lowest - LabelClearanceDegrees;
-                var outer = Math.Min(halfWidth, MathF.Abs(DeltaAngle(yaw, body.Yaw)) + body.HalfWidth);
-                return Math.Min(limit, EdgeForCorners(limit, outer));
-            }
-            var top = Under(opened);
+            var top = Under(opened, yaw, halfWidth);
             var highest = opened.Elevation + opened.Radius;
             for (var index = 0; index < bodies.Count; index++)
             {
                 var body = bodies[index];
                 if (!Overlaps(yaw, size, body)) continue;
-                top = Math.Min(top, Under(body));
+                top = Math.Min(top, Under(body, yaw, halfWidth));
                 highest = Math.Max(highest, body.Elevation + body.Radius);
             }
-            var bottom = Math.Max(highest + ClearanceDegrees, EdgeForCorners(highest + ClearanceDegrees, halfWidth));
+            var bottom = Over(highest, halfWidth);
             var below = top - halfHeight;
             var above = bottom + halfHeight;
 
@@ -281,6 +275,44 @@ namespace Halcyonic.Client
         /// clearance, measured around the vertical at the body's elevation: away from eye level the
         /// same width spans more yaw.
         /// </summary>
+        /// <summary>
+        /// Whether a panel of <paramref name="size"/> centred at <paramref name="at"/> clears every body
+        /// it passes in front of, as <see cref="Place"/> keeps them: wholly under its label, by the label's
+        /// clearance where the label stands, or wholly above its body. A panel moved by hand stays where
+        /// this holds.
+        /// </summary>
+        public static bool Clears(PanelDirection at, IReadOnlyList<BodyInView> bodies, PanelSize size)
+        {
+            var halfWidth = size.HalfWidthDegrees;
+            var halfHeight = size.HalfHeightDegrees;
+            for (var index = 0; index < bodies.Count; index++)
+            {
+                var body = bodies[index];
+                if (!Overlaps(at.Yaw, size, body)) continue;
+                var under = at.Elevation + halfHeight <= Under(body, at.Yaw, halfWidth) + 1e-3f;
+                var over = at.Elevation - halfHeight >= Over(body.Elevation + body.Radius, halfWidth) - 1e-3f;
+                if (!under && !over) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// The highest a panel's top edge may stand at its middle under <paramref name="body"/>'s label: a
+        /// flat panel's edge stands farther away from its middle, so below eye level it looks higher there,
+        /// and the label is cleared by the edge under its outer side, or under the panel's corner where the
+        /// label reaches past it.
+        /// </summary>
+        private static float Under(BodyInView body, float yaw, float halfWidth)
+        {
+            var limit = body.Lowest - LabelClearanceDegrees;
+            var outer = Math.Min(halfWidth, MathF.Abs(DeltaAngle(yaw, body.Yaw)) + body.HalfWidth);
+            return Math.Min(limit, EdgeForCorners(limit, outer));
+        }
+
+        /// <summary>The lowest a panel's bottom edge may stand at its middle over bodies reaching up to <paramref name="highest"/>, by its corners.</summary>
+        private static float Over(float highest, float halfWidth) =>
+            Math.Max(highest + ClearanceDegrees, EdgeForCorners(highest + ClearanceDegrees, halfWidth));
+
         private static bool Overlaps(float yaw, PanelSize size, BodyInView body)
         {
             var widening = 1f / MathF.Max(MathF.Cos(body.Elevation / DegreesPerRadian), 0.3f);

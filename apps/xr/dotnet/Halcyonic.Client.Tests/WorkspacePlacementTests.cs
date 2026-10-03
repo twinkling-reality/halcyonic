@@ -352,6 +352,21 @@ public class WorkspacePlacementTests
         Assert.That(limit, Is.InRange(-30f, -26f), "a desk allows the workspace down to about 28 degrees");
         Assert.That(WorkspacePlacement.BottomEdge(Lineups.Workspace, limit + 5f), Is.GreaterThan(WorkspacePlacement.BottomEdge(Lineups.Workspace, limit)));
     }
+
+    [Test]
+    public void APanelClearsABodyWhollyUnderItsLabelOrWhollyAboveItAndNothingBetween()
+    {
+        var size = new PanelSize(0.46f, 0.12f, 0.08f);
+        // A character a little below eye level, its label reaching 9 degrees down: placement puts the panel under it.
+        var body = new BodyInView(0f, -2f, 3f, lowest: -9f, halfWidth: 6f);
+        var bodies = new[] { body };
+        var under = WorkspacePlacement.Place(0f, body, bodies, size);
+        Assert.That(under.Above, Is.False);
+        Assert.That(WorkspacePlacement.Clears(under, bodies, size), Is.True, "where placement puts it");
+        Assert.That(WorkspacePlacement.Clears(new PanelDirection(0f, under.Elevation + 4f, true, false), bodies, size), Is.False, "raised into the label");
+        Assert.That(WorkspacePlacement.Clears(new PanelDirection(0f, 14f, true, true), bodies, size), Is.True, "wholly above the body");
+        Assert.That(WorkspacePlacement.Clears(new PanelDirection(70f, -20f, true, false), bodies, size), Is.True, "beside it, in front of nothing");
+    }
 }
 
 /// <summary>A panel moved by hand while Move is held (ADR 0023).</summary>

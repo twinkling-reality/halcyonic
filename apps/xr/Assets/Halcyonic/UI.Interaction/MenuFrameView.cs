@@ -70,6 +70,11 @@ namespace Halcyonic.XR.UI
         private float contentHeight;
         private bool subjectCut;
 
+        /// <summary>The subject plate's hold, once <see cref="EnableSubjectHold"/>: pressed when, and held past <see cref="GlazeButton.HoldSeconds"/>.</summary>
+        private PointerTarget? subjectHold;
+        private float subjectPressedAt = -1f;
+        private bool subjectHolding;
+
         /// <summary>Something was pressed: an action's id and its key.</summary>
         public event Action<string, string?>? Acted;
 
@@ -79,6 +84,18 @@ namespace Halcyonic.XR.UI
         /// was read, as a request's parts and a cut answer's side panel are.
         /// </summary>
         public event Action<MenuFrameView>? Drawn;
+
+        /// <summary>
+        /// The subject plate was held past <see cref="GlazeButton.HoldSeconds"/>, once
+        /// <see cref="EnableSubjectHold"/>, at this point in the world: the plane may be dragged by it.
+        /// </summary>
+        public event Action<Vector3>? SubjectHeld;
+
+        /// <summary>While the subject is held: the point the hand holds moved, to here in the world.</summary>
+        public event Action<Vector3>? SubjectDragged;
+
+        /// <summary>The subject's hold ended, let go or cancelled.</summary>
+        public event Action? SubjectLetGo;
 
         /// <summary>A held prompt, as Hold to talk, started.</summary>
         public event Action<Prompt>? HoldStarted;
@@ -423,6 +440,45 @@ namespace Halcyonic.XR.UI
         // ---------------------------------------------------------------------------------------------
         // The subject.
 
+        /// <summary>
+        /// Lets the subject plate be held to drag the plane by (ADR 0026): a press held there past
+        /// <see cref="GlazeButton.HoldSeconds"/> raises <see cref="SubjectHeld"/>, then
+        /// <see cref="SubjectDragged"/> as the hand moves, and <see cref="SubjectLetGo"/>; a shorter press
+        /// does nothing. It is apart from every prompt, so it never starts Hold to talk.
+        /// </summary>
+        public void EnableSubjectHold()
+        {
+            if (subjectHold != null) return;
+            var host = new GameObject("Subject hold");
+            host.transform.SetParent(subjectPart, false);
+            subjectHold = PointerTarget.Rectangle(host, Vector2.one, ray: true, poke: true);
+            subjectHold.EnableDrag();
+            subjectHold.Selected += () =>
+            {
+                subjectPressedAt = Time.unscaledTime;
+                subjectHolding = false;
+            };
+            subjectHold.Dragged += point =>
+            {
+                if (subjectHolding) SubjectDragged?.Invoke(point);
+            };
+            subjectHold.Released += _ =>
+            {
+                var held = subjectHolding;
+                subjectPressedAt = -1f;
+                subjectHolding = false;
+                if (held) SubjectLetGo?.Invoke();
+            };
+        }
+
+        private void Update()
+        {
+            if (subjectHold == null || subjectHolding || subjectPressedAt < 0f || Time.unscaledTime - subjectPressedAt < GlazeButton.HoldSeconds) return;
+            if (!(subjectHold.HeldPoint is Vector3 point)) return;
+            subjectHolding = true;
+            SubjectHeld?.Invoke(point);
+        }
+
         private void LaySubject(string words, StateBadge? badge)
         {
             var padding = U(Glaze.Menu.PaddingDegrees);
@@ -434,6 +490,12 @@ namespace Halcyonic.XR.UI
             var plate = subjectHeight - reserve;
             subjectPlate.DrawGlass(new Vector2(width, plate));
             subjectPlate.transform.localPosition = new Vector3(0f, top - reserve - plate / 2f, 0f);
+            if (subjectHold != null)
+            {
+                // Over the plate, behind its words, so a ray finds it there.
+                subjectHold.Resize(new Vector2(width, plate));
+                subjectHold.transform.localPosition = new Vector3(0f, top - reserve - plate / 2f, -U(0.02f));
+            }
             // In the plate, under the pill's lower half, centred.
             var inner = Inner(reserve);
             subjectTitle.transform.localPosition = new Vector3(left, top - reserve - inner - (plate - inner - titleHeight) / 2f, -U(0.05f));
