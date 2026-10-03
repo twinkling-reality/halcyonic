@@ -630,17 +630,29 @@ public class WorkspaceSteeringTests
     }
 
     [Test]
-    public void ALowConsequenceActionIsSentAtOnce()
+    public void ALowConsequenceInstructionIsSentAtOnceButApprovingDenyingAndStoppingAlwaysAsk()
     {
         var policies = new[]
         {
-            new CommandPolicy { CommandType = CommandType.ExecutionRespondToApproval, Policy = PolicyCategory.ReviewRequired },
+            new CommandPolicy { CommandType = CommandType.ExecutionRespondToApproval, Policy = PolicyCategory.LowConsequence },
             new CommandPolicy { CommandType = CommandType.ExecutionInterrupt, Policy = PolicyCategory.LowConsequence },
+            new CommandPolicy { CommandType = CommandType.ExecutionSendInstruction, Policy = PolicyCategory.LowConsequence },
         };
         var work = new WaitingWork(policies: policies);
-        var outcome = Steering().Press(WorkspaceAction.Interrupt, work.Present());
-        Assert.That(outcome.Step, Is.EqualTo(SteeringStep.Send));
-        Assert.That(outcome.Command, Is.TypeOf<ExecutionInterruptCommand>());
+        var present = work.Present();
+        var actions = new[] { WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Interrupt, WorkspaceAction.Instruct };
+        Assert.That(present.Actions, Is.SupersetOf(new[] { WorkspaceAction.Approve, WorkspaceAction.Deny }));
+        foreach (var action in new[] { WorkspaceAction.Approve, WorkspaceAction.Deny })
+        {
+            Assert.That(Steering().Press(action, present).Step, Is.EqualTo(SteeringStep.Confirm), action + " asks whatever the policy says");
+        }
+        var running = FileScreensTests.Offering(present, actions);
+        Assert.That(Steering().Press(WorkspaceAction.Interrupt, running).Step, Is.EqualTo(SteeringStep.Confirm), "Stop asks whatever the policy says");
+        var steering = Steering();
+        steering.Press(WorkspaceAction.Instruct, running);
+        var told = steering.Typed("Carry on", running);
+        Assert.That(told.Step, Is.EqualTo(SteeringStep.Send), "an instruction of low consequence goes at once");
+        Assert.That(told.Command, Is.TypeOf<ExecutionSendInstructionCommand>());
     }
 
     [Test]

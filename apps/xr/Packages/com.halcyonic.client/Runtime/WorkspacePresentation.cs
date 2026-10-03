@@ -169,7 +169,7 @@ namespace Halcyonic.Client
                     .Select(Feedback)
                     .ToList();
             }
-            var confirm = actions.Where(action => state.RequiresConfirmation(CommandTypeOf(action))).ToList();
+            var confirm = actions.Where(action => AlwaysConfirmed(action) || state.RequiresConfirmation(CommandTypeOf(action))).ToList();
             return new WorkspacePresentation(
                 CharacterPresenter.Present(workstream, state, live),
                 workstream.Objective,
@@ -220,6 +220,14 @@ namespace Halcyonic.Client
             }
             return actions;
         }
+
+        /// <summary>
+        /// Approving, denying and stopping always wait for a deliberate Yes, whatever the control
+        /// plane's policy says: each acts on the work at once, and an approval's Yes waits until its
+        /// whole request has been read, which a policy of low consequence would skip.
+        /// </summary>
+        public static bool AlwaysConfirmed(WorkspaceAction action) =>
+            action == WorkspaceAction.Approve || action == WorkspaceAction.Deny || action == WorkspaceAction.Interrupt;
 
         public static CommandType CommandTypeOf(WorkspaceAction action) => action switch
         {
