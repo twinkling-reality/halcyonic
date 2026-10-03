@@ -87,7 +87,7 @@ export async function startFakeOllama(
     }
     response.setHeader('content-type', 'application/x-ndjson');
     response.flushHeaders();
-    await sleep(reply.firstLineAfterMs ?? 0);
+    await waitOrClosed(response, reply.firstLineAfterMs ?? 0);
     const content = reply.content ?? '';
     const pieces = Math.max(1, reply.chunks ?? 1);
     const size = Math.ceil(content.length / pieces) || 1;
@@ -151,4 +151,18 @@ export type FakeOllama = Awaited<ReturnType<typeof startFakeOllama>>;
 
 function sleep(ms: number): Promise<void> {
   return ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Waits `ms`, or less once the client has closed the request, so a model kept late never holds a test open. */
+function waitOrClosed(response: ServerResponse, ms: number): Promise<void> {
+  if (ms <= 0 || response.destroyed) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      response.off('close', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    response.once('close', done);
+  });
 }
