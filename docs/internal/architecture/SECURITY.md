@@ -96,7 +96,10 @@ can carry instructions to the model: every angle bracket in what the client send
 entity, so the person's words cannot close their tags or spell a chat template's turn markers,
 Halcyonic's own notes go only as system messages, with the rule repeated after the exchange, and no
 model tried kept injected text out of everything it said: the review is the boundary
-([companion-model.md](../validation/companion-model.md)). The exchange's order and its four
+([companion-model.md](../validation/companion-model.md)). So the review counts a line as read only
+once the headset has drawn it, holds Yes until every line of the layout showing has been, and reads
+again any item drawn only in part when the text is laid out anew; a quick second press never
+passes a part. The exchange's order and its four
 questions are checked, but the client sends the companion's earlier replies back, so a client can
 forge them; that shapes only its own reply. An exchange whose UTF-8 size could pass the model's
 context (two bytes a token, so the engine never cuts its start) is refused before the model is

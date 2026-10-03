@@ -313,8 +313,7 @@ public class EntryScreensTests
         Assert.That((yes.Label, yes.Available), Is.EqualTo((EntryText.ReadToPart(3), false)), "locked in its place, saying what is left");
         Assert.That(first.Confirm.Cancel.Label, Is.EqualTo(EntryText.Change), "Change stands at the right end, where Start building stood");
 
-        review.Next();
-        review.Next();
+        Samples.ReadThrough(review);
         var last = EntryScreens.Review(review, problem: null);
         Assert.That((last.Confirm!.Yes.Label, last.Confirm.Yes.Available), Is.EqualTo((EntryText.ConfirmStart, true)));
         var gone = EntryScreens.Review(review, problem: EntryText.WaitingForMac);
@@ -429,8 +428,7 @@ public class EntryScreensTests
         var review = new NewWorkReview("Project", "Title", "Agent", "Model", "on your computer", "ref", "Objective");
         review.Paginate(review.Items.Select(_ => 1).ToList(), 3);
         var locked = EntryScreens.Review(review, problem: null);
-        review.Next();
-        review.Next();
+        Samples.ReadThrough(review);
         var unlocked = EntryScreens.Review(review, problem: null);
         var recap = EntryScreens.Recap(idea, draft, null, live: true, notice: null, problem: null);
         var startingOver = EntryScreens.Recap(idea, draft, null, live: true, notice: null, problem: null, confirmingStartOver: true);

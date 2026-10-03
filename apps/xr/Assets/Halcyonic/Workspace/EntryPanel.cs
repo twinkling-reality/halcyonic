@@ -108,6 +108,7 @@ namespace Halcyonic.XR.Workspace
             go.transform.SetParent(parent, false);
             var panel = go.AddComponent<EntryPanel>();
             panel.Build(() => shownState, () => true, () => null, () => shownOverview, () => shownCharacters, () => surfaceHeight);
+            panel.now = () => panel.renderSeconds;
             return panel;
         }
 
@@ -153,8 +154,15 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Lays the panel out again, as after the editor turned the review's page.</summary>
         public void RedrawForRender() => Layout();
 
-        /// <summary>Acts as a press of <paramref name="id"/> would, for the editor's renders of what a press leads to.</summary>
-        public void PressForRender(string id, string? key = null) => OnActed(id, key);
+        /// <summary>
+        /// Acts as a press of <paramref name="id"/> would, for the editor's renders of what a press leads
+        /// to, a second after the last, as a person reading would press.
+        /// </summary>
+        public void PressForRender(string id, string? key = null)
+        {
+            renderSeconds += 1;
+            OnActed(id, key);
+        }
 
         /// <summary>
         /// Holds Move at <paramref name="from"/> and drags the held point to <paramref name="to"/>, as

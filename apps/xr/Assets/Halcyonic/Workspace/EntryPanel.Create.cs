@@ -52,6 +52,11 @@ namespace Halcyonic.XR.Workspace
         private NewWorkDraft draft = null!;
         private ProjectIdea? idea;
         private NewWorkReview? review;
+
+        /// <summary>The steady clock the review's parts are read by: real time, or the renders' own, where a second passes before each press.</summary>
+        private Func<double> now = () => Time.realtimeSinceStartupAsDouble;
+
+        private double renderSeconds;
         private BuildSequence? sequence;
         private Task<CommandAckMessage>? pendingAck;
         private string? unresolved;
@@ -340,8 +345,8 @@ namespace Halcyonic.XR.Workspace
                     Layout();
                     return;
                 case PanelModel.NextPart when review != null:
-                    review.Next();
-                    Layout();
+                    // Only once the part showing was drawn and has shown a moment: a double press never passes one unseen.
+                    if (review.Next(now())) Layout();
                     return;
                 case EntryScreens.ConfirmStart:
                     ConfirmReviewed();
@@ -602,6 +607,13 @@ namespace Halcyonic.XR.Workspace
                 label.gameObject.SetActive(true);
                 y -= part.Lines * reviewLine;
             }
+            // A part counts as read only once drawn; drawing the last unread one is what offers Yes.
+            if (current.Drawn(now()))
+            {
+                var ready = EntryScreens.Review(current, StartProblem());
+                ready.Banner = model.Banner;
+                frame.Show(ready);
+            }
         }
 
         private void HideRequest()
@@ -628,9 +640,8 @@ namespace Halcyonic.XR.Workspace
             reviewMeasure.gameObject.SetActive(false);
             reviewItemLayout = current.Items.Select(item => WrapAtWidth(item, space.x)).ToList();
             reviewItemLines = reviewItemLayout.Select(layout => layout.LineStarts.Length).ToList();
-            var page = current.Paginated && paginated == current ? current.Page : 0;
+            // Laid out again, the review keeps what was drawn whole and shows the first part not yet read.
             current.Paginate(reviewItemLines, Mathf.Max(1, Mathf.FloorToInt(space.y / Mathf.Max(reviewLine, 0.0001f) + 0.01f)));
-            while (current.Page < Mathf.Min(page, current.PageCount - 1)) current.Next();
             paginated = current;
             paginatedFor = space;
             return true;
