@@ -7,7 +7,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ExecutionView, ServerMessage, WorkstreamView } from '@halcyonic/contracts';
+import type { ExecutionView } from '@halcyonic/contracts';
 import { systemClock } from '@halcyonic/runtime-core';
 import { RealtimeClient } from '../client/realtime-client.ts';
 import { loadConfig } from '../config.ts';
@@ -18,6 +18,7 @@ import {
   parseDemoArguments,
   startScenario,
   submit as submitTo,
+  workstreamLine,
 } from '../demo-scenario.ts';
 import { ACCESS_TOKEN_FILE, loopbackBases, provenBase, TokenNotSent } from '../http/security.ts';
 import { createUuidV7Generator } from '../ids.ts';
@@ -95,14 +96,18 @@ async function drive(
   }
 
   const titles = new Map<string, string>();
+  // Only the demo's own project is printed: another one is the person's own work.
+  let projectId: string | null = null;
   const executions = new Map<string, ExecutionView>();
   const approvalsSent = new Set<string>();
   const commands = createCommandFactory(createUuidV7Generator(), systemClock, clientInfo);
 
   client.onMessage((message) => {
     if (message.type !== 'event') return;
-    for (const workstream of message.changes.workstreams)
-      printWorkstream(workstream, message, titles);
+    for (const workstream of message.changes.workstreams) {
+      const line = workstreamLine(workstream, message, titles, projectId);
+      if (line !== null) print(line);
+    }
     for (const execution of message.changes.executions) {
       executions.set(execution.execution_id, execution);
       // Only the plan's own work: a scenario left waiting for a person, as a device check needs, is theirs.
@@ -127,6 +132,7 @@ async function drive(
   );
   const project = await submit(commands.createProject(DEMO_PROJECT_NAME));
   if (project.result?.kind !== 'project_created') throw new Error('project was not created');
+  projectId = project.result.project_id;
   const started: string[] = [];
   for (const workstream of DEMO_WORKSTREAMS) {
     const created = await submit(commands.createWorkstream(project.result.project_id, workstream));
@@ -158,21 +164,6 @@ async function drive(
     print(`\n${client.invalid.length} server message(s) did not match the contract.`);
     process.exitCode = 1;
   }
-}
-
-function printWorkstream(
-  workstream: WorkstreamView,
-  message: Extract<ServerMessage, { type: 'event' }>,
-  titles: Map<string, string>,
-): void {
-  const title = titles.get(workstream.workstream_id) ?? workstream.title;
-  const attention =
-    workstream.attention.level === 'none'
-      ? ''
-      : ` [${workstream.attention.level}: ${workstream.attention.reasons.map((r) => r.kind).join(', ')}]`;
-  print(
-    `#${String(message.position).padStart(4)} ${title.padEnd(34)} ${workstream.status.padEnd(18)} ${message.event.event_type}${attention}`,
-  );
 }
 
 function print(line: string): void {

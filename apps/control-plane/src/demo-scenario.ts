@@ -4,6 +4,8 @@ import type {
   RuntimeDescriptor,
   RuntimeModel,
   RuntimeModelsResponse,
+  ServerMessage,
+  WorkstreamView,
 } from '@halcyonic/contracts';
 import type { RealtimeClient } from './client/realtime-client.ts';
 import { type createCommandFactory, type DemoWorkstream, MOCK_RUNTIME_ID } from './demo-plan.ts';
@@ -70,9 +72,41 @@ export async function listModels(
   );
   if (!response.ok)
     throw new Error(`listing ${runtimeId}'s models answered HTTP ${response.status}`);
-  const body = (await response.json()) as RuntimeModelsResponse;
+  const body = (await readJson(response)) as RuntimeModelsResponse;
   if (body.result.availability !== 'available') throw new Error(`${runtimeId} lists no models now`);
   return body.result.models;
+}
+
+/**
+ * A response's body as JSON, or an error in fixed words: a parse error quotes what it read, which
+ * the terminal should not show.
+ */
+export async function readJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  try {
+    return text === '' ? null : JSON.parse(text);
+  } catch {
+    throw new Error('The control plane gave an answer that is not JSON.');
+  }
+}
+
+/**
+ * The line `pnpm demo` prints for a workstream's change, or null for one outside the demo's own
+ * project, which is the person's own work: its title stays off the terminal.
+ */
+export function workstreamLine(
+  workstream: WorkstreamView,
+  message: Extract<ServerMessage, { type: 'event' }>,
+  titles: ReadonlyMap<string, string>,
+  projectId: string | null,
+): string | null {
+  if (projectId === null || workstream.project_id !== projectId) return null;
+  const title = titles.get(workstream.workstream_id) ?? workstream.title;
+  const attention =
+    workstream.attention.level === 'none'
+      ? ''
+      : ` [${workstream.attention.level}: ${workstream.attention.reasons.map((r) => r.kind).join(', ')}]`;
+  return `#${String(message.position).padStart(4)} ${title.padEnd(34)} ${workstream.status.padEnd(18)} ${message.event.event_type}${attention}`;
 }
 
 /** Sends a command and waits for its acknowledgement; throws, in words, unless it was accepted. */
