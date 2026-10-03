@@ -148,6 +148,14 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Focus was away, or the plane folded, last frame: what was drawn then counted for nothing, so it is drawn again on return.</summary>
         private bool away;
 
+        /// <summary>
+        /// The eyes and gaze the plane is placed from, taken when what stands on it last changed (the menu
+        /// open or closed, the column beside it) or on <see cref="ResetPosition"/>, so any other redraw,
+        /// a page, a side panel or a value, stays where it was rather than following the head.
+        /// </summary>
+        private (Vector3 Eyes, Vector3 Looking)? anchor;
+        private (bool Open, IMenuColumn? Beside) anchoredFor;
+
         /// <summary>What the menu keeps for the session; its host forgets it on a re-pairing.</summary>
         public MenuMemory Memory => memory;
 
@@ -208,6 +216,13 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Draws again at once, as after the stage moved: the plane re-centres on the stage it stands over.</summary>
         public void Redraw() => dirty = true;
 
+        /// <summary>Settings' Reset position: the plane is placed afresh where the person looks now, as when the menu opens.</summary>
+        public void ResetPosition()
+        {
+            anchor = null;
+            dirty = true;
+        }
+
         /// <summary>Draws what shows now, its parts at their places at once, for the renders.</summary>
         public void DrawNow()
         {
@@ -262,8 +277,15 @@ namespace Halcyonic.XR.Workspace
             if (navigator.IsOpen && navigator.PlaceColumn is TasksColumn tasks) tasks.Showing(navigator.BesideTask);
             var (menu, beside) = navigator.Frames(bar);
             var stage = setup.StageNow();
+            var standing = (navigator.IsOpen, navigator.Beside);
+            if (anchor == null || standing != anchoredFor)
+            {
+                anchor = (stage.Eyes, stage.Looking);
+                anchoredFor = standing;
+            }
+            var (eyes, looking) = anchor.Value;
             var character = navigator.BesideTask is string task ? setup.CharacterOf(task) : null;
-            plane.Show(bar, menu, beside, character, stage.Characters, stage.Eyes, stage.Looking, stage.SurfaceHeight, immediately, stage.BesideWindow);
+            plane.Show(bar, menu, beside, character, stage.Characters, eyes, looking, stage.SurfaceHeight, immediately, stage.BesideWindow);
         }
 
         /// <summary>Two bars that read the same: a bar made again each frame draws nothing again.</summary>

@@ -392,7 +392,10 @@ the same definition names, as the JSON Schema document:
   journal, the bound host sends nothing, offers no API or voice and reads as away, so a column made
   in the demonstration never reaches a live control plane (ADR 0012); a reconnect keeps the same
   session, so sends go on. The director then also takes the column beside the menu off the plane and
-  makes the menu's places afresh. It runs Hold to talk's one voice for any held
+  makes the menu's places afresh. It places the plane from the eyes and gaze taken when what stands
+  on it changes, the menu opening or closing or the column beside it, and on Settings' Reset position
+  (`ResetPosition`); any other redraw stays where it was rather than following the head. It runs
+  Hold to talk's one voice for any held
   prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
   what was read only while the person is there. `MenuVoice` (client core) keeps
