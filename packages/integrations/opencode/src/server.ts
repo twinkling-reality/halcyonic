@@ -100,15 +100,20 @@ export class OpenCodeServer {
   readonly pid: number;
   /** Resolves when the server process has exited, for whatever reason. */
   readonly exited: Promise<ExitStatus>;
-  /**
-   * The password the server was started with, for taking out of error text before it is journaled;
-   * it goes nowhere else.
-   */
-  readonly secret: string;
+  /** Private, so that the server object, logged or copied, never carries it. */
+  readonly #secret: string;
   readonly #recordFile: string;
   #watchdog: ChildProcess | null = null;
   #exitStatus: ExitStatus | null = null;
   #cleanup: Promise<void> | null = null;
+
+  /**
+   * The password the server was started with, for taking out of error text before it is journaled;
+   * it goes nowhere else.
+   */
+  get secret(): string {
+    return this.#secret;
+  }
 
   constructor(
     child: ChildProcess,
@@ -119,7 +124,7 @@ export class OpenCodeServer {
   ) {
     this.pid = pid;
     this.client = client;
-    this.secret = secret;
+    this.#secret = secret;
     this.#recordFile = recordFile;
     this.exited = new Promise((resolve) => {
       child.once('exit', (code, signal) => {
