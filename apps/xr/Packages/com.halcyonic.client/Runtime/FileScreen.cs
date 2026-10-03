@@ -96,7 +96,29 @@ namespace Halcyonic.Client
         public bool Speak { get; set; }
 
         /// <summary>The instructions offered where there is no keyboard, while they show in Activity's page; null otherwise.</summary>
-        public IReadOnlyList<PresetInstruction>? Presets { get; set; }
+        public IReadOnlyList<PresetInstruction>? Presets
+        {
+            get => presets;
+            set
+            {
+                presets = value;
+                ChosenPreset = null;
+            }
+        }
+
+        private IReadOnlyList<PresetInstruction>? presets;
+
+        /// <summary>The instruction chosen among <see cref="Presets"/>, by its index; choosing only lights it.</summary>
+        public int? ChosenPreset { get; private set; }
+
+        /// <summary>The person chose an instruction offered: it lights, and Tell it would send its words as shown.</summary>
+        public void ChoosePreset(int index)
+        {
+            if (presets != null && index >= 0 && index < presets.Count) ChosenPreset = index;
+        }
+
+        /// <summary>The words Tell it sends: the chosen instruction's, exactly as its row shows them; null while none is chosen.</summary>
+        public string? PresetToSend => presets != null && ChosenPreset is int index ? presets[index].Text : null;
 
         /// <summary>The zone the activity's times are in.</summary>
         public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Utc;

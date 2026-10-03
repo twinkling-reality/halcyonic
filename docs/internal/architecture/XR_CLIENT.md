@@ -383,7 +383,9 @@ the same definition names, as the JSON Schema document:
   **Activity** says what it is doing, the last thing this headset sent and the newest of the log
   that fits, the agent's words quoted with their chip and time, with Tell it as the main action,
   Stop beside Close and Hold to talk beside Tell it; Tell it offers the recorded instructions as
-  rows where there is no keyboard. **Changes** shows the brief answers to what changed, why and how
+  rows where there is no keyboard, each showing the very words it would send: a row only chooses,
+  and Tell it sends the chosen words as shown (`FileScreen.PresetToSend`), waiting with its reason
+  until one is chosen. **Changes** shows the brief answers to what changed, why and how
   it was built, and **Checks** what was checked with Refresh beside Close: each line keeps its
   evidence class and chip, the first of each answer opens its full answer in the side panel (a
   changed file with its kind's generic icon, `FileScreens.Icon`), pages fit the room with Next page,
