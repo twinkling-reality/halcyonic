@@ -114,10 +114,11 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The director drew <paramref name="drawn"/>, the very frame this column gave, whole as the plane
-        /// has it, and it shows, never while folded: its page, or with <paramref name="sidePanel"/> its
-        /// side panel (<see cref="MenuFrame.Side"/>), in its own column or in the frame's place. What
-        /// counts as read, as a request's part or a review's, counts only then, and only for the frame
-        /// the column still stands by.
+        /// has it, and it shows, never while focus is away or the plane is folded, and drawn again on
+        /// return: its page, or with <paramref name="sidePanel"/> its side panel
+        /// (<see cref="MenuFrame.Side"/>), in its own column or in the frame's place. What counts as read,
+        /// as a request's part or a review's, counts only then, and only for the frame the column still
+        /// stands by.
         /// </summary>
         void Drawn(MenuFrame drawn, bool sidePanel);
 

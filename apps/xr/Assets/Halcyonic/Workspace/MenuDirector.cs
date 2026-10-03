@@ -138,6 +138,9 @@ namespace Halcyonic.XR.Workspace
         private bool dirty = true;
         private MenuBar? shownBar;
 
+        /// <summary>Focus was away, or the plane folded, last frame: what was drawn then counted for nothing, so it is drawn again on return.</summary>
+        private bool away;
+
         /// <summary>What the menu keeps for the session; its host forgets it on a re-pairing.</summary>
         public MenuMemory Memory => memory;
 
@@ -211,9 +214,15 @@ namespace Halcyonic.XR.Workspace
             // New project's kept flow ticks while it isn't beside the menu, so a build confirmed in it goes on.
             memory.Journal(State?.Journal?.JournalId);
             if (memory.NewProject is IMenuColumn flow && navigator.Beside != flow) flow.Tick();
+            var nowAway = Away;
+            if (away && !nowAway) dirty = true;
+            away = nowAway;
             var bar = setup.Bar(navigator.Place);
             if (dirty || shownBar == null || !Same(bar, shownBar)) Draw(immediately: false);
         }
+
+        /// <summary>Focus is away, input still suspended just after it returns, or the plane is folded away.</summary>
+        private static bool Away => FocusGuard.InputSuspended || FocusGuard.Folded;
 
         private void Draw(bool immediately)
         {
@@ -246,10 +255,13 @@ namespace Halcyonic.XR.Workspace
             if (navigator.Act(from, action, key, frame, side)) setup.Acted?.Invoke(from, action, key);
         }
 
-        /// <summary>A view drew its frame whole: the column that gave it learns of it, never while the plane is folded away.</summary>
+        /// <summary>
+        /// A view drew its frame whole: the column that gave it learns of it, never while focus is away or
+        /// the plane is folded, since the person is elsewhere; on return it is drawn, and counted, again.
+        /// </summary>
         private void OnDrawn(MenuColumn from, MenuFrameView view)
         {
-            if (FocusGuard.Folded) return;
+            if (Away) return;
             navigator.Drawn(from, view.Frame, view.Side);
         }
 
