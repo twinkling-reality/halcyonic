@@ -126,21 +126,58 @@ export function looksLikeCredential(value: string): boolean {
  * and a long random run.
  */
 export function redactSecrets(text: string, secrets: Iterable<HeldSecret>): string {
-  return redactHeld(text.length > READ ? text.slice(0, READ) : text, secrets)
+  return redactHeld(text.length > READ ? withoutHalfPair(text.slice(0, READ)) : text, secrets)
     .replace(SCHEME_CREDENTIAL, `$1$2${REDACTED}`)
     .replace(URL_USERINFO, `$1${REDACTED}@`)
     .replace(KEY_SHAPES, REDACTED)
     .replace(RANDOM_RUN, (run) => (looksRandom(run) ? REDACTED : run));
 }
 
+/** `text` without a high surrogate left alone at its end by a cut. */
+function withoutHalfPair(text: string): string {
+  return /[\uD800-\uDBFF]$/.test(text) ? text.slice(0, -1) : text;
+}
+
 /**
- * `text` within `limit` characters, cut with an ellipsis, never splitting a surrogate pair: after
- * redaction, since "[redacted]" can be longer than what it replaced.
+ * The first `count` characters of `text`, counted in code points as the contracts count them, so
+ * a surrogate pair is never split; null when `text` has no more than that.
+ */
+function firstCharacters(text: string, count: number): string | null {
+  if (text.length <= count) return null;
+  let seen = 0;
+  let end = 0;
+  for (const character of text) {
+    if (seen === count) return text.slice(0, end);
+    seen += 1;
+    end += character.length;
+  }
+  return null;
+}
+
+/** Whether `text` fits a contract's `limit`, counted in code points. */
+export function fits(text: string, limit: number): boolean {
+  return firstCharacters(text, limit) === null;
+}
+
+/**
+ * Error text within `limit` characters, cut with an ellipsis: after redaction, since what stands in
+ * for a credential can be longer than the credential.
  */
 export function withinLimit(text: string, limit: number = JOURNALED_TEXT): string {
-  if (text.length <= limit) return text;
-  const end = /[\uD800-\uDBFF]/.test(text.charAt(limit - 2)) ? limit - 2 : limit - 1;
-  return `${text.slice(0, end)}…`;
+  if (fits(text, limit)) return text;
+  return `${firstCharacters(text, limit - 1)}…`;
+}
+
+/** How a cut is marked in text a person reads as given, as the adapters mark theirs. */
+export const TRUNCATED = ' [truncated]';
+
+/**
+ * Text a person reads as given within `limit` characters, the cut marked: after redaction, which
+ * has to see a held secret whole to take it out, so nothing before the observation sink cuts it.
+ */
+export function fitted(text: string, limit: number): string {
+  if (fits(text, limit)) return text;
+  return `${firstCharacters(text, limit - TRUNCATED.length)}${TRUNCATED}`;
 }
 
 /**
@@ -156,18 +193,14 @@ export interface Redaction {
   /**
    * Text a person must read as given, such as the command they are asked to approve: only exact
    * copies of what Halcyonic holds go, so nothing that only looks like a credential is guessed
-   * away. Cut to `limit` only when "[redacted]" made a text that fitted longer than that; one that
-   * was already too long is left to fail validation, as it did before.
+   * away. Whole, however long; `fitted` cuts it after.
    */
-  held(text: string, limit: number): string;
+  held(text: string): string;
 }
 
 export function redaction(secrets: () => Iterable<HeldSecret> = () => []): Redaction {
   return {
     errorText: (text) => redactSecrets(text, secrets()),
-    held: (text, limit) => {
-      const out = redactHeld(text, secrets());
-      return text.length <= limit ? withinLimit(out, limit) : out;
-    },
+    held: (text) => redactHeld(text, secrets()),
   };
 }

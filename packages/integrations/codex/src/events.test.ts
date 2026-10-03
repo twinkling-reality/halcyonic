@@ -410,9 +410,22 @@ describe('Codex approval summaries', () => {
       'Network access to example.com (https)',
     );
     assert.equal(summaryOf({}), 'Codex did not say which command it wants to run.');
-    const long = summaryOf({ command: 'x'.repeat(3000) }) ?? '';
-    assert.equal(Array.from(long).length, 2000);
-    assert.ok(long.endsWith(' [truncated]'));
+    // Whole, for the control plane to cut after it takes credentials out.
+    assert.equal(summaryOf({ command: 'x'.repeat(3000) }), 'x'.repeat(3000));
+    const title = `${'x'.repeat(490)} sk-ant-api03-AbCdEf0123456789`;
+    const state = createThreadState();
+    const item = { type: 'commandExecution', id: 'call-2', command: title, status: 'inProgress' };
+    const started = observe(
+      state,
+      {
+        kind: 'notification',
+        method: 'item/started',
+        params: { threadId: 't', turnId: 'turn-1', item },
+        emittedAtMs: null,
+      },
+      NOW,
+    ).observations.find((observation) => observation.type === 'runtime.tool.started');
+    assert.equal(started?.type === 'runtime.tool.started' && started.payload.title, title);
   });
 
   test('a file change names its files and any write access asked for', () => {

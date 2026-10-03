@@ -393,7 +393,8 @@ export function approvalSubject(action: unknown, resources: unknown): ApprovalSu
   return {
     kind: 'tool_use',
     tool_name: clip(tool, 128),
-    summary: clip(listed.length > 0 ? listed.join('\n') : tool, 2000),
+    // Whole: the control plane takes credentials out, then cuts it to the contract.
+    summary: listed.length > 0 ? listed.join('\n') : tool,
   };
 }
 

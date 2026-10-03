@@ -763,7 +763,7 @@ class ClaudeSession {
           {
             tool_call_id: block.id,
             tool_name: block.name.slice(0, 128),
-            title: describeInput(block.input, 500),
+            title: describeInput(block.input),
           },
           observed('assistant.tool_use'),
           eventId,
@@ -963,14 +963,16 @@ function resultError(result: SDKResultMessage): ErrorInfo {
 /** Structured input fields that say what a tool call will do, in order of preference. */
 const DESCRIBING_FIELDS = ['command', 'file_path', 'notebook_path', 'url', 'query', 'pattern'];
 
-/** Describes a tool call from its structured input, for example the Bash command. Never from model prose. */
-function describeInput(input: unknown, max: number, markTruncation = false): string | null {
+/**
+ * Describes a tool call from its structured input, for example the Bash command. Never from model
+ * prose. Whole: the control plane takes credentials out of it, which it has to see whole to find,
+ * and then cuts it to the contract.
+ */
+function describeInput(input: unknown): string | null {
   if (typeof input !== 'object' || input === null) return null;
   for (const field of DESCRIBING_FIELDS) {
     const value: unknown = Reflect.get(input, field);
-    const text =
-      typeof value === 'string' ? (markTruncation ? clipMarked : clip)(value, max) : null;
-    if (text !== null) return text;
+    if (typeof value === 'string' && /\S/.test(value)) return value;
   }
   return null;
 }
@@ -1039,8 +1041,9 @@ function askedQuestions(input: Record<string, unknown>): {
   return { prompts: [...fitted.prompts], texts, answerable: fitted.answerable };
 }
 
+/** What an approval asks for, whole, as `describeInput`. */
 function approvalSummary(input: Record<string, unknown>): string {
-  return describeInput(input, 2000, true) ?? clipMarked(JSON.stringify(input), 2000) ?? '{}';
+  return describeInput(input) ?? JSON.stringify(input);
 }
 
 /** Shortens visible text to a contract limit in code points and marks a cut. */

@@ -616,6 +616,8 @@ describe('OpenCode event decoding', () => {
       summary: 'webfetch',
     });
     assert.equal(approvalSubject(' ', ['x']), null);
+    // Whole, for the control plane to cut after it takes credentials out.
+    assert.equal(approvalSubject('shell', ['x'.repeat(3000)])?.summary, 'x'.repeat(3000));
   });
 
   test('an execution error type that does not start with a letter still yields a valid code', () => {

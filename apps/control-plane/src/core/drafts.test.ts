@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { compileValidator, RUNTIME_EVENT_PAYLOADS } from '@halcyonic/contracts';
 import type { ExecutionContext, RuntimeObservation } from '@halcyonic/runtime-core';
 import { capturingLogger } from '../testing/harness.ts';
 import { createObservationSink } from './drafts.ts';
 import type { Recorder } from './recorder.ts';
-import { redaction } from './redaction.ts';
+import { redaction, TRUNCATED } from './redaction.ts';
+
+const validatePayload = compileValidator(RUNTIME_EVENT_PAYLOADS['runtime.approval.requested']);
 
 const MARK = '[redacted: OpenCode server password]';
 
@@ -103,14 +106,17 @@ describe("a runtime's observations", () => {
         summary: `1 failed: expected ${held} to equal token abc123def456`,
       }),
     );
-    // A question is the agent's own account, and so stays as given.
+    // A question's prompt loses it too; its options stay, since an answer names them.
+    const option = { label: `Keep ${held}`, description: `Sends ${held}` };
     sink(
       observation('runtime.question.asked', {
         question_id: 'q',
-        prompts: [{ text: `Use ${held}?` }],
+        prompts: [{ key: 'q0', header: null, text: `Use ${held}?`, options: [option] }],
         answerable: true,
       }),
     );
+    // The agent's own messages are reported as given (an open question).
+    sink(observation('runtime.agent_message', { text: `I will use ${held}` }));
     assert.deepEqual(
       recorded.map((draft) => draft.payload),
       [
@@ -126,27 +132,80 @@ describe("a runtime's observations", () => {
           outcome: 'failed',
           summary: `1 failed: expected ${MARK} to equal token abc123def456`,
         },
-        { question_id: 'q', prompts: [{ text: `Use ${held}?` }], answerable: true },
+        {
+          question_id: 'q',
+          prompts: [{ key: 'q0', header: null, text: `Use ${MARK}?`, options: [option] }],
+          answerable: true,
+        },
+        { text: `I will use ${held}` },
       ],
     );
   });
 
-  test("are cut to their field's limit only when redaction lengthened them past it", () => {
+  test("are cut to their field's limit after redaction, never before, so no part of a held value is left", () => {
+    const { sink, recorded } = recordingSink();
+    // As the adapters now pass them: whole, with the held value across where the contract cuts.
+    const summary = `${'x'.repeat(1990)}${held} and more`;
+    const title = `${'x'.repeat(490)}${held} and more`;
+    sink(
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Bash', summary },
+      }),
+    );
+    sink(observation('runtime.tool.started', { tool_call_id: 't', tool_name: 'Bash', title }));
+    sink(observation('runtime.test_run.started', { test_run_id: 'x', label: title }));
+    sink(
+      observation('runtime.test_run.completed', { test_run_id: 'x', outcome: 'failed', summary }),
+    );
+    const [approval, tool, started, completed] = recorded.map((draft) => draft.payload);
+    const cutSummary = `${'x'.repeat(1990)}${MARK}`.slice(0, 2000 - TRUNCATED.length) + TRUNCATED;
+    const cutTitle = `${'x'.repeat(490)}${MARK}`.slice(0, 500 - TRUNCATED.length) + TRUNCATED;
+    assert.deepEqual(approval, {
+      approval_id: 'a',
+      subject: { kind: 'tool_use', tool_name: 'Bash', summary: cutSummary },
+    });
+    assert.deepEqual(tool, { tool_call_id: 't', tool_name: 'Bash', title: cutTitle });
+    assert.deepEqual(started, { test_run_id: 'x', label: cutTitle });
+    assert.deepEqual(completed, { test_run_id: 'x', outcome: 'failed', summary: cutSummary });
+    for (const text of [cutSummary, cutTitle]) {
+      assert.ok(!text.includes(held.slice(0, 8)), 'no prefix of the held value');
+    }
+  });
+
+  test('are measured and cut in code points, as the contract counts, so a marker never pushes one past it', () => {
     // Eight characters, the shortest held value replaced, which its marker lengthens.
     const short = 'pw-12345';
     const { sink, recorded } = recordingSink([{ what: 'TEST_PASS', value: short }]);
-    const fitted = `${'x'.repeat(500 - short.length)}${short}`;
-    const tooLong = `${'y'.repeat(501 - short.length)}${short}`;
+    // 2000 code points with the emoji, 2001 UTF-16 units: it fits, until the marker lengthens it.
+    const summary = `😀${'x'.repeat(1999 - short.length)}${short}`;
     sink(
-      observation('runtime.tool.started', { tool_call_id: 't', tool_name: 'Bash', title: fitted }),
+      observation('runtime.approval.requested', {
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Bash', summary },
+      }),
     );
+    const prompt = `😀${'y'.repeat(3999 - short.length)}${short}`;
     sink(
-      observation('runtime.tool.started', { tool_call_id: 'u', tool_name: 'Bash', title: tooLong }),
+      observation('runtime.question.asked', {
+        question_id: 'q',
+        prompts: [{ key: 'q0', header: null, text: prompt, options: [] }],
+        answerable: true,
+      }),
     );
-    const [first, second] = recorded.map((draft) => (draft.payload as { title: string }).title);
-    assert.equal(first?.length, 500);
-    assert.ok(first?.endsWith('x[redact…'), first?.slice(-12));
-    // Already past the contract's limit: left long, for the recorder to refuse as it did before.
-    assert.equal(second, `${'y'.repeat(501 - short.length)}[redacted: TEST_PASS]`);
+    const [approval, question] = recorded.map((draft) => draft.payload);
+    const cut = (approval as { subject: { summary: string } }).subject.summary;
+    assert.equal(Array.from(cut).length, 2000);
+    assert.ok(cut.startsWith('😀') && cut.endsWith(TRUNCATED));
+    assert.ok(
+      validatePayload({
+        approval_id: 'a',
+        subject: { kind: 'tool_use', tool_name: 'Bash', summary: cut },
+      }).ok,
+    );
+    // A prompt the marker pushed past its limit is cut, and so can no longer be answered.
+    const asked = question as { prompts: { text: string }[]; answerable: boolean };
+    assert.equal(Array.from(asked.prompts[0]?.text ?? '').length, 4000);
+    assert.equal(asked.answerable, false);
   });
 });

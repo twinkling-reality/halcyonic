@@ -205,7 +205,8 @@ export function observe(state: ThreadState, message: ServerMessage, now: Date): 
             {
               tool_call_id: clip(id, 512),
               tool_name: item.type,
-              title: title === null || title === undefined ? null : clip(title, 500),
+              // Whole: the control plane takes credentials out, then cuts it to the contract.
+              title: title ?? null,
             },
             `${turnId}:${id}:item/started`,
           ),
@@ -567,14 +568,15 @@ function commandSummary(params: Readonly<Record<string, unknown>>): string {
         : 'Codex did not say which command it wants to run.';
   const cwd = nonBlank(params.cwd);
   if (command !== null && cwd !== null) summary += `\nin ${cwd}`;
-  return clip(summary, 2000);
+  // Whole: the control plane takes credentials out, then cuts it to the contract.
+  return summary;
 }
 
 function fileChangeSummary(changes: string | undefined, grantRoot: unknown): string {
   let summary = changes ?? 'Codex did not say which files it wants to change.';
   const root = nonBlank(grantRoot);
   if (root !== null) summary += `\nand write access under ${root} for the rest of the session`;
-  return clip(summary, 2000);
+  return summary;
 }
 
 /** The files a file change item touches, one line each, from `v2/FileUpdateChange.ts`. */

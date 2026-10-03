@@ -134,7 +134,8 @@ describe('text a client sends cannot take the control plane down', () => {
     );
     const message = refused.command?.rejection?.message ?? '';
     assert.equal(refused.command?.rejection?.code, 'invalid_runtime_options');
-    assert.equal(message.length, 2000);
+    // 2000 characters as the contract counts them, code points, so the emoji take their full room.
+    assert.equal(Array.from(message).length, 2000);
     assert.ok(message.endsWith('…'));
     assert.ok(!/[\uD800-\uDBFF]…$/.test(message), 'no surrogate pair is split');
     await controlPlane.close();

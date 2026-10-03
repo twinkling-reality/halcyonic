@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  fits,
+  fitted,
   JOURNALED_TEXT,
   looksLikeCredential,
   REDACTED,
   redaction,
   redactSecrets,
+  TRUNCATED,
   withinLimit,
 } from './redaction.ts';
 
@@ -141,9 +144,26 @@ describe('error text before it is journaled', () => {
     assert.ok(long.endsWith('…'));
     const pair = withinLimit(`${'x'.repeat(JOURNALED_TEXT - 2)}😀${'y'.repeat(10)}`);
     assert.ok(
-      pair.length <= JOURNALED_TEXT && !/[\uD800-\uDBFF]…$/.test(pair),
+      Array.from(pair).length <= JOURNALED_TEXT && !/[\uD800-\uDBFF]…$/.test(pair),
       'no half of a pair before the ellipsis',
     );
+  });
+
+  test('length is measured and cut in code points, as the contract counts it', () => {
+    // 2000 code points in 4000 UTF-16 units: it fits, so it is not cut.
+    const emoji = '😀'.repeat(JOURNALED_TEXT);
+    assert.equal(withinLimit(emoji), emoji);
+    assert.equal(fitted(emoji, JOURNALED_TEXT), emoji);
+    const over = `${emoji}x`;
+    assert.equal(withinLimit(over), `${'😀'.repeat(JOURNALED_TEXT - 1)}…`);
+    assert.equal(
+      fitted(over, JOURNALED_TEXT),
+      `${'😀'.repeat(JOURNALED_TEXT - TRUNCATED.length)}${TRUNCATED}`,
+    );
+    assert.ok(fits(emoji, JOURNALED_TEXT) && !fits(over, JOURNALED_TEXT));
+    // What is read is never cut inside a pair either.
+    const read = redactSecrets(`${'x'.repeat(4095)}😀`, []);
+    assert.ok(!/[\uD800-\uDBFF]$/.test(read), 'no half of a pair at the end of what is read');
   });
 
   test('a value reads as a credential by itself when it is random, hex or a known key shape', () => {
@@ -171,7 +191,7 @@ describe('error text before it is journaled', () => {
     ]);
     const text = 'curl -H "x-api-key: held-value-123" -H "Authorization: Bearer abc123def456"';
     assert.equal(
-      held(text, 2000),
+      held(text),
       'curl -H "x-api-key: [redacted: Anthropic key]" -H "Authorization: Bearer abc123def456"',
     );
     assert.equal(
