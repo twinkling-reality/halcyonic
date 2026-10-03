@@ -7,7 +7,7 @@ import {
   type Stats,
   statSync,
 } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import {
   type LocationFolder,
   type LocationRoot,
@@ -72,6 +72,8 @@ export interface HostLocations {
 interface Root {
   /** As configured. */
   readonly configured: string;
+  /** Its name for people ({@link rootLabels}). */
+  readonly label: string;
   /** Its real path when the control plane started, which is what clients are shown. */
   readonly real: string;
   /** The folder's identity then, so a folder put in its place later is not taken for it. */
@@ -89,11 +91,16 @@ export function createHostLocations(
   roots: readonly string[],
   policy: DirectoryPolicy = createDirectoryPolicy(roots),
 ): HostLocations {
-  const known: Root[] = roots.map((configured) => {
+  const found = roots.map((configured) => {
     const real = realpathSync.native(configured);
     const { dev, ino } = statSync(real);
     return { configured, real, device: dev, inode: ino };
   });
+  const labels = rootLabels(found.map((root) => root.real));
+  const known: Root[] = found.map((root) => ({
+    ...root,
+    label: labels.get(root.real) ?? nameOf(root.real),
+  }));
 
   const rootOf = (path: string): Root | LocationRefusal =>
     known.find((root) => root.real === path || root.configured === path) ?? {
@@ -304,7 +311,7 @@ function listRoot(root: Root, users: ReadonlyMap<string, ProjectId[]>): Location
   if (available && rootChanged(root) !== null) {
     return {
       path: root.real,
-      name: nameOf(root.real),
+      name: root.label,
       status: 'missing',
       repository: null,
       changed_at: null,
@@ -315,7 +322,7 @@ function listRoot(root: Root, users: ReadonlyMap<string, ProjectId[]>): Location
   }
   return {
     path: root.real,
-    name: nameOf(root.real),
+    name: root.label,
     status: available ? 'available' : 'missing',
     ...(rootFacts ?? { repository: null, changed_at: null, used_by: [] }),
     folders,
@@ -512,4 +519,60 @@ function entryAt(path: string): Stats | undefined {
 
 function nameOf(path: string): string {
   return basename(path) || path;
+}
+
+/** The longest name a root is given, as the contract's `DisplayName` allows. */
+const MAX_LABEL = 255;
+
+/**
+ * Each root's name for people, by its real path: its folder's own name, or, where two roots share
+ * one (case and compatibility forms aside), that name with the nearest folder above it that tells
+ * them apart, as "Projects (Work)" beside "Projects (person)". A level further up is named only
+ * where the one below still leaves them alike. Never a path; the same path, configured twice, is
+ * one root with one name.
+ */
+export function rootLabels(paths: readonly string[]): Map<string, string> {
+  const unique = [...new Set(paths)];
+  const alike = (name: string) => name.normalize('NFKC').toLowerCase();
+  const above = (path: string, depth: number): string | null => {
+    const segments = path.split(sep).filter((segment) => segment.length > 0);
+    return segments[segments.length - 1 - depth] ?? null;
+  };
+  const labelled = (path: string, depth: number): string => {
+    const name = nameOf(path);
+    const parent = depth === 0 ? null : above(path, depth);
+    if (parent === null) return name;
+    const room = MAX_LABEL - name.length - 3;
+    if (room < 2) return name;
+    return `${name} (${parent.length <= room ? parent : `${parent.slice(0, room - 1)}…`})`;
+  };
+  const labels = new Map<string, string>();
+  const groups = new Map<string, string[]>();
+  for (const path of unique) {
+    const key = alike(nameOf(path));
+    groups.set(key, [...(groups.get(key) ?? []), path]);
+  }
+  for (const group of groups.values()) {
+    let pending = group;
+    let depth = 0;
+    while (pending.length > 0) {
+      const current = new Map(pending.map((path) => [path, labelled(path, depth)]));
+      const byLabel = new Map<string, string[]>();
+      for (const path of pending) {
+        const key = alike(current.get(path) ?? '');
+        byLabel.set(key, [...(byLabel.get(key) ?? []), path]);
+      }
+      pending = [];
+      for (const same of byLabel.values()) {
+        // Alone, or nothing above is left to tell them apart: named as they are now.
+        if (same.length === 1 || same.every((path) => above(path, depth + 1) === null)) {
+          for (const path of same) labels.set(path, current.get(path) ?? nameOf(path));
+        } else {
+          pending.push(...same);
+        }
+      }
+      depth += 1;
+    }
+  }
+  return labels;
 }

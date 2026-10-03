@@ -114,7 +114,10 @@ export const MAX_LOCATION_FOLDERS = 200;
 export const LocationRoot = Type.Object(
   {
     path: HostPath,
-    /** The root's own name, for display. */
+    /**
+     * The root's name, for display: its folder's own name, or, where two roots share one, that name
+     * with the nearest folder above it that tells them apart, as "Projects (Work)". Never a path.
+     */
     name: DisplayName,
     status: Type.Union([Type.Literal('available'), Type.Literal('missing')]),
     /** The root's own facts, read as a listed folder's are; null and empty while it is missing. */
