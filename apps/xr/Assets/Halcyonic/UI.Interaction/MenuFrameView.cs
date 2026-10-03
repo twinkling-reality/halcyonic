@@ -143,13 +143,13 @@ namespace Halcyonic.XR.UI
         /// in the room its icon column, chip, fact and chevron leave, as the view lays it. Frames grow
         /// whole with larger text, so the count holds at both sizes.
         /// </summary>
-        public static int RowsOf(PageLine line, float columnDegrees) => Count(line.Words, WordsRoom(line, ContentWidth(columnDegrees)));
+        public static int RowsOf(PageLine line, float columnDegrees) => Count(Quoted(line), WordsRoom(line, ContentWidth(columnDegrees)));
 
         /// <summary>How many rows <paramref name="words"/> alone wrap to across a column's content, as a side panel's fact value or a source line.</summary>
         public static int RowsOf(string words, float columnDegrees) => Count(words, ContentWidth(columnDegrees));
 
         /// <summary>Whether an answer's words fit one row in half a column <paramref name="columnDegrees"/> wide, so it may share its row with the next.</summary>
-        public static bool FitsHalf(PageLine answer, float columnDegrees) => Count(answer.Words, WordsRoom(answer, MenuPage.HalfWidth(columnDegrees))) == 1;
+        public static bool FitsHalf(PageLine answer, float columnDegrees) => Count(Quoted(answer), WordsRoom(answer, MenuPage.HalfWidth(columnDegrees))) == 1;
 
         /// <summary>
         /// How many rows <paramref name="shown"/> takes on a page in a column
@@ -170,7 +170,7 @@ namespace Halcyonic.XR.UI
                     continue;
                 }
                 var line = shown[at];
-                rows += line.FromRow != null ? line.Rows : Mathf.Min(line.Rows, Count(line.Words, WordsRoom(line, content)));
+                rows += line.FromRow != null ? line.Rows : Mathf.Min(line.Rows, Count(Quoted(line), WordsRoom(line, content)));
             }
             return rows;
         }
@@ -215,20 +215,26 @@ namespace Halcyonic.XR.UI
             side = null;
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null);
             subjectCut = shown.SubjectIsData;
+            subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
             LaySubject(shown.Subject, shown.Pill);
             LaySections(shown.Sections);
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
         }
 
-        /// <summary>Shows a side panel in a column <paramref name="columnDegrees"/> wide: its subject, then its facts or lines, its source line and its own Close.</summary>
-        public void Show(SidePanel shown, float columnDegrees, float subject, bool pillRoom)
+        /// <summary>
+        /// Shows a side panel in a column <paramref name="columnDegrees"/> wide: its subject, then its facts
+        /// or lines, its source line and its own Close. Standing in a file's place, it wears the file's
+        /// <paramref name="pill"/>, so it still reads as that task's.
+        /// </summary>
+        public void Show(SidePanel shown, float columnDegrees, float subject, bool pillRoom, StateBadge? pill = null)
         {
             frame = null;
             side = shown;
-            Begin(columnDegrees, subject, pillRoom);
+            Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
-            LaySubject(shown.Subject, null);
+            subjectTitle.color = GlazeTokens.Text;
+            LaySubject(shown.Subject, pill);
             LaySections(Array.Empty<FrameSection>());
             contentHeight = LayContent(0f, Vector2.zero, 1f);
             Collect();
@@ -245,6 +251,12 @@ namespace Halcyonic.XR.UI
             LayContent(placed.Height / zoom, new Vector2(placed.Right, placed.Up), zoom);
             Drawn?.Invoke(this);
         }
+
+        /// <summary>The subject's part, whose plate's top edge the light line ends on.</summary>
+        public Transform Subject => subjectPart;
+
+        /// <summary>The subject plate's top edge, in its part's units from its centre: under a split header, below the pill's room.</summary>
+        public float PlateTop => subjectHeight / 2f - reserve;
 
         /// <summary>The side panel this column shows, or null for a frame.</summary>
         public SidePanel? Side => side;
@@ -358,12 +370,15 @@ namespace Halcyonic.XR.UI
 
         private const float ChevronGlyph = 0.4f;
 
+        /// <summary>A line's words as shown: the agent's own, a claim, in quotation marks as well as leaning, never read as Halcyonic's.</summary>
+        private static string Quoted(PageLine line) => line.Claim ? "\u201C" + line.Words + "\u201D" : line.Words;
+
         /// <summary>Two answers next to each other share a row where each fits half of it in one row.</summary>
         private static bool Pairs(PageLine first, PageLine second, float content)
         {
             if (!first.Choice || !second.Choice || first.FromRow != null || second.FromRow != null) return false;
             var half = HalfWidth(content);
-            return Count(first.Words, WordsRoom(first, half)) == 1 && Count(second.Words, WordsRoom(second, half)) == 1;
+            return Count(Quoted(first), WordsRoom(first, half)) == 1 && Count(Quoted(second), WordsRoom(second, half)) == 1;
         }
 
         // ---------------------------------------------------------------------------------------------
@@ -557,12 +572,14 @@ namespace Halcyonic.XR.UI
                 line.Chevron.transform.localPosition = new Vector3(end - ChevronGlyph * U(Glaze.Menu.BodyDegrees) / 2f, middle, -U(0.05f));
                 end -= ChevronRoom;
             }
-            // The tone is carried by the icon and the fact where the line has them, its words staying the text's own.
+            // The tone stands on the icon, and on the fact only where the row waits, in amber; any other
+            // fact is in the secondary colour, so a list's facts keep one colour. The words stay the
+            // text's own where an icon or a fact carries the tone.
             var carried = model.Icon != null || model.Fact != null;
             if (model.Fact != null)
             {
                 var kept = FactRoom(model, right - left);
-                Small(line.Fact, FactWords(model), end, middle, center, zoom, ColourOf(model.Tone == LineTone.Primary ? LineTone.Secondary : model.Tone, model.Available), kept);
+                Small(line.Fact, FactWords(model), end, middle, center, zoom, ColourOf(model.Tone == LineTone.Waiting ? LineTone.Waiting : LineTone.Secondary, model.Available), kept);
                 line.FactMayCut = model.FactIsData;
                 end -= kept + grid;
             }
@@ -600,7 +617,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private static int Wrap(TextMeshPro label, PageLine model, float room)
         {
-            var text = LabelText.ForTextMeshPro(model.Words);
+            var text = LabelText.ForTextMeshPro(Quoted(model));
             label.richText = false;
             label.parseCtrlCharacters = true;
             label.text = text;

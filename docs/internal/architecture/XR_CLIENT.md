@@ -250,9 +250,12 @@ the same definition names, as the JSON Schema document:
   person looks, and clear of every character it passes, below their labels or above their bodies,
   whichever keeps its center between 31 degrees below and 2 degrees above eye level (the nearer to
   15 degrees down when both do); never so low that its lower edge comes within 5 cm of the surface
-  the characters stand on. It keeps 1.5 degrees from bodies, which move, and 1.2 from labels, which
-  do not, measured at the panel's corners: a flat panel's corners are farther than its edges'
-  middles, so below eye level they look higher (`CornerElevation`). Where neither side clears, it
+  the characters stand on. It keeps 1.5 degrees from bodies, which move, measured at the panel's
+  corners, and 1.2 from labels, which do not, each where it stands: a flat panel's edge is farther
+  away from its middle, so below eye level it looks higher there (`CornerElevation`), and each label
+  is cleared by the edge under its outer side, or under the corner where it reaches past the panel
+  (ADR 0026, 2026-10-02; on the far arc the outer labels stand over the corners, so a wide plane
+  stands where it did, and a deep label over the middle no longer lowers it). Where neither side clears, it
   moves the least into the band and may cover a character. The band's floor is for a panel 26
   degrees tall: a taller one, grown whole for the person's larger text or holding more, as Settings
   does, would not fit under the deepest labels above it, so its center may go lower by as much as it
@@ -262,13 +265,14 @@ the same definition names, as the JSON Schema document:
   every corner 1.5 degrees inside it with the head level wins when both sides clear, and where
   neither clears it moves into the band no lower than that (`Lowest`, which a dragged panel's limit
   uses too); the field never pushes a panel into a label, since below the labels is already as
-  high as it can go. A panel taller than designed is read with the head tipped down a little
-  (`WorkspacePlacement.ReadingPitch`, a design decision of 2026-10-02): under the far lineup's labels
-  its lower corners reach past a Quest 3S's field with the head level, about 4.4 degrees past with
-  text a step larger, so it is taken to be read with the head tipped down by half again as much as
-  it is taller, about 5.6 degrees then and never more than 8, and the field holds it seen so; a
-  panel as tall as designed keeps the head-level rule. Settings with all its sections, about 33
-  degrees tall, would need more, and is not held to the field. Holding Move never lifts a panel for
+  high as it can go. Placement may put a panel taller than designed lower than the field holds it
+  with the head level, by half again as much as it is taller and at most 8 degrees
+  (`WorkspacePlacement.FloorPitch`); a panel as tall as designed keeps the head-level floor. Where a
+  panel stands, the person is taken to tip their head down as much as its bottom needs to come into
+  the field, never more than 8 degrees (`WorkspacePlacement.ReadingPitch(size, elevation, field)`,
+  ADR 0026, 2026-10-02, in place of half again as much as it is taller, under which some heights fit
+  neither level nor tipped), and the renders' field checks hold it seen so. Settings with all its
+  sections, about 33 degrees tall, would need more, and is not held to the field. Holding Move never lifts a panel for
   want of room: one that opened under the labels lower than the field allows stays where it was
   and goes no lower (`PanelDrag`).
 - **The menu's models** (`MenuFrame.cs`, ADR 0026), engine-free, what to show and never where:
@@ -337,6 +341,26 @@ the same definition names, as the JSON Schema document:
   text as seen, its targets, nothing of Halcyonic's own cut, its footers fitting, the content's
   light ending above its first target (`GlazeChecks.GlowEndsAboveTargets`) and a Quest 3S's field
   (`GlazeChecks.InsideField`, which `FieldChecks` now calls), and checks that `MenuPage.Fits` agrees.
+- **`MenuPlane`** (Workspace) stands the menu, a task's file and a side panel on the stage as one
+  composition: the columns by `MenuColumns`, the menu standing beside the file only where the two
+  fit as the stage would place them in the headset's measured field (`MenuPage.Inside`), and a side
+  panel taking its frame's place with text a step larger, or wherever the two don't fit, wearing
+  the file's pill and keeping its light line. It places the composition as one panel of its size
+  beside the file's character (`WorkspaceLayout.Place`), where the person looks
+  (`PlaceForeground`), or beside a window straight ahead centred under the window's lane
+  (`PlaceAhead`), and slides every part to its new place over 0.25 s, so the plane re-centres as
+  one piece and the menu steps aside to the left and back (`Advance`, which the renders step
+  themselves). The light line leaves from under the file's character's label, below any mark, and
+  drops straight from the middle of their overlap to the subject's plate, else joins their nearer
+  corners; over a desk, where the plane stands above the lineup, it rises from the top of the body
+  to the file's bottom edge; beside a window there is none. Closed with no file open, the menu is
+  its bar. `MenuPlane.TopLine` reads the plane's top line from where the stage would place it, alone
+  or beside the menu, for `MenuPage.Height` to pack a page for the stage it shows on: Tasks beside a
+  file holds 4 rows where they fit, 3 on a Quest 3S at the far stage. `WorkspaceRender` lays it on
+  the far, desk and window stages in a Quest 3S's field at both text sizes, in four states each,
+  halfway through the slide as well as at its end, and holds each to one plane, type, selection,
+  text as seen, its targets, a degree from every label, body and the window by their outlines as
+  the eyes see them (`GlazeChecks.OutlineApart`), the field, and the light line crossing nothing.
   `PanelModel` stays until nothing draws it.
 - **`FileScreens`** builds a task's file as a `MenuFrame` (ADR 0026) from its presentation, the
   steering and what the file is in the middle of (`FileScreen`: the section chosen, the line whose
@@ -408,7 +432,7 @@ the same definition names, as the JSON Schema document:
   a session is live has taken up to 10 seconds. The source line of Waiting and Activity is "As the
   agent reported it", with no app's name in it. Nothing in the Unity layer draws it yet.
 - **`PlaneComposition`** is the model of a composition on one plane facing the eyes, for the
-  redesign ADR 0026 decides (the component render's frames use it; the stage does not yet): at most
+  redesign ADR 0026 decides (the component render's frames and `MenuPlane` use it): at most
   two columns of parts, every part of a column as
   wide as it, columns 15 mm apart and parts a degree apart, every column starting on one top line
   and, its last part stretched down, ending on one bottom line, all grown whole by the reading text's

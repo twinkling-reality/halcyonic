@@ -768,15 +768,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (Mathf.Min(plate.Size.x, plate.Size.y) < U(0.2f) && fill.a > 0.2f) yield return shot.Name + ": " + plate.name + " in " + part.Name + " is a bar; nothing is marked by a bar or an underline.";
                 }
             }
-            // Inside a Quest 3S's field as the product's FieldChecks see it: the head level and turned to the
-            // composition's centre, tipped down only by ReadingPitch for a composition taller than designed.
+            // Inside a Quest 3S's field as the product's FieldChecks see it: the head turned to the
+            // composition's centre, tipped down as much as its bottom needs, at most 8 degrees (ReadingPitch).
             var centre = CompositionCenter(parts);
             var corners = parts.SelectMany(part => new[] { -0.5f, 0.5f }.SelectMany(x => new[] { -0.5f, 0.5f }
                 .Select(y => part.Root.TransformPoint(new Vector3(x * part.Width, y * part.Height, 0f))))).ToList();
             var sideways = corners.Select(corner => Vector3.Dot(corner - centre, plane.right)).ToList();
             var upward = corners.Select(corner => Vector3.Dot(corner - centre, plane.up)).ToList();
             var size = new PanelSize((centre - shot.Eyes).magnitude, (sideways.Max() - sideways.Min()) / 2f, (upward.Max() - upward.Min()) / 2f);
-            foreach (var failure in FieldChecks.Inside(shot.Name + " composition", corners, shot.Eyes, centre, WorkspacePlacement.ReadingPitch(size), FieldChecks.Quest3S))
+            foreach (var failure in FieldChecks.Inside(shot.Name + " composition", corners, shot.Eyes, centre, WorkspacePlacement.ReadingPitch(size, FieldChecks.ElevationOf(shot.Eyes, centre), FieldChecks.Quest3S), FieldChecks.Quest3S))
             {
                 yield return failure;
             }

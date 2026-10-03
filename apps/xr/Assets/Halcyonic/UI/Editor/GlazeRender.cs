@@ -155,6 +155,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(EveryIconShows(badges, marks, actions, files));
                 failures.AddRange(GlazeChecks.MicrophoneOnlyWhereHeld(actions.Select(action => action.Button), "component render"));
                 failures.AddRange(IconAloneKeepsPresses());
+                failures.AddRange(IconGapReadsTheSameBelowEyeLevel());
                 failures.AddRange(TextAsSeenCatchesASlant());
                 failures.AddRange(OnePlaneCatchesEachBreak());
                 failures.AddRange(TypeStepsDownCatchesARise());
