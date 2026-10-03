@@ -31,6 +31,10 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
   source line counting as one; any other page packs by height, at most `MenuPage.Height`.
 - **With nothing on the stage**, the menu stands where the person looks at rest, about 15 degrees
   down.
+- **Labels are cleared where they stand**: placement keeps the plane clear of each label at the
+  label's own yaw, so a wide plane needn't drop for a label at its far side.
+- **At larger text a side panel takes the file's place**, keeping the file's light line and pill;
+  Close details brings the file back. A file and a side panel together would leave the field.
 - **Beside a window**, with the characters either side of one straight ahead, the menu or a file
   stands centred under the window, one at a time, never within a degree of it, and the file draws
   no light line, which would cross the window.
@@ -197,8 +201,9 @@ A file opened out of its character keeps a light line from the character to it: 
 the character's label, below any mark, to the file's subject. Where the label stands over the
 subject, as the eyes see them, it drops straight down from the middle of their overlap; else it
 joins the label's nearer bottom corner to the subject's nearer top corner. It crosses no label and no
-character, its own included. The renders draw it in the Holo colour, about 3 mm wide at the label
-thinning to 1.2 mm, fading from 55 to 12 percent.
+character, its own included. Over a desk, where the plane stands above the lineup, it rises from
+the top of the character's body to the file's bottom edge. The renders draw it in the Holo colour,
+about 3 mm wide at the label thinning to 1.2 mm, fading from 55 to 12 percent.
 
 ## Icons
 
