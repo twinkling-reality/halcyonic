@@ -171,10 +171,15 @@ namespace Halcyonic.Client
             }
             if (screen.Presets is { } presets)
             {
+                // Rows only choose, showing the very words Tell it sends; Tell it, the main action, sends
+                // them, and nothing is sent by the press that chooses.
                 var recorded = !ReferenceEquals(presets, WorkspaceText.PresetInstructions);
-                var rows = presets.Select((preset, index) =>
-                    new PageLine(preset.Label, wordsAreData: recorded, action: Preset, key: index.ToString(CultureInfo.InvariantCulture))).ToList();
-                return new Page(rows, source, new Footer(CloseFile, rare: CancelChoice));
+                var rows = presets.Select((preset, index) => new PageLine(WorkspaceText.OneLine(preset.Text), wordsAreData: recorded, action: Preset,
+                    key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: screen.ChosenPreset == index, rows: 2)).ToList();
+                var chosen = screen.ChosenPreset != null;
+                var tell = new Prompt(TellIt, WorkspaceText.Label(WorkspaceAction.Instruct), WorkspaceText.IconOf(WorkspaceAction.Instruct), main: true,
+                    available: chosen, reason: chosen ? null : ChooseAnInstruction);
+                return new Page(rows, source, new Footer(CloseFile, rare: CancelChoice, farRight: tell));
             }
 
             var lines = new List<PageLine>();
@@ -260,6 +265,9 @@ namespace Halcyonic.Client
             if (screen.Checked != null) groups.Add((ChecksKey, WorkspaceText.WhatWasChecked, screen.Checked));
             return Answered(screen, room, groups, StillReading(FileSection.Checks), new Prompt(Refresh, WorkspaceText.Refresh, GlazeIcon.Refresh));
         }
+
+        /// <summary>Why Tell it waits while the instructions offered show and none is chosen.</summary>
+        public const string ChooseAnInstruction = "Choose what to tell it first.";
 
         /// <summary>What a section says while its answer is still being read: plainly so, never an empty page.</summary>
         public static string StillReading(FileSection section) => section switch

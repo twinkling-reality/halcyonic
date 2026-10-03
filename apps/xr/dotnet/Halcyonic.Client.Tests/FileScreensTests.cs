@@ -248,12 +248,23 @@ public class FileScreensTests
     {
         var presets = new[] { new PresetInstruction("Add a test", "Add a test for refunds."), new PresetInstruction("Wrap up", "Wrap up and summarise.") };
         var workspace = Offering(Running().Present(), WorkspaceAction.Instruct);
-        var frame = Screen(new FileScreen { Section = FileSection.Activity, Presets = presets }, workspace);
-        Assert.That(frame.Lines.Select(line => (line.Words, line.WordsAreData, line.Action, line.Key)), Is.EqualTo(new[]
+        var screen = new FileScreen { Section = FileSection.Activity, Presets = presets };
+        var frame = Screen(screen, workspace);
+        Assert.That(frame.Lines.Select(line => (line.Words, line.WordsAreData, line.Action, line.Key, line.Choice)), Is.EqualTo(new[]
         {
-            ("Add a test", true, FileScreens.Preset, "0"), ("Wrap up", true, FileScreens.Preset, "1"),
-        }));
-        Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, null, null, null }));
+            ("Add a test for refunds.", true, FileScreens.Preset, "0", true), ("Wrap up and summarise.", true, FileScreens.Preset, "1", true),
+        }), "each row shows the very words Tell it sends");
+        Assert.That(Slots(frame.Footer), Is.EqualTo(new[] { Footer.Close, FileScreens.Cancel, null, null, FileScreens.TellIt }));
+        Assert.That((frame.Footer[PromptSlot.FarRight]!.Available, frame.Reason), Is.EqualTo((false, (string?)FileScreens.ChooseAnInstruction)));
+        Assert.That(screen.PresetToSend, Is.Null, "nothing to send until one is chosen");
+
+        screen.ChoosePreset(1);
+        var chosen = Screen(screen, workspace);
+        Assert.That(chosen.Lines.Where(line => line.Chosen).Select(line => line.Key), Is.EqualTo(new[] { "1" }), "choosing only lights the row");
+        Assert.That(chosen.Footer[PromptSlot.FarRight]!.Available, Is.True);
+        Assert.That(screen.PresetToSend, Is.EqualTo("Wrap up and summarise."), "Tell it sends exactly what the row shows");
+        screen.Presets = presets;
+        Assert.That(screen.ChosenPreset, Is.Null, "offered again, nothing is chosen");
     }
 
     [Test]
