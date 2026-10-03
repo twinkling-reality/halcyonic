@@ -35,6 +35,8 @@ public class NewProjectFlowTests
         /// <summary>How each send is acknowledged; by default never, so the projection decides.</summary>
         public Func<CommandEnvelope, Task<CommandAckMessage>> Acknowledge { get; set; } = _ => new TaskCompletionSource<CommandAckMessage>().Task;
 
+        public bool KeyboardOffered { get; set; } = true;
+
         public Queue<string> Typed { get; } = new();
 
         public List<string> Prompts { get; } = new();
