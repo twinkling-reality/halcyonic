@@ -36,7 +36,7 @@ public class NewProjectScreensTests
     {
         var idea = new ProjectIdea();
         var steps = NewProjectScreens.Sections(NewProjectStep.YourIdea, idea, startReached: false);
-        Assert.That(steps.Select(step => step.Words), Is.EqualTo(new[] { "Your idea", "Questions", "Recap", "Start building" }));
+        Assert.That(steps.Select(step => step.Words), Is.EqualTo(new[] { "Your idea", "Questions", "Recap", "Build" }));
         Assert.That(steps.Select(step => step.Reached), Is.EqualTo(new[] { true, false, false, false }));
         Assert.That(steps.Single(step => step.Chosen).Key, Is.EqualTo(NewProjectScreens.Key(NewProjectStep.YourIdea)));
         Assert.That(steps.Any(step => step.Waits), Is.False, "New project waits for no one; the Tasks place keeps its own dot");
@@ -564,7 +564,7 @@ public class NewProjectStartTests
         var create = sequence.Begin(Samples.Reviewed(sequence));
         var waiting = NewProjectScreens.Starting(Idea(), sequence, folder);
         HoldsThreePrompts(waiting);
-        Assert.That(waiting.Sections.Single(step => step.Chosen).Words, Is.EqualTo(EntryText.StartBuilding));
+        Assert.That(waiting.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Build"));
         Assert.That(waiting.Footer.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close }), "nothing to press while the computer answers");
         Assert.That(waiting.Lines.Any(line => line.Tone == LineTone.Good), Is.False, "sent is not done");
 
@@ -627,7 +627,7 @@ public class NewProjectStartTests
                 "not before its part is drawn");
             var frame = Drawn(review, now);
             HoldsThreePrompts(frame);
-            Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo(EntryText.StartBuilding));
+            Assert.That(frame.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Build"));
             Assert.That(Ids(frame), Does.Not.Contain(NewProjectScreens.ConfirmStart), "no Yes anywhere before the last part: part " + (page + 1));
             Assert.That(frame.Footer[PromptSlot.Free], Is.Null);
             Assert.That(frame.Footer.Confirming, Is.True);

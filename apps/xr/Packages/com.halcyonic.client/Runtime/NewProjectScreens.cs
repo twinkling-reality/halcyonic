@@ -12,7 +12,7 @@ namespace Halcyonic.Client
         YourIdea,
         Questions,
         Recap,
-        StartBuilding,
+        Build,
     }
 
     /// <summary>
@@ -171,7 +171,7 @@ namespace Halcyonic.Client
 
         /// <summary>Every step, left to right.</summary>
         public static IReadOnlyList<NewProjectStep> Steps { get; } =
-            new[] { NewProjectStep.YourIdea, NewProjectStep.Questions, NewProjectStep.Recap, NewProjectStep.StartBuilding };
+            new[] { NewProjectStep.YourIdea, NewProjectStep.Questions, NewProjectStep.Recap, NewProjectStep.Build };
 
         /// <summary>A step's words in the row of shapes.</summary>
         public static string Words(NewProjectStep step) => step switch
@@ -179,13 +179,13 @@ namespace Halcyonic.Client
             NewProjectStep.YourIdea => "Your idea",
             NewProjectStep.Questions => "Questions",
             NewProjectStep.Recap => "Recap",
-            _ => EntryText.StartBuilding,
+            _ => "Build",
         };
 
         /// <summary>
         /// The row of steps with <paramref name="chosen"/> lit. Your idea is always reached; Questions
         /// once the companion or the fixed questions have begun; Recap once there is a first task; and
-        /// Start building once nothing stops it (<paramref name="startReached"/>). A step not reached
+        /// Build once nothing stops it (<paramref name="startReached"/>). A step not reached
         /// stays quiet and takes no press; the one shown is always reached. Choosing a step throws away
         /// a review in progress: whatever changes on the way back is read afresh before it is sent.
         /// </summary>
@@ -212,7 +212,7 @@ namespace Halcyonic.Client
             NewProjectStep.YourIdea => "your-idea",
             NewProjectStep.Questions => "questions",
             NewProjectStep.Recap => "recap",
-            _ => "start-building",
+            _ => "build",
         };
 
         /// <summary>The step a shape's key names, or null for a key that names none.</summary>
@@ -747,7 +747,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Start building's confirmation: the whole request as it will be sent, a part at a time as the
-        /// Unity layer measured it, never cut, with Next part as the last row of every part but the last.
+        /// Unity layer measured it, never cut, with Next part as the last row of every part but the last:
+        /// the view measures a part in the room left above that row, so no line of a part hides under it.
         /// Cancel stands where Start building was pressed; Yes, start building appears in the middle,
         /// where nothing stood, only once the last part has shown, and stays there unavailable, saying
         /// why, while something else stops the start.
@@ -770,7 +771,7 @@ namespace Halcyonic.Client
                 : null;
             var footer = Footer.Confirm(before, PromptSlot.FarRight, yes, new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.StartBuilding, idea, startReached: true),
+            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Build, idea, startReached: true),
                 lines: lines);
         }
 
@@ -819,7 +820,7 @@ namespace Halcyonic.Client
             }
             var (subject, isData) = Subject(idea);
             return new MenuFrame(subject, new Footer(Close(), secondary: beside, farRight: main), subjectIsData: isData,
-                sections: Sections(NewProjectStep.StartBuilding, idea, startReached: true), lines: lines);
+                sections: Sections(NewProjectStep.Build, idea, startReached: true), lines: lines);
         }
 
         /// <summary>
@@ -846,7 +847,7 @@ namespace Halcyonic.Client
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.StartBuilding, idea, startReached: true),
+            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Build, idea, startReached: true),
                 lines: lines);
         }
 
