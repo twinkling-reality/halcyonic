@@ -149,19 +149,29 @@ export function openCodeEnvironment(
 
 /**
  * Every secret Halcyonic holds or passes to a runtime, taken out of a runtime's error text before
- * it is journaled (core/redaction.ts): the access token, the Anthropic key, the values named in
- * HALCYONIC_AGENT_ENV, OpenCode's server password, and Salidium's and Seorak's credentials. Read
+ * it is journaled (core/redaction.ts): the access token, the Anthropic key, the values of the
+ * HALCYONIC_AGENT_ENV names that read as secret (SECRET_NAME), OpenCode's server password, and
+ * Salidium's and Seorak's credentials. Read
  * each time it is asked, since a server's password changes with each launch and a credential when
  * it is replaced; a file that can't be read gives nothing. Device credentials are kept only as
  * hashes, so their shape is what takes them out.
  */
+/**
+ * A variable name that reads as a secret's. Only these values are taken out wherever they appear,
+ * so an address or a region passed to agents, such as ANTHROPIC_BASE_URL or AWS_REGION, stays in
+ * the text a person reads; a credential under another name is still taken out by its shape.
+ */
+const SECRET_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL/i;
+
 export function heldSecrets(
   config: ControlPlaneConfig,
   dependencies: { readonly environment: NodeJS.ProcessEnv; readonly dataDir: string },
   accessToken: string,
   adapters: readonly RuntimeAdapter[],
 ): () => string[] {
-  const agentValues = Object.values(passThrough(config.agentEnvironment, dependencies.environment));
+  const agentValues = Object.entries(passThrough(config.agentEnvironment, dependencies.environment))
+    .filter(([name]) => SECRET_NAME.test(name))
+    .map(([, value]) => value);
   return () => {
     let anthropic: string | undefined;
     try {

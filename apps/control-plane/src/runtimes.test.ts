@@ -284,21 +284,30 @@ describe('runtime composition', () => {
 });
 
 describe('the secrets taken out of runtime error text', () => {
-  test('are the token, the Anthropic key, the agent values and the credentials, read when asked', () => {
+  test('are the token, the Anthropic key, the secret agent values and the credentials, read when asked', () => {
     const dataDir = join(base, 'held');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     const environment = {
       ...HOST,
       GATEWAY_KEY: 'gateway-value-1',
+      PROXY_AUTH: 'proxy-value-2',
+      ANTHROPIC_BASE_URL: 'https://gateway.example/v1',
+      AWS_REGION: 'ap-southeast-1',
       ANTHROPIC_API_KEY: 'sk-ant-env-key',
     };
     const config = loadConfig({
       ...HOST,
       HALCYONIC_DATA_DIR: dataDir,
-      HALCYONIC_AGENT_ENV: 'GATEWAY_KEY',
+      HALCYONIC_AGENT_ENV: 'GATEWAY_KEY,ANTHROPIC_BASE_URL,PROXY_AUTH,AWS_REGION',
     });
     const secrets = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', []);
-    assert.deepEqual(secrets(), ['the-access-token-value', 'sk-ant-env-key', 'gateway-value-1']);
+    // An address and a region are passed to agents but stay in the text a person reads.
+    assert.deepEqual(secrets(), [
+      'the-access-token-value',
+      'sk-ant-env-key',
+      'gateway-value-1',
+      'proxy-value-2',
+    ]);
     // A credential put in place later is read the next time.
     for (const [name, value] of [
       ['salidium-credential', 'salidium-value'],
@@ -307,9 +316,9 @@ describe('the secrets taken out of runtime error text', () => {
       writeFileSync(join(dataDir, name), `${value}\n`, { mode: 0o600 });
       chmodSync(join(dataDir, name), 0o600);
     }
-    assert.deepEqual(secrets().slice(3), ['salidium-value', 'srkx_seorak-value']);
+    assert.deepEqual(secrets().slice(4), ['salidium-value', 'srkx_seorak-value']);
     // One others can read is not read, and gives nothing.
     chmodSync(join(dataDir, 'seorak-credential'), 0o644);
-    assert.deepEqual(secrets().slice(3), ['salidium-value']);
+    assert.deepEqual(secrets().slice(4), ['salidium-value']);
   });
 });
