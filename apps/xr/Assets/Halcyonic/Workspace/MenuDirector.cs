@@ -171,6 +171,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A file's subject holds the plane, which follows the hand: nothing is pressed or held meanwhile.</summary>
         public bool Dragging => drag != null;
 
+        /// <summary>The person dragged the plane from where it stands by itself, until Reset position or a fresh placement puts it back: Settings says so.</summary>
+        public bool MovedByHand => moved != default;
+
         /// <summary>What the menu keeps for the session; its host forgets it on a re-pairing.</summary>
         public MenuMemory Memory => memory;
 

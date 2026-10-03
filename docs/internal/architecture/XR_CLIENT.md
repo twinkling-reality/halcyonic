@@ -419,7 +419,8 @@ the same definition names, as the JSON Schema document:
   (`MenuNavigator.Moved`); any other redraw stays where it was rather than following the head.
   Holding a task's file by its subject plate past `GlazeButton.HoldSeconds` drags the whole plane
   round the eyes at its distance, still facing them (`MenuDrag` over `PanelDrag`, client core), as an
-  offset on that placement kept across redraws until the plane is placed afresh or Reset position.
+  offset on that placement kept across redraws until the plane is placed afresh or Reset position;
+  meanwhile Settings' menu row reads "Where you moved it" (`MenuDirector.MovedByHand`).
   A step is taken only where the plane stays inside the measured field, clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
   each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. The

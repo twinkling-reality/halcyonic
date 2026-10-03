@@ -38,6 +38,19 @@ public class SpaceSettingsTests
     }
 
     [Test]
+    public void TheMenusRowSaysWhereThePersonMovedItUntilResetPositionPutsItBack()
+    {
+        var moved = false;
+        var (rows, _) = Of(() => new SpaceNow(Room, RoomOffer.None, StageArrangement.InFront, null, moved));
+        Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Where it stands"));
+        moved = true;
+        var dragged = Read(rows, SpaceSettings.ResetPosition);
+        Assert.That((dragged.Value, dragged.Now, dragged.Prompt), Is.EqualTo(("Where you moved it", "Where you moved it", "Reset position")));
+        moved = false;
+        Assert.That(Read(rows, SpaceSettings.ResetPosition).Value, Is.EqualTo("Where it stands"), "Reset position put it back");
+    }
+
+    [Test]
     public void EachChangeOnlyRaisesItsOwnId()
     {
         var (rows, raised) = Of(() => new SpaceNow(Room, RoomOffer.SetUpRoom, StageArrangement.InFront, new PairingNow(null, PairingStep.Idle, true)));
