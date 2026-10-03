@@ -69,6 +69,9 @@ namespace Halcyonic.Client
         private Task? loop;
         private IRealtimeTransport? commandChannel;
 
+        /// <summary>The journal the command channel's connection was welcomed to, set with the channel.</summary>
+        private string? channelJournal;
+
         private readonly object pauseGate = new object();
         private Task pauseTransition = Task.CompletedTask;
         private bool paused;
@@ -238,19 +241,29 @@ namespace Halcyonic.Client
         /// <summary>
         /// Sends a command and waits for its acknowledgement. An <c>accepted</c> acknowledgement means
         /// admitted, not done: the outcome arrives later as command events in <see cref="State"/>.
+        /// Called on the thread that pumps the session, it sends only on a connection welcomed to the
+        /// journal <see cref="State"/> shows then: a reconnect welcomed to another journal opens its
+        /// command channel before its snapshot is applied, and a command decided on the last journal's
+        /// state must never reach it.
         /// </summary>
-        /// <exception cref="SessionUnavailableException">Not connected; the command was not sent.</exception>
+        /// <exception cref="SessionUnavailableException">Not connected, or connected to another journal than the one shown; the command was not sent.</exception>
         /// <exception cref="CommandOutcomeUnknownException">The command may or may not have arrived.</exception>
         public async Task<CommandAckMessage> SubmitAsync(CommandEnvelope command, CancellationToken cancellationToken = default)
         {
             IRealtimeTransport? channel;
+            string? welcomedTo;
             lock (gate)
             {
                 channel = commandChannel;
+                welcomedTo = channelJournal;
             }
             if (channel == null)
             {
                 throw new SessionUnavailableException("Not connected to the control plane; the command was not sent.");
+            }
+            if (State.Journal?.JournalId is string shown && welcomedTo != null && welcomedTo != shown)
+            {
+                throw new SessionUnavailableException("Connected to another journal than the one shown, whose snapshot is still to be applied; the command was not sent.");
             }
             var ack = new TaskCompletionSource<CommandAckMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
             if (!awaitingAck.TryAdd(command.CommandId, ack))
@@ -355,6 +368,7 @@ namespace Halcyonic.Client
                             lock (gate)
                             {
                                 commandChannel = transport;
+                                channelJournal = welcome.Journal?.JournalId;
                             }
                             Enqueue(welcome);
                             live = welcome.Resumed;
@@ -425,6 +439,7 @@ namespace Halcyonic.Client
                 lock (gate)
                 {
                     commandChannel = null;
+                    channelJournal = null;
                 }
                 foreach (var pair in awaitingAck)
                 {

@@ -135,6 +135,33 @@ public class RealtimeSessionTests
     }
 
     [Test]
+    public async Task ACommandDecidedOnOneJournalIsNotSentOnAReconnectWelcomedToAnotherBeforeItsSnapshotIsApplied()
+    {
+        StartSession();
+        var first = await ConnectLiveAsync(Samples.Snapshot(5));
+        first.Close("1012 restarting");
+
+        var second = await server.AcceptAsync();
+        await second.ReceiveFromClientAsync();
+        const string otherJournal = "01a0dcf1-5a80-7000-8000-0000000000ff";
+        // The welcome opens the command channel at once; the snapshot that moves the state comes after.
+        second.Send(Samples.Welcome(resumed: false, head: 2, journalId: otherJournal));
+        await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.Synchronizing, "welcomed to another journal, its snapshot still to come");
+        Assert.That(session.State.Journal!.JournalId, Is.EqualTo(Samples.JournalId), "the state still shows the last journal");
+        var decided = new CommandFactory(Samples.Client).CreateProject("Halcyonic");
+        Assert.ThrowsAsync<SessionUnavailableException>(() => session.SubmitAsync(decided), "not sent, so it can be tried again on what shows next");
+
+        second.Send(new SnapshotMessage { Snapshot = Samples.Snapshot(2, journal: Samples.Journal(otherJournal)) });
+        await Pumping.Until(session, s => s.Status.IsLive && s.State.Journal?.JournalId == otherJournal, "the other journal is live");
+        var next = new CommandFactory(Samples.Client).CreateProject("Halcyonic");
+        var submitted = session.SubmitAsync(next);
+        var sent = await second.ReceiveFromClientAsync();
+        Assert.That((string?)sent["command"]!["command_id"], Is.EqualTo(next.CommandId), "the command decided on the last journal never reached this one");
+        second.Send(new CommandAckMessage { CommandId = next.CommandId, Disposition = CommandAckDisposition.Accepted, Command = null });
+        Assert.That((await submitted).Disposition, Is.EqualTo(CommandAckDisposition.Accepted));
+    }
+
+    [Test]
     public async Task ACommandResolvesWithItsAcknowledgement()
     {
         StartSession();

@@ -108,7 +108,10 @@ the same definition names, as the JSON Schema document:
   changes only by replacing state from a snapshot or from the entity changes an event carries; it
   never derives state.
 - **Commands.** `SubmitAsync` sends a command and waits for its acknowledgement. It fails
-  immediately when not connected, and reports `CommandOutcomeUnknownException` when the connection
+  immediately, not sent, when not connected, or when the connection was welcomed to another journal
+  than the one `State` shows: a reconnect opens its command channel on the welcome, before its
+  snapshot is applied, and a command decided on the last journal's state must never reach the next.
+  It reports `CommandOutcomeUnknownException` when the connection
   drops or the acknowledgement does not arrive in time; resubmitting the same command, with the
   same id, then reports its real state. A command's outcome arrives later as events in `State`.
 - **`CharacterPresenter`** maps a workstream to what its character conveys: an activity, the
