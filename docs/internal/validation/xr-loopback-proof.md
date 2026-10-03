@@ -44,13 +44,20 @@
   went over the impostor's kept connection (a relaying impostor would then have received the
   token, as the reviewer showed); now the next request opens its own connection, the control
   plane proves itself, and the kept connection carries nothing more.
-- `ClientWebSocketTransport` asks the proof on a connection of its own just before the upgrade, and
-  sets no proxy for it; the REST read that tells a 401 from a control plane that does not answer
-  goes through `LoopbackProofHandler`. On the headset, `ClientWebSocket` never uses a proxy anyway
-  and follows no redirect: in `unityaot-linux/System.dll`, `WebSocketHandle.ConnectAsyncCore`
-  connects with `ConnectSocketAsync(uri.Host, port)` and reads no proxy, and
-  `ParseAndValidateConnectResponseAsync` throws "Unable to connect to the remote server" unless the
-  status line starts with `HTTP/1.1 101`.
+- `LoopbackWebSocketTransport`, which replaced the transport over `ClientWebSocket`, asks the proof
+  on a connection of its own and performs the upgrade with the token on that same connection, so
+  the realtime path has no moment between proof and token either; a 401 is read from the upgrade's
+  own answer. Node accepts the upgrade as the second request on a kept-alive connection: every live
+  session test reaches the real control plane this way. The transport it replaced asked the proof
+  just before `ClientWebSocket` opened a connection of its own (which, in
+  `unityaot-linux/System.dll`, reads no proxy and accepts only `HTTP/1.1 101`, so it follows no
+  redirect).
+- `Http1`, shared with the pinned transports, refuses a response framed more than one way (two
+  lengths, or a length with chunks), a transfer coding other than chunked, a folded header, a bare
+  line break in the head, a chunk size longer than 8 hex digits or longer data than its size, and
+  reads a trailer to its blank line, so a request that follows on the connection reads its own
+  answer. Only 127.0.0.1 and ::1 themselves are loopback addresses here, not the rest of
+  127.0.0.0/8. Mutations that undo each of these fail the tests.
 - Another program on the port answering everything receives only `GET /api/health` with a
   challenge from the REST client, the transport and a session, never the token or an
   authorization header. The session stops with `AccessRefused` and
@@ -77,16 +84,15 @@ On a Quest; the check is in XR_DEVELOPMENT.md, "Token storage on a Quest":
 - that the control plane sees a connection through `adb reverse tcp:47800 tcp:47800` arrive at
   127.0.0.1:47800, so the proof holds over USB (inferred from adb dialling the Mac's loopback for
   a `tcp:` target, IPv4 first, and the control plane listening on 127.0.0.1);
-- that the REST requests' own HTTP over `TcpClient`, `HMACSHA256` and
+- that the REST requests' own HTTP and the WebSocket upgrade over `TcpClient`, `HMACSHA256` and
   `CryptographicOperations.FixedTimeEquals` work under IL2CPP on the headset (the APK compiles
-  them; REST has not run on a headset before either, through `HttpClient`);
+  them; REST has not run on a headset before either, through `HttpClient`, while the realtime path
+  this replaces, over `ClientWebSocket`, had);
 - how Mono's `NetworkStream` ends a read when the connection is closed to cancel it; the handler
   reports a cancellation whatever the exception, but this is inferred for Mono, not seen.
 
 ## Risks that remain
 
-- The moment between the realtime upgrade's proof and the upgrade, which opens its own connection,
-  as for the command-line clients. REST requests have no such moment.
 - The proof's address binding does not reach across `adb reverse`: anything that routes to the
   Mac's 47800, a second reverse mapping as much as an `ssh -L`, `socat` or a proxy on the Mac, lets
   whatever listens on the headset's 127.0.0.1:47800 relay a valid proof. And the Mac's adb server

@@ -44,7 +44,7 @@ namespace Halcyonic.Client
                 head = await Http1.ReadHeadAsync(connection.Stream, cancellationToken).ConfigureAwait(false);
                 content = await Http1.ReadBodyAsync(connection.Stream, head, maxResponseBytes, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception error) when ((error is IOException || error is InvalidDataException || error is FormatException) && !cancellationToken.IsCancellationRequested)
+            catch (Exception error) when ((error is IOException || error is InvalidDataException || error is FormatException || error is OverflowException) && !cancellationToken.IsCancellationRequested)
             {
                 // As other handlers report a connection that failed, a certificate mismatch included,
                 // or an answer too large or not HTTP.

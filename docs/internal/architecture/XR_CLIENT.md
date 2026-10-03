@@ -95,10 +95,8 @@ the same definition names, as the JSON Schema document:
   status says `AccessRefused`, with what to do in `ConnectionText`'s words: for the access token
   "Your computer refused this headset's access code: it doesn't match your computer's. Put your
   computer's current access code on the headset, then restart the app."; for a pairing, that the
-  Mac no longer accepts it and to forget the Mac and pair again. `ClientWebSocket` reports only
-  that it could not connect, so after a failed connect `ClientWebSocketTransport` asks the control
-  plane's REST API once with the same token, after a proof of its own, to tell a 401 from a Mac
-  that does not answer; the pinned transport reads the status itself. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
+  Mac no longer accepts it and to forget the Mac and pair again. Both transports perform the
+  upgrade themselves, so they read the 401 from the upgrade's own answer. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
   reason after it. In the fifth headset session a stale token read as "Unable to connect to the
   remote server" ([quest-3-device.md](../validation/quest-3-device.md)).
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
@@ -801,10 +799,14 @@ the same definition names, as the JSON Schema document:
   …"). **`IntelligenceText`** makes every text from a source plain by `LabelText`'s rule, so a
   bidirectional override or a zero width character in it shows as its code point and markup as
   written.
-- **`ClientWebSocketTransport`** implements `IRealtimeTransport` over `ClientWebSocket` with the
-  bearer token on the upgrade request. `ClientWebSocket` works under IL2CPP on a Quest 3
-  ([quest-3-device.md](../validation/quest-3-device.md)), over `ws://`, the USB path. It cannot pin
-  a certificate on the headset, so paired connections use the pinned transports below.
+- **`LoopbackWebSocketTransport`** implements `IRealtimeTransport` for the access token over
+  `ws://`, the USB path: it opens a connection to the literal loopback address, has the control
+  plane prove it holds the token on it (`LoopbackProof`), then performs the upgrade with the token on
+  that same connection (`WebSocketUpgrade`) and frames messages with `WebSocket.CreateFromStream`, as
+  the pinned transport does over TLS. It replaced a transport over `ClientWebSocket`, which works
+  under IL2CPP on a Quest 3 ([quest-3-device.md](../validation/quest-3-device.md)) but opens a
+  connection of its own after the proof; `CreateFromStream` is the same `ManagedWebSocket`
+  `ClientWebSocket` used, and the upgrade over a plain socket has not yet run on a headset.
 - **Pairing over the network**
   ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md),
   [network-pairing.md](../validation/network-pairing.md)). `PairingClient.PairAsync` takes the
@@ -826,7 +828,7 @@ the same definition names, as the JSON Schema document:
   `ClientWebSocketOptions.RemoteCertificateValidationCallback` and throw inside
   `HttpClientHandler.ServerCertificateCustomValidationCallback`.
 - **`ControlPlaneTarget`** is where a session connects and how it proves itself: `Local`, the
-  access token over `ClientWebSocketTransport` as over USB, or `Paired`, the device credential over
+  access token over `LoopbackWebSocketTransport` as over USB, or `Paired`, the device credential over
   the pinned transports. It creates the session's transports and the `ControlPlaneApi`, and
   `SameAs` tells whether a client made for one target serves another.
 - **`IPairingStore`** keeps the pairing, credential included; `FilePairingStore` writes it as one

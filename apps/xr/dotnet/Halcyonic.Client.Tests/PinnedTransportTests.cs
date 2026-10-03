@@ -137,7 +137,7 @@ public class PinnedTransportTests
     public void TargetsUseThePinnedTransportsOnlyForAPairing()
     {
         var local = ControlPlaneTarget.Local(new Uri("ws://127.0.0.1:47800/realtime"), "token");
-        using (var transport = local.CreateTransport()) Assert.That(transport, Is.TypeOf<ClientWebSocketTransport>());
+        using (var transport = local.CreateTransport()) Assert.That(transport, Is.TypeOf<LoopbackWebSocketTransport>());
         var pairing = new PairedControlPlane("192.168.1.23", 47801, new string('c', 64), "01a0f0a0-0000-7000-8000-000000000001", "hlcd_" + new string('A', 43));
         var paired = ControlPlaneTarget.Paired(pairing);
         using (var transport = paired.CreateTransport()) Assert.That(transport, Is.TypeOf<PinnedWebSocketTransport>());

@@ -57,12 +57,13 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The address and port <paramref name="uri"/> dials as the proof names them, 127.0.0.1:47800 or
-        /// [::1]:47800; null unless its host is a literal loopback address, the only kind the token goes
-        /// to. An IPv4 address written as IPv6 is refused, since the control plane's host check refuses it.
+        /// [::1]:47800; null unless its host is exactly 127.0.0.1 or ::1, the only addresses the token
+        /// goes to. Another address in 127.0.0.0/8, or 127.0.0.1 written as IPv6, is refused.
         /// </summary>
         public static string? AddressOf(Uri uri)
         {
-            if (!IPAddress.TryParse(uri.Host.Trim('[', ']'), out var address) || address.IsIPv4MappedToIPv6 || !IPAddress.IsLoopback(address)) return null;
+            if (!IPAddress.TryParse(uri.Host.Trim('[', ']'), out var address)
+                || !(address.Equals(IPAddress.Loopback) || address.Equals(IPAddress.IPv6Loopback))) return null;
             var port = uri.Port.ToString(CultureInfo.InvariantCulture);
             return address.AddressFamily == AddressFamily.InterNetworkV6 ? "[" + address + "]:" + port : address + ":" + port;
         }
@@ -260,7 +261,7 @@ namespace Halcyonic.Client
                 // Closing the connection is how a cancelled read ends; say it was cancelled.
                 throw new OperationCanceledException(cancellationToken);
             }
-            catch (Exception error) when (error is IOException || error is SocketException || error is ObjectDisposedException || error is InvalidDataException || error is FormatException)
+            catch (Exception error) when (error is IOException || error is SocketException || error is ObjectDisposedException || error is InvalidDataException || error is FormatException || error is OverflowException)
             {
                 // A connection that failed, or an answer too large or not HTTP: one that could not be read.
                 throw new HttpRequestException(error.Message, error);

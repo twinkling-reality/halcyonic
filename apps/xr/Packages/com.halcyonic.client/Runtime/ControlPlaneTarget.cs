@@ -83,7 +83,7 @@ namespace Halcyonic.Client
             new ControlPlaneTarget(pairing.RealtimeEndpoint, pairing.Credential, pairing);
 
         public IRealtimeTransport CreateTransport() =>
-            Pairing == null ? (IRealtimeTransport)new ClientWebSocketTransport() : new PinnedWebSocketTransport(Pairing.CertificateSha256);
+            Pairing == null ? (IRealtimeTransport)new LoopbackWebSocketTransport() : new PinnedWebSocketTransport(Pairing.CertificateSha256);
 
         public RealtimeSession CreateSession(ClientInfo client) =>
             new RealtimeSession(

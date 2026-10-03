@@ -81,7 +81,7 @@ namespace Halcyonic.Client
         public RealtimeSession(RealtimeSessionOptions options, Func<IRealtimeTransport>? createTransport = null)
         {
             this.options = options;
-            this.createTransport = createTransport ?? (() => new ClientWebSocketTransport());
+            this.createTransport = createTransport ?? (() => new LoopbackWebSocketTransport());
         }
 
         public ClientProjection State { get; } = new ClientProjection();

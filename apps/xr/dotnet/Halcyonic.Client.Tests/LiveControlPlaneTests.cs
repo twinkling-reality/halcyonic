@@ -56,7 +56,7 @@ public class LiveControlPlaneTests
         };
         session = new RealtimeSession(options, () =>
         {
-            var transport = new RecordingTransport(new ClientWebSocketTransport());
+            var transport = new RecordingTransport(new LoopbackWebSocketTransport());
             lock (connections) connections.Add(transport);
             return transport;
         });

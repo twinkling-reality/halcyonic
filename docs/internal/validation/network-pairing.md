@@ -201,7 +201,8 @@ shutdown waits for the idle timeout, now 60 seconds; without that timeout it wai
 ## Consequences
 
 - Keep `ClientWebSocketTransport` for `ws://` over USB, which works; use the pinned transports for
-  every paired connection. Do not pass certificate callbacks to `ClientWebSocket` or
+  every paired connection. (Since 2026-10-02 the USB path performs the upgrade itself too, on the
+  connection the loopback proof was asked on: [xr-loopback-proof.md](xr-loopback-proof.md).) Do not pass certificate callbacks to `ClientWebSocket` or
   `HttpClientHandler` anywhere in the XR client.
 - A check of certificate handling in the editor is not a check of the headset where the class
   libraries differ; this record names where they do.
