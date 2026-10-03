@@ -354,7 +354,9 @@ describe("the secrets taken out of a runtime's text", () => {
       'OPENAI_APIKEY',
       'proxy_auth',
     ];
-    for (const name of secret) assert.ok(secretName(name), name);
+    for (const name of [...secret, 'ANTHROPIC_CUSTOM_HEADERS', 'EXTRA_HEADER']) {
+      assert.ok(secretName(name), name);
+    }
     const plain = [
       'GIT_AUTHOR_NAME',
       'ANTHROPIC_BASE_URL',
@@ -363,5 +365,27 @@ describe("the secrets taken out of a runtime's text", () => {
       'PATH',
     ];
     for (const name of plain) assert.ok(!secretName(name), name);
+  });
+
+  test('hold a header variable whole, and each part of any agent value that reads as a credential', () => {
+    const token = 'q7Xk2pLm9vRt4wZb8nHc3jYd';
+    const environment = {
+      ...HOST,
+      ANTHROPIC_CUSTOM_HEADERS: `Authorization: Bearer ${token}`,
+      GATEWAY_OPTIONS: `region=us-east-1; key=${token}x, retries=3`,
+    };
+    const config = loadConfig({
+      ...HOST,
+      HALCYONIC_AGENT_ENV: 'ANTHROPIC_CUSTOM_HEADERS,GATEWAY_OPTIONS',
+    });
+    const dataDir = join(base, 'parts');
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    // Ordinary words such as "Authorization", "Bearer" and a region are never held.
+    assert.deepEqual(held.slice(1), [
+      { what: 'ANTHROPIC_CUSTOM_HEADERS', value: `Authorization: Bearer ${token}` },
+      { what: 'ANTHROPIC_CUSTOM_HEADERS', value: token },
+      { what: 'GATEWAY_OPTIONS', value: `${token}x` },
+    ]);
   });
 });

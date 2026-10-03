@@ -167,7 +167,12 @@ const SECRET_WORDS: ReadonlySet<string> = new Set([
   'CREDENTIALS',
   'COOKIE',
   'SESSION',
+  'HEADER',
+  'HEADERS',
 ]);
+
+/** Where a value such as `Authorization: Bearer token` or `a=1; b=2` divides into parts. */
+const VALUE_PARTS = /[\s:,;=]+/;
 
 /** Whether a variable's name reads as a secret's: one of its words is in SECRET_WORDS. */
 export function secretName(name: string): boolean {
@@ -182,7 +187,8 @@ export function secretName(name: string): boolean {
  * taken out of a runtime's text before a device sees it (core/redaction.ts): the access token, the
  * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
  * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
- * themselves, under their variable's name. An address or a region passed to agents, such as
+ * themselves, and each part of one that reads as a credential by itself, as the value of a header
+ * in `Name: value`, all under their variable's name. An address or a region passed to agents, such as
  * ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
  * since a server's password changes with each launch and a credential when it is replaced; a file
  * that can't be read gives nothing. Device credentials are kept only as hashes, so their shape is
@@ -194,9 +200,14 @@ export function heldSecrets(
   accessToken: string,
   adapters: readonly RuntimeAdapter[],
 ): () => HeldSecret[] {
-  const agentValues = Object.entries(passThrough(config.agentEnvironment, dependencies.environment))
-    .filter(([name, value]) => secretName(name) || looksLikeCredential(value))
-    .map(([name, value]) => ({ what: name, value }));
+  const agentValues = Object.entries(
+    passThrough(config.agentEnvironment, dependencies.environment),
+  ).flatMap(([name, value]) =>
+    [
+      ...(secretName(name) || looksLikeCredential(value) ? [value] : []),
+      ...value.split(VALUE_PARTS).filter((part) => part !== value && looksLikeCredential(part)),
+    ].map((held) => ({ what: name, value: held })),
+  );
   return () => {
     let anthropic: string | undefined;
     try {
