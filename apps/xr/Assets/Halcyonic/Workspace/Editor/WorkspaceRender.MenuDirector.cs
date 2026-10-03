@@ -87,14 +87,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
                 StubColumn? file = null;
+                float? made = null;
+                var sent = new List<CommandEnvelope>();
                 var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
                 {
                     Commands = new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }),
                     Overview = () => overview,
                     ReadLocations = _ => System.Threading.Tasks.Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     Comfort = comfort,
-                    File = (host, task) => file = new StubColumn(() => WaitingFile(opened.View.Presentation!.Title, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
-                        host.PageHeight(host.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), besideMenu: false))),
+                    File = (host, task) =>
+                    {
+                        // The file reads its page height while it is made: against its own character's top line.
+                        made = host.PageHeight(1, besideMenu: false);
+                        return file = new StubColumn(() => WaitingFile(opened.View.Presentation!.Title, StateLanguage.BadgeOf(opened.View.Presentation!), chosen: false,
+                        host.PageHeight(host.TitleRows(opened.View.Presentation!.Title, Glaze.Menu.FileColumnDegrees), besideMenu: false)));
+                    },
+                    Submit = command =>
+                    {
+                        sent.Add(command);
+                        return null;
+                    },
+                    Demonstration = () => true,
                     State = () => state,
                     StageNow = () => new MenuDirector.Stage(eyes, opened.Target.BodyPosition - eyes, targets, surface, false),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
@@ -115,6 +128,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.Navigator.Act(MenuColumn.Menu, TasksColumn.OpenTask, opened.View.WorkstreamId);
                 director.DrawNow();
                 if (file == null || director.Navigator.Beside != file) failures.Add(name + ": pressing the waiting task's row opened no file beside the menu.");
+                var expected = MenuPage.Height(comfort.Text, 1, MenuPlane.TopLine(opened.Target, targets, eyes, opened.Target.BodyPosition - eyes, surface), ViewField.Current);
+                if (made is not float height || Mathf.Abs(height - expected) > 1e-5f)
+                {
+                    failures.Add(name + ": the file read its page height as " + made + " while it was made, not against its own character's top line (" + expected + ").");
+                }
+
+                // In the demonstration a column's send still goes through the host's submissions, to the demonstration's session.
+                director.Submit(new CommandFactory(new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" }).SendInstruction("render-execution", "Carry on"));
+                if (sent.Count != 1) failures.Add(name + ": in the demonstration, a column's send did not reach the host's submissions.");
                 else
                 {
                     if (file.Last == null || !file.DrawnFrames.Any(drawn => drawn.Frame == file.Last && !drawn.Side))
