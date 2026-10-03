@@ -63,9 +63,6 @@ namespace Halcyonic.Client
         private readonly Dictionary<int, HashSet<int>> answersRead = new Dictionary<int, HashSet<int>>();
         private readonly Dictionary<int, string> typedRead = new Dictionary<int, string>();
         private readonly Dictionary<int, (string Words, int Rows, int SideRows)> typedRows = new Dictionary<int, (string Words, int Rows, int SideRows)>();
-
-        /// <summary>The words of each prompt's typed answer whose side panel the person closed, so a rebuild leaves it closed.</summary>
-        private readonly Dictionary<int, string> typedClosed = new Dictionary<int, string>();
         private PageBudget side = new RowBudget(1);
         private int? sideOption;
         private readonly Dictionary<(int Prompt, int Option), HashSet<int>> sidePartsDrawn = new Dictionary<(int Prompt, int Option), HashSet<int>>();
@@ -218,7 +215,6 @@ namespace Halcyonic.Client
                 answersRead.Clear();
                 typedRead.Clear();
                 typedRows.Clear();
-                typedClosed.Clear();
                 reviewDrawn.Clear();
                 sidePartsDrawn.Clear();
                 sideOption = null;
@@ -359,25 +355,51 @@ namespace Halcyonic.Client
             if (!(draft?.Typed(prompt) is string typed)) return;
             // Every rebuild measures again: only new words open the panel, from their first part, and
             // what was drawn of the old words counts for nothing. The same words leave it as the person
-            // has it, closed or on the part they turned to.
+            // has it, closed or on the part they turned to; reopening it is the row's, or coming back to
+            // the prompt (OpenTypedIfUnread).
             var fresh = !typedRows.TryGetValue(prompt, out var before) || before.Words != typed;
             typedRows[prompt] = (typed, Math.Max(1, measured), Math.Max(1, sideMeasured));
             var index = draft.Prompts[prompt].Options.Count;
             if (fresh) sidePartsDrawn.Remove((prompt, index));
             if (prompt != Prompt || Reviewing || QuestionPart != null) return;
-            if (fresh) typedClosed.Remove(prompt);
             if (!TypedCut(prompt))
             {
                 if (sideOption == index) sideOption = null;
             }
             else if (fresh) OpenSide(index);
-            else if (sideOption == index)
-            {
-                if (SidePart >= SideParts) SidePart = Math.Max(0, SideParts - 1);
-            }
-            // Back on the prompt with nothing beside it, the panel opens again, unless the person
-            // closed it for these words.
-            else if (sideOption == null && !(typedClosed.TryGetValue(prompt, out var closed) && closed == typed)) OpenSide(index);
+            else if (sideOption == index && SidePart >= SideParts) SidePart = Math.Max(0, SideParts - 1);
+        }
+
+        /// <summary>
+        /// The typed answer's row pressed while its words are cut and not yet read to their end: its side
+        /// panel opens again at the first part not yet drawn, so a panel closed early never traps the
+        /// person, and nothing more happens. False once they are read whole, or short, or nothing is
+        /// typed: then the row edits them.
+        /// </summary>
+        public bool ReopenTyped()
+        {
+            if (draft == null || Reviewing || QuestionPart != null || !TypedUnread(Prompt)) return false;
+            var index = draft.Prompts[Prompt].Options.Count;
+            if (sideOption != index) OpenAtUnread(index);
+            return true;
+        }
+
+        /// <summary>Back on a prompt whose typed answer is cut and unread, its side panel opens at the first part not yet drawn.</summary>
+        private void OpenTypedIfUnread()
+        {
+            if (draft == null || Reviewing || QuestionPart != null || Prompt >= draft.Prompts.Count || !TypedUnread(Prompt)) return;
+            OpenAtUnread(draft.Prompts[Prompt].Options.Count);
+        }
+
+        private bool TypedUnread(int prompt) =>
+            TypedCut(prompt) && !(typedRead.TryGetValue(prompt, out var read) && read == draft!.Typed(prompt));
+
+        /// <summary>Opens a side panel at the first of its parts not yet drawn.</summary>
+        private void OpenAtUnread(int option)
+        {
+            OpenSide(option);
+            var drawn = sidePartsDrawn.TryGetValue((Prompt, option), out var parts) ? parts : new HashSet<int>();
+            while (SidePart < SideParts - 1 && drawn.Contains(SidePart)) SidePart++;
         }
 
         /// <summary>
@@ -508,6 +530,7 @@ namespace Halcyonic.Client
             QuestionPart = part + 1 < QuestionParts(Prompt) ? part + 1 : (int?)null;
             Page = 0;
             Turned();
+            OpenTypedIfUnread();
         }
 
         /// <summary>
@@ -525,18 +548,10 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The chosen answer's side panel closed: the page shows again, the answer still chosen. A typed
-        /// answer's stays closed while its words stay the same.
+        /// The chosen answer's side panel closed: the page shows again, the answer still chosen, and
+        /// stays, whatever else is chosen or typed, until a row or coming back to the prompt opens one.
         /// </summary>
-        public void CloseSide()
-        {
-            if (draft != null && Prompt < draft.Prompts.Count && sideOption == draft.Prompts[Prompt].Options.Count
-                && draft.Typed(Prompt) is string typed)
-            {
-                typedClosed[Prompt] = typed;
-            }
-            sideOption = null;
-        }
+        public void CloseSide() => sideOption = null;
 
         /// <summary>The row on to the next question, or after the last, to the person's answers.</summary>
         public void NextQuestion(DateTimeOffset now)
@@ -547,6 +562,7 @@ namespace Halcyonic.Client
             sideOption = null;
             QuestionPart = !Reviewing && QuestionParts(Prompt) > 0 && !draft.WasShownWhole(Prompt) ? 0 : (int?)null;
             Turned();
+            OpenTypedIfUnread();
         }
 
         /// <summary>From the person's answers back to a prompt, at its first page of answers.</summary>
@@ -559,6 +575,7 @@ namespace Halcyonic.Client
             QuestionPart = QuestionParts(prompt) > 0 && !draft.WasShownWhole(prompt) ? 0 : (int?)null;
             Land(draft);
             Turned();
+            OpenTypedIfUnread();
         }
 
         /// <summary>Every answer chosen or typed for the prompt has been read whole: a cut one or a long typed one in its side panel.</summary>

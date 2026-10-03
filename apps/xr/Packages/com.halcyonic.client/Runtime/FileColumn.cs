@@ -144,6 +144,9 @@ namespace Halcyonic.Client
                     // Only an answer on the page in view is taken; nothing is sent.
                     question.Choose(option);
                     break;
+                case FileScreens.TypeAnswer when draft != null && question.ReopenTyped():
+                    // Words cut and not yet read to their end: their side panel again, at the part to read next.
+                    break;
                 case FileScreens.TypeAnswer when draft != null && !host.KeyboardOffered:
                     // A row holding words heard stays their choice; no keyboard is asked to open.
                     break;
