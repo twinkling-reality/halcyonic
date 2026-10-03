@@ -113,6 +113,13 @@ describe('error text before it is journaled', () => {
     ];
     for (const text of kept) assert.equal(redactSecrets(text, []), text, text);
     assert.equal(redactSecrets('token abc123def456', []), `token ${REDACTED}`);
+    // A full stop that ends a sentence is no path's, and stays outside what is replaced.
+    assert.equal(redactSecrets('Basic dXNlcjpwYXNz/d29yZA==.', []), `Basic ${REDACTED}.`);
+    assert.equal(
+      redactSecrets('Bearer ab/cd+ef12GH34ij56==. Next', []),
+      `Bearer ${REDACTED}. Next`,
+    );
+    assert.equal(redactSecrets('Bearer abc.DEF-123_xyz.', []), `Bearer ${REDACTED}.`);
     // Base64 has no `.` and a JSON Web Token no `/`, so either alone is still a credential.
     assert.equal(redactSecrets('Bearer ab/cd+ef12==', []), `Bearer ${REDACTED}`);
     assert.equal(redactSecrets('Bearer abc.DEF-123_xyz', []), `Bearer ${REDACTED}`);
