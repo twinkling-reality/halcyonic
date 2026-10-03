@@ -165,6 +165,13 @@ namespace Halcyonic.Client
             return "This question can't be answered from here. Press Stop to go on.";
         }
 
+        /// <summary>
+        /// Whether a question can be answered from the headset: the runtime says it can, and no prompt
+        /// asks for something secret, whatever an adapter says, since what is typed or said here is
+        /// journaled. Every place that offers or sends an answer asks this, never the flag alone.
+        /// </summary>
+        public static bool Answerable(QuestionView question) => question.Answerable && !question.Prompts.Any(prompt => prompt.Secret);
+
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>
         public const string AgentWaits = "It's waiting for an answer.";
 

@@ -185,7 +185,7 @@ namespace Halcyonic.Client
                 else Body(model, workspace, screen, shown, confirming: steering.Armed != null);
                 // The agent's question with its answers: hold to talk there speaks the answer, beside it.
                 answering = shown == WorkspaceQuestion.NeedFromYou && !(WorkspaceText.NeedFromYou(workspace) is NeedAnswer)
-                    && Asked(workspace, screen)?.Question.Answerable == true;
+                    && Asked(workspace, screen) is QuestionDraft shownDraft && WorkspaceText.Answerable(shownDraft.Question);
             }
             Bar(model, workspace, steering, screen, answering);
             return model;
@@ -422,7 +422,7 @@ namespace Halcyonic.Client
             model.Columns = 2;
             model.Rows.Add(new PanelRow { Line = true, Title = parts[Math.Min(place.TextPart, parts.Count - 1)], TitleIsData = true, TitleLines = QuestionLines });
             model.PartsHeading = WorkspaceText.PromptHeading(draft.Question, prompt);
-            if (!draft.Question.Answerable)
+            if (!WorkspaceText.Answerable(draft.Question))
             {
                 model.Rows.Add(new PanelRow { Line = true, Title = WorkspaceText.CannotAnswer(draft.Question), TitleLines = 2, Tone = GlazeTone.Attention });
                 model.PartsNote = WorkspaceText.AgentWaits;

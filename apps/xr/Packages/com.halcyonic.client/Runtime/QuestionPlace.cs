@@ -71,7 +71,7 @@ namespace Halcyonic.Client
             get
             {
                 var shown = new List<int>();
-                if (draft == null || !draft.Question.Answerable) return shown;
+                if (draft == null || !WorkspaceText.Answerable(draft.Question)) return shown;
                 var prompt = Prompt;
                 var count = AnswerCount(prompt);
                 for (var index = AnswerPage * AnswersPerPage; index < count && shown.Count < AnswersPerPage; index++) shown.Add(index);
@@ -147,7 +147,7 @@ namespace Halcyonic.Client
         /// <summary>Pages of a prompt's answers: one, holding none, for a question Halcyonic can't answer.</summary>
         private int AnswerPages(int prompt)
         {
-            if (draft == null || !draft.Question.Answerable) return 1;
+            if (draft == null || !WorkspaceText.Answerable(draft.Question)) return 1;
             return Math.Max(1, (AnswerCount(prompt) + AnswersPerPage - 1) / AnswersPerPage);
         }
 

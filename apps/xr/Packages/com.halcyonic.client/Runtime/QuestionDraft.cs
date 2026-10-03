@@ -112,7 +112,7 @@ namespace Halcyonic.Client
         {
             get
             {
-                if (!Question.Answerable) return WorkspaceText.CannotAnswer(Question);
+                if (!WorkspaceText.Answerable(Question)) return WorkspaceText.CannotAnswer(Question);
                 var unanswered = Enumerable.Range(0, Prompts.Count).Count(prompt => !IsAnswered(prompt));
                 if (unanswered > 0)
                 {

@@ -349,8 +349,9 @@ the same definition names, as the JSON Schema document:
   the main action, Deny beside it and Stop beside Close, and while a decision sent on it may still
   take effect, Sent… in Approve's place and no Deny, so a second decision never races the first
   (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
-  rows to choose, Send answer as the main action and Hold to talk beside it (never while it asks
-  for a secret), Sent… in its place, taking no press, while an answer sent may still take effect.
+  rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
+  secret prompt can't be answered here whatever its adapter says (`WorkspaceText.Answerable`, asked
+  by every place that offers or sends an answer): it shows why and the way on, Stop; Sent… in its place, taking no press, while an answer sent may still take effect.
   The question shows a prompt at a time (`FileQuestion`): its question quoted heading every page in
   at most two rows, a longer one cut and opening all of it beside the page; its answers in the
   agent's order, none left out, each in at most two rows, paged by a row at the page's end ("More

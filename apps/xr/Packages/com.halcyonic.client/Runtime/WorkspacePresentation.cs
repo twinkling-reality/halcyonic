@@ -209,7 +209,7 @@ namespace Halcyonic.Client
                 actions.Add(WorkspaceAction.Deny);
             }
             if (capabilities.AnswerQuestion && status == ExecutionStatus.WaitingForHuman
-                && execution.PendingQuestions.FirstOrDefault()?.Answerable == true)
+                && execution.PendingQuestions.FirstOrDefault() is QuestionView asked && WorkspaceText.Answerable(asked))
             {
                 actions.Add(WorkspaceAction.Answer);
             }
