@@ -123,7 +123,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether a press of <paramref name="id"/> may act now: the frame built from the same state shows
-        /// that prompt, or a row raising it, and it is available. The menu asks this before it acts on any
+        /// that prompt, or a row raising it, or the side panel whose own Close it is, and it is available. The menu asks this before it acts on any
         /// press, so a stale press, a second Connect after the first was sent, a Connect while another
         /// folder's outcome is unknown, or Add a task in the demonstration does nothing.
         /// </summary>
@@ -131,7 +131,9 @@ namespace Halcyonic.Client
         {
             var frame = Projects(state);
             return frame.Footer.All.Any(each => each.Prompt.Id == id && each.Prompt.Available)
-                || frame.Lines.Any(line => line.Action == id && line.Pressable);
+                || frame.Lines.Any(line => line.Action == id && line.Pressable)
+                // A side panel's own Close, while one shows.
+                || (id == SidePanel.Close && frame.Side != null);
         }
 
         /// <summary>The chosen row as <see cref="Projects"/> shows it and the menu acts on it.</summary>
