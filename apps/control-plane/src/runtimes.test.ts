@@ -19,7 +19,7 @@ import { CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { RuntimeActionError } from '@halcyonic/runtime-core';
 import { ConfigError, loadConfig } from './config.ts';
-import { redactSecrets } from './core/redaction.ts';
+import { looksLikeCredential, redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
 import {
   ANTHROPIC_KEY_FILE,
@@ -457,7 +457,7 @@ describe("the secrets taken out of a runtime's text", () => {
     );
   });
 
-  test('hold escaped, comma-holding, command-line and more-keyed secrets, and never an absolute path', () => {
+  test('hold escaped, comma-holding, command-line and more-keyed secrets, and an absolute path only as a value held by name or key', () => {
     const random = 'q7Xk2pLm9vRt4wZb8nHc';
     const environment = {
       ...HOST,
@@ -471,6 +471,11 @@ describe("the secrets taken out of a runtime's text", () => {
       TOOL_ARGS: "mysql --host db --password hunter2pass --api-key 'k3y-value-123' --user app",
       ENV_FILE: 'PWD=/Users/me/project; HOME=/Users/me',
       SSH_AUTH_SOCK: '/private/tmp/com.apple.launchd.abc/Listeners',
+      // A base64 secret starts with / about once in 64: held by its name all the same.
+      AWS_SECRET_ACCESS_KEY: '/k7XpQ2aLm9vRt4wZb8nHc3jYd6fGs1aKe5uNo0iV',
+      DB_PASSWORD: '/aB3+xY9qLm2Zt7Rk4Wd8Hc1Vn',
+      // A path that reads as random, among a value's parts, is a place: not held.
+      CACHE_OPTIONS: 'cache at /Q7xK2pLm9vRt4wZb8nHc3jYd',
     };
     const config = loadConfig({
       ...HOST,
@@ -479,7 +484,7 @@ describe("the secrets taken out of a runtime's text", () => {
     const dataDir = join(base, 'more-keyed');
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
-    // A project's path and an agent socket's name places, never secrets.
+    assert.ok(looksLikeCredential('/Q7xK2pLm9vRt4wZb8nHc3jYd'), 'the path part reads as random');
     assert.deepEqual(held.slice(1), [
       { what: 'SERVICE_JSON', value: 'pa\\"ss12345word' },
       { what: 'SERVICE_JSON', value: 'pa"ss12345word' },
@@ -495,6 +500,11 @@ describe("the secrets taken out of a runtime's text", () => {
       { what: 'CLIENT_CONFIG', value: `${random}x` },
       { what: 'TOOL_ARGS', value: 'hunter2pass' },
       { what: 'TOOL_ARGS', value: 'k3y-value-123' },
+      // Held by a pwd key and by a secret's word in the name: over-redaction, never a leak.
+      { what: 'ENV_FILE', value: '/Users/me/project' },
+      { what: 'SSH_AUTH_SOCK', value: '/private/tmp/com.apple.launchd.abc/Listeners' },
+      { what: 'AWS_SECRET_ACCESS_KEY', value: '/k7XpQ2aLm9vRt4wZb8nHc3jYd6fGs1aKe5uNo0iV' },
+      { what: 'DB_PASSWORD', value: '/aB3+xY9qLm2Zt7Rk4Wd8Hc1Vn' },
     ]);
   });
 });
