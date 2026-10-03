@@ -78,6 +78,20 @@ lane U's screens, so the walk starts at the file a task opens. It found, off the
 - `JudgeWordsTests` reads every section, side panel and confirmation of every file on every path,
   and finds no brand name.
 
+### The whole menu on the recording (ADR 0026), 2026-10-03
+
+`JudgeMenuWalkTests` walks the live menu (`MenuNavigator` with the real Tasks, file, Usage, Projects
+and Settings columns) on the recording at both text sizes, drawing as `MenuDirector` does. In order:
+the closed bar says "1 task is waiting for you"; the menu opens on Tasks, the waiting task first;
+its row opens the file on Waiting under its pill; the question's answers lead to Send answer; then
+Deny's Yes and Cancel; then Approve's parts, with Yes only after the last; then Checks, Tell it's
+recorded rows, Usage's recorded limits ("Part of the recording"), Projects and each setting; and
+finally the closed bar, "Nothing is waiting for you." It scans every frame and side panel it drew
+and finds no brand name. It found that a press on a request's confirmation was never taken: the
+file rebuilt on every draw, so the frame drawn never stood. Lane W fixed that in 1df3bb9.
+`WorkspaceRender`'s judge walk (`far-3s judge 1 bar` to `12 closed`) draws the same steps from the
+eyes on the far Quest 3S stage. Each step is held to the plane's checks at both text sizes.
+
 ## Gaps against today's product
 
 | Area | Today in the judge build | Evidence | Who closes it |
