@@ -514,6 +514,89 @@ public class FileQuestionTests
         Assert.That(screen.Question.AnswersRead(0), Is.True);
     }
 
+    private static string LongTyped(string what) => string.Join(" ", Enumerable.Range(1, 60).Select(step => what + " " + step));
+
+    [Test]
+    public void ALongTypedAnswerUnreadOpensAgainAtThePartToReadNextOnComingBackByNextQuestion()
+    {
+        var question = new QuestionView
+        {
+            QuestionId = "question-3",
+            Answerable = true,
+            AskedAt = Samples.Time,
+            Prompts = new List<QuestionPrompt>
+            {
+                new() { Key = "q0", Header = "Notice", Text = "Should the person be told?", Options = new List<QuestionOption> { new() { Label = "Yes" } }, Multiple = false, FreeText = false },
+                new() { Key = "q1", Header = "Lockout", Text = "How long should a lockout last?", Options = new List<QuestionOption> { new() { Label = "15 minutes" } }, Multiple = false, FreeText = true },
+            },
+        };
+        var (_, _, screen, draft) = Asking(question);
+        screen.Question.NextQuestion(Later(screen));
+        draft.Type(1, LongTyped("Lock it for a minute after try"));
+        screen.Question.MeasureTyped(1, 4, 12);
+        Assert.That((screen.Question.SideOption, screen.Question.SideParts), Is.EqualTo(((int?)1, 4)));
+        screen.Question.SideDrawn(clock);
+        screen.Question.GoTo(0);
+        Assert.That(screen.Question.SideOption, Is.Null);
+        screen.Question.NextQuestion(Later(screen));
+        Assert.That((screen.Question.Prompt, screen.Question.SideOption, screen.Question.SidePart), Is.EqualTo((1, (int?)1, 1)),
+            "Next question back to it opens its panel at the first part not yet drawn");
+    }
+
+    [Test]
+    public void ALongTypedAnswerGivenWhileTheQuestionsPartsShowOpensOnceTheLastPartEnds()
+    {
+        var (_, _, screen, draft) = Asking(OnePrompt("Postgres", "SQLite"), new[] { new PromptMeasure(6, new[] { 1, 1 }, new[] { 1, 1 }) }, rows: 4);
+        Assert.That(screen.Question.QuestionPart, Is.EqualTo(0), "the long question shows in parts first");
+        draft.Type(0, LongTyped("MariaDB, for the reason"));
+        screen.Question.MeasureTyped(0, 4, 12);
+        Assert.That(screen.Question.SideOption, Is.Null, "nothing beside a part of the question");
+        for (var step = 0; step < 5 && screen.Question.QuestionPart != null; step++) screen.Question.NextPart(Later(screen));
+        Assert.That((screen.Question.QuestionPart, screen.Question.SideOption, screen.Question.SidePart), Is.EqualTo(((int?)null, (int?)2, 0)),
+            "once its last part ends, the unread typed answer's panel opens");
+    }
+
+    [Test]
+    public void ATypedAnswerEditedToFitClosesItsPanelAndItStaysClosedLaidOutLongerAgain()
+    {
+        var (_, _, screen, draft) = Asking();
+        Draw(screen);
+        draft.Type(0, LongTyped("Teal and grey, for the reason"));
+        screen.Question.MeasureTyped(0, 4, 12);
+        Assert.That(screen.Question.SideOption, Is.EqualTo(2));
+        draft.Type(0, "Teal");
+        screen.Question.MeasureTyped(0, 1, 1);
+        Assert.That(screen.Question.SideOption, Is.Null, "words that fit their row need no panel");
+        screen.Question.MeasureTyped(0, 4, 12);
+        Assert.That(screen.Question.SideOption, Is.Null, "the same words laid out longer stay closed until the row opens them");
+    }
+
+    [Test]
+    public void TypedWordsChangedForAnotherPromptOpenNothingBesideThePromptInView()
+    {
+        var (_, _, screen, draft) = Asking();
+        screen.Question.NextQuestion(Later(screen));
+        Assert.That(screen.Question.Prompt, Is.EqualTo(1));
+        screen.Question.Choose(2);
+        draft.Type(0, LongTyped("Teal and grey, for the reason"));
+        screen.Question.MeasureTyped(0, 4, 12);
+        Assert.That(screen.Question.SideOption, Is.Null, "the first prompt's typed answer opens no panel over the second prompt's answers");
+    }
+
+    [Test]
+    public void OnYourAnswersTheTypedRowReopensNothing()
+    {
+        var (_, _, screen, draft) = Asking();
+        Draw(screen);
+        draft.Type(0, LongTyped("Teal and grey, for the reason"));
+        screen.Question.MeasureTyped(0, 4, 12);
+        screen.Question.NextQuestion(Later(screen));
+        screen.Question.NextQuestion(Later(screen));
+        Assert.That(screen.Question.Reviewing, Is.True);
+        Assert.That(screen.Question.ReopenTyped(), Is.False, "nothing to reopen on the person's answers");
+        Assert.That(screen.Question.SideOption, Is.Null);
+    }
+
     [Test]
     public void TheViewCannotCountAnAnswerReadByReportingFewerParts()
     {
