@@ -410,9 +410,17 @@ public class JudgeMenuWalkTests
         Assert.That(step!.Source, Is.EqualTo(CompanionText.Recorded));
         Assert.That(step.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)), Is.True,
             "the companion's words are quoted as its own");
+        // Where the page holds the quote alone, as at the larger size here, the suggestions are a turn of the page away.
+        var questions = step;
+        for (var turned = 0; turned < 10 && !questions.Lines.Any(line => line.Action == NewProjectScreens.ChooseSuggestion)
+            && questions.Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } next; turned++)
+        {
+            host.Press(MenuColumn.File, NewProjectScreens.NextPage, next.Key);
+            questions = host.Draw().File!;
+        }
         var exchange = flow.Idea.Companion!;
         var recorded = NewProjectScreens.AnswerKey(exchange.Generation, host.Companion.RecordedAnswer(exchange)!);
-        Assert.That(step.Lines.Where(line => line.Action == NewProjectScreens.ChooseSuggestion && line.Pressable).Select(line => line.Key),
+        Assert.That(questions.Lines.Where(line => line.Action == NewProjectScreens.ChooseSuggestion && line.Pressable).Select(line => line.Key),
             Is.EqualTo(new[] { recorded }));
         host.Press(MenuColumn.File, NewProjectScreens.ChooseSuggestion, recorded);
         host.Press(MenuColumn.File, NewProjectScreens.SendAnswer);
@@ -420,9 +428,18 @@ public class JudgeMenuWalkTests
         // The recap: the proposal marked as the companion's, the note that it is an AI, and no start in the demonstration.
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         (_, step) = host.Draw();
-        Assert.That(step!.Source, Is.EqualTo(CompanionText.Note), "the companion is an AI on the computer, and can be wrong");
-        Assert.That(step.Lines.Any(line => line.Fact == CompanionText.SuggestedShort), Is.True, "what the companion suggested is marked");
-        var start = step.Footer[PromptSlot.FarRight]!;
+        // The recap may need more than a page here: every page read, each turned by the row at its end.
+        var recap = new List<MenuFrame> { step! };
+        while (recap.Count < 10 && recap[^1].Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } turn)
+        {
+            host.Press(MenuColumn.File, NewProjectScreens.NextPage, turn.Key);
+            (_, step) = host.Draw();
+            if (step!.Lines[^1].Key == recap[0].Lines[^1].Key) break;
+            recap.Add(step);
+        }
+        Assert.That(recap.All(page => page.Source == CompanionText.Note), Is.True, "the companion is an AI on the computer, and can be wrong, on every page");
+        Assert.That(recap.SelectMany(page => page.Lines).Any(line => line.Fact == CompanionText.SuggestedShort), Is.True, "what the companion suggested is marked");
+        var start = step!.Footer[PromptSlot.FarRight]!;
         Assert.That((start.Id, start.Available, step.Reason), Is.EqualTo((NewProjectScreens.StartBuilding, false, (string?)EntryText.DemoCannotStart)));
         host.Press(MenuColumn.File, NewProjectScreens.StartBuilding);
         Assert.That((flow.Step, flow.Review), Is.EqualTo((NewProjectStep.Recap, (NewWorkReview?)null)), "Start building starts nothing");
