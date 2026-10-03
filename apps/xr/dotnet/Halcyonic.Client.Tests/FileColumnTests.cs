@@ -218,6 +218,36 @@ public class FileColumnTests
     }
 
     [Test]
+    public void ARequestsPartsStayPutWhenItsLastIsReadAndTheQuestionBelowChangesSoNoReadingIsLost()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork();
+        var command = string.Join(" && ", Enumerable.Range(1, 30).Select(step => "psql -c 'ALTER TABLE t" + step + " DROP COLUMN legacy'"));
+        work.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(WaitingWork.Approval("approval-long", command, Samples.Time));
+        });
+        var column = Column(host, () => Approving(work));
+        column.Act(FileScreens.Approve, null);
+        // The question below the request is two rows before it is read and one after, as at larger text.
+        Assert.That(host.RowsOf(WorkspaceText.ReadRequestFirst, 0f), Is.GreaterThan(host.RowsOf(WorkspaceText.ConfirmationPrompt(WorkspaceAction.Approve, null), 0f)));
+        var (parts, rows) = (column.Screen.RequestParts, column.Screen.RequestPartRows);
+        Assert.That(parts, Is.GreaterThan(1));
+        for (var part = 0; part < parts; part++)
+        {
+            Draw(host, column);
+            if (part < parts - 1) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        }
+        Assert.That(column.Steering.Prompt(column.Now!), Is.EqualTo("Approve the request above?"), "the question below has changed");
+        Assert.That((column.Screen.RequestParts, column.Screen.RequestPartRows, column.Screen.RequestPart), Is.EqualTo((parts, rows, parts - 1)),
+            "the parts stay as read, on the last one, not back at the first");
+        Assert.That((column.Steering.CanConfirm, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo((true, (string?)FileScreens.Yes)));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(1));
+    }
+
+    [Test]
     public void ADrawOfAFrameTheColumnNoLongerStandsByCountsForNothing()
     {
         var host = new FileMenuHost();

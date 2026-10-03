@@ -373,7 +373,7 @@ namespace Halcyonic.Client
             if (Steering.Request(presentation) is string request)
             {
                 Screen.ReadRequest(request, host.RowsOf(new PageLine(request, wordsAreData: true), Glaze.Menu.FileColumnDegrees),
-                    RequestPartRows(Steering.Prompt(presentation) ?? "", budget), Steering);
+                    RequestPartRows(Steering.Prompts(), budget), Steering);
             }
 
             var room = new AnswerRoom(host.PageRows(sourceLine: false), line =>
@@ -447,8 +447,12 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>The rows of a request a part shows: what is left of the page beside the part's row and the confirmation's question.</summary>
-        public int RequestPartRows(string asking, PageBudget page) => RequestPartRows(host.RowsOf(asking, Glaze.Menu.FileColumnDegrees), page);
+        /// <summary>
+        /// The rows of a request a part shows: what is left of the page beside the part's row and the
+        /// tallest question the confirmation may ask, so its parts stay put when that question changes.
+        /// </summary>
+        public int RequestPartRows(IEnumerable<string> asking, PageBudget page) =>
+            RequestPartRows(asking.Select(words => host.RowsOf(words, Glaze.Menu.FileColumnDegrees)).DefaultIfEmpty(1).Max(), page);
 
         /// <summary>The rows of a request a part shows, beside the part's row and a question of <paramref name="askingRows"/> rows, at most two.</summary>
         public static int RequestPartRows(int askingRows, PageBudget page)
