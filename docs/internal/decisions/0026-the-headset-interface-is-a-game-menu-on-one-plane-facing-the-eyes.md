@@ -197,7 +197,13 @@ coordinator's first-visit words:
   Change opens the page of words.
 - **An unavailable prompt keeps its place**, drawn quiet, its cap outlined even for the main action
   and its words in the secondary colour; its reason is the page's last line of content, above the
-  source line.
+  source line. On a page of answers, Send answer or Next question waiting only for an answer to be
+  chosen needs no reason line: the question and its answers above it are the reason. Any other
+  reason still shows, as reading the question to its end or answering each question first.
+- **Stop stands on Activity**, beside Close. On Waiting it stands only where Halcyonic can't answer
+  the question, a secret or one its adapter marked unanswerable, since stopping is then the way on
+  (ADR 0022); a question it can answer keeps Waiting's footer to Close, Hold to talk and Send
+  answer.
 - **The companion's note that it is an AI is the source line** of any page showing its words. New
   project's row of steps is the way back; there is no Back prompt.
 - **The first visit opens the menu on Projects.** Its subject asks "What would you like to work on?",
@@ -226,8 +232,10 @@ coordinator's first-visit words:
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
   from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
   tasks.
-- **A question whose answers don't fit pages them by a row.** A page packs by height, not rows: a
-  line of words takes its line, a target its 48 dp, against the page's content height
+- **A question whose answers don't fit pages them by a row** (measured at real heights by lane W on
+  2026-10-02: with the reason line and the typed and paging rows apart, even a one-row question
+  could not share a page with one 2-row answer at the standard size). A page packs by height, not
+  rows: a line of words takes its line, a target its 48 dp, against the page's content height
   (`MenuFrame`), packed for the file alone. The question, quoted, heads the page in at most 2 rows.
   When it and one row of answers don't fit together, the question has its own page or pages first,
   in parts, the last ending in a row to the answers, whose pages repeat its first line, cut, where
