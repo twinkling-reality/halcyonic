@@ -297,7 +297,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var request = steering.Request(workspace)!;
             var budget = HeightBudget.Of(TextSizeNow, MenuFrameView.TitleRows(workspace.Character.Title, Glaze.Menu.FileColumnDegrees));
             screen.ReadRequest(request, MenuFrameView.RowsOf(new PageLine(request, wordsAreData: true), Glaze.Menu.FileColumnDegrees),
-                FileColumn.RequestPartRows(MenuFrameView.RowsOf(steering.Prompt(workspace) ?? "", Glaze.Menu.FileColumnDegrees), budget), steering);
+                FileColumn.RequestPartRows(steering.Prompts().Select(asking => MenuFrameView.RowsOf(asking, Glaze.Menu.FileColumnDegrees)).Max(), budget), steering);
             var frame = FileScreens.Screen(workspace, steering, screen, room);
             if (frame.Footer[PromptSlot.Free] != null && screen.RequestParts > 1) failures.Add("approval-request: Yes shows before the request's last part was drawn.");
             failures.AddRange(Shoot(folder, "approval-request", frame));

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Contracts;
 
@@ -343,8 +344,18 @@ namespace Halcyonic.Client
         {
             if (Armed == null) return null;
             if (!CanConfirm) return WorkspaceText.ReadRequestFirst;
-            return Heard ? VoiceText.SendHeard(Instruction ?? "") : WorkspaceText.ConfirmationPrompt(Armed.Value, Instruction);
+            return Asked();
         }
+
+        /// <summary>
+        /// Every question the armed confirmation may ask before it is answered: to read the request
+        /// first, then its own. A request measured beside the taller keeps its parts where they are
+        /// when the one shown changes, as when its last part is read; none while nothing is armed.
+        /// </summary>
+        public IReadOnlyList<string> Prompts() =>
+            Armed == null ? Array.Empty<string>() : new[] { WorkspaceText.ReadRequestFirst, Asked() };
+
+        private string Asked() => Heard ? VoiceText.SendHeard(Instruction ?? "") : WorkspaceText.ConfirmationPrompt(Armed!.Value, Instruction);
 
         private void Arm(WorkspaceAction action, string? approvalId, string? instruction)
         {
