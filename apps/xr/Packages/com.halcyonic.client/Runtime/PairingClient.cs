@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Halcyonic.Contracts;
@@ -179,10 +180,14 @@ namespace Halcyonic.Client
     /// <summary>Pairing did not complete. Nothing was stored.</summary>
     public sealed class PairingException : Exception
     {
+        private static readonly Regex CodeShape = new Regex("^[a-z][a-z0-9_]{0,39}$", RegexOptions.CultureInvariant);
+
         public PairingException(string code, string message, long? attemptsLeft, Exception? inner = null)
             : base(message, inner)
         {
-            Code = code;
+            // What answered at the typed address chose the code before anything was pinned, and it is
+            // logged: only a code's own shape is kept, so it can't write a line of its own.
+            Code = CodeShape.IsMatch(code) ? code : "refused";
             AttemptsLeft = attemptsLeft;
         }
 

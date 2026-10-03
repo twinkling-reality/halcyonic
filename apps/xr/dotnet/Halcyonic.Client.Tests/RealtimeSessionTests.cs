@@ -90,6 +90,23 @@ public class RealtimeSessionTests
     }
 
     [Test]
+    public async Task AMessageItCannotReadNeverPutsItsTextInTheStatusThatIsLogged()
+    {
+        StartSession(options =>
+        {
+            options.InitialRetryDelay = TimeSpan.FromSeconds(30);
+            options.MaxRetryDelay = TimeSpan.FromSeconds(30);
+        });
+        var connection = await ConnectLiveAsync(Samples.Snapshot(5, new[] { Samples.Workstream("w1") }));
+        // A field of another shape, as from a control plane a version apart: the parser quotes the value.
+        connection.SendRaw("{\"type\":\"error\",\"error\":\"PRIVATE: the agent said to rotate the key\",\"fatal\":false}");
+        await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
+        Assert.That(session.Status.Detail, Does.StartWith("The control plane sent a message this app cannot read ("));
+        Assert.That(session.Status.ToString(), Does.Not.Contain("PRIVATE"));
+        Assert.That(session.Status.ToString(), Does.Not.Contain("rotate"));
+    }
+
+    [Test]
     public async Task ReconnectsAndResumesFromTheLastPosition()
     {
         StartSession(options =>
