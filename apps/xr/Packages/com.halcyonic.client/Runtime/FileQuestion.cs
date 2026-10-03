@@ -183,10 +183,18 @@ namespace Halcyonic.Client
                 Page = 0;
                 return;
             }
+            var parts = QuestionParts(Prompt);
+            // A question that has parts and isn't read shows its first part, whatever showed before,
+            // so laid out longer it is never left with no way to read it and Send answer waiting.
+            if (parts > 0 && !answering.WasShownWhole(Prompt))
+            {
+                QuestionPart = 0;
+                Page = 0;
+                return;
+            }
             if (QuestionPart != null)
             {
-                var parts = QuestionParts(Prompt);
-                QuestionPart = parts == 0 ? (int?)null : answering.WasShownWhole(Prompt) ? parts - 1 : 0;
+                QuestionPart = parts == 0 ? (int?)null : parts - 1;
                 Page = 0;
                 if (QuestionPart == null) Land(answering);
                 return;
