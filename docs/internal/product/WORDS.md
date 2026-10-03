@@ -178,6 +178,7 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 
 | Where | Old | New | Settled |
 | --- | --- | --- | --- |
+| Tasks with no tasks | None: the entry panel listed no tasks of its own | "No tasks yet.", a quiet line on the page under the subject, which reads "Nothing is waiting for you." | 2026-10-02, by the coordinator |
 | Projects' subject | "Welcome", then "Show projects from your computer, or make a new one. Work already running keeps going." on a first visit; "Connect projects" otherwise | "What would you like to work on?" on every visit, the place's purpose under the lit place's word; it keeps to one line (21.9 of 29.2 degrees), so the fallback "What do you want to work on?" was not needed | 2026-10-02, by the coordinator, every visit by lane V; the stage shows that running work goes on |
 | A project's small fact on its row | "Hidden · 1 waiting", "1 task waiting" | "Hidden · 1 task waiting", "1 task waiting", "2 tasks running": a count keeps its noun, and a long name shortens first | 2026-10-02, by the coordinator |
 | Projects' folders | Connect a folder, its own screen | "Folders on your computer", a heading in Projects; a folder's row says "Repository · changed 3 days ago" | 2026-10-02, by lane V's brief |
