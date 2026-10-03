@@ -54,7 +54,7 @@ public class FileQuestionTests
     [Test]
     public void OnePromptAtATimeItsQuestionQuotedItsAnswersAsRowsThenTypeMyAnswerThenTheNextQuestion()
     {
-        var (_, workspace, screen, _) = Asking(speak: true);
+        var (_, workspace, screen, draft) = Asking(speak: true);
         var frame = Screen(workspace, screen);
         Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
         {
@@ -71,6 +71,10 @@ public class FileQuestionTests
         Assert.That((send.Available, send.Reason), Is.EqualTo((false, FileScreens.SendFromYourAnswers)),
             "a question of several prompts sends only from the person's answers");
         Assert.That(frame.Reason, Is.EqualTo(FileScreens.SendFromYourAnswers), "the reason is the page's last line");
+
+        draft.Choose(0, "Dark");
+        var chosen = Screen(workspace, screen);
+        Assert.That(chosen.Lines.Where(line => line.Chosen).Select(line => line.Key), Is.EqualTo(new[] { "1" }), "choosing lights the row, and sends nothing");
     }
 
     [Test]
