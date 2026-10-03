@@ -13,7 +13,13 @@ namespace Halcyonic.Client
         /// <param name="next">The change its one prompt makes, named, as "A step larger", and what that does, as "Text 15 percent larger, and 3 rows a page".</param>
         /// <param name="prompt">The prompt's words, as "Make text larger": the footer's main action while the setting is chosen.</param>
         /// <param name="reason">Why the change can't be made now; null when it can.</param>
-        public SettingNow(string value, string now, string next, string does, string prompt, string? reason = null)
+        /// <param name="confirm">
+        /// For a change that asks first, as forgetting the computer, its Yes, as "Yes, forget this
+        /// computer": the prompt's press only arms it; null for a change made at once.
+        /// </param>
+        /// <param name="valueIsData">Its value and what it is now hold words that aren't Halcyonic's, as a paired computer's address: shown as data.</param>
+        public SettingNow(string value, string now, string next, string does, string prompt, string? reason = null, string? confirm = null,
+            bool valueIsData = false)
         {
             Value = value;
             Now = now;
@@ -21,6 +27,8 @@ namespace Halcyonic.Client
             Does = does;
             Prompt = prompt;
             Reason = reason;
+            Confirm = confirm;
+            ValueIsData = valueIsData;
         }
 
         public string Value { get; }
@@ -34,6 +42,13 @@ namespace Halcyonic.Client
         public string Prompt { get; }
 
         public string? Reason { get; }
+
+        public string? Confirm { get; }
+
+        public bool ValueIsData { get; }
+
+        /// <summary>Everything a row and its side panel show of it, to tell whether it changed.</summary>
+        internal string Shown => string.Join("\u0000", Value, Now, Next, Does, Prompt, Reason ?? "", Confirm ?? "", ValueIsData ? "data" : "");
     }
 
     /// <summary>
@@ -72,8 +87,12 @@ namespace Halcyonic.Client
     /// <summary>
     /// Settings, the menu's last place (ADR 0026): each setting a row under its group's heading, a page
     /// a group, its heading counting as a row; chosen, its side panel says what it is now and what its
-    /// change does, and the footer offers that change as its main action, while paging waits. Settings
-    /// sends nothing: each change is its owner's, on this device.
+    /// change does, and the footer offers that change as its main action, while paging waits. A change
+    /// that asks first (<see cref="SettingNow.Confirm"/>) arms on that press: Cancel takes its place and
+    /// Yes stands in the free middle (ADR 0023), lapsing after <see cref="ConfirmSeconds"/>, when focus
+    /// leaves, when Settings leaves the plane, or when the change can no longer be made. What a row shows
+    /// is read each frame, so a change made elsewhere, as pairing finishing, shows without a press.
+    /// Settings sends nothing: each change is its owner's, on this device.
     /// </summary>
     public sealed class SettingsColumn : IMenuColumn
     {
@@ -83,10 +102,25 @@ namespace Halcyonic.Client
         /// <summary>What the chosen setting's change raises.</summary>
         public const string ChangeSetting = "settings-change";
 
+        /// <summary>An armed change's Yes, and its Cancel.</summary>
+        public const string Yes = "settings-yes";
+
+        public const string Cancel = "settings-cancel";
+
+        /// <summary>How long an armed change waits for its Yes, as pairing's Forget always has.</summary>
+        public const double ConfirmSeconds = 6;
+
         private readonly IMenuHost host;
         private readonly IReadOnlyList<MenuSetting> settings;
         private string? chosen;
         private int page;
+
+        /// <summary>The setting whose change is armed, and when it was.</summary>
+        private string? armed;
+        private double armedAt;
+
+        /// <summary>What the frame given last showed of every setting, to raise Changed when a value moves without a press.</summary>
+        private string? given;
 
         public SettingsColumn(IMenuHost host, IReadOnlyList<MenuSetting> settings)
         {
@@ -111,20 +145,30 @@ namespace Halcyonic.Client
                     else page = holding;
                 }
                 if (page >= pages.Count) page = 0;
+                given = Shown();
                 var close = new Prompt(Footer.Close, SettingsText.Close, GlazeIcon.Close, PromptKind.Close);
                 if (pages.Count == 0) return new MenuFrame(SettingsText.Subject, new Footer(close));
 
                 var (group, rows) = pages[page];
                 var lines = new List<PageLine> { new PageLine(group, tone: LineTone.Secondary) };
-                lines.AddRange(rows.Select(setting => new PageLine(setting.Name, fact: setting.Read().Value, action: OpenSetting, key: setting.Key, opens: true,
-                    chosen: setting.Key == chosen)));
+                lines.AddRange(rows.Select(setting =>
+                {
+                    var read = setting.Read();
+                    return new PageLine(setting.Name, fact: read.Value, factIsData: read.ValueIsData, action: OpenSetting, key: setting.Key, opens: true,
+                        chosen: setting.Key == chosen);
+                }));
                 var footer = new Footer(close);
                 SidePanel? side = null;
                 if (chosen != null && settings.FirstOrDefault(setting => setting.Key == chosen) is MenuSetting open)
                 {
                     var now = open.Read();
                     footer = new Footer(close, farRight: new Prompt(ChangeSetting, now.Prompt, GlazeIcon.Change, main: true, available: now.Reason == null, reason: now.Reason));
-                    side = new SidePanel(open.Name, facts: new[] { new SideFact(SettingsText.Now, now.Now), new SideFact(now.Next, now.Does) });
+                    if (armed == chosen && now.Confirm != null)
+                    {
+                        footer = Footer.Confirm(footer, PromptSlot.FarRight, new Prompt(Yes, now.Confirm, GlazeIcon.Change, PromptKind.Yes),
+                            new Prompt(Cancel, SettingsText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
+                    }
+                    side = new SidePanel(open.Name, facts: new[] { new SideFact(SettingsText.Now, now.Now, valueIsData: now.ValueIsData), new SideFact(now.Next, now.Does) });
                 }
                 // Paging waits while a setting is chosen.
                 else if (pages.Count > 1)
@@ -141,14 +185,31 @@ namespace Halcyonic.Client
             {
                 case OpenSetting when key != null && settings.Any(setting => setting.Key == key):
                     chosen = chosen == key ? null : key;
+                    armed = null;
                     Changed?.Invoke();
                     break;
-                case ChangeSetting when chosen != null && settings.FirstOrDefault(setting => setting.Key == chosen) is MenuSetting open && open.Read().Reason == null:
-                    open.Change();
+                case ChangeSetting when armed == null && Open() is MenuSetting open && open.Read() is SettingNow now && now.Reason == null:
+                    if (now.Confirm != null)
+                    {
+                        armed = open.Key;
+                        armedAt = host.Now;
+                    }
+                    else open.Change();
+                    Changed?.Invoke();
+                    break;
+                case Yes when armed != null && armed == chosen && Open() is MenuSetting confirmed && confirmed.Read() is SettingNow ready && ready.Reason == null
+                    && ready.Confirm != null:
+                    armed = null;
+                    confirmed.Change();
+                    Changed?.Invoke();
+                    break;
+                case Cancel when armed != null:
+                    armed = null;
                     Changed?.Invoke();
                     break;
                 case SidePanel.Close when chosen != null:
                     chosen = null;
+                    armed = null;
                     Changed?.Invoke();
                     break;
                 case Footer.NextPage when chosen == null:
@@ -181,13 +242,31 @@ namespace Halcyonic.Client
         {
         }
 
+        /// <summary>An armed change lapses with time or once it can't be made; a value moved elsewhere draws again.</summary>
         public void Tick()
         {
+            if (armed != null && (host.Now - armedAt >= ConfirmSeconds || !(Open() is MenuSetting open) || open.Key != armed
+                || open.Read() is SettingNow now && (now.Reason != null || now.Confirm == null)))
+            {
+                armed = null;
+                Changed?.Invoke();
+                return;
+            }
+            if (given != null && Shown() != given) Changed?.Invoke();
         }
 
+        /// <summary>Another window took focus, or Settings left the plane: an armed change lapses.</summary>
         public void FocusLeft()
         {
+            if (armed == null) return;
+            armed = null;
+            Changed?.Invoke();
         }
+
+        private MenuSetting? Open() => chosen == null ? null : settings.FirstOrDefault(setting => setting.Key == chosen);
+
+        /// <summary>What every setting shows now, read once each.</summary>
+        private string Shown() => string.Join("\u0001", settings.Select(setting => setting.Read().Shown));
 
         /// <summary>A page a group, its heading counting as one of the page's rows, split where a group holds more.</summary>
         private List<(string Group, IReadOnlyList<MenuSetting> Rows)> Pages()

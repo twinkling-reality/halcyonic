@@ -12,6 +12,9 @@ namespace Halcyonic.Client
 
         public const string Close = "Close";
 
+        /// <summary>An armed change's Cancel, in the place of the press it undoes.</summary>
+        public const string Cancel = "Cancel";
+
         /// <summary>The menu's Settings page's subject (ADR 0026).</summary>
         public const string Subject = "What would you like to change?";
 
