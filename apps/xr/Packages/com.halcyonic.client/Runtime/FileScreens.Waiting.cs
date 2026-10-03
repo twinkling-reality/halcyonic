@@ -166,6 +166,20 @@ namespace Halcyonic.Client
             return new Page(lines, source, Footer.Confirm(before, pressed, yes, CancelConfirm));
         }
 
+        /// <summary>
+        /// The frame is the question's page, so drawing it can count toward reading the question: it
+        /// holds the prompt's question, quoted, or a row only the question's pages have (an answer, the
+        /// person's own, a row on through its parts, or one of the person's answers). An approval shown
+        /// on Waiting meanwhile holds none of these.
+        /// </summary>
+        public static bool ShowsQuestion(MenuFrame frame, QuestionDraft draft, int prompt)
+        {
+            var text = "“" + WorkspaceText.OneLine(draft.Prompts[prompt].Text) + "”";
+            return frame.Lines.Any(line => (line.WordsAreData && line.Words == text)
+                || line.Action == Choose || line.Action == TypeAnswer || line.Action == GoToQuestion
+                || (line.Action == NextPart && line.Key == QuestionKey));
+        }
+
         /// <summary>The agent's question the person reads here, while it is the one the work shows.</summary>
         private static QuestionDraft? Asked(WorkspacePresentation workspace, FileScreen screen)
         {
