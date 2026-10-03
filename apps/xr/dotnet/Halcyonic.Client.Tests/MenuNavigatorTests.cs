@@ -258,8 +258,11 @@ public class MenuNavigatorTests
         Draw(menu);
         Assert.That(menu.Act(MenuColumn.File, "yes", null, drawnA, null), Is.False, "after B is drawn");
         Assert.That(a.Got.Concat(b.Got).Any(got => got.StartsWith("act")), Is.False, "A's yes reaches neither A nor B");
+        var left = new List<IMenuColumn>();
+        menu.Left += left.Add;
         menu.CloseBeside();
         Assert.That(b.Got.Last(), Is.EqualTo("focus left"), "closed, it lets go too");
+        Assert.That(left, Is.EqualTo(new[] { b }), "and the director hears of it, so a voice it held stops");
     }
 
     [Test]

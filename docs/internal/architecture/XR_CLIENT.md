@@ -380,7 +380,11 @@ the same definition names, as the JSON Schema document:
   `MenuDirector` (Workspace) runs it on the stage over one `MenuPlane`, as every column's
   `IMenuHost`: it sends only through the submit its host gives it, WorkspaceDirector's command
   submissions, so what is in flight shows as sent, runs Hold to talk's one voice for any held
-  prompt, and passes presses and holds only while the app has focus. Lane U's places are
+  prompt, and passes presses and holds only while the app has focus. `MenuVoice` (client core) keeps
+  the voice's words for the column that held: a hold while the voice still records or waits for the
+  computer's answer starts nothing, a column learns its hold started only once the voice records,
+  only that hold ends it, and the column leaving the plane, or focus leaving, drops what it records
+  or awaits. Lane U's places are
   `TasksColumn` (every task, what waits first, its project where there are several, as many rows as
   fit beside a file on this stage), `UsageColumn` (each limit's share left in words, its side panel
   when it was seen, when it resets and whose account) and `SettingsColumn` (each setting under its
