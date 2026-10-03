@@ -229,6 +229,11 @@ public class MenuFrameTests
         Assert.Throws<ArgumentNullException>(() => _ = new MenuFrame("Questions", null!));
         var note = new MenuFrame("Questions", new Footer(Close), source: CompanionText.Note);
         Assert.That(note.Source, Is.EqualTo(CompanionText.Note), "the companion's note is the page's source line");
+        Assert.That(note.SourceIsData, Is.False, "Halcyonic's own words");
+        var provenance = new MenuFrame("Changes", new Footer(Close), source: "Salidium 0.9 could not answer: timed out", sourceIsData: true);
+        Assert.That(provenance.SourceIsData, Is.True, "an answer's provenance, or an error a service returned, is text from outside");
+        Assert.That(new SidePanel("Why it changed them", source: "Salidium 0.9", sourceIsData: true).SourceIsData, Is.True);
+        Assert.That(new SidePanel("Why it changed them", source: "From your computer").SourceIsData, Is.False);
     }
 
     [Test]
