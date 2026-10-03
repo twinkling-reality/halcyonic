@@ -283,7 +283,7 @@ public class NewProjectFlowTests
     private static IEnumerable<string> DrawnInPlace(MenuFrame frame)
     {
         Assert.That(MenuColumns.Arrange(menuOpen: false, fileOpen: true, sidePanel: true, fitsBeside: true, sideInPlace: true), Is.EqualTo(new[] { MenuColumn.Side }));
-        return frame.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!).All.Select(each => each.Prompt.Id);
+        return frame.Footer.InPlace(frame.Side!).All.Select(each => each.Prompt.Id);
     }
 
     [Test]

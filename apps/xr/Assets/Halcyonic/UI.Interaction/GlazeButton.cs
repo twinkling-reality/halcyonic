@@ -484,6 +484,12 @@ namespace Halcyonic.XR.UI
             }
         }
 
+        /// <summary>
+        /// It takes no press until it settles again, as a new action: so a press under way as its view
+        /// slides back onto the plane, the same words as before it stepped aside, is not one of it.
+        /// </summary>
+        public void Unsettle() => shownAt = Time.unscaledTime;
+
         /// <summary>Whether what it asked for is done, as the runtime confirmed: shown in the success colours.</summary>
         public bool Done
         {

@@ -77,7 +77,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         failures.AddRange(GlazeChecks.NothingCut(panel.GetComponentsInChildren<TMP_Text>(false).Except(panel.MayCut), what));
                         if (inPlace)
                         {
-                            var carried = frame.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!);
+                            var carried = frame.Footer.InPlace(side);
                             var prompts = string.Join(", ", carried.All.Select(each => each.Prompt.Words));
                             var (needed, room) = panel.Footer.Measure;
                             laid++;

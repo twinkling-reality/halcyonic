@@ -239,6 +239,9 @@ namespace Halcyonic.XR.Workspace
                 // In its frame's place it also carries the frame's footer and reason, so nothing the frame offers is lost.
                 else side.Show(panel!, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees, subject, pill, inPlace ? fileFrame?.Pill : null,
                     inPlace ? Front : null);
+                // Coming back from stepping aside, the menu or the file takes no press as it slides in: its
+                // buttons wait to settle again, though their words are as they were.
+                if ((kind == MenuColumn.Menu && wasAside) || (kind == MenuColumn.File && wasFileAside)) view.Unsettle();
                 shown.Add((kind, view));
             }
             lineTo = fileOf == null ? null : Contains(shown, file) ? file : inPlace ? side : null;

@@ -63,6 +63,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private Footer? carried;
         private string? carriedReason;
+        private MenuFrame? inPlaceOf;
         private float width;
         private float reserve;
         private float subjectHeight;
@@ -222,6 +223,7 @@ namespace Halcyonic.XR.UI
         {
             frame = shown;
             side = null;
+            inPlaceOf = null;
             carried = null;
             carriedReason = null;
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null);
@@ -245,7 +247,8 @@ namespace Halcyonic.XR.UI
         {
             frame = null;
             side = shown;
-            carried = inPlaceOf?.Footer.InPlace(SidePanel.Footer[PromptSlot.Close]!);
+            this.inPlaceOf = inPlaceOf;
+            carried = inPlaceOf?.Footer.InPlace(shown);
             carriedReason = carried?.Reason;
             Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
@@ -283,7 +286,19 @@ namespace Halcyonic.XR.UI
         /// <summary>The frame this column shows, or null for a side panel.</summary>
         public MenuFrame? Frame => frame;
 
+        /// <summary>The frame whose place this side panel stands in, carrying its footer; null beside its frame, or for a frame.</summary>
+        public MenuFrame? InPlaceOf => inPlaceOf;
+
         public void Hide() => gameObject.SetActive(false);
+
+        /// <summary>
+        /// Back on the plane from stepping aside: every button it shows waits to settle again, its prompts,
+        /// rows and all, so nothing takes a press begun as it slides back, however like before it reads.
+        /// </summary>
+        public void Unsettle()
+        {
+            foreach (var button in GetComponentsInChildren<GlazeButton>()) button.Unsettle();
+        }
 
         private void Begin(float columnDegrees, float subject, bool pillRoom)
         {

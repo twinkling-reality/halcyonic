@@ -259,7 +259,7 @@ namespace Halcyonic.Client
         public static Footer Footer { get; } = new Footer(new Prompt(Close, "Close details", GlazeIcon.Close, PromptKind.Close));
 
         /// <param name="source">Where its words come from, one line, last, in the secondary colour.</param>
-        /// <param name="parts">The part showing, from 0, and how many there are, where it pages; null where it doesn't.</param>
+        /// <param name="parts">The part showing, from 0, and how many there are, where it pages, which its frame's Next page turns; null where it doesn't.</param>
         /// <param name="sourceIsData">The source line is text from outside, as an answer's provenance or an error a service returned.</param>
         public SidePanel(string subject, bool subjectIsData = false, IReadOnlyList<SideFact>? facts = null, IReadOnlyList<PageLine>? lines = null,
             string? source = null, (int Part, int Parts)? parts = null, bool sourceIsData = false)
@@ -456,22 +456,24 @@ namespace Halcyonic.Client
         public string? Reason => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
 
         /// <summary>
-        /// This footer as a side panel standing in its frame's place carries it: <paramref name="close"/>,
-        /// its Close details, where the frame's Close stood; paging and a confirmation's Cancel, always; and
-        /// only the prompts the column marks <see cref="Prompt.SafeInPlace"/>, whose side panel shows
-        /// everything they act on. Nothing that would act on what isn't drawn stands there: Close details
-        /// brings the page back, with everything in view. A pager left without the main action beside it
-        /// takes the far right.
+        /// This footer as <paramref name="side"/>, standing in its frame's place, carries it: Close details
+        /// where the frame's Close stood; a confirmation's Cancel, always; paging only while the side panel
+        /// is in parts, which the frame's Next page turns, never the page it hides; and only the prompts
+        /// the column marks <see cref="Prompt.SafeInPlace"/>, whose side panel shows everything they act
+        /// on. Nothing that would act on what isn't drawn stands there: Close details brings the page back,
+        /// with everything in view. A pager left without the main action beside it takes the far right.
         /// </summary>
-        public Footer InPlace(Prompt close)
+        public Footer InPlace(SidePanel side)
         {
-            if (close.Kind != PromptKind.Close) throw new ArgumentException("Close stands far left.", nameof(close));
+            if (side == null) throw new ArgumentNullException(nameof(side));
+            var paged = side.Parts is (_, int parts) && parts > 1;
             var footer = new Footer(this);
-            footer.slots[(int)PromptSlot.Close] = close;
+            footer.slots[(int)PromptSlot.Close] = SidePanel.Footer[PromptSlot.Close];
             for (var index = 0; index < footer.slots.Length; index++)
             {
                 if (index == (int)PromptSlot.Close || !(footer.slots[index] is Prompt prompt)) continue;
-                if (!(prompt.SafeInPlace || prompt.Kind == PromptKind.NextPage || prompt.Kind == PromptKind.Cancel)) footer.slots[index] = null;
+                var carried = prompt.Kind == PromptKind.NextPage ? paged : prompt.SafeInPlace || prompt.Kind == PromptKind.Cancel;
+                if (!carried) footer.slots[index] = null;
             }
             if (footer.slots[(int)PromptSlot.Secondary] is Prompt pager && pager.Kind == PromptKind.NextPage && footer.slots[(int)PromptSlot.FarRight] == null)
             {
@@ -480,10 +482,6 @@ namespace Halcyonic.Client
             }
             return footer;
         }
-
-        /// <summary>Every prompt it offers stands on its frame's side panel in the frame's place (<see cref="InPlace"/>).</summary>
-        public bool WholeInPlace => All.All(each => each.Prompt.Kind == PromptKind.Close || each.Prompt.SafeInPlace
-            || each.Prompt.Kind == PromptKind.NextPage || each.Prompt.Kind == PromptKind.Cancel);
 
         /// <summary>This footer with <paramref name="prompt"/> in <paramref name="slot"/>, which must be empty and fit it.</summary>
         public Footer With(PromptSlot slot, Prompt prompt)

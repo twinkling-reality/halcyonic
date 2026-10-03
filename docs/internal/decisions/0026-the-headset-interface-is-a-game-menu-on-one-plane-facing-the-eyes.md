@@ -293,13 +293,17 @@ coordinator's first-visit words:
   reads as that task's, and Close details brings the file back. Amended 2026-10-03, after a render
   showed a setting's change, Text size's own included, drawn nowhere at larger text: a side panel in
   its frame's place, a file's or the menu's, at either text size, stands as wide as that frame and
-  carries, where Close stood, Close details; paging and a confirmation's Cancel; and only the prompts
+  carries, where Close stood, Close details; a confirmation's Cancel; paging only while the side
+  panel is in parts, which the frame's Next page turns, never the page it hides; and only the prompts
   its column marks safe in place, whose side panel shows everything they act on, as a setting's
   change and Forget's Yes. Nothing else is carried, as Send answer on an answer's panel, which sends
   the whole draft: Close details brings the page back, which sends with everything in view. A press
-  or hold there counts only for Close details or a prompt that frame offers now and allows, while
-  that side panel is the one drawn last for the frame in front. A task's file or New project opening
-  beside the menu lets go of the menu's chosen row, whose side panel it would leave undrawn.
+  or hold there counts only for what that side panel drew and allows, while it is the one drawn last
+  for the frame in front: in its frame's place, what it carries; beside its frame, Close details
+  alone. A task's file or New project opening beside the menu lets go of the menu's chosen row, whose
+  side panel it would leave undrawn. Amended again 2026-10-03, after review: the menu or a file
+  coming back from stepping aside takes no press as it slides in, every button waiting to settle as
+  a new one does, so an Approve or an armed Yes under the hand is never pressed by the slide.
 - **Lane U's views set the last spacing**, measured with the split header's pill: the plane's top
   stands 17.5 degrees below eye level (`MenuPage.TopDegrees`); a subject's title stands half a grid
   step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no
