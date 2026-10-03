@@ -351,7 +351,7 @@ namespace Halcyonic.Client
                 for (var index = 0; index < choices.Count; index++)
                 {
                     lines.Add(new PageLine(LabelText.Plain(choices[index]), wordsAreData: true, action: ChooseSuggestion,
-                        key: index.ToString(CultureInfo.InvariantCulture), choice: true,
+                        key: choices[index], choice: true,
                         chosen: exchange.Chosen == CompanionAnswerRow.Suggestion && exchange.ChosenSuggestion == index,
                         available: recorded ? choices[index] == recordedAnswer : exchange.CanSay, rows: 2));
                 }
@@ -418,6 +418,13 @@ namespace Halcyonic.Client
         /// <summary>The rows <paramref name="text"/> takes at the content's size, about.</summary>
         private static int Rows(string text) => (text.Length + RowCharacters - 1) / RowCharacters;
 
+        /// <summary>
+        /// A folder row's key: what it chooses, by its place's path and the folder's own name, so a press
+        /// on a list drawn before the folders were read again never chooses another.
+        /// </summary>
+        public static string FolderKey(FolderOption option) =>
+            option.Kind + "|" + option.Root.Path + "|" + (option.Folder?.Name ?? "");
+
         /// <summary>The key a recap fact's row raises with <see cref="ChooseFact"/>.</summary>
         public static string FactKey(RecapFact fact) => fact switch
         {
@@ -450,8 +457,10 @@ namespace Halcyonic.Client
         /// <param name="problem">Why Start building can't go ahead now (<see cref="EntryScreens.StartProblem"/>), or null.</param>
         /// <param name="chosen">The fact chosen, whose side panel shows; null for none.</param>
         /// <param name="confirmingStartOver">Start over was pressed once: Cancel stands in its place and Yes, start over in the middle.</param>
+        /// <param name="buildReached">Whether Build's step can be chosen, where it differs from nothing stopping a start: a start whose outcome is unknown shows there.</param>
+        /// <param name="startOverProblem">Why Start over can't be taken now, as while a build is on its way or its outcome unknown; null when it can.</param>
         public static MenuFrame Recap(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live, string? notice, string? problem,
-            RecapFact? chosen = null, bool confirmingStartOver = false)
+            RecapFact? chosen = null, bool confirmingStartOver = false, bool? buildReached = null, string? startOverProblem = null)
         {
             var existing = idea.ExistingProjectId != null;
             var suggested = idea.NameSuggested || idea.TaskSuggested;
@@ -481,7 +490,7 @@ namespace Halcyonic.Client
                 RecapFact.FirstTask => new Prompt(ChangeTask, EntryText.Change, GlazeIcon.Change),
                 RecapFact.Folder => new Prompt(ChooseWhere, EntryText.ChooseAnotherFolder, GlazeIcon.Change),
                 RecapFact.HowItRuns => new Prompt(MoreOptions, EntryText.MoreOptions, GlazeIcon.Change),
-                _ => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver),
+                _ => new Prompt(StartOver, EntryText.StartOver, GlazeIcon.StartOver, available: startOverProblem == null, reason: startOverProblem),
             };
             var footer = new Footer(Close(), rare: change,
                 farRight: new Prompt(StartBuilding, EntryText.StartBuilding, GlazeIcon.StartBuilding, main: true, available: problem == null, reason: problem));
@@ -493,7 +502,7 @@ namespace Halcyonic.Client
                     new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
             }
             var (subject, isData) = Subject(idea);
-            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, problem == null), lines: lines,
+            return new MenuFrame(subject, footer, subjectIsData: isData, sections: Sections(NewProjectStep.Recap, idea, buildReached ?? problem == null), lines: lines,
                 source: suggested ? CompanionText.Note : null, side: chosen is RecapFact fact ? Side(fact, idea, draft, currentFolder, live) : null);
         }
 
@@ -570,7 +579,7 @@ namespace Halcyonic.Client
                             : !current.IsNew && (option.Kind == FolderOptionKind.Root ? current.FolderName == null
                                 : option.Kind == FolderOptionKind.Folder && current.FolderName == option.Folder!.Name));
                     lines.Add(new PageLine(option.Label, wordsAreData: true, fact: option.Detail, action: ChooseFolder,
-                        key: index.ToString(CultureInfo.InvariantCulture), choice: true, chosen: chosen, available: option.Choosable));
+                        key: FolderKey(option), choice: true, chosen: chosen, available: option.Choosable));
                 }
             }
             var (subject, isData) = Subject(idea);
@@ -674,7 +683,7 @@ namespace Halcyonic.Client
             var choices = idea.Choices;
             for (var index = 0; index < choices.Count; index++)
             {
-                lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: index.ToString(CultureInfo.InvariantCulture), choice: true,
+                lines.Add(new PageLine(choices[index], action: ChooseFixedAnswer, key: choices[index], choice: true,
                     chosen: stands == choices[index]));
             }
             var written = idea.GuideWritten ?? (stands != null && !choices.Contains(stands) ? stands : null);

@@ -125,7 +125,8 @@ public class NewProjectScreensTests
         Assert.That(quote.Rows, Is.EqualTo(NewProjectScreens.QuoteRows + 1), "two rows, and room for a third rather than cut");
         Assert.That(Answers(frame).Select(line => line.Words),
             Is.EqualTo(new[] { "Each runner", "One organiser", CompanionText.TypeAnswer, CompanionText.GoOnWithout }));
-        Assert.That(Answers(frame).Take(2).Select(line => line.Key), Is.EqualTo(new[] { "0", "1" }));
+        Assert.That(Answers(frame).Take(2).Select(line => line.Key), Is.EqualTo(new[] { "Each runner", "One organiser" }),
+            "keyed by their own words, so a press on a frame drawn before a new reply takes none of its suggestions");
         Assert.That(Answers(frame).Any(line => line.Chosen), Is.False);
         Assert.That(frame.Lines.Any(line => line.Icon == GlazeIcon.HoldToTalk), Is.False, "the microphone is only in the footer");
         Assert.That(frame.Footer[PromptSlot.Secondary]!.Holds, Is.True);

@@ -129,6 +129,13 @@ public class NewProjectFlowTests
     private static NewProjectFlow Flow(Host host, Kept? kept = null, ICreationDraftStore? store = null) =>
         new(host, Commands, kept ?? new Kept(), store);
 
+    /// <summary>A press as the person makes one: on the frame the director drew for them.</summary>
+    private static void Press(NewProjectFlow flow, string id, string? key)
+    {
+        if (flow.Frame is MenuFrame frame) flow.Drawn(frame, false);
+        flow.Act(id, key);
+    }
+
     /// <summary>Waits for what the flow asked the control plane, as its director's frames would.</summary>
     private static async Task Until(NewProjectFlow flow, Func<bool> done)
     {
@@ -146,12 +153,12 @@ public class NewProjectFlowTests
         var flow = Flow(host, kept, store);
         flow.Open(null, null);
         host.Typed.Enqueue("A page of race times for my running club");
-        flow.Act(NewProjectScreens.TypeIdea, null);
-        flow.Act(NewProjectScreens.UseIdea, null);
-        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
-        flow.Act(NewProjectScreens.MoreOptions, null);
-        flow.Act(NewProjectScreens.ChooseRuntime, "mock");
-        flow.Act(NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "mock");
+        Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         Assert.That(flow.Idea!.HasRecap, Is.True);
         return flow;
@@ -164,7 +171,7 @@ public class NewProjectFlowTests
         for (var part = 0; part < 50 && flow.Review?.CanConfirm != true; part++)
         {
             host.Now += 1;
-            flow.Act(NewProjectScreens.NextPart, null);
+            Press(flow, NewProjectScreens.NextPart, null);
             flow.Drawn(flow.Frame!, false);
         }
     }
@@ -177,19 +184,19 @@ public class NewProjectFlowTests
     {
         var host = new Host();
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
         Assert.That(Ids(flow.Frame!), Does.Not.Contain(NewProjectScreens.ConfirmStart));
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent, Is.Empty, "a Yes pressed before the review was read sends nothing");
 
         ReadToTheEnd(flow, host);
         Assert.That(flow.Review!.CanConfirm, Is.True);
         Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.ConfirmStart));
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent.Single(), Is.InstanceOf<ProjectCreateCommand>());
         Assert.That(((ProjectCreateCommand)host.Sent[0]).Payload.Name, Is.EqualTo(flow.Idea!.Name));
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent, Has.Count.EqualTo(1), "a review confirms one send");
     }
 
@@ -198,17 +205,17 @@ public class NewProjectFlowTests
     {
         var host = new Host();
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.ConfirmStartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
         Assert.That(flow.Idea!.HasRecap, Is.True, "Yes, start over stands nowhere until Start over is pressed");
-        flow.Act(NewProjectScreens.Rename, null);
+        Press(flow, NewProjectScreens.Rename, null);
         Assert.That(flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.TypeWords), Is.False, "Change stands only beside a chosen fact");
-        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Questions));
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Questions));
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap), "a step not reached takes no press");
-        flow.Act(NewProjectScreens.ConfirmStart, null);
-        flow.Act(NewProjectScreens.ChooseSuggestion, "0");
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ChooseSuggestion, "Each runner");
         Assert.That(host.Sent, Is.Empty);
         flow.Close();
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review, Is.Null, "closed, nothing acts");
     }
 
@@ -217,23 +224,23 @@ public class NewProjectFlowTests
     {
         var host = new Host();
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         ReadToTheEnd(flow, host);
         Assert.That(flow.Review!.CanConfirm, Is.True);
 
-        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Recap));
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Recap));
         Assert.That(flow.Review, Is.Null);
         host.Typed.Enqueue("Race Times, renamed on the way back");
-        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Name));
-        flow.Act(NewProjectScreens.Rename, null);
-        flow.Act(NewProjectScreens.TypeWords, null);
-        flow.Act(NewProjectScreens.Done, null);
-        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Build));
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Name));
+        Press(flow, NewProjectScreens.Rename, null);
+        Press(flow, NewProjectScreens.TypeWords, null);
+        Press(flow, NewProjectScreens.Done, null);
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Build));
         Assert.That(flow.Review!.CanConfirm, Is.False, "a fresh review, read again");
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent, Is.Empty);
         ReadToTheEnd(flow, host);
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(((ProjectCreateCommand)host.Sent.Single()).Payload.Name, Is.EqualTo("Race Times, renamed on the way back"));
     }
 
@@ -242,15 +249,15 @@ public class NewProjectFlowTests
     {
         var host = new Host();
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         ReadToTheEnd(flow, host);
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(flow.Sequence!.InFlight, Is.True);
 
-        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Recap));
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Recap));
         var recap = flow.Frame!;
         Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.AlreadyStarting)));
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review, Is.Null, "no review while the build is on its way");
         Assert.That(host.Sent, Has.Count.EqualTo(1));
     }
@@ -260,9 +267,9 @@ public class NewProjectFlowTests
     {
         var host = new Host();
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         ReadToTheEnd(flow, host);
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         var create = host.Sent.Single();
         host.State = With(new CommandView
         {
@@ -273,11 +280,11 @@ public class NewProjectFlowTests
         Assert.That(flow.Sequence!.CanRetry, Is.True);
         Assert.That(Ids(flow.Frame!), Does.Contain(NewProjectScreens.TryAgainStart));
 
-        flow.Act(NewProjectScreens.TryAgainStart, null);
+        Press(flow, NewProjectScreens.TryAgainStart, null);
         Assert.That(host.Sent, Has.Count.EqualTo(1), "Try again opens the review; it sends nothing");
         Assert.That(flow.Review!.CanConfirm, Is.False);
         ReadToTheEnd(flow, host);
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent, Has.Count.EqualTo(2));
         Assert.That(host.Sent[1], Is.InstanceOf<ProjectCreateCommand>());
     }
@@ -291,9 +298,9 @@ public class NewProjectFlowTests
         };
         var kept = new Kept();
         var flow = Recapped(host, kept);
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         ReadToTheEnd(flow, host);
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         host.State = With();
         flow.Tick();
         Assert.That(kept.Id, Is.EqualTo(host.Sent.Single().CommandId), "kept, so a restart still blocks a blind retry");
@@ -303,10 +310,10 @@ public class NewProjectFlowTests
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.Build));
         var unresolved = restarted.Frame!;
         Assert.That(unresolved.Lines.Any(line => line.Words == "Reference: " + kept.Id), Is.True);
-        restarted.Act(NewProjectScreens.ConfirmClear, null);
+        Press(restarted, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Not.Null, "one press never clears it");
-        restarted.Act(NewProjectScreens.Clear, null);
-        restarted.Act(NewProjectScreens.ConfirmClear, null);
+        Press(restarted, NewProjectScreens.Clear, null);
+        Press(restarted, NewProjectScreens.ConfirmClear, null);
         Assert.That(kept.Id, Is.Null);
         Assert.That(restarted.Step, Is.EqualTo(NewProjectStep.YourIdea));
     }
@@ -326,14 +333,14 @@ public class NewProjectFlowTests
         flow.Open(null, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseCompanion));
 
-        flow.Act(NewProjectScreens.BeginCompanion, null);
+        Press(flow, NewProjectScreens.BeginCompanion, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Questions));
         await Until(flow, () => flow.Idea!.Companion!.Latest is AskReply);
         Assert.That(routes.Asked.Count(asked => asked == "POST /api/companion/replies"), Is.EqualTo(1));
 
-        flow.Act(NewProjectScreens.ChooseSuggestion, "1");
+        Press(flow, NewProjectScreens.ChooseSuggestion, "One organiser");
         Assert.That(routes.Asked.Count(asked => asked == "POST /api/companion/replies"), Is.EqualTo(1), "choosing sends nothing");
-        flow.Act(NewProjectScreens.SendAnswer, null);
+        Press(flow, NewProjectScreens.SendAnswer, null);
         await Until(flow, () => flow.Step == NewProjectStep.Recap);
         Assert.That(routes.Asked.Count(asked => asked == "POST /api/companion/replies"), Is.EqualTo(2));
         Assert.That(flow.Idea!.TaskSuggested, Is.True, "the proposal fills the recap, marked as the companion's");
@@ -348,18 +355,18 @@ public class NewProjectFlowTests
         flow.Open(null, null);
         var start = flow.Frame!;
         Assert.That(start.Lines.Any(line => line.Action == NewProjectScreens.ChooseQuestions), Is.True, "no companion was offered");
-        flow.Act(NewProjectScreens.BeginQuestions, null);
+        Press(flow, NewProjectScreens.BeginQuestions, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Questions));
-        flow.Act(NewProjectScreens.NextQuestion, null);
+        Press(flow, NewProjectScreens.NextQuestion, null);
         Assert.That(flow.Idea!.Question, Is.EqualTo(0), "nothing chosen, nothing given");
-        flow.Act(NewProjectScreens.ChooseFixedAnswer, "1");
-        flow.Act(NewProjectScreens.NextQuestion, null);
-        flow.Act(NewProjectScreens.ChooseFixedAnswer, "0");
-        flow.Act(NewProjectScreens.NextQuestion, null);
-        flow.Act(NewProjectScreens.ChooseFixedAnswer, "0");
-        flow.Act(NewProjectScreens.NextQuestion, null);
-        flow.Act(NewProjectScreens.SkipFixedQuestion, null);
-        flow.Act(NewProjectScreens.NextQuestion, null);
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, "An app");
+        Press(flow, NewProjectScreens.NextQuestion, null);
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, "Just me");
+        Press(flow, NewProjectScreens.NextQuestion, null);
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, "Do its main job on one screen");
+        Press(flow, NewProjectScreens.NextQuestion, null);
+        Press(flow, NewProjectScreens.SkipFixedQuestion, null);
+        Press(flow, NewProjectScreens.NextQuestion, null);
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         Assert.That(flow.Idea.FirstTask, Is.EqualTo("Make an app for me. First, do its main job on one screen."));
     }
@@ -369,13 +376,13 @@ public class NewProjectFlowTests
     {
         var host = new Host();
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         ReadToTheEnd(flow, host);
         flow.FocusLeft();
         Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
         Assert.That(flow.Review, Is.Null);
         Assert.That(flow.Frame!.Lines[0].Words, Is.EqualTo(EntryText.ReviewAfresh));
-        flow.Act(NewProjectScreens.ConfirmStart, null);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
         Assert.That(host.Sent, Is.Empty);
     }
 
@@ -388,12 +395,12 @@ public class NewProjectFlowTests
         flow.Heard("A page of race times");
         Assert.That(flow.Idea!.OwnWords, Is.EqualTo("A page of race times"));
         Assert.That(flow.Frame!.Lines.Any(line => line.Words == VoiceText.HeardNote), Is.True);
-        flow.Act(NewProjectScreens.UseIdea, null);
-        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Name));
-        flow.Act(NewProjectScreens.Rename, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Name));
+        Press(flow, NewProjectScreens.Rename, null);
         flow.Heard("Race Times");
         Assert.That(flow.Idea.Name, Is.Not.EqualTo("Race Times"), "heard words wait for Done");
-        flow.Act(NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea.Name, Is.EqualTo("Race Times"));
         Assert.That(host.Sent, Is.Empty);
     }
@@ -431,12 +438,12 @@ public class NewProjectFlowTests
         routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(listing);
         var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
         var flow = Recapped(host);
-        flow.Act(NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
-        flow.Act(NewProjectScreens.ChooseWhere, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
         await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
         var index = flow.Frame!.Lines.Where(line => line.Action == NewProjectScreens.ChooseFolder).First(line => line.Words == "race-times").Key;
-        flow.Act(NewProjectScreens.ChooseFolder, index);
-        flow.Act(NewProjectScreens.Done, null);
+        Press(flow, NewProjectScreens.ChooseFolder, index);
+        Press(flow, NewProjectScreens.Done, null);
         Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("race-times in Projects"));
 
         // Another place now takes the label, and this one is gone: read again when the draft opens.
@@ -447,7 +454,7 @@ public class NewProjectFlowTests
         Assert.That(flow.Idea!.Folder!.Describe(), Does.Contain("no longer lists"), "never the label now another place's");
         var recap = flow.Frame!;
         Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.ChooseWhereFilesLive)));
-        flow.Act(NewProjectScreens.StartBuilding, null);
+        Press(flow, NewProjectScreens.StartBuilding, null);
         Assert.That(flow.Review, Is.Null);
 
         // A read that fails changes nothing; the place back unblocks Start building by itself.
@@ -468,5 +475,179 @@ public class NewProjectFlowTests
         await Until(flow, () => !flow.Idea!.Folder!.PlaceGone);
         Assert.That(flow.Idea!.Folder!.Describe(), Is.EqualTo("race-times in Projects (person)"));
         Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True);
+    }
+
+    /// <summary>A build sent whose acknowledgement was lost: its outcome unknown, its id kept.</summary>
+    private static NewProjectFlow Unknown(Host host, Kept kept)
+    {
+        host.Acknowledge = command => Task.FromException<CommandAckMessage>(new CommandOutcomeUnknownException(command.CommandId, "The socket closed."));
+        var flow = Recapped(host, kept);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        host.State = With();
+        flow.Tick();
+        Assert.That(kept.Id, Is.EqualTo(host.Sent.Single().CommandId));
+        return flow;
+    }
+
+    [Test]
+    public void AfterARestartAKeptUnknownStartHoldsEveryNewStartAndIsNeverReplaced()
+    {
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-0000000000c1" };
+        var host = new Host();
+        var flow = Flow(host, kept);
+        flow.Open(null, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build), "the unknown start comes first");
+
+        // The steps still lead to Your idea, and a new idea reaches the recap.
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.YourIdea));
+        host.Typed.Enqueue("Another page");
+        Press(flow, NewProjectScreens.TypeIdea, null);
+        Press(flow, NewProjectScreens.UseIdea, null);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Press(flow, NewProjectScreens.ChooseRuntime, "mock");
+        Press(flow, NewProjectScreens.Done, null);
+        var recap = flow.Frame!;
+        Assert.That((recap.Footer[PromptSlot.FarRight]!.Available, recap.Reason), Is.EqualTo((false, EntryText.PreviousRequestLine)));
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review, Is.Null, "nothing starts while an earlier start may have run");
+        Assert.That(recap.Sections.Single(step => step.Key == NewProjectScreens.Key(NewProjectStep.Build)).Reached, Is.True);
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Build));
+        Assert.That(flow.Frame!.Lines.Any(line => line.Words == "Reference: " + kept.Id), Is.True, "Build shows the start to check");
+        Assert.That(host.Sent, Is.Empty);
+        Assert.That(kept.Id, Is.EqualTo("01a0dcf1-5a80-7000-8000-0000000000c1"), "never replaced");
+    }
+
+    [Test]
+    public void InASessionAnUnknownStartCannotBeStartedOverOrStartedAgain()
+    {
+        var host = new Host();
+        var kept = new Kept();
+        var flow = Unknown(host, kept);
+        var first = kept.Id;
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.Recap));
+        var recap = flow.Frame!;
+        Assert.That(recap.Footer[PromptSlot.Rare]!.Available, Is.False, "Start over waits too");
+        Press(flow, NewProjectScreens.StartOver, null);
+        Press(flow, NewProjectScreens.ConfirmStartOver, null);
+        Assert.That(flow.Sequence, Is.Not.Null, "the build is still held");
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(flow.Review, Is.Null);
+        Assert.That(host.Sent, Has.Count.EqualTo(1), "no second project.create");
+        Assert.That(kept.Id, Is.EqualTo(first));
+    }
+
+    [Test]
+    public void ABuildConfirmedGoesOnAfterCloseAndOpeningAgainShowsWhereItStands()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        var create = host.Sent.Single();
+        Press(flow, Footer.Close, null);
+        Assert.That(flow.IsOpen, Is.False);
+
+        host.State = With(Completed(create, new ProjectCreatedResult { ProjectId = "p1" }));
+        flow.Tick();
+        Assert.That(host.Sent.Last(), Is.InstanceOf<WorkstreamCreateCommand>(), "the Yes confirmed the whole build");
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        Assert.That(host.Sent, Has.Count.EqualTo(2), "closed, no new press acts");
+        flow.Open(null, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+        Assert.That(flow.Frame!.Lines.Any(line => line.Words == EntryText.StepName(BuildStepKind.CreateWorkstream, true)), Is.True);
+    }
+
+    [Test]
+    public void AfterAReconnectMidBuildTheSameFlowSettlesTheStartFromItsRecordAndNeverCreatesTwice()
+    {
+        var drop = new TaskCompletionSource<CommandAckMessage>();
+        var host = new Host { Acknowledge = _ => drop.Task };
+        var kept = new Kept();
+        var flow = Recapped(host, kept);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        ReadToTheEnd(flow, host);
+        Press(flow, NewProjectScreens.ConfirmStart, null);
+        var create = host.Sent.Single();
+
+        // The socket drops with the create on its way, so its outcome is unknown; New project closes meanwhile.
+        host.Connected = false;
+        drop.SetException(new CommandOutcomeUnknownException(create.CommandId, "The socket closed."));
+        Press(flow, Footer.Close, null);
+        flow.Tick();
+        Assert.That(kept.Id, Is.EqualTo(create.CommandId));
+
+        // Reconnected to the same journal: its record settles the create, and the build goes on.
+        host.Connected = true;
+        host.State = With(Completed(create, new ProjectCreatedResult { ProjectId = "p1" }));
+        flow.Tick();
+        Assert.That(host.Sent.Count(each => each is ProjectCreateCommand), Is.EqualTo(1), "never a second project.create");
+        Assert.That(host.Sent.Last(), Is.InstanceOf<WorkstreamCreateCommand>());
+        Assert.That(kept.Id, Is.EqualTo(host.Sent.Last().CommandId), "the kept id follows the build's own step");
+        flow.Open(null, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build));
+    }
+
+    [Test]
+    public async Task APressOnAFrameDrawnBeforeANewReplyOrListingNeverTakesAnotherItem()
+    {
+        var routes = new Routes();
+        routes.Answers["GET /api/companion"] = () => HalcyonicJson.Serialize(new AvailableCompanion
+        {
+            Companion = new CompanionModel { Name = "local-model:tag", Served = "this_mac" }, MaxQuestions = 4,
+        });
+        var replies = new Queue<CompanionReply>(new CompanionReply[] { Companions.Ask(), Companions.Ask("Where should it run?", "A web page", "An app") });
+        routes.Answers["POST /api/companion/replies"] = () => HalcyonicJson.Serialize(Companions.Response(replies.Dequeue()));
+        var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseCompanion));
+        Press(flow, NewProjectScreens.BeginCompanion, null);
+        await Until(flow, () => flow.Idea!.Companion!.Latest is AskReply);
+        flow.Act(NewProjectScreens.ChooseSuggestion, "Each runner");
+        Assert.That(flow.Idea!.Companion!.Chosen, Is.EqualTo(CompanionAnswerRow.None), "a frame never drawn takes no press");
+
+        Press(flow, NewProjectScreens.ChooseSuggestion, "Each runner");
+        Press(flow, NewProjectScreens.SendAnswer, null);
+        await Until(flow, () => flow.Idea.Companion.Latest is AskReply asked && asked.Question.Text == "Where should it run?");
+        // The person's press lands on the earlier frame, the one last drawn: its words are no answer now.
+        flow.Act(NewProjectScreens.ChooseSuggestion, "One organiser");
+        Assert.That(flow.Idea.Companion.Chosen, Is.EqualTo(CompanionAnswerRow.None), "never the suggestion now in that place");
+    }
+
+    [Test]
+    public void AKeptAgentAppListsItsModelsOnlyWhenThePersonOpensHowItRuns()
+    {
+        var listing = Samples.MockRuntime();
+        listing.RuntimeId = "local";
+        listing.ModelChoice = ModelChoice.Listed;
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1);
+        snapshot.Runtimes = new List<RuntimeDescriptor> { listing };
+        state.ApplySnapshot(snapshot, new StateChanges());
+        var routes = new Routes();
+        routes.Answers["GET /api/runtimes/local/models"] = () => HalcyonicJson.Serialize(new RuntimeModelsResponse
+        {
+            RuntimeId = "local", Result = new AvailableModels { Models = new List<RuntimeModel>() },
+        });
+        var store = new Memory();
+        var idea = new ProjectIdea();
+        idea.UseIdea("A page of race times");
+        var draft = new NewWorkDraft(Commands);
+        draft.ChooseRuntime(listing);
+        store.Drafts.Add(CreationDraft.Of(Samples.JournalId, "", idea, null, draft, DateTimeOffset.UtcNow)!);
+
+        var host = new Host { State = state, Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Flow(host, store: store);
+        flow.Open(null, null);
+        flow.Tick();
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        Assert.That(routes.Asked.Any(asked => asked.EndsWith("/models", StringComparison.Ordinal)), Is.False, "opening reads no models: listing may start the agent app");
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        Press(flow, NewProjectScreens.MoreOptions, null);
+        Assert.That(routes.Asked.Count(asked => asked == "GET /api/runtimes/local/models"), Is.EqualTo(1), "on the person's press");
     }
 }
