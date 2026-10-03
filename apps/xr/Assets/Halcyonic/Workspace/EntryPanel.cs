@@ -125,7 +125,8 @@ namespace Halcyonic.XR.Workspace
             idea = shownIdea;
             if (shownDraft != null) draft = shownDraft;
             sequence = shownSequence;
-            unresolved = unresolvedCommand;
+            kept = new KeptForRender { Id = unresolvedCommand };
+            ownId = null;
             confirmingStartOver = false;
             notice = null;
             if (shownIdea != null && shown == Screen.Review) StartBuilding();
