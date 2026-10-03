@@ -195,6 +195,29 @@ public class FileColumnTests
     }
 
     [Test]
+    public void YesIsJudgedAgainstTheWorkAsItIsWhenPressedNotAsTheLastRebuildReadIt()
+    {
+        var host = new FileMenuHost();
+        var current = Approving(new WaitingWork());
+        var column = Column(host, () => current);
+        column.Act(FileScreens.Approve, null);
+        Draw(host, column);
+        Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.EqualTo(FileScreens.Yes));
+        // The state moves on to another request between rebuilds; the column has not ticked since,
+        // so what it last read is a snapshot of the request before.
+        var later = new WaitingWork();
+        later.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(WaitingWork.Approval("approval-2", "Drop the table", Samples.Time));
+        });
+        current = Approving(later);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "a Yes to the request read before is not a Yes to this one");
+        Assert.That(column.Steering.Armed, Is.Null);
+    }
+
+    [Test]
     public void ADrawOfAFrameTheColumnNoLongerStandsByCountsForNothing()
     {
         var host = new FileMenuHost();
