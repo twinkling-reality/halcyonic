@@ -351,6 +351,18 @@ the same definition names, as the JSON Schema document:
   text as seen, its targets, nothing of Halcyonic's own cut, its footers fitting, the content's
   light ending above its first target (`GlazeChecks.GlowEndsAboveTargets`) and a Quest 3S's field
   (`GlazeChecks.InsideField`, which `FieldChecks` now calls), and checks that `MenuPage.Fits` agrees.
+- **The menu's columns** (`IMenuColumn`, ADR 0026) are plain objects in the client core behind one
+  contract, so each lane builds its own: Tasks, Usage, Settings and the closed bar (lane U), Projects
+  (lane L), a task's file (lane W) and New project (lane C). A column gives its frame, with its side
+  panel, and raises `Changed` and `Closed`; it takes every press (`Act`), each draw of the very
+  frame it gave, its page or its side panel, as the plane has it (`Drawn`), which of its held
+  prompts started and ended while the director's one voice records, the words heard (`Heard`,
+  `Said`), a tick, and the app losing focus, presses and holds only while the app has focus. Its own rules decide whether a press may act, and only they send, through
+  the director's `IMenuHost.Submit`; the director never sends around them. `IMenuHost` gives every
+  column the session's projection, the clocks, the reading size, the computer's API, the keyboard,
+  the view's measures, the page height on this stage read when the column opens, and the way to
+  open a task's file or New project. A place's frame leaves its sections out; the director adds the
+  menu's places (`MenuBar.Sections`, `MenuFrame.WithSections`) and handles choosing one.
 - **`MenuPlane`** (Workspace) stands the menu, a task's file and a side panel on the stage as one
   composition: the columns by `MenuColumns`, the menu standing beside the file only where the two
   fit as the stage would place them in the headset's measured field (`MenuPage.Inside`), and a side

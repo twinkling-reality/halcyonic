@@ -257,6 +257,18 @@ public class MenuFrameTests
         Assert.That((bar.Waits(MenuPlace.Tasks), bar.Waits(MenuPlace.Projects)), Is.EqualTo((true, false)));
         Assert.That((bar.Chosen, bar.ClosedLine), Is.EqualTo((MenuPlace.Tasks, "1 task is waiting for you")));
         Assert.Throws<ArgumentException>(() => _ = new MenuBar(MenuPlace.Tasks, " "), "closed, it says what waits or that nothing is waiting");
+
+        // Open, its places are every place's sections: the chosen one lit, an amber dot where something waits.
+        var sections = new MenuBar(MenuPlace.Usage, "Nothing is waiting", MenuPlace.Tasks).Sections();
+        Assert.That(sections.Select(section => section.Words), Is.EqualTo(new[] { "Tasks", "Projects", "Usage", "Settings" }));
+        Assert.That(sections.Single(section => section.Chosen).Key, Is.EqualTo(nameof(MenuPlace.Usage)));
+        Assert.That(sections.Where(section => section.Waits).Select(section => section.Key), Is.EqualTo(new[] { nameof(MenuPlace.Tasks) }));
+
+        var page = new MenuFrame("How much is left before each limit?", new Footer(Close), lines: new[] { new PageLine("Claude Code, weekly") }, source: "From Seorak", sourceIsData: true);
+        var placed = page.WithSections(sections);
+        Assert.That(placed.Sections, Is.SameAs(sections));
+        Assert.That((placed.Subject, placed.Lines, placed.Source, placed.SourceIsData, placed.Footer), Is.EqualTo((page.Subject, page.Lines, page.Source, page.SourceIsData, page.Footer)),
+            "a place's page keeps all it said, with the menu's places as its sections");
     }
 
     [Test]
