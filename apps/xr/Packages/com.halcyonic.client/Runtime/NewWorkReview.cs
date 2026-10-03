@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
 {
@@ -90,6 +91,10 @@ namespace Halcyonic.Client
         /// An existing project's folder now, when the request moves it to <paramref name="folder"/>:
         /// both show, since all later work in the project runs in the new one.
         /// </param>
+        /// <param name="folderChoice">
+        /// The folder the request sends, as it sends it, or null when it sends none: compared by
+        /// <see cref="SameRequest"/> and by a build, since two places can share a name the words show.
+        /// </param>
         /// <param name="titleCut">
         /// Halcyonic cut <paramref name="title"/>, the part of the objective the title holds as typed
         /// (<see cref="NewWorkDraft.TitleSource"/>): its own ellipsis follows, as written, never spelled
@@ -101,8 +106,9 @@ namespace Halcyonic.Client
         public const string FirstTaskLabel = "First task: ";
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
-            string? folder = null, string? folderBefore = null, bool titleCut = false)
+            string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null)
         {
+            FolderChoice = folderChoice == null ? null : HalcyonicJson.Serialize(folderChoice);
             Add(ProjectLabel, project);
             if (folderBefore != null && folder != null)
             {
@@ -121,6 +127,12 @@ namespace Halcyonic.Client
         }
 
         public IReadOnlyList<ReviewItem> Items => items;
+
+        /// <summary>The folder the request sends, as the command carries it, or null for none.</summary>
+        public string? FolderChoice { get; }
+
+        /// <summary>Whether <paramref name="choice"/> is the folder this review's request sends.</summary>
+        public bool SendsFolder(ProjectLocationChoice? choice) => FolderChoice == (choice == null ? null : HalcyonicJson.Serialize(choice));
 
         /// <summary>The items have been laid out in pages; until then nothing can be confirmed.</summary>
         public bool Paginated => pages.Count > 0;
@@ -153,7 +165,8 @@ namespace Halcyonic.Client
 
         /// <summary>Whether <paramref name="other"/> shows exactly this request, item by item, as a review made afresh from the same choices would.</summary>
         public bool SameRequest(NewWorkReview? other) =>
-            other != null && other.items.Count == items.Count && items.Zip(other.items, (mine, theirs) => mine.Text == theirs.Text).All(same => same);
+            other != null && other.FolderChoice == FolderChoice && other.items.Count == items.Count
+            && items.Zip(other.items, (mine, theirs) => mine.Text == theirs.Text).All(same => same);
 
         /// <summary>Whether the review shows <paramref name="value"/>, spelled as it spells it, under <paramref name="label"/>.</summary>
         public bool Shows(string label, string value) => items.Any(item => item.Label == label && item.Value == Safe(value));

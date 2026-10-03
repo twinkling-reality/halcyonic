@@ -605,6 +605,30 @@ public class CreationDraftTests
         Assert.That(new CreationDrafts(new FileCreationDraftStore(FilePath), () => now.AddDays(7).AddMinutes(1)).For(Journal), Is.Empty);
     }
 
+    private sealed class FailingSaves : ICreationDraftStore
+    {
+        private readonly IReadOnlyList<CreationDraft> drafts;
+
+        public FailingSaves(IReadOnlyList<CreationDraft> drafts) => this.drafts = drafts;
+
+        public IReadOnlyList<CreationDraft> Load() => drafts;
+
+        public void Save(IReadOnlyList<CreationDraft> drafts) => throw new IOException("The disk is full.");
+    }
+
+    [Test]
+    public void AnExpiredDraftThatCannotBeRemovedOnReadingStillNeverComesBack()
+    {
+        var now = DateTimeOffset.Parse("2026-10-02T12:00:00Z");
+        var idea = new ProjectIdea();
+        idea.UseIdea("a tide table");
+        var draft = new NewWorkDraft(CompanionScreensTests.CommandFactoryFor());
+        var old = CreationDraft.Of(Journal, "", idea, null, draft, now.AddDays(-8))!;
+        var fresh = CreationDraft.Of(Journal, "p", idea, null, draft, now)!;
+        var drafts = new CreationDrafts(new FailingSaves(new[] { old, fresh }), () => now);
+        Assert.That(drafts.For(Journal).Select(each => each.Place), Is.EqualTo(new[] { "p" }), "read without throwing, the expired one left out");
+    }
+
     [Test]
     public void ExpiredDraftsLeaveTheDeviceAsSoonAsTheyAreReadForAnyComputer()
     {

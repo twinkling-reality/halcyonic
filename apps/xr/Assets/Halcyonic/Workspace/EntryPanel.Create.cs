@@ -441,7 +441,8 @@ namespace Halcyonic.XR.Workspace
 
         private void StartBuilding()
         {
-            if (StartProblem() != null || idea == null) return;
+            // While a build is on its way nothing more starts: what it sends was confirmed already.
+            if (StartProblem() != null || idea == null || Building()) return;
             review = EntryScreens.ReviewOf(idea, draft, CurrentFolder(), demonstration() == null);
             Open(Screen.Review);
         }
@@ -609,7 +610,8 @@ namespace Halcyonic.XR.Workspace
                 y -= part.Lines * reviewLine;
             }
             // A part counts as read only once drawn; drawing the last unread one is what offers Yes.
-            if (current.Drawn(now()))
+            // Drawn only while the panel shows: folded behind another window, nothing is read.
+            if (root.gameObject.activeInHierarchy && current.Drawn(now()))
             {
                 var ready = EntryScreens.Review(current, StartProblem());
                 ready.Banner = model.Banner;
@@ -668,12 +670,12 @@ namespace Halcyonic.XR.Workspace
 
         private void ConfirmReviewed()
         {
-            if (review?.CanConfirm != true || StartProblem() != null || idea == null) return;
+            if (review?.CanConfirm != true || StartProblem() != null || idea == null || Building()) return;
             // What is sent is what was read: a request changed since the review was made is shown afresh, from its first part.
-            var now = EntryScreens.ReviewOf(idea, draft, CurrentFolder(), demonstration() == null);
-            if (!review.SameRequest(now))
+            var asItStands = EntryScreens.ReviewOf(idea, draft, CurrentFolder(), demonstration() == null);
+            if (!review.SameRequest(asItStands))
             {
-                review = now;
+                review = asItStands;
                 Layout();
                 return;
             }
@@ -681,20 +683,29 @@ namespace Halcyonic.XR.Workspace
             review = null;
             var newProject = idea.ExistingProjectId == null ? idea.Name : null;
             var folder = idea.Folder?.ToContract();
+            // The draft takes the first task only at this press; the build keeps what it confirmed, whatever changes after.
+            draft.Objective = idea.FirstTask;
             if (sequence != null && sequence.CanRetry)
             {
                 // Sent again with the folder only when the person chose another since the last try.
                 Send(sequence.Retry(reviewed, newProject, idea.Folder != sentFolder ? folder : null));
+                sentFolder = idea.Folder;
             }
             else if (sequence == null)
             {
                 draft.ProjectId = idea.ExistingProjectId;
-                sequence = new BuildSequence(draft, commands, newProject, folder);
-                Send(sequence.Begin(reviewed));
+                var begun = new BuildSequence(draft, commands, newProject, folder);
+                // Kept only once it has begun, so a refusal to begin leaves no sequence that never sent.
+                var first = begun.Begin(reviewed);
+                sequence = begun;
+                Send(first);
+                sentFolder = idea.Folder;
             }
-            sentFolder = idea.Folder;
             Open(Screen.Sending);
         }
+
+        /// <summary>A build is on its way: it has sent, and has neither stopped nor started the work.</summary>
+        private bool Building() => sequence != null && sequence.Sent && !sequence.Stopped && !sequence.Started;
 
         private void Send(CommandEnvelope command)
         {
@@ -740,6 +751,11 @@ namespace Halcyonic.XR.Workspace
             {
                 shownProject = current.ProjectId;
                 rail?.ShowProject(current.ProjectId);
+            }
+            // Once made, the project is the one the work goes to, under the name it was made with: never renamed here.
+            if (current.ProjectId != null && current.NewProjectName != null && idea != null && idea.ExistingProjectId == null)
+            {
+                idea.ProjectMade(current.ProjectId, current.NewProjectName);
             }
             if ((next != null || current.Started != wasStarted) && visible && screen == Screen.Sending) Layout();
         }

@@ -519,12 +519,12 @@ namespace Halcyonic.Client
         /// </summary>
         public static NewWorkReview ReviewOf(ProjectIdea idea, NewWorkDraft draft, ProjectLocation? currentFolder, bool live)
         {
-            draft.Objective = idea.FirstTask;
+            // Reviewing changes nothing: the draft takes the first task only when its Yes is pressed.
             var model = draft.Model;
             // The review spells what Halcyonic did not write by its code points, so it is given those names as they are.
             var folder = idea.Folder?.Describe(name => name) ?? currentFolder?.Name ?? "none";
             var before = idea.Folder != null && idea.ExistingProjectId != null ? currentFolder?.Name ?? "none" : null;
-            var (title, titleCut) = draft.TitleSource;
+            var (title, titleCut) = NewWorkDraft.TitleSourceOf(idea.FirstTask);
             return new NewWorkReview(
                 idea.Name,
                 title,
@@ -535,7 +535,8 @@ namespace Halcyonic.Client
                 idea.FirstTask,
                 folder,
                 before,
-                titleCut);
+                titleCut,
+                idea.Folder?.ToContract());
         }
 
         /// <summary>

@@ -84,6 +84,12 @@ namespace Halcyonic.Client
         private ProjectLocationChoice? location;
         private int index;
 
+        /// <summary>The project the work goes to: the draft's when it began, then the one created.</summary>
+        private string? projectId;
+
+        /// <summary>What the person confirmed, taken from the draft at the press: every step is built from it, never from the draft as it changes after.</summary>
+        private Confirmation? confirmed;
+
         /// <param name="draft">The runtime, model and first task, with its project unless one is created.</param>
         /// <param name="newProjectName">The project to create first, or null to add the work to the draft's project.</param>
         /// <param name="folder">
@@ -96,6 +102,7 @@ namespace Halcyonic.Client
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
             this.newProjectName = newProjectName;
             location = folder;
+            projectId = draft.ProjectId;
             if (newProjectName != null) steps.Add(new BuildStep(BuildStepKind.CreateProject));
             else if (folder != null) steps.Add(new BuildStep(BuildStepKind.BindFolder));
             steps.Add(new BuildStep(BuildStepKind.CreateWorkstream));
@@ -107,6 +114,9 @@ namespace Halcyonic.Client
         /// <summary>The draft it sends from: the runtime, model and first task as they are now.</summary>
         public NewWorkDraft Draft => draft;
 
+        /// <summary>The folder it sends, as the command carries it, or null for none.</summary>
+        public ProjectLocationChoice? Location => location;
+
         /// <summary>The project it creates first, or null when the work goes to the draft's project.</summary>
         public string? NewProjectName => newProjectName;
 
@@ -114,7 +124,7 @@ namespace Halcyonic.Client
         public NewWorkSubmission? Current { get; private set; }
 
         /// <summary>The project the work belongs to, once known.</summary>
-        public string? ProjectId => draft.ProjectId;
+        public string? ProjectId => projectId;
 
         /// <summary>The workstream created, once confirmed.</summary>
         public string? WorkstreamId { get; private set; }
@@ -150,6 +160,7 @@ namespace Halcyonic.Client
         {
             draft.ProjectId = projectId ?? throw new ArgumentNullException(nameof(projectId));
             var sequence = new BuildSequence(draft, commands, null);
+            sequence.projectId = projectId;
             if (workstreamId != null)
             {
                 sequence.steps[0].Status = BuildStepStatus.Confirmed;
@@ -167,7 +178,7 @@ namespace Halcyonic.Client
         public CommandEnvelope Begin(NewWorkReview reviewed)
         {
             if (index != 0 || Current != null) throw new InvalidOperationException("The sequence has begun.");
-            Confirmed(reviewed, newProjectName);
+            Confirm(reviewed, newProjectName, location);
             return Send(CommandFor(steps[0].Kind));
         }
 
@@ -189,7 +200,7 @@ namespace Halcyonic.Client
         public CommandEnvelope Retry(NewWorkReview reviewed, string? projectName = null, ProjectLocationChoice? folder = null)
         {
             if (!CanRetry) throw new InvalidOperationException("Only a step that cannot have run is sent again.");
-            Confirmed(reviewed, steps[index].Kind == BuildStepKind.CreateProject ? projectName ?? newProjectName : null);
+            Confirm(reviewed, steps[index].Kind == BuildStepKind.CreateProject ? projectName ?? newProjectName : null, folder ?? location);
             if (projectName != null) newProjectName = projectName;
             if (folder != null) location = folder;
             Stopped = false;
@@ -207,19 +218,47 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Holds a send to what the person read: the review shows the new project's name, the model
-        /// and the first task as they go, and its final action is taken now, once.
+        /// Holds a send to what the person read: the review shows the new project's name, the folder,
+        /// the model and the first task as they go; its final action is taken now, once; and what it
+        /// confirmed is kept, so every later step goes out as reviewed whatever the draft becomes.
         /// </summary>
-        private void Confirmed(NewWorkReview reviewed, string? projectName)
+        private void Confirm(NewWorkReview reviewed, string? projectName, ProjectLocationChoice? folder)
         {
             if (reviewed == null) throw new ArgumentNullException(nameof(reviewed));
             if (projectName != null && !reviewed.Shows(NewWorkReview.ProjectLabel, projectName))
             {
                 throw new InvalidOperationException("The project's name is not the one reviewed.");
             }
+            if (!reviewed.SendsFolder(folder)) throw new InvalidOperationException("The folder is not the one reviewed.");
             if (!reviewed.Shows(NewWorkReview.ModelIdLabel, draft.Model?.ModelRef ?? "none")) throw new InvalidOperationException("The model is not the one reviewed.");
             if (!reviewed.Shows(NewWorkReview.FirstTaskLabel, draft.Objective)) throw new InvalidOperationException("The first task is not the one reviewed.");
+            var runtime = draft.Runtime;
+            if (runtime == null || !runtime.Capabilities.StartExecution) throw new InvalidOperationException("Choose a runtime that can start work.");
+            if (runtime.ModelChoice == ModelChoice.Listed && draft.Model == null) throw new InvalidOperationException("Choose a model.");
+            var objective = draft.Objective.Trim();
+            if (objective.Length == 0 || objective.Length > 4000) throw new InvalidOperationException("The first task is empty or too long.");
             if (!reviewed.Spend()) throw new InvalidOperationException("Only a request read to its end, and confirmed once, is sent.");
+            confirmed = new Confirmation(draft.Title, objective, runtime.RuntimeId, draft.Model?.ModelRef);
+        }
+
+        /// <summary>The request the person confirmed, as each of its steps sends it.</summary>
+        private sealed class Confirmation
+        {
+            public Confirmation(string title, string objective, string runtimeId, string? modelRef)
+            {
+                Title = title;
+                Objective = objective;
+                RuntimeId = runtimeId;
+                ModelRef = modelRef;
+            }
+
+            public string Title { get; }
+
+            public string Objective { get; }
+
+            public string RuntimeId { get; }
+
+            public string? ModelRef { get; }
         }
 
         /// <summary>The acknowledgement of the command in flight.</summary>
@@ -275,6 +314,7 @@ namespace Halcyonic.Client
             switch (current.EffectiveRecord!.Result)
             {
                 case ProjectCreatedResult project:
+                    projectId = project.ProjectId;
                     draft.ProjectId = project.ProjectId;
                     break;
                 case WorkstreamCreatedResult workstream:
@@ -293,9 +333,9 @@ namespace Halcyonic.Client
         private CommandEnvelope CommandFor(BuildStepKind kind) => kind switch
         {
             BuildStepKind.CreateProject => commands.CreateProject(newProjectName!, location),
-            BuildStepKind.BindFolder => commands.SetProjectLocation(draft.ProjectId!, location!),
-            BuildStepKind.CreateWorkstream => draft.CreateWorkstream(),
-            _ => draft.StartExecution(WorkstreamId!),
+            BuildStepKind.BindFolder => commands.SetProjectLocation(projectId!, location!),
+            BuildStepKind.CreateWorkstream => commands.CreateWorkstream(projectId!, confirmed!.Title, confirmed.Objective),
+            _ => commands.StartExecution(WorkstreamId!, confirmed!.RuntimeId, confirmed.Objective, modelRef: confirmed.ModelRef),
         };
 
         private CommandEnvelope Send(CommandEnvelope command)

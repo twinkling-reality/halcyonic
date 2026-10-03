@@ -93,7 +93,20 @@ namespace Halcyonic.Client
         public static IReadOnlyList<GuidedQuestion> Questions => Fixed;
 
         /// <summary>The project the work goes to, or null when Start building creates one.</summary>
-        public string? ExistingProjectId { get; }
+        public string? ExistingProjectId { get; private set; }
+
+        /// <summary>
+        /// The project the computer made for this idea, when a later step was refused or failed: the
+        /// work goes there, under the name it was made with, which is no longer changed here and is
+        /// what the recap and the review show from now on.
+        /// </summary>
+        public void ProjectMade(string projectId, string madeName)
+        {
+            if (string.IsNullOrEmpty(projectId)) throw new ArgumentException("A made project has its id.", nameof(projectId));
+            ExistingProjectId = projectId;
+            if (!string.IsNullOrWhiteSpace(madeName)) Name = madeName;
+            NameSuggested = false;
+        }
 
         /// <summary>The project's name: typed, taken from the idea, or from the answers. Fixed for an existing project.</summary>
         public string Name { get; private set; } = "";

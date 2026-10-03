@@ -232,30 +232,29 @@ public class NewWorkSafetyTests
     }
 
     [Test]
-    public void NoOrderOfRemeasuresDrawsAndPressesOffersYesBeforeEveryLineIsDrawn()
+    public void NoOrderOfRemeasuresDrawsAndPressesOffersYesBeforeEveryCharacterWasPlaced()
     {
+        // Counted by what was placed, not by the review's own rule: each item is so many characters,
+        // a layout wraps it at a width, and drawing a part places that part's characters for good.
         var random = new Random(20261002);
         for (var round = 0; round < 400; round++)
         {
             var review = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Objective", "folder");
             var count = review.Items.Count;
-            int[] lines = null!;
-            bool[][] seen = null!;
+            var characters = Enumerable.Range(0, count).Select(_ => random.Next(1, 400)).ToArray();
+            var placed = characters.Select(length => new bool[length]).ToArray();
+            var width = 1;
             void Layout()
             {
-                var pageLines = random.Next(2, 9);
-                // Seen whole stays seen; seen in part does not carry over to lines that may wrap elsewhere.
-                var whole = seen?.Select(item => item.All(line => line)).ToArray() ?? new bool[count];
-                lines = Enumerable.Range(0, count).Select(_ => random.Next(1, 3 * pageLines)).ToArray();
-                review.Paginate(lines, pageLines);
-                seen = Enumerable.Range(0, count).Select(item => Enumerable.Repeat(whole[item], lines[item]).ToArray()).ToArray();
+                width = random.Next(8, 60);
+                review.Paginate(characters.Select(length => (length + width - 1) / width).ToList(), random.Next(2, 9));
             }
             Layout();
             var now = 0.0;
-            for (var step = 0; step < 60; step++)
+            for (var step = 0; step < 80; step++)
             {
                 now += random.NextDouble();
-                switch (random.Next(4))
+                switch (random.Next(5))
                 {
                     case 0:
                         Layout();
@@ -263,7 +262,14 @@ public class NewWorkSafetyTests
                     case 1:
                         review.Drawn(now);
                         foreach (var part in review.Parts)
-                            for (var line = part.FirstLine; line < part.FirstLine + part.Lines; line++) seen[part.Item][line] = true;
+                        {
+                            var from = part.FirstLine * width;
+                            var to = Math.Min((part.FirstLine + part.Lines) * width, characters[part.Item]);
+                            for (var character = from; character < to; character++) placed[part.Item][character] = true;
+                        }
+                        break;
+                    case 2:
+                        review.Previous();
                         break;
                     default:
                         review.Next(now);
@@ -271,7 +277,7 @@ public class NewWorkSafetyTests
                 }
                 if (review.CanConfirm)
                 {
-                    Assert.That(seen.All(item => item.All(line => line)), Is.True, "Yes only once every line of this layout was drawn");
+                    Assert.That(placed.All(item => item.All(character => character)), Is.True, "Yes only once every character was placed at least once");
                     Assert.That(review.Page, Is.EqualTo(review.PageCount - 1));
                 }
             }

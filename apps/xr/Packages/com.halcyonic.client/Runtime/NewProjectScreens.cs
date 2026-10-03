@@ -762,7 +762,8 @@ namespace Halcyonic.Client
             {
                 lines.Add(new PageLine(review.Items[part.Item].Text, wordsAreData: true, rows: part.Lines, fromRow: part.FirstLine));
             }
-            if (review.Paginated && !review.CanConfirm)
+            // Only while a later part is there to turn to: never a "Next part" past the last.
+            if (review.Paginated && review.Page < review.PageCount - 1)
             {
                 lines.Add(new PageLine(EntryText.NextPart(review.Page + 2, review.PageCount), icon: GlazeIcon.Next, action: NextPart));
             }

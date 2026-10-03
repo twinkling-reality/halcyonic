@@ -408,9 +408,10 @@ namespace Halcyonic.XR.Workspace.Editor
         }
 
         /// <summary>The request read through and confirmable, as Start building's review leaves it, for a render's sequence.</summary>
-        private static NewWorkReview Read(NewWorkDraft draft, string project)
+        private static NewWorkReview Read(NewWorkDraft draft, string project, ProjectLocationChoice? folder = null)
         {
-            var review = new NewWorkReview(project, "Title", "Agent", "Model", "on your computer", draft.Model?.ModelRef ?? "none", draft.Objective);
+            var review = new NewWorkReview(project, "Title", "Agent", "Model", "on your computer", draft.Model?.ModelRef ?? "none", draft.Objective,
+                folderChoice: folder);
             review.Paginate(review.Items.Select(_ => 1).ToList(), review.Items.Count);
             review.Drawn(0);
             return review;
@@ -422,7 +423,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var draft = Draft(shown, listed: true);
             draft.Objective = idea.FirstTask;
             var sequence = new BuildSequence(draft, Commands(), idea.Name, idea.Folder!.ToContract());
-            var project = sequence.Begin(Read(draft, idea.Name));
+            var project = sequence.Begin(Read(draft, idea.Name, idea.Folder!.ToContract()));
             sequence.Advance(With(new CommandView
             {
                 CommandId = project.CommandId, Status = CommandStatus.Rejected, IssuedAt = Time, UpdatedAt = Time,
