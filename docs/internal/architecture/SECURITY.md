@@ -162,9 +162,10 @@ no token. The headset over USB (`adb reverse`) and the editor ask for the same p
 redirect (`LoopbackProof` and `LoopbackProofHandler` in the client core). Each REST request opens
 a connection of its own, never from a pool, asks the proof on it and sends the token on that same
 connection, so only what just proved itself receives it, and a connection another program kept
-open while the control plane was stopped is never used again. The realtime upgrade asks the proof
-on a connection of its own just before `ClientWebSocket` opens its own, leaving the same moment as
-the command-line clients. What answers without the proof ends the session, which says the headset
+open while the control plane was stopped is never used again. The realtime upgrade does the same:
+it asks the proof on a connection of its own and upgrades that connection
+(`LoopbackWebSocketTransport`). Each reads its answers whole and refuses one framed more than one
+way. What answers without the proof ends the session, which says the headset
 didn't send its access code; nothing answering is tried again. The proof stops an app on the
 headset that listens on 127.0.0.1:47800 there while `adb reverse` isn't in place, and another
 account on the Mac that listens on 47800 while the control plane is stopped; the limits below hold
@@ -199,9 +200,6 @@ glance's (`files/glance-access-token`) alike:
 - **A stale token and an impostor read the same.** The proof can't tell a control plane holding
   another token from another program, so the app's line names both: the code doesn't match, or
   something else is answering in its place. Either way the token was not sent.
-- **The app's realtime upgrade has a moment.** It asks the proof on a connection of its own just
-  before `ClientWebSocket` opens its own, as the command-line clients do; its REST requests and the
-  glance send the token on the connection that proved itself, and have none.
 
 ## Controls
 

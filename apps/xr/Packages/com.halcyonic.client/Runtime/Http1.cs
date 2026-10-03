@@ -131,7 +131,13 @@ namespace Halcyonic.Client
                 if (read == 0) throw new IOException("The connection closed before the response arrived.");
                 received.Add(one[0]);
             }
-            var lines = Encoding.ASCII.GetString(received.ToArray(), 0, received.Count - 4).Split(new[] { "\r\n" }, StringSplitOptions.None);
+            var text = Encoding.ASCII.GetString(received.ToArray(), 0, received.Count - 4);
+            var lines = text.Split(new[] { "\r\n" }, StringSplitOptions.None);
+            foreach (var line in lines)
+            {
+                if (line.IndexOf('\r') >= 0 || line.IndexOf('\n') >= 0) throw new InvalidDataException("The response head holds a bare line break.");
+                if (line.Length > 0 && (line[0] == ' ' || line[0] == '\t')) throw new InvalidDataException("The response head folds a header across lines.");
+            }
             var status = lines[0].Split(' ');
             if (status.Length < 2 || !status[0].StartsWith("HTTP/1.", StringComparison.Ordinal)
                 || !int.TryParse(status[1], NumberStyles.None, CultureInfo.InvariantCulture, out var code))
@@ -151,7 +157,24 @@ namespace Halcyonic.Client
         public static async Task<byte[]> ReadBodyAsync(Stream stream, Http1Head head, int maxBytes, CancellationToken cancellationToken)
         {
             var body = new MemoryStream();
+            var lengths = 0;
+            var encodings = 0;
+            foreach (var header in head.Headers)
+            {
+                if (string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase)) lengths++;
+                if (string.Equals(header.Key, "Transfer-Encoding", StringComparison.OrdinalIgnoreCase)) encodings++;
+            }
+            // Framing two ways, or a coding this does not read, could make the next response start
+            // anywhere: refused rather than guessed.
+            if (lengths > 1 || encodings > 1 || (lengths == 1 && encodings == 1))
+            {
+                throw new InvalidDataException("The response frames its body more than one way.");
+            }
             var length = head.Header("Content-Length");
+            if (encodings == 1 && !string.Equals(head.Header("Transfer-Encoding"), "chunked", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("The response's transfer coding is not chunked.");
+            }
             if (length != null)
             {
                 if (!long.TryParse(length, NumberStyles.None, CultureInfo.InvariantCulture, out var expected) || expected > maxBytes)
@@ -167,11 +190,26 @@ namespace Halcyonic.Client
                 {
                     var sizeLine = await ReadLineAsync(stream, cancellationToken).ConfigureAwait(false);
                     var semicolon = sizeLine.IndexOf(';');
-                    var size = long.Parse(semicolon < 0 ? sizeLine : sizeLine.Substring(0, semicolon), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                    var digits = (semicolon < 0 ? sizeLine : sizeLine.Substring(0, semicolon)).Trim();
+                    // At most 8 hex digits, so a size can't overflow or read as negative.
+                    if (digits.Length == 0 || digits.Length > 8
+                        || !long.TryParse(digits, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var size))
+                    {
+                        throw new InvalidDataException("A chunk's size is not a size.");
+                    }
                     if (size == 0) break;
                     if (body.Length + size > maxBytes) throw new InvalidDataException("The response is larger than " + maxBytes + " bytes.");
                     await CopyAsync(stream, body, size, maxBytes, cancellationToken).ConfigureAwait(false);
-                    await ReadLineAsync(stream, cancellationToken).ConfigureAwait(false);
+                    if ((await ReadLineAsync(stream, cancellationToken).ConfigureAwait(false)).Length != 0)
+                    {
+                        throw new InvalidDataException("A chunk is longer than its size.");
+                    }
+                }
+                // The trailer: header lines after the last chunk, up to the blank line that ends the response.
+                var trailer = 0;
+                while ((await ReadLineAsync(stream, cancellationToken).ConfigureAwait(false)).Length != 0)
+                {
+                    if (++trailer > 64) throw new InvalidDataException("The response's trailer is too long.");
                 }
             }
             else

@@ -155,6 +155,8 @@ public class LoopbackProofTests
         Assert.That(LoopbackProof.AddressOf(new Uri("http://localhost:47800/")), Is.Null, "a name another listener could answer to");
         Assert.That(LoopbackProof.AddressOf(new Uri("http://192.168.1.23:47800/")), Is.Null);
         Assert.That(LoopbackProof.AddressOf(new Uri("http://0.0.0.0:47800/")), Is.Null);
+        Assert.That(LoopbackProof.AddressOf(new Uri("http://127.0.0.2:47800/")), Is.Null, "only 127.0.0.1 of 127.0.0.0/8");
+        Assert.That(LoopbackProof.AddressOf(new Uri("http://127.1:47800/")), Is.Null.Or.EqualTo("127.0.0.1:47800"), "written short, it is 127.0.0.1 or nothing");
     }
 
     private static HttpClient Client() => new(new LoopbackProofHandler(Token));
@@ -271,7 +273,7 @@ public class LoopbackProofTests
             var error = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.GetLocationsAsync());
             Assert.That(error!.InnerException, Is.TypeOf<TokenNotSentException>());
         }
-        using (var transport = new ClientWebSocketTransport())
+        using (var transport = new LoopbackWebSocketTransport())
         {
             var error = Assert.ThrowsAsync<TokenNotSentException>(() => transport.ConnectAsync(endpoint, Token, CancellationToken.None));
             Assert.That(error!.Outcome, Is.EqualTo(LoopbackProofOutcome.Unproved));
@@ -324,17 +326,17 @@ public class LoopbackProofTests
     public async Task AControlPlaneThatProvesItselfAndRefusesTheUpgradeIsARefusal()
     {
         // Only the control plane holds the token, so this happens when it is replaced between the proof
-        // and the upgrade; the refusal is asked again, after a proof of its own.
+        // and the upgrade; the upgrade's own answer says so, on the connection that proved itself.
         await using var controlPlane = new RecordingServer((head, port) =>
             RecordingServer.ChallengeIn(head) != null
                 ? RecordingServer.Http("200 OK", RecordingServer.Proof(Token, "127.0.0.1:" + port, head))
                 : RecordingServer.Http("401 Unauthorized", body: "{\"error\":{\"code\":\"unauthorized\",\"message\":\"A valid access token is required.\"}}", close: true));
-        using var transport = new ClientWebSocketTransport();
+        using var transport = new LoopbackWebSocketTransport();
         var refused = Assert.ThrowsAsync<UpgradeRefusedException>(() =>
             transport.ConnectAsync(new Uri($"ws://127.0.0.1:{controlPlane.Port}/realtime"), Token, CancellationToken.None));
         Assert.That(refused!.Status, Is.EqualTo(401));
-        Assert.That(controlPlane.Paths, Is.EqualTo(new[] { "/api/health", "/realtime", "/api/health", "/api/runtimes" }),
-            "each request that carries the token follows a proof of its own");
+        Assert.That(controlPlane.Requests.Select(request => (request.Connection, request.Head.Split(' ')[1])),
+            Is.EqualTo(new[] { (1, "/api/health"), (1, "/realtime") }), "the upgrade follows the proof on its connection");
     }
 
     [Test]
@@ -369,6 +371,51 @@ public class LoopbackProofTests
             Assert.That(() => invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, At(server)), CancellationToken.None),
                 Throws.InstanceOf<HttpRequestException>(), answer);
         }
+    }
+
+    [Test]
+    public async Task AResponseFramedAmbiguouslyIsRefusedAndATrailerIsReadWhole()
+    {
+        var refused = new Dictionary<string, string>
+        {
+            ["two lengths"] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Length: 3\r\nConnection: close\r\n\r\n{}",
+            ["a length and chunks"] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2\r\n{}\r\n0\r\n\r\n",
+            ["a coding it does not read"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip\r\nConnection: close\r\n\r\n{}",
+            ["a folded header"] = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}",
+            ["a bare carriage return"] = "HTTP/1.1 200 OK\r\nX-Split: a\rb\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}",
+            ["a chunk size of nine digits"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n000000002\r\n{}\r\n0\r\n\r\n",
+            ["a chunk size that reads negative"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nffffffffffffffff\r\n{}\r\n0\r\n\r\n",
+            ["a chunk longer than its size"] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n1\r\n{}\r\n0\r\n\r\n",
+        };
+        foreach (var (name, answer) in refused)
+        {
+            await using var server = new RecordingServer((head, port) =>
+                RecordingServer.ChallengeIn(head) != null ? RecordingServer.Http("200 OK", RecordingServer.Proof(Token, "127.0.0.1:" + port, head)) : answer);
+            using var invoker = new HttpMessageInvoker(new LoopbackProofHandler(Token));
+            Assert.That(() => invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, At(server)), CancellationToken.None),
+                Throws.InstanceOf<HttpRequestException>(), name);
+        }
+
+        // A proof answered in chunks with a trailer: the trailer is read to its end, so the request
+        // that follows on the connection reads its own answer.
+        await using var chunked = new RecordingServer((head, port) =>
+        {
+            var challenge = RecordingServer.ChallengeIn(head);
+            if (challenge == null)
+            {
+                return "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2;name=value\r\n{}\r\n0\r\nX-Trailer: done\r\n\r\n";
+            }
+            return "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n" + RecordingServer.Proof(Token, "127.0.0.1:" + port, head)
+                + "\r\n2\r\n{}\r\n0\r\nX-Trailer: done\r\n\r\n";
+        });
+        using (var invoker = new HttpMessageInvoker(new LoopbackProofHandler(Token)))
+        {
+            using var response = await invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, At(chunked)), CancellationToken.None);
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(await response.Content.ReadAsStringAsync(), Is.EqualTo("{}"));
+        }
+        Assert.That(chunked.Requests.Select(request => (request.Connection, request.Head.Split(' ')[1])),
+            Is.EqualTo(new[] { (1, "/api/health"), (1, "/api/runtimes") }));
     }
 
     [Test]

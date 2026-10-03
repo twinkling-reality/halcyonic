@@ -372,7 +372,9 @@ The Android player settings are committed:
   which the person grants at runtime, and `com.oculus.permission.USE_ANCHOR_API` for the stage's
   anchor ([mixed-reality-room.md](../validation/mixed-reality-room.md)).
 
-`ClientWebSocket` works under IL2CPP on a Quest 3 ([quest-3-device.md](../validation/quest-3-device.md)).
+`ClientWebSocket` works under IL2CPP on a Quest 3 ([quest-3-device.md](../validation/quest-3-device.md));
+the app no longer uses it: over USB it performs the WebSocket upgrade itself, on the connection the
+control plane proved itself on, which "Token storage on a Quest" below checks.
 
 ### Build
 
@@ -700,8 +702,8 @@ What only a headset can tell about the access token ([headset-token-storage.md](
   `android:allowBackup="false"`.
 - **The proof.** That the app connects over `adb reverse tcp:47800 tcp:47800` and a workstream's
   history and the folders load, which shows the control plane sees the headset's connections at
-  127.0.0.1:47800, the proof holds over USB, and the REST requests' own HTTP and the HMAC work under
-  IL2CPP ([xr-loopback-proof.md](../validation/xr-loopback-proof.md)). Then, with the control plane
+  127.0.0.1:47800, the proof holds over USB, and the app's own WebSocket upgrade and HTTP and the
+  HMAC work under IL2CPP ([xr-loopback-proof.md](../validation/xr-loopback-proof.md)). Then, with the control plane
   stopped, run a listener on the Mac's 47800 that answers every request without a proof:
 
   ```bash

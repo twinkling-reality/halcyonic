@@ -29,7 +29,7 @@ namespace Halcyonic.Client
         private WebSocket? socket;
 
         /// <param name="pin">The SHA-256 of the control plane's certificate, in lowercase hex.</param>
-        public PinnedWebSocketTransport(string pin, int maxMessageBytes = ClientWebSocketTransport.DefaultMaxMessageBytes)
+        public PinnedWebSocketTransport(string pin, int maxMessageBytes = LoopbackWebSocketTransport.DefaultMaxMessageBytes)
         {
             this.pin = ControlPlaneTarget.CheckPin(pin);
             this.maxMessageBytes = maxMessageBytes;
