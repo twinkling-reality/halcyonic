@@ -70,7 +70,17 @@ public class NewProjectFlowTests
 
         public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
-        public float PageHeight(int subjectRows, bool besideMenu) => MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu);
+        /// <summary>The page's room where a test sets it, as the head moves on the stage; else a Quest 3S's, strictly.</summary>
+        public Func<int, bool, float>? Height { get; set; }
+
+        /// <summary>How often the page's room was read.</summary>
+        public int HeightReads { get; private set; }
+
+        public float PageHeight(int subjectRows, bool besideMenu)
+        {
+            HeightReads++;
+            return Height?.Invoke(subjectRows, besideMenu) ?? MenuPage.Height(TextSize, subjectRows, besideMenu: besideMenu);
+        }
 
         public void OpenFile(string workstreamId)
         {
@@ -132,35 +142,51 @@ public class NewProjectFlowTests
         new(host, Commands, kept ?? new Kept(), store);
 
     /// <summary>
-    /// A press as the person makes one: on the frame the director drew for them, turning the page by its
-    /// row first, as they would, while the keyed line they press stands on another page of it. A
-    /// prompt stands on every page, so none is looked for elsewhere.
+    /// A press as the person makes one: on the frame the director drew for them, turning the page first,
+    /// as they would, while the keyed line they press stands on another page of it. A prompt stands on
+    /// every page, so none is looked for elsewhere.
     /// </summary>
     private static void Press(NewProjectFlow flow, string id, string? key)
     {
-        for (var turned = 0; turned < 10 && key != null && flow.Frame is MenuFrame frame && !Shows(frame, id, key)
-            && frame.Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } turn && turn.Key != null; turned++)
+        for (var turned = 0; turned < 12 && key != null && flow.Frame is MenuFrame frame && !Shows(frame, id, key) && Turn(frame) is { } turn; turned++)
         {
             flow.Drawn(frame, false);
-            flow.Act(NewProjectScreens.NextPage, turn.Key);
-            if (Shows(flow.Frame!, id, key)) break;
+            flow.Act(turn.Id, turn.Key);
         }
         if (flow.Frame is MenuFrame drawn) flow.Drawn(drawn, false);
         flow.Act(id, key);
     }
 
     /// <summary>
-    /// Every page of what shows, as the person turns them by the row at each page's end, from the one
-    /// showing back round to it; one page when everything fits.
+    /// What turns a frame's page, as the person finds it: the footer's Next page, where a list pages as
+    /// the menu's lists do; else the row at the page's end, more answers, the next part or the next
+    /// page; null where it doesn't page.
+    /// </summary>
+    private static (string Id, string? Key, string Words)? Turn(MenuFrame frame)
+    {
+        if (frame.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Kind == PromptKind.NextPage) is Prompt pager) return (pager.Id, null, pager.Words);
+        return frame.Lines.LastOrDefault(line => line.Action is NewProjectScreens.NextPage or NewProjectScreens.MoreAnswers or NewProjectScreens.NextPart) is { } row
+            ? (row.Action!, row.Key, row.Words)
+            : null;
+    }
+
+    /// <summary>Whether a line only turns the page.</summary>
+    private static bool Turns(PageLine line) => line.Action is NewProjectScreens.NextPage or NewProjectScreens.MoreAnswers or NewProjectScreens.NextPart;
+
+    /// <summary>
+    /// Every page of what shows, as the person turns them, from the one showing on round to one already
+    /// seen; one page when everything fits.
     /// </summary>
     private static List<MenuFrame> Pages(NewProjectFlow flow)
     {
+        static string Seen(MenuFrame frame) => string.Join("|", frame.Lines.Select(line => line.Words + "#" + line.Key));
         var pages = new List<MenuFrame> { flow.Frame! };
-        while (pages.Count < 10 && pages[^1].Lines.LastOrDefault() is PageLine { Action: NewProjectScreens.NextPage } turn)
+        var seen = new HashSet<string> { Seen(pages[0]) };
+        while (pages.Count < 12 && Turn(pages[^1]) is { } turn)
         {
             flow.Drawn(pages[^1], false);
-            flow.Act(NewProjectScreens.NextPage, turn.Key);
-            if (flow.Frame!.Lines.Last().Key == pages[0].Lines.Last().Key) break;
+            flow.Act(turn.Id, turn.Key);
+            if (!seen.Add(Seen(flow.Frame!))) break;
             pages.Add(flow.Frame!);
         }
         return pages;
@@ -687,6 +713,12 @@ public class NewProjectFlowTests
         var questions = flow.Frame!;
         Assert.That(questions.Source, Is.EqualTo(CompanionText.Recorded));
         Assert.That(questions.Lines.Any(line => line.Claim && line.Words.StartsWith("The companion says: “", StringComparison.Ordinal)), Is.True);
+        // Where the question takes a page of its own first, on to its answers.
+        for (var turned = 0; turned < 4 && !questions.Lines.Any(line => line.Action == NewProjectScreens.ChooseSuggestion) && Turn(questions) is { } next; turned++)
+        {
+            Press(flow, next.Id, next.Key);
+            questions = flow.Frame!;
+        }
         var exchange = flow.Idea.Companion!;
         var answer = NewProjectScreens.AnswerKey(exchange.Generation, recording.RecordedAnswer(exchange)!);
         Assert.That(questions.Lines.Where(line => line.Action == NewProjectScreens.ChooseSuggestion && line.Pressable).Select(line => line.Key),
@@ -807,12 +839,16 @@ public class NewProjectFlowTests
                 if (page.Source != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Source, Column)));
                 if (page.Reason != null) room -= MenuPage.GroupGap + MenuPage.Words(Math.Max(1, host.RowsOf(page.Reason, Column)));
                 var name = what + " at " + size + ", page " + (index + 1) + " of " + pages.Count;
+                TestContext.Progress.WriteLine("DEBUG " + name + " room " + room + " lines " + LinesHeight(host, page.Lines) + " reason [" + page.Reason + "] source rows " + (page.Source == null ? 0 : host.RowsOf(page.Source, Column)) + ": " + string.Join(" | ", page.Lines.Select(line => line.Action + ":" + line.Rows + "/" + host.RowsOf(line, Column) + (line.BesideNext ? "+" : "") + ":" + line.Words)));
                 Assert.That(LinesHeight(host, page.Lines), Is.LessThanOrEqualTo(room + 1e-5f), name + " fits");
                 if (pages.Count > 1)
                 {
-                    Assert.That((page.Lines[^1].Words, page.Lines[^1].Key), Is.EqualTo((EntryText.NextPage(index, pages.Count), index.ToString())), name + " turns");
+                    var turn = Turn(page);
+                    Assert.That(turn, Is.Not.Null, name + " turns");
+                    if (turn!.Value.Id == Footer.NextPage) Assert.That(turn.Value.Words, Is.EqualTo(Footer.NextPageWords(index, pages.Count)), name + " says where it turns");
+                    if (turn.Value.Id == NewProjectScreens.NextPage) Assert.That(turn.Value.Words, Is.EqualTo(EntryText.NextPage(index, pages.Count)), name + " says where it turns");
                 }
-                if (size == TextSize.Standard) shown.AddRange(page.Lines.Where(line => line.Action != NewProjectScreens.NextPage));
+                if (size == TextSize.Standard) shown.AddRange(page.Lines.Where(line => !Turns(line)));
             }
         }
         host.TextSize = TextSize.Standard;
@@ -859,10 +895,238 @@ public class NewProjectFlowTests
         Assert.That(chosen.Side, Is.Not.Null);
         Assert.That(chosen.Lines.Single(line => line.Chosen).Key, Is.EqualTo(NewProjectScreens.FactKey(RecapFact.HowItRuns)));
 
-        // Turning the page closes it, and the pages turn round as before.
-        var turn = chosen.Lines[^1];
-        Press(flow, NewProjectScreens.NextPage, turn.Key);
-        Assert.That((flow.Frame!.Side, flow.Frame.Lines[^1].Key == turn.Key), Is.EqualTo(((SidePanel?)null, false)));
+        // Turning the page, by the footer's Next page as the menu's lists turn, closes it.
+        var chosenKeys = chosen.Lines.Select(line => line.Key).ToList();
+        Press(flow, Footer.NextPage, null);
+        Assert.That(flow.Frame!.Side, Is.Null);
+        Assert.That(flow.Frame.Lines.Select(line => line.Key), Is.Not.EqualTo(chosenKeys), "another page");
+    }
+
+    [Test]
+    public void TheDemonstrationsRecapFitsEveryPageBesideItsReasonAndTheAINote()
+    {
+        var recording = CompanionRecording.Parse(System.IO.File.ReadAllText(Repository.PathTo(
+            "apps/xr/Assets/Halcyonic/Resources/" + CompanionRecording.ResourceName + ".json")));
+        var host = new Host { Demonstration = true, KeyboardOffered = false, State = OnJournal("demonstration", JournalOrigin.Fixture) };
+        var flow = new NewProjectFlow(host, Commands, new Kept(), null, recording);
+        flow.Open(null, null);
+        Press(flow, NewProjectScreens.BeginCompanion, null);
+        var exchange = flow.Idea!.Companion!;
+        Press(flow, NewProjectScreens.ChooseSuggestion, NewProjectScreens.AnswerKey(exchange.Generation, recording.RecordedAnswer(exchange)!));
+        Press(flow, NewProjectScreens.SendAnswer, null);
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Recap));
+        var shown = FitsEveryPage(flow, host, "the demonstration's recap");
+        Assert.That(shown.Count(line => line.Action == NewProjectScreens.ChooseFact), Is.EqualTo(4), "every fact once");
+    }
+
+    [Test]
+    public async Task TheCompanionsQuestionPagesItsAnswersUnderTheQuestionAndATurnClearsTheChoice()
+    {
+        var routes = new Routes();
+        routes.Answers["GET /api/companion"] = () => HalcyonicJson.Serialize(new AvailableCompanion
+        {
+            Companion = new CompanionModel { Name = "local-model:tag", Served = "this_mac" }, MaxQuestions = 4,
+        });
+        var asked = Companions.Ask("Who will enter the race times after each race, and should they be able to fix a mistake later?");
+        asked.Question.Choices = new List<string>
+        {
+            "Each runner enters their own after each race", "One organiser enters them all for the club",
+            "Both, with the organiser fixing any mistakes", "Nobody yet, the club will decide at a meeting",
+        };
+        routes.Answers["POST /api/companion/replies"] = () => HalcyonicJson.Serialize(Companions.Response(asked));
+        var host = new Host { TextSize = TextSize.Larger, Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        for (var tries = 0; tries < 100 && !flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseCompanion); tries++)
+        {
+            await Task.Delay(10);
+            flow.Tick();
+        }
+        Press(flow, NewProjectScreens.BeginCompanion, null);
+        await Until(flow, () => flow.Idea!.Companion!.Latest is AskReply);
+
+        var pages = Pages(flow);
+        Assert.That(pages, Has.Count.GreaterThan(1), "four long answers need more than a page at the larger size");
+        Assert.That(pages[0].Lines.Any(line => line.Claim), Is.True, "the question first, whole");
+        Assert.That(pages.SelectMany(page => page.Lines).Count(line => line.Action == NewProjectScreens.ChooseSuggestion), Is.EqualTo(4), "no answer left out");
+        FitsEveryPage(flow, host, "the companion's question");
+        host.TextSize = TextSize.Larger;
+        flow.Tick();
+
+        // A choice on one page is cleared by turning, so Send answer never sends what isn't in view.
+        var first = flow.Frame!;
+        var answer = first.Lines.First(line => line.Action == NewProjectScreens.ChooseSuggestion);
+        Press(flow, NewProjectScreens.ChooseSuggestion, answer.Key);
+        Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.SendAnswer));
+        var turn = Turn(flow.Frame!)!.Value;
+        Assert.That(turn.Id, Is.EqualTo(NewProjectScreens.MoreAnswers));
+        Press(flow, turn.Id, turn.Key);
+        Assert.That(flow.Idea!.Companion!.Chosen, Is.EqualTo(CompanionAnswerRow.None), "turning clears the choice");
+        Press(flow, NewProjectScreens.SendAnswer, null);
+        Assert.That(routes.Asked.Count(request => request == "POST /api/companion/replies"), Is.EqualTo(1), "nothing chosen out of view is sent");
+    }
+
+    [Test]
+    public void AFixedQuestionPagesItsAnswersAndNextQuestionGivesOnlyWhatIsInView()
+    {
+        var host = new Host { TextSize = TextSize.Larger, Height = (rows, _) => MenuPage.Height(TextSize.Larger, rows) * 0.8f };
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Press(flow, NewProjectScreens.ChooseQuestions, null);
+        Press(flow, NewProjectScreens.BeginQuestions, null);
+        var pages = Pages(flow);
+        Assert.That(pages, Has.Count.GreaterThan(1));
+        Assert.That(pages.SelectMany(page => page.Lines).Count(line => line.Action == NewProjectScreens.ChooseFixedAnswer), Is.EqualTo(flow.Idea!.Choices.Count));
+
+        // Where the question takes a page of its own first, on to its answers.
+        if (!flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFixedAnswer)) Press(flow, Turn(flow.Frame!)!.Value.Id, Turn(flow.Frame!)!.Value.Key);
+        var choice = flow.Frame!.Lines.First(line => line.Action == NewProjectScreens.ChooseFixedAnswer);
+        Press(flow, NewProjectScreens.ChooseFixedAnswer, choice.Key);
+        var turn = Turn(flow.Frame!)!.Value;
+        Press(flow, turn.Id, turn.Key);
+        Assert.That((flow.Idea.GuideAnswer, flow.Frame!.Footer[PromptSlot.FarRight]!.Available), Is.EqualTo(((string?)null, false)), "turning clears the choice");
+        Press(flow, NewProjectScreens.NextQuestion, null);
+        Assert.That(flow.Idea.Question, Is.EqualTo(0), "nothing out of view is given");
+    }
+
+    [Test]
+    public void TheUnknownStartIsReadToItsLastPartBeforeClearCanBePressed()
+    {
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+        var host = new Host { TextSize = TextSize.Larger, Height = (rows, beside) => MenuPage.Height(TextSize.Larger, rows, besideMenu: beside) * 0.6f };
+        var flow = Flow(host, kept);
+        flow.Open(null, null);
+        var first = flow.Frame!;
+        var clear = first.Footer[PromptSlot.FarRight]!;
+        Assert.That((clear.Id, clear.Available), Is.EqualTo((NewProjectScreens.Clear, false)), "not until every part is read");
+        Assert.That(first.Reason, Does.StartWith("Read to part"));
+        Press(flow, NewProjectScreens.Clear, null);
+        Press(flow, NewProjectScreens.ConfirmClear, null);
+        Assert.That(kept.Id, Is.Not.Null, "never cleared unread");
+
+        var lines = new List<PageLine>(first.Lines);
+        for (var part = 0; part < 10 && Turn(flow.Frame!) is { } next; part++)
+        {
+            host.Now += 1;
+            Press(flow, next.Id, next.Key);
+            lines.AddRange(flow.Frame!.Lines);
+        }
+        flow.Drawn(flow.Frame!, false);
+        Assert.That(lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequestLine), "the warning shown");
+        Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "once the last part has shown");
+        Press(flow, NewProjectScreens.Clear, null);
+        Press(flow, NewProjectScreens.ConfirmClear, null);
+        Assert.That(kept.Id, Is.Null);
+    }
+
+    [Test]
+    public async Task APageReadsItsRoomOnceSoEveryLineShowsOnceAsTheHeadMoves()
+    {
+        var root = new LocationRoot
+        {
+            Path = "/Users/person/Projects", Name = "Projects", Status = LocationRootStatus.Available, FoldersTruncated = false,
+            Folders = Enumerable.Range(1, 12).Select(index => new LocationFolder { Name = "folder-" + index, Path = "/Users/person/Projects/folder-" + index }).ToList(),
+        };
+        var routes = new Routes();
+        routes.Answers["GET /api/locations"] = () => HalcyonicJson.Serialize(new LocationsResponse { Roots = new List<LocationRoot> { root } });
+        var host = new Host { Api = new ControlPlaneApi(new Uri("http://127.0.0.1:47800/"), "test-token", routes) };
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.Folder));
+        Press(flow, NewProjectScreens.ChooseWhere, null);
+        await Until(flow, () => flow.Frame!.Lines.Any(line => line.Action == NewProjectScreens.ChooseFolder));
+
+        // The head moves: every reading of the room gives another height.
+        var tall = MenuPage.Height(TextSize.Standard, 1);
+        var reads = 0;
+        host.Height = (_, _) => reads++ % 2 == 0 ? tall * 0.7f : tall * 0.5f;
+        flow.Tick();
+        var pages = new List<MenuFrame> { flow.Frame! };
+        for (var turn = 0; turn < 20 && Turn(pages[^1]) is { } next && next.Words != "First page"; turn++)
+        {
+            Press(flow, next.Id, next.Key);
+            host.State = OnJournal(Samples.JournalId);
+            flow.Tick();
+            pages.Add(flow.Frame!);
+        }
+        var folders = pages.SelectMany(page => page.Lines).Where(line => line.Action == NewProjectScreens.ChooseFolder).Select(line => line.Key).ToList();
+        Assert.That(folders, Has.Count.EqualTo(14).And.Unique, "every folder once through a whole turn round");
+    }
+
+    [Test]
+    public void TheReviewsPartsStayPutAsTheHeadMoves()
+    {
+        var host = new Host();
+        var flow = Recapped(host);
+        Assert.That(flow.Idea!.Rewrite(string.Join(" ", Enumerable.Repeat("Track recipes, plan the week's dinners and write the shopping list.", 20))), Is.True);
+        Press(flow, NewProjectScreens.StartBuilding, null);
+        flow.Drawn(flow.Frame!, false);
+        host.Now += 1;
+        Press(flow, NewProjectScreens.NextPart, null);
+        var (parts, part) = (flow.Review!.PageCount, flow.Review.Page);
+        Assert.That((parts > 2, part), Is.EqualTo((true, 1)), "a long task, read to its second part");
+
+        // The head moves: every reading of the room gives another height.
+        var tall = MenuPage.Height(TextSize.Standard, 1);
+        var reads = 0;
+        host.Height = (_, _) => reads++ % 2 == 0 ? tall * 1.6f : tall * 0.6f;
+        for (var redraw = 0; redraw < 4; redraw++)
+        {
+            // The journal moves on, so the page is built again, and drawn.
+            var state = new ClientProjection();
+            state.ApplySnapshot(Samples.Snapshot(10 + redraw), new StateChanges());
+            host.State = state;
+            flow.Tick();
+            flow.Drawn(flow.Frame!, false);
+            Assert.That((flow.Review!.PageCount, flow.Review.Page), Is.EqualTo((parts, part)), "laid out once for the review, its reading kept");
+        }
+    }
+
+    [Test]
+    public void ReopeningAndANewQuestionStartAtTheFirstPage()
+    {
+        var host = new Host { TextSize = TextSize.Larger };
+        var flow = Recapped(host);
+        Press(flow, Footer.NextPage, null);
+        Assert.That(flow.Frame!.Lines[0].Action, Is.Not.Null, "on a later page of the recap");
+        flow.Close();
+        flow.Open(null, null);
+        Assert.That(flow.Frame!.Lines[0].Action, Is.Null, "opened again on the first page, its first line first");
+
+        var guided = new Host { TextSize = TextSize.Larger, Height = (rows, _) => MenuPage.Height(TextSize.Larger, rows) * 0.8f };
+        var questions = Flow(guided);
+        questions.Open(null, null);
+        Press(questions, NewProjectScreens.ChooseQuestions, null);
+        Press(questions, NewProjectScreens.BeginQuestions, null);
+        var turn = Turn(questions.Frame!)!.Value;
+        Press(questions, turn.Id, turn.Key);
+        var choice = questions.Frame!.Lines.First(line => line.Action == NewProjectScreens.ChooseFixedAnswer);
+        Press(questions, NewProjectScreens.ChooseFixedAnswer, choice.Key);
+        Press(questions, NewProjectScreens.NextQuestion, null);
+        Assert.That(questions.Idea!.Question, Is.EqualTo(1));
+        Assert.That(questions.Frame!.Lines[0].Words, Is.EqualTo(ProjectIdea.Questions[1].Prompt), "the next question opens on its first page, the question heading it");
+    }
+
+    [Test]
+    public void TheRecapWithStartBuildingsLongestReasonFitsEveryPage()
+    {
+        var kept = new Kept();
+        var host = new Host();
+        var flow = Recapped(host, kept);
+        kept.Id = "01a0dcf1-5a80-7000-8000-00000000dead";
+        flow.Tick();
+        Assert.That(flow.Frame!.Reason, Is.EqualTo(EntryText.PreviousRequestLine), "the longest reason Start building gives live");
+        FitsEveryPage(flow, host, "the recap with its longest reason");
+    }
+
+    [Test]
+    public void EveryQuestionPageFitsAtBothSizes()
+    {
+        var host = new Host();
+        var flow = Flow(host);
+        flow.Open(null, null);
+        Press(flow, NewProjectScreens.ChooseQuestions, null);
+        Press(flow, NewProjectScreens.BeginQuestions, null);
+        FitsEveryPage(flow, host, "a fixed question");
     }
 
     [Test]
@@ -938,12 +1202,11 @@ public class NewProjectFlowTests
         var flow = Recapped(host);
         var first = flow.Frame!;
         flow.Drawn(first, false);
-        var turn = first.Lines[^1];
-        Assert.That(turn.Action, Is.EqualTo(NewProjectScreens.NextPage));
-        flow.Act(NewProjectScreens.NextPage, turn.Key);
+        Assert.That(first.Footer[PromptSlot.Secondary]!.Id, Is.EqualTo(Footer.NextPage), "the recap's facts page as the menu's lists, by the footer's Next page");
+        flow.Act(Footer.NextPage, null);
         var second = flow.Frame!;
-        flow.Act(NewProjectScreens.NextPage, turn.Key);
-        Assert.That(flow.Frame!.Lines.Select(line => line.Key), Is.EqualTo(second.Lines.Select(line => line.Key)), "a second press on the page left behind turns nothing");
+        flow.Act(Footer.NextPage, null);
+        Assert.That(flow.Frame!.Lines.Select(line => line.Key), Is.EqualTo(second.Lines.Select(line => line.Key)), "a second press before the next page is drawn turns nothing");
     }
 
     [Test]
