@@ -198,14 +198,24 @@ namespace Halcyonic.Client
         /// is created there, and a project that exists is bound to it first with
         /// <c>project.set_location</c>, as after <c>location_required</c> or <c>location_missing</c>.
         /// Like the first, it goes only on a fresh <paramref name="reviewed"/>, read to its end and
-        /// confirmed, showing what it sends: Try again reads the request again.
+        /// confirmed, showing what it sends: Try again reads the request again. A move that stopped,
+        /// sent again with no folder, is one the person no longer wants: it is dropped, the project
+        /// stays where it is, and the task goes on.
         /// </summary>
         public CommandEnvelope Retry(NewWorkReview reviewed, string? projectName = null, ProjectLocationChoice? folder = null)
         {
             if (!CanRetry) throw new InvalidOperationException("Only a step that cannot have run is sent again.");
+            // A move refused or never sent, with no folder now: the project stays where it is.
+            var dropMove = steps[index].Kind == BuildStepKind.BindFolder && folder == null;
+            var sending = dropMove ? steps[index + 1].Kind : steps[index].Kind;
             // Compared with the folder this send carries: a step after the project was made carries none unless one is given.
-            var carried = folder ?? (steps[index].Kind == BuildStepKind.CreateProject || steps[index].Kind == BuildStepKind.BindFolder ? location : null);
-            Confirm(reviewed, steps[index].Kind == BuildStepKind.CreateProject ? projectName ?? newProjectName : null, carried);
+            var carried = folder ?? (sending == BuildStepKind.CreateProject || sending == BuildStepKind.BindFolder ? location : null);
+            Confirm(reviewed, sending == BuildStepKind.CreateProject ? projectName ?? newProjectName : null, carried);
+            if (dropMove)
+            {
+                steps.RemoveAt(index);
+                location = null;
+            }
             if (projectName != null) newProjectName = projectName;
             if (folder != null) location = folder;
             Stopped = false;
