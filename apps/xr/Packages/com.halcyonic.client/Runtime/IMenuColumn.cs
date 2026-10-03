@@ -46,7 +46,10 @@ namespace Halcyonic.Client
         /// </summary>
         Task<CommandAckMessage>? Submit(CommandEnvelope command);
 
-        /// <summary>The system keyboard, holding <paramref name="text"/>; <paramref name="done"/> only when the person finishes, never when they cancel.</summary>
+        /// <summary>The system keyboard can open here; where it can't, as in the editor, <see cref="OpenKeyboard"/> opens nothing.</summary>
+        bool KeyboardOffered { get; }
+
+        /// <summary>The system keyboard, holding <paramref name="text"/>; <paramref name="done"/> only when the person finishes, never when they cancel, and never where no keyboard opens.</summary>
         void OpenKeyboard(string text, string prompt, Action<string> done);
 
         /// <summary>How many rows <paramref name="words"/> wrap to across a column's content, as the view lays them.</summary>
