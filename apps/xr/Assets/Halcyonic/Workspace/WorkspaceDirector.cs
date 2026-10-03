@@ -90,6 +90,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The menu's director this hosts.</summary>
         public MenuDirector Menu => menu;
 
+        /// <summary>The room's part of Settings' Your space, given by the room's controls once they start; none in a scene without a room.</summary>
+        public IRoomSettings? Room { get; set; }
+
+        /// <summary>Pairing, Settings' Your computer, given by the pairing in a development build; none otherwise.</summary>
+        public IPairingSettings? Pairing { get; set; }
+
         private void Awake()
         {
             connection = GetComponent<ControlPlaneConnection>();
@@ -144,6 +150,7 @@ namespace Halcyonic.XR.Workspace
                 SomethingWaits = SomethingWaits,
                 Comfort = comfort.Settings,
                 ComfortSaved = comfort.Keep,
+                Space = () => Room == null ? Array.Empty<MenuSetting>() : SpaceSettings.Of(SpaceNow, ActInSpace),
                 Commands = commands,
                 Overview = Overview,
                 ShowProject = ShowProject,
@@ -358,6 +365,36 @@ namespace Halcyonic.XR.Workspace
 
         private bool SomethingWaits() =>
             connection.Session?.State.Workstreams.Values.Any(workstream => workstream.Attention.Level == AttentionLevel.ActionRequired) == true;
+
+        /// <summary>Your space and Your computer as they stand now: read each frame while Settings shows, so only what each owner holds.</summary>
+        private SpaceNow SpaceNow()
+        {
+            var room = Room!;
+            return new SpaceNow(room.Status, room.Offer, room.Arrangement, Pairing?.Now);
+        }
+
+        /// <summary>Does what a row of Your space or Your computer raised, through what owns it.</summary>
+        private void ActInSpace(string id)
+        {
+            switch (id)
+            {
+                case SpaceSettings.SwitchSpace:
+                    Room?.SwitchSpace();
+                    break;
+                case SpaceSettings.TakeOffer:
+                    Room?.TakeOffer();
+                    break;
+                case SpaceSettings.NextArrangement:
+                    Room?.NextArrangement();
+                    break;
+                case SpaceSettings.ResetPosition:
+                    menu.ResetPosition();
+                    break;
+                case SpaceSettings.Pairing:
+                    Pairing?.Press();
+                    break;
+            }
+        }
 
         /// <summary>Every project and its work as the stage counts it, the same object until the state or what the stage shows changes.</summary>
         public WorkOverview? Overview()

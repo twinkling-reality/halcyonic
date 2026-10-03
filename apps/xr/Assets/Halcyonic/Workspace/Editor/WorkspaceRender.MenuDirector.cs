@@ -113,6 +113,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Overview = () => overview,
                     ReadLocations = _ => System.Threading.Tasks.Task.FromResult(new LocationsResponse { Roots = new List<LocationRoot>() }),
                     Comfort = comfort,
+                    // Your space as the room and a paired computer give it, in a development build.
+                    Space = () => SpaceSettings.Of(() => new SpaceNow(RoomStatus.Initial, RoomOffer.None, StageArrangement.InFront,
+                        new PairingNow("192.168.1.23:47801", PairingStep.Idle, true)), _ => { }),
                     File = (host, task) =>
                     {
                         fileHost = host;
