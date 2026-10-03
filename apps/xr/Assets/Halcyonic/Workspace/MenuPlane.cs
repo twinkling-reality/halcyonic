@@ -346,12 +346,15 @@ namespace Halcyonic.XR.Workspace
             if (Composition == null) return;
             Direction = MenuDrag.Turned(Placed, moved);
             var zoom = Composition.Zoom;
+            var all = Composition.Parts;
+            // Indexed, never through an interface's enumerator, which Mono and IL2CPP box: this runs every frame of a drag.
             for (var c = 0; c < shown.Count; c++)
             {
                 var parts = shown[c].View.Parts;
                 var index = 0;
-                foreach (var placed in Composition.Parts)
+                for (var p = 0; p < all.Count; p++)
                 {
+                    var placed = all[p];
                     if (placed.Column != c) continue;
                     Stand(parts[index], placed, zoom);
                     index++;
@@ -529,8 +532,11 @@ namespace Halcyonic.XR.Workspace
         {
             var plate = view.Label.Plate.transform;
             float left = -0.5f, right = 0.5f, bottom = -0.5f, top = 0.5f;
-            foreach (var filter in view.Label.GetComponentsInChildren<MeshFilter>(false))
+            // Into a list kept for it, so measuring again allocates nothing.
+            view.Label.GetComponentsInChildren(false, labelFilters);
+            for (var index = 0; index < labelFilters.Count; index++)
             {
+                var filter = labelFilters[index];
                 if (filter.sharedMesh == null || !filter.TryGetComponent<Renderer>(out var drawn) || !drawn.enabled) continue;
                 var bounds = filter.sharedMesh.bounds;
                 for (var corner = 0; corner < 4; corner++)
@@ -545,6 +551,8 @@ namespace Halcyonic.XR.Workspace
             }
             return (plate, Rect.MinMaxRect(left, bottom, right, top));
         }
+
+        private static readonly List<MeshFilter> labelFilters = new List<MeshFilter>();
 
         /// <summary>Whether <paramref name="point"/>, seen from <paramref name="eyes"/>, falls on a label's outline (<see cref="LabelOutline"/>).</summary>
         public static bool OnLabel((Transform Plate, Rect Covered) label, Vector3 eyes, Vector3 point)
