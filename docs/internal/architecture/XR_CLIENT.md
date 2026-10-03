@@ -359,10 +359,22 @@ the same definition names, as the JSON Schema document:
   its side panel has shown, and Send answer waits in its place with its reason until then.
   Approving or denying shows the whole request again in parts, as rows of one measured line
   (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
-  back to the first), with Cancel in the place of the press and Yes in the free middle only once
-  the layout has measured the request and its last part has shown (`WorkspaceSteering.CanConfirm`).
-  A part read counts only within the confirmation it was read for: armed again, even for the same
-  request, it starts at the first part (`WorkspaceSteering.Armings`). Yes sends once.
+  back to the first), with Cancel in the place of the press and Yes in the free middle. Approve's
+  Yes shows only once the layout has measured the request and its last part has shown
+  (`WorkspaceSteering.CanConfirm`); Deny's shows at once, since denying runs nothing and a person who
+  sees part 1 of something dangerous must be able to refuse it then
+  (`FileWaitingTests.DenyingShowsYesAtOnceSoAPersonCanRefuseFromTheFirstPart`). A measurement counts
+  only for the confirmation it was made in and the very text it measured, and a part counts as read
+  only when the view reports it drawn (`FileScreen.RequestDrawn`), never by building the page or the
+  press that turns to it; the whole request has shown once every part has. The part's row turns
+  nothing until the part showing was drawn, nor within 0.4 seconds of the last turn, so a double
+  press can't skip a part almost unseen. Armed again, even for the same request, it starts at the
+  first part (`WorkspaceSteering.Armings`). Measured differently under one confirmation, as at
+  another text size, a request drawn whole stays read and shows its last part, and one drawn only in
+  part is read again from its first (`WorkspaceSteering.ReadAgain`), as lane C's review of Start
+  building does. Should the runtime report the request differently under the same approval, the
+  confirmation lapses (`WorkspaceSteering.ArmedRequest`). Every confirmation that no longer holds is dropped before the
+  file is drawn, with why as its notice. Yes sends once.
   **Activity** says what it is doing, the last thing this headset sent and the newest of the log
   that fits, the agent's words quoted with their chip and time, with Tell it as the main action,
   Stop beside Close and Hold to talk beside Tell it; Tell it offers the recorded instructions as

@@ -91,6 +91,13 @@ namespace Halcyonic.Client
         /// <summary>The approval an armed approve or deny answers.</summary>
         public string? ArmedApprovalId { get; private set; }
 
+        /// <summary>
+        /// The whole request an armed approve or deny answers, as it read when armed: should the
+        /// runtime report it differently under the same approval, the confirmation lapses, so what is
+        /// approved is what was read.
+        /// </summary>
+        public string? ArmedRequest { get; private set; }
+
         /// <summary>The instruction an armed instruct sends.</summary>
         public string? Instruction { get; private set; }
 
@@ -132,6 +139,7 @@ namespace Halcyonic.Client
             if (workspace.RequiresConfirmation(action))
             {
                 Arm(action, approvalId, null);
+                ArmedRequest = IsAnswer(action) ? Request(workspace) : null;
                 return SteeringOutcome.Of(SteeringStep.Confirm);
             }
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, null));
@@ -251,6 +259,7 @@ namespace Halcyonic.Client
             armedDraft = null;
             Armed = null;
             ArmedApprovalId = null;
+            ArmedRequest = null;
             Instruction = null;
             Heard = false;
             WholeRequestShown = false;
@@ -269,6 +278,19 @@ namespace Halcyonic.Client
             if (part != shownPart) armedAt = now();
             shownPart = part;
             if (part >= parts) WholeRequestShown = true;
+        }
+
+        /// <summary>
+        /// The request the armed approval or denial answers was measured again and lays out
+        /// differently, as at another text size: it is read again from its first part, and Yes waits
+        /// for its last once more. The confirmation's time starts again with it.
+        /// </summary>
+        public void ReadAgain()
+        {
+            if (Armed == null || !IsAnswer(Armed.Value)) return;
+            WholeRequestShown = false;
+            shownPart = 0;
+            armedAt = now();
         }
 
         /// <summary>
@@ -325,6 +347,10 @@ namespace Halcyonic.Client
                 && workspace.Execution?.PendingApprovals.Any(pending => pending.ApprovalId == ArmedApprovalId) != true)
             {
                 return "Nothing was sent: that request was already answered.";
+            }
+            if (IsAnswer(Armed.Value) && ArmedRequest != null && Request(workspace) != ArmedRequest)
+            {
+                return "Nothing was sent: the request changed. Read it again.";
             }
             return null;
         }
