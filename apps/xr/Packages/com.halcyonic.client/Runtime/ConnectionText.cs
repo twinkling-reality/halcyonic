@@ -12,10 +12,21 @@ namespace Halcyonic.Client
         /// <summary>The credential was refused, when how this device reaches the Mac is not known.</summary>
         public const string AccessRefused = HostText.YourStart + " refused this headset's credential.";
 
-        /// <summary>A development build that reaches the Mac with the access token, as over USB.</summary>
+        /// <summary>
+        /// A development build that reaches the Mac with the access token, as over USB; the person
+        /// reads "access code" (WORDS.md).
+        /// </summary>
         public const string AccessTokenRefused =
-            HostText.YourStart + " refused this headset's access token: it doesn't match " + HostText.Your + "'s. "
-            + "Put " + HostText.Your + "'s current access token on the headset, then restart the app.";
+            HostText.YourStart + " refused this headset's access code: it doesn't match " + HostText.Your + "'s. "
+            + "Put " + HostText.Your + "'s current access code on the headset, then restart the app.";
+
+        /// <summary>
+        /// A development build whose access token the Mac did not prove it holds (<see cref="LoopbackProof"/>):
+        /// the Mac's token is another, or something else answers in its place, so the token was not sent.
+        /// </summary>
+        public const string AccessTokenUnproved =
+            "This headset's access code doesn't match " + HostText.Your + "'s, or something else is answering in its place, so the headset didn't send it. "
+            + "Put " + HostText.Your + "'s current access code on the headset, check that Halcyonic is running there, and restart the app.";
 
         /// <summary>A paired headset whose pairing the Mac no longer accepts, as after it was revoked.</summary>
         public const string PairingRefused = HostText.YourStart + " no longer accepts this headset's pairing. Forget the " + HostText.Noun + " on the headset and pair again.";

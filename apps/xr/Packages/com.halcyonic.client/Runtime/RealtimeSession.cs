@@ -403,6 +403,17 @@ namespace Halcyonic.Client
                 // The Mac answered and refused the credential; the same credential will be refused again.
                 return Ending.RefuseAccess(options.AccessRefused);
             }
+            catch (TokenNotSentException notSent) when (notSent.Outcome == LoopbackProofOutcome.Unproved)
+            {
+                // Something answered without proving it holds the access token: the Mac's is another, or
+                // something else took its port. The token stayed here, and the same proof would fail again.
+                return Ending.RefuseAccess(ConnectionText.AccessTokenUnproved);
+            }
+            catch (TokenNotSentException notSent) when (notSent.Outcome == LoopbackProofOutcome.NotLoopback)
+            {
+                // An endpoint by name, never sent the token: trying again would not change it.
+                return Ending.RefuseAccess(notSent.Message);
+            }
             catch (Exception error)
             {
                 // Any failure ends this connection and never the session: the next attempt resynchronizes.

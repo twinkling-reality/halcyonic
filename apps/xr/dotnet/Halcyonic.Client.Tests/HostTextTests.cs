@@ -21,6 +21,7 @@ public class HostTextTests
         {
             ConnectionText.AccessRefused,
             ConnectionText.AccessTokenRefused,
+            ConnectionText.AccessTokenUnproved,
             ConnectionText.PairingRefused,
             ConnectionText.Unreachable,
             ConnectionText.WhyNotLive(new ConnectionStatus(ConnectionPhase.Refused)),
@@ -35,7 +36,18 @@ public class HostTextTests
         {
             Assert.That(Regex.IsMatch(word, @"\bMacs?\b"), Is.False, word);
             Assert.That(word, Does.Not.Contain("control plane").IgnoreCase, word);
+            Assert.That(word, Does.Not.Contain("access token").IgnoreCase, "a person reads access code: " + word);
         }
+        foreach (var outcome in System.Enum.GetValues<LoopbackProofOutcome>())
+        {
+            var detail = new TokenNotSentException(outcome, new System.Uri("http://127.0.0.1:47800/")).Message;
+            Assert.That(detail, Does.Not.Contain("access token").IgnoreCase, "shown after Can't reach your computer: " + detail);
+        }
+        Assert.That(ConnectionText.AccessTokenRefused, Is.EqualTo(
+            "Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app."));
+        Assert.That(ConnectionText.AccessTokenUnproved, Is.EqualTo(
+            "This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. "
+            + "Put your computer's current access code on the headset, check that Halcyonic is running there, and restart the app."));
         Assert.That(ConnectionText.Unreachable, Is.EqualTo("Can't reach your computer; trying again. Check that Halcyonic is running there and this headset can reach it."));
         Assert.That(EntryText.NoFolders, Is.EqualTo("Your computer doesn't allow any folder yet. Allow one on your computer, then press Try again."));
         Assert.That(EntryText.DemoCannotStart, Is.EqualTo("The demo can't start new work. Real work runs on your computer."));

@@ -157,8 +157,18 @@ port the connection reached, and the challenge, which reveals nothing about the 
 dial a literal address, 127.0.0.1 or [::1] (`localhost` is tried as each), and check the proof
 against the address and port they dialled, so a listener on another port or address that relays the
 challenge to the real control plane gets a proof for the control plane's address, not its own, and
-no token. The headset over USB (`adb reverse`) and other loopback clients
-still send the token without asking for the proof ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+no token. The headset over USB (`adb reverse`) and the editor ask for the same proof, dial only
+127.0.0.1 or [::1] (never `localhost`, which ends the session), through no proxy, and follow no
+redirect (`LoopbackProof` and `LoopbackProofHandler` in the client core). Each REST request opens
+a connection of its own, never from a pool, asks the proof on it and sends the token on that same
+connection, so only what just proved itself receives it, and a connection another program kept
+open while the control plane was stopped is never used again. The realtime upgrade asks the proof
+on a connection of its own just before `ClientWebSocket` opens its own, leaving the same moment as
+the command-line clients. What answers without the proof ends the session, which says the headset
+didn't send its access code; nothing answering is tried again. The proof stops an app on the
+headset that listens on 127.0.0.1:47800 there while `adb reverse` isn't in place, and another
+account on the Mac that listens on 47800 while the control plane is stopped; the limits below hold
+all the same.
 
 The glance (a spike in development builds only, [XR_CLIENT.md](XR_CLIENT.md)) is a Java client on the
 headset that asks for the proof on one plain socket and sends the token only on that same connection,
@@ -166,12 +176,15 @@ once the answer proves the listener holds it, so no retry or pooled connection c
 else (`GlancePoll`, run whole against a real control plane and misbehaving listeners by
 `tooling/glance`). It goes through no proxy, follows no redirect, reads bounded heads and bodies
 within a 10 second deadline, and refuses a token file that is a link, not its own, or readable or
-writable by anyone else. Three limits hold for it:
+writable by anyone else.
+
+These limits hold for the access token on the headset, the app's (`files/access-token`) and the
+glance's (`files/glance-access-token`) alike:
 
 - **The access token lives on the headset.** It is the owner's token, which never expires and is
   not a revocable device credential; anyone with adb on the unlocked headset can read it with
   `run-as`, since development builds are debuggable. It is for the owner's own headset only, and is
-  removed with `adb shell run-as com.halcyonic.xr rm files/glance-access-token`.
+  removed with `adb shell run-as com.halcyonic.xr rm -f files/access-token files/glance-access-token`.
 - **The Mac's adb server answers every local account.** While the headset is attached, the adb
   server on the Mac's 127.0.0.1:5037 takes commands from any process on the Mac without
   authenticating it, so another local account, the threat the proof exists for, can read the token
@@ -181,8 +194,14 @@ writable by anyone else. Three limits hold for it:
   address and port its own socket reached, which on the Mac is always its listener whatever port the
   headset dialled. So anything that routes to the Mac's 47800 lets whatever listens on the headset's
   127.0.0.1:47800 relay a challenge and receive the token: a second reverse mapping, and equally an
-  `ssh -L`, `socat` or a proxy on the Mac. Keep one mapping only (`adb reverse --list`) and nothing
-  else forwarding to 47800.
+  `ssh -L`, `socat` or a proxy on the Mac. Keep one mapping only (`adb reverse --list`), 47800 to
+  47800, and nothing else forwarding to 47800.
+- **A stale token and an impostor read the same.** The proof can't tell a control plane holding
+  another token from another program, so the app's line names both: the code doesn't match, or
+  something else is answering in its place. Either way the token was not sent.
+- **The app's realtime upgrade has a moment.** It asks the proof on a connection of its own just
+  before `ClientWebSocket` opens its own, as the command-line clients do; its REST requests and the
+  glance send the token on the connection that proved itself, and have none.
 
 ## Controls
 

@@ -25,20 +25,28 @@ namespace Halcyonic.Client
 
         private readonly HttpClient http;
         private readonly HttpClient companion;
-        private readonly HttpMessageHandler? handler;
+        private readonly HttpMessageHandler handler;
         private readonly Uri baseUri;
 
+        /// <summary>
+        /// A client for the control plane at <paramref name="baseUri"/>. Without a
+        /// <paramref name="handler"/> it is on loopback, and each request carries the access token only
+        /// after the control plane proves, just before, that it holds it (<see cref="LoopbackProofHandler"/>);
+        /// otherwise the handler answers for who receives the token, as a pinned one does for a paired
+        /// control plane.
+        /// </summary>
         public ControlPlaneApi(Uri baseUri, string accessToken, HttpMessageHandler? handler = null)
         {
             this.baseUri = baseUri;
-            // Both clients share a given handler, which this object disposes once, as before.
-            this.handler = handler;
-            http = handler == null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            http.Timeout = TimeSpan.FromSeconds(15);
-            companion = handler == null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
-            companion.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            companion.Timeout = CompanionTimeout;
+            // Both clients share the handler, which this object disposes once.
+            this.handler = handler ?? new LoopbackProofHandler(accessToken);
+            http = new HttpClient(this.handler, disposeHandler: false) { Timeout = TimeSpan.FromSeconds(15) };
+            companion = new HttpClient(this.handler, disposeHandler: false) { Timeout = CompanionTimeout };
+            if (handler != null)
+            {
+                http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                companion.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            }
         }
 
         /// <summary>The REST address of the control plane that serves a realtime endpoint.</summary>
@@ -252,7 +260,7 @@ namespace Halcyonic.Client
         {
             http.Dispose();
             companion.Dispose();
-            handler?.Dispose();
+            handler.Dispose();
         }
 
         private async Task<string> GetAsync(string path, CancellationToken cancellationToken)

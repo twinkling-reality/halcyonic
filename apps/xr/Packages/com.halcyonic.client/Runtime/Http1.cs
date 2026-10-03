@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,13 +35,65 @@ namespace Halcyonic.Client
     }
 
     /// <summary>
-    /// Just enough HTTP/1.1 for the pinned transports: one request per connection, a response read
-    /// by Content-Length, chunks or to the end of the stream. The head is read a byte at a time, so a
-    /// WebSocket upgrade never reads into the frames that follow it.
+    /// Just enough HTTP/1.1 for the pinned transports and the loopback proof: a request the
+    /// connection's last, a response read by Content-Length, chunks or to the end of the stream. The
+    /// head is read a byte at a time, so a WebSocket upgrade never reads into the frames that follow it.
     /// </summary>
     internal static class Http1
     {
         private const int MaxHeadBytes = 32 * 1024;
+
+        /// <summary>
+        /// The headers that send <paramref name="request"/> as its connection's last: Host with the
+        /// port, Connection: close, the request's own and its content's, and Content-Length, leaving
+        /// out any header named in <paramref name="dropped"/>.
+        /// </summary>
+        public static List<KeyValuePair<string, string>> RequestHeaders(HttpRequestMessage request, Uri uri, byte[]? body, params string[] dropped)
+        {
+            var headers = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("Host", WebSocketUpgrade.HostHeader(uri)),
+                new KeyValuePair<string, string>("Connection", "close"),
+            };
+            foreach (var header in request.Headers)
+            {
+                if (string.Equals(header.Key, "Host", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(header.Key, "Connection", StringComparison.OrdinalIgnoreCase)
+                    || Array.Exists(dropped, name => string.Equals(header.Key, name, StringComparison.OrdinalIgnoreCase))) continue;
+                headers.Add(new KeyValuePair<string, string>(header.Key, string.Join(", ", header.Value)));
+            }
+            if (request.Content != null)
+            {
+                foreach (var header in request.Content.Headers)
+                {
+                    if (string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase)) continue;
+                    headers.Add(new KeyValuePair<string, string>(header.Key, string.Join(", ", header.Value)));
+                }
+            }
+            if (body != null || request.Method == HttpMethod.Post)
+            {
+                headers.Add(new KeyValuePair<string, string>("Content-Length", (body?.Length ?? 0).ToString(CultureInfo.InvariantCulture)));
+            }
+            return headers;
+        }
+
+        /// <summary>The response to <paramref name="request"/>, its body read whole.</summary>
+        public static HttpResponseMessage Response(HttpRequestMessage request, Http1Head head, byte[] content)
+        {
+            var response = new HttpResponseMessage((HttpStatusCode)head.Status)
+            {
+                RequestMessage = request,
+                Content = new ByteArrayContent(content),
+            };
+            foreach (var header in head.Headers)
+            {
+                if (!response.Headers.TryAddWithoutValidation(header.Key, header.Value))
+                {
+                    response.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+            }
+            return response;
+        }
 
         public static async Task WriteRequestAsync(
             Stream stream,

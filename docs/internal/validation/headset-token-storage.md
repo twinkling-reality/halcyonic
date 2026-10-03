@@ -5,7 +5,7 @@
   a new one from the Mac without the token passing through any other file?
 - **Date:** 2026-10-02.
 - **Versions:** Halcyonic branch lane-g-private-token, rebased on main 5877b09, then lane-g-token-errno
-  from main 83f0978; Unity 6000.3.25f1 for Android (IL2CPP); .NET 10 for the client core's tests;
+  from main 841e9a6; Unity 6000.3.25f1 for Android (IL2CPP); .NET 10 for the client core's tests;
   the adb in Unity's Android module.
 - **Method:** Code and tests, a development APK build, and an independent security review that read
   adb's `commandline.cpp`. Nothing was run on a headset.

@@ -80,15 +80,25 @@ the same definition names, as the JSON Schema document:
   hello with the resume cursor, snapshot or resume, events, command acknowledgements, and
   reconnection with capped exponential backoff and jitter. It pings every 10 seconds and abandons a
   connection that delivers nothing for 30 seconds, because a silently broken network is otherwise
-  noticed only by TCP. A control plane that answers the connection with 401 has refused the
-  credential, so the session stops trying and its status says `AccessRefused`, with what to do in
-  `ConnectionText`'s words: for the access token (a development build, as over USB) "Your computer
-  refused this headset's access token: it doesn't match the Mac's. Put the Mac's current access
-  token on the headset, then restart the app."; for a pairing, that the Mac no longer accepts it and
-  to forget the Mac and pair again. `ClientWebSocket` reports only that it could not connect, so
-  after a failed connect `ClientWebSocketTransport` asks the control plane's REST API once with the
-  same token to tell a 401 from a Mac that does not answer; the pinned transport reads the status
-  itself. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
+  noticed only by TCP. With the access token (a development build, as over USB), every request
+  that carries it, the realtime upgrade and each REST call, first asks the control plane to prove
+  it holds the same token, for the literal loopback address and port that was dialled
+  (`LoopbackProof`, `LoopbackProofHandler`; SECURITY.md); what can't prove it gets no token, and
+  no redirect is followed. `LoopbackProofHandler` speaks HTTP/1.1 itself (`Http1`, as the pinned
+  handler does): each request opens a connection, proves the control plane on it and sends the
+  request on it, closing it after. An endpoint by name, such as `localhost`, ends the session.
+  What answers without the proof stops the session with `AccessRefused`
+  and "This headset's access code doesn't match your computer's, or something else is answering
+  in its place, so the headset didn't send it. Put your computer's current access code on the
+  headset, check that Halcyonic is running there, and restart the app." A control plane that
+  answers the connection with 401 has refused the credential, so the session stops trying and its
+  status says `AccessRefused`, with what to do in `ConnectionText`'s words: for the access token
+  "Your computer refused this headset's access code: it doesn't match your computer's. Put your
+  computer's current access code on the headset, then restart the app."; for a pairing, that the
+  Mac no longer accepts it and to forget the Mac and pair again. `ClientWebSocket` reports only
+  that it could not connect, so after a failed connect `ClientWebSocketTransport` asks the control
+  plane's REST API once with the same token, after a proof of its own, to tell a 401 from a Mac
+  that does not answer; the pinned transport reads the status itself. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
   reason after it. In the fifth headset session a stale token read as "Unable to connect to the
   remote server" ([quest-3-device.md](../validation/quest-3-device.md)).
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the

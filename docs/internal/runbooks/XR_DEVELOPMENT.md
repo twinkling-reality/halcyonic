@@ -569,11 +569,20 @@ as above. Paired headsets are not affected; they use their own credential. None 
 run on a headset yet ([headset-token-storage.md](../validation/headset-token-storage.md));
 "Token storage on a Quest" below lists what to check.
 
-If the line above the stage says "Your computer refused this headset's access token", the token on the
-headset is from an earlier data directory or was replaced on the Mac: the control plane answered
-401, and the app stopped trying. Write the current token again and start the app again, as above. "Can't
-reach your computer" instead means nothing answered: check the control plane is running and
-`adb reverse tcp:47800 tcp:47800` is in place.
+Before the headset sends its token, it asks the control plane to prove it holds the same token,
+for the address and port the headset dialled, as `pnpm devices` does
+([SECURITY.md](../architecture/SECURITY.md)). The proof names the address the control plane was
+reached at on the Mac, so keep the same port on both sides of `adb reverse` and the control plane
+on 127.0.0.1 (the default); a headset endpoint must be a literal address, `127.0.0.1` or `[::1]`,
+never `localhost`. If the line above the stage says "This headset's access code doesn't match your
+computer's, or something else is answering in its place", the token on the headset is from an
+earlier data directory or was replaced on the Mac, or another program holds port 47800 while the
+control plane is stopped: the headset sent nothing and stopped trying. Start the control plane if
+it is stopped, write the current token again and start the app again, as above. "Your computer
+refused this headset's access code" means the control plane proved itself and then answered 401,
+as when the token is replaced in between: write it again the same way. "Can't reach your computer"
+instead means nothing answered: check the control plane is running and `adb reverse tcp:47800
+tcp:47800` is in place.
 
 - **Run the control plane without `--watch` for a headset session:**
   `node apps/control-plane/src/main.ts`, not `pnpm dev`. `pnpm dev` restarts it whenever code in the
@@ -689,6 +698,20 @@ What only a headset can tell about the access token ([headset-token-storage.md](
   umask makes a new file's mode before `chmod`.
 - **Backups.** Whether a Meta or Horizon backup ever copied the shared file; the app itself sets
   `android:allowBackup="false"`.
+- **The proof.** That the app connects over `adb reverse tcp:47800 tcp:47800` and a workstream's
+  history and the folders load, which shows the control plane sees the headset's connections at
+  127.0.0.1:47800, the proof holds over USB, and the REST requests' own HTTP and the HMAC work under
+  IL2CPP ([xr-loopback-proof.md](../validation/xr-loopback-proof.md)). Then, with the control plane
+  stopped, run a listener on the Mac's 47800 that answers every request without a proof:
+
+  ```bash
+  while true; do printf 'HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' | nc -l 127.0.0.1 47800; done
+  ```
+
+  Start the app: it says the access code doesn't match or something else is answering, and stops,
+  and the listener prints only `GET /api/health` with an `x-halcyonic-challenge`, never an
+  `Authorization` header. A listener that never answers instead reads "Can't reach your computer"
+  and is tried again.
 
 ### Captures and an unattended headset
 

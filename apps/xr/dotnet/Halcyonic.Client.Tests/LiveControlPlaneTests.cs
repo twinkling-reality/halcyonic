@@ -104,15 +104,22 @@ public class LiveControlPlaneTests
     {
         var controlPlane = await StartControlPlaneAsync();
         // The fifth headset session: a token pushed earlier no longer matched the Mac's, and the app
-        // said "Unable to connect to the remote server" although the control plane answered 401.
+        // said "Unable to connect to the remote server" although the control plane answered 401. Now
+        // the control plane can't prove it holds the stale token, so the token is never sent, and the
+        // headset says what to do.
         session = ControlPlaneTarget.Local(controlPlane.RealtimeEndpoint, "an-access-token-from-an-earlier-session").CreateSession(Samples.Client);
         session.Start();
-        await Until(s => s.Status.Phase == ConnectionPhase.Refused, "the stale token is refused", seconds: 20);
+        await Until(s => s.Status.Phase == ConnectionPhase.Refused, "the stale token is not sent", seconds: 20);
         Assert.That(session.Status.AccessRefused, Is.True);
-        Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.AccessTokenRefused));
-        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("Your computer refused this headset's access token"));
+        Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.AccessTokenUnproved));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.StartWith("This headset's access code doesn't match your computer's"));
         Assert.That(DemonstrationFallback.Describe(DemonstrationReason.Unreachable, session.Status),
-            Does.EndWith(ConnectionText.AccessTokenRefused));
+            Does.EndWith(ConnectionText.AccessTokenUnproved));
+        // The control plane logs every request at this level: it was asked for proofs, and never for
+        // the upgrade, so it never saw the stale token or refused it.
+        Assert.That(controlPlane.Output, Does.Contain("\"url\":\"/api/health\""));
+        Assert.That(controlPlane.Output, Does.Not.Contain("\"url\":\"/realtime\""));
+        Assert.That(controlPlane.Output, Does.Not.Contain("\"statusCode\":401"));
         await session.StopAsync();
 
         // Nothing listening: unreachable, retried, and never called a refusal.

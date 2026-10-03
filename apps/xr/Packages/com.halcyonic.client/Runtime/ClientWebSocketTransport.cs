@@ -3,7 +3,6 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -13,9 +12,12 @@ using Halcyonic.Contracts;
 namespace Halcyonic.Client
 {
     /// <summary>
-    /// <see cref="IRealtimeTransport"/> over <see cref="ClientWebSocket"/>. Whether ClientWebSocket
-    /// works under IL2CPP on Quest is not verified yet; the transport interface is the seam for a
-    /// native replacement if it does not.
+    /// <see cref="IRealtimeTransport"/> over <see cref="ClientWebSocket"/>, for a control plane on
+    /// loopback, as over USB: the access token goes on the upgrade only after the control plane proves,
+    /// just before and on a connection of its own, that it holds it (<see cref="LoopbackProof"/>). The
+    /// upgrade opens its own connection, never one from a pool, through no proxy. Whether ClientWebSocket works under
+    /// IL2CPP on Quest is not verified yet; the transport interface is the seam for a native
+    /// replacement if it does not.
     /// </summary>
     public sealed class ClientWebSocketTransport : IRealtimeTransport
     {
@@ -36,6 +38,11 @@ namespace Halcyonic.Client
 
         public async Task ConnectAsync(Uri endpoint, string accessToken, CancellationToken cancellationToken)
         {
+            var baseUri = ControlPlaneApi.BaseUriFor(endpoint);
+            var outcome = await LoopbackProof.AskAsync(baseUri, accessToken, cancellationToken).ConfigureAwait(false);
+            if (outcome != LoopbackProofOutcome.Proved) throw new TokenNotSentException(outcome, baseUri);
+            // Straight to the address that just proved itself, on a connection of the socket's own.
+            socket.Options.Proxy = null;
             socket.Options.SetRequestHeader("Authorization", "Bearer " + accessToken);
             try
             {
@@ -55,15 +62,15 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// Whether the control plane at <paramref name="endpoint"/> answers the access token with 401,
-        /// as the refusal it would have given the upgrade; null when it does not, or does not answer.
+        /// as the refusal it would have given the upgrade; null when it does not, does not answer, or
+        /// does not prove again that it holds the token, which then is not sent.
         /// </summary>
         internal static async Task<UpgradeRefusedException?> RefusesToken(Uri endpoint, string accessToken, CancellationToken cancellationToken)
         {
             try
             {
-                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                using var http = new HttpClient(new LoopbackProofHandler(accessToken)) { Timeout = TimeSpan.FromSeconds(5) };
                 using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(ControlPlaneApi.BaseUriFor(endpoint), "api/runtimes"));
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
                 using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 if (response.StatusCode != HttpStatusCode.Unauthorized) return null;
                 var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

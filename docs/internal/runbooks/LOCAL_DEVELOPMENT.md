@@ -113,7 +113,8 @@ The headset calls the Mac "your computer" ([WORDS.md](../product/WORDS.md)).
 | The headset says | On the Mac |
 | --- | --- |
 | Can't reach your computer; trying again. | Start Halcyonic (`pnpm start`). Over USB, run `adb reverse tcp:47800 tcp:47800` again; over Wi-Fi, check pairing is on, the headset is on the same network, and the firewall (`pnpm mac-setup` checks it) |
-| Your computer refused this headset's access token | Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect") |
+| This headset's access code doesn't match your computer's, or something else is answering in its place | Start Halcyonic if it isn't running. Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). If it still says so, something else holds port 47800 (`lsof -nP -iTCP:47800 -sTCP:LISTEN`), or `adb reverse` maps another headset port onto it: use `adb reverse tcp:47800 tcp:47800` |
+| Your computer refused this headset's access code | Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect") |
 | Your computer no longer accepts this headset's pairing. | It was revoked: forget the computer on the headset, then `pnpm pair` |
 | Your computer doesn't allow any folder yet. | `pnpm mac-setup allow`, then restart Halcyonic |
 | Your computer can't use that folder right now | The folder moved or can't be read: put it back or choose another. If a folder you allowed is gone, Halcyonic won't start until it is back or you `pnpm mac-setup disallow` it |
