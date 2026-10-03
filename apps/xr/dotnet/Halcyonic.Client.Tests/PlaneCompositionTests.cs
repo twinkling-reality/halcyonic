@@ -113,8 +113,9 @@ public class PlaneCompositionTests
         Assert.That(2f * size.HalfHeightDegrees, Is.EqualTo(32f).Within(1e-3f));
         Assert.That(WorkspacePlacement.TallerBy(size), Is.EqualTo(6f).Within(1e-3f));
         Assert.That(WorkspacePlacement.Lowest(size), Is.EqualTo(WorkspacePlacement.LowestDegrees - 6f).Within(1e-3f));
-        Assert.That(WorkspacePlacement.ReadingPitch(size), Is.EqualTo(WorkspacePlacement.MostReadingPitchDegrees), "half again 6 is 9, and 8 is the most");
         var quest3S = new ViewField(48, 48, 45, 45);
+        Assert.That(WorkspacePlacement.ReadingPitch(size, WorkspacePlacement.Lowest(size, quest3S) - 5f, quest3S), Is.EqualTo(WorkspacePlacement.MostReadingPitchDegrees),
+            "below the field's floor, the head tips the most it may, and no more");
         Assert.That(WorkspacePlacement.Lowest(size, quest3S),
             Is.EqualTo(Math.Max(WorkspacePlacement.LowestDegrees - 6f, quest3S.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees) - 8f)).Within(1e-3f));
     }

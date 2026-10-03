@@ -118,16 +118,53 @@ public class WorkspacePlacementTests
         }
     }
 
+    /// <summary>Where a label stands over a flat panel, its top edge as the eyes see it under the label's outer side, or the panel's corner where the label reaches past it.</summary>
+    private static float EdgeUnder(PanelDirection panel, PanelSize size, BodyInView body)
+    {
+        var outer = MathF.Min(size.HalfWidthDegrees, MathF.Abs(WorkspacePlacement.DeltaAngle(panel.Yaw, body.Yaw)) + body.HalfWidth);
+        return WorkspacePlacement.CornerElevation(panel.Elevation + size.HalfHeightDegrees, outer);
+    }
+
+    /// <summary>Whether a label stands over a panel of <paramref name="size"/>, across.</summary>
+    private static bool Over(PanelDirection panel, PanelSize size, BodyInView body) =>
+        MathF.Abs(WorkspacePlacement.DeltaAngle(panel.Yaw, body.Yaw)) - body.HalfWidth < size.HalfWidthDegrees;
+
     [Test]
-    public void AFlatPanelsCornersClearTheLabelsToo()
+    public void EveryLabelClearsThePanelWhereItStands()
     {
         var characters = Lineups.RaisedArc();
-        var opened = characters[3];
-        var panel = WorkspacePlacement.Place(opened.Yaw, opened, characters, Lineups.Workspace);
-        var top = panel.Elevation + Lineups.Workspace.HalfHeightDegrees;
-        var corners = WorkspacePlacement.CornerElevation(top, Lineups.Workspace.HalfWidthDegrees);
-        Assert.That(corners, Is.GreaterThan(top), "below eye level, a flat panel's corners look higher than its edge's middle");
-        Assert.That(corners, Is.LessThanOrEqualTo(characters.Min(character => character.Lowest) - 1f), "a degree or more under every label");
+        foreach (var slot in new[] { 3, 0, 5 })
+        {
+            var opened = characters[slot];
+            var panel = WorkspacePlacement.Place(opened.Yaw, opened, characters, Lineups.Workspace);
+            var top = panel.Elevation + Lineups.Workspace.HalfHeightDegrees;
+            Assert.That(WorkspacePlacement.CornerElevation(top, Lineups.Workspace.HalfWidthDegrees), Is.GreaterThan(top), "below eye level, a flat panel's corners look higher than its edge's middle");
+            foreach (var body in characters.Where(body => Over(panel, Lineups.Workspace, body)))
+            {
+                Assert.That(EdgeUnder(panel, Lineups.Workspace, body), Is.LessThanOrEqualTo(body.Lowest - 1f), $"slot {slot}: a degree or more under the label at {body.Yaw}, where it stands");
+            }
+        }
+    }
+
+    [Test]
+    public void AWidePlaneClearsALabelOverItsMiddleAndOneAtItsOuterEdgeEachWhereItStands()
+    {
+        // The menu and a file side by side, 64 by 33 degrees: the opened label over the middle, deepest,
+        // and a higher one standing over the plane's outer edge.
+        var wide = new PanelSize(0.46f, 0.46f * MathF.Tan(32f * MathF.PI / 180f), 0.46f * MathF.Tan(16.5f * MathF.PI / 180f));
+        var middle = new BodyInView(0f, -9f, 2f, -17f, 5f);
+        var outer = new BodyInView(30f, -8f, 2f, -15f, 5f);
+        var panel = WorkspacePlacement.Place(0f, middle, new[] { middle, outer }, wide);
+        Assert.That(panel.Clear, Is.True);
+        foreach (var body in new[] { middle, outer })
+        {
+            Assert.That(EdgeUnder(panel, wide, body), Is.LessThanOrEqualTo(body.Lowest - WorkspacePlacement.LabelClearanceDegrees + 1e-3f), "each label cleared where it stands, by the same margin");
+        }
+        var tightest = new[] { middle, outer }.Max(body => EdgeUnder(panel, wide, body) - (body.Lowest - WorkspacePlacement.LabelClearanceDegrees));
+        Assert.That(tightest, Is.EqualTo(0f).Within(0.01f), "and no lower than the label that binds it needs");
+        // Cleared at the corners under the deepest label instead, its top would stand lower.
+        var corners = WorkspacePlacement.EdgeForCorners(middle.Lowest - WorkspacePlacement.LabelClearanceDegrees, wide.HalfWidthDegrees);
+        Assert.That(panel.Elevation + wide.HalfHeightDegrees, Is.GreaterThan(corners + 0.5f), "the plane stands higher than clearing every label at its corners");
     }
 
     [Test]
@@ -232,22 +269,28 @@ public class WorkspacePlacementTests
     }
 
     [Test]
-    public void OnlyAPanelTallerThanDesignedIsReadWithTheHeadTippedDownAndNeverFar()
+    public void TheHeadTipsAsMuchAsAPanelsBottomNeedsAndNeverMoreThanEight()
     {
         var quest3S = new ViewField(48, 48, 45, 45);
-        Assert.That(WorkspacePlacement.ReadingPitch(Lineups.Frame), Is.Zero, "a panel as tall as designed is read with the head level");
-        Assert.That(WorkspacePlacement.Lowest(Lineups.Frame, quest3S),
-            Is.EqualTo(Math.Max(WorkspacePlacement.LowestDegrees, quest3S.LowestCenter(Lineups.Frame.HalfWidthDegrees, Lineups.Frame.HalfHeightDegrees))));
-
+        var level = quest3S.LowestCenter(Lineups.Frame.HalfWidthDegrees, Lineups.Frame.HalfHeightDegrees);
+        Assert.That(WorkspacePlacement.ReadingPitch(Lineups.Frame, level + 2f, quest3S), Is.Zero, "a panel the field holds with the head level is read level");
+        Assert.That(WorkspacePlacement.ReadingPitch(Lineups.Frame, level - 3f, quest3S), Is.EqualTo(3f).Within(1e-3f), "3 degrees lower, the head tips 3");
+        Assert.That(WorkspacePlacement.ReadingPitch(Lineups.Frame, level - 20f, quest3S), Is.EqualTo(WorkspacePlacement.MostReadingPitchDegrees), "never more than 8 degrees");
+        Assert.That(WorkspacePlacement.Lowest(Lineups.Frame, quest3S), Is.EqualTo(Math.Max(WorkspacePlacement.LowestDegrees, level)),
+            "placement keeps a designed panel where the field holds it with the head level");
         var larger = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth * 1.15f, Lineups.Frame.HalfHeight * 1.15f);
-        var pitch = WorkspacePlacement.ReadingPitch(larger);
-        Assert.That(pitch, Is.EqualTo(1.5f * WorkspacePlacement.TallerBy(larger)).Within(1e-4f));
-        Assert.That(pitch, Is.InRange(5f, 6f), "text a step larger: half again as much as the panel is taller");
+        Assert.That(WorkspacePlacement.FloorPitch(larger), Is.EqualTo(1.5f * WorkspacePlacement.TallerBy(larger)).Within(1e-4f), "a taller one may go lower by half again as much");
         Assert.That(WorkspacePlacement.Lowest(larger, quest3S),
-            Is.EqualTo(quest3S.LowestCenter(larger.HalfWidthDegrees, larger.HalfHeightDegrees) - pitch).Within(1e-4f));
+            Is.EqualTo(quest3S.LowestCenter(larger.HalfWidthDegrees, larger.HalfHeightDegrees) - WorkspacePlacement.FloorPitch(larger)).Within(1e-4f));
 
-        var settings = new PanelSize(Lineups.Frame.Distance, Lineups.Frame.HalfWidth, Lineups.Frame.Distance * MathF.Tan(17f * MathF.PI / 180f));
-        Assert.That(WorkspacePlacement.ReadingPitch(settings), Is.EqualTo(WorkspacePlacement.MostReadingPitchDegrees), "never more than 8 degrees");
+        // Every height fits from one top line, level or tipped: no height fits neither.
+        for (var degrees = 20f; degrees <= 32.5f; degrees += 0.25f)
+        {
+            var size = new PanelSize(0.46f, 0.46f * MathF.Tan(18f * MathF.PI / 180f), 0.46f * MathF.Tan(degrees / 2f * MathF.PI / 180f));
+            var elevation = -18.9f - degrees / 2f;
+            var lowest = quest3S.LowestCenter(size.HalfWidthDegrees, size.HalfHeightDegrees);
+            Assert.That(lowest - WorkspacePlacement.ReadingPitch(size, elevation, quest3S), Is.LessThanOrEqualTo(elevation + 1e-3f), degrees + " degrees tall, its top 18.9 below eye level");
+        }
     }
 
     [Test]
@@ -284,8 +327,10 @@ public class WorkspacePlacementTests
             Assert.That(panel.Above, Is.False);
             Assert.That(panel.Elevation, Is.InRange(WorkspacePlacement.Lowest(larger), WorkspacePlacement.HighestDegrees));
             Assert.That(panel.Elevation, Is.LessThan(WorkspacePlacement.LowestDegrees), "it fits only below the designed band");
-            var corners = WorkspacePlacement.CornerElevation(panel.Elevation + larger.HalfHeightDegrees, larger.HalfWidthDegrees);
-            Assert.That(corners, Is.LessThanOrEqualTo(characters.Min(character => character.Lowest) - 1f), "a degree or more under every label");
+            foreach (var body in characters.Where(body => Over(panel, larger, body)))
+            {
+                Assert.That(EdgeUnder(panel, larger, body), Is.LessThanOrEqualTo(body.Lowest - 1f), $"slot {slot}: a degree or more under the label at {body.Yaw}, where it stands");
+            }
         }
     }
 

@@ -240,6 +240,9 @@ public class MenuFrameTests
         var note = new MenuFrame("Questions", new Footer(Close), source: CompanionText.Note);
         Assert.That(note.Source, Is.EqualTo(CompanionText.Note), "the companion's note is the page's source line");
         Assert.That(note.SourceIsData, Is.False, "Halcyonic's own words");
+        Assert.That(note.SubjectWaits, Is.False);
+        Assert.That(new MenuFrame("1 task is waiting for you", new Footer(Close), subjectWaits: true).SubjectWaits, Is.True,
+            "a subject that says what waits takes the waiting colour, as the closed bar's line does");
         var provenance = new MenuFrame("Changes", new Footer(Close), source: "Salidium 0.9 could not answer: timed out", sourceIsData: true);
         Assert.That(provenance.SourceIsData, Is.True, "an answer's provenance, or an error a service returned, is text from outside");
         Assert.That(new SidePanel("Why it changed them", source: "Salidium 0.9", sourceIsData: true).SourceIsData, Is.True);
