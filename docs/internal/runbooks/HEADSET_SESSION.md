@@ -250,8 +250,10 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 
 Where everything is, all with a pinch:
 - **The bar.** With no file open, the menu is its bar: what waits for you, or "Nothing is waiting
-  for you.", and Open. It stands where you look, or straight ahead under a window's lane beside a
-  window. Press it to open the menu, on Tasks if something waits, else on the place chosen last.
+  for you.", and Open. It stands where you looked as the menu closed, or straight ahead under a
+  window's lane beside a window, and stays there as you turn (Settings' Reset position brings the
+  plane to where you look). Press it to open the menu, on Tasks if something waits, else on the
+  place chosen last.
 - **The places,** across the menu's top: Tasks, Projects, Usage and Settings.
 - **Tasks:** every task, what waits first. A row opens its task's file.
 - **A file:** press a character, or its row in Tasks. The file opens beside the menu, and the plane
@@ -284,6 +286,20 @@ why, in the OPEN_QUESTIONS row and ADR 0026.
    again: reaching it needs no more than a small tip of the head (a Quest 3S needs about 5 degrees,
    inside the 8 its field allows). Record the `device view field` line's numbers for both eyes and
    whether items 1 and 3 still hold. Put the text size back.
+8. **Turning back to the closed bar.** In a build where the closed bar stays where the menu closed
+   rather than following your head, this lists `ResetPosition`; no line means the bar still follows,
+   so record "not in this build":
+
+   ```bash
+   git grep -nF "public void ResetPosition()" -- apps/xr/Assets/Halcyonic/Workspace/MenuDirector.cs
+   ```
+
+   Restart the app so the demonstration plays from its beginning, close the menu to its bar, and
+   turn the chair until the bar is behind you. When a character comes to wait, find your way back
+   to the bar and open the menu. Judge whether turning back to it is acceptable, or whether the menu
+   needs a summon gesture that brings it to where you look, and whether the waiting character's glow
+   and its Waiting for you sound were enough to find your way back (if it was already waiting when
+   you turned, only its glow called). Record the answer in the closed bar's OPEN_QUESTIONS row.
 
 A failure falls back as ADR 0026 says (a page shows 3 rows). Put the token back and restart the app:
 
