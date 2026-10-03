@@ -272,6 +272,32 @@ public class FileWaitingTests
     }
 
     [Test]
+    public void WhileADecisionSentMayStillTakeEffectNeitherApproveNorDenyIsOfferedAgain()
+    {
+        var work = new WaitingWork();
+        var steering = new WorkspaceSteering(factory);
+        var screen = new FileScreen();
+        var before = work.Present();
+        steering.Press(WorkspaceAction.Approve, before);
+        screen.ReadRequest(Migration, 2, 3, steering);
+        Draw(screen, steering);
+        Screen(before, steering, screen);
+        var sent = steering.Confirm(before);
+        Assert.That(sent.Step, Is.EqualTo(SteeringStep.Send));
+
+        var submissions = new CommandSubmissions();
+        _ = submissions.SubmitAsync(_ => new TaskCompletionSource<CommandAckMessage>().Task, sent.Command!, "e1");
+        var workspace = work.Present(submissions: submissions);
+        Assert.That(workspace.Actions, Has.None.EqualTo(WorkspaceAction.Approve).And.None.EqualTo(WorkspaceAction.Deny));
+        Assert.That(workspace.ApprovalInFlight, Is.True);
+        var frame = Screen(workspace, steering, screen);
+        var held = frame.Footer[PromptSlot.FarRight]!;
+        Assert.That((held.Words, held.Available, held.Reason), Is.EqualTo((WorkspaceText.Sent, false, (string?)FileScreens.SentWaiting)));
+        Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "no Deny to race the approval on its way");
+        Assert.That(steering.Press(WorkspaceAction.Deny, workspace).Step, Is.EqualTo(SteeringStep.Explain), "and the steering refuses one too");
+    }
+
+    [Test]
     public void StopPressedOnWaitingAsksThereAndWhateverIsArmedAsksOnEverySection()
     {
         var work = new WaitingWork();

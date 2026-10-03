@@ -90,6 +90,12 @@ namespace Halcyonic.Client
         /// </summary>
         public bool AnswerInFlight { get; internal set; }
 
+        /// <summary>
+        /// A decision this client sent on the request approving or denying answers may still take
+        /// effect, so neither is offered meanwhile: the file says it was sent instead.
+        /// </summary>
+        public bool ApprovalInFlight { get; internal set; }
+
         public IReadOnlyList<ActivityEntry> Activity { get; }
 
         /// <summary>The approval that approving or denying answers: the oldest one pending.</summary>
@@ -136,6 +142,15 @@ namespace Halcyonic.Client
                 actions = actions.Where(action => action != WorkspaceAction.Answer).ToList();
                 answerInFlight = true;
             }
+            // So is a decision on the request approving or denying answers.
+            var approval = execution?.PendingApprovals.OrderBy(pending => pending.RequestedAt, System.StringComparer.Ordinal).FirstOrDefault();
+            var approvalInFlight = false;
+            if (approval != null && submissions != null && (actions.Contains(WorkspaceAction.Approve) || actions.Contains(WorkspaceAction.Deny))
+                && submissions.ApprovalPending(execution!.ExecutionId, approval.ApprovalId, state))
+            {
+                actions = actions.Where(action => action != WorkspaceAction.Approve && action != WorkspaceAction.Deny).ToList();
+                approvalInFlight = true;
+            }
             IReadOnlyList<CommandFeedback> commands;
             if (execution == null)
             {
@@ -166,6 +181,7 @@ namespace Halcyonic.Client
                 execution == null ? new ActivityEntry[0] : activity.For(execution.ExecutionId))
             {
                 AnswerInFlight = answerInFlight,
+                ApprovalInFlight = approvalInFlight,
             };
         }
 

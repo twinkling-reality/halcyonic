@@ -346,7 +346,9 @@ the same definition names, as the JSON Schema document:
   under its state pill; its sections are Waiting, Activity, Changes and Checks, Waiting's amber dot
   on while something waits, and it opens on Waiting then, else on Activity. **Waiting** reads only
   the work's own state, never an answer still being read: an approval's request with Approve as
-  the main action, Deny beside it and Stop beside Close; the agent's question with its answers as
+  the main action, Deny beside it and Stop beside Close, and while a decision sent on it may still
+  take effect, Sent… in Approve's place and no Deny, so a second decision never races the first
+  (`CommandSubmissions.ApprovalPending`, `WorkspacePresentation.ApprovalInFlight`); the agent's question with its answers as
   rows to choose, Send answer as the main action and Hold to talk beside it (never while it asks
   for a secret), Sent… in its place, taking no press, while an answer sent may still take effect.
   The question shows a prompt at a time (`FileQuestion`): its question quoted heading every page in

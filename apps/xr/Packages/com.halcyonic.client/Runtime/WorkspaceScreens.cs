@@ -556,7 +556,7 @@ namespace Halcyonic.Client
             var tell = secret ? null : Offered(WorkspaceAction.Instruct, TellIt, waits ? PanelActionRole.Secondary : PanelActionRole.Primary);
             var primary = Offered(WorkspaceAction.Approve, Approve, PanelActionRole.Primary)
                 ?? Offered(WorkspaceAction.Answer, SendAnswer, PanelActionRole.Primary)
-                ?? (workspace.AnswerInFlight ? new PanelAction(Sent, WorkspaceText.Sent, PanelActionRole.Primary, available: false) : null);
+                ?? (workspace.AnswerInFlight || workspace.ApprovalInFlight ? new PanelAction(Sent, WorkspaceText.Sent, PanelActionRole.Primary, available: false) : null);
             // Hold to talk beside Tell it, only where the bar has room for it.
             var secondaries = (deny != null ? 1 : 0) + (tell?.Role == PanelActionRole.Secondary ? 1 : 0);
             var hold = screen.Speak && !answering && tell != null && secondaries < ActionSet.MaxSecondary

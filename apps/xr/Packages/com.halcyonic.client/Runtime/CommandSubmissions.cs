@@ -62,6 +62,7 @@ namespace Halcyonic.Client
                 submissions.Add(new Submission(command.CommandId, TypeOf(command), executionId, command.IssuedAt)
                 {
                     QuestionId = (command as ExecutionAnswerQuestionCommand)?.Payload?.QuestionId,
+                    ApprovalId = (command as ExecutionRespondToApprovalCommand)?.Payload?.ApprovalId,
                 });
                 if (submissions.Count > capacity) submissions.RemoveAt(0);
             }
@@ -131,13 +132,24 @@ namespace Halcyonic.Client
         /// it may, another answer would only race it (Codex refuses one in flight), so none is offered.
         /// A refusal, a failure with no effect, or an answer that never left this client settles it.
         /// </summary>
-        public bool AnswerPending(string executionId, string questionId, ClientProjection state)
+        public bool AnswerPending(string executionId, string questionId, ClientProjection state) =>
+            Pending(submission => submission.QuestionId == questionId && submission.ExecutionId == executionId, state);
+
+        /// <summary>
+        /// Whether this client's approval or denial of a request may still be taking effect, by the same
+        /// rule as an answer's: while it may, a second decision would only race it, so neither Approve
+        /// nor Deny is offered again for that request.
+        /// </summary>
+        public bool ApprovalPending(string executionId, string approvalId, ClientProjection state) =>
+            Pending(submission => submission.ApprovalId == approvalId && submission.ExecutionId == executionId, state);
+
+        private bool Pending(Func<Submission, bool> matches, ClientProjection state)
         {
             lock (gate)
             {
                 foreach (var submission in submissions)
                 {
-                    if (submission.QuestionId != questionId || submission.ExecutionId != executionId) continue;
+                    if (!matches(submission)) continue;
                     if (state.Commands.TryGetValue(submission.CommandId, out var record))
                     {
                         if (record.Status == CommandStatus.Accepted) return true;
@@ -246,6 +258,9 @@ namespace Halcyonic.Client
 
             /// <summary>The question an answer command answers, or null for any other command.</summary>
             public string? QuestionId { get; set; }
+
+            /// <summary>The approval a decision answers, or null for any other command.</summary>
+            public string? ApprovalId { get; set; }
 
             public SubmissionState State { get; set; } = SubmissionState.Sending;
 
