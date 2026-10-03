@@ -39,8 +39,6 @@ namespace Halcyonic.XR.Workspace
     /// </remarks>
     public sealed partial class EntryPanel
     {
-        private const string UnresolvedCommandPreference = "halcyonic.new-work.unresolved-command-id";
-
         /// <summary>At most one item a line, so a page never needs more labels than it has lines.</summary>
         private const int ReviewLabels = 14;
 
@@ -59,7 +57,12 @@ namespace Halcyonic.XR.Workspace
         private double renderSeconds;
         private BuildSequence? sequence;
         private Task<CommandAckMessage>? pendingAck;
-        private string? unresolved;
+
+        /// <summary>A start whose outcome is unknown, kept for the computer and read afresh, so New project's shows here at once; the renders keep theirs in memory.</summary>
+        private IKeptCommand kept = new KeptUnknownStart();
+
+        /// <summary>The kept id this panel wrote for its own build, which only it may replace or clear.</summary>
+        private string? ownId;
         private bool recoveryArmed;
         private bool confirmingStartOver;
         private bool showModels;
@@ -91,8 +94,6 @@ namespace Halcyonic.XR.Workspace
         private void AwakeCreate()
         {
             draft = new NewWorkDraft(commands);
-            unresolved = PlayerPrefs.GetString(UnresolvedCommandPreference, "");
-            if (unresolved.Length == 0) unresolved = null;
             for (var index = 0; index < ReviewLabels; index++)
             {
                 var label = RequestLabel("Request item " + index);
@@ -140,7 +141,7 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public void ShowCreate(string? projectId, string? projectName)
         {
-            if (unresolved != null && sequence == null)
+            if (kept.Id != null && sequence == null)
             {
                 Open(Screen.Previous);
                 return;
@@ -192,7 +193,7 @@ namespace Halcyonic.XR.Workspace
             if (screen == Screen.Guide && idea!.Question >= ProjectIdea.Questions.Count) screen = Screen.Recap;
             if (screen == Screen.Sending && sequence == null) screen = Screen.Recap;
             if (screen == Screen.Review && review == null) screen = Screen.Recap;
-            if (screen == Screen.Previous && (unresolved ?? sequence?.Unresolved) == null)
+            if (screen == Screen.Previous && (kept.Id ?? sequence?.Unresolved) == null)
             {
                 screen = Screen.CreateStart;
                 idea ??= new ProjectIdea();
@@ -222,7 +223,7 @@ namespace Halcyonic.XR.Workspace
                     model = EntryScreens.Sending(sequence!, current.Folder);
                     break;
                 case Screen.Previous:
-                    var id = (unresolved ?? sequence?.Unresolved)!;
+                    var id = (kept.Id ?? sequence?.Unresolved)!;
                     var record = state()?.Commands.TryGetValue(id, out var found) == true ? found : null;
                     return EntryScreens.Previous(id, record, recoveryArmed, Live);
                 default:
@@ -381,7 +382,9 @@ namespace Halcyonic.XR.Workspace
                     recoveryArmed = false;
                     pendingAck = null;
                     sequence = null;
-                    Remember(null);
+                    // Cleared by the person's two presses: whichever start it was, kept here or by New project.
+                    kept.Id = null;
+                    ownId = null;
                     idea = new ProjectIdea();
                     notice = (Screen.CreateStart, EntryText.Cleared);
                     Open(Screen.CreateStart);
@@ -426,8 +429,10 @@ namespace Halcyonic.XR.Workspace
             });
         }
 
-        /// <summary>Why Start building cannot go ahead now, or null.</summary>
-        private string? StartProblem() => EntryScreens.StartProblem(demonstration() != null, state(), connected(), idea, draft, CurrentFolder(), sequence);
+        /// <summary>Why Start building cannot go ahead now, or null; a start New project kept with its outcome unknown is checked first, so nothing is made twice.</summary>
+        private string? StartProblem() =>
+            !Building() && kept.Id is string id && id != ownId && id != sequence?.Unresolved ? EntryText.PreviousRequestLine
+            : EntryScreens.StartProblem(demonstration() != null, state(), connected(), idea, draft, CurrentFolder(), sequence);
 
         /// <summary>An existing project's folder as the host bound it, or null for a new project or one without.</summary>
         private ProjectLocation? CurrentFolder()
@@ -714,14 +719,23 @@ namespace Halcyonic.XR.Workspace
             pendingAck = session.SubmitAsync(command);
         }
 
-        /// <summary>Keeps the command whose outcome may be unknown on the device, so a restart still blocks a blind retry.</summary>
+        /// <summary>
+        /// Keeps the command of this panel's own build whose outcome may be unknown on the device, so a
+        /// restart still blocks a blind retry; one New project or an earlier run kept is never replaced
+        /// or cleared here, only by the person's Clear, then Yes, clear.
+        /// </summary>
         private void Remember(string? commandId)
         {
-            if (commandId == unresolved) return;
-            unresolved = commandId;
-            if (commandId == null) PlayerPrefs.DeleteKey(UnresolvedCommandPreference);
-            else PlayerPrefs.SetString(UnresolvedCommandPreference, commandId);
-            PlayerPrefs.Save();
+            var current = kept.Id;
+            if (current == commandId || (current != null && current != ownId)) return;
+            kept.Id = commandId;
+            ownId = commandId;
+        }
+
+        /// <summary>The renders' kept id, in memory, so a render never reads or writes what the device keeps.</summary>
+        private sealed class KeptForRender : IKeptCommand
+        {
+            public string? Id { get; set; }
         }
 
         private void UpdateCreate()
