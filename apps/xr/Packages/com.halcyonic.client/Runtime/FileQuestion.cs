@@ -99,9 +99,18 @@ namespace Halcyonic.Client
         /// <summary>
         /// The prompt's question shows first on pages of its own: it is longer than
         /// <see cref="QuestionRows"/> rows, or can't share a page with an answer, the typed answer's row,
-        /// the row on to the next question and the reason Send answer waits.
+        /// the row on to the next question and the reason Send answer waits, or that leaves fewer pages
+        /// in all, its answers' pages then holding more answers each under its first line (ADR 0026).
+        /// On a tie it stays with its answers, read beside them.
         /// </summary>
-        public bool QuestionCut(int prompt) => measures[prompt].QuestionRows > QuestionRows || !HeadFits(prompt, measures[prompt].QuestionRows);
+        public bool QuestionCut(int prompt)
+        {
+            var rows = measures[prompt].QuestionRows;
+            if (rows > QuestionRows || !HeadFits(prompt, rows)) return true;
+            if (draft == null || rows < 2) return false;
+            var cut = FileScreen.PartsOf(rows, QuestionPartRows) + Lay(draft, prompt, HeadFits(prompt, 1) ? 1 : 0).Count;
+            return cut < Lay(draft, prompt, rows).Count;
+        }
 
         /// <summary>
         /// A head of <paramref name="headRows"/> rows leaves room for at least one answer beside the typed
@@ -215,7 +224,7 @@ namespace Halcyonic.Client
             draft = answering;
             page = pageBudget;
             side = sideBudget;
-            pages = Enumerable.Range(0, answering.Prompts.Count).Select(prompt => Lay(answering, prompt)).ToList();
+            pages = Enumerable.Range(0, answering.Prompts.Count).Select(prompt => Lay(answering, prompt, HeadRows(prompt))).ToList();
             LayReview();
             if (another)
             {
@@ -286,14 +295,15 @@ namespace Halcyonic.Client
         /// <summary>
         /// A prompt's answers in pages: what is left of the rows under the question's head, beside the
         /// typed answer's row, the row on to the next question and the reason Send answer waits, filled in
-        /// the agent's order; with a row for more answers where they take more than one page.
+        /// the agent's order; with a row for more answers where they take more than one page. The head
+        /// is <paramref name="headRows"/> rows of the question.
         /// </summary>
-        private List<List<int>> Lay(QuestionDraft answering, int prompt)
+        private List<List<int>> Lay(QuestionDraft answering, int prompt, int headRows)
         {
             var asked = answering.Prompts[prompt];
             var options = Enumerable.Range(0, asked.Options.Count).ToList();
             var several = answering.Prompts.Count > 1;
-            var room = page.Room - Head(HeadRows(prompt)) - Below(asked.FreeText, several);
+            var room = page.Room - Head(headRows) - Below(asked.FreeText, several);
             if (page.Targets(options.Select(option => AnswerShows(prompt, option)).ToArray()) > room + 1e-6f) room -= MoreRow(asked.FreeText, several);
             var laid = new List<List<int>> { new List<int>() };
             var used = 0f;

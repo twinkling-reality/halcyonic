@@ -443,10 +443,11 @@ the same definition names, as the JSON Schema document:
   rows to choose, Send answer as the main action and Hold to talk beside it. A question with any
   secret prompt can't be answered here whatever its adapter says (`WorkspaceText.Answerable`, asked
   by every place that offers or sends an answer): it shows why and the way on, Stop; Sent… in its place, taking no press, while an answer sent may still take effect.
-  The question shows a prompt at a time (`FileQuestion`). A question longer than two rows shows
-  first on pages of its own, a part at a time, each ending in a row to the next and the last in "On
-  to the answers"; its answers' pages are headed by its first row, cut, and a short question heads
-  them whole. The answers keep the agent's order, none left out, each in at most two rows, paged by
+  The question shows a prompt at a time (`FileQuestion`). A question longer than two rows, or one
+  whose own page leaves fewer pages in all (its answers' pages then holding more answers each),
+  shows first on pages of its own, a part at a time, each ending in a row to the next and the last
+  in "On to the answers"; its answers' pages are headed by its first row, cut. Otherwise, a tie
+  included, the question heads its answers whole. The answers keep the agent's order, none left out, each in at most two rows, paged by
   a row at the page's end ("More answers, 2 of 2"), with Type my answer last; for a question of
   several prompts, a row on to the next question and after the last to Your answers, which lists
   each prompt's answer whole, paged where it doesn't fit, and is the only page it sends from. Every

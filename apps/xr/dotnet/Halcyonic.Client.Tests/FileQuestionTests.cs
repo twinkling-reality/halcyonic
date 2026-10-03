@@ -254,6 +254,42 @@ public class FileQuestionTests
     }
 
     [Test]
+    public void ATwoRowQuestionTakesItsOwnPageWhereThatLeavesFewerPagesInAllAndStaysWithItsAnswersOnATie()
+    {
+        var budget = HeightBudget.Of(TextSize.Standard, subjectRows: 1);
+        var four = new[] { "15 minutes", "1 hour", "Until reset", "Grows each time" };
+        var measured = new[] { new PromptMeasure(2, four.Select(_ => 2).ToList(), four.Select(_ => 3).ToList()) };
+        var (_, workspace, screen, _) = Asking(OnePrompt(four), measured);
+        screen.ReadQuestion(screen.Question.Draft!, measured, budget, budget);
+        Assert.That((screen.Question.QuestionParts(0), screen.Question.Pages), Is.EqualTo((1, 2)),
+            "a question page, then two answers a page under its first line: 3 pages rather than 4");
+        Assert.That(screen.Question.HeadRows(0), Is.EqualTo(1));
+        var shown = 0;
+        while (screen.Question.QuestionPart != null)
+        {
+            Assert.That(Height(Screen(workspace, screen), budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f), "the question's own page");
+            shown++;
+            screen.Question.NextPart(Later(screen));
+        }
+        for (var page = 0; page < screen.Question.Pages; page++)
+        {
+            var frame = Screen(workspace, screen);
+            Assert.That(Height(frame, budget), Is.LessThanOrEqualTo(budget.Room + 1e-5f), "page " + page);
+            Assert.That(screen.Question.Answers, Has.Count.EqualTo(2));
+            shown++;
+            screen.Question.MoreAnswers(Later(screen));
+        }
+        Assert.That(shown, Is.EqualTo(3));
+
+        var three = four.Take(3).ToArray();
+        var tied = new[] { new PromptMeasure(2, three.Select(_ => 2).ToList(), three.Select(_ => 3).ToList()) };
+        var (_, _, beside, _) = Asking(OnePrompt(three), tied);
+        beside.ReadQuestion(beside.Question.Draft!, tied, budget, budget);
+        Assert.That((beside.Question.QuestionParts(0), beside.Question.HeadRows(0), beside.Question.Pages), Is.EqualTo((0, 2, 3)),
+            "3 pages either way, so the question stays whole beside its answers");
+    }
+
+    [Test]
     public void AChoiceIsTakenOnlyFromThePageInViewAndALayoutAnewLandsOnItOrClearsIt()
     {
         var labels = new[] { "Postgres", "SQLite", "MySQL", "DynamoDB", "Redis" };
