@@ -257,8 +257,16 @@ coordinator's first-visit words:
 - **Labels are cleared where they stand** (2026-10-02, lane U's renders at the far stage on a Quest
   3S): placement clears each label at its own yaw, not with the plane's lowest corner, which had
   set a 64 degree plane's top at 18.9 degrees and taken Tasks' 4 rows beside a file to 43.9 of
-  43.5. Cleared label by label, the plane stands about a degree higher; if a stage still takes it
-  past the field, Tasks shows 3 rows beside a file, and the menu never steps aside for good.
+  43.5. At the far stage this gains nothing, since the arc's outer labels stand over the plane's
+  corners, and the hero stays 0.4 degrees too tall for a 3S there. So:
+  - The head is taken to tip as much as the plane's bottom needs, at most 8 degrees
+    (`WorkspacePlacement.ReadingPitch`), in place of 1.5 degrees for each degree past 26. The old
+    rule left planes between 24.6 and 28.8 degrees tall fitting neither level nor tipped, which
+    caught 3 rows too.
+  - Tasks beside a file packs its rows by the stage's real height: 4 where they fit, 3 on a 3S at
+    the far stage, decided when the menu opens, so a page never changes while it shows.
+  - The footer keeps its full room below its prompts; halving it would gain 0.1 degree.
+  - The menu never steps aside for good.
 - **At larger text a side panel takes the file's place** (2026-10-02): a file and a side panel come
   to about 72 degrees, whose low corners leave a 3S's field wherever the top stands. The side panel
   stands where the file stood, keeping the file's light line and the pill on its subject, so it still
@@ -334,7 +342,8 @@ coordinator's first-visit words:
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); if not, a menu shows 3 rows a page.
 - A Quest 3S's field holds the menu and a file at both text sizes, as `FieldChecks` sees it with the
   head turned to the composition and tipped 8 degrees (`WorkspacePlacement.ReadingPitch`), with about
-  a degree to spare, Tasks showing 4 rows a page at the standard size and 3 at larger text; lane U's
+  a degree to spare at the near stage, Tasks showing 4 rows a page at the standard size where they
+  fit and 3 at larger text or on a 3S at the far stage; lane U's
   views render all five of its compositions at both sizes and check it.
 - Contrast at 96 percent is calculated, not measured: over a white wall, as in passthrough, secondary
   text keeps 4.8:1 (`GlazeChecks.Over`). The contrast check composites every surface over white, and

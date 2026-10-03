@@ -28,7 +28,10 @@ controls, clean. `DirectionsRender` shows each rule below on the moments it was 
   most 8 degrees. The plane's top stands 17.5 degrees below eye level (`MenuPage.TopDegrees`), and
   the menu and a file side by side take 64.3 by 33.0 degrees, to 50.5 below eye level. A list of
   rows holds 4 a page at the standard text size and 3 at larger text (`MenuFrame.RowsAPage`), its
-  source line counting as one; any other page packs by height, at most `MenuPage.Height`.
+  source line counting as one, and Tasks beside a file takes 3 where the stage leaves room for no
+  more, as on a 3S at the far stage, decided when the menu opens; any other page packs by height, at
+  most `MenuPage.Height`. The head is taken to tip as much as the plane's bottom needs, at most 8
+  degrees.
 - **With nothing on the stage**, the menu stands where the person looks at rest, about 15 degrees
   down.
 - **Labels are cleared where they stand**: placement keeps the plane clear of each label at the
