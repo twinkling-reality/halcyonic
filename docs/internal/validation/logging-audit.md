@@ -33,7 +33,8 @@ Each fix is its own commit; the test named fails on main and passes with the fix
 | `pnpm demo` printed the titles of every project's tasks, the person's own work included | `apps/control-plane/src/cli/demo.ts` | Only the demo's own project is printed (`workstreamLine` in demo-scenario.ts) | `demo-scenario.test.ts`, "only the demo's own project" |
 | `pnpm devices` and `pnpm demo` failed with a parse error that quotes part of a body | `cli/devices.ts`, `demo-scenario.ts` | `readJson` fails in fixed words | `demo-scenario.test.ts`, "an answer that is not JSON" |
 | A failed `adb` call in `pnpm quest:session` and `quest:cold-start` was printed whole by Node: everything adb printed, which names the headset | `tooling/quest/adb.ts` | The error names the subcommand and its exit status only | `tooling/quest/adb.test.ts` |
-| A runtime's or provider's error text was journaled as given: a gateway's 401 that echoes the key, Codex's error answer at start, OpenCode's | `core/redaction.ts`, used by `command-service.ts` (failures) and `drafts.ts` (a turn's failure, a lost or restored connection) | Every secret Halcyonic holds or passes to a runtime is replaced, exactly (of the agent environment, only values whose names read as secret, so an address or a region stays), then every credential shape, never a path after a scheme word nor a name built of words; the rest stays as given, but for what only looks like a credential (SECURITY.md) (the coordinator's decision) | `redaction.test.ts`; `control-plane.test.ts`, "a runtime's refusal loses what Halcyonic holds"; `drafts.test.ts`; `runtimes.test.ts`, "the secrets taken out of runtime error text" |
+| A runtime's or provider's error text was journaled as given: a gateway's 401 that echoes the key, Codex's error answer at start, OpenCode's | `core/redaction.ts`, used by `command-service.ts` (failures) and `drafts.ts` (a turn's failure, a lost or restored connection) | Every secret Halcyonic holds or passes to a runtime is replaced, exactly, by which one it was ("[redacted: Anthropic key]"); of the agent environment, the values whose names have a secret's word in them (KEY, TOKEN, PASS, PAT, AUTH, COOKIE, SESSION and the like, matched whole, so GIT_AUTHOR_NAME is not one) or that read as a credential by themselves, so an address or a region stays. Then every credential shape, never a path after a scheme word nor a name built of words; the rest stays as given, but for what only looks like a credential (SECURITY.md) (the coordinator's decision) | `redaction.test.ts`; `control-plane.test.ts`, "a runtime's refusal loses what Halcyonic holds"; `drafts.test.ts`; `runtimes.test.ts`, "the secrets taken out of a runtime's text" |
+| Runtime text a person reads as given was journaled or answered as given: a tool's title (Codex's is the whole command line), what an approval asks for, a test run's label and summary; and over REST, Seorak's reason text and a model listing's failure | `drafts.ts`; `http/routes.ts` (evaluation, usage limits); `core/runtime-models.ts` | A tool's title, an approval's summary and a test run's label and summary lose only exact copies of what Halcyonic holds, named, so the command a person approves is never guessed at; Seorak's reason text and a model listing's failure are error text, which can echo a key Halcyonic never held, and lose credential shapes too (the coordinator's decision, 2026-10-03) | `drafts.test.ts`, "lose only exact copies of what Halcyonic holds from what a person reads to decide"; `models-route.test.ts`, "says in words why"; `evaluation-route.test.ts`, "the provider's own words lose what Halcyonic holds" |
 | An error logged with `{ err }` showed its message, which can quote an instruction, and Node's `rawPacket` for a malformed request: its head, Authorization header and all, as a byte array | `http/server.ts` | Errors are logged by `errorForLog`: type, code and stack frames only, and the message of Halcyonic's own errors in fixed words (`OwnWordsError`: `ConfigError`, `JournalError`, `InvalidEventError`, `TraceError`, `SpeechEngineError`), so a warm-up failure keeps its why and a refused event its issue paths | `server.test.ts`, "logs an error's type, code and frames": a malformed request carrying a token |
 | An adapter's bug, journaled as its type since the audit, left no trace for the owner | `command-service.ts` | It is logged on the Mac with its type and frames | `control-plane.test.ts`, "an adapter's bug is logged" |
 
@@ -70,8 +71,8 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
   (`transcription-route.test.ts`).
 - Salidium and Seorak read-through: credentials are never logged or echoed. A reason names the
   credential file's path, which names the home folder, and reaches paired devices; minor, since
-  devices already see project paths. Seorak's own `reason.message` passes through
-  (`packages/integrations/seorak/src/client.ts`). Open, below.
+  devices already see project paths. Seorak's own reason text, the verification lens's note, and
+  each failure's reason lose credentials before a device reads them: fixed above.
 - The journal: commands are journaled whole by contract, instruction included; a refused answer
   is stripped (`journaledRejection`); folder paths in rejections match paths already journaled.
   Adapter errors: fixed above for unexpected ones; runtime error text is open, below.
@@ -89,7 +90,7 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
 - Salidium: the credential travels only in the Authorization header, with no redirect, to an
   instance that proved itself; failures are fixed words; repository roots are dropped. OK.
 - Seorak: the credential is header-only, the native id travels in a POST body, and messages are
-  fixed. OK, but for `reason.message` (open).
+  fixed. OK; its reason text loses credentials (fixed above).
 - The domain's admission never repeats an answer's text. OK.
 
 **The command-line tools and tooling.**
@@ -131,15 +132,13 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
   configuration, for one), still passes.
 - **Tool input in titles and summaries.** Codex's tool title is the whole command line, and Claude
   Code's approval summary falls back to a tool's whole input as JSON, which for an MCP tool could
-  hold a credential argument. A person needs them to decide on a request (SECURITY.md), but
-  EVENTS.md doesn't say these fields carry tool input.
-- **Seorak's own reason** passes through to the headset, and Seorak's response is read with no
-  size limit (not a privacy problem).
-- **Runtime text that is not error text.** Seorak's reason text and the model listing's failures
-  reach devices over REST without redaction, and tool titles, approval summaries and test
-  summaries are journaled without it. The review notes that the exact-copy layer alone, applied to
-  these fields, would hide nothing a person needs; the shape layer could take part of a command
-  line. Whether to apply it is open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+  hold a credential argument. What Halcyonic holds is now taken out (above); a credential it doesn't
+  hold stays, since a person needs the command as given to decide on it (SECURITY.md). EVENTS.md
+  doesn't say these fields carry tool input.
+- **The marker can be forged.** An agent can type "[redacted: access token]" itself. Carrying
+  replaced spans as structured data, drawn as a chip, would make it unforgeable: a contract and
+  headset change, open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- **Seorak's response** is read with no size limit (not a privacy problem).
 - **Host paths** in failure messages: binary paths and the data folder's in some adapter errors,
   credential file paths in Salidium's and Seorak's reasons. Devices already see project paths.
 
