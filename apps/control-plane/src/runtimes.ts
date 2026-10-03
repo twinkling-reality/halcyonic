@@ -242,7 +242,11 @@ function secretsWithin(value: string): string[] {
   return found;
 }
 
-/** A path from the root or home, which names a place, never a secret: `PWD=/Users/me/project`. */
+/**
+ * A part that starts from the root or home, which names a place: never held for looking random
+ * alone. A value held by its name, its key, an option or a URL is held even so, since a base64
+ * secret starts with `/` about once in 64.
+ */
 const ABSOLUTE_PATH = /^(?:\/|~\/|[A-Za-z]:[\\/])/;
 
 /** A part of a value without the quotes and brackets around it: `"q7Xk…"}` reads as `q7Xk…`. */
@@ -264,9 +268,9 @@ export function secretName(name: string): boolean {
  * Anthropic key, OpenCode's server password, Salidium's and Seorak's credentials, and of the
  * HALCYONIC_AGENT_ENV values, those whose names read as secret or that read as a credential by
  * themselves, each part of one that reads as a credential by itself, as the value of a header in
- * `Name: value`, and the password in any URL, connection string or command line in one, all under
- * their variable's name; never an absolute path, which names a place. An address or a region passed to agents, such as
- * ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
+ * `Name: value`, but never one that is an absolute path, and the password in any URL, connection
+ * string or command line in one, all under their variable's name. An address or a region passed
+ * to agents, such as ANTHROPIC_BASE_URL or AWS_REGION, stays in the text a person reads. Read each time it is asked,
  * since a server's password changes with each launch and a credential when it is replaced; a file
  * that can't be read gives nothing. Device credentials are kept only as hashes, so their shape is
  * what takes them out of error text.
@@ -286,12 +290,12 @@ export function heldSecrets(
         ...value
           .split(VALUE_PARTS)
           .map(bare)
-          .filter((part) => part !== value && looksLikeCredential(part)),
+          .filter(
+            (part) => part !== value && !ABSOLUTE_PATH.test(part) && looksLikeCredential(part),
+          ),
         ...secretsWithin(value),
       ]),
-    ]
-      .filter((held) => !ABSOLUTE_PATH.test(held.trim()))
-      .map((held) => ({ what: name, value: held })),
+    ].map((held) => ({ what: name, value: held })),
   );
   return () => {
     let anthropic: string | undefined;
