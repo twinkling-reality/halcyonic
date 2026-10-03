@@ -182,10 +182,11 @@ namespace Halcyonic.Client
                 if (chosen != null && settings.FirstOrDefault(setting => setting.Key == chosen) is MenuSetting open)
                 {
                     var now = open.Read();
-                    footer = new Footer(close, farRight: new Prompt(ChangeSetting, now.Prompt, GlazeIcon.Change, main: true, available: now.Reason == null, reason: now.Reason));
+                    footer = new Footer(close, farRight: new Prompt(ChangeSetting, now.Prompt, GlazeIcon.Change, main: true, available: now.Reason == null, reason: now.Reason,
+                        safeInPlace: true));
                     if (armed == chosen && now.Confirm != null)
                     {
-                        footer = Footer.Confirm(footer, PromptSlot.FarRight, new Prompt(Yes, now.Confirm, GlazeIcon.Change, PromptKind.Yes),
+                        footer = Footer.Confirm(footer, PromptSlot.FarRight, new Prompt(Yes, now.Confirm, GlazeIcon.Change, PromptKind.Yes, safeInPlace: true),
                             new Prompt(Cancel, SettingsText.Cancel, GlazeIcon.Close, PromptKind.Cancel));
                     }
                     side = new SidePanel(open.Name, facts: new[] { new SideFact(SettingsText.Now, now.Now, valueIsData: now.ValueIsData), new SideFact(now.Next, now.Does) });

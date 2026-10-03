@@ -124,6 +124,9 @@ namespace Halcyonic.Client
         public void ShowBeside(IMenuColumn column, string? task)
         {
             if (Beside == column && BesideTask == task) return;
+            // The menu's chosen row lets go of its side panel, which a column beside it leaves undrawn,
+            // so nothing in the menu acts on details no one sees.
+            if (IsOpen && places.TryGetValue(Place, out var place) && place.Frame?.Side != null) place.Act(SidePanel.Close, null);
             Leave();
             Beside = column;
             BesideTask = task;
@@ -173,10 +176,7 @@ namespace Halcyonic.Client
         /// </summary>
         public bool Act(MenuColumn from, string action, string? key, MenuFrame? frame, SidePanel? side)
         {
-            if (!(Standing(from, frame, side) is IMenuColumn column)) return false;
-            // A side panel's own Close, or a prompt the frame it belongs to offers now and allows, as one
-            // standing in its frame's place draws them; nothing else.
-            if (from == MenuColumn.Side && action != SidePanel.Close && !Offers(drawnSideFrame, action)) return false;
+            if (!(Taking(from, action, frame, side) is IMenuColumn column)) return false;
             if (from == MenuColumn.Menu && action == MenuFrame.ChooseSection)
             {
                 if (key != null && Enum.TryParse<MenuPlace>(key, out var place) && place != Place)
@@ -235,6 +235,19 @@ namespace Halcyonic.Client
                     drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, true);
                     return;
             }
+        }
+
+        /// <summary>
+        /// The column a press or a hold of <paramref name="action"/> from <paramref name="from"/> goes to:
+        /// only from what was drawn last in its slot and still stands (<see cref="Standing"/>), and from a
+        /// side panel only its own Close or a prompt the frame it belongs to offers now and allows, as one
+        /// standing in its frame's place carries them; null for anything else.
+        /// </summary>
+        public IMenuColumn? Taking(MenuColumn from, string action, MenuFrame? frame, SidePanel? side)
+        {
+            if (!(Standing(from, frame, side) is IMenuColumn column)) return null;
+            if (from == MenuColumn.Side && action != SidePanel.Close && !Offers(drawnSideFrame, action)) return null;
+            return column;
         }
 
         /// <summary>Whether <paramref name="frame"/>'s footer offers a prompt <paramref name="action"/>, available now.</summary>

@@ -124,19 +124,33 @@ public class MenuFrameTests
     }
 
     [Test]
-    public void ASidePanelInItsFramesPlaceKeepsEveryPromptTheFrameOffersWithCloseDetailsWhereCloseStood()
+    public void ASidePanelInItsFramesPlaceCarriesOnlyWhatItShowsEverythingOfWithCloseDetailsWhereCloseStood()
     {
-        var waiting = new Footer(Close, rare: Action("stop"), secondary: Action("deny"), farRight: Action("approve", main: true));
-        var carried = waiting.WithClose(SidePanel.Footer[PromptSlot.Close]!);
-        Assert.That(carried.All.Select(each => (each.Slot, each.Prompt.Id)), Is.EqualTo(new[]
-        {
-            (PromptSlot.Close, SidePanel.Close), (PromptSlot.Rare, "stop"), (PromptSlot.Secondary, "deny"), (PromptSlot.FarRight, "approve"),
-        }));
-        var confirming = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(available: false), Cancel).WithClose(SidePanel.Footer[PromptSlot.Close]!);
-        Assert.That(confirming.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Yes, PromptKind.Cancel }),
-            "a confirmation stays as it is, Yes and its reason with it");
-        Assert.That(confirming.Reason, Is.EqualTo("Read to part 3 first"));
-        Assert.Throws<ArgumentException>(() => waiting.WithClose(Action("close-it")), "only a Close stands far left");
+        var closeDetails = SidePanel.Footer[PromptSlot.Close]!;
+        var change = new Prompt("change", "Make text standard", GlazeIcon.Change, main: true, safeInPlace: true);
+        var settings = new Footer(Close, farRight: change).InPlace(closeDetails);
+        Assert.That(settings.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close, "change" }), "a setting's change, which its panel shows all of");
+        Assert.That(new Footer(Close, farRight: change).WholeInPlace, Is.True);
+
+        var waiting = new Footer(Close, rare: Action("stop"), secondary: new Prompt("talk", "Hold to talk", GlazeIcon.HoldToTalk, holds: true),
+            farRight: Action("send", main: true));
+        var answer = waiting.InPlace(closeDetails);
+        Assert.That(answer.All.Select(each => each.Prompt.Id), Is.EqualTo(new[] { SidePanel.Close }),
+            "Send answer sends more than an answer's panel shows, and Hold to talk adds to it: only Close details, which brings the page back");
+        Assert.That(waiting.WholeInPlace, Is.False);
+
+        var paged = new Footer(Close, farRight: Action("send", main: true)).WithNext(new Prompt(Footer.NextPage, "Next part", GlazeIcon.Next, PromptKind.NextPage))
+            .InPlace(closeDetails);
+        Assert.That(paged.All.Select(each => (each.Slot, each.Prompt.Id)), Is.EqualTo(new[] { (PromptSlot.Close, SidePanel.Close), (PromptSlot.FarRight, Footer.NextPage) }),
+            "paging always, at the far right once the main action beside it stays behind");
+
+        var forgetting = Footer.Confirm(new Footer(Close, farRight: change), PromptSlot.FarRight,
+            new Prompt("yes", "Yes, forget this computer", GlazeIcon.Change, PromptKind.Yes, safeInPlace: true), Cancel).InPlace(closeDetails);
+        Assert.That(forgetting.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Yes, PromptKind.Cancel }),
+            "a Yes its panel shows all of, and Cancel always");
+        var approving = Footer.Confirm(waiting, PromptSlot.FarRight, Yes(), Cancel).InPlace(closeDetails);
+        Assert.That(approving.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close, PromptKind.Cancel }), "no Yes its panel doesn't show all of");
+        Assert.Throws<ArgumentException>(() => waiting.InPlace(Action("close-it")), "only a Close stands far left");
     }
 
     [Test]

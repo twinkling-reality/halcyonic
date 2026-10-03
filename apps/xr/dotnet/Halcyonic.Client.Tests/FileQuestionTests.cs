@@ -426,6 +426,20 @@ public class FileQuestionTests
     }
 
     [Test]
+    public void ClosingAChosenAnswersSidePanelBringsThePageBackTheAnswerStillChosen()
+    {
+        var question = OnePrompt("Postgres, with read replicas in two regions and a nightly snapshot kept for thirty days", "SQLite");
+        var (_, workspace, screen, _) = Asking(question, new[] { new PromptMeasure(1, new[] { 5, 1 }, new[] { 7, 1 }) }, speak: true);
+        Draw(screen);
+        screen.Question.Choose(0);
+        Assert.That(Screen(workspace, screen).Side, Is.Not.Null);
+        screen.Question.CloseSide();
+        var page = Screen(workspace, screen);
+        Assert.That(page.Side, Is.Null, "the page, where Send answer sends with everything in view");
+        Assert.That(page.Lines[1].Chosen, Is.True, "the answer stays chosen");
+    }
+
+    [Test]
     public void AChosenCutAnswerOrALongTypedOneShowsWholeBesideThePageAndIsSentOnlyOnceEveryPartWasDrawn()
     {
         var question = OnePrompt("Postgres, with read replicas in two regions and a nightly snapshot kept for thirty days", "SQLite");
