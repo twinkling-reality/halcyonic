@@ -531,6 +531,28 @@ public class NewProjectRecapTests
         Assert.That(unread.Footer[PromptSlot.FarRight]!.Id, Is.EqualTo(NewProjectScreens.ReadFolders));
         var refused = NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: EntryText.NewFolderRule);
         Assert.That((refused.Lines[0].Words, refused.Lines[0].Tone), Is.EqualTo((EntryText.NewFolderRule, LineTone.Problem)));
+
+        var unnamed = NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: null, words: false);
+        Assert.That(unnamed.Lines.Where(line => line.Choice).Select(line => line.Words), Is.EqualTo(new[] { "Directly in Projects", "shop", "Old" }),
+            "with neither the keyboard nor Hold to talk, a new folder could not be named, so none is offered");
+    }
+
+    [Test]
+    public void WithNeitherTheKeyboardNorHoldToTalkNothingLeadsToAPageOfWords()
+    {
+        var idea = new ProjectIdea();
+        idea.UseIdea("something for my running club");
+        Prompt? Change(ProjectIdea shown, RecapFact fact, bool words) =>
+            NewProjectScreens.Recap(shown, Draft(), null, live: true, notice: null, problem: null, chosen: fact, words: words).Footer[PromptSlot.Rare];
+
+        Assert.That(Change(idea, RecapFact.Name, words: true)!.Id, Is.EqualTo(NewProjectScreens.Rename));
+        Assert.That(Change(idea, RecapFact.Name, words: false), Is.Null, "renaming leads only to a page of words");
+        Assert.That(NewProjectScreens.ChangeFor(idea), Is.EqualTo(TaskChange.Words));
+        Assert.That(Change(idea, RecapFact.FirstTask, words: false), Is.Null, "a first task in the person's own words too");
+        Assert.That(Change(Proposed(), RecapFact.FirstTask, words: false)!.Id, Is.EqualTo(NewProjectScreens.ChangeTask),
+            "a suggested first task's change offers the suggestion and the person's words to choose");
+        Assert.That(Change(idea, RecapFact.Folder, words: false)!.Id, Is.EqualTo(NewProjectScreens.ChooseWhere), "folders are chosen, not named");
+        Assert.That(Change(idea, RecapFact.HowItRuns, words: false)!.Id, Is.EqualTo(NewProjectScreens.MoreOptions));
     }
 
     [Test]

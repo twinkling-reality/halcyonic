@@ -182,6 +182,9 @@ namespace Halcyonic.Client
 
         private bool Voice => host.VoiceOffered && Live;
 
+        /// <summary>Words can be given, by the keyboard or Hold to talk; where neither is, nothing leads to a page of words.</summary>
+        private bool WordsOffered => host.KeyboardOffered || Voice;
+
         private string? Said(NewProjectStep on) => said is { } line && line.Step == on ? line.Text : null;
 
         /// <summary>
@@ -277,12 +280,12 @@ namespace Halcyonic.Client
                     return recapPage switch
                     {
                         RecapPage.Task => NewProjectScreens.RecapTask(current, reached, Voice, Said(step), host.KeyboardOffered),
-                        RecapPage.Folder => NewProjectScreens.RecapFolder(current, reached, locations, locationsProblem, Said(step)),
+                        RecapPage.Folder => NewProjectScreens.RecapFolder(current, reached, locations, locationsProblem, Said(step), WordsOffered),
                         RecapPage.Options => NewProjectScreens.RecapOptions(current, reached, draft, host.State?.Runtimes ?? new List<RuntimeDescriptor>(),
                             showModels, Live),
                         RecapPage.Words => NewProjectScreens.Words(current, reached, wordsFor, written, writtenHeard, Voice, Said(step), wordsRoot, host.KeyboardOffered),
                         _ => NewProjectScreens.Recap(current, draft, CurrentFolder(), Live, Said(step), problem, fact, confirmingStartOver, reached,
-                            Building() || OutcomeUnknown ? problem : null),
+                            Building() || OutcomeUnknown ? problem : null, WordsOffered),
                     };
                 default:
                     switch (buildPage)
@@ -691,7 +694,7 @@ namespace Halcyonic.Client
         private string BuiltFrom()
         {
             var waitedLong = idea?.Companion?.Waiting == true && host.Now - companionSince >= CompanionText.WaitingLongSeconds;
-            return string.Join("|", StartProblem() ?? "", host.Connected, waitedLong, host.State?.Position ?? -1, host.TextSize, host.KeyboardOffered);
+            return string.Join("|", StartProblem() ?? "", host.Connected, waitedLong, host.State?.Position ?? -1, host.TextSize, host.KeyboardOffered, WordsOffered);
         }
 
         /// <summary>The frame changed: built again when asked, and the director told.</summary>
