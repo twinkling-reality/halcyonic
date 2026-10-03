@@ -163,7 +163,8 @@ One treatment for places, sections, rows, answers and prompts:
   each fits half the row in one row. Choosing one lights it, and the footer's main action sends or
   records it.
 - **A page packs by height**, not rows: a line of words takes its line, a target its 48 dp, against
-  the page's content height (`MenuFrame`).
+  the page's content height (`MenuFrame`), for the file alone. A question and its answers are one
+  group, 8 dp apart.
 - **Answers that don't fit** page by a row: "Type my answer" and "More answers, 2 of 2" stand side
   by side last on every page, and paging clears what was chosen, so what is sent is always in view.
   A question too long to share a page with a row of answers has its own pages first, in parts. An

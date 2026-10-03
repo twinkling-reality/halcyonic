@@ -236,7 +236,9 @@ coordinator's first-visit words:
   2026-10-02: with the reason line and the typed and paging rows apart, even a one-row question
   could not share a page with one 2-row answer at the standard size). A page packs by height, not
   rows: a line of words takes its line, a target its 48 dp, against the page's content height
-  (`MenuFrame`), packed for the file alone. The question, quoted, heads the page in at most 2 rows.
+  (`MenuFrame`), packed for the file alone, the menu stepping aside when the page needs it. The
+  question, quoted, heads the page in at most 2 rows, and it and its answers are one group, 8 dp
+  apart rather than 16; the 12 mm between targets, Meta's spacing, and the source line's 16 dp stay.
   When it and one row of answers don't fit together, the question has its own page or pages first,
   in parts, the last ending in a row to the answers, whose pages repeat its first line, cut, where
   it fits; it counts as read whole, as ADR 0022 requires before sending, once its last part has
