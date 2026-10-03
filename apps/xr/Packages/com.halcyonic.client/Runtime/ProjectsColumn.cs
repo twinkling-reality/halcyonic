@@ -22,6 +22,7 @@ namespace Halcyonic.Client
     {
         private readonly IMenuHost host;
         private readonly CommandFactory commands;
+        private readonly ProjectsMemory memory;
         private readonly Func<WorkOverview?> overview;
         private readonly Action<string, bool> show;
         private readonly Func<CancellationToken, Task<LocationsResponse>>? readLocations;
@@ -33,19 +34,28 @@ namespace Halcyonic.Client
         private string? chosenFolder;
         private bool chosenProblem;
         private int page;
-        private FolderConnection? connection;
-        private Task<CommandAckMessage>? acknowledgement;
+        private bool closed;
         private MenuFrame? frame;
         private (long Position, bool Connected, bool Demonstration, TextSize Text, long Minute, WorkOverview? Overview) seen;
 
-        /// <param name="overview">Every project and its work, as the stage counts it; null before the first snapshot.</param>
+        /// <param name="memory">
+        /// What outlives this column for the session, kept by the director and given to every Projects
+        /// column it opens: the connection sent last, so one whose outcome is unknown still holds Connect
+        /// back after Projects is closed and opened again.
+        /// </param>
+        /// <param name="overview">
+        /// Every project and its work, as the stage counts it; null before the first snapshot. It must give
+        /// the same object until the projection or the stage's visibility changes: the column compares it
+        /// by reference each tick to know when to draw again.
+        /// </param>
         /// <param name="show">Shows (true) or hides (false) a project's work on the stage, kept on this device.</param>
         /// <param name="readLocations">Reads the host's folders; the host's API when null, as on the headset.</param>
-        public ProjectsColumn(IMenuHost host, CommandFactory commands, Func<WorkOverview?> overview, Action<string, bool> show,
+        public ProjectsColumn(IMenuHost host, CommandFactory commands, ProjectsMemory memory, Func<WorkOverview?> overview, Action<string, bool> show,
             Func<CancellationToken, Task<LocationsResponse>>? readLocations = null)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             this.commands = commands ?? throw new ArgumentNullException(nameof(commands));
+            this.memory = memory ?? throw new ArgumentNullException(nameof(memory));
             this.overview = overview ?? throw new ArgumentNullException(nameof(overview));
             this.show = show ?? throw new ArgumentNullException(nameof(show));
             this.readLocations = readLocations;
@@ -71,7 +81,7 @@ namespace Halcyonic.Client
             ChosenFolder = chosenFolder,
             ChosenProblem = chosenProblem,
             TextSize = host.TextSize,
-            Connection = connection,
+            Connection = memory.Connection,
             BoundPaths = BoundPaths(host.State),
             Page = page,
             Now = host.Clock,
@@ -86,12 +96,15 @@ namespace Halcyonic.Client
 
         public void Act(string id, string? key)
         {
+            // Once closed, a press still queued for it does nothing.
+            if (closed) return;
             var state = State();
             if (!ProjectsScreens.Allows(state, id, key)) return;
             var target = ProjectsScreens.TargetOf(state);
             switch (id)
             {
                 case Footer.Close:
+                    closed = true;
                     Cancel();
                     Closed?.Invoke();
                     return;
@@ -123,11 +136,11 @@ namespace Halcyonic.Client
                     show(target.Project.ProjectId, true);
                     break;
                 case ProjectsScreens.Connect when target.Folder != null:
-                    connection = new FolderConnection(target.Folder, commands);
-                    Send(connection.Begin());
+                    memory.Connection = new FolderConnection(target.Folder, commands);
+                    Send(memory.Connection.Begin());
                     break;
-                case ProjectsScreens.TryAgain when connection != null && connection.CanRetry:
-                    Send(connection.Retry());
+                case ProjectsScreens.TryAgain when memory.Connection != null && memory.Connection.CanRetry:
+                    Send(memory.Connection.Retry());
                     break;
                 case ProjectsScreens.ChooseAnother:
                     chosenFolder = null;
@@ -176,6 +189,7 @@ namespace Halcyonic.Client
         /// </summary>
         public void Tick()
         {
+            if (closed) return;
             var changed = false;
             var read = reading;
             if (read != null && read.IsCompleted)
@@ -188,13 +202,13 @@ namespace Halcyonic.Client
                     changed = true;
                 }
             }
-            var current = connection;
+            var current = memory.Connection;
             if (current != null)
             {
-                var ack = acknowledgement;
+                var ack = memory.Acknowledgement;
                 if (ack != null && ack.IsCompleted)
                 {
-                    acknowledgement = null;
+                    memory.Acknowledgement = null;
                     if (ack.IsFaulted || ack.IsCanceled) current.AcknowledgementLost(ack.Exception?.GetBaseException() ?? new InvalidOperationException("The acknowledgement was lost."));
                     else current.Acknowledged(ack.Result);
                 }
@@ -249,8 +263,8 @@ namespace Halcyonic.Client
         /// <summary>Sends through the host's one send path; no session means it never left.</summary>
         private void Send(CommandEnvelope command)
         {
-            acknowledgement = host.Submit(command);
-            if (acknowledgement == null) connection?.AcknowledgementLost(new SessionUnavailableException("Not connected."));
+            memory.Acknowledgement = host.Submit(command);
+            if (memory.Acknowledgement == null) memory.Connection?.AcknowledgementLost(new SessionUnavailableException("Not connected."));
         }
 
         private void Change()
@@ -258,5 +272,19 @@ namespace Halcyonic.Client
             frame = null;
             Changed?.Invoke();
         }
+    }
+
+    /// <summary>
+    /// What Projects keeps for the session, outliving any one <see cref="ProjectsColumn"/>: the
+    /// connection sent last and its acknowledgement still on its way. The director keeps one for the
+    /// session and gives it to every Projects column it opens, so a connection whose outcome is unknown
+    /// keeps every Connect held back, and its record still resolves it, however often Projects is
+    /// closed and opened again.
+    /// </summary>
+    public sealed class ProjectsMemory
+    {
+        public FolderConnection? Connection { get; set; }
+
+        public Task<CommandAckMessage>? Acknowledgement { get; set; }
     }
 }

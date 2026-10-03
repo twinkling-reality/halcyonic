@@ -72,14 +72,15 @@ public class ProjectsColumnTests
         },
     };
 
-    private static (ProjectsColumn Column, Host Host, List<(string, bool)> Shown, int[] Reads) Open(LocationsResponse listing, WorkOverview? overview = null)
+    private static (ProjectsColumn Column, Host Host, List<(string, bool)> Shown, int[] Reads) Open(LocationsResponse listing, WorkOverview? overview = null,
+        Host? existing = null, ProjectsMemory? memory = null)
     {
-        var host = new Host();
+        var host = existing ?? new Host();
         var shown = new List<(string, bool)>();
         var reads = new int[1];
         // The stage gives the same overview until something changes, as the director's does.
         var stage = overview ?? WorkOverview.Of(new ClientProjection(), new StageVisibility(), _ => false);
-        var column = new ProjectsColumn(host, Commands, () => stage,
+        var column = new ProjectsColumn(host, Commands, memory ?? new ProjectsMemory(), () => stage,
             (project, show) => shown.Add((project, show)),
             _ =>
             {
@@ -198,6 +199,37 @@ public class ProjectsColumnTests
         Assert.That((column.Frame!.Side, closed), Is.EqualTo(((SidePanel?)null, 0)));
         column.Act(Footer.Close, null);
         Assert.That(closed, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void APressQueuedAfterCloseDoesNothing()
+    {
+        var (column, host, _, _) = Open(Listing("shop"));
+        column.Act(ProjectsScreens.ChooseFolder, KeyOf(column, "shop"));
+        column.Act(Footer.Close, null);
+        column.Act(ProjectsScreens.Connect, null);
+        column.Tick();
+        Assert.That(host.Sent, Is.Empty, "a closed column sends nothing");
+    }
+
+    [Test]
+    public void AConnectionWhoseOutcomeIsUnknownHoldsConnectBackAfterProjectsOpensAgain()
+    {
+        var memory = new ProjectsMemory();
+        var (first, host, _, _) = Open(Listing("shop", "notes"), memory: memory);
+        first.Act(ProjectsScreens.ChooseFolder, KeyOf(first, "shop"));
+        first.Act(ProjectsScreens.Connect, null);
+        host.Ack!.SetException(new CommandOutcomeUnknownException(host.Sent[0].CommandId, "The socket closed."));
+        first.Tick();
+        first.Act(Footer.Close, null);
+
+        var (second, _, _, _) = Open(Listing("shop", "notes"), existing: host, memory: memory);
+        second.Act(ProjectsScreens.ChooseFolder, KeyOf(second, "shop"));
+        second.Act(ProjectsScreens.Connect, null);
+        second.Act(ProjectsScreens.ChooseFolder, KeyOf(second, "notes"));
+        second.Act(ProjectsScreens.Connect, null);
+        Assert.That(host.Sent.Count, Is.EqualTo(1), "no second project.create, for that folder or another, while the first may have run");
+        Assert.That(second.Frame!.Reason, Does.StartWith("Not sure whether"));
     }
 
     [Test]
