@@ -423,4 +423,37 @@ describe("the secrets taken out of a runtime's text", () => {
       'could not connect to postgres://[redacted: DATABASE_URL]@db.internal:5432/app',
     );
   });
+
+  test('hold a password with a raw @ in it, and one given to a password, secret or token key, however it looks', () => {
+    const environment = {
+      ...HOST,
+      DATABASE_URL: 'postgres://app:p@ssw0rd123@db:5432/app',
+      JDBC_URL: 'jdbc:postgresql://db/app?user=app&password=Secret123',
+      DB_CONNECTION: 'Server=db;User Id=app;Password=Secret123x;',
+      SERVICE_JSON: '{"token": "tok-value-123", "user": "someone"}',
+      OAUTH_QUERY: 'client_id=halcyonic&client_secret=cs-value-456&scope=read',
+      TOOL_OPTIONS: 'tokenizer=fast-tokenizer-v2; pwd_dir=/tmp/work; region=us-east-1',
+    };
+    const config = loadConfig({
+      ...HOST,
+      HALCYONIC_AGENT_ENV:
+        'DATABASE_URL,JDBC_URL,DB_CONNECTION,SERVICE_JSON,OAUTH_QUERY,TOOL_OPTIONS',
+    });
+    const dataDir = join(base, 'keyed');
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    const held = heldSecrets(config, { environment, dataDir }, 'the-access-token-value', [])();
+    // A tokenizer, a working folder and a region are no secrets, whatever their keys contain.
+    assert.deepEqual(held.slice(1), [
+      { what: 'DATABASE_URL', value: 'app:p@ssw0rd123' },
+      { what: 'DATABASE_URL', value: 'p@ssw0rd123' },
+      { what: 'JDBC_URL', value: 'Secret123' },
+      { what: 'DB_CONNECTION', value: 'Secret123x' },
+      { what: 'SERVICE_JSON', value: 'tok-value-123' },
+      { what: 'OAUTH_QUERY', value: 'cs-value-456' },
+    ]);
+    assert.equal(
+      redactSecrets('connect postgres://app:p@ssw0rd123@db:5432/app failed', held),
+      'connect postgres://[redacted: DATABASE_URL]@db:5432/app failed',
+    );
+  });
 });
