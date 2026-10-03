@@ -60,11 +60,26 @@ const WHOLE_KEY_SHAPE = new RegExp(`^(?:${KEY_SHAPES.source})$`);
  * a path: one that starts with `/`, `~` or `.`, as in "token /Users/me/.config/gh/hosts.yml", or
  * holds both `/` and a `.` before a letter or digit, as in "invalid token src/config/settings.json",
  * since base64 has no `.` and a JSON Web Token no `/`. One with `+` or `=` in it is base64 and so
- * never a path. `=` ends it only as padding, and a full stop after it is a sentence's: both stay
- * outside what is replaced, as in "...ZA==.Retry". A name before it, as in `Token token=…`, stays.
+ * never a path. It runs on across `=`, as in `abcdefgh=ijkl…`, but a `.` never ends it, so a full
+ * stop after it, or after its padding, stays outside what is replaced, as in "…ZA==.Retry". A
+ * parameter's name before it, with its quote, stays, as in `Token token="…"`.
  */
-const SCHEME_CREDENTIAL =
-  /\b(Bearer|Basic|Token)(\s+)([A-Za-z][A-Za-z0-9_-]{0,31}=)?(?![/~.])(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\/)[A-Za-z0-9._~/-]*\.[A-Za-z0-9])(?=[A-Za-z0-9._~+/=-]*[0-9+/=])[A-Za-z0-9._~+/-]{7,}[A-Za-z0-9_~+/-]={0,2}/gi;
+const SCHEME_CREDENTIAL = (() => {
+  const run = '[A-Za-z0-9._~+/=-]';
+  // A stretch with no `=` that neither starts nor ends with `.`.
+  const piece = '[A-Za-z0-9_~+/-](?:[A-Za-z0-9._~+/-]*[A-Za-z0-9_~+/-])?';
+  return new RegExp(
+    [
+      '\\b(Bearer|Basic|Token)(\\s+)',
+      '((?:token|access_token|auth|key|api_key|credentials?|sig|signature|password|secret)="?)?',
+      '(?![/~.])',
+      '(?!(?=[A-Za-z0-9._~/-]*(?![A-Za-z0-9._~+/=-]))(?=[A-Za-z0-9._~/-]*\\/)[A-Za-z0-9._~/-]*\\.[A-Za-z0-9])',
+      `(?=${run}*[0-9+/=])`,
+      `(${piece}(?:=+${piece})*={0,2})`,
+    ].join(''),
+    'gi',
+  );
+})();
 
 /**
  * A URL's user and password: `scheme://user:password@host`, up to the last `@` before the host,
@@ -133,7 +148,11 @@ export function looksLikeCredential(value: string): boolean {
  */
 export function redactSecrets(text: string, secrets: Iterable<HeldSecret>): string {
   return redactHeld(text.length > READ ? withoutHalfPair(text.slice(0, READ)) : text, secrets)
-    .replace(SCHEME_CREDENTIAL, `$1$2$3${REDACTED}`)
+    .replace(
+      SCHEME_CREDENTIAL,
+      (all, scheme: string, space: string, name = '', credential: string) =>
+        credential.length < SHORTEST_SECRET ? all : `${scheme}${space}${name}${REDACTED}`,
+    )
     .replace(URL_USERINFO, `$1${REDACTED}@`)
     .replace(KEY_SHAPES, REDACTED)
     .replace(RANDOM_RUN, (run) => (looksRandom(run) ? REDACTED : run));
