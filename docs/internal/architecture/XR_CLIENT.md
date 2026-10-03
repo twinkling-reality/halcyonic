@@ -738,12 +738,27 @@ the same definition names, as the JSON Schema document:
   entry panel's creation screens. It keeps each place's draft and how far its start got, the step
   and page showing and what is chosen on it, and gives the frame `NewProjectScreens` builds for
   them, built once for each change, so `Drawn` counts a review's part read only for the very frame
-  it gave. A press acts only when the frame showing offers it, available, so nothing the person
-  can't see or press now runs. It asks the computer only to read (the companion's status, folders,
-  an agent app's models), the companion's next reply, and the commands a review read to its end
-  confirmed, which `BuildSequence` alone builds and sends through `IMenuHost.Submit`; a command
-  whose outcome is unknown is kept on the device (`IKeptCommand`) and comes first until cleared by
-  two presses. Hold to talk's heard words land where words are given, never sent unchecked; leaving
+  it gave. A press acts only when the frame the director last drew offers it, available, so nothing
+  the person can't see or press now runs; a row is keyed by what it chooses (a suggestion or fixed
+  answer by its words, a folder by its place's path and its own name), so a press on a frame drawn
+  before a new reply or listing never takes another. It asks the computer only to read (the
+  companion's status, folders, and an agent app's models only when the person chooses the app or
+  opens How it runs, since listing may start it), the companion's next reply, and the commands a
+  review read to its end confirmed, which `BuildSequence` alone builds and sends through
+  `IMenuHost.Submit`. A command whose outcome is unknown is kept on the device for the computer it
+  was sent to (`IKeptCommand`; in Unity `KeptUnknownStart`, under `ControlPlaneSettings.Computer`,
+  a hash of the pairing's certificate pin or the USB endpoint, read afresh at every use, so the entry
+  panel and New project each see the other's at once). While one is kept and no build is on its
+  way, it comes first on opening, Build shows it, Start building and Start over wait with "Your last
+  start may have gone through.", and only the person's Clear, then Yes, clear removes it; the flow
+  replaces or clears only an id it kept for its own build, never one kept by an earlier run or the
+  entry panel. A build the person confirmed goes on after Close: the director keeps one flow for the
+  app's run on one journal, in `MenuMemory`, across reconnects and never renewed on one, and ticks it
+  every frame whether it shows or not, so an acknowledgement lost with the socket is settled by the
+  command's record once the session is back, the next step is sent, and opening New project again
+  shows where the build stands. The flow is that holder whole, not a part of it: `BuildSequence`
+  builds from the flow's `NewWorkDraft`, and a companion's reply or a folder listing on its way
+  belongs to the same draft. Hold to talk's heard words land where words are given, never sent unchecked; leaving
   for another window lapses an armed confirmation and sends a review back to the recap. Drafts are
   kept across a restart through `CreationDrafts`, for the computer they were made with. A kept
   folder's place is read again from every listing the computer gives (`ProjectIdea.ReadPlaces`,
@@ -1538,8 +1553,9 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
     step shows how it went, in words and in its tone; a refusal offers Try again and Change, one
     about a folder the action its code names, and an unknown outcome only Next, to Not sure it
     happened. A project made here is shown on the stage whatever was chosen before. While a
-    command's outcome is unknown its id stays in device storage and blocks another start, even after
-    a restart, until two separate presses in two places clear it after the person checks the work:
+    command's outcome is unknown its id stays in device storage for the computer it was sent to,
+    shared with New project and read afresh, and blocks another start, even after a restart, until
+    two separate presses in two places clear it after the person checks the work:
     Clear, then Yes, clear, left of Cancel, which takes Clear's place; clearing starts a blank idea,
     never a retry. Each place keeps its own draft in memory while the app runs, a new project's and
     each project's Add a task, with how far its start got, so going back never makes a project
