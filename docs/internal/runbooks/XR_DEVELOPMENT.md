@@ -996,37 +996,46 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
 ```
 
-Then, with hands only (intended behaviour, from the recording and the renders; not yet walked on a
-headset):
+Then, with hands only, through the menu (ADR 0026). This is intended behaviour, from the recording,
+`JudgeMenuWalkTests` and the judge walk render (`far-3s-judge-1-bar` to `far-3s-judge-12-closed` in
+`apps/xr/Builds/WorkspaceRenders`); it has not yet been walked on a headset.
 
 - **The line.** Above the stage: "Demo: recorded work played on this headset. Nothing here is
   live." and "It follows your answers. Nothing reaches an agent." Every character carries the Demo
   mark.
 - **Beside the story.** Of three characters, "Paginate the order history endpoint" and "Send an
-  order confirmation email" work for about five seconds and finish. Opened, each says it runs on
-  "Practice agent, watch only" and offers nothing to press.
-- **The question.** "Add rate limiting to the sign-in endpoint" starts at about 6 seconds and, at
-  about 7, is Waiting for you with the agent's question: "How long should an address stay locked
-  after five failed sign-ins?", options 15 minutes and 1 hour. "Look, then pinch" stands over it
-  until a workspace has been opened once. It waits as long as you like. Choose an option and press
-  Send answer: "Nothing is sent to an agent. The recording goes on as if you answered “15
-  minutes”." The agent repeats the answer as its own words and goes on.
-- **The request.** About 3 seconds later it is Waiting for you again: "It wants to run: Run make
-  migrate …". Approve, read the whole request, then Yes, approve: "Not sent to any agent; the
-  recording continues as recorded for approving.", the migration, "Checks failed" (1 failed, 23
-  passed), and the round ends.
-- **Tell it.** The workspace offers the recorded instructions as buttons, "Count per account too"
-  and "Change the test instead"; either one plays a second round whose checks pass. **Deny**
-  instead: the agent says it did not run the migration, and "Keep them in memory" is offered.
-  **Stop the turn**, at any moment while it works or waits: Stopped.
-- **Understand and Checked.** At the request and after each round, Understand and Checked show the
-  recorded simulated answers with their provenance and the time they were recorded. At the
-  question, Understand still reads Working: the simulated explanation does not yet treat a
-  question as waiting (lane W).
-- **Usage left.** The rail offers it, with the recording's limits for one practice agent, marked
-  "Recorded for the demo, not from any account"; Refresh plays them again and sends nothing.
-- **Not in the demo.** Create a project says the demo can't start new work; Connect projects says
-  these are demo projects.
+  order confirmation email" work for about five seconds and then finish.
+- **The bar.** "Add rate limiting to the sign-in endpoint" starts at about 6 seconds and, at about
+  7, is Waiting for you. The closed bar under the stage then reads "1 task is waiting for you",
+  with Tasks' amber dot (`judge-1-bar`).
+- **Tasks.** Open the menu: it opens on Tasks, under "1 task is waiting for you", with the waiting
+  task first (`judge-2-tasks`). Its row opens its file beside the menu on Waiting, under its
+  "Waiting for you" pill, joined to its character by a light line.
+- **The question.** The agent asks: "How long should an address stay locked after five failed
+  sign-ins?", with the answers 15 minutes and 1 hour (`judge-3-question`). With larger text the
+  question reads first in parts, then its answers a page at a time; turning a page clears a choice
+  made on it. Choose 15 minutes and press Send answer (`judge-4-answer-chosen`): "Nothing is sent
+  to an agent. The recording goes on as if you answered “15 minutes”." The agent goes on.
+- **The request.** About 3 seconds later it waits again (`judge-5-approval`): it wants to run
+  `make migrate`. Approve shows the whole request again, a part at a time, with no Yes before the
+  last part (`judge-6-request-part-1`). Then Yes, approve (`judge-7-yes`): "Not sent to any agent;
+  the recording continues as recorded for approving." Then the migration runs, the tests fail, and
+  the round ends. Deny instead shows "Yes, deny" from the first part; the agent says it did not run
+  the migration. Cancel sends nothing. Stop is on Activity.
+- **Checks.** "Tests failed …: 1 failed, 23 passed", under "Simulated checks · recorded at …"
+  (`judge-8-checks`). Changes shows the recorded simulated explanations the same way.
+- **Tell it.** On Activity, Tell it offers the recorded instructions as rows, "Count per account
+  too" and "Change the test instead" (`judge-9-tell-it`). Choose one and press Tell it: a second
+  round plays, and its checks pass.
+- **Usage.** Two limits for one practice agent, "At most 62% left" and "At most 79% left", under
+  "Recorded for the demo, not from any account", with no Refresh. A limit's side panel says when it
+  was seen and resets, and Account "Part of the recording" (`judge-10-usage`).
+- **Projects.** The demonstration's one project, "Storefront API", with no folders. New project
+  opens New project beside the menu, which in the demo plays its own recording.
+- **Settings.** Comfort: Text size, Moving badges and Sounds, each changing on this headset only
+  (`judge-11-settings`).
+- **Closed.** Close the file and the menu: the bar alone (`judge-12-closed`), reading "Nothing is
+  waiting for you." once nothing waits.
 - **The end.** Once the story has ended the line adds "This recording has ended and starts again
   shortly.", and about 20 seconds later the characters go back to Not started and it plays again,
   never Disconnected or Last known on the way. Unanswered instructions give way after a minute.
