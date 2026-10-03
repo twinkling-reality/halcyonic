@@ -489,6 +489,32 @@ public class FileQuestionTests
     }
 
     [Test]
+    public void TheSameTypedWordsLaidIntoFewerPartsAreReadAgainFromTheFirst()
+    {
+        var (_, workspace, screen, draft) = Asking();
+        Draw(screen);
+        draft.Type(0, string.Join(" ", Enumerable.Range(1, 60).Select(step => "Lock it for a minute after try " + step)));
+        screen.Question.MeasureTyped(0, 4, 12);
+        Screen(workspace, screen);
+        Assert.That(screen.Question.SideParts, Is.EqualTo(4), "twelve rows in parts of three");
+        for (var part = 0; part < 3; part++)
+        {
+            screen.Question.SideDrawn(clock);
+            clock += TimeSpan.FromSeconds(1);
+            screen.Question.NextSidePart(clock);
+        }
+        screen.Question.MeasureTyped(0, 4, 6);
+        Screen(workspace, screen);
+        Assert.That((screen.Question.SideParts, screen.Question.SidePart), Is.EqualTo((2, 0)), "the same words in two parts, from the first");
+        screen.Question.SideDrawn(clock);
+        Assert.That(screen.Question.AnswersRead(0), Is.False, "three parts drawn of the old four count for none of the new two");
+        clock += TimeSpan.FromSeconds(1);
+        screen.Question.NextSidePart(clock);
+        screen.Question.SideDrawn(clock);
+        Assert.That(screen.Question.AnswersRead(0), Is.True);
+    }
+
+    [Test]
     public void TheViewCannotCountAnAnswerReadByReportingFewerParts()
     {
         var question = OnePrompt("Postgres, with read replicas in two regions and a nightly snapshot kept for thirty days", "SQLite");
