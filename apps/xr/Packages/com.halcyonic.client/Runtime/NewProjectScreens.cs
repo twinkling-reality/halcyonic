@@ -227,13 +227,15 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The frame's subject: a project's name when adding a task to it; else the person's idea in
-        /// their own words, or the project's name once there is one; else Create a project.
+        /// their own words, or the project's name once there is one that is not only the companion's
+        /// suggestion, which shows as the recap's, marked Suggested, until the person takes it; else
+        /// Create a project.
         /// </summary>
         public static (string Subject, bool IsData) Subject(ProjectIdea idea)
         {
             if (idea.ExistingProjectId != null) return (EntryText.CreateTitle(LabelText.Plain(idea.Name)), true);
             if (!string.IsNullOrWhiteSpace(idea.OwnWords)) return (LabelText.Plain(idea.OwnWords), true);
-            if (idea.Name.Length > 0) return (LabelText.Plain(idea.Name), true);
+            if (idea.Name.Length > 0 && !idea.NameSuggested) return (LabelText.Plain(idea.Name), true);
             return (EntryText.CreateProject, false);
         }
 
