@@ -157,10 +157,11 @@ namespace Halcyonic.Client
         public const string ConfirmClear = "confirm-clear";
 
         /// <summary>
-        /// The characters a row of the content holds, about: ADR 0026's subject line holds 36 at 24 dp
-        /// in the menu's 32 degree column, so 48 at 18 dp.
+        /// The characters a row of New project's content holds, about: lane V's MeasureQuote found the
+        /// quote's 2 rows hold 127 characters of ordinary English, its own words included, at 18 dp in
+        /// a file's 36 degrees (66 of a question in the widest letters). The view measures what it draws.
         /// </summary>
-        public const int RowCharacters = 48;
+        public const int RowCharacters = 63;
 
         /// <summary>
         /// The companion's quote takes 2 rows (lane V, by render: with its view's line and a third row,

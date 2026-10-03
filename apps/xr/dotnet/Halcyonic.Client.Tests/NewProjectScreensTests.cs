@@ -169,10 +169,11 @@ public class NewProjectScreensTests
         var longLine = Companions.Ask("Who enters the times?");
         longLine.Line = new string('l', 120);
         Assert.That(NewProjectScreens.Asked(longLine), Is.EqualTo("The companion says: “Who enters the times?”"));
-        var longest = Companions.Ask(new string('q', 160));
+        var longest = Companions.Ask(new string('q', CompanionExchange.QuestionLimit));
         var frame = Questions(Asked(out _, longest));
-        Assert.That(frame.Lines[0].Words, Does.Contain(new string('q', 160)));
-        Assert.That(frame.Lines[0].Rows, Is.GreaterThan(NewProjectScreens.QuoteRows), "a question that needs a third row takes it");
+        Assert.That(frame.Lines[0].Words, Is.EqualTo("The companion says: “" + new string('q', CompanionExchange.QuestionLimit) + "”"),
+            "the longest question the contract allows, whole and alone");
+        Assert.That(frame.Lines[0].Rows, Is.EqualTo(NewProjectScreens.QuoteRows), "it fits the quote's two rows");
 
         var unclear = Questions(Asked(out _));
         Assert.That(unclear.Lines.Any(line => line.Words == CompanionText.ThinksUnclear), Is.False, "asking already says it is unclear");
