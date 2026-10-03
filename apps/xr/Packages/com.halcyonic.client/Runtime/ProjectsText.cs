@@ -45,7 +45,7 @@ namespace Halcyonic.Client
         public const string CantTell = HostText.YourStart + " can't look inside it";
 
         /// <summary>Under a project whose shown name looks like another project's or a free folder's.</summary>
-        public const string ProjectLooksAlike = "Another project or folder has a name that looks the same. Check this is the one you mean by its work.";
+        public const string ProjectLooksAlike = "Another project or folder has a name that looks the same. Check its work to be sure it's the one you mean.";
 
         /// <summary>
         /// A project's small fact on its row: what matters most, what waits for the person first, as a

@@ -420,6 +420,104 @@ public class ProjectsScreensTests
         }
     }
 
+    [Test]
+    public void APressActsOnlyWhereTheFrameOffersIt()
+    {
+        var state = State(Listing(Root("Projects", Folder("shop"), Folder("notes", false))));
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.NewProject), Is.True);
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.Connect), Is.False, "no folder chosen");
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.HideProject), Is.False, "a stale press for a project no longer chosen");
+
+        var offers = FolderConnect.Offers(state.Listing!);
+        var shop = offers.Single(offer => offer.RawName == "shop");
+        state.ChosenFolder = shop.Key;
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.Connect), Is.True);
+        var connection = new FolderConnection(shop, Commands);
+        connection.Begin();
+        connection.Advance(With());
+        state.Connection = connection;
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.Connect), Is.False, "never a second Connect once the first was sent");
+
+        state.ChosenFolder = offers.Single(offer => offer.RawName == "notes").Key;
+        Assert.That(ProjectsScreens.TargetOf(state).Folder, Is.Not.Null, "the target says what is chosen");
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.Connect), Is.False, "Allows says whether it may act: not while another is unresolved");
+
+        state.ChosenFolder = null;
+        state.ChosenProject = "a";
+        state.Demonstration = true;
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.AddTask), Is.False, "the demonstration adds nothing");
+        Assert.That(ProjectsScreens.Allows(state, ProjectsScreens.ChooseProject), Is.True, "a row still takes the person somewhere");
+    }
+
+    [Test]
+    public void AddTaskNamesTheNewProjectByLabelTextsRule()
+    {
+        var hostile = "shop\u202Eexe\nvia\uE769";
+        var state = State(Listing(Root("Projects", Folder(hostile))));
+        var offer = FolderConnect.Offers(state.Listing!).Single();
+        var connection = new FolderConnection(offer, Commands);
+        var command = connection.Begin();
+        connection.Advance(With(new CommandView { CommandId = command.CommandId, Status = CommandStatus.Completed, Result = new ProjectCreatedResult { ProjectId = ProjectA } }));
+        state.Connection = connection;
+        state.ChosenFolder = offer.Key;
+        var name = ProjectsScreens.TargetOf(state).AddTaskName!;
+        foreach (var raw in new[] { '\u202E', '\n', '\uE769' }) Assert.That(name.Contains(raw, StringComparison.Ordinal), Is.False, "never raw: U+" + ((int)raw).ToString("X4"));
+        Assert.That(name, Is.EqualTo(LabelText.Name(offer.ProjectName)));
+    }
+
+    [Test]
+    public void ARootListedTwiceGivesEachFolderOneRow()
+    {
+        var root = Root("Projects", Folder("shop"));
+        var state = State(Listing(root, root));
+        Assert.That(FolderConnect.Offers(state.Listing!).Count, Is.EqualTo(1));
+        state.ChosenFolder = FolderConnect.Offers(state.Listing!).Single().Key;
+        Assert.That(ProjectsScreens.Projects(state).Lines.Count(line => line.Chosen), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void AFolderJustConnectedIsNotALookAlikeOfItsProjectAndANeverSentOneIsNotKept()
+    {
+        var listing = Listing(Root("Projects", Folder("shop"), Folder("notes", false)));
+        var shop = FolderConnect.Offers(listing).Single(offer => offer.RawName == "shop");
+        var connection = new FolderConnection(shop, Commands);
+        var command = connection.Begin();
+        connection.Advance(With(new CommandView { CommandId = command.CommandId, Status = CommandStatus.Completed, Result = new ProjectCreatedResult { ProjectId = ProjectA } }));
+        var portfolio = new Portfolio().Project(ProjectA, "shop").Work("w", ProjectA, WorkstreamStatus.Running).Apply();
+        var state = State(listing, WorkOverview.Of(portfolio, new StageVisibility(), _ => true));
+        state.Connection = connection;
+        state.ChosenFolder = shop.Key;
+        state.BoundPaths = new[] { "/Users/person/Projects/shop" };
+        var frame = ProjectsScreens.Projects(state);
+        Assert.That(frame.Lines.Where(line => line.Fact != null).Any(line => line.Fact!.StartsWith(ConnectText.LooksLikeAnother, StringComparison.Ordinal)), Is.False,
+            "the folder and the project it became are one thing");
+
+        var notes = FolderConnect.Offers(listing).Single(offer => offer.RawName == "notes");
+        var notSent = new FolderConnection(notes, Commands);
+        notSent.Begin();
+        notSent.AcknowledgementLost(new SessionUnavailableException("Not connected."));
+        notSent.Advance(null);
+        state.Connection = notSent;
+        state.ChosenFolder = notes.Key;
+        state.BoundPaths = new[] { "/Users/person/Projects/shop", "/Users/person/Projects/notes" };
+        Assert.That(ProjectsScreens.Projects(state).Lines.Select(line => line.Words), Does.Not.Contain("notes"),
+            "a folder another project bound is not kept for a connection that never left");
+    }
+
+    [Test]
+    public void AProjectLookingLikeAFolderAnotherProjectUsesIsMarkedButNotLikeItsOwn()
+    {
+        const string Other = "0192a7a0-0000-7000-8000-00000000000b";
+        var portfolio = new Portfolio().Project(ProjectA, "SVC").Project(Other, "svc").Apply();
+        var listing = Listing(Root("Projects", Folder("svc", true, "2026-10-01T00:00:00.000Z", Other)));
+        var frame = ProjectsScreens.Projects(State(listing, WorkOverview.Of(portfolio, new StageVisibility(), _ => true)));
+        Assert.That(frame.Lines.Single(line => line.Words == "SVC").Fact, Does.StartWith(ConnectText.LooksLikeAnother));
+
+        var alone = new Portfolio().Project(Other, "svc").Apply();
+        var own = ProjectsScreens.Projects(State(listing, WorkOverview.Of(alone, new StageVisibility(), _ => true)));
+        Assert.That(own.Lines.Single(line => line.Words == "svc").Fact, Does.Not.StartWith(ConnectText.LooksLikeAnother), "a project is not a look-alike of its own folder");
+    }
+
     private static ClientProjection With(params CommandView[] commands)
     {
         var state = new ClientProjection();

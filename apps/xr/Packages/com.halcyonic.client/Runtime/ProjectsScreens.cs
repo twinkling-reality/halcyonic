@@ -112,13 +112,26 @@ namespace Halcyonic.Client
             public bool Problem { get; }
 
             /// <summary>
-            /// The project Add a task adds to: the chosen project, or the project the chosen folder became;
-            /// null when Add a task is not offered.
+            /// The project Add a task would add to: the chosen project, or the project the chosen folder
+            /// became. Whether a press may act at all is <see cref="Allows"/>'s to say.
             /// </summary>
             public string? AddTaskTo => Project?.ProjectId ?? (Connection?.Connected == true ? Connection.ProjectId : null);
 
             /// <summary>That project's name, as the person will read it in New project.</summary>
-            public string? AddTaskName => Project?.Name ?? (Connection?.Connected == true ? Connection.Folder.ProjectName : null);
+            public string? AddTaskName => Project?.Name ?? (Connection?.Connected == true ? LabelText.Name(Connection.Folder.ProjectName) : null);
+        }
+
+        /// <summary>
+        /// Whether a press of <paramref name="id"/> may act now: the frame built from the same state shows
+        /// that prompt, or a row raising it, and it is available. The menu asks this before it acts on any
+        /// press, so a stale press, a second Connect after the first was sent, a Connect while another
+        /// folder's outcome is unknown, or Add a task in the demonstration does nothing.
+        /// </summary>
+        public static bool Allows(State state, string id)
+        {
+            var frame = Projects(state);
+            return frame.Footer.All.Any(each => each.Prompt.Id == id && each.Prompt.Available)
+                || frame.Lines.Any(line => line.Action == id && line.Pressable);
         }
 
         /// <summary>The chosen row as <see cref="Projects"/> shows it and the menu acts on it.</summary>
@@ -144,10 +157,24 @@ namespace Halcyonic.Client
         {
             if (state.Listing == null) return Array.Empty<ConnectableFolder>();
             var bound = new HashSet<string>(state.BoundPaths, StringComparer.Ordinal);
-            var kept = state.Connection != null && state.Connection.Folder.Key == state.ChosenFolder ? state.ChosenFolder : null;
-            return FolderConnect.Offers(state.Listing, projects.Select(each => each.Name))
+            var kept = Kept(state);
+            // The project the kept folder just became is the same thing, not a look-alike of it.
+            var others = projects.Where(each => kept == null || each.ProjectId != state.Connection!.ProjectId).Select(each => each.Name);
+            return FolderConnect.Offers(state.Listing, others)
                 .Where(offer => offer.Key == kept || !bound.Contains(offer.Folder?.Path ?? offer.Root.Path))
                 .ToList();
+        }
+
+        /// <summary>
+        /// The chosen folder's key while its own connection made it a project, or may have: it keeps its row
+        /// and its outcome while chosen, though a project is bound to it now.
+        /// </summary>
+        private static string? Kept(State state)
+        {
+            var connection = state.Connection;
+            return connection != null && connection.Folder.Key == state.ChosenFolder && (connection.Connected || connection.Unresolved != null)
+                ? state.ChosenFolder
+                : null;
         }
 
         public static MenuFrame Projects(State state)
@@ -179,7 +206,7 @@ namespace Halcyonic.Client
                     new SideFact(ProjectsText.ItsWork, ProjectsText.Work(project)),
                     new SideFact(ProjectsText.OnTheStage, project.Shown ? ProjectsText.Shown : ProjectsText.Hidden),
                 };
-                if (LooksAlike(project, projects, offers)) facts.Add(new SideFact(ProjectsText.ItsName, ProjectsText.ProjectLooksAlike));
+                if (LooksAlike(project, projects, offers, state)) facts.Add(new SideFact(ProjectsText.ItsName, ProjectsText.ProjectLooksAlike));
                 side = new SidePanel(project.Name, subjectIsData: true, facts: facts);
                 footer = new Footer(
                     close,
@@ -235,7 +262,7 @@ namespace Halcyonic.Client
             if (state.Overview == null) lines.Add(Say(EntryText.WaitingForMac));
             foreach (var project in projects)
             {
-                lines.Add(new PageLine(project.Name, wordsAreData: true, fact: ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers)),
+                lines.Add(new PageLine(project.Name, wordsAreData: true, fact: ProjectsText.ProjectFact(project, LooksAlike(project, projects, offers, state)),
                     action: ChooseProject, key: project.ProjectId, opens: true, chosen: project == chosenProject));
             }
             // The demonstration connects nothing, so it lists no folders.
@@ -275,11 +302,22 @@ namespace Halcyonic.Client
         }
 
         /// <summary>A project whose shown name looks like another project's or a free folder's.</summary>
-        private static bool LooksAlike(ProjectSummary project, IReadOnlyList<ProjectSummary> projects, IReadOnlyList<ConnectableFolder> offers)
+        /// <summary>
+        /// A project whose shown name looks like another project's, a free folder's, or a folder another
+        /// project uses; never like its own folder, or the folder it was just connected from.
+        /// </summary>
+        private static bool LooksAlike(ProjectSummary project, IReadOnlyList<ProjectSummary> projects, IReadOnlyList<ConnectableFolder> offers, State state)
         {
             var likeness = FolderConnect.Likeness(project.Name);
+            var kept = Kept(state);
+            var justConnected = kept != null && state.Connection!.ProjectId == project.ProjectId ? kept : null;
+            var inUse = state.Listing?.Roots.Where(root => root.Status == LocationRootStatus.Available)
+                .SelectMany(root => root.Folders.Select(folder => (folder.Name, folder.UsedBy)).Append((root.Name, root.UsedBy)))
+                .Where(each => each.UsedBy.Count > 0 && !each.UsedBy.Contains(project.ProjectId))
+                .Select(each => each.Name) ?? Enumerable.Empty<string>();
             return projects.Any(other => other != project && FolderConnect.Likeness(other.Name) == likeness)
-                || offers.Any(offer => FolderConnect.Likeness(offer.Name) == likeness);
+                || offers.Any(offer => offer.Key != justConnected && FolderConnect.Likeness(offer.Name) == likeness)
+                || inUse.Any(name => FolderConnect.Likeness(LabelText.Name(name)) == likeness);
         }
 
         /// <summary>

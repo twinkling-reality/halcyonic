@@ -19,14 +19,14 @@ namespace Halcyonic.Client
         public const string Connecting = "Sent. Waiting for " + HostText.Your + "…";
         public const string NotConnectedYet = "Couldn't connect: " + HostText.Your + " isn't connected. Try again when it is.";
         public const string Gone = "This folder isn't offered any more: a project may use it now, or it moved. Choose another.";
-        public const string LooksLikeAnother = "Name looks like another";
+        public const string LooksLikeAnother = "Look-alike name";
 
         /// <summary>Under a folder whose shown name looks like another's: how to tell them apart.</summary>
-        public const string CheckWhichOne = "Another folder or project has a name that looks the same. Check this is the one you mean by when it changed and where it is.";
+        public const string CheckWhichOne = "Another folder or project has a name that looks the same. Check where it is and when it changed to be sure it's the one you mean.";
 
         /// <summary>Connect waits while another folder's connection may still be on its way.</summary>
         public static string WaitingOn(ConnectableFolder other) =>
-            "Still waiting to hear whether " + Quoted(other.ProjectName) + " was connected. Look for it in Projects first.";
+            "Still waiting to hear whether " + Quoted(other.ProjectName) + " was connected. Connecting another folder waits until that's known.";
 
         /// <summary>
         /// Connect waits on another folder's connection: still on its way, or sent with an outcome nobody
@@ -34,7 +34,7 @@ namespace Halcyonic.Client
         /// </summary>
         public static string WaitingOn(FolderConnection other) => other.Step.Status == BuildStepStatus.Waiting
             ? WaitingOn(other.Folder)
-            : "Not sure whether " + Quoted(other.Folder.ProjectName) + " was connected. Look for it in Projects first.";
+            : "Not sure whether " + Quoted(other.Folder.ProjectName) + " was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart.";
 
         /// <summary>A name from outside inside one of Halcyonic's sentences, quoted so it never reads as Halcyonic's words.</summary>
         public static string Quoted(string name) => "\u201C" + LabelText.Name(name) + "\u201D";
@@ -73,7 +73,7 @@ namespace Halcyonic.Client
                 // A failure that may have had an effect is never put in words that say nothing happened.
                 BuildStepStatus.Failed when !step.EffectUnknown => "Couldn't connect: " + (EntryText.FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
                 BuildStepStatus.NotSent => NotConnectedYet,
-                _ => "Not sure it happened. Look for " + Quoted(connection.Folder.ProjectName) + " in Projects before you try again.",
+                _ => "Not sure it happened. Look for " + Quoted(connection.Folder.ProjectName) + " in Projects.",
             };
         }
 
