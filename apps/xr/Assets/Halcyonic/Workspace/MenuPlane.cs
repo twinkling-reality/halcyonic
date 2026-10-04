@@ -111,6 +111,15 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public static ViewField DragField => ViewField.Current ?? MenuPage.Quest3S;
 
+        /// <summary>How far a part may move under a re-lay, in meters, before its column waits to settle again: a millimetre.</summary>
+        private const float MovedMeters = 0.001f;
+
+        /// <summary>Every column on the plane takes no press until it settles again, a press under way ending: as a drag starts or ends.</summary>
+        public void UnsettleShown()
+        {
+            for (var index = 0; index < shown.Count; index++) shown[index].View.Unsettle();
+        }
+
         /// <summary>The eyes the plane was placed from, which a drag turns it round.</summary>
         public Vector3 Eyes => eyes;
 
@@ -237,68 +246,91 @@ namespace Halcyonic.XR.Workspace
             var frontDegrees = fileFrame != null ? Glaze.Menu.FileColumnDegrees : Glaze.Menu.MenuColumnDegrees;
             var pill = fileFrame?.Pill != null;
             var zoom = GlazeText.Scale;
-            // With text a step larger, a frame and its side panel are too wide for a Quest 3S together;
-            // and wherever the two would not fit as the stage places them, as beside a window, the side
-            // panel takes its frame's place all the same.
-            var inPlace = panel != null && (zoom > 1f || !FitWithSide(menuFrame, fileFrame, panel, pill, all, looking, surfaceHeight, besideWindow, moved));
-
-            // Whether the menu and the file fit side by side, their subjects level.
-            var fits = !besideWindow;
-            if (fits && menuFrame != null && fileFrame != null)
-            {
-                var level = Mathf.Max(MenuFrameView.SubjectHeight(menuFrame.Subject, Glaze.Menu.MenuColumnDegrees, pill),
-                    MenuFrameView.SubjectHeight(fileFrame.Subject, Glaze.Menu.FileColumnDegrees, pill));
-                menu.Show(menuFrame, Glaze.Menu.MenuColumnDegrees, level, pill);
-                file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill);
-                var beside = new PlaneComposition(new[] { ColumnOf(menu), ColumnOf(file) }, zoom);
-                fits = MenuPage.Fits(beside);
-                // Where the stage would place the two under its labels, moved as far as the person dragged
-                // the plane, inside the headset's measured field and clear of every character.
-                if (fits && ViewField.Current is ViewField field && fileCharacter != null)
-                {
-                    var placed = WorkspaceLayout.Place(fileCharacter, all, eyes, looking, surfaceHeight, scratch, beside.Size).Direction;
-                    var dragged = MenuDrag.Turned(placed, moved);
-                    fits = placed.Clear && MenuPage.Inside(beside, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, beside.Size);
-                }
-            }
-            var kinds = MenuColumns.Arrange(menuFrame != null, fileFrame != null, panel != null, fits, inPlace);
             var wasAside = MenuAside;
-            MenuAside = MenuColumns.MenuAside(menuFrame != null, fileFrame != null, panel != null, fits);
-
-            // Every column's subject the tallest of them, a pill's room kept where a file shows.
-            var subject = 0f;
-            foreach (var kind in kinds)
-            {
-                var (words, degrees) = kind switch
-                {
-                    MenuColumn.Menu => (menuFrame!.Subject, Glaze.Menu.MenuColumnDegrees),
-                    MenuColumn.File => (fileFrame!.Subject, Glaze.Menu.FileColumnDegrees),
-                    _ => (panel!.Subject, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees),
-                };
-                subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(words, degrees, pill));
-            }
-
             var before = new List<(MenuColumn, MenuFrameView)>(shown);
-            shown.Clear();
-            foreach (var kind in kinds)
+            // The layout is decided at the drag's offset; where only part of it holds for what is laid, it is decided
+            // again at the part kept, so what stands beside what is judged where the plane will stand.
+            var offset = moved;
+            var inPlace = false;
+            for (var pass = 0; ; pass++)
             {
-                var view = kind switch { MenuColumn.Menu => menu, MenuColumn.File => file, _ => side };
-                if (kind == MenuColumn.Menu) menu.Show(menuFrame!, Glaze.Menu.MenuColumnDegrees, subject, pill);
-                else if (kind == MenuColumn.File) file.Show(fileFrame!, Glaze.Menu.FileColumnDegrees, subject, pill);
-                // In the file's place, the side panel wears its pill and keeps its light line.
-                // In its frame's place it also carries the frame's footer and reason, so nothing the frame offers is lost.
-                else side.Show(panel!, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees, subject, pill, inPlace ? fileFrame?.Pill : null,
-                    inPlace ? Front : null);
-                // Coming back from stepping aside, the menu or the file takes no press as it slides in: its
-                // buttons wait to settle again, though their words are as they were.
-                if ((kind == MenuColumn.Menu && wasAside) || (kind == MenuColumn.File && wasFileAside)) view.Unsettle();
-                shown.Add((kind, view));
+                // With text a step larger, a frame and its side panel are too wide for a Quest 3S together;
+                // and wherever the two would not fit as the stage places them, as beside a window, the side
+                // panel takes its frame's place all the same.
+                inPlace = panel != null && (zoom > 1f || !FitWithSide(menuFrame, fileFrame, panel, pill, all, looking, surfaceHeight, besideWindow, offset));
+
+                // Whether the menu and the file fit side by side, their subjects level.
+                var fits = !besideWindow;
+                if (fits && menuFrame != null && fileFrame != null)
+                {
+                    var level = Mathf.Max(MenuFrameView.SubjectHeight(menuFrame.Subject, Glaze.Menu.MenuColumnDegrees, pill),
+                        MenuFrameView.SubjectHeight(fileFrame.Subject, Glaze.Menu.FileColumnDegrees, pill));
+                    menu.Show(menuFrame, Glaze.Menu.MenuColumnDegrees, level, pill);
+                    file.Show(fileFrame, Glaze.Menu.FileColumnDegrees, level, pill);
+                    var beside = new PlaneComposition(new[] { ColumnOf(menu), ColumnOf(file) }, zoom);
+                    fits = MenuPage.Fits(beside);
+                    // Where the stage would place the two under its labels, moved as far as the drag holds,
+                    // inside the headset's measured field and clear of every character.
+                    if (fits && ViewField.Current is ViewField field && fileCharacter != null)
+                    {
+                        var placed = WorkspaceLayout.Place(fileCharacter, all, eyes, looking, surfaceHeight, scratch, beside.Size).Direction;
+                        var dragged = MenuDrag.Turned(placed, offset);
+                        fits = placed.Clear && MenuPage.Inside(beside, dragged, field) && WorkspacePlacement.Clears(dragged, bodies, beside.Size);
+                    }
+                }
+                var kinds = MenuColumns.Arrange(menuFrame != null, fileFrame != null, panel != null, fits, inPlace);
+                MenuAside = MenuColumns.MenuAside(menuFrame != null, fileFrame != null, panel != null, fits);
+
+                // Every column's subject the tallest of them, a pill's room kept where a file shows.
+                var subject = 0f;
+                foreach (var kind in kinds)
+                {
+                    var (words, degrees) = kind switch
+                    {
+                        MenuColumn.Menu => (menuFrame!.Subject, Glaze.Menu.MenuColumnDegrees),
+                        MenuColumn.File => (fileFrame!.Subject, Glaze.Menu.FileColumnDegrees),
+                        _ => (panel!.Subject, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees),
+                    };
+                    subject = Mathf.Max(subject, MenuFrameView.SubjectHeight(words, degrees, pill));
+                }
+
+                shown.Clear();
+                foreach (var kind in kinds)
+                {
+                    var view = kind switch { MenuColumn.Menu => menu, MenuColumn.File => file, _ => side };
+                    if (kind == MenuColumn.Menu) menu.Show(menuFrame!, Glaze.Menu.MenuColumnDegrees, subject, pill);
+                    else if (kind == MenuColumn.File) file.Show(fileFrame!, Glaze.Menu.FileColumnDegrees, subject, pill);
+                    // In the file's place, the side panel wears its pill and keeps its light line.
+                    // In its frame's place it also carries the frame's footer and reason, so nothing the frame offers is lost.
+                    else side.Show(panel!, inPlace ? frontDegrees : Glaze.Menu.SideColumnDegrees, subject, pill, inPlace ? fileFrame?.Pill : null,
+                        inPlace ? Front : null);
+                    shown.Add((kind, view));
+                }
+                lineTo = fileOf == null ? null : Contains(shown, file) ? file : inPlace ? side : null;
+                lineColumn = -1;
+                for (var index = 0; index < shown.Count; index++)
+                {
+                    if (shown[index].View == lineTo) lineColumn = index;
+                }
+                if (shown.Count == 0) break;
+
+                var columns = new List<PlaneColumn>();
+                foreach (var (_, view) in shown) columns.Add(ColumnOf(view));
+                Composition = new PlaneComposition(columns, zoom);
+                Placed = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
+                    : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
+                    : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction;
+                // A drag's offset holds only as far as every rule of a drag still does for this composition.
+                var laid = Composition;
+                Moved = MenuDrag.Kept(offset, kept => Allows(laid, MenuDrag.Turned(Placed, kept)));
+                if (Moved == offset || pass == 2) break;
+                offset = Moved;
             }
-            lineTo = fileOf == null ? null : Contains(shown, file) ? file : inPlace ? side : null;
-            lineColumn = -1;
-            for (var index = 0; index < shown.Count; index++)
+            // Coming back from stepping aside, the menu or the file takes no press as it slides in: its
+            // buttons wait to settle again, though their words are as they were.
+            foreach (var (kind, view) in shown)
             {
-                if (shown[index].View == lineTo) lineColumn = index;
+                if ((kind == MenuColumn.Menu && wasAside) || (kind == MenuColumn.File && wasFileAside)) view.Unsettle();
             }
 
             if (shown.Count == 0)
@@ -313,22 +345,12 @@ namespace Halcyonic.XR.Workspace
                 // Only a file's subject drags the plane; the bar alone stands where the stage puts it.
                 Moved = default;
                 Direction = Placed;
-                var placed = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
-                SlideTo(bar.transform, placed, zoom, null, true);
+                var placedBar = new PlanePart(0, 0, bar.Size.x * zoom, bar.Size.y * zoom, 0f, 0f);
+                SlideTo(bar.transform, placedBar, zoom, null, true);
                 line.gameObject.SetActive(false);
                 return;
             }
             bar.Hide();
-
-            var columns = new List<PlaneColumn>();
-            foreach (var (_, view) in shown) columns.Add(ColumnOf(view));
-            Composition = new PlaneComposition(columns, zoom);
-            Placed = besideWindow ? WorkspaceLayout.PlaceAhead(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
-                : fileOf != null ? WorkspaceLayout.Place(fileOf, all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction
-                : WorkspaceLayout.PlaceForeground(all, eyes, looking, surfaceHeight, scratch, Composition.Size).Direction;
-            // A drag's offset holds only as far as every rule of a drag still does for this composition.
-            var laid = Composition;
-            Moved = MenuDrag.Kept(moved, offset => Allows(laid, MenuDrag.Turned(Placed, offset)));
             Direction = MenuDrag.Turned(Placed, Moved);
 
             for (var c = 0; c < shown.Count; c++)
@@ -336,12 +358,20 @@ namespace Halcyonic.XR.Workspace
                 var (kind, view) = shown[c];
                 var parts = view.Parts;
                 var index = 0;
+                var unsettled = false;
                 foreach (var placed in Composition.Parts)
                 {
                     if (placed.Column != c) continue;
                     // The menu coming back slides in from where it stepped aside to, and the file from its side.
                     Vector3? from = kind == MenuColumn.Menu && wasAside ? Aside(placed, zoom)
                         : kind == MenuColumn.File && wasFileAside ? Aside(placed, zoom, toTheRight: true) : (Vector3?)null;
+                    // A column the re-lay moves, as when a drag let go keeps less of it, takes no press until it settles again.
+                    if (from == null && !unsettled && WasShown(before, view)
+                        && Vector3.Distance(parts[index].position, PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up)) > MovedMeters)
+                    {
+                        view.Unsettle();
+                        unsettled = true;
+                    }
                     SlideTo(parts[index], placed, zoom, from, immediately || !WasShown(before, view));
                     if (index == parts.Count - 1) view.Settle(placed, zoom);
                     index++;
