@@ -113,7 +113,7 @@ public class ActivityLogTests
         {
             "Couldn't send an instruction: your computer lost touch with the agent app. See what it's doing, then try again.",
             "Not sure it happened. Check its activity before you try again.",
-            "Couldn't start: your computer lost touch with the agent app. See what it's doing, then try again.",
+            "Couldn't start: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again.",
             "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
             "Couldn't finish this round",
         }), "an effect that can't be ruled out is never said as Couldn't");
