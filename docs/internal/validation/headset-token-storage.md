@@ -77,12 +77,14 @@ A Quest 3 on build `UP1A.231005.007.A1`, a development APK from main `ee1acdb9`,
 - **The runbook's one-step `run-as` write did not take:**
   - It left `files/access-token.tmp` (44 bytes, mode 600) and no `files/access-token`. The app found
     no private token, which is why it moved the old copy.
+  - Why: the remote `cat` never saw the end of its input, so nothing after it in the command ran,
+    while `adb exec-in` had already returned. In a probe, a file the second part of a command wrote
+    appeared only when `adb kill-server` ended it. (Corrected the same day: this record first said
+    adb joined the command's words. `adb exec-in` quotes each word after the first, so the one-step
+    line arrived whole; only `adb shell` joins its words unquoted.)
   - `adb shell run-as <package> sh -c '<a>; <b>'`, given as separate words, runs only `<a>` inside
-    `run-as`, since adb joins the words and the inner quotes are lost. One quoted string,
+    `run-as`, since `adb shell` joins the words and the inner quotes are lost. One quoted string,
     `adb shell "run-as <package> sh -c '...'"`, runs whole.
-  - With `adb exec-in`, a file written by the second part of the command appeared only after later
-    adb commands had run. The command goes on after `adb exec-in` returns, so the app can start
-    before the write ends.
   - What worked: `adb exec-in` writing the content to `files/access-token.tmp`, then one quoted
     `adb shell` that checks, restricts and renames it.
   - The runbooks need that change before the next session.
@@ -90,12 +92,18 @@ A Quest 3 on build `UP1A.231005.007.A1`, a development APK from main `ee1acdb9`,
 - **The closing check:** removing the tokens left `pnpm quest:check -- --closed` passing.
 
 Still not seen on a Quest:
-- the runbooks' write since then (2026-10-04, lane C): the first command, quoted whole, writes
-  `files/access-token.tmp` through `adb exec-in`; the second, quoted whole, waits up to 10 seconds for
-  its 44 bytes, then sets mode 600 and moves it into place, printing `written`. Only simulated on the
-  Mac, with a stand-in that joins adb's words as adb does: there the old line ran only `umask` inside
-  `run-as`, and the new lines wrote the file whole at mode 600, waited for a write landing 3 seconds
-  late, and wrote nothing when there was nothing to move;
+- the runbooks' write since then (2026-10-04, lane C), three commands: `adb shell` removes a `.tmp`
+  an earlier write left; `adb exec-in` writes `files/access-token.tmp`; one quoted `adb shell` waits
+  up to 10 seconds for its 44 bytes, then sets mode 600 and moves it into place, printing `written`,
+  or removes it and prints `not written`. Only simulated on the Mac, with stand-ins for adb (its
+  `exec-in` quoting each word after the first and returning before the remote command runs), for
+  `run-as` and `stat`, and made-up tokens. There it wrote the new token at mode 600 and 44 bytes;
+  waited for a send landing 3 seconds late; removed a stale `.tmp` first, so a late send was never
+  beaten by it; with the Mac's token file missing, or one of 45 bytes, left nothing in place and
+  said `not written` after 10 seconds; and with the input's end never sent, wrote it, with `cat`
+  still running;
+- whether a `cat` that never sees its input's end stays, as the app's user, after `written`, holding
+  the file open until `adb kill-server`;
 - `pnpm quest:check` reading the log's reach from times (the main log's oldest `-v epoch` stamp,
   `date +%s` and `ps -o ETIME`), and its failure on a `.tmp` file left over;
 - the write surviving `adb install -r`;

@@ -314,11 +314,13 @@ The owner wore the headset at their desk.
   (44 bytes, mode 600) and no `files/access-token`. The app started without a private token, logged
   "moved the access token from shared storage into app-private storage", and connected live.
   - `adb shell run-as com.halcyonic.xr sh -c 'echo A; echo B'`, given as separate words, ran only the
-    first command inside `run-as`: adb joins the words, and the inner quotes are lost.
+    first command inside `run-as`: `adb shell` joins the words, and the inner quotes are lost.
   - The same command as one quoted string, `adb shell "run-as com.halcyonic.xr sh -c '...'"`, ran
     whole.
-  - With `adb exec-in`, a file written by the command's second part appeared only after later adb
-    commands had run, so the command goes on after `adb exec-in` returns.
+  - With `adb exec-in`, the remote `cat` never saw the end of its input, so nothing after it in the
+    command ran, though `adb exec-in` had returned; in a probe, a file the command's second part
+    wrote appeared only when `adb kill-server` ended it. (Corrected the same day: `adb exec-in`
+    quotes each word after the first, so, unlike `adb shell`, it does not lose the inner quotes.)
   - What worked: `adb exec-in` writing the content to `files/access-token.tmp`, then one quoted
     `adb shell "run-as ... sh -c 'test -s ... && chmod 600 ... && mv -f ...'"`, giving
     `files/access-token` at mode 600 and 44 bytes.
