@@ -128,12 +128,20 @@ namespace Halcyonic.XR.Workspace
         {
             connection.Changed += OnChanged;
             stage.CharacterCreated += Attach;
+            stage.Refreshed += OnStageRefreshed;
         }
 
         private void OnDisable()
         {
             connection.Changed -= OnChanged;
             stage.CharacterCreated -= Attach;
+            stage.Refreshed -= OnStageRefreshed;
+        }
+
+        /// <summary>The characters came up to date: the menu ends a drag judged against others.</summary>
+        private void OnStageRefreshed()
+        {
+            if (menu != null) menu.StageRefreshed();
         }
 
         private void Start()

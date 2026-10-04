@@ -429,7 +429,12 @@ the same definition names, as the JSON Schema document:
   A step is taken only where the plane stays inside the measured field, its centre in that field as
   seen with the head turned to the stage's centre (`MenuDrag.WithinReach`), clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
-  each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. The
+  each label's own outline (`MenuPlane.LabelOutline`); elsewhere the plane stays where it was. Until
+  the headset's field is measured, a Quest 3S's stands in for it (`MenuPlane.DragField`). Beside a
+  window the plane stands under the window's lane and is never dragged, and a drag kept for one
+  arrangement or surface is dropped when the stage is arranged otherwise or stands on another. A
+  drag ends when a character comes or goes, as its rules were judged against the stage as it began
+  (`MenuDirector.StageRefreshed`), and a label whose character has left counts for nothing. The
   hold counts only on the file's frame last drawn, judged both when the subject is pressed and when
   the hold matures, with the hand still on the plate as a held prompt's, never while a confirmation
   stands on the plane,
