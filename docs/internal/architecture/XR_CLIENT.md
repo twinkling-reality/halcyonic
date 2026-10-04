@@ -457,7 +457,7 @@ the same definition names, as the JSON Schema document:
   peek goes above its character; the closed bar alone covers nothing. While another window keeps
   focus the plane folds away, as large panels do, and the banner names what is still open: the
   task whose file is open, New project, or the menu's place ("Still open: Tasks"); back, the plane
-  is as it was. `MenuVoice` (client core) keeps
+  is as it was. Folding ends a drag, as focus leaving does. `MenuVoice` (client core) keeps
   the voice's words for the column that held: a hold while the voice still records or waits for the
   computer's answer starts nothing, a column learns its hold started only once the voice records,
   only that hold ends it, and the column leaving the plane, or focus leaving, drops what it records

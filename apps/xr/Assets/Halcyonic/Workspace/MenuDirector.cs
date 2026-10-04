@@ -373,11 +373,14 @@ namespace Halcyonic.XR.Workspace
         /// <summary>
         /// Folds the plane away while another window keeps focus (<see cref="FocusGuard.Folded"/>), as large
         /// panels do, so the stage's banner shows again and names what is still open; back, it is as it was.
+        /// Folding ends a drag, since no hand can let go of a plane that does not show.
         /// </summary>
         private void Fold()
         {
             var shows = !FocusGuard.Folded;
-            if (plane.gameObject.activeSelf != shows) plane.gameObject.SetActive(shows);
+            if (plane.gameObject.activeSelf == shows) return;
+            if (!shows) EndDrag();
+            plane.gameObject.SetActive(shows);
         }
 
         /// <summary>What the banner names as still open while the plane is folded: the task whose file is open, New project, or the menu's place; null with only the closed bar.</summary>
