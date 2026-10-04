@@ -114,7 +114,7 @@ describe('pnpm quest:check, against a stand-in adb', () => {
       const { code, lines } = await check({ files: { [name]: TOKEN_FILE } });
       assert.equal(code, 1);
       assert.ok(
-        lines.some((line) => line.startsWith(`FAIL  ${name} left over: the run-as write stopped`)),
+        lines.some((line) => line.startsWith(`FAIL  ${name} left over: a send that landed after`)),
         lines.join('\n'),
       );
     }

@@ -31,6 +31,23 @@ const runbooks = () =>
  */
 const SPLIT_REMOTE_SHELL = /\badb shell run-as\b.*\bsh -c\b/;
 
+/**
+ * Every `cat` in a command that names a token file, but the one that writes a new `.tmp` from the
+ * Mac's, and one whose output a `$(...)` takes, as for a request's header: anything else would
+ * print a token (HEADSET_SESSION.md: never print, paste or `cat` one).
+ */
+function catsOfATokenFile(line: string): string[] {
+  const found: string[] = [];
+  for (const match of line.matchAll(/\bcat\b([^;&|'"]*)/g)) {
+    const rest = match[1] ?? '';
+    if (!/access-token/.test(rest)) continue;
+    if (line.slice(0, match.index).endsWith('$(')) continue;
+    if (/^ > files\/[a-z-]+\.tmp\s*$/.test(rest)) continue;
+    found.push(`cat${rest}`);
+  }
+  return found;
+}
+
 /** Where `text` has `first` before `then`. */
 const before = (text: string, first: string, then: string) =>
   text.includes(first) && text.includes(then) && text.indexOf(first) < text.indexOf(then);
@@ -84,6 +101,30 @@ describe('the runbooks', () => {
       });
     }
     assert.equal(writes, 4, "the app's and the glance's token, in two runbooks");
+  });
+
+  test('never cat a token file, except to write a new .tmp from the Mac', () => {
+    for (const { name, lines } of runbooks()) {
+      for (const line of lines) {
+        assert.deepEqual(catsOfATokenFile(line), [], `${name}: ${line.slice(0, 80)}`);
+      }
+    }
+    assert.deepEqual(
+      catsOfATokenFile(
+        `adb shell "run-as com.halcyonic.xr sh -c 'cat files/access-token; mv -f files/access-token.tmp files/access-token'"`,
+      ),
+      ['cat files/access-token'],
+    );
+    assert.deepEqual(catsOfATokenFile('cat ~/.halcyonic/access-token'), [
+      'cat ~/.halcyonic/access-token',
+    ]);
+    assert.deepEqual(catsOfATokenFile('TOKEN="$(cat ~/.halcyonic/access-token)"'), []);
+    assert.deepEqual(
+      catsOfATokenFile(
+        `adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; rm -f files/access-token.tmp && cat > files/access-token.tmp'"`,
+      ),
+      [],
+    );
   });
 
   test('the guard knows the form that broke', () => {
