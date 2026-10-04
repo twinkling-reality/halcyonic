@@ -79,8 +79,12 @@ namespace Halcyonic.Client
         private bool showModels;
         private (NewProjectStep Step, string Text)? said;
 
-        /// <summary>The unknown start's words as Clear was pressed; changed before Yes, clear, the Yes lapses.</summary>
+        /// <summary>The unknown start's words on the page drawn as Clear was pressed; changed before Yes, clear, the Yes lapses.</summary>
         private string? recoveryArmedWords;
+
+        /// <summary>The unknown start's unarmed words in the frame built, and in the page last drawn, which Clear arms from.</summary>
+        private string? unresolvedWordsBuilt;
+        private string? unresolvedWordsDrawn;
 
         private NewWorkReview? review;
         private int measuredPartRows;
@@ -427,6 +431,7 @@ namespace Halcyonic.Client
                         case BuildPage.Unresolved when UnknownId() is string id:
                             var record = RecordOf(id);
                             ClearLapsed(current, id);
+                            unresolvedWordsBuilt = UnresolvedWords(current, id, record);
                             return NewProjectScreens.Unresolved(current, id, record, recoveryArmed, Live && host.Connected, Said(step));
                         case BuildPage.Starting when sequence != null:
                             return NewProjectScreens.Starting(current, sequence, current.Folder);
@@ -490,7 +495,8 @@ namespace Halcyonic.Client
                     Close();
                     return;
                 case SidePanel.Close:
-                    // Closing details lets go of what was armed there, as Cancel would.
+                    // Closing details lets go of what was armed there, as Cancel would. The unknown start has no side
+                    // panel, so Clear's Yes never stands beside one; it is let go here only in case one ever does.
                     fact = null;
                     confirmingStartOver = false;
                     recoveryArmed = false;
@@ -733,12 +739,14 @@ namespace Halcyonic.Client
                     recoveryArmed = false;
                     Show(NewProjectStep.Build, BuildPage.Unresolved);
                     break;
-                case NewProjectScreens.Clear when Live && host.Connected && UnknownId() is string clearing:
+                case NewProjectScreens.Clear when Live && host.Connected && unresolvedWordsDrawn != null:
+                    // Armed by what the person saw: where the words changed after that page was drawn, the Yes
+                    // lapses as the page is built again, saying so.
                     recoveryArmed = true;
-                    recoveryArmedWords = UnresolvedWords(current, clearing, RecordOf(clearing));
+                    recoveryArmedWords = unresolvedWordsDrawn;
                     if (said is { } note && note.Text == EntryText.ChangedBeforeClear) said = null;
                     break;
-                case NewProjectScreens.ConfirmClear when recoveryArmed && UnknownId() is string confirmed:
+                case NewProjectScreens.ConfirmClear when recoveryArmed && Live && host.Connected && UnknownId() is string confirmed:
                     if (ClearLapsed(current, confirmed)) break;
                     recoveryArmed = false;
                     pendingAck = null;
@@ -776,6 +784,7 @@ namespace Halcyonic.Client
             }
             drawnPage = (drawn, linePage);
             if (drawnSide?.Frame != drawn) drawnSide = null;
+            unresolvedWordsDrawn = step == NewProjectStep.Build && buildPage == BuildPage.Unresolved ? unresolvedWordsBuilt : null;
             // The unknown start's lines on this part count as read once drawn; with the last of them, Clear can be pressed.
             if (step == NewProjectStep.Build && buildPage == BuildPage.Unresolved && unresolvedShown is { } part)
             {
@@ -990,19 +999,22 @@ namespace Halcyonic.Client
                 unresolvedLaid = null;
                 return frame;
             }
+            var shownFrom = unresolvedShown?.From;
             var starts = Starts(all, room - turn);
             unresolvedParts = starts.Count;
             if (linePage >= unresolvedParts || linePage < 0) linePage = unresolvedParts - 1;
             var each = all.Select((line, index) => index.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + line.Words).ToList();
-            // Laid again, as when the text size changes or a line's words do, it shows the first part with
-            // anything unread, as the review does, so no line is left behind the part showing; never while
-            // Clear's confirmation shows, whose own words change as it is asked.
+            // Laid again, as when the text size changes or a line's words do, it shows the part holding the
+            // first line unread or the first line showing, whichever comes first: no line is left behind the
+            // part showing, and none is skipped past before its pause; never while Clear's confirmation
+            // shows, whose own words change as it is asked.
             var laid = string.Join(",", starts) + "\n" + string.Join("\n", each);
             if (laid != unresolvedLaid && !frame.Footer.Confirming)
             {
                 unresolvedLaid = laid;
                 var unread = each.FindIndex(line => !unresolvedDrawn.Contains(line));
-                if (unread >= 0) linePage = starts.FindLastIndex(start => start <= unread);
+                var place = unread < 0 ? shownFrom : shownFrom is int was ? Math.Min(was, unread) : unread;
+                if (place is int at) linePage = starts.FindLastIndex(start => start <= at);
             }
             var (from, to) = (starts[linePage], linePage + 1 < unresolvedParts ? starts[linePage + 1] : all.Count);
             unresolvedShown = (each, from, to);

@@ -1359,14 +1359,7 @@ public class NewProjectFlowTests
             Draw(flow, flow.Frame!);
 
             // The computer's record arrives while Yes, clear waits, changing a line read on an earlier part.
-            var state = new ClientProjection();
-            var snapshot = Samples.Snapshot(2);
-            snapshot.Commands = new List<CommandView>
-            {
-                new() { CommandId = kept.Id!, Status = CommandStatus.Accepted, IssuedAt = Samples.Time, UpdatedAt = Samples.Time },
-            };
-            state.ApplySnapshot(snapshot, new StateChanges());
-            host.State = state;
+            host.State = Recorded(kept.Id!, CommandStatus.Accepted);
             flow.Tick();
             if (builtFirst) Assert.That(flow.Frame!.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ConfirmClear), Is.False, "the Yes lapses as the page is built");
             flow.Act(NewProjectScreens.ConfirmClear, null);
@@ -1383,6 +1376,85 @@ public class NewProjectFlowTests
             Press(flow, NewProjectScreens.ConfirmClear, null);
             Assert.That(kept.Id, Is.Null);
         }
+    }
+
+    /// <summary>The control plane's state once the computer has recorded command <paramref name="id"/>.</summary>
+    private static ClientProjection Recorded(string id, CommandStatus status)
+    {
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(2);
+        snapshot.Commands = new List<CommandView>
+        {
+            new() { CommandId = id, Status = status, IssuedAt = Samples.Time, UpdatedAt = Samples.Time },
+        };
+        state.ApplySnapshot(snapshot, new StateChanges());
+        return state;
+    }
+
+    [Test]
+    public void ClearPressedOnAPageDrawnBeforeTheUnknownStartChangedLapsesAsItIsBuilt()
+    {
+        // The record arrives and changes the line on part 3 of 5 as the person, on the last part drawn, presses Clear:
+        // before the flow ticks, ticked but not built again, and built again but not drawn.
+        foreach (var order in new[] { "pressed before the tick", "ticked, not built", "built, not drawn" })
+        {
+            var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+            var host = new Host();
+            var flow = ReadUnknownStart(host, kept);
+            Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, order + ": read to its last part, Clear stands");
+            Draw(flow, flow.Frame!);
+            host.State = Recorded(kept.Id!, CommandStatus.Accepted);
+            if (order != "pressed before the tick") flow.Tick();
+            if (order == "built, not drawn") _ = flow.Frame;
+            flow.Act(NewProjectScreens.Clear, null);
+            var built = flow.Frame!;
+            Assert.That(built.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ConfirmClear), Is.False, order + ": armed by words the person never saw, the Yes lapses");
+            Assert.That(built.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(CommandStatus.Accepted)), order + ": the part with the line that changed shows");
+            flow.Act(NewProjectScreens.ConfirmClear, null);
+            Assert.That(kept.Id, Is.Not.Null, order + ": nothing cleared");
+            Assert.That(ReadUnknownStartOn(flow, host), Does.Contain(EntryText.ChangedBeforeClear), order + ": the page says why");
+            Press(flow, NewProjectScreens.Clear, null);
+            Press(flow, NewProjectScreens.ConfirmClear, null);
+            Assert.That(kept.Id, Is.Null, order + ": read again, it clears");
+        }
+    }
+
+    [Test]
+    public void TheUnknownStartChangingKeepsThePartBeingRead()
+    {
+        // One line a part: the person turns to part 2, the warning, and the record changes part 3 at once.
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+        var host = new Host { TextSize = TextSize.Larger, RowWidth = size => size == TextSize.Larger ? 24 : 30 };
+        host.Height = (rows, beside) => MenuPage.Height(host.TextSize, rows, besideMenu: beside) * 0.74f;
+        var flow = Flow(host, kept);
+        flow.Open(null, null);
+        Draw(flow, flow.Frame!);
+        host.Now += 1;
+        flow.Act(NewProjectScreens.NextPart, Turn(flow.Frame!)!.Value.Key);
+        var warning = flow.Frame!;
+        Assert.That(warning.Lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequestLine), "part 2, the warning");
+        Draw(flow, warning);
+        host.State = Recorded(kept.Id!, CommandStatus.Accepted);
+        flow.Tick();
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequestLine), "laid again, still the part being read, never past it before its pause");
+        Draw(flow, flow.Frame!);
+        host.Now += 1;
+        flow.Act(NewProjectScreens.NextPart, Turn(flow.Frame!)!.Value.Key);
+        Assert.That(flow.Frame!.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(CommandStatus.Accepted)), "then on to the line that changed");
+    }
+
+    [Test]
+    public void YesClearWaitsForTheConnection()
+    {
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+        var host = new Host();
+        var flow = ReadUnknownStart(host, kept);
+        Press(flow, NewProjectScreens.Clear, null);
+        Draw(flow, flow.Frame!);
+        // The connection drops; Yes, on the page drawn while connected, clears nothing.
+        host.Connected = false;
+        flow.Act(NewProjectScreens.ConfirmClear, null);
+        Assert.That(kept.Id, Is.Not.Null, "nothing cleared while not connected");
     }
 
     [Test]
