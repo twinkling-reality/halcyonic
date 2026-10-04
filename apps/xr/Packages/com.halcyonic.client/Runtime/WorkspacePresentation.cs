@@ -263,10 +263,8 @@ namespace Halcyonic.Client
                     var failure = command.Failure;
                     // An answer the runtime never confirmed may or may not have reached the agent.
                     // An effect that cannot be ruled out is never put in words that say nothing happened.
-                    text = command.CommandType == CommandType.ExecutionAnswerQuestion && failure?.Effect == FailureEffect.Unknown
-                        ? WorkspaceText.AnswerNotConfirmed
-                        : failure?.Effect == FailureEffect.Unknown
-                        ? "Not sure it happened. Check its activity before you try again."
+                    text = failure?.Effect == FailureEffect.Unknown
+                        ? WorkspaceText.NotSure(command.CommandType)
                         // The failure's message is the agent app's or the control plane's own: a folder's
                         // problem is said by its code, anything else as what is true, since it had no effect.
                         : WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyFailed(failure?.Code) ?? WorkspaceText.NothingChangedSeeIt);
