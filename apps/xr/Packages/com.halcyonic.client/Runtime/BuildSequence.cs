@@ -51,9 +51,6 @@ namespace Halcyonic.Client
 
         public BuildStepStatus Status { get; internal set; }
 
-        /// <summary>The control plane's reason for a refusal or failure, as it gave it: text from outside.</summary>
-        public string? Reason { get; internal set; }
-
         /// <summary>The refusal's code, which decides the words and the next action offered.</summary>
         public RejectionCode? Refusal { get; internal set; }
 
@@ -222,7 +219,6 @@ namespace Halcyonic.Client
             if (folder != null) location = folder;
             Stopped = false;
             var step = steps[index];
-            step.Reason = null;
             step.Refusal = null;
             step.Failure = null;
             step.EffectUnknown = false;
@@ -308,14 +304,12 @@ namespace Halcyonic.Client
                     return Stop();
                 case NewWorkSubmissionState.Rejected:
                     step.Status = BuildStepStatus.Refused;
-                    step.Reason = current.EffectiveRecord?.Rejection?.Message;
                     step.Refusal = current.EffectiveRecord?.Rejection?.Code;
                     Unresolved = null;
                     return Stop();
                 case NewWorkSubmissionState.Failed:
                     var failure = current.EffectiveRecord?.Failure;
                     step.Status = BuildStepStatus.Failed;
-                    step.Reason = failure?.Message;
                     step.Failure = failure?.Code;
                     step.EffectUnknown = failure?.Effect == FailureEffect.Unknown;
                     if (!step.EffectUnknown) Unresolved = null;

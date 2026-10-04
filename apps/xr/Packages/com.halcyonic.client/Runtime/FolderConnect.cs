@@ -226,7 +226,6 @@ namespace Halcyonic.Client
         {
             if (!CanRetry) throw new InvalidOperationException("Only a command that cannot have run is sent again.");
             Stopped = false;
-            Step.Reason = null;
             Step.Refusal = null;
             Step.Failure = null;
             Step.EffectUnknown = false;
@@ -258,7 +257,6 @@ namespace Halcyonic.Client
                     return;
                 case NewWorkSubmissionState.Rejected:
                     Step.Status = BuildStepStatus.Refused;
-                    Step.Reason = current.EffectiveRecord?.Rejection?.Message;
                     Step.Refusal = current.EffectiveRecord?.Rejection?.Code;
                     Unresolved = null;
                     Stop();
@@ -266,7 +264,6 @@ namespace Halcyonic.Client
                 case NewWorkSubmissionState.Failed:
                     var failure = current.EffectiveRecord?.Failure;
                     Step.Status = BuildStepStatus.Failed;
-                    Step.Reason = failure?.Message;
                     Step.Failure = failure?.Code;
                     Step.EffectUnknown = failure?.Effect == FailureEffect.Unknown;
                     if (!Step.EffectUnknown) Unresolved = null;
