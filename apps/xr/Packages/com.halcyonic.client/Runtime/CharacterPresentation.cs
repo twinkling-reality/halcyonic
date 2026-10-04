@@ -73,7 +73,7 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The same reasons without the words the state already says, for the peek beside a state
-        /// badge: "The model provider rejected the request." under Couldn't finish, never "Couldn't finish: ...".
+        /// badge: "Tell it to try again, or what to do instead." under Couldn't finish, never "Couldn't finish this round. ...".
         /// Empty where a reason has nothing more to say than its state. Shown as <see cref="LabelText.Plain"/> shows it.
         /// </summary>
         public IReadOnlyList<string> AttentionDetails { get; }
@@ -183,7 +183,9 @@ namespace Halcyonic.Client
                     }
                     return ("It asks you a question.", "It asks you a question.");
                 case ExecutionFailedReason _:
-                    return execution?.StatusReason is { } failure ? ("Couldn't finish: " + failure.Message, failure.Message) : ("It couldn't finish.", "");
+                    // Why, from what Halcyonic itself knows, and the way on: the reason's message is an
+                    // agent app's own error, never a person's words.
+                    return StateLanguage.CouldNotFinish(execution, execution == null ? null : state.RuntimeOf(execution));
                 case ExecutionStateUnknownReason _:
                     // Why, by its code alone: the reason's message is a diagnostic, never a person's words.
                     var why = StateLanguage.CantTellWhy(execution?.StatusReason?.Code);

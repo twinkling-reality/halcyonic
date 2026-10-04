@@ -114,18 +114,22 @@ namespace Halcyonic.Client
                         ? "Started on " + runtime
                         : "Started");
                 case ExecutionStartFailedEvent failed:
-                    return Entry(ActivityKind.Lifecycle, "Could not start: " + failed.Payload.Error.Message);
+                    // The message is the agent app's or the control plane's own; a folder's problem is said by its code.
+                    return Entry(ActivityKind.Lifecycle, EntryText.FolderProblem(null, failed.Payload.Error.Code) is string folder
+                        ? "Couldn't start: " + char.ToLowerInvariant(folder[0]) + folder.Substring(1)
+                        : "Couldn't start");
                 case ExecutionStateUnknownEvent unknown:
                     // Why, by its code alone, as the character says it: the message is a diagnostic.
                     return Entry(ActivityKind.Connection, StateLanguage.CantTell(StateLanguage.CantTellWhy(StateUnknownCodeOf(unknown.Payload.Code))));
                 case RuntimeTurnStartedEvent _:
-                    return Entry(ActivityKind.Turn, "Turn started");
+                    return Entry(ActivityKind.Turn, "Round started");
                 case RuntimeTurnCompletedEvent _:
-                    return Entry(ActivityKind.Turn, "Turn finished");
-                case RuntimeTurnFailedEvent turnFailed:
-                    return Entry(ActivityKind.Turn, "Turn failed: " + turnFailed.Payload.Error.Message);
+                    return Entry(ActivityKind.Turn, "Round finished");
+                case RuntimeTurnFailedEvent _:
+                    // The error is the agent app's own, naming it, a request or a path: never shown.
+                    return Entry(ActivityKind.Turn, "Couldn't finish this round");
                 case RuntimeTurnInterruptedEvent _:
-                    return Entry(ActivityKind.Turn, "Turn stopped");
+                    return Entry(ActivityKind.Turn, "Round stopped");
                 case RuntimeAgentMessageEvent message:
                     return Entry(ActivityKind.Message, message.Payload.Text, reported: true);
                 case RuntimeToolStartedEvent tool:
@@ -154,8 +158,12 @@ namespace Halcyonic.Client
                     return Entry(ActivityKind.Command, (Verb(rejected.Payload.Command) is string refused ? "Refused to " + refused : "A request was refused")
                         + ": " + rejected.Payload.Rejection.Message);
                 case CommandFailedEvent commandFailed:
-                    return Entry(ActivityKind.Command, "A request failed: " + commandFailed.Payload.Failure.Message
-                        + (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown ? " It may have taken effect anyway." : ""));
+                    // The failure's message is the agent app's or the control plane's own: what failed, and
+                    // whether it may have happened anyway, are what a person can act on.
+                    var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed";
+                    return Entry(ActivityKind.Command, commandFailed.Payload.Failure.Effect == FailureEffect.Unknown
+                        ? failedTo + ". Not sure it happened. Check its activity before you try again."
+                        : failedTo);
                 default:
                     // Command completion adds nothing a person needs to read here,
                     // and the model a runtime reports using is on the execution itself.
@@ -178,10 +186,21 @@ namespace Halcyonic.Client
         private static string? Verb(CommandEnvelope command) => command switch
         {
             ExecutionRespondToApprovalCommand respond => respond.Payload.Decision == ApprovalDecision.Approve ? "approve" : "deny",
-            ExecutionInterruptCommand _ => "stop the turn",
+            ExecutionInterruptCommand _ => "stop it",
             ExecutionSendInstructionCommand _ => "send an instruction",
             ExecutionStartCommand _ => "start work",
             ExecutionAnswerQuestionCommand _ => "answer the agent's question",
+            _ => null,
+        };
+
+        /// <summary>What a command of this type asks for, in plain words, or null for one that has none yet.</summary>
+        private static string? VerbOf(CommandType type) => type switch
+        {
+            CommandType.ExecutionRespondToApproval => "answer the request",
+            CommandType.ExecutionInterrupt => "stop it",
+            CommandType.ExecutionSendInstruction => "send an instruction",
+            CommandType.ExecutionStart => "start work",
+            CommandType.ExecutionAnswerQuestion => "answer the agent's question",
             _ => null,
         };
 

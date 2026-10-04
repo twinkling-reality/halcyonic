@@ -116,7 +116,7 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// What opening is for, by state: answering, seeing why it went wrong, or what changed. Nothing
+        /// What opening is for, by state: answering, what it did before it stopped, or what changed. Nothing
         /// while the state is only the last known one, since nothing can be sent until it is live.
         /// </summary>
         public static string? NextOf(StateBadge badge)
@@ -125,7 +125,7 @@ namespace Halcyonic.Client
             return badge.State switch
             {
                 WorkState.WaitingForYou => "Open it to answer.",
-                WorkState.CouldNotFinish => "Open it to see why.",
+                WorkState.CouldNotFinish => "Open it to see what it did.",
                 WorkState.ChecksFailed => "Open it to see what failed.",
                 WorkState.FinishedThisRound => "Open it to see what changed.",
                 _ => null,

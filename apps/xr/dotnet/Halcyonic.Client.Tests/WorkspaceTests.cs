@@ -39,7 +39,7 @@ public class ActivityLogTests
         Assert.That(texts, Has.None.Contains("halcyonic"));
         Assert.That(texts, Does.Contain("Approved"));
         Assert.That(texts, Does.Contain("bash succeeded"));
-        Assert.That(texts[^1], Is.EqualTo("Turn finished"));
+        Assert.That(texts[^1], Is.EqualTo("Round finished"), "a round, never a turn");
     }
 
     [Test]
@@ -84,12 +84,12 @@ public class ActivityLogTests
         var log = new ActivityLog();
         log.Record(events);
 
-        Assert.That(log.For(ExecutionOf(events, "Speed up the dashboard render")).Last().Text, Does.StartWith("Turn failed: "));
+        Assert.That(log.For(ExecutionOf(events, "Speed up the dashboard render")).Last().Text, Is.EqualTo("Couldn't finish this round"), "never the agent app's own error");
         // The agent app's own reason for losing the session is a diagnostic, never shown.
         Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Is.EqualTo("Your computer lost touch with the agent app."));
         var refactor = log.For(ExecutionOf(events, "Refactor the session store")).Select(entry => entry.Text).ToList();
         Assert.That(refactor.Any(text => text.StartsWith("Refused to send an instruction: ", StringComparison.Ordinal)), Is.True);
-        Assert.That(refactor[^1], Is.EqualTo("Turn stopped"));
+        Assert.That(refactor[^1], Is.EqualTo("Round stopped"));
         Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Denied"));
     }
 

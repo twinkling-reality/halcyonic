@@ -433,7 +433,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Character(0, "Refresh the checkout copy", CharacterActivity.TurnFinished, AttentionLevel.Notice,
                 new[] { "Checks: 1 failed, 23 passed" }, new[] { "1 failed, 23 passed" }),
             Character(1, "Send an order confirmation email", CharacterActivity.Failed, AttentionLevel.Notice,
-                new[] { "Couldn't finish: The model provider rejected the request (rate limit)." }, new[] { "The model provider rejected the request (rate limit)." }),
+                new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }, new[] { "Tell it to try again, or what to do instead." }),
             Character(2, "Tidy the release notes", CharacterActivity.Interrupted),
             Character(3, "Migrate the user table", CharacterActivity.Unknown, AttentionLevel.Notice, new[] { "Can't tell what it's doing right now." }, new[] { "" },
                 synthetic: true),
