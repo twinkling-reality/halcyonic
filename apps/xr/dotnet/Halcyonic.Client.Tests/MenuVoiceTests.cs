@@ -97,6 +97,39 @@ public class MenuVoiceTests
     }
 
     [Test]
+    public void TheVoiceSaysItListensWhileHeldThenWritesDownUntilTheWordsComeOrAreDropped()
+    {
+        var voice = new Voice();
+        var file = new Column();
+        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.Idle));
+        voice.Menu.Hold(file, "speak");
+        Assert.That((voice.Menu.Stage, voice.Menu.Holding?.Id), Is.EqualTo((VoiceStage.Listening, (string?)"speak")));
+        voice.Menu.Ended(file, "speak", letGo: true);
+        Assert.That((voice.Menu.Stage, voice.Menu.Holding?.Id), Is.EqualTo((VoiceStage.WritingDown, (string?)"speak")), "let go, the computer writes it down");
+        voice.Answer("ship it");
+        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.Idle), "the words came");
+
+        // Let go off the prompt, or refused for want of a microphone: nothing to write down.
+        voice.Menu.Hold(file, "speak");
+        voice.Menu.Ended(file, "speak", letGo: false);
+        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.Idle));
+        voice.Refuses = true;
+        voice.Menu.Hold(file, "speak");
+        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.Idle));
+    }
+
+    [Test]
+    public void FocusLeavingWhileTheWordsAreWrittenDownLeavesTheVoiceIdle()
+    {
+        var voice = new Voice();
+        var file = new Column();
+        voice.Menu.Hold(file, "speak");
+        voice.Menu.Ended(file, "speak", letGo: true);
+        voice.Menu.FocusLeft();
+        Assert.That(voice.Menu.Stage, Is.EqualTo(VoiceStage.Idle));
+    }
+
+    [Test]
     public void WordsStillToComeForFileAReachOnlyFileAAndAHoldOnFileBStartsNothing()
     {
         var voice = new Voice();
