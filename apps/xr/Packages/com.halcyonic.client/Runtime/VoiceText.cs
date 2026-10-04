@@ -12,6 +12,12 @@ namespace Halcyonic.Client
         public const string HoldToTalk = "Hold to talk";
         public const string Listening = "Listening. Let go when you're done.";
         public const string Hearing = "Writing down what you said.";
+
+        /// <summary>Hold to talk's own words while it records, in its place on the footer, so the page never grows for it.</summary>
+        public const string ListeningWords = "Listening";
+
+        /// <summary>Hold to talk's own words while the computer writes down what was said.</summary>
+        public const string WritingDownWords = "Writing down";
         public const string HeardNote = "This is what " + HostText.Your + " heard. Check it before you go on.";
         public const string HeardAnswer = "This is what " + HostText.Your + " heard. Check it, then press Send answer.";
 

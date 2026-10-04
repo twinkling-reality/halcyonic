@@ -287,7 +287,7 @@ namespace Halcyonic.Client
                 // On the page of the person's answers there is no one question to answer by voice, nor under
                 // a question that can't be answered here, as one asking for a secret.
                 secondary: screen.Speak && WorkspaceText.Answerable(draft.Question) && actions.Contains(WorkspaceAction.Answer) && !screen.Question.Reviewing
-                    ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
+                    ? new Prompt(SpeakAnswer, TalkWords(screen), TalkIcon(screen), holds: true)
                     : null,
                 farRight: send);
         }

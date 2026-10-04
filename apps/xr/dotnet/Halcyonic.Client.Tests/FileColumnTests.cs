@@ -1074,6 +1074,39 @@ public class FileColumnTests
     }
 
     [Test]
+    public void WhereTheVoiceStandsShowsOnHoldToTalkItselfAndNeverGrowsThePage()
+    {
+        var host = new FileMenuHost();
+        var showing = new AskingWork(Questioned("question-1", 1));
+        var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
+        Draw(host, column);
+        string? Talk() => column.Frame!.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == FileScreens.SpeakAnswer)?.Words;
+        var lines = column.Frame!.Lines.Select(line => line.Words).ToList();
+        Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk));
+
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Said(VoiceText.Listening);
+        Assert.That(Talk(), Is.EqualTo(VoiceText.ListeningWords));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines), "no line for it: the page stays as it was");
+
+        column.HoldEnded(FileScreens.SpeakAnswer, letGo: true);
+        column.Said(VoiceText.Hearing);
+        Assert.That(Talk(), Is.EqualTo(VoiceText.WritingDownWords));
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines));
+
+        column.Heard("Ten minutes");
+        Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk), "the words came, so it waits to be held again");
+
+        // Held, then dropped: back to Hold to talk; what the voice says otherwise is a notice.
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Said(VoiceText.Listening);
+        column.HoldEnded(FileScreens.SpeakAnswer, letGo: false);
+        Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk));
+        column.Said(VoiceText.NothingHeard);
+        Assert.That(column.Frame!.Lines.Any(line => line.Words == VoiceText.NothingHeard), Is.True);
+    }
+
+    [Test]
     public void WordsHeardAfterTheQuestionWasReplacedTypeIntoNone()
     {
         // Held on the first question; while the words are worked out, the agent asks another instead.
