@@ -824,9 +824,12 @@ the same definition names, as the JSON Schema document:
   2 of 3", Clear unavailable, "Read to part 3 first", until every line has been drawn, each by its
   place and words, so the guard against a second start is never cleared unread; the review keeps its
   own parts. Laid again, as when the text size changes or the computer's record arrives and changes a
-  line, it shows the first part with anything unread, as the review does. A change to its words while
-  Yes, clear waits lapses the Yes, as the page is built and as Yes is pressed, saying nothing was
-  cleared; laid again with the same words, every line still drawn, the Yes stays. A page's room is
+  line, it shows the part holding the first line unread or the first line showing before, whichever
+  comes first: nothing is left behind the part showing, as the review keeps it, and nothing is
+  skipped past before Next part's pause. Clear arms with the words of the page drawn, so a change
+  to them after that page, or while Yes, clear waits, lapses the Yes, as the page is built and as Yes
+  is pressed, saying nothing was cleared; laid again with the same words, every line still drawn,
+  the Yes stays. Yes, clear, like Clear, acts only while connected. A page's room is
   read once for what shows (`Follow`: the step, its page, the question, the idea) and again only
   when that, the subject's rows or the text size change, so nothing re-packs as the head moves; the
   review's part rows likewise, once a review; and anything new, opening New project included, starts
