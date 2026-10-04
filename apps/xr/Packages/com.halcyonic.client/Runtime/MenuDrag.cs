@@ -82,7 +82,9 @@ namespace Halcyonic.Client
         public static (float Yaw, float Elevation) Kept((float Yaw, float Elevation) moved, Func<(float Yaw, float Elevation), bool> allows)
         {
             if (moved == default) return default;
-            for (var tenths = 10; tenths > 0; tenths--)
+            // The whole of it, exactly, where it holds: a scaled copy may differ in its last bit.
+            if (allows(moved)) return moved;
+            for (var tenths = 9; tenths > 0; tenths--)
             {
                 var scaled = (moved.Yaw * tenths / 10f, moved.Elevation * tenths / 10f);
                 if (allows(scaled)) return scaled;

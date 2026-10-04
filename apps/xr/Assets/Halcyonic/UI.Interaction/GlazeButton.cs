@@ -487,14 +487,19 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// It takes no press until it settles again, as a new action: so a press under way as its view
-        /// slides back onto the plane, the same words as before it stepped aside, or as the plane moves
-        /// under the hand, is not one of it, and ends, a hold begun with it too.
+        /// It takes no new press until it settles again, as a new action: so a press begun as its view
+        /// slides back onto the plane, the same words as before it stepped aside, is not one of it. A press
+        /// already under way goes on while the hand stays on it.
         /// </summary>
-        public void Unsettle()
+        public void Unsettle() => shownAt = Time.unscaledTime;
+
+        /// <summary>
+        /// A press begun at <paramref name="since"/> or later, as under a plane a drag moved, is no press:
+        /// it ends, a hold begun with it too, as dropped.
+        /// </summary>
+        public void EndPressSince(float since)
         {
-            shownAt = Time.unscaledTime;
-            if (pressedAt < 0f) return;
+            if (pressedAt < 0f || pressedAt < since) return;
             var started = holding;
             EndPress();
             if (started) HoldEnded?.Invoke(false);

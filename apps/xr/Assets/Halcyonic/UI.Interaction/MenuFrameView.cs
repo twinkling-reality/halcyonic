@@ -329,6 +329,12 @@ namespace Halcyonic.XR.UI
             foreach (var button in GetComponentsInChildren<GlazeButton>()) button.Unsettle();
         }
 
+        /// <summary>Every press on it begun at <paramref name="since"/> or later ends, as presses begun under a plane a drag moved.</summary>
+        public void EndPressesSince(float since)
+        {
+            foreach (var button in GetComponentsInChildren<GlazeButton>()) button.EndPressSince(since);
+        }
+
         /// <summary>How many times its buttons were made to wait to settle again, for the editor's renders.</summary>
         public int Unsettles { get; private set; }
 

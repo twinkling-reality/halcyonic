@@ -114,10 +114,17 @@ namespace Halcyonic.XR.Workspace
         /// <summary>How far a part may move under a re-lay, in meters, before its column waits to settle again: a millimetre.</summary>
         private const float MovedMeters = 0.001f;
 
-        /// <summary>Every column on the plane takes no press until it settles again, a press under way ending: as a drag starts or ends.</summary>
-        public void UnsettleShown()
+        /// <summary>
+        /// A drag starts or ends, moving the plane: every column on it takes no new press until it settles
+        /// again, and every press begun at <paramref name="since"/> or later ends, a hold with it.
+        /// </summary>
+        public void UnsettleShown(float since)
         {
-            for (var index = 0; index < shown.Count; index++) shown[index].View.Unsettle();
+            for (var index = 0; index < shown.Count; index++)
+            {
+                shown[index].View.Unsettle();
+                shown[index].View.EndPressesSince(since);
+            }
         }
 
         /// <summary>The eyes the plane was placed from, which a drag turns it round.</summary>
@@ -248,6 +255,10 @@ namespace Halcyonic.XR.Workspace
             var zoom = GlazeText.Scale;
             var wasAside = MenuAside;
             var before = new List<(MenuColumn, MenuFrameView)>(shown);
+            var wasLaid = (MenuColumn.Menu, MenuColumn.Menu, MenuColumn.Menu, before.Count);
+            if (before.Count > 0) wasLaid.Item1 = before[0].Item1;
+            if (before.Count > 1) wasLaid.Item2 = before[1].Item1;
+            if (before.Count > 2) wasLaid.Item3 = before[2].Item1;
             // The layout is decided at the drag's offset; where only part of it holds for what is laid, it is decided
             // again at the part kept, so what stands beside what is judged where the plane will stand.
             var offset = moved;
@@ -323,9 +334,18 @@ namespace Halcyonic.XR.Workspace
                 // A drag's offset holds only as far as every rule of a drag still does for this composition.
                 var laid = Composition;
                 Moved = MenuDrag.Kept(offset, kept => Allows(laid, MenuDrag.Turned(Placed, kept)));
+                // At most three passes: should the third still keep less, the plane stands at the part kept,
+                // which every rule allows for what is laid, with the layout chosen at the pass before.
                 if (Moved == offset || pass == 2) break;
                 offset = Moved;
             }
+            // What the drag itself changed under the hand, never a re-lay that follows the stage: less of it
+            // kept than was dragged, or another layout standing where it was.
+            var laidNow = (MenuColumn.Menu, MenuColumn.Menu, MenuColumn.Menu, shown.Count);
+            if (shown.Count > 0) laidNow.Item1 = shown[0].Kind;
+            if (shown.Count > 1) laidNow.Item2 = shown[1].Kind;
+            if (shown.Count > 2) laidNow.Item3 = shown[2].Kind;
+            var dragMoved = moved != default && (Moved != moved || laidNow != wasLaid);
             // Coming back from stepping aside, the menu or the file takes no press as it slides in: its
             // buttons wait to settle again, though their words are as they were.
             foreach (var (kind, view) in shown)
@@ -365,8 +385,9 @@ namespace Halcyonic.XR.Workspace
                     // The menu coming back slides in from where it stepped aside to, and the file from its side.
                     Vector3? from = kind == MenuColumn.Menu && wasAside ? Aside(placed, zoom)
                         : kind == MenuColumn.File && wasFileAside ? Aside(placed, zoom, toTheRight: true) : (Vector3?)null;
-                    // A column the re-lay moves, as when a drag let go keeps less of it, takes no press until it settles again.
-                    if (from == null && !unsettled && WasShown(before, view)
+                    // A column the drag moves, as when a drag let go keeps less of it, takes no new press until it
+                    // settles again; a re-lay that follows the stage, as the characters bob, never does.
+                    if (dragMoved && from == null && !unsettled && WasShown(before, view)
                         && Vector3.Distance(parts[index].position, PlaneLayout.PointOf(eyes, Direction, placed.Right, placed.Up)) > MovedMeters)
                     {
                         view.Unsettle();
@@ -515,7 +536,7 @@ namespace Halcyonic.XR.Workspace
             var half = lineTo.Width / 2f;
             if (at.Above)
             {
-                var top = fileOf.BodyPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
+                var top = fileOf.RestPosition + Vector3.up * (CharacterView.BodyExtent * fileOf.Scale);
                 var bottom = -lineTo.Content.Size.y / 2f;
                 return Joined(top, top, Point(content, -half, bottom), Point(content, half, bottom));
             }

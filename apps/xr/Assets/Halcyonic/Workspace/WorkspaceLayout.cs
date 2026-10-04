@@ -97,7 +97,8 @@ namespace Halcyonic.XR.Workspace
         /// </summary>
         public static BodyInView InView(CharacterTarget target, Vector3 eyes)
         {
-            var toBody = target.BodyPosition - eyes;
+            // At rest: the body's hops and rises never move what is placed against it.
+            var toBody = target.RestPosition - eyes;
             var level = new Vector2(toBody.x, toBody.z).magnitude;
             var reach = CharacterView.BodyExtent * target.Scale / Mathf.Max(toBody.magnitude, 0.05f);
             var elevation = Mathf.Atan2(toBody.y, Mathf.Max(level, 0.01f)) * Mathf.Rad2Deg;
