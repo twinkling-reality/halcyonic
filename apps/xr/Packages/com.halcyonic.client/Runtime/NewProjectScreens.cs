@@ -1006,7 +1006,8 @@ namespace Halcyonic.Client
         /// where nothing stood. Clearing starts a blank draft, never a retry. Nothing is offered unless
         /// connected.
         /// </summary>
-        public static MenuFrame Unresolved(ProjectIdea idea, string commandId, CommandView? record, bool armed, bool live)
+        /// <param name="said">A line for this page only, such as that it changed while Yes, clear waited.</param>
+        public static MenuFrame Unresolved(ProjectIdea idea, string commandId, CommandView? record, bool armed, bool live, string? said = null)
         {
             var lines = new List<PageLine>
             {
@@ -1016,6 +1017,7 @@ namespace Halcyonic.Client
                 new PageLine(armed ? EntryText.ClearOnlyAfterChecking : EntryText.ClearOnceChecked, rows: 2),
                 new PageLine(EntryText.Reference(commandId), tone: LineTone.Secondary),
             };
+            if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var footer = new Footer(Close(), farRight: live ? new Prompt(Clear, EntryText.Clear, GlazeIcon.Next, main: true) : null);
             if (live && armed)
             {

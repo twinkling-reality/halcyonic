@@ -243,6 +243,9 @@ namespace Halcyonic.XR.Workspace.Editor
             yield return ("the unknown start", NewProjectScreens.Unresolved(typed, "c-1", null, armed: false, live: true));
             yield return ("the unknown start, Clear armed", NewProjectScreens.Unresolved(typed, "c-1",
                 new CommandView { CommandId = "c-1", Status = CommandStatus.Failed, IssuedAt = Time, UpdatedAt = Time }, armed: true, live: true));
+            yield return ("the unknown start, changed before Yes", NewProjectScreens.Unresolved(typed, "c-1",
+                new CommandView { CommandId = "c-1", Status = CommandStatus.Accepted, IssuedAt = Time, UpdatedAt = Time }, armed: false, live: true,
+                said: EntryText.ChangedBeforeClear));
 
             static MenuFrame Questions(ProjectIdea idea, bool voice = true) => NewProjectScreens.Questions(idea, false, voice: voice, said: null, waitedSeconds: 0);
 
