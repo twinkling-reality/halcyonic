@@ -288,7 +288,7 @@ namespace Halcyonic.Client
                 if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.SideOption != null) Screen.Question.SideDrawn(clock);
                 return;
             }
-            if (Steering.Request(Now) is string request)
+            if (Steering.ToRead(Now) is string request)
             {
                 var from = Screen.RequestPart * Screen.RequestPartRows;
                 if (Screen.Measured(Steering, request) && drawn.Lines.Any(line => line.Words == request && line.FromRow == from))
@@ -427,10 +427,11 @@ namespace Halcyonic.Client
                 budgetAt = host.TextSize;
             }
             if (draft != null) ReadQuestion(draft, budget);
-            if (Steering.Request(presentation) is string request)
+            // The request an approval answers, or an instruction's words, read whole before its Yes.
+            if (Steering.ToRead(presentation) is string request)
             {
                 Screen.ReadRequest(request, host.RowsOf(new PageLine(request, wordsAreData: true), Glaze.Menu.FileColumnDegrees),
-                    RequestPartRows(Steering.Prompts(), budget), Steering);
+                    RequestPartRows(FileScreens.AllAsks(Steering), budget), Steering);
             }
 
             var room = new AnswerRoom(host.PageRows(sourceLine: false), line =>

@@ -1211,6 +1211,97 @@ public class FileColumnTests
         Assert.That(host.Sent, Is.Empty);
     }
 
+    /// <summary>A heard instruction of about eleven rows, longer than any one part shows: a mishearing can be anywhere in it.</summary>
+    private static readonly string LongInstruction = string.Join(" ", Enumerable.Range(1, 36).Select(step => "then step " + step + " ok"));
+
+    /// <summary>
+    /// Reads an armed instruction's words through to its last part, as the director draws each, checking
+    /// that no Yes shows and none sends before then; then Yes sends exactly the words, once.
+    /// </summary>
+    private static void ReadsTheWordsThenSends(FileMenuHost host, FileColumn column, string words)
+    {
+        var quoted = "“" + words + "”";
+        Assert.That(column.Screen.RequestParts, Is.GreaterThan(2), "the words take several parts");
+        for (var part = 0; part < column.Screen.RequestParts; part++)
+        {
+            Assert.That(column.Frame!.Lines.Count(line => line.Words == quoted && line.FromRow == part * column.Screen.RequestPartRows), Is.EqualTo(1),
+                "part " + part + " shows the words from its own row");
+            Assert.That(column.Frame!.Lines.Any(line => line.Words.Contains("then step")), Is.True);
+            Assert.That(column.Frame!.Lines.Where(line => line.Words != quoted).Any(line => line.Words.Contains("then step")), Is.False,
+                "the words show only in their parts, never whole in a line cut at its rows");
+            Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null, "no Yes before the last part, part " + part);
+            column.Act(FileScreens.Yes, null);
+            Assert.That(host.Sent, Is.Empty, "a Yes pressed before the last part sends nothing");
+            Draw(host, column);
+            if (part < column.Screen.RequestParts - 1)
+            {
+                Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null);
+                column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+            }
+        }
+        Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.EqualTo(FileScreens.Yes), "every part drawn: Yes shows");
+        column.Act(FileScreens.Yes, null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo(words), "all of it, once");
+    }
+
+    [Test]
+    public void AHeardInstructionLongerThanItsConfirmationIsReadInPartsAndSentOnlyAfterItsLast()
+    {
+        var host = new FileMenuHost();
+        var running = new WaitingWork();
+        running.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.Status = ExecutionStatus.Running;
+        }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard(LongInstruction);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct));
+        Assert.That(column.Frame!.Lines.Any(line => line.Words == EntryText.ReadToPart(column.Screen.RequestParts)), Is.True, "it asks to read to the last part first");
+        ReadsTheWordsThenSends(host, column, LongInstruction);
+        Assert.That(column.Frame!.Lines.Any(line => line.Words == WorkspaceText.SendWordsAbove(heard: true)), Is.False, "sent, it asks nothing more");
+    }
+
+    [Test]
+    public void ATypedInstructionAPolicyReviewsIsReadInPartsTooSinceYesSendsOnlyWordsShown()
+    {
+        var host = new FileMenuHost();
+        var work = new WaitingWork(welcomed: false);
+        work.Change(execution =>
+        {
+            execution.Status = ExecutionStatus.Completed;
+            execution.PendingApprovals.Clear();
+        }, WorkstreamStatus.Completed);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Instruct));
+        column.Act(FileScreens.TellIt, null);
+        host.Keyboard!.Value.Done(LongInstruction);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "the policy asks to review it");
+        ReadsTheWordsThenSends(host, column, LongInstruction);
+    }
+
+    [Test]
+    public void AShortHeardInstructionShowsWholeAndItsYesWaitsOnlyForItsDrawing()
+    {
+        var host = new FileMenuHost();
+        var running = new WaitingWork();
+        running.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.Status = ExecutionStatus.Running;
+        }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard("Carry on");
+        Assert.That((column.Screen.RequestParts, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((1, (Prompt?)null)), "one part, not drawn yet");
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "“Carry on”", "Read to part 1 first" }));
+        Draw(host, column);
+        Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(new[] { "“Carry on”", "Your computer heard the words above. Send them?" }));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo("Carry on"));
+    }
+
     [Test]
     public void TellItOffersTheRecordedInstructionsToChooseAndSendsExactlyTheChosenWords()
     {

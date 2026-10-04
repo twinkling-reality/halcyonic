@@ -561,6 +561,7 @@ public class WorkspaceScreensTests
         Assert.That(models[^1].Confirm!.Yes.Icon, Is.EqualTo(GlazeIcon.Stop));
         var hearing = new WorkspaceSteering(factory);
         Assert.That(hearing.Spoken("Add a test", instructable).Step, Is.EqualTo(SteeringStep.Confirm));
+        hearing.RequestShown(1, 1);
         models.Add(Screen(instructable, hearing, new WorkspaceScreen { Speak = true }));
         Assert.That((models[^1].Confirm!.Yes.Label, models[^1].Confirm!.Yes.Icon), Is.EqualTo(("Yes, tell it", (GlazeIcon?)GlazeIcon.TellIt)),
             "an instruction the Mac heard is confirmed with Tell it's icon, not the microphone");

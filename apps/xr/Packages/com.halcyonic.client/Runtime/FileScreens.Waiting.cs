@@ -47,14 +47,30 @@ namespace Halcyonic.Client
         {
             var source = AgentSource;
             var (pressed, before) = Pressed(armed);
-            if ((armed == WorkspaceAction.Approve || armed == WorkspaceAction.Deny) && steering.Request(workspace) is string request)
-            {
-                return Request(workspace, steering, screen, request, armed, before, pressed, source);
-            }
+            // The request an approval answers, and an instruction's words, show whole, in parts where they are long.
+            if (steering.ToRead(workspace) is string request) return Request(workspace, steering, screen, request, armed, before, pressed, source);
             if (armed == WorkspaceAction.Answer && Asked(workspace, screen) is QuestionDraft draft) return Answers(draft, steering, workspace, before, source);
-            return new Page(new[] { new PageLine(steering.Prompt(workspace)!, wordsAreData: armed == WorkspaceAction.Instruct, rows: 3) }, source,
-                Footer.Confirm(before, pressed, YesFor(armed), CancelConfirm));
+            return new Page(new[] { new PageLine(steering.Prompt(workspace)!, rows: 3) }, source, Footer.Confirm(before, pressed, YesFor(armed), CancelConfirm));
         }
+
+        /// <summary>
+        /// The question a confirmation asks below what it shows whole: an approval's or a denial's own, or
+        /// for an instruction, whose words show above it rather than inside it, to read to the last of its
+        /// <paramref name="parts"/> first, as a locked final press says, then whether to send them.
+        /// </summary>
+        public static string Asks(WorkspaceSteering steering, WorkspacePresentation workspace, int parts)
+        {
+            if (steering.Armed != WorkspaceAction.Instruct) return steering.Prompt(workspace) ?? "";
+            return steering.CanConfirm ? WorkspaceText.SendWordsAbove(steering.Heard) : EntryText.ReadToPart(parts);
+        }
+
+        /// <summary>
+        /// Every question <see cref="Asks"/> may ask before the confirmation is answered, so a part's rows stay
+        /// put as it changes; an instruction's at its widest, a part numbered in two digits.
+        /// </summary>
+        public static IReadOnlyList<string> AllAsks(WorkspaceSteering steering) => steering.Armed == WorkspaceAction.Instruct
+            ? new[] { EntryText.ReadToPart(99), WorkspaceText.SendWordsAbove(steering.Heard) }
+            : steering.Prompts();
 
         /// <summary>Where an armed action's press stood, and a footer holding it there, which its confirmation replaces.</summary>
         private static (PromptSlot Slot, Footer Before) Pressed(WorkspaceAction armed)
@@ -142,8 +158,9 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The whole request an armed approval or denial answers, a part at a time and never cut, each
-        /// part ending in a row to the next; then the question the confirmation asks. Cancel takes the
+        /// The whole request an armed approval or denial answers, or the armed instruction's words, a part
+        /// at a time and never cut, each part ending in a row to the next; then the question the
+        /// confirmation asks. Cancel takes the
         /// place of the press, and Yes stands in the free middle only once the last part has shown.
         /// </summary>
         private static Page Request(WorkspacePresentation workspace, WorkspaceSteering steering, FileScreen screen, string request, WorkspaceAction armed,
@@ -157,11 +174,11 @@ namespace Halcyonic.Client
             var part = measured ? screen.RequestPart : 0;
             var lines = new List<PageLine> { new PageLine(request, wordsAreData: true, rows: perPart, fromRow: part * perPart) };
             if (parts > 1) lines.Add(new PageLine(NextPartWords(part, parts), action: NextPart, key: RequestKey));
-            lines.Add(new PageLine(steering.Prompt(workspace)!, tone: LineTone.Secondary, rows: 2));
-            // Approve's Yes only once the whole request has shown: until the layout measured it and
-            // the person reached its last part, there is none to press. Deny's shows at once, as
-            // denying runs nothing and a person who sees part 1 of something dangerous must be able to
-            // refuse it then.
+            lines.Add(new PageLine(Asks(steering, workspace, parts), tone: LineTone.Secondary, rows: 2));
+            // Approve's Yes, and an instruction's, only once all of it has shown: until the layout
+            // measured it and the person reached its last part, there is none to press. Deny's shows at
+            // once, as denying runs nothing and a person who sees part 1 of something dangerous must be
+            // able to refuse it then.
             var yes = measured && steering.CanConfirm ? YesFor(armed) : null;
             return new Page(lines, source, Footer.Confirm(before, pressed, yes, CancelConfirm));
         }

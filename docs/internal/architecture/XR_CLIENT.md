@@ -239,7 +239,11 @@ the same definition names, as the JSON Schema document:
   reading, since refusing what one has not read in full can do no harm. Instruct asks for text
   first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
   the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
-  reads "Your computer heard: ... Send it?" with the text, so a mishearing is never sent unread.
+  reads "Your computer heard: ... Send it?" with the text, so a mishearing is never sent unread. An
+  armed instruction is read as a request is: its words, quoted (`ToRead`), must all have shown before
+  Yes sends them (`CanConfirm`), and a confirmation before then sends nothing and stays armed. This
+  holds for typed words too, the person's own, since Yes sends only words shown and a policy's review
+  is a reading of them.
 - **`SpeechClip`** makes a held clip of speech into what `POST /api/transcriptions` takes (ADR
   0021): the microphone's samples, at its own rate and channels, mixed to mono and resampled to
   16 kHz (the mean of the input each output sample spans going down, a straight line going up),
@@ -504,13 +508,19 @@ the same definition names, as the JSON Schema document:
   the page's reason (`WorkspaceSteering.SendAnswer(FileScreen, …)`). A question that waits before
   it is laid out shows what it asks, with Send answer waiting ("Getting the question ready."), never
   that nothing waits.
-  Approving or denying shows the whole request again in parts, as rows of one measured line
+  Approving or denying, or an instruction armed to send, heard through Hold to talk or typed for a
+  policy's review, shows the whole request, or all the instruction's words quoted, in parts, as rows
+  of one measured line
   (`PageLine.FromRow`), each part ending in a row to the next ("Next part, 2 of 3", from the last
   back to the first), with Cancel in the place of the press and Yes in the free middle. Approve's
-  Yes shows only once the layout has measured the request and its last part has shown
+  Yes, and an instruction's, shows only once the layout has measured the request and its last part has shown
   (`WorkspaceSteering.CanConfirm`); Deny's shows at once, since denying runs nothing and a person who
   sees part 1 of something dangerous must be able to refuse it then
-  (`FileWaitingTests.DenyingShowsYesAtOnceSoAPersonCanRefuseFromTheFirstPart`). A measurement counts
+  (`FileWaitingTests.DenyingShowsYesAtOnceSoAPersonCanRefuseFromTheFirstPart`). Under an
+  instruction's words the confirmation says "Read to part 3 first", as a locked final press does, until
+  the last part has shown, then "Your computer heard the words above. Send them?" for words heard or
+  "Tell it the words above?" for words typed (`FileScreens.Asks`), so a heard instruction of twelve
+  rows is never sent with only three of them shown. A measurement counts
   only for the confirmation it was made in and the very text it measured, and a part counts as read
   only when the view reports it drawn (`FileScreen.RequestDrawn`), never by building the page or the
   press that turns to it; the whole request has shown once every part has. The part's row turns
