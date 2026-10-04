@@ -41,6 +41,9 @@ namespace Halcyonic.XR.Workspace
         private CharacterTarget? fileOf;
         private MenuFrameView? lineTo;
         private Vector3 eyes;
+
+        /// <summary>How far below the eyes the surface under the characters is, in meters, as the plane was laid; null with none.</summary>
+        private float? surfaceDrop;
         private float lowest = -0.5f;
         private float measured = -1f;
 
@@ -215,6 +218,7 @@ namespace Halcyonic.XR.Workspace
             Vector3 at, Vector3 looking, float? surfaceHeight, bool immediately = false, bool besideWindow = false, (float Yaw, float Elevation) moved = default)
         {
             eyes = at;
+            surfaceDrop = surfaceHeight.HasValue ? at.y - surfaceHeight.Value : (float?)null;
             // The menu's details take the front over a file beside it: laid as if no file stood there, the
             // file stepping aside until they close, so what the person just chose is what they see.
             var wasFileAside = FileAside;
@@ -450,6 +454,11 @@ namespace Halcyonic.XR.Workspace
         private bool Allows(PlaneComposition composition, PanelDirection at)
         {
             var field = DragField;
+            // A drag's own band (PanelDrag): no higher than placement goes, no lower than the field allows, or
+            // than where the stage placed it if that is lower, nor into a surface under the characters.
+            var floor = Mathf.Min(WorkspacePlacement.Lowest(composition.Size, field), Placed.Elevation);
+            if (surfaceDrop is float drop) floor = Mathf.Max(floor, WorkspacePlacement.LowestAboveSurface(composition.Size, drop));
+            if (at.Elevation > WorkspacePlacement.HighestDegrees + 1e-3f || at.Elevation < Mathf.Min(floor, WorkspacePlacement.HighestDegrees) - 1e-3f) return false;
             if (!MenuPage.Inside(composition, at, field)) return false;
             if (StageYaw is float stage && !MenuDrag.WithinReach(at, stage, field)) return false;
             if (!WorkspacePlacement.Clears(at, bodies, composition.Size)) return false;
