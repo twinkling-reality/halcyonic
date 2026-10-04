@@ -270,7 +270,6 @@ namespace Halcyonic.Client
         private static Footer QuestionFooter(WorkspacePresentation workspace, FileScreen screen, QuestionDraft draft)
         {
             var actions = workspace.Actions;
-            var secret = workspace.QuestionToAnswer?.Prompts.Any(prompt => prompt.Secret) == true;
             Prompt? send = null;
             if (actions.Contains(WorkspaceAction.Answer))
             {
@@ -285,8 +284,9 @@ namespace Halcyonic.Client
             return new Footer(
                 CloseFile,
                 rare: StopWhereUnanswerable(workspace, draft.Question),
-                // On the page of the person's answers there is no one question to answer by voice.
-                secondary: screen.Speak && !secret && actions.Contains(WorkspaceAction.Answer) && !screen.Question.Reviewing
+                // On the page of the person's answers there is no one question to answer by voice, nor under
+                // a question that can't be answered here, as one asking for a secret.
+                secondary: screen.Speak && WorkspaceText.Answerable(draft.Question) && actions.Contains(WorkspaceAction.Answer) && !screen.Question.Reviewing
                     ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
                     : null,
                 farRight: send);
