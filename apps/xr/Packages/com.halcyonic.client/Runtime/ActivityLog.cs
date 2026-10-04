@@ -115,8 +115,8 @@ namespace Halcyonic.Client
                         : "Started");
                 case ExecutionStartFailedEvent failed:
                     // The message is the agent app's or the control plane's own; a folder's problem is said by its code.
-                    return Entry(ActivityKind.Lifecycle, EntryText.FolderProblem(null, failed.Payload.Error.Code) is string folder
-                        ? "Couldn't start: " + char.ToLowerInvariant(folder[0]) + folder.Substring(1)
+                    return Entry(ActivityKind.Lifecycle, WorkspaceText.WhyFailed(failed.Payload.Error.Code) is string why
+                        ? StateLanguage.Lead("Couldn't start", why)
                         : "Couldn't start");
                 case ExecutionStateUnknownEvent unknown:
                     // Why, by its code alone, as the character says it: the message is a diagnostic.
@@ -163,7 +163,8 @@ namespace Halcyonic.Client
                     // whether it may have happened anyway, are what a person can act on. An effect that can't
                     // be ruled out is never said as "Couldn't", which says nothing happened.
                     if (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown) return Entry(ActivityKind.Command, NotSureItHappened);
-                    return Entry(ActivityKind.Command, VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed");
+                    var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed";
+                    return Entry(ActivityKind.Command, WorkspaceText.WhyFailed(commandFailed.Payload.Failure.Code) is string because ? StateLanguage.Lead(failedTo, because) : failedTo);
                 default:
                     // Command completion adds nothing a person needs to read here,
                     // and the model a runtime reports using is on the execution itself.

@@ -319,6 +319,24 @@ namespace Halcyonic.Client
             _ => null,
         };
 
+        /// <summary>
+        /// Why a command failed with no effect, from a code every agent app's adapter and the control plane
+        /// share, in a sentence already said elsewhere, with the way on; a folder's problem as
+        /// <see cref="EntryText.FolderProblem"/> says it; null for any other code, an adapter's own, which
+        /// says nothing a person can act on. Never the failure's message.
+        /// </summary>
+        public static string? WhyFailed(string? code) => code switch
+        {
+            "approval_not_pending" => WhyRefused(RejectionCode.ApprovalNotFound),
+            "question_not_pending" => WhyRefused(RejectionCode.QuestionNotFound),
+            "no_running_turn" => WhyRefused(RejectionCode.InvalidState),
+            "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch + " See what it's doing, then try again.",
+            "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
+            "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
+            "capability_unimplemented" => WhyRefused(RejectionCode.CapabilityUnsupported),
+            _ => EntryText.FolderProblem(null, code),
+        };
+
         /// <summary>Said of a step of Start building or Connect that failed with no effect and no cause a person can act on.</summary>
         public const string NothingChanged = "Nothing changed. Try again.";
 

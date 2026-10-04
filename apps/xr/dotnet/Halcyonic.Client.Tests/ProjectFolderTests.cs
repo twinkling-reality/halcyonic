@@ -229,6 +229,11 @@ public class FolderRefusalTests
             }));
             var step = sequence.Steps.Single(each => each.Kind == BuildStepKind.StartWork);
             Assert.That(EntryText.StepStatus(step), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), effect.ToString());
+            if (effect == FailureEffect.None)
+            {
+                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
+                    "a cause every adapter shares is said by its code");
+            }
         }
     }
 

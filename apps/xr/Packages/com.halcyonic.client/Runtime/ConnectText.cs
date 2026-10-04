@@ -72,7 +72,7 @@ namespace Halcyonic.Client
                 // Why, by its code, never the control plane's message.
                 BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(step.Refusal)),
                 // A failure that may have had an effect is never put in words that say nothing happened.
-                BuildStepStatus.Failed when !step.EffectUnknown => WorkspaceText.Couldnt("Couldn't connect", EntryText.FolderProblem(step.Refusal, step.Failure) ?? WorkspaceText.NothingChanged),
+                BuildStepStatus.Failed when !step.EffectUnknown => WorkspaceText.Couldnt("Couldn't connect", (EntryText.FolderProblem(step.Refusal, null) ?? WorkspaceText.WhyFailed(step.Failure)) ?? WorkspaceText.NothingChanged),
                 BuildStepStatus.NotSent => NotConnectedYet,
                 _ => "Not sure whether " + Quoted(connection.Folder.ProjectName) + " was connected. Look for it in Projects.",
             };

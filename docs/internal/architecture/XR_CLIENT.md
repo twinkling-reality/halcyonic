@@ -667,7 +667,9 @@ the same definition names, as the JSON Schema document:
   is a round in a person's words. A refusal reads "Couldn't {verb}: {why}", why by its code
   (`WorkspaceText.WhyRefused`), as the file's line of what this headset sent last does
   (`WorkspacePresenter.Feedback`); the refusal's message, the control plane's own words for
-  developers, is never shown, except the demonstration's, which is Halcyonic's. A snapshot carries state but no history, so after a resynchronization the history of
+  developers, is never shown, except the demonstration's, which is Halcyonic's. A failure is said by
+  a code every adapter shares where it has one (`WorkspaceText.WhyFailed`), in the words its refusal or
+  a lost connection already uses, else by what failed alone. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
   (`GET /api/events`, paged, refused if the journal changed).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
