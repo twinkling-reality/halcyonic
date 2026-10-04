@@ -821,8 +821,12 @@ the same definition names, as the JSON Schema document:
   what was chosen, and Send answer and Next question take only an answer on the page in view. Make
   the recap's "Answer a question first" is explained by the answers waiting, as Send answer's "Choose
   one." is, so it isn't drawn. The unknown start reads as a confirmation does, in parts, "Next part,
-  2 of 3", Clear unavailable, "Read to part 3 first", until every part has been drawn, so the guard
-  against a second start is never cleared unread; the review keeps its own parts. A page's room is
+  2 of 3", Clear unavailable, "Read to part 3 first", until every line has been drawn, each by its
+  place and words, so the guard against a second start is never cleared unread; the review keeps its
+  own parts. Laid again, as when the text size changes or the computer's record arrives and changes a
+  line, it shows the first part with anything unread, as the review does. A change to its words while
+  Yes, clear waits lapses the Yes, as the page is built and as Yes is pressed, saying nothing was
+  cleared; laid again with the same words, every line still drawn, the Yes stays. A page's room is
   read once for what shows (`Follow`: the step, its page, the question, the idea) and again only
   when that, the subject's rows or the text size change, so nothing re-packs as the head moves; the
   review's part rows likewise, once a review; and anything new, opening New project included, starts

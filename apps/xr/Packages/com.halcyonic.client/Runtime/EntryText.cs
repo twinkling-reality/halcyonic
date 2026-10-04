@@ -190,6 +190,9 @@ namespace Halcyonic.Client
         public const string Cancel = "Cancel";
         public const string Cleared = "Cleared. Start again from your idea.";
 
+        /// <summary>The unknown start's note after its words changed while Yes, clear waited.</summary>
+        public const string ChangedBeforeClear = "Nothing was cleared: this changed while you were clearing it. Read it again.";
+
         /// <summary>The command whose outcome is unknown, by its id.</summary>
         public static string Reference(string commandId) => "Reference: " + commandId;
 

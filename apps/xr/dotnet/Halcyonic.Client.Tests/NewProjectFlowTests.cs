@@ -60,7 +60,10 @@ public class NewProjectFlowTests
 
         public TextSize TextSize { get; set; } = TextSize.Standard;
 
-        public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + 59) / 60);
+        /// <summary>The characters a row holds at each text size; a test narrows it to wrap lines as a narrow column does.</summary>
+        public Func<TextSize, int> RowWidth { get; set; } = _ => 60;
+
+        public int RowsOf(string words, float columnDegrees) => Math.Max(1, (words.Length + RowWidth(TextSize) - 1) / RowWidth(TextSize));
 
         public int RowsOf(PageLine line, float columnDegrees) => RowsOf(line.Words, columnDegrees);
 
@@ -1254,50 +1257,149 @@ public class NewProjectFlowTests
     [Test]
     public void ClearWaitsForEveryLineOfTheUnknownStartEvenWhenItsPartsAreLaidAgain()
     {
-        // Parts read at the larger size, then the text a step smaller lays it again into fewer, larger parts.
-        var cases = 0;
-        for (var factor = 0.50f; factor <= 0.62f; factor += 0.002f)
+        // Parts read at one text size, then the other lays them again. Its lines wrapped to every row they
+        // may take, from x0.71 to x0.77 the larger size holds one line a part and the smaller two:
+        // [0], [1], [2], [3], [4] against [0, 1], [2, 3], [4]. Three single lines read, then the smaller
+        // size: counted by parts, three of three were read on its last part, with the fourth line never
+        // shown. Two lines read, then the larger: the part the person was on is now an earlier one.
+        foreach (var (first, then) in new[] { (TextSize.Larger, TextSize.Standard), (TextSize.Standard, TextSize.Larger) })
         {
-            for (var read = 1; read <= 4; read++)
+            var cases = 0;
+            for (var factor = 0.50f; factor <= 0.90f; factor += 0.005f)
             {
-                var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
-                var host = new Host { TextSize = TextSize.Larger };
-                var size = factor;
-                host.Height = (rows, beside) => MenuPage.Height(host.TextSize, rows, besideMenu: beside) * (host.TextSize == TextSize.Larger ? 0.6f : size);
-                var flow = Flow(host, kept);
-                flow.Open(null, null);
-                var all = NewProjectScreens.Unresolved(new ProjectIdea(), kept.Id, null, armed: false, live: true).Lines.Select(line => line.Words).ToList();
-                var drawn = new HashSet<string>();
-                void DrawAndNote()
+                for (var read = 1; read <= 4; read++)
                 {
-                    foreach (var line in flow.Frame!.Lines) drawn.Add(line.Words);
-                    flow.Drawn(flow.Frame!, false);
-                }
-                DrawAndNote();
-                for (var part = 1; part < read && flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is { } row; part++)
-                {
-                    host.Now += 1;
-                    flow.Act(NewProjectScreens.NextPart, row.Key);
+                    var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+                    var host = new Host { TextSize = first, RowWidth = size => size == TextSize.Larger ? 24 : 30 };
+                    var size = factor;
+                    host.Height = (rows, beside) => MenuPage.Height(host.TextSize, rows, besideMenu: beside) * size;
+                    var flow = Flow(host, kept);
+                    flow.Open(null, null);
+                    var all = NewProjectScreens.Unresolved(new ProjectIdea(), kept.Id, null, armed: false, live: true).Lines.Select(line => line.Words).ToList();
+                    var drawn = new HashSet<string>();
+                    void DrawAndNote()
+                    {
+                        foreach (var line in flow.Frame!.Lines) drawn.Add(line.Words);
+                        flow.Drawn(flow.Frame!, false);
+                    }
                     DrawAndNote();
+                    for (var part = 1; part < read && flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is { } row; part++)
+                    {
+                        host.Now += 1;
+                        flow.Act(NewProjectScreens.NextPart, row.Key);
+                        DrawAndNote();
+                    }
+                    var at = first + " to " + then + ", x" + size + ", " + read + " part(s) read first";
+                    host.TextSize = then;
+                    flow.Tick();
+                    // Laid again, no line never drawn is left behind the part showing, where Next part can't reach it.
+                    if (all.FirstOrDefault(words => !drawn.Contains(words)) is string unread)
+                    {
+                        cases++;
+                        var showing = flow.Frame!.Lines.Select(line => all.IndexOf(line.Words)).Where(index => index >= 0).Min();
+                        Assert.That(all.IndexOf(unread), Is.GreaterThanOrEqualTo(showing), at + ": laid again, the first unread line is behind the part showing: " + unread);
+                    }
+                    // Read on, part by part, until Clear can be pressed: never before every line has shown.
+                    for (var part = 0; part < 10; part++)
+                    {
+                        DrawAndNote();
+                        var undrawn = all.Where(words => !drawn.Contains(words)).ToList();
+                        Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available && undrawn.Count > 0, Is.False,
+                            at + ": Clear with a line never drawn: " + string.Join(" / ", undrawn));
+                        if (flow.Frame!.Footer[PromptSlot.FarRight]!.Available || flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is not { } row) break;
+                        host.Now += 1;
+                        flow.Act(NewProjectScreens.NextPart, row.Key);
+                    }
+                    Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, at + ": read to its end, Clear can be pressed");
                 }
-                host.TextSize = TextSize.Standard;
-                flow.Tick();
-                // Read on at the smaller size, part by part, until Clear can be pressed: never before every line has shown.
-                for (var part = 0; part < 10; part++)
-                {
-                    DrawAndNote();
-                    var undrawn = all.Where(words => !drawn.Contains(words)).ToList();
-                    if (undrawn.Count > 0) cases++;
-                    Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available && undrawn.Count > 0, Is.False,
-                        "x" + size + ", " + read + " part(s) read first: Clear with a line never drawn: " + string.Join(" / ", undrawn));
-                    if (flow.Frame!.Footer[PromptSlot.FarRight]!.Available || flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is not { } row) break;
-                    host.Now += 1;
-                    flow.Act(NewProjectScreens.NextPart, row.Key);
-                }
-                Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "x" + size + ", " + read + ": read to its end, Clear can be pressed");
             }
+            Assert.That(cases, Is.GreaterThan(0), first + " to " + then + ": some layout leaves a line undrawn");
         }
-        Assert.That(cases, Is.GreaterThan(0), "some layout leaves a line undrawn");
+    }
+
+    /// <summary>The unknown start laid one line a part at the larger size and [0, 1], [2, 3], [4] at the smaller, read to its last part.</summary>
+    private static NewProjectFlow ReadUnknownStart(Host host, Kept kept)
+    {
+        host.TextSize = TextSize.Larger;
+        host.RowWidth = size => size == TextSize.Larger ? 24 : 30;
+        host.Height = (rows, beside) => MenuPage.Height(host.TextSize, rows, besideMenu: beside) * 0.74f;
+        var flow = Flow(host, kept);
+        flow.Open(null, null);
+        ReadUnknownStartOn(flow, host);
+        return flow;
+    }
+
+    /// <summary>Draws each part of the unknown start from the one showing to its last, the words of every one.</summary>
+    private static List<string> ReadUnknownStartOn(NewProjectFlow flow, Host host)
+    {
+        var seen = new List<string>();
+        for (var part = 0; part < 10; part++)
+        {
+            seen.AddRange(flow.Frame!.Lines.Select(line => line.Words));
+            flow.Drawn(flow.Frame!, false);
+            if (flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is not { } row) break;
+            host.Now += 1;
+            flow.Act(NewProjectScreens.NextPart, row.Key);
+        }
+        return seen;
+    }
+
+    [Test]
+    public void YesClearLapsesWhenTheUnknownStartChangesWhileItWaits()
+    {
+        // Yes pressed on the page drawn before the change, which still offers it, before and after the page is built again.
+        foreach (var builtFirst in new[] { false, true })
+        {
+            var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+            var host = new Host();
+            var flow = ReadUnknownStart(host, kept);
+            Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "read to its last part");
+            Press(flow, NewProjectScreens.Clear, null);
+            Assert.That(flow.Frame!.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ConfirmClear && each.Prompt.Available), Is.True, "Yes, clear waits");
+            Draw(flow, flow.Frame!);
+
+            // The computer's record arrives while Yes, clear waits, changing a line read on an earlier part.
+            var state = new ClientProjection();
+            var snapshot = Samples.Snapshot(2);
+            snapshot.Commands = new List<CommandView>
+            {
+                new() { CommandId = kept.Id!, Status = CommandStatus.Accepted, IssuedAt = Samples.Time, UpdatedAt = Samples.Time },
+            };
+            state.ApplySnapshot(snapshot, new StateChanges());
+            host.State = state;
+            flow.Tick();
+            if (builtFirst) Assert.That(flow.Frame!.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ConfirmClear), Is.False, "the Yes lapses as the page is built");
+            flow.Act(NewProjectScreens.ConfirmClear, null);
+            Assert.That(kept.Id, Is.Not.Null, (builtFirst ? "built first" : "pressed first") + ": nothing cleared by a Yes that lapsed");
+            var changed = flow.Frame!;
+            Assert.That(changed.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ConfirmClear), Is.False, "the Yes lapsed");
+            Assert.That(changed.Lines.Select(line => line.Words), Does.Contain(EntryText.Recorded(CommandStatus.Accepted)), "the part with the line that changed shows");
+            Assert.That(changed.Footer[PromptSlot.FarRight]!.Available, Is.False, "Clear waits for it to be read again");
+
+            var seen = ReadUnknownStartOn(flow, host);
+            Assert.That(seen, Does.Contain(EntryText.ChangedBeforeClear), "the page says why nothing was cleared");
+            Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "read again, Clear can be pressed");
+            Press(flow, NewProjectScreens.Clear, null);
+            Press(flow, NewProjectScreens.ConfirmClear, null);
+            Assert.That(kept.Id, Is.Null);
+        }
+    }
+
+    [Test]
+    public void YesClearStaysWhenTheUnknownStartIsOnlyLaidAgain()
+    {
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-00000000dead" };
+        var host = new Host();
+        var flow = ReadUnknownStart(host, kept);
+        Press(flow, NewProjectScreens.Clear, null);
+        // The text a step smaller lays its five parts again as three, every line's words the same and drawn.
+        host.TextSize = TextSize.Standard;
+        flow.Tick();
+        var laid = flow.Frame!;
+        Assert.That(laid.Footer.All.Any(each => each.Prompt.Id == NewProjectScreens.ConfirmClear && each.Prompt.Available), Is.True, "Yes, clear still waits");
+        Assert.That(laid.Lines.Select(line => line.Words), Does.Not.Contain(EntryText.ChangedBeforeClear));
+        Press(flow, NewProjectScreens.ConfirmClear, null);
+        Assert.That(kept.Id, Is.Null);
     }
 
     [Test]
