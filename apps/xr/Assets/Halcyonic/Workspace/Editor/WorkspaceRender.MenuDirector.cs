@@ -638,39 +638,59 @@ namespace Halcyonic.XR.Workspace.Editor
             retitle(title);
             director.DrawNow();
 
-            // Swept aside as far as it goes at the standard text, then laid anew at the larger, a plane wider and
-            // placed lower by as much: where the whole drag would take it where no drag may, as its centre out
-            // of sight of the stage, it keeps only as much as every rule still allows. Each place's column is
-            // made afresh at each size, as when the menu opens again, so the drag alone is judged, not a page
-            // packed for the other size.
+            // Dragged as far as it goes at the standard text, aside and then away from the characters, then laid
+            // anew at the larger, a plane wider and placed elsewhere by as much: where the whole drag would take it
+            // where no drag may, as its centre out of sight of the stage or above the band a drag keeps to, it
+            // keeps only as much as every rule still allows. Each place's column is made afresh at each size, as
+            // when the menu opens again, so the drag alone is judged, not a page packed for the other size.
             var pass = GlazeText.Scale;
             try
             {
-                textAt(1f);
-                director.Navigator.Renew();
-                director.ResetPosition();
-                director.DrawNow();
-                held = subject.Subject.position;
-                director.HoldSubjectForRender(held);
-                if (!director.Dragging) failures.Add(name + ": held at the standard text, the file's subject took no hold of the plane.");
-                for (var step = 1; step <= 100; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
-                director.LetGoForRender();
-                director.DrawNow();
-                var dragged = plane.Moved;
-                if (Mathf.Abs(dragged.Yaw) < 1f) failures.Add(name + ": swept aside at the standard text, the plane stayed where it was.");
-                textAt(Comfort.LargerTextScale);
-                director.Navigator.Renew();
-                director.DrawNow();
-                if (!plane.Allows(MenuDrag.Turned(plane.Placed, dragged)))
+                foreach (var (way, aside) in new[] { ("aside", true), ("away", false) })
                 {
-                    keptLessAtLarger++;
-                    Debug.Log("Halcyonic: workspace render: " + name + " keeps " + GlazeChecks.Degrees(plane.Moved.Yaw) + " of a " + GlazeChecks.Degrees(dragged.Yaw)
-                        + " degree drag at the larger text.");
+                    textAt(1f);
+                    director.Navigator.Renew();
+                    director.ResetPosition();
+                    director.DrawNow();
+                    held = subject.Subject.position;
+                    var off = plane.Direction.Above ? -1f : 1f;
+                    director.HoldSubjectForRender(held);
+                    if (!director.Dragging) failures.Add(name + ": held at the standard text, the file's subject took no hold of the plane.");
+                    for (var step = 1; step <= 100; step++) director.DragSubjectForRender(aside ? Turned(held, step * 1f, 0f) : Turned(held, 0f, off * step * 0.5f));
+                    director.LetGoForRender();
+                    director.DrawNow();
+                    var dragged = plane.Moved;
+                    if (dragged == default) Debug.Log("Halcyonic: workspace render: " + name + " takes no drag " + way + " at the standard text.");
+                    textAt(Comfort.LargerTextScale);
+                    director.Navigator.Renew();
+                    director.DrawNow();
+                    if (dragged != default && !plane.Allows(MenuDrag.Turned(plane.Placed, dragged)))
+                    {
+                        keptLessAtLarger++;
+                        Debug.Log("Halcyonic: workspace render: " + name + " keeps (" + GlazeChecks.Degrees(plane.Moved.Yaw) + ", " + GlazeChecks.Degrees(plane.Moved.Elevation)
+                            + ") of a (" + GlazeChecks.Degrees(dragged.Yaw) + ", " + GlazeChecks.Degrees(dragged.Elevation) + ") degree drag " + way + " at the larger text.");
+                    }
+                    else Debug.Log("Halcyonic: workspace render: " + name + " has room at the larger text for its drag " + way + ", so keeps it whole.");
+                    if (!plane.Allows(plane.Direction)) failures.Add(name + ": laid anew at the larger text, the plane kept more of the drag " + way + " than its rules allow.");
+                    failures.AddRange(PlaneState(name + " director dragged " + way + " then larger text", folder, camera, texture, plane, characters, eyes, null));
+                    failures.AddRange(InSightOfStage(name + " director dragged " + way + " then larger text", plane, eyes));
+                    // A drag never takes the plane's centre above the highest a placement goes, nor below the lowest
+                    // the field lets a placement go, or where the stage placed it if that is lower.
+                    if (plane.Direction.Elevation > WorkspacePlacement.HighestDegrees + 0.01f)
+                    {
+                        failures.Add(name + " director dragged " + way + " then larger text: the plane's centre stands " + GlazeChecks.Degrees(plane.Direction.Elevation)
+                            + " degrees up, above the " + GlazeChecks.Degrees(WorkspacePlacement.HighestDegrees) + " a drag goes no higher than.");
+                    }
+                    if (plane.Composition is PlaneComposition laidLarger)
+                    {
+                        var lowest = Mathf.Min(WorkspacePlacement.Lowest(laidLarger.Size, ViewField.Current), plane.Placed.Elevation);
+                        if (plane.Direction.Elevation < lowest - 0.01f)
+                        {
+                            failures.Add(name + " director dragged " + way + " then larger text: the plane's centre stands " + GlazeChecks.Degrees(plane.Direction.Elevation)
+                                + " degrees from eye level, below the " + GlazeChecks.Degrees(lowest) + " a drag goes no lower than.");
+                        }
+                    }
                 }
-                else Debug.Log("Halcyonic: workspace render: " + name + " has room at the larger text for its drag, so keeps it whole.");
-                if (!plane.Allows(plane.Direction)) failures.Add(name + ": laid anew at the larger text, the plane kept more of the drag than its rules allow.");
-                failures.AddRange(PlaneState(name + " director dragged then larger text", folder, camera, texture, plane, characters, eyes, null));
-                failures.AddRange(InSightOfStage(name + " director dragged then larger text", plane, eyes));
             }
             finally
             {
