@@ -120,6 +120,9 @@ namespace Halcyonic.Client
 
         /// <summary>A line that opens more beside it: the chevron.</summary>
         OpensMore,
+
+        /// <summary>Hold to talk let go, while the computer writes down what was said (ADR 0027).</summary>
+        WritingDown,
     }
 
     /// <summary>How a badge is filled: outline only, a soft container of its tone, or its tone's solid fill.</summary>

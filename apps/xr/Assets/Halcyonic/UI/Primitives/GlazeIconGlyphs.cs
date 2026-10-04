@@ -60,6 +60,7 @@ namespace Halcyonic.XR.UI
             GlazeIcon.PackageFile => "\uF720", // deployed_code
             GlazeIcon.Folder => "\uE2C7", // folder
             GlazeIcon.OpensMore => "\uE409", // chevron_right
+            GlazeIcon.WritingDown => "\uE745", // edit_note, as Keep creating's
             _ => throw new ArgumentOutOfRangeException(nameof(icon), icon, "Unhandled icon."),
         };
 
