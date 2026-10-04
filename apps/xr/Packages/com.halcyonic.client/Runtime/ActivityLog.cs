@@ -115,7 +115,7 @@ namespace Halcyonic.Client
                         : "Started");
                 case ExecutionStartFailedEvent failed:
                     // The message is the agent app's or the control plane's own; a folder's problem is said by its code.
-                    return Entry(ActivityKind.Lifecycle, WorkspaceText.WhyFailed(failed.Payload.Error.Code) is string why
+                    return Entry(ActivityKind.Lifecycle, WorkspaceText.WhyFailed(failed.Payload.Error.Code, running: false) is string why
                         ? StateLanguage.Lead("Couldn't start", why)
                         : "Couldn't start");
                 case ExecutionStateUnknownEvent unknown:

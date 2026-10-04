@@ -270,7 +270,7 @@ namespace Halcyonic.Client
             if (execution == null) return ("It couldn't finish.", "");
             if (execution.StartedAt == null && execution.TurnCount == 0)
             {
-                var known = WorkspaceText.WhyFailed(execution.StatusReason?.Code);
+                var known = WorkspaceText.WhyFailed(execution.StatusReason?.Code, running: false);
                 if (known != null) return (Lead("Couldn't start", known), known);
                 return ("Couldn't start. " + AddItAgain, AddItAgain);
             }

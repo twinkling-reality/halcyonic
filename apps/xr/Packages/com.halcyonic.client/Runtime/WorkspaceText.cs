@@ -323,14 +323,18 @@ namespace Halcyonic.Client
         /// Why a command failed with no effect, from a code every agent app's adapter and the control plane
         /// share, in a sentence already said elsewhere, with the way on; a folder's problem as
         /// <see cref="EntryText.FolderProblem"/> says it; null for any other code, an adapter's own, which
-        /// says nothing a person can act on. Never the failure's message.
+        /// says nothing a person can act on. Never the failure's message. <paramref name="running"/> says
+        /// there is work to look at: where there may be none yet, as Start building's and Connect's steps or a
+        /// start that never ran, a lost agent app points to the computer instead (settled by the coordinator,
+        /// 2026-10-04).
         /// </summary>
-        public static string? WhyFailed(string? code) => code switch
+        public static string? WhyFailed(string? code, bool running = true) => code switch
         {
             "approval_not_pending" => WhyRefused(RejectionCode.ApprovalNotFound),
             "question_not_pending" => WhyRefused(RejectionCode.QuestionNotFound),
             "no_running_turn" => WhyRefused(RejectionCode.InvalidState),
-            "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch + " See what it's doing, then try again.",
+            "runtime_unreachable" or "runtime_closed" => StateLanguage.LostTouch
+                + (running ? " See what it's doing, then try again." : " Check that the agent app is running on " + HostText.Your + ", then try again."),
             "execution_unknown_to_runtime" => WhyRefused(RejectionCode.ExecutionNotFound),
             "model_unavailable" => WhyRefused(RejectionCode.ModelRequired),
             "capability_unimplemented" => WhyRefused(RejectionCode.CapabilityUnsupported),
