@@ -112,7 +112,7 @@ public class ActivityLogTests
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
             "Couldn't send an instruction: your computer lost touch with the agent app. See what it's doing, then try again.",
-            "Not sure it happened. Check its activity before you try again.",
+            "Not sure the instruction reached it. Check its activity before you try again.",
             "Couldn't start: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again.",
             "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
             "Couldn't finish this round",
@@ -280,7 +280,11 @@ public class WorkspacePresenterTests
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Couldn't do that: it can't take that right now. See what it's doing, then try again."),
             "by the refusal's code, never the control plane's message");
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
-            Is.EqualTo("Not sure it happened. Check its activity before you try again."));
+            Is.EqualTo("Not sure it stopped. Check its activity before you try again."), "what may have happened, named, never Couldn't");
+        foreach (CommandType type in Enum.GetValues(typeof(CommandType)))
+        {
+            Assert.That(WorkspaceText.NotSure(type), Does.StartWith("Not sure ").And.Not.Contain("Couldn't"), type.ToString());
+        }
         var noEffect = Command(CommandStatus.Failed);
         noEffect.Failure!.Effect = FailureEffect.None;
         noEffect.Failure.Code = "codex_other";
