@@ -521,7 +521,9 @@ the same definition names, as the JSON Schema document:
   part is read again from its first (`WorkspaceSteering.ReadAgain`), as lane C's review of Start
   building does. Should the runtime report the request differently under the same approval, the
   confirmation lapses (`WorkspaceSteering.ArmedRequest`). Every confirmation that no longer holds is dropped before the
-  file is drawn, with why as its notice. Yes sends once. Approve, Deny and Stop always ask, whatever
+  file is drawn, with why as its notice. Yes sends once, and for an answer only the answers it was
+  asked for: words heard or typed that change an answer armed to send cancel its Yes ("Nothing was
+  sent: your answer changed. Read it again."), so Send answer's checks apply to the answer as it is. Approve, Deny and Stop always ask, whatever
   the control plane's policy says (`WorkspacePresenter.AlwaysConfirmed`), so a policy of low
   consequence can't send an approval from its preview.
   **Activity** says what it is doing, the last thing this headset sent and the newest of the log

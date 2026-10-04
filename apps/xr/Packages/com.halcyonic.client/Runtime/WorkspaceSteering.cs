@@ -71,6 +71,9 @@ namespace Halcyonic.Client
         private readonly TimeSpan window;
         private DateTimeOffset armedAt;
         private QuestionDraft? armedDraft;
+
+        /// <summary>The answers as they stood when Send answer armed its confirmation, which Yes sends only unchanged.</summary>
+        private string? armedAnswers;
         private int shownPart;
 
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
@@ -190,6 +193,7 @@ namespace Halcyonic.Client
             {
                 Arm(WorkspaceAction.Answer, null, null);
                 armedDraft = draft;
+                armedAnswers = draft.AnswersNow;
                 return SteeringOutcome.Of(SteeringStep.Confirm);
             }
             return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
@@ -208,6 +212,7 @@ namespace Halcyonic.Client
             var approvalId = ArmedApprovalId;
             var instruction = Instruction;
             var draft = armedDraft;
+            var answers = armedAnswers;
             Cancel();
             if (lapse != null) return SteeringOutcome.Explain(lapse);
             if (action == WorkspaceAction.Answer)
@@ -216,6 +221,8 @@ namespace Halcyonic.Client
                 {
                     return SteeringOutcome.Explain(QuestionChanged);
                 }
+                // What Yes was asked for, never answers changed since, as by words heard or typed after.
+                if (draft.AnswersNow != answers) return SteeringOutcome.Explain(WorkspaceText.AnswerChanged);
                 return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
             }
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, instruction));
@@ -274,10 +281,22 @@ namespace Halcyonic.Client
             return SteeringOutcome.Explain(WorkspaceText.ConfirmAfresh);
         }
 
+        /// <summary>
+        /// The person's answer is about to change, as words heard or typed arrive: an answer armed to send is
+        /// cancelled, so Send answer's checks apply to the answer as it will be. What to say, or null.
+        /// </summary>
+        public string? AnswerChanging()
+        {
+            if (Armed != WorkspaceAction.Answer) return null;
+            Cancel();
+            return WorkspaceText.AnswerChanged;
+        }
+
         /// <summary>Drops a pending confirmation or instruction.</summary>
         public void Cancel()
         {
             armedDraft = null;
+            armedAnswers = null;
             Armed = null;
             ArmedApprovalId = null;
             ArmedRequest = null;

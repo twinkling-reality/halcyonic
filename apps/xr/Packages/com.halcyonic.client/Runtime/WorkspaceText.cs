@@ -270,6 +270,9 @@ namespace Halcyonic.Client
         public const string ReadRequestFirst = "Read the whole request above before approving it.";
 
         /// <summary>A confirmation dropped because focus went to another window.</summary>
+        /// <summary>An answer armed to send, cancelled as words heard or typed changed it (settled by the coordinator, 2026-10-04).</summary>
+        public const string AnswerChanged = "Nothing was sent: your answer changed. Read it again.";
+
         public const string ConfirmAfresh = "You went to another window, so nothing was sent. Press it again to confirm.";
 
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>

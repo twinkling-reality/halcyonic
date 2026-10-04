@@ -128,6 +128,10 @@ namespace Halcyonic.Client
         }
 
         /// <summary>The answers to send, one per prompt, in the prompts' order; only when <see cref="Problem"/> is null.</summary>
+        /// <summary>The answers as they stand, every prompt's chosen labels and typed words, to tell whether they changed since.</summary>
+        public string AnswersNow => string.Join("\u0001", Enumerable.Range(0, Prompts.Count).Select(prompt =>
+            Prompts[prompt].Key + "\u0002" + string.Join("\u0003", Prompts[prompt].Options.Select(option => option.Label).Where(chosen[prompt].Contains)) + "\u0002" + typed[prompt]));
+
         public List<QuestionAnswer> Build()
         {
             if (Problem is string problem) throw new InvalidOperationException(problem);
