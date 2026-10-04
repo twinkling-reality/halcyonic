@@ -244,6 +244,29 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (file.DrawnFrames.Count != counted + 1) failures.Add(name + ": drawn again on return, the file did not learn of it.");
                 }
 
+                // The characters hop and rise, as they do while they work or wait: the plane, placed against them
+                // at rest, stays where it is, its prompts take presses, and a press under way goes on.
+                if (director.Plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView bobbing
+                    && bobbing.Targets.FirstOrDefault(button => button.Available) is GlazeButton pressing)
+                {
+                    var still = director.Plane.Direction;
+                    var waited = bobbing.Unsettles;
+                    pressing.HoldPressForRender();
+                    foreach (var lift in new[] { 0.0145f, 0.008f, 0f })
+                    {
+                        foreach (var (view, _) in characters) view.Body.localPosition = new Vector3(0f, lift, 0f);
+                        file?.Change();
+                        director.DrawNow();
+                        var off = Mathf.Max(Mathf.Abs(Mathf.DeltaAngle(still.Yaw, director.Plane.Direction.Yaw)), Mathf.Abs(still.Elevation - director.Plane.Direction.Elevation));
+                        if (off > 0.001f) failures.Add(name + ": a character's hop moved the plane " + GlazeChecks.Degrees(off) + " degrees; it stands against them at rest.");
+                    }
+                    if (bobbing.Unsettles != waited) failures.Add(name + ": the characters' hops made the file's prompts wait to settle, refusing presses.");
+                    if (!pressing.PressUnderWay) failures.Add(name + ": a press under way ended as the characters hopped.");
+                    pressing.EndPressSince(float.MinValue);
+                    director.DrawNow();
+                }
+                else failures.Add(name + ": no file with a prompt to press stands on the plane while the characters hop.");
+
                 // Holding the file's subject drags the whole plane round the eyes; nothing pressed counts meanwhile.
                 // A character standing in for one that comes or goes during a drag, behind the person, where it changes no placement.
                 CharacterTarget Extra(string id)
@@ -480,6 +503,27 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(FileScreens.Choose, "0");
                 Press(FileScreens.NextQuestion);
                 if (!file.Screen.Question.Reviewing) failures.Add(name + ": the second prompt answered, Next question did not bring Your answers.");
+
+                // The voice says it listens, then writes down: on Hold to talk itself, so the page never grows and
+                // nothing under the hand moves; a press under way goes on.
+                if (plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView page && page.Targets.FirstOrDefault() is GlazeButton held)
+                {
+                    var content = page.Parts[page.Parts.Count - 1].position;
+                    held.HoldPressForRender();
+                    file.HoldStarted(FileScreens.SpeakAnswer);
+                    foreach (var said in new[] { VoiceText.Listening, VoiceText.Hearing })
+                    {
+                        file.Said(said);
+                        director.DrawNow();
+                        var drift = Vector3.Distance(content, page.Parts[page.Parts.Count - 1].position);
+                        if (drift > 0.001f) failures.Add(name + ": the voice saying \"" + said + "\" moved the file's page " + (drift * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
+                    }
+                    if (!held.PressUnderWay) failures.Add(name + ": a press under way ended as the voice said where it stands.");
+                    held.EndPressSince(float.MinValue);
+                    file.HoldEnded(FileScreens.SpeakAnswer, letGo: false);
+                    director.DrawNow();
+                }
+                else failures.Add(name + ": no file's page to watch as the voice speaks.");
                 failures.AddRange(PlaneState(name + " your answers", folder, camera, texture, plane, characters, eyes, null));
                 // Drawn, Your answers counts as read: Send answer takes the press, once.
                 director.DrawNow();
