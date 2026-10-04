@@ -549,7 +549,9 @@ the same definition names, as the JSON Schema document:
   confirmation lapses (`WorkspaceSteering.ArmedRequest`). Every confirmation that no longer holds is dropped before the
   file is drawn, with why as its notice. Yes sends once, and for an answer only the answers it was
   asked for: words heard or typed that change an answer armed to send cancel its Yes ("Nothing was
-  sent: your answer changed. Read it again."), so Send answer's checks apply to the answer as it is. Approve, Deny and Stop always ask, whatever
+  sent: your answer changed. Read it again."), as does anything else that reaches the answer while
+  its Yes stands, a choice or a page turned that clears one (`WorkspaceSteering.AnswersMoved`, asked
+  as the file builds), so Send answer's checks apply to the answer as it is. Approve, Deny and Stop always ask, whatever
   the control plane's policy says (`WorkspacePresenter.AlwaysConfirmed`), so a policy of low
   consequence can't send an approval from its preview.
   **Activity** says what it is doing, the last thing this headset sent and the newest of the log

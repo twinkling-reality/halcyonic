@@ -911,6 +911,49 @@ public class FileColumnTests
     }
 
     [Test]
+    public void AChoiceReachingTheColumnAfterSendAnswerAskedItsYesCancelsItAtTheChange()
+    {
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        column.Act(SidePanel.Close, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "a press that changes no answer keeps the Yes");
+
+        // Another answer chosen: the Yes, asked for the answer before it, goes at once, never left to be refused.
+        column.Act(FileScreens.Choose, "1");
+        Assert.That(column.Steering.Armed, Is.Null);
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
+        Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null, "no Yes stands");
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+
+        // Asked again for the new answer, its Yes sends that answer.
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionAnswerQuestionCommand)host.Sent.Single()).Payload.Answers.Single().Selected, Is.EqualTo(new[] { "No" }));
+    }
+
+    [Test]
+    public void APageTurnedAfterSendAnswerAskedItsYesCancelsItWhenItClearsTheChoice()
+    {
+        var host = new FileMenuHost();
+        var question = Questioned("question-1", 1);
+        // Answers enough to take two pages, so More answers turns the page and clears the choice on it.
+        question.Prompts[0].Options = Enumerable.Range(1, 12).Select(index => new QuestionOption { Label = "Answer " + index }).ToList();
+        var column = AnsweringWithYes(host, question);
+        Assert.That(column.Screen.Question.Pages, Is.GreaterThan(1));
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        column.Act(FileScreens.MoreAnswers, null);
+        Assert.That(column.Screen.Question.Draft!.IsAnswered(0), Is.False, "turning the page cleared the choice");
+        Assert.That((column.Steering.Armed, column.Screen.Notice), Is.EqualTo(((WorkspaceAction?)null, WorkspaceText.AnswerChanged)));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
     public void WordsTypedAfterSendAnswerAskedItsYesCancelIt()
     {
         var host = new FileMenuHost();
