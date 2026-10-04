@@ -231,6 +231,50 @@ public class RealtimeSessionTests
         Assert.ThrowsAsync<CommandOutcomeUnknownException>(() => submitted);
     }
 
+    /// <summary>A transport whose upgrade your computer refuses, as the control plane answers before the WebSocket opens.</summary>
+    private sealed class RefusingTransport : IRealtimeTransport
+    {
+        private readonly int status;
+        private readonly string code;
+
+        public RefusingTransport(int status, string code)
+        {
+            this.status = status;
+            this.code = code;
+        }
+
+        public string? CloseDescription => null;
+
+        public Task ConnectAsync(Uri endpoint, string accessToken, System.Threading.CancellationToken cancellationToken) =>
+            throw new UpgradeRefusedException(status, code, "The Host header must name this loopback server; Too many failed credentials.");
+
+        public Task SendAsync(string message, System.Threading.CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<string?> ReceiveAsync(System.Threading.CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// The review's probe (2026-10-04): an upgrade refused other than for the credential, as with a 403 for
+    /// the Host header or a 429 after too many credentials, is said by its code, never the control plane's
+    /// message.
+    /// </summary>
+    [TestCase(403, "host_not_allowed", "Your computer refused the name this headset uses for it. Name it 127.0.0.1 or [::1], then restart the app.")]
+    [TestCase(429, "too_many_requests", "Your computer is turning this headset away for a minute after too many tries. It tries again by itself.")]
+    [TestCase(403, "forbidden", "Your computer refused the connection.")]
+    public async Task AnUpgradeRefusedForAnotherReasonIsSaidByItsCode(int status, string code, string words)
+    {
+        session = new RealtimeSession(Options(options => options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30)),
+            () => new RefusingTransport(status, code));
+        session.Start();
+        await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
+        Assert.That(session.Status.Detail, Is.EqualTo(words));
+        Assert.That(ConnectionText.WhyNotLive(session.Status), Does.Not.Contain("Host header").And.Not.Contain("control plane").And.Not.Contain("credentials"));
+    }
+
     [Test]
     public async Task AnUnsupportedProtocolIsRefusedWithoutRetrying()
     {
