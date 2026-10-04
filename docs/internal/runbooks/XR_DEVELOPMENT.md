@@ -503,7 +503,8 @@ control plane shows.
 Write the token into the app's private storage and start the app again:
 
 ```bash
-adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token.tmp && test -s files/access-token.tmp && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token' < ~/.halcyonic/access-token
+adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token.tmp'" < ~/.halcyonic/access-token
+adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; test \"\$(stat -c %s files/access-token.tmp)\" = 44 && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token && echo written || echo not written, write it again'"
 adb shell run-as com.halcyonic.xr ls -l files/access-token
 adb shell am force-stop com.halcyonic.xr
 adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
@@ -512,9 +513,18 @@ adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivit
 The token goes from the Mac's own file into the app's private storage with no copy anywhere in
 between: it is written whole beside the old one, made mode 600 and only then put in its place, so a
 cut-off write never replaces a token and an old file's mode never carries over. No other app can
-read it there, and `run-as` reaches it only on a development build, which is debuggable. `adb
-exec-in` says nothing when `run-as` fails, as on a release build, so the second line checks: it
-should list `files/access-token` with `-rw-------` and 44 bytes, and never shows what is in it. It
+read it there, and `run-as` reaches it only on a development build, which is debuggable.
+
+Each remote command is one quoted string. adb joins the words it is given with spaces and does not
+quote them again, so `adb shell run-as <package> sh -c '<a>; <b>'` given as separate words runs only
+`<a>` inside `run-as`, and the rest as `shell`; quoted whole, the headset's shell reads the inner
+quotes itself (seen on a Quest, 2026-10-04). `adb exec-in` returns once it has sent its input, while
+the command goes on, so the first line's write can still be under way when it returns: the second
+waits up to 10 seconds for the whole 44 bytes, then makes the file mode 600 and moves it into
+place, printing `written`, or `not written, write it again`. It says nothing of what is in it, and
+`adb exec-in` says nothing when `run-as` fails, as on a release build, so the third line checks: it
+should list `files/access-token` with `-rw-------` and 44 bytes. `pnpm quest:check` fails while a
+`.tmp` file is left over. It
 should survive `adb install -r`. The control plane logs `realtime client connected` for
 `halcyonic-xr`.
 
@@ -710,7 +720,10 @@ adb shell am broadcast -a com.oculus.vrpowermanager.automation_disable
 ```
 
 Even awake, a headset left on a desk can lose its boundary, and the system then puts a dialog in
-front of the app, so the visual checks need a wearer.
+front of the app, so the visual checks need a wearer. Sit, or set a roomscale boundary: leaning out
+of a stationary boundary made everything vanish in the sixth session, with no focus change logged.
+That the boundary showed passthrough in the app's place is likely, not verified
+([quest-3-device.md](../validation/quest-3-device.md)).
 
 ### Milestone 3 checks on a Quest
 
@@ -1333,12 +1346,14 @@ private storage, readable only by the app, with no copy on the headset's shared 
 works on debuggable builds only):
 
 ```bash
-adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/glance-access-token.tmp && test -s files/glance-access-token.tmp && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token' < ~/.halcyonic/access-token
+adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/glance-access-token.tmp'" < ~/.halcyonic/access-token
+adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; test \"\$(stat -c %s files/glance-access-token.tmp)\" = 44 && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token && echo written || echo not written, write it again'"
 adb shell run-as com.halcyonic.xr ls -l files/glance-access-token
 ```
 
-As for the app's own token, the file is whole and private before it takes the old one's place, and
-the second line should list it with `-rw-------` and 44 bytes.
+As for the app's own token ("Install and connect"), each command is quoted whole, the file is whole
+and private before it takes the old one's place, the second line prints `written`, and the third
+should list it with `-rw-------` and 44 bytes.
 
 It refuses a token file that is a link, not the app's own, or readable or writable by anyone else,
 and sends the token only on the connection on which the control plane has just proved it holds it.
