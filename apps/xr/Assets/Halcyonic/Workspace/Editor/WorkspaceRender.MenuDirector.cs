@@ -1043,6 +1043,20 @@ namespace Halcyonic.XR.Workspace.Editor
                 UnityEngine.Object.DestroyImmediate(open);
                 UnityEngine.Object.DestroyImmediate(folded);
                 UnityEngine.Object.DestroyImmediate(restored);
+
+                // Folded under a drag, the plane lets go: no hand can let go of a plane that does not show.
+                var subject = director.Plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View;
+                if (subject == null) failures.Add(name + ": no file stands on the plane to drag it by as it folds.");
+                else
+                {
+                    director.HoldSubjectForRender(subject.Subject.position);
+                    if (!director.Dragging) failures.Add(name + ": the file's subject, held before folding, took no hold of the plane.");
+                    FocusGuard.FoldForRender(true);
+                    director.DrawNow();
+                    if (director.Dragging) failures.Add(name + ": folded under a drag, the plane still followed the hand.");
+                    FocusGuard.FoldForRender(false);
+                    director.DrawNow();
+                }
             }
             finally
             {
