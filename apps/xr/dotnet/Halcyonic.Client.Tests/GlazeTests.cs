@@ -438,3 +438,37 @@ public class CharacterLabelTests
         Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "Tell it to try again, or what to do instead." }));
     }
 }
+
+/// <summary>The motion tokens' easing (ADR 0027): from rest to its end, never past either, never back.</summary>
+public class GlazeMotionTests
+{
+    [Test]
+    public void EveryEasingRunsFromZeroToOneWithoutOvershootingOrTurningBack()
+    {
+        foreach (var (name, ease) in new (string, Func<float, float>)[] { ("out", Glaze.EaseOut), ("in", Glaze.EaseIn), ("in and out", Glaze.EaseInOut) })
+        {
+            Assert.That((ease(0f), ease(1f)), Is.EqualTo((0f, 1f)), name + " starts at rest and ends there");
+            var last = 0f;
+            for (var step = 0; step <= 100; step++)
+            {
+                var value = ease(step / 100f);
+                Assert.That(value, Is.InRange(0f, 1f), name + " never overshoots");
+                Assert.That(value, Is.GreaterThanOrEqualTo(last - 1e-6f), name + " never turns back");
+                last = value;
+            }
+            Assert.That((ease(-1f), ease(2f)), Is.EqualTo((0f, 1f)), name + " holds outside its span");
+        }
+        Assert.That(Glaze.EaseOut(0.5f), Is.GreaterThan(0.5f), "what arrives comes fast, then settles");
+        Assert.That(Glaze.EaseIn(0.5f), Is.LessThan(0.5f), "what leaves starts slowly");
+    }
+
+    [Test]
+    public void ALoopRisesAndFallsSmoothlyOncePerItsSeconds()
+    {
+        Assert.That(Glaze.Loop(0f, Glaze.ListeningPulseSeconds), Is.EqualTo(0f).Within(1e-6f));
+        Assert.That(Glaze.Loop(Glaze.ListeningPulseSeconds / 2f, Glaze.ListeningPulseSeconds), Is.EqualTo(1f).Within(1e-5f));
+        Assert.That(Glaze.Loop(Glaze.ListeningPulseSeconds * 3f, Glaze.ListeningPulseSeconds), Is.EqualTo(0f).Within(1e-4f));
+        for (var step = 0; step < 200; step++) Assert.That(Glaze.Loop(step * 0.037f, Glaze.ShimmerSeconds), Is.InRange(0f, 1f));
+        Assert.That(Glaze.Loop(1f, 0f), Is.EqualTo(0f), "a loop of no length stands still");
+    }
+}

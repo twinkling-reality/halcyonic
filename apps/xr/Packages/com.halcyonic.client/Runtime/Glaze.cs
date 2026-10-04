@@ -209,7 +209,8 @@ namespace Halcyonic.Client
         /// <summary>How opaque label plates are: enough that a bright room behind one cannot wash out its text.</summary>
         public const float PlateOpacity = 0.96f;
 
-        // Motion, in seconds. Nothing bounces or overshoots, and only Waiting for you breathes.
+        // Motion, in seconds (ADR 0027): only what answers the person or shows a wait moves, nothing bounces
+        // or overshoots, and "Keep badges still" stops every loop.
 
         /// <summary>A badge changing state cross-fades this long.</summary>
         public const float StateSeconds = 0.25f;
@@ -233,6 +234,49 @@ namespace Halcyonic.Client
 
         /// <summary>Hover labels and tooltips stay this long after the hand leaves (Meta).</summary>
         public const float LingerSeconds = 0.5f;
+
+        /// <summary>One sweep of a wait's shimmer across its words, and the pause before the next (ADR 0027).</summary>
+        public const float ShimmerSeconds = 1.6f;
+
+        /// <summary>The shimmer's bright band, as a share of the words' width, soft at both edges.</summary>
+        public const float ShimmerWidth = 0.35f;
+
+        /// <summary>How far the shimmer lifts the words toward white at the band's middle: brighter, never moved.</summary>
+        public const float ShimmerDepth = 0.55f;
+
+        /// <summary>One pulse of Hold to talk's microphone while it listens.</summary>
+        public const float ListeningPulseSeconds = 1.0f;
+
+        /// <summary>How much the listening microphone grows at the top of its pulse, as a share of its size.</summary>
+        public const float ListeningPulseDepth = 0.18f;
+
+        /// <summary>What arrives eases out, fast then settling (ADR 0027): <paramref name="t"/> from 0 to 1.</summary>
+        public static float EaseOut(float t)
+        {
+            t = Clamp01(t);
+            var rest = 1f - t;
+            return 1f - rest * rest * rest;
+        }
+
+        /// <summary>What leaves eases in, slow then gone.</summary>
+        public static float EaseIn(float t)
+        {
+            t = Clamp01(t);
+            return t * t * t;
+        }
+
+        /// <summary>What moves between two places eases in and out.</summary>
+        public static float EaseInOut(float t)
+        {
+            t = Clamp01(t);
+            return t < 0.5f ? 4f * t * t * t : 1f - 4f * (1f - t) * (1f - t) * (1f - t);
+        }
+
+        /// <summary>A loop of <paramref name="seconds"/> at time <paramref name="now"/>, from 0 to 1 and back along a sine, which never jerks.</summary>
+        public static float Loop(float now, float seconds) =>
+            seconds <= 0f ? 0f : 0.5f - 0.5f * MathF.Cos(2f * MathF.PI * (now % seconds) / seconds);
+
+        private static float Clamp01(float t) => t < 0f ? 0f : t > 1f ? 1f : t;
 
         /// <summary>
         /// The menu's surfaces on one plane facing the eyes (ADR 0026): three sizes of type that only step

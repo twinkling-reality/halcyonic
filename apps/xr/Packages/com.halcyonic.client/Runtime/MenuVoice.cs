@@ -11,6 +11,19 @@ namespace Halcyonic.Client
     /// hold that started a recording ends it. The column that held leaving the plane, or the app losing
     /// focus, drops what the voice records or awaits.
     /// </summary>
+    /// <summary>Where Hold to talk's one voice stands, which the held prompt shows (ADR 0027).</summary>
+    public enum VoiceStage
+    {
+        /// <summary>Not recording, nor waiting for words.</summary>
+        Idle,
+
+        /// <summary>A hold records.</summary>
+        Listening,
+
+        /// <summary>Let go, the computer writes down what was said.</summary>
+        WritingDown,
+    }
+
     public sealed class MenuVoice
     {
         private readonly Func<bool> busy;
@@ -18,6 +31,7 @@ namespace Halcyonic.Client
         private readonly Action send;
         private readonly Action drop;
         private (IMenuColumn Column, string Id)? held;
+        private (IMenuColumn Column, string Id)? lastHeld;
 
         /// <param name="busy">The voice records, or waits for the computer's answer.</param>
         /// <param name="begin">Starts recording where it may, and says why not where it can't.</param>
@@ -30,6 +44,15 @@ namespace Halcyonic.Client
             this.send = send;
             this.drop = drop;
         }
+
+        /// <summary>
+        /// Where the voice stands now: listening while a hold records, writing down while it waits for the
+        /// computer's words for the column that held, else idle. Read every frame, it allocates nothing.
+        /// </summary>
+        public VoiceStage Stage => held != null ? VoiceStage.Listening : Speaking != null && busy() ? VoiceStage.WritingDown : VoiceStage.Idle;
+
+        /// <summary>The prompt held now, or last held while its words are written down: its column and id.</summary>
+        public (IMenuColumn Column, string Id)? Holding => held ?? lastHeld;
 
         /// <summary>The column the voice's words go to: the one that held last, until it leaves the plane.</summary>
         public IMenuColumn? Speaking { get; private set; }
@@ -46,6 +69,7 @@ namespace Halcyonic.Client
             begin();
             if (!busy()) return false;
             held = (column, id);
+            lastHeld = held;
             column.HoldStarted(id);
             return true;
         }
