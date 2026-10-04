@@ -136,9 +136,25 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>The answers as they stand, every prompt's chosen labels and typed words, to tell whether they changed since.</summary>
-        public string AnswersNow => string.Join("\u0001", Enumerable.Range(0, Prompts.Count).Select(prompt =>
-            Prompts[prompt].Key + "\u0002" + string.Join("\u0003", Prompts[prompt].Options.Select(option => option.Label).Where(chosen[prompt].Contains)) + "\u0002" + typed[prompt]));
+        /// <summary>The answers as they stand, prompt by prompt: its key, its chosen labels in the prompt's order, and its typed words.</summary>
+        public IReadOnlyList<(string Key, string[] Chosen, string? Typed)> AnswersNow => Enumerable.Range(0, Prompts.Count)
+            .Select(prompt => (Prompts[prompt].Key, Prompts[prompt].Options.Select(option => option.Label).Where(chosen[prompt].Contains).ToArray(), typed[prompt]))
+            .ToList();
+
+        /// <summary>
+        /// Whether two takes of <see cref="AnswersNow"/> hold the same answers, compared field by field, so no
+        /// words or labels, whatever characters they hold, can pass for others.
+        /// </summary>
+        public static bool SameAnswers(IReadOnlyList<(string Key, string[] Chosen, string? Typed)>? first, IReadOnlyList<(string Key, string[] Chosen, string? Typed)>? second)
+        {
+            if (first == null || second == null || first.Count != second.Count) return false;
+            for (var prompt = 0; prompt < first.Count; prompt++)
+            {
+                if (first[prompt].Key != second[prompt].Key || first[prompt].Typed != second[prompt].Typed
+                    || !first[prompt].Chosen.SequenceEqual(second[prompt].Chosen)) return false;
+            }
+            return true;
+        }
 
         /// <summary>The answers to send, one per prompt, in the prompts' order; only when <see cref="Problem"/> is null.</summary>
         public List<QuestionAnswer> Build()

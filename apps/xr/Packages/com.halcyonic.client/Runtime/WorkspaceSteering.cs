@@ -73,7 +73,7 @@ namespace Halcyonic.Client
         private QuestionDraft? armedDraft;
 
         /// <summary>The answers as they stood when Send answer armed its confirmation, which Yes sends only unchanged.</summary>
-        private string? armedAnswers;
+        private IReadOnlyList<(string Key, string[] Chosen, string? Typed)>? armedAnswers;
         private int shownPart;
 
         public WorkspaceSteering(CommandFactory commands, Func<DateTimeOffset>? now = null, TimeSpan? confirmationWindow = null)
@@ -217,12 +217,14 @@ namespace Halcyonic.Client
             if (lapse != null) return SteeringOutcome.Explain(lapse);
             if (action == WorkspaceAction.Answer)
             {
-                if (draft == null || draft.Problem != null || !draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
+                if (draft == null || !draft.Answers(workspace.Execution!.ExecutionId, workspace.QuestionToAnswer))
                 {
                     return SteeringOutcome.Explain(QuestionChanged);
                 }
-                // What Yes was asked for, never answers changed since, as by words heard or typed after.
-                if (draft.AnswersNow != answers) return SteeringOutcome.Explain(WorkspaceText.AnswerChanged);
+                // What Yes was asked for, never answers changed since, as by words heard or typed after or a
+                // choice cleared, judged while the draft is still the question's, before anything else.
+                if (!QuestionDraft.SameAnswers(draft.AnswersNow, answers)) return SteeringOutcome.Explain(WorkspaceText.AnswerChanged);
+                if (draft.Problem != null) return SteeringOutcome.Explain(QuestionChanged);
                 return SteeringOutcome.Send(commands.AnswerQuestion(draft.ExecutionId, draft.QuestionId, draft.Build()));
             }
             return SteeringOutcome.Send(Build(action, workspace.Execution!.ExecutionId, approvalId, instruction));
