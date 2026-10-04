@@ -155,8 +155,9 @@ namespace Halcyonic.Client
                     // A client's name is not a person's, so it is not shown as one; a command without plain words is left out.
                     return Verb(accepted.Payload.Command) is string asked ? Entry(ActivityKind.Command, "Asked to " + asked) : null;
                 case CommandRejectedEvent rejected:
-                    return Entry(ActivityKind.Command, (Verb(rejected.Payload.Command) is string refused ? "Refused to " + refused : "A request was refused")
-                        + ": " + rejected.Payload.Rejection.Message);
+                    // Why, by the refusal's code: its message is the control plane's own, for developers.
+                    return Entry(ActivityKind.Command, WorkspaceText.Couldnt(Verb(rejected.Payload.Command) is string refused ? "Couldn't " + refused : "Your computer refused a request",
+                        WorkspaceText.WhyRefused(rejected.Payload.Rejection.Code)));
                 case CommandFailedEvent commandFailed:
                     // The failure's message is the agent app's or the control plane's own: what failed, and
                     // whether it may have happened anyway, are what a person can act on.

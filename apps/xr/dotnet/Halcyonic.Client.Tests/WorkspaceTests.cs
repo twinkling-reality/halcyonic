@@ -88,7 +88,8 @@ public class ActivityLogTests
         // The agent app's own reason for losing the session is a diagnostic, never shown.
         Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Is.EqualTo("Your computer lost touch with the agent app."));
         var refactor = log.For(ExecutionOf(events, "Refactor the session store")).Select(entry => entry.Text).ToList();
-        Assert.That(refactor.Any(text => text.StartsWith("Refused to send an instruction: ", StringComparison.Ordinal)), Is.True);
+        Assert.That(refactor, Does.Contain("Couldn't send an instruction: its agent app can't do that."), "by the refusal's code, never its message");
+        Assert.That(refactor, Has.None.Contains("instruct_while_running").And.None.Contains("Runtime mock"));
         Assert.That(refactor[^1], Is.EqualTo("Round stopped"));
         Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Denied"));
     }
@@ -233,7 +234,8 @@ public class WorkspacePresenterTests
         };
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Accepted)).Text, Is.EqualTo("Sent. Waiting for it to stop…"));
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Completed)).Text, Is.EqualTo("Confirmed: stopped."));
-        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Couldn't do that: Nothing is running."));
+        Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Rejected)).Text, Is.EqualTo("Couldn't do that: it can't take that right now. See what it's doing, then try again."),
+            "by the refusal's code, never the control plane's message");
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
             Is.EqualTo("Not sure it happened. Check its activity before you try again."));
 

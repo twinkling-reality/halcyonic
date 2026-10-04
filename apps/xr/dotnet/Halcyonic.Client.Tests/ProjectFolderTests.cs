@@ -178,7 +178,7 @@ public class FolderRefusalTests
         var step = sequence.StoppedAt!;
         Assert.That(step.Refusal, Is.EqualTo(RejectionCode.LocationRequired));
         Assert.That(EntryText.AboutFolder(step), Is.True);
-        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: This project has no folder on your computer yet. Choose where its files live, then try again."),
+        Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: this project has no folder on your computer yet. Choose where its files live, then try again."),
             "the next action comes from the code, not the message");
 
         var bind = sequence.Retry(Samples.Reviewed(sequence, folder: Folder("recipes")), folder: Folder("recipes"));
@@ -202,7 +202,7 @@ public class FolderRefusalTests
     }
 
     [Test]
-    public void EveryFolderCodeHasANextActionAndOthersShowTheirReasonPlainly()
+    public void EveryFolderCodeHasANextActionAndOthersAreSaidByTheirCodeNeverTheirMessage()
     {
         foreach (var code in new[] { RejectionCode.LocationRequired, RejectionCode.LocationMissing, RejectionCode.LocationNotAllowed, RejectionCode.LocationExists })
         {
@@ -216,7 +216,7 @@ public class FolderRefusalTests
         var sequence = new BuildSequence(Draft("p1"), Commands, null);
         var workstream = sequence.Begin(Samples.Reviewed(sequence));
         sequence.Advance(With(Refused(workstream, RejectionCode.InvalidState, "Not now‮.")));
-        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Couldn't do that: Not now‹U+202E›."));
+        Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Is.EqualTo("Couldn't do that: it can't take that right now. See what it's doing, then try again."));
         Assert.That(EntryText.AboutFolder(sequence.StoppedAt!), Is.False);
     }
 

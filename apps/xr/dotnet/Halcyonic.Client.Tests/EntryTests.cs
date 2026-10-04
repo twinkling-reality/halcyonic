@@ -489,7 +489,8 @@ public class BuildSequenceTests
         };
         Assert.That(sequence.Advance(With(refused)), Is.Null);
         Assert.That(sequence.Stopped, Is.True);
-        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that: The runtime needs a working directory."));
+        Assert.That(EntryText.StepStatus(sequence.Steps[1]), Is.EqualTo("Couldn't do that: its agent app didn't accept those settings. Choose them again."),
+            "by the refusal's code, never the control plane's message");
         Assert.That(sequence.CanRetry, Is.True, "a refused command cannot have run");
         var again = sequence.Retry(Samples.Reviewed(sequence));
         Assert.That(again, Is.InstanceOf<ExecutionStartCommand>());

@@ -285,7 +285,7 @@ namespace Halcyonic.Client
         public const string AddItAgain = "Add the task again in Projects to try again.";
 
         /// <summary>A state's words before a cause in a sentence of its own: "Couldn't start: this project has no folder…".</summary>
-        private static string Lead(string state, string why) => state + ": " + char.ToLowerInvariant(why[0]) + why.Substring(1);
+        internal static string Lead(string state, string why) => state + ": " + char.ToLowerInvariant(why[0]) + why.Substring(1);
 
         /// <summary>The state's word, the same on the badge, in the peek, the workspace and every list.</summary>
         public static string WordOf(WorkState state) => state switch

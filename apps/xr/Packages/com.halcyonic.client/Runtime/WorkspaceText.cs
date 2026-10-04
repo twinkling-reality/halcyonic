@@ -293,6 +293,41 @@ namespace Halcyonic.Client
         /// <summary>A confirmation dropped because focus went to another window.</summary>
         public const string ConfirmAfresh = "You went to another window, so nothing was sent. Press it again to confirm.";
 
+        /// <summary>
+        /// Why your computer refused a command, from its code alone, with the way on; null where the code
+        /// says nothing more a person can act on. Never the refusal's message: the control plane writes it
+        /// for developers, in its own terms ("An answer chooses the same option twice"). A refusal over a
+        /// folder is said as <see cref="EntryText.FolderProblem"/> says it; the demonstration's refusal,
+        /// in Halcyonic's own words, is shown as written by whoever shows it.
+        /// </summary>
+        public static string? WhyRefused(RejectionCode? code) => code switch
+        {
+            RejectionCode.ProjectNotFound => "This project isn't on " + HostText.Your + " any more. Choose another in Projects.",
+            RejectionCode.WorkstreamNotFound => "This task isn't on " + HostText.Your + " any more.",
+            RejectionCode.ExecutionNotFound => "This work isn't on " + HostText.Your + " any more.",
+            RejectionCode.RuntimeNotFound => "Its agent app isn't on " + HostText.Your + " now. Set it up there, then try again.",
+            RejectionCode.ApprovalNotFound => "It no longer waits for that decision. See what it's doing now.",
+            RejectionCode.QuestionNotFound => "It's no longer waiting for this answer. See what it's doing now.",
+            RejectionCode.InvalidAnswer => "It couldn't take that answer. Read the question again, then answer it.",
+            RejectionCode.ModelRequired => "Its agent app needs a model. Choose one, then try again.",
+            RejectionCode.CapabilityUnsupported => "Its agent app can't do that.",
+            RejectionCode.InvalidState => "It can't take that right now. See what it's doing, then try again.",
+            RejectionCode.InvalidRuntimeOptions => "Its agent app didn't accept those settings. Choose them again.",
+            RejectionCode.LocationRequired or RejectionCode.LocationMissing or RejectionCode.LocationNotAllowed or RejectionCode.LocationExists
+                => EntryText.FolderProblem(code, null),
+            RejectionCode.DeviceRevoked => "This headset is no longer paired with " + HostText.Your + ". Pair it again in Settings.",
+            _ => null,
+        };
+
+        /// <summary>Said of a command that failed with no effect and no cause a person can act on.</summary>
+        public const string NothingChanged = "Nothing changed. Try again.";
+
+        /// <summary>
+        /// "{lead}: {why}", or <paramref name="lead"/> alone, ended, where there is no why: a refusal or a
+        /// failure as a person reads it, never its message.
+        /// </summary>
+        public static string Couldnt(string lead, string? why) => why == null ? lead + "." : StateLanguage.Lead(lead, why);
+
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
         public const string RequestNotRead = "Nothing was sent: read the whole request before approving it.";
 
