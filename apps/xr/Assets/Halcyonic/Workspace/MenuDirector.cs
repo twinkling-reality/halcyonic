@@ -510,6 +510,8 @@ namespace Halcyonic.XR.Workspace
                 stage.SurfaceHeight is float surface ? eyes.y - surface : (float?)null, MenuPlane.DragField,
                 offset => plane.Allows(MenuDrag.Turned(plane.Placed, offset)), plane.StageYaw);
             navigator.Moved();
+            // A press under way as the plane starts to move ends with it.
+            plane.UnsettleShown();
         }
 
         /// <summary>The held point moved: the plane follows where its rules allow, every part at once.</summary>
@@ -541,6 +543,8 @@ namespace Halcyonic.XR.Workspace
             if (drag == null) return;
             drag = null;
             dirty = true;
+            // What was pressed under the moving plane is no press, nor a hold, as it settles again.
+            plane.UnsettleShown();
         }
 
         /// <summary>A direction's yaw to the right and elevation up, in degrees.</summary>

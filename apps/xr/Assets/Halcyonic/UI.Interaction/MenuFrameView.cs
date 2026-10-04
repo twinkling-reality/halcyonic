@@ -325,8 +325,12 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public void Unsettle()
         {
+            Unsettles++;
             foreach (var button in GetComponentsInChildren<GlazeButton>()) button.Unsettle();
         }
+
+        /// <summary>How many times its buttons were made to wait to settle again, for the editor's renders.</summary>
+        public int Unsettles { get; private set; }
 
         private void Begin(float columnDegrees, float subject, bool pillRoom)
         {

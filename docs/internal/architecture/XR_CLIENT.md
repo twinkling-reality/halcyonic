@@ -425,7 +425,10 @@ the same definition names, as the JSON Schema document:
   side panel opening, a taller subject or larger text, scaled back toward the placement a tenth at
   a time, else none (`MenuDrag.Kept`, `MenuPlane.Allows`, which judges the light line from the
   geometry alone), and the menu stands beside the file, or a side panel beside its frame, only where
-  the two fit where the plane was dragged; with none of it kept, Settings says "Where it stands".
+  the two fit where the plane will stand, the layout decided again at the part of the drag kept; with
+  none of it kept, Settings says "Where it stands". A re-lay that moves a column, a drag's start and
+  its end each make that column's prompts wait to settle again, ending any press under way, so a
+  prompt pressed under a moving plane, Hold to talk among them, takes nothing.
   A step is taken only where the plane stays inside the measured field, its centre in that field as
   seen with the head turned to the stage's centre (`MenuDrag.WithinReach`), clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against

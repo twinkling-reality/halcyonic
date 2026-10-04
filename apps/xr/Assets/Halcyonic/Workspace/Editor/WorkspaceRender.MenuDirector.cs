@@ -661,12 +661,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     director.DrawNow();
                     var dragged = plane.Moved;
                     if (dragged == default) Debug.Log("Halcyonic: workspace render: " + name + " takes no drag " + way + " at the standard text.");
+                    var waited = subject.Unsettles;
                     textAt(Comfort.LargerTextScale);
                     director.Navigator.Renew();
                     director.DrawNow();
                     if (dragged != default && !plane.Allows(MenuDrag.Turned(plane.Placed, dragged)))
                     {
                         keptLessAtLarger++;
+                        // Laid anew where it keeps less of the drag, the file moved: its prompts wait to settle again.
+                        if (subject.Unsettles == waited) failures.Add(name + ": laid anew keeping less of its drag " + way + ", the file moved and its prompts took presses at once.");
                         Debug.Log("Halcyonic: workspace render: " + name + " keeps (" + GlazeChecks.Degrees(plane.Moved.Yaw) + ", " + GlazeChecks.Degrees(plane.Moved.Elevation)
                             + ") of a (" + GlazeChecks.Degrees(dragged.Yaw) + ", " + GlazeChecks.Degrees(dragged.Elevation) + ") degree drag " + way + " at the larger text.");
                     }
@@ -714,6 +717,22 @@ namespace Halcyonic.XR.Workspace.Editor
             if (director.Dragging) failures.Add(name + ": pressed while a confirmation stood, its hold dragged the plane once it went.");
             director.LetGoForRender();
             director.DrawNow();
+
+            // Hold to talk pressed under the moving plane: let go, its hold ends with the drag, so no voice starts after.
+            var talking = subject.Targets.FirstOrDefault(button => button.Holds);
+            if (talking == null) failures.Add(name + ": the file offers no held prompt to press under a drag.");
+            else
+            {
+                // Pressed just before, its press ends as the plane starts to move.
+                talking.HoldPressForRender();
+                director.HoldSubjectForRender(subject.Subject.position);
+                if (talking.PressUnderWay) failures.Add(name + ": Hold to talk pressed as the drag began was still pressed while the plane moved.");
+                talking.HoldPressForRender();
+                director.DragSubjectForRender(Turned(subject.Subject.position, 1f, 0f));
+                director.LetGoForRender();
+                director.DrawNow();
+                if (talking.PressUnderWay) failures.Add(name + ": Hold to talk pressed under a drag was still pressed after the plane was let go, so its hold could start the voice.");
+            }
 
             // Pressed where a drag may start, then a confirmation standing by the time the hold matures: it drags nothing.
             director.PressSubjectForRender();

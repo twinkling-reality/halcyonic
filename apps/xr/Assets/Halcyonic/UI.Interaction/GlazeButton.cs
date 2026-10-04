@@ -488,9 +488,23 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// It takes no press until it settles again, as a new action: so a press under way as its view
-        /// slides back onto the plane, the same words as before it stepped aside, is not one of it.
+        /// slides back onto the plane, the same words as before it stepped aside, or as the plane moves
+        /// under the hand, is not one of it, and ends, a hold begun with it too.
         /// </summary>
-        public void Unsettle() => shownAt = Time.unscaledTime;
+        public void Unsettle()
+        {
+            shownAt = Time.unscaledTime;
+            if (pressedAt < 0f) return;
+            var started = holding;
+            EndPress();
+            if (started) HoldEnded?.Invoke(false);
+        }
+
+        /// <summary>For the editor's renders, which have no hands: a held prompt pressed now, its hold under way.</summary>
+        public void HoldPressForRender() => pressedAt = Time.unscaledTime;
+
+        /// <summary>A press on it is under way, for the editor's renders.</summary>
+        public bool PressUnderWay => pressedAt >= 0f;
 
         /// <summary>Whether what it asked for is done, as the runtime confirmed: shown in the success colours.</summary>
         public bool Done
