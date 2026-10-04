@@ -295,3 +295,78 @@ The owner wore the headset at their desk.
 - **Still open:** the rest of the journey (fixed questions, Open now while creating, Move and Reset
   position, the system menu), legibility and comfort, a local model through the headset, and
   recovery after the connection loss.
+
+## Sixth session: the menu on a headset, partly (2026-10-04, afternoon)
+
+- **Environment:** the same Quest 3 and OS build, over USB. A development APK built from main
+  `ee1acdb9` (114,169,715 bytes): the menu, files and side panels on one plane
+  ([ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)).
+  The control plane ran main's server code (unchanged since `f43d506c`) with the owner's journal
+  (6 projects and 11 tasks, 4 of them `unknown` from earlier sessions), one project root, OpenCode
+  2.0.18 (the pinned binary), voice and the companion. Ollama 0.34.4 had `qwen3.6:35b-a3b-nvfp4`
+  loaded. Two practice tasks waited (`pnpm demo --scenario approval_required` and `question_asked`,
+  the question in 2 prompts). The stage stood on the desk in passthrough. The computer was busy with
+  other work (1-minute load 40 to 50, swap nearly full).
+- **The access token before the start:** the old place on shared storage still held an
+  `access-token` (44 bytes, readable by all), beside three crash dumps from 2026-09-30 23:17 (one of
+  467,218 bytes, two empty).
+- **Writing the token with `run-as`:** the runbook's one-step write left `files/access-token.tmp`
+  (44 bytes, mode 600) and no `files/access-token`. The app started without a private token, logged
+  "moved the access token from shared storage into app-private storage", and connected live.
+  - `adb shell run-as com.halcyonic.xr sh -c 'echo A; echo B'`, given as separate words, ran only the
+    first command inside `run-as`: adb joins the words, and the inner quotes are lost.
+  - The same command as one quoted string, `adb shell "run-as com.halcyonic.xr sh -c '...'"`, ran
+    whole.
+  - With `adb exec-in`, a file written by the command's second part appeared only after later adb
+    commands had run, so the command goes on after `adb exec-in` returns.
+  - What worked: `adb exec-in` writing the content to `files/access-token.tmp`, then one quoted
+    `adb shell "run-as ... sh -c 'test -s ... && chmod 600 ... && mv -f ...'"`, giving
+    `files/access-token` at mode 600 and 44 bytes.
+  - `pm clear com.halcyonic.xr`, used for a first visit, also removed the shared copy.
+  - At the end the tokens were removed, and `pnpm quest:check -- --closed` passed.
+- **`pnpm quest:check`:** every line passed, including "connection live: the control plane proved it
+  holds the token, and the upgrade followed on that connection", over `adb reverse` under IL2CPP.
+  The exception was the move line: "the log no longer reaches the app's start". The headset's log
+  held no line from the app's first second, either in the check's own read or in a capture streamed
+  from before the start; its first line was `connection Synchronizing`.
+- **Frame rate:** VrApi's compositor reported 72 fps throughout, with no torn or stale frames, CPU
+  level 4 and GPU level 2. Per second: 1108 at 73/72, 669 at 72/72, 268 at 71/72, 110 at 70/72 and 2
+  at 69/72.
+- **Device measures never ran:** the app logged no `device first frame`, `device view field` or
+  `device frames` line in 25 minutes. `HalcyonicBootstrap` adds `DeviceMeasures` only to a scene
+  without a `CharacterStage`, and `Stage.unity` carries one but not `DeviceMeasures`. `ViewField.Current`,
+  which the placement rules keep the plane inside, is set only by `DeviceMeasures`, so on a headset
+  it has never been set.
+- **Stage labels:** every state badge and mark on a character's label drew its pill sized for its
+  icon alone, the words running out of it with the icon over their first letters (Can't tell yet,
+  Checks failed, Waiting for you, Practice). A file's own state pill drew correctly.
+  - The cause, found in the code: characters that arrive before the stage is placed are built under
+    the inactive arc, where TextMeshPro has not woken and measures 0.
+  - The badge's and mark's caches never measured again.
+  - The editor renders build every label under an active parent, so they never met it.
+- **A file over the stage:** an open file covered the stage's line "Connected to your computer".
+- **An old task's Activity** showed the adapter's diagnostic to the person, in red: "Can't tell what
+  it's doing: After the OpenCode event stream reconnected, the session could not be read (GET
+  /api/session/...)".
+- **New project:**
+  - The owner opened it and used Hold to talk: one clip, heard and written down in about 2 s.
+  - The headset then logged two presses on prompts that weren't available.
+  - Start building was never sent: no `project.create` reached the control plane.
+  - An old `unknown` task, named like the new project, read as if the new project had failed.
+- **Leaning back:** everything disappeared when the owner leaned back, and the app logged no focus
+  change. Likely the stationary boundary, which shows passthrough in place of the app when the head
+  leaves it. Not verified.
+- **Owner feedback:**
+  - Moving the panel: there is no way to move it out of the way to see the computer's monitor or the
+    room (dragging is not in this build).
+  - Multitasking: no clear way to multitask, or to reach the computer's screen in the headset with
+    the menu open.
+  - Too much at once: too much shows at once for a newcomer, and it is hard to control and
+    understand.
+  - Motion: nothing moves. Holding to talk changed no colour or icon, and loading showed no
+    animation or shimmer.
+  - Priorities for the product: easy to leave, easy to change, ambient by default, and other windows
+    open beside it for multitasking.
+- **Not done:** the comfort walk (HEADSET_SESSION.md, item 4), the judge's path on the release
+  build, beside a window, the glance, the token and proof checks past the first connection, sound,
+  and the agent's approval and question on the headset.
