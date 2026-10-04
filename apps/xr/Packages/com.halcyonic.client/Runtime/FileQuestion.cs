@@ -518,6 +518,24 @@ namespace Halcyonic.Client
             }
         }
 
+        /// <summary>
+        /// The text size changed: what was read was read at the other size, so every question's parts, every
+        /// answer read in its side panel and the page of answers are read again at the new size, and Send
+        /// answer waits until they are (<see cref="QuestionDraft.ReadAgain"/>). A question below a request
+        /// changing is not this: there, what was read whole stays read.
+        /// </summary>
+        public void ReadAgainAtNewSize()
+        {
+            draft?.ReadAgain();
+            partsDrawn.Clear();
+            answersRead.Clear();
+            typedRead.Clear();
+            sidePartsDrawn.Clear();
+            reviewDrawn.Clear();
+            drawnAt = null;
+            sideDrawnAt = null;
+        }
+
         /// <summary>The footer's Next page while the side panel's answer is in parts: its next part, or from the last the first.</summary>
         public void NextSidePart(DateTimeOffset now)
         {

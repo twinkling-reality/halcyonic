@@ -166,6 +166,20 @@ namespace Halcyonic.Client
             Question.Show(draft, measured, page, side);
 
         private int armingRead = -1;
+
+        /// <summary>The text size changed since the request was last measured: it is read again whatever was read (<see cref="ReadAgainAtNewSize"/>).</summary>
+        private bool afresh;
+
+        /// <summary>
+        /// The text size changed, so the page is laid out anew at the new size: the request's parts and the
+        /// question's are read again, a request read whole included, and Yes and Send answer wait until every
+        /// part has been drawn at that size, armed or not.
+        /// </summary>
+        public void ReadAgainAtNewSize()
+        {
+            afresh = true;
+            Question.ReadAgainAtNewSize();
+        }
         private readonly HashSet<int> drawn = new HashSet<int>();
         private DateTimeOffset? partDrawnAt;
 
@@ -194,18 +208,21 @@ namespace Halcyonic.Client
         /// The layout measured <paramref name="request"/>, the request the armed approval or denial
         /// answers: it wraps to <paramref name="rows"/> rows, and a part holds
         /// <paramref name="partRows"/>. Measured again the same, nothing changes. Measured differently
-        /// under the same confirmation, as at another text size: a request drawn whole stays read and
-        /// shows its last part; one drawn only in part is read again from its first, as its parts no
-        /// longer map to what was drawn (<see cref="WorkspaceSteering.ReadAgain"/>). Measured for
-        /// another confirmation or another text, it starts afresh.
+        /// under the same confirmation, as when the question below it changes: a request drawn whole stays
+        /// read and shows its last part; one drawn only in part is read again from its first, as its parts
+        /// no longer map to what was drawn (<see cref="WorkspaceSteering.ReadAgain"/>). After the text size
+        /// changed (<see cref="ReadAgainAtNewSize"/>) it is read again from its first part, drawn whole or
+        /// not. Measured for another confirmation or another text, it starts afresh.
         /// </summary>
         public void ReadRequest(string request, int rows, int partRows, WorkspaceSteering steering)
         {
             rows = Math.Max(1, rows);
             partRows = Math.Max(1, partRows);
             var sameArming = steering.Armings == armingRead;
-            if (sameArming && request == RequestText && rows == RequestRows && partRows == RequestPartRows) return;
-            var keep = sameArming && request == RequestText && RequestDrawnWhole;
+            if (!afresh && sameArming && request == RequestText && rows == RequestRows && partRows == RequestPartRows) return;
+            // At another text size nothing read stays read: the parts drawn were drawn at the other size.
+            var keep = !afresh && sameArming && request == RequestText && RequestDrawnWhole;
+            afresh = false;
             if (sameArming && !keep) steering.ReadAgain();
             armingRead = steering.Armings;
             RequestText = request;

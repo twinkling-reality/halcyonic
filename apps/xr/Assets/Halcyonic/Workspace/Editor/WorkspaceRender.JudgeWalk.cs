@@ -162,6 +162,48 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A part's or a page's row turns nothing until what it shows has stood a moment.
                 void Settle() => Thread.Sleep(TimeSpan.FromSeconds(0.45));
 
+                // The text size changed in Settings with the file open, as the owner's comfort walk does, then back
+                // on Tasks beside the file: the file's page and Tasks' rows are read again at the new size, so the
+                // plane stays inside the field. The render keeps drawing at its own size, so it is put back after,
+                // and the menu opened again, its places made afresh, as the walk goes on.
+                void ChangeTextSize(string step, Action atNewSize)
+                {
+                    var pass = GlazeText.Scale;
+                    try
+                    {
+                        Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Settings));
+                        Press(MenuColumn.Menu, SettingsColumn.OpenSetting, "text-size");
+                        var change = navigator.Frames(TasksColumn.Bar(navigator.Place, state)).Menu?.Footer[PromptSlot.FarRight];
+                        var inPlace = director.Plane.Shown.Count == 1 && director.Plane.Shown[0].Kind == MenuColumn.Side ? director.Plane.Shown[0].View.Side : null;
+                        var changed = change != null && (inPlace != null
+                            ? navigator.Act(MenuColumn.Side, change.Id, null, null, inPlace)
+                            : navigator.Act(MenuColumn.Menu, change.Id, null, Shown(MenuColumn.Menu), null));
+                        if (!changed) failures.Add(name + ": the text size's change took no press.");
+                        // What the app's comfort controls do with the change: reading text at its new size.
+                        GlazeText.SetScale(comfort.TextScale);
+                        director.DrawNow();
+                        CloseSide();
+                        Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks));
+                        navigator.Tick();
+                        director.DrawNow();
+                        if (navigator.Place != MenuPlace.Tasks || Shown(MenuColumn.File) == null)
+                        {
+                            failures.Add(name + ": after the text size changed, the menu stands on " + navigator.Place + (Shown(MenuColumn.File) == null ? " with no file shown" : "") + ", not Tasks beside the file.");
+                        }
+                        Shot(step + " text " + (comfort.Text == TextSize.Larger ? "larger" : "standard"));
+                        atNewSize();
+                    }
+                    finally
+                    {
+                        comfort.Text = pass > 1f ? TextSize.Larger : TextSize.Standard;
+                        GlazeText.SetScale(pass);
+                    }
+                    navigator.Tick();
+                    director.CloseMenu();
+                    director.Open(MenuPlace.Tasks);
+                    director.DrawNow();
+                }
+
                 // The closed bar: one line saying what waits.
                 director.DrawNow();
                 if (director.Plane.Bar == null) failures.Add(name + ": the judge walk starts with no closed bar.");
@@ -203,6 +245,17 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(MenuColumn.File, FileScreens.Approve);
                 if (Shown(MenuColumn.File)?.Footer[PromptSlot.Free] != null && file!.Screen.RequestParts > 1) failures.Add(name + ": Yes shows on the request's first part.");
                 Shot("6 request part 1");
+                // Text a step larger, or back, with the request half read: it is read again from its first part, no Yes until it is.
+                Settle();
+                Press(MenuColumn.File, FileScreens.NextPart, FileScreens.RequestKey);
+                ChangeTextSize("6", () =>
+                {
+                    if (file!.Screen.RequestPart != 0 || Shown(MenuColumn.File)?.Footer[PromptSlot.Free] != null)
+                    {
+                        failures.Add(name + ": at the new text size, the request half read shows its part " + (file.Screen.RequestPart + 1) + " or a Yes, not its first part to read again.");
+                    }
+                });
+                if (Shown(MenuColumn.File)?.Footer[PromptSlot.Free] != null || file!.Screen.RequestPart != 0) failures.Add(name + ": back at the walk's text size, the request is not read again from its first part.");
                 for (var part = 1; part < 12 && Shown(MenuColumn.File)?.Footer[PromptSlot.Free] == null; part++)
                 {
                     Settle();

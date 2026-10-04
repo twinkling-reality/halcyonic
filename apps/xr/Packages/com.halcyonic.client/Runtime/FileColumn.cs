@@ -34,6 +34,7 @@ namespace Halcyonic.Client
         private readonly IntelligenceFeed<EvaluationResponse> evaluation;
         private readonly Func<IIntelligenceReader?> reader;
         private PageBudget? budget;
+        private TextSize budgetAt;
         private QuestionDraft? draft;
         private QuestionDraft? measuredFor;
         private TextSize measuredAt;
@@ -350,7 +351,8 @@ namespace Halcyonic.Client
             }
             if (Screen.Section == FileSection.Checks) evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, clock);
             var read = understanding.Poll() | evaluation.Poll();
-            if (read || host.Now >= nextRefresh) Rebuild();
+            // A text size changed in Settings packs the page again at once, so it never stands taller than fits.
+            if (read || host.Now >= nextRefresh || (budget != null && budgetAt != host.TextSize)) Rebuild();
         }
 
         public void FocusLeft()
@@ -393,7 +395,13 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            budget ??= Budget(presentation);
+            if (budget == null || budgetAt != host.TextSize)
+            {
+                // At another text size, what was read was read at the other: the request and the question are read again.
+                if (budget != null) Screen.ReadAgainAtNewSize();
+                budget = Budget(presentation);
+                budgetAt = host.TextSize;
+            }
             if (draft != null) ReadQuestion(draft, budget);
             if (Steering.Request(presentation) is string request)
             {
@@ -421,8 +429,9 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// The page's room on this stage, read once when the file opens, so it packs once: the file's
-        /// alone (ADR 0026), the menu stepping aside where the two together would not fit.
+        /// The page's room on this stage, read when the file opens and again only when the text size
+        /// changes, so it packs once a size, never as the head moves: the file's alone (ADR 0026), the
+        /// menu stepping aside where the two together would not fit.
         /// </summary>
         private PageBudget Budget(WorkspacePresentation presentation)
         {

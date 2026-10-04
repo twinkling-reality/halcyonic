@@ -136,6 +136,15 @@ public class TasksColumnTests
         Assert.That(new TasksColumn(new FakeMenuHost { State = StateWith(tasks), TextSize = TextSize.Larger }).Rows, Is.EqualTo(3), "never more than a list's page");
         Assert.That(new TasksColumn(new FakeMenuHost { State = StateWith(tasks), Height = 0f }).Rows, Is.EqualTo(1), "at least one row");
 
+        // Text a step larger in Settings: the rows are read again, never more than a page holds at that size.
+        var growing = new FakeMenuHost { State = StateWith(tasks) };
+        var column = new TasksColumn(growing);
+        Assert.That(column.Frame!.Lines, Has.Count.EqualTo(4));
+        growing.TextSize = TextSize.Larger;
+        Assert.That((column.Rows, column.Frame!.Lines.Count), Is.EqualTo((3, 3)), "read again at the larger text");
+        growing.TextSize = TextSize.Standard;
+        Assert.That(column.Rows, Is.EqualTo(4), "and again back at the standard");
+
         // Paging: Next page, then First page on the last, which goes back.
         Assert.That(three.Frame!.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Next page"));
         three.Act(Footer.NextPage, null);

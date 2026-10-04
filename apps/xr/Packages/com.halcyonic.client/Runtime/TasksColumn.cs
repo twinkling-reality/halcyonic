@@ -21,7 +21,8 @@ namespace Halcyonic.Client
         public const string OpenTask = "tasks-open-task";
 
         private readonly IMenuHost host;
-        private readonly int rows;
+        private int rows;
+        private TextSize rowsAt;
         private int page;
         private string? showing;
         private long position = -1;
@@ -29,18 +30,31 @@ namespace Halcyonic.Client
         public TasksColumn(IMenuHost host)
         {
             this.host = host;
-            // As many rows as fit beside a file on this stage, at most a list's page.
+            Measure();
+        }
+
+        /// <summary>As many rows as fit beside a file on this stage at the text size now, at most a list's page.</summary>
+        private void Measure()
+        {
             var height = host.PageHeight(1, besideMenu: true);
             var most = host.PageRows(sourceLine: false);
             rows = Math.Max(1, Enumerable.Range(1, most).LastOrDefault(count => MenuPage.Rows(count) <= height));
+            rowsAt = host.TextSize;
         }
 
         public event Action? Changed;
 
         public event Action? Closed;
 
-        /// <summary>The rows a page holds on this stage.</summary>
-        public int Rows => rows;
+        /// <summary>The rows a page holds on this stage, read again when the text size changes, so a page never stands taller than fits.</summary>
+        public int Rows
+        {
+            get
+            {
+                if (rowsAt != host.TextSize) Measure();
+                return rows;
+            }
+        }
 
         /// <summary>
         /// The menu's bar as the session stands: <paramref name="chosen"/> lit, the amber dot on Tasks while
@@ -57,6 +71,7 @@ namespace Halcyonic.Client
             get
             {
                 var tasks = Tasks();
+                var rows = Rows;
                 var pages = Math.Max(1, (tasks.Count + rows - 1) / rows);
                 if (page >= pages) page = 0;
                 var waiting = tasks.Count(task => CharacterLineup.TierOf(task) == LineupTier.NeedsYou);
