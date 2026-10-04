@@ -292,6 +292,17 @@ namespace Halcyonic.Client
             return WorkspaceText.AnswerChanged;
         }
 
+        /// <summary>
+        /// The text size changed, so the person's answers are read again at the new size: an answer armed to
+        /// send is cancelled, its Yes having been for what was read at the other. What to say, or null.
+        /// </summary>
+        public string? TextSizeChanged()
+        {
+            if (Armed != WorkspaceAction.Answer) return null;
+            Cancel();
+            return WorkspaceText.TextSizeChanged;
+        }
+
         /// <summary>Drops a pending confirmation or instruction.</summary>
         public void Cancel()
         {

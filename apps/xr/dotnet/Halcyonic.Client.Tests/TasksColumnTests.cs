@@ -141,7 +141,9 @@ public class TasksColumnTests
         var column = new TasksColumn(growing);
         Assert.That(column.Frame!.Lines, Has.Count.EqualTo(4));
         growing.TextSize = TextSize.Larger;
-        Assert.That((column.Rows, column.Frame!.Lines.Count), Is.EqualTo((3, 3)), "read again at the larger text");
+        // The frame first, as the navigator asks for it, never the rows before it.
+        Assert.That(column.Frame!.Lines, Has.Count.EqualTo(3), "read again at the larger text");
+        Assert.That(column.Rows, Is.EqualTo(3));
         growing.TextSize = TextSize.Standard;
         Assert.That(column.Rows, Is.EqualTo(4), "and again back at the standard");
 

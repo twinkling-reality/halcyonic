@@ -67,6 +67,9 @@ namespace Halcyonic.Client
         private int? sideOption;
         private readonly Dictionary<(int Prompt, int Option), HashSet<int>> sidePartsDrawn = new Dictionary<(int Prompt, int Option), HashSet<int>>();
         private DateTimeOffset? sideDrawnAt;
+
+        /// <summary>The text size changed: the next <see cref="Show"/> lays the question out again whatever its room.</summary>
+        private bool relayNext;
         private IReadOnlyList<int> reviewRows = Array.Empty<int>();
         private IReadOnlyList<string> reviewWords = Array.Empty<string>();
         private List<List<int>> reviewPages = new List<List<int>> { new List<int>() };
@@ -205,7 +208,10 @@ namespace Halcyonic.Client
                 }
             }
             var another = !ReferenceEquals(answering, draft);
-            var relaid = !another && (!Same(page, pageBudget) || !Same(side, sideBudget) || !SameMeasures(measures, measured));
+            // After a text size change it is laid out again even where the room came out the same, so what is
+            // read again shows from its first part, never left unread with no row leading back to it.
+            var relaid = !another && (relayNext || !Same(page, pageBudget) || !Same(side, sideBudget) || !SameMeasures(measures, measured));
+            relayNext = false;
             if (another)
             {
                 draft = answering;
@@ -430,6 +436,14 @@ namespace Halcyonic.Client
         {
             if (draft == null || !Answers.Contains(option)) return;
             var asked = draft.Prompts[Prompt];
+            // Chosen and cut but not read whole, as after the text size changed, its panel closed: its row
+            // opens the panel again at the part to read next, as the typed answer's does, rather than unchoosing it.
+            if (draft.IsChosen(Prompt, asked.Options[option].Label) && AnswerCut(Prompt, option) && sideOption != option
+                && !(answersRead.TryGetValue(Prompt, out var read) && read.Contains(option)))
+            {
+                OpenAtUnread(option);
+                return;
+            }
             draft.Choose(Prompt, asked.Options[option].Label);
             if (draft.IsChosen(Prompt, asked.Options[option].Label) && AnswerCut(Prompt, option)) OpenSide(option);
             else if (sideOption is int open && !SideStillChosen(open)) sideOption = null;
@@ -526,6 +540,7 @@ namespace Halcyonic.Client
         /// </summary>
         public void ReadAgainAtNewSize()
         {
+            relayNext = true;
             draft?.ReadAgain();
             partsDrawn.Clear();
             answersRead.Clear();

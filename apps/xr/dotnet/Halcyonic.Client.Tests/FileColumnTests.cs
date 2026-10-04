@@ -55,7 +55,10 @@ internal sealed class FileMenuHost : IMenuHost
 
     public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
-    public float PageHeight(int subjectRows, bool besideMenu) => MenuPage.Height(TextSize, subjectRows);
+    /// <summary>The page's height for a subject in this many rows, where it is not the stage's at the text size now, as one that comes out the same at both sizes.</summary>
+    public Func<int, float>? Height { get; set; }
+
+    public float PageHeight(int subjectRows, bool besideMenu) => Height?.Invoke(subjectRows) ?? MenuPage.Height(TextSize, subjectRows);
 
     public void OpenFile(string workstreamId)
     {
@@ -273,6 +276,8 @@ public class FileColumnTests
         Assert.That(column.Screen.RequestPart, Is.EqualTo(1));
 
         // Text a step larger, in Settings: at the next tick the page packs again, smaller in its rows.
+        // Laid just now, so only the size change lays the page again at the next tick, the clock unmoved.
+        column.Tick();
         host.TextSize = TextSize.Larger;
         column.Tick();
         Assert.That(column.Screen.RequestPartRows, Is.LessThan(rows), "the page read again at the larger text, its parts fewer rows");
@@ -297,6 +302,8 @@ public class FileColumnTests
         Assert.That((column.Steering.CanConfirm, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo((true, (string?)FileScreens.Yes)));
 
         // Its parts were drawn at the other size: at the new one it is read again from its first, no Yes meanwhile.
+        // Laid just now, so only the size change lays the page again at the next tick, the clock unmoved.
+        column.Tick();
         host.TextSize = TextSize.Larger;
         column.Tick();
         Assert.That((column.Steering.CanConfirm, column.Screen.RequestPart, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((false, 0, (Prompt?)null)));
@@ -323,6 +330,8 @@ public class FileColumnTests
         Assert.That(draft.Problem, Is.Null, "chosen and read, it can be sent");
 
         // Text a step larger: the question was read at the other size, so it is read again from its first part, and Send answer waits.
+        // Laid just now, so only the size change lays the page again at the next tick, the clock unmoved.
+        column.Tick();
         host.TextSize = TextSize.Larger;
         column.Tick();
         Assert.That((draft.WasShownWhole(0), column.Screen.Question.QuestionPart), Is.EqualTo((false, (int?)0)));
@@ -485,6 +494,198 @@ public class FileColumnTests
         string.Join(" ", Enumerable.Range(1, 120).Select(step => what + " " + step));
 
     /// <summary>A file asking <paramref name="prompts"/>, its first answers' page in view.</summary>
+    /// <summary>A file on <paramref name="host"/> asking <paramref name="prompts"/>, under <paramref name="policies"/>, its question read to its answers.</summary>
+    private FileColumn AskingOn(FileMenuHost host, IEnumerable<CommandPolicy>? policies, params QuestionPrompt[] prompts)
+    {
+        var work = new AskingWork(new QuestionView { QuestionId = "question-1", Answerable = true, AskedAt = Samples.Time, Prompts = prompts.ToList() }, policies);
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        for (var step = 0; step < 8 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        return column;
+    }
+
+    /// <summary>The side panel showing read through its every part, each drawn and stood a second.</summary>
+    private static void ReadSide(FileMenuHost host, FileColumn column)
+    {
+        var parts = column.Screen.Question.SideParts;
+        for (var part = 0; part < parts; part++)
+        {
+            column.Drawn(column.Frame!, sidePanel: true);
+            host.Wait(1);
+            column.Tick();
+            if (part < parts - 1) column.Act(Footer.NextPage, null);
+        }
+    }
+
+    private const string CutAnswer = "Lock the account for fifteen minutes, then email its owner a link that unlocks it at once and resets the password";
+
+    [Test]
+    public void AChosenCutAnswerReadInItsPanelIsReadAgainAtANewSizeAndOnePressOfItsRowReopensIt()
+    {
+        var host = new FileMenuHost();
+        var column = AskingOn(host, null, new QuestionPrompt
+        {
+            Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = false,
+            Options = new List<QuestionOption> { new() { Label = CutAnswer }, new() { Label = "1 hour" } },
+        });
+        var draft = column.Screen.Question.Draft!;
+        column.Act(FileScreens.Choose, "0");
+        Assert.That(column.Screen.Question.SideOption, Is.EqualTo(0), "cut, its words open beside the page");
+        ReadSide(host, column);
+        column.Act(SidePanel.Close, null);
+        Draw(host, column);
+        Assert.That(FileScreens.WhySendWaits(column.Screen), Is.Null, "read in its panel, it can be sent");
+
+        column.Tick();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "read at the other size, it is read again");
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent, Is.Empty, "Send answer waits until it is");
+
+        // One press of its row opens its panel again, the answer still chosen.
+        column.Act(FileScreens.Choose, "0");
+        Assert.That((column.Screen.Question.SideOption, draft.IsChosen(0, CutAnswer)), Is.EqualTo(((int?)0, true)));
+        ReadSide(host, column);
+        column.Act(SidePanel.Close, null);
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "read again, it is sent once");
+    }
+
+    [Test]
+    public void ALongTypedAnswerReadInItsPanelIsReadAgainAtANewSize()
+    {
+        var (host, column) = TypedLongAnswer();
+        ReadSide(host, column);
+        column.Act(SidePanel.Close, null);
+        Draw(host, column);
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.True);
+
+        column.Tick();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "read at the other size, it is read again");
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>(), Is.Empty);
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That(column.Screen.Question.SideOption, Is.Not.Null, "its row opens its panel again");
+        ReadSide(host, column);
+        column.Act(SidePanel.Close, null);
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void WhereThePageComesOutTheSameAtTheNewSizeARequestReadWholeIsStillReadAgain()
+    {
+        var host = new FileMenuHost { Height = rows => MenuPage.Height(TextSize.Standard, rows) };
+        var column = ApprovingALongRequest(host);
+        var (parts, rows) = (column.Screen.RequestParts, column.Screen.RequestPartRows);
+        for (var part = 0; part < parts; part++)
+        {
+            Draw(host, column);
+            if (part < parts - 1) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        }
+        Assert.That(column.Steering.CanConfirm, Is.True);
+        column.Tick();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Screen.RequestPartRows, Is.EqualTo(rows), "measured the same at the new size");
+        Assert.That((column.Steering.CanConfirm, column.Screen.RequestPart), Is.EqualTo((false, 0)), "read again from its first part all the same");
+    }
+
+    [Test]
+    public void WhereThePageComesOutTheSameAtTheNewSizeAQuestionReadWholeShowsItsFirstPartToReadAgain()
+    {
+        var host = new FileMenuHost { Height = rows => MenuPage.Height(TextSize.Standard, rows) };
+        var column = AskingOn(host, null, new QuestionPrompt
+        {
+            Key = "q0", Header = "Lockout", Text = string.Join(" ", Enumerable.Range(1, 14).Select(step => "How long should a lockout last after failed sign-in number " + step + "?")),
+            Multiple = false, FreeText = false,
+            Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
+        });
+        var draft = column.Screen.Question.Draft!;
+        Assert.That(draft.WasShownWhole(0), Is.True);
+        column.Act(FileScreens.Choose, "0");
+        column.Tick();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That((draft.WasShownWhole(0), column.Screen.Question.QuestionPart), Is.EqualTo((false, (int?)0)),
+            "unread, and shown from its first part, so a row leads on through it");
+        for (var step = 0; step < 8 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        if (!draft.IsAnswered(0)) column.Act(FileScreens.Choose, "0");
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void BetweenASizeChangeAndTheNextTickAPressAndADrawAreJudgedAtTheNewSize()
+    {
+        var host = new FileMenuHost();
+        var column = ApprovingALongRequest(host);
+        var parts = column.Screen.RequestParts;
+        for (var part = 0; part < parts; part++)
+        {
+            Draw(host, column);
+            if (part < parts - 1) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        }
+        column.Tick();
+        Assert.That(column.Steering.CanConfirm, Is.True);
+
+        // No tick yet: Yes pressed at once is judged against the request as read at the new size.
+        host.TextSize = TextSize.Larger;
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "Yes after a size change, before any tick, sends nothing");
+
+        // And a draw of the frame laid at the other size counts for nothing: the page is laid again instead.
+        var request = ApprovingALongRequest(host = new FileMenuHost());
+        for (var part = 0; part < request.Screen.RequestParts; part++)
+        {
+            Draw(host, request);
+            if (part < request.Screen.RequestParts - 1) request.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        }
+        request.Tick();
+        var before = request.Frame!;
+        host.TextSize = TextSize.Larger;
+        request.Drawn(before, sidePanel: false);
+        Assert.That((request.Frame == before, request.Steering.CanConfirm), Is.EqualTo((false, false)), "laid again at the new size, and read again");
+    }
+
+    [Test]
+    public void AnAnswerArmedToSendIsCancelledWhenTheTextSizeChanges()
+    {
+        var host = new FileMenuHost();
+        var column = AskingOn(host, new[] { new CommandPolicy { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.ReviewRequired } },
+            new QuestionPrompt
+            {
+                Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = false,
+                Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
+            });
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That((column.Steering.Armed, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Answer, (string?)FileScreens.Yes)));
+        column.Tick();
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Steering.Armed, Is.Null, "Yes was for answers read at the other size");
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.TextSizeChanged));
+        Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
     private (FileMenuHost Host, FileColumn Column) Asking(params QuestionPrompt[] prompts)
     {
         var host = new FileMenuHost();

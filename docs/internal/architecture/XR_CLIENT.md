@@ -523,7 +523,16 @@ the same definition names, as the JSON Schema document:
   drawn at the other size (`FileScreen.ReadAgainAtNewSize`): the request, drawn whole or not, and
   every question's parts, its answers read in a side panel and the page of answers are read again
   from the first part, and Yes, Approve's confirmation and Send answer wait until every part has
-  been drawn at the new size, armed or not (`QuestionDraft.ReadAgain`). Should the runtime report the request differently under the same approval, the
+  been drawn at the new size, armed or not (`QuestionDraft.ReadAgain`). The file reads an agent's
+  request and question again because what the person approves or answers is the agent's own words,
+  and at a new size they fall into other parts, so a part counted as read was not seen as it stands
+  now. The question is laid out again even where its room comes out the same, so a question read
+  again always shows from its first part with a row leading on; a chosen cut answer read again opens
+  its side panel from its row, as a typed one does, rather than being unchosen; an answer armed to
+  send is cancelled ("Nothing was sent: the text size changed. Read it again."); and until the file
+  lays its page again, a press is judged and a draw counted only at the new size. New project keeps
+  its own rule, the coordinator's decision of 2026-10-04: what was read whole stays read across a
+  size change unless its words change. Should the runtime report the request differently under the same approval, the
   confirmation lapses (`WorkspaceSteering.ArmedRequest`). Every confirmation that no longer holds is dropped before the
   file is drawn, with why as its notice. Yes sends once, and for an answer only the answers it was
   asked for: words heard or typed that change an answer armed to send cancel its Yes ("Nothing was
