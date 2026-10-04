@@ -183,21 +183,6 @@ namespace Halcyonic.Client
             return new Page(lines, source, Footer.Confirm(before, pressed, yes, CancelConfirm));
         }
 
-        /// <summary>
-        /// The frame is the question's page, so drawing it can count toward reading the question: it
-        /// holds the prompt's question, quoted, or a row only the question's pages have (an answer, the
-        /// person's own, a row on through its parts, or one of the person's answers). An approval shown
-        /// on Waiting meanwhile holds none of these. On the page of the person's answers, past the last
-        /// prompt, there is no prompt to quote: its rows to each question say it is the question's page.
-        /// </summary>
-        public static bool ShowsQuestion(MenuFrame frame, QuestionDraft draft, int prompt)
-        {
-            var text = prompt >= 0 && prompt < draft.Prompts.Count ? "“" + WorkspaceText.OneLine(draft.Prompts[prompt].Text) + "”" : null;
-            return frame.Lines.Any(line => (text != null && line.WordsAreData && line.Words == text)
-                || line.Action == Choose || line.Action == TypeAnswer || line.Action == GoToQuestion
-                || (line.Action == NextPart && line.Key == QuestionKey));
-        }
-
         /// <summary>The agent's question the person reads here, while it is the one the work shows.</summary>
         private static QuestionDraft? Asked(WorkspacePresentation workspace, FileScreen screen)
         {
@@ -349,7 +334,7 @@ namespace Halcyonic.Client
                     new PageLine(text, wordsAreData: true, rows: FileQuestion.QuestionRows),
                     new PageLine(WorkspaceText.CannotAnswer(draft.Question), rows: 2, tone: LineTone.Secondary),
                     new PageLine(WorkspaceText.AgentWaits, tone: LineTone.Secondary),
-                }, source, QuestionFooter(workspace, screen, draft));
+                }, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
             if (question.QuestionPart is int part)
             {
@@ -360,7 +345,7 @@ namespace Halcyonic.Client
                     new PageLine(text, wordsAreData: true, rows: perPart, fromRow: part * perPart),
                     new PageLine(QuestionPartWords(part, parts, question.Pages), action: NextPart, key: QuestionKey),
                 };
-                return new Page(partLines, source, QuestionFooter(workspace, screen, draft));
+                return new Page(partLines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
             }
             var lines = new List<PageLine>();
             // The question heads its answers where it leaves room for one; a long one by its first row.
@@ -405,7 +390,7 @@ namespace Halcyonic.Client
                         .WithNext(Next(question.SidePart, parts));
                 }
             }
-            return new Page(lines, source, footer, side);
+            return new Page(lines, source, footer, side, ofQuestion: true);
         }
 
         /// <summary>An answer's words as its row and its side panel show them: its label, then its description.</summary>
@@ -437,7 +422,7 @@ namespace Halcyonic.Client
             var lines = question.Reviewed.Select(prompt => new PageLine(ReviewWords(draft, prompt), wordsAreData: true,
                 action: GoToQuestion, key: prompt.ToString(CultureInfo.InvariantCulture), rows: question.ReviewShows(prompt), fromRow: 0)).ToList();
             if (question.Pages > 1) lines.Add(new PageLine(YourAnswersWords(question.Page, question.Pages), action: MoreAnswers));
-            return new Page(lines, source, QuestionFooter(workspace, screen, draft));
+            return new Page(lines, source, QuestionFooter(workspace, screen, draft), ofQuestion: true);
         }
 
         /// <summary>The answers about to be sent, a line for each prompt, and the question the confirmation asks.</summary>

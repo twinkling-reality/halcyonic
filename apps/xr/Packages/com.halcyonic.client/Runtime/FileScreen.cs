@@ -153,6 +153,12 @@ namespace Halcyonic.Client
         /// <summary>What was checked, from both sources; null while still being read.</summary>
         public FileAnswer? Checked { get; set; }
 
+        /// <summary>
+        /// The page last built is the agent's question's own, so drawing it may count toward reading the
+        /// question; another page on Waiting, as an approval's while the question waits behind it, never does.
+        /// </summary>
+        public bool QuestionPage { get; internal set; }
+
         /// <summary>Where the person is in the agent's question.</summary>
         public FileQuestion Question { get; } = new FileQuestion();
 

@@ -1517,7 +1517,9 @@ when the text size changes, so a page never packs again as the head moves and ne
 than the field at the new size; Tasks reads its rows again then too. It counts the gaps the view draws: 12 mm between two targets and
 8 dp between any other two lines, so a question and its answers are one group. What
 counts as read counts only when the director hands back the very frame the column last built
-(`IMenuColumn.Drawn`), the page or its side panel. Hold to talk's one voice tells the column whether
+(`IMenuColumn.Drawn`), the page or its side panel, and toward the question only when that frame was
+built as the question's own page (`FileScreen.QuestionPage`): an approval shown on Waiting meanwhile
+never counts, even where its request, the agent's data, reads word for word as the prompt. Hold to talk's one voice tells the column whether
 it held Hold to talk under the question (an answer, drafted) or on Activity (an instruction, asked
 before it is sent); where no keyboard opens, Tell it offers instructions to choose instead, and an
 empty Type my answer row is left off (a typed answer heard through Hold to talk stays as a choice,
