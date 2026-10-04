@@ -159,7 +159,10 @@ namespace Halcyonic.Client
                     host.OpenKeyboard(draft.Typed(typing) ?? "", "Your answer", text =>
                     {
                         if (typingFor != draft) return;
+                        // An answer armed to send meanwhile is cancelled: Yes was for the answer before these words.
+                        var cancelled = Steering.AnswerChanging();
                         if (typingFor.Type(typing, text) is string problem) Notify(problem);
+                        else if (cancelled != null) Notify(cancelled);
                         Rebuild();
                     });
                     return;
@@ -314,12 +317,17 @@ namespace Halcyonic.Client
             if (answering)
             {
                 // What was heard becomes the typed answer, sent only by Send answer, and only for the very
-                // question and prompt it was spoken for, still showing; else the words are dropped, as the keyboard's are.
+                // question and prompt it was spoken for, the file still on that question and prompt; else the
+                // words are dropped, as the keyboard's are. An answer armed to send meanwhile is cancelled.
                 if (draft == null || draft != answerDraft || Screen.Question.Reviewing || Screen.Question.Prompt != answerPrompt)
                 {
                     Notify(VoiceText.QuestionChangedWhileSpeaking);
                 }
-                else Notify(draft.Type(answerPrompt, text) ?? VoiceText.HeardAnswer);
+                else
+                {
+                    var cancelled = Steering.AnswerChanging();
+                    Notify(draft.Type(answerPrompt, text) ?? cancelled ?? VoiceText.HeardAnswer);
+                }
                 Rebuild();
                 return;
             }

@@ -178,6 +178,7 @@ replaces the entry panel's screens. Routine wording, settled by the coordinator,
 
 | Where | Old | New | Settled |
 | --- | --- | --- | --- |
+| A file's Send answer, armed, when words heard or typed change the answer | None: Yes sent the answer as it stood, the new words unread | "Nothing was sent: your answer changed. Read it again.", the confirmation cancelled | 2026-10-04, by the coordinator |
 | A file's Hold to talk, its words heard after the question it was held for gave way to another | None: the words typed into whatever question showed, "This is what your computer heard. Check it, then press Send answer." | "Nothing was typed: the question changed while you spoke. Read it again.", the words dropped | 2026-10-04, by the coordinator |
 | Tasks with no tasks | None: the entry panel listed no tasks of its own | "No tasks yet.", a quiet line on the page under the subject, which reads "Nothing is waiting for you." | 2026-10-02, by the coordinator |
 | Projects' subject | "Welcome", then "Show projects from your computer, or make a new one. Work already running keeps going." on a first visit; "Connect projects" otherwise | "What would you like to work on?" on every visit, the place's purpose under the lit place's word; it keeps to one line (21.9 of 29.2 degrees), so the fallback "What do you want to work on?" was not needed | 2026-10-02, by the coordinator, every visit by lane V; the stage shows that running work goes on |

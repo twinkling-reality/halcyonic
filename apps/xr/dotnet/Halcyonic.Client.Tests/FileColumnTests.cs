@@ -585,6 +585,66 @@ public class FileColumnTests
         }).ToList(),
     };
 
+    /// <summary>A file asking <paramref name="question"/> under a policy that asks Yes before an answer is sent, its first answer chosen and read.</summary>
+    private FileColumn AnsweringWithYes(FileMenuHost host, QuestionView question)
+    {
+        var work = new AskingWork(question, new[] { new CommandPolicy { CommandType = CommandType.ExecutionAnswerQuestion, Policy = PolicyCategory.ReviewRequired } });
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer));
+        ReadQuestion(host, column);
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        return column;
+    }
+
+    [Test]
+    public void WordsHeardAfterSendAnswerAskedItsYesCancelItSoNothingUnreadIsSent()
+    {
+        // Hold to talk let go, then Send answer pressed while the words are worked out: it asks its Yes.
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+
+        // The words arrive and replace the answer: the Yes asked for the answer before them is cancelled.
+        column.Heard(LongWords("Lock it for a minute after try"));
+        Assert.That(column.Steering.Armed, Is.Null);
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "the words heard, never read, are not sent");
+    }
+
+    [Test]
+    public void WordsTypedAfterSendAnswerAskedItsYesCancelIt()
+    {
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        // The keyboard opened, then Send answer pressed before it closed: it asks its Yes.
+        column.Act(FileScreens.TypeAnswer, null);
+        Assert.That(host.Keyboard, Is.Not.Null);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        host.Keyboard!.Value.Done(LongWords("Lock it for a minute after try"));
+        Assert.That(column.Steering.Armed, Is.Null);
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+    }
+
+    [Test]
+    public void YesSendsOnlyTheAnswersItWasAskedFor()
+    {
+        // However the answers changed after Send answer asked its Yes, Yes refuses them.
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        column.Screen.Question.Draft!.Type(0, "Something else entirely");
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
+    }
+
     [Test]
     public void WordsHeardAfterTheQuestionWasReplacedTypeIntoNone()
     {
