@@ -190,6 +190,23 @@ namespace Halcyonic.Client
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>
         public const string AgentWaits = "It's waiting for an answer.";
 
+        /// <summary>
+        /// A command whose effect can't be ruled out, by what it asked, in WORDS.md's unknown-effect pattern:
+        /// what may or may not have happened, then what to check first. Never "Couldn't", which says nothing
+        /// happened (proposed by lane W, 2026-10-04).
+        /// </summary>
+        public static string NotSure(CommandType type) => type switch
+        {
+            CommandType.ExecutionSendInstruction => "Not sure the instruction reached it. " + CheckFirst,
+            CommandType.ExecutionInterrupt => "Not sure it stopped. " + CheckFirst,
+            CommandType.ExecutionRespondToApproval => "Not sure it has your decision. " + CheckFirst,
+            CommandType.ExecutionAnswerQuestion => AnswerNotConfirmed,
+            CommandType.ExecutionStart => "Not sure it started. " + CheckFirst,
+            _ => "Not sure it happened. " + CheckFirst,
+        };
+
+        private const string CheckFirst = "Check its activity before you try again.";
+
         /// <summary>An answer sent whose effect the runtime never confirmed (Codex's question_unconfirmed, answer_ambiguous).</summary>
         public const string AnswerNotConfirmed = "Not sure it has your answer. Check its activity before you answer again.";
 

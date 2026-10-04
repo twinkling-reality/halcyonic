@@ -162,7 +162,7 @@ namespace Halcyonic.Client
                     // The failure's message is the agent app's or the control plane's own: what failed, and
                     // whether it may have happened anyway, are what a person can act on. An effect that can't
                     // be ruled out is never said as "Couldn't", which says nothing happened.
-                    if (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown) return Entry(ActivityKind.Command, NotSureItHappened);
+                    if (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown) return Entry(ActivityKind.Command, WorkspaceText.NotSure(commandFailed.Payload.CommandType));
                     var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed";
                     return Entry(ActivityKind.Command, WorkspaceText.WhyFailed(commandFailed.Payload.Failure.Code) is string because ? StateLanguage.Lead(failedTo, because) : failedTo);
                 default:
@@ -174,9 +174,6 @@ namespace Halcyonic.Client
 
         /// <summary>Tool call ids are native and only unique within one execution.</summary>
         private static string ToolKey(EventEnvelope e, string toolCallId) => e.ExecutionId + "\n" + toolCallId;
-
-        /// <summary>A command whose effect can't be ruled out, in WORDS.md's unknown-effect pattern (settled by the coordinator, 2026-10-04).</summary>
-        public const string NotSureItHappened = "Not sure it happened. Check its activity before you try again.";
 
         /// <summary>A state-unknown event's code as the control plane writes it, so the log and the character word it alike.</summary>
         private static string StateUnknownCodeOf(StateUnknownCode code) => code switch
