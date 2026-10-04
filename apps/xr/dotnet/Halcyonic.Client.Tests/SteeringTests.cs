@@ -117,7 +117,7 @@ public class WorkspaceTextTests
             Is.EqualTo("09:00:06  It says: “All done. Tests pass.”"));
 
         var tokyo = TimeZoneInfo.CreateCustomTimeZone("plus-nine", TimeSpan.FromHours(9), "plus-nine", "plus-nine");
-        Assert.That(WorkspaceText.Activity(Entry(7, ActivityKind.Turn, "Turn finished"), tokyo), Is.EqualTo("18:00:07  Turn finished"));
+        Assert.That(WorkspaceText.Activity(Entry(7, ActivityKind.Turn, "Round finished"), tokyo), Is.EqualTo("18:00:07  Round finished"));
     }
 
     [Test]
@@ -147,7 +147,7 @@ public class WorkspaceTextTests
         {
             Entry(1, ActivityKind.Tool, "bash succeeded"),
             Entry(2, ActivityKind.Message, "The migration ran\nand the tests pass.", reported: true),
-            Entry(3, ActivityKind.Turn, "Turn finished"),
+            Entry(3, ActivityKind.Turn, "Round finished"),
         };
         var presentation = new WorkspacePresentation(
             work.Present().Character, null, work.Execution, null, new WorkspaceAction[0], new WorkspaceAction[0],

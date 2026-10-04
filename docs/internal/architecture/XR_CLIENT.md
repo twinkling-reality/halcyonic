@@ -119,14 +119,20 @@ the same definition names, as the JSON Schema document:
   reasons without what the state already says (`AttentionDetails`, for the peek: "The model
   provider rejected the request." under Couldn't finish), and flags for simulated work, recorded
   fixture data, and a stale state while the session is not live. Reasons read "It wants to use
-  {tool}: {summary}", "Couldn't finish: {reason}", "Can't tell what it's doing: {why}" and
+  {tool}: {summary}", "Couldn't finish this round. {next step}", "Can't tell what it's doing: {why}" and
   "Checks: {summary}"; a question's is `AsksYou`. Why it can't tell is said from the reason's code
   alone (`StateLanguage.CantTellWhy`: "your computer lost touch with the agent app.", "your computer
   restarted and lost touch with the agent app.", "not sure it started."), else "Can't tell what it's
   doing right now."; the reason's message is an agent app's or the control plane's diagnostic,
   naming an app, a request or a path, and never reaches the headset. The codes are a closed set in
   the contract (`execution.state_unknown`'s two, and the projection's `runtime_connection_lost`), so
-  no person-facing field is needed from the control plane.
+  no person-facing field is needed from the control plane. Why a task couldn't start or finish is
+  said the same way (`StateLanguage.CouldNotFinish`), never by the reason's message, an agent app's
+  own error: a start refused over its folder by its code (`EntryText.FolderProblem`), any other
+  start and a failed round by the way on, Tell it where the runtime's capabilities offer it now,
+  else adding the task again in Projects. Failure codes are the adapters' own and open-ended, so a
+  cause the person could act on (a rate limit, missing credentials) is not said yet: that needs a
+  closed cause in the contract, an open question.
 - **`StateLanguage`** ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md))
   is the one mapping from a task's state to what every surface says and shows: Not started,
   Starting, Working, Checking its work, Waiting for you, Finished this round, Checks failed,
@@ -146,7 +152,7 @@ the same definition names, as the JSON Schema document:
   state badge and the marks. **`PeekCard`** is what the peek shows: the badge and marks, the first
   reason with more to say than the state, with how many more wait ("(+1 more)"), else what it did
   last; "Last known:" before it while the session is not live; what the marks mean ("Practice run:
-  nothing is built."); and what opening it is for ("Open it to answer.", "Open it to see why.").
+  nothing is built."); and what opening it is for ("Open it to answer.", "Open it to see what it did.").
 - **`CharacterCues`** turns a presentation into what the character shows: its eyes, its motion, its
   halo, its surface (flowing, cracked or fogged), whether it faces the person, and whether it is
   paused or ghosted ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md)).
@@ -605,7 +611,9 @@ the same definition names, as the JSON Schema document:
   person, and only a move with no focus change around it counts as a recenter.
 - **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
   as a claim. A lost connection and an unknown state read as the character says them, by code, never
-  with the diagnostic their events carry. A snapshot carries state but no history, so after a resynchronization the history of
+  with the diagnostic their events carry; a failed round, a failed start and a failed command say what
+  failed, and for a command whether it may have happened anyway, never the error's message. A turn
+  is a round in a person's words. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
   (`GET /api/events`, paged, refused if the journal changed).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution

@@ -347,11 +347,11 @@ public class CharacterLabelTests
     public void ThePeekGivesTheReasonWithoutRepeatingTheState()
     {
         var character = StateLanguageTests.Character(CharacterActivity.Failed, AttentionLevel.Notice,
-            new[] { "Couldn't finish: The model provider rejected the request." }, details: new[] { "The model provider rejected the request." });
+            new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }, details: new[] { "Tell it to try again, or what to do instead." });
         var peek = PeekCard.Of(Workspace(character));
         Assert.That(peek.Badge.Word, Is.EqualTo("Couldn't finish"));
-        Assert.That(peek.Reason, Is.EqualTo("The model provider rejected the request."));
-        Assert.That(peek.Next, Is.EqualTo("Open it to see why."));
+        Assert.That(peek.Reason, Is.EqualTo("Tell it to try again, or what to do instead."));
+        Assert.That(peek.Next, Is.EqualTo("Open it to see what it did."), "its error isn't shown, so opening it shows what it did, not why");
     }
 
     [Test]
@@ -370,7 +370,7 @@ public class CharacterLabelTests
         var peek = PeekCard.Of(Workspace(character,
             Entry(1, ActivityKind.Tool, "bash succeeded"),
             Entry(2, ActivityKind.Message, "The migration ran\nand the tests pass.", reported: true),
-            Entry(3, ActivityKind.Turn, "Turn started")));
+            Entry(3, ActivityKind.Turn, "Round started")));
         Assert.That(peek.Reason, Is.EqualTo("It says: “The migration ran and the tests pass.”"), "round boundaries skipped; agent text a claim");
         Assert.That(peek.Next, Is.Null);
         Assert.That(PeekCard.Of(Workspace(character)).Reason, Is.Empty, "nothing known yet: the badge says it all");
@@ -434,7 +434,7 @@ public class CharacterLabelTests
         state.ApplySnapshot(Samples.Snapshot(1, new[] { workstream }, new[] { failed }, Samples.Journal()), new StateChanges());
         var character = CharacterPresenter.Present(workstream, state, live: true);
         Assert.That(character.StatusLabel, Is.EqualTo("Couldn't finish"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish: The model provider returned an error." }), "the workspace's line keeps the state's words");
-        Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "The model provider returned an error." }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the workspace's line keeps the state's words");
+        Assert.That(character.AttentionDetails, Is.EqualTo(new[] { "Tell it to try again, or what to do instead." }));
     }
 }

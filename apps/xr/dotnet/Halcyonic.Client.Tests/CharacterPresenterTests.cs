@@ -73,7 +73,7 @@ public class CharacterPresenterTests
         var failedStream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
         Assert.That(
             CharacterPresenter.Present(failedStream, StateWith(failedStream, failed), live: true).AttentionNotes,
-            Is.EqualTo(new[] { "Couldn't finish: The model provider returned an error." }));
+            Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the way on, never the agent app's own error");
 
         var unknown = Samples.Execution("e2", "w2", ExecutionStatus.Unknown);
         unknown.StatusReason = new ErrorInfo { Code = "control_plane_restarted", Message = "The control plane restarted." };
@@ -120,7 +120,51 @@ public class CharacterPresenterTests
         workstream.Title = "<color=#00000000>Tidy</color>\tthe notes\\n";
         var character = CharacterPresenter.Present(workstream, StateWith(workstream, failed), live: true);
         Assert.That(character.Title, Is.EqualTo("<color=#00000000>Tidy</color> the notes\\n"));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish: Exit 1‹U+0003› and the rest of the log" }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "the reason's message is never shown");
+    }
+
+    /// <summary>
+    /// Why a task couldn't start or finish is said from what Halcyonic knows, with the way on: a folder's
+    /// problem by its code, anything else by what can be done next, never the agent app's own error.
+    /// </summary>
+    [Test]
+    public void WhyItCouldntStartOrFinishIsSaidByWhatCanBeDoneNeverTheAgentAppsError()
+    {
+        const string Leak = "codex_internal_server_error: POST https://api.example/v1/responses 500 at /Users/someone/.codex/sessions/rollout.jsonl";
+        string[] Notes(ExecutionView execution, ClientProjection? state = null)
+        {
+            var stream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
+            var character = CharacterPresenter.Present(stream, state ?? StateWith(stream, execution), live: true);
+            foreach (var line in character.AttentionNotes.Concat(character.AttentionDetails)) Assert.That(line, Does.Not.Contain("codex").And.Not.Contain("POST").And.Not.Contain("/Users"));
+            return character.AttentionNotes.ToArray();
+        }
+        ExecutionView Failed(string code, bool started)
+        {
+            var execution = Samples.Execution("e1", "w1", ExecutionStatus.Failed);
+            execution.StatusReason = new ErrorInfo { Code = code, Message = Leak };
+            if (!started)
+            {
+                execution.StartedAt = null;
+                execution.TurnCount = 0;
+            }
+            return execution;
+        }
+
+        Assert.That(Notes(Failed("codex_internal_server_error", started: true)), Is.EqualTo(new[] { "Couldn't finish this round. Tell it to try again, or what to do instead." }), "Tell it is offered after a failed round");
+        Assert.That(Notes(Failed("location_missing", started: false)), Is.EqualTo(new[]
+        {
+            "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
+        }), "a folder's problem, by its code");
+        Assert.That(Notes(Failed("codex_internal_server_error", started: false)), Is.EqualTo(new[] { "Couldn't start. Add the task again in Projects to try again." }));
+
+        // Where the agent app isn't on the computer now, nothing can be told to it.
+        var gone = Failed("opencode_execution_failed", started: true);
+        var stream = Samples.Workstream("w1", WorkstreamStatus.Failed, "e1", AttentionLevel.ActionRequired, new ExecutionFailedReason { ExecutionId = "e1" });
+        var state = new ClientProjection();
+        var snapshot = Samples.Snapshot(1, new[] { stream }, new[] { gone });
+        snapshot.Runtimes.Clear();
+        state.ApplySnapshot(snapshot, new StateChanges());
+        Assert.That(Notes(gone, state), Is.EqualTo(new[] { "Couldn't finish this round. Add the task again in Projects to try again." }));
     }
 
     /// <summary>

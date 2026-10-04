@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -255,9 +256,36 @@ namespace Halcyonic.Client
         public static readonly string LostTouch = HostText.YourStart + " lost touch with the agent app.";
 
         /// <summary>The state in a sentence, with why where it is known: "Can't tell what it's doing: your computer lost touch with the agent app."</summary>
-        public static string CantTell(string? why) => why == null
-            ? "Can't tell what it's doing right now."
-            : "Can't tell what it's doing: " + char.ToLowerInvariant(why[0]) + why.Substring(1);
+        public static string CantTell(string? why) => why == null ? "Can't tell what it's doing right now." : Lead("Can't tell what it's doing", why);
+
+        /// <summary>
+        /// Why a task couldn't start or finish, with the way on, and the same without the state's own words
+        /// for the peek. Never the reason's message, which is an agent app's own error, naming the app, a
+        /// request or a path, or the control plane's: a start refused over its folder is said by its code
+        /// (<see cref="EntryText.FolderProblem"/>); any other start, by what can be done next; a round that
+        /// failed, by Tell it where it is offered now, else by adding the task again.
+        /// </summary>
+        public static (string Note, string Detail) CouldNotFinish(ExecutionView? execution, RuntimeDescriptor? runtime)
+        {
+            if (execution == null) return ("It couldn't finish.", "");
+            if (execution.StartedAt == null && execution.TurnCount == 0)
+            {
+                var folder = EntryText.FolderProblem(null, execution.StatusReason?.Code);
+                if (folder != null) return (Lead("Couldn't start", folder), folder);
+                return ("Couldn't start. " + AddItAgain, AddItAgain);
+            }
+            var next = runtime != null && WorkspacePresenter.ActionsFor(execution, runtime).Contains(WorkspaceAction.Instruct) ? TellItAgain : AddItAgain;
+            return ("Couldn't finish this round. " + next, next);
+        }
+
+        /// <summary>The way on after a round that failed, where Tell it is offered (settled by the coordinator, 2026-10-04).</summary>
+        public const string TellItAgain = "Tell it to try again, or what to do instead.";
+
+        /// <summary>The way on after work that couldn't start or finish where nothing can be told to it now.</summary>
+        public const string AddItAgain = "Add the task again in Projects to try again.";
+
+        /// <summary>A state's words before a cause in a sentence of its own: "Couldn't start: this project has no folder…".</summary>
+        private static string Lead(string state, string why) => state + ": " + char.ToLowerInvariant(why[0]) + why.Substring(1);
 
         /// <summary>The state's word, the same on the badge, in the peek, the workspace and every list.</summary>
         public static string WordOf(WorkState state) => state switch
