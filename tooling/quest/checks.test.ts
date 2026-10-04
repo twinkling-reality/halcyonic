@@ -16,6 +16,7 @@ import {
   checkWritesFinished,
   GLANCE_CODES,
   MOVE_LINES,
+  REACH_MARGIN_SECONDS,
   readElapsed,
   readFileState,
   readLog,
@@ -29,6 +30,9 @@ const glance = (message: string) => `I/Halcyonic(12345): ${message}`;
 /** The app's first-frame line, which says the log reaches back to its start. */
 const start = unity('device first frame 2210 ms after start');
 const log = (...lines: string[]) => readLog([start, ...lines].join('\n'));
+
+/** The file a stat in these tests looks at. */
+const FILE = 'files/access-token';
 
 const source = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
@@ -56,29 +60,50 @@ describe('headset session checks', () => {
   });
 
   test("a file's state is its mode, size and type, or why there is none", () => {
-    assert.deepEqual(readFileState('600 44 regular file\n'), {
+    assert.deepEqual(readFileState('600 44 regular file\n', FILE), {
       kind: 'file',
       mode: '600',
       bytes: 44,
       type: 'regular file',
     });
-    assert.deepEqual(readFileState("stat: 'files/access-token': No such file or directory"), {
+    assert.deepEqual(readFileState("stat: 'files/access-token': No such file or directory", FILE), {
       kind: 'absent',
     });
-    assert.deepEqual(readFileState('run-as: package not debuggable: com.halcyonic.xr'), {
+    assert.deepEqual(readFileState('run-as: package not debuggable: com.halcyonic.xr', FILE), {
       kind: 'not-debuggable',
     });
-    assert.deepEqual(readFileState('run-as: unknown package: com.halcyonic.xr'), {
+    assert.deepEqual(readFileState('run-as: unknown package: com.halcyonic.xr', FILE), {
       kind: 'not-installed',
     });
-    assert.deepEqual(readFileState('something else'), { kind: 'unreadable' });
-    assert.deepEqual(readFileState('777 9 symbolic link'), {
+    assert.deepEqual(readFileState('something else', FILE), { kind: 'unreadable' });
+    assert.deepEqual(
+      readFileState('stat: files/access-token: No such file or directory', FILE),
+      { kind: 'absent' },
+      "toybox's words, the path unquoted",
+    );
+    // Absent only where stat says so of that file: run-as can't reach the app's folder, or another file.
+    assert.deepEqual(
+      readFileState(
+        "run-as: couldn't stat /data/user/0/com.halcyonic.xr: No such file or directory",
+        FILE,
+      ),
+      { kind: 'unreadable' },
+    );
+    assert.deepEqual(
+      readFileState("stat: 'files/access-token.tmp': No such file or directory", FILE),
+      { kind: 'unreadable' },
+    );
+    assert.deepEqual(
+      readFileState("stat: 'files/access-token': No such file or directory", 'files/access'),
+      { kind: 'unreadable' },
+    );
+    assert.deepEqual(readFileState('777 9 symbolic link', FILE), {
       kind: 'file',
       mode: '777',
       bytes: 9,
       type: 'symbolic link',
     });
-    assert.deepEqual(readFileState('660 0 FIFO (named pipe)'), {
+    assert.deepEqual(readFileState('660 0 FIFO (named pipe)', FILE), {
       kind: 'file',
       mode: '660',
       bytes: 0,
@@ -88,20 +113,20 @@ describe('headset session checks', () => {
 
   test('a written token file is mode 600, 44 bytes and regular; the glance one may be absent', () => {
     const name = 'files/access-token';
-    assert.equal(checkTokenWritten(name, readFileState('600 44 regular file')).pass, true);
-    const open = checkTokenWritten(name, readFileState('644 44 regular file'));
+    assert.equal(checkTokenWritten(name, readFileState('600 44 regular file', FILE)).pass, true);
+    const open = checkTokenWritten(name, readFileState('644 44 regular file', FILE));
     assert.equal(open.pass, false);
     assert.match(open.line, /has mode 644, not 600/);
     assert.match(
-      checkTokenWritten(name, readFileState('600 0 regular empty file')).line,
+      checkTokenWritten(name, readFileState('600 0 regular empty file', FILE)).line,
       /is 0 bytes, not 44/,
     );
     assert.match(
-      checkTokenWritten(name, readFileState('777 9 symbolic link')).line,
+      checkTokenWritten(name, readFileState('777 9 symbolic link', FILE)).line,
       /is a symbolic link/,
     );
     assert.match(
-      checkTokenWritten(name, readFileState('600 0 FIFO (named pipe)')).line,
+      checkTokenWritten(name, readFileState('600 0 FIFO (named pipe)', FILE)).line,
       /is a FIFO \(named pipe\)/,
     );
     assert.equal(checkTokenWritten(name, { kind: 'absent' }).pass, false);
@@ -119,7 +144,7 @@ describe('headset session checks', () => {
     assert.equal(checkTokenOnRelease('files/access-token', { kind: 'not-debuggable' }).pass, true);
     assert.equal(checkTokenOnRelease('files/access-token', { kind: 'absent' }).pass, false);
     assert.equal(
-      checkTokenOnRelease('files/access-token', readFileState('600 44 regular file')).pass,
+      checkTokenOnRelease('files/access-token', readFileState('600 44 regular file', FILE)).pass,
       false,
     );
   });
@@ -127,7 +152,7 @@ describe('headset session checks', () => {
   test('at the close, the tokens are gone, and a release build is put back first', () => {
     assert.equal(checkTokenRemoved('files/access-token', { kind: 'absent' }).pass, true);
     assert.equal(
-      checkTokenRemoved('files/access-token', readFileState('600 44 regular file')).pass,
+      checkTokenRemoved('files/access-token', readFileState('600 44 regular file', FILE)).pass,
       false,
     );
     assert.match(
@@ -139,7 +164,7 @@ describe('headset session checks', () => {
 
   test('shared storage passes only with nothing at the old place', () => {
     assert.equal(checkSharedCopy({ kind: 'absent' }).pass, true);
-    const copy = checkSharedCopy(readFileState('660 44 regular file'));
+    const copy = checkSharedCopy(readFileState('660 44 regular file', FILE));
     assert.equal(copy.pass, false);
     assert.match(
       copy.line,
@@ -148,12 +173,13 @@ describe('headset session checks', () => {
   });
 
   test('the move reads as what happened, against what the step expects', () => {
+    const nothing = log(unity("nothing was at the access token's old place on shared storage."));
     assert.equal(
-      checkMove(log()).line,
+      checkMove(nothing).line,
       'move: nothing was on shared storage (read as nothing there)',
     );
-    assert.equal(checkMove(log(), 'nothing').pass, true);
-    assert.equal(checkMove(log(), 'moved').pass, false, 'expected a move that did not happen');
+    assert.equal(checkMove(nothing, 'nothing').pass, true);
+    assert.equal(checkMove(nothing, 'moved').pass, false, 'expected a move that did not happen');
     const moved = log(
       unity('moved the access token from shared storage into app-private storage.'),
     );
@@ -250,18 +276,32 @@ describe('headset session checks', () => {
     assert.match(checkConnection(log()).line, /no connection line yet/);
   });
 
-  test("a log that holds the app's start by its times reads nothing as nothing there", () => {
+  test("nothing there is read only from the app's own line, never from a quiet log", () => {
     // As on a headset, where the app writes no first-frame line and its first is a connection's.
     const quiet = readLog(unity('connection Synchronizing'));
-    assert.equal(
-      checkMove(quiet, 'nothing', true).line,
-      'move: nothing was on shared storage (read as nothing there)',
+    for (const reach of [true, false, null]) {
+      assert.equal(checkMove(quiet, 'nothing', reach).pass, false, `reach ${reach}`);
+      assert.doesNotMatch(checkMove(quiet, undefined, reach).line, /nothing was on shared storage/);
+    }
+    // Where the log holds the start and still has no move line, the build is older than the line.
+    assert.match(
+      checkMove(quiet, undefined, true).line,
+      /^move: can't be judged from this log, since the app wrote no line about it at its start/,
     );
-    assert.equal(checkMove(quiet, 'nothing', true).pass, true);
+    assert.equal(checkMove(quiet, undefined, true).pass, true);
+    const said = readLog(
+      [
+        unity("nothing was at the access token's old place on shared storage."),
+        unity('connection Synchronizing'),
+      ].join('\n'),
+    );
+    for (const reach of [true, false, null]) {
+      assert.equal(checkMove(said, 'nothing', reach).pass, true, `its line, reach ${reach}`);
+    }
     assert.match(checkConnection(readLog(''), 'live', true).line, /no connection line yet/);
   });
 
-  test("the log's reach is its oldest stamp against the app's start, a second early for rounding", () => {
+  test("the log's reach is its oldest stamp against the app's start, two seconds early", () => {
     assert.equal(readElapsed('     ELAPSED\n       05:12\n'), 312);
     assert.equal(readElapsed('ELAPSED\n02:03:04'), 7384);
     assert.equal(readElapsed('ELAPSED\n1-02:03:04\r\n'), 93784);
@@ -272,11 +312,12 @@ describe('headset session checks', () => {
       '1700000000.123  1234  1234 I Something: what it said',
       '1700000090.000  4321  4321 I Unity   : Halcyonic: connection Synchronizing',
     ].join('\n');
-    // Started at 1700000100 - 50 = ...050, a second earlier at the most: the log began before that.
+    assert.equal(REACH_MARGIN_SECONDS, 2, "toybox's elapsed time can run nearly 2 s short");
+    // Started 50 s before ...100, 2 s earlier at the most: the log began before that.
     assert.equal(readReach(main, '1700000100\n', 50), true);
-    // Started at ...001 at the earliest, 99 s before ...100: the log began at ...000.123, after it.
-    assert.equal(readReach(main, '1700000100', 99), false);
-    assert.equal(readReach(main, '1700000100', 98), true);
+    // 98 s before ...100, less 2: ...000.000, before the log's first stamp at ...000.123.
+    assert.equal(readReach(main, '1700000100', 98), false);
+    assert.equal(readReach(main, '1700000100', 97), true);
     assert.equal(readReach(main, '1700000100', null), null, 'how long it has run, unread');
     assert.equal(readReach(main, 'date: bad', 50), null, "the headset's time, unread");
     assert.equal(readReach('--------- beginning of main\n', '1700000100', 50), null, 'no stamp');
@@ -294,7 +335,7 @@ describe('headset session checks', () => {
     ]);
     assert.deepEqual(none, { pass: true, line: 'run-as writes: no temporary file left over' });
     const left = checkWritesFinished([
-      ['files/access-token.tmp', readFileState('600 44 regular file')],
+      ['files/access-token.tmp', readFileState('600 44 regular file', FILE)],
       ['files/glance-access-token.tmp', { kind: 'absent' }],
     ]);
     assert.equal(left.pass, false);
@@ -303,8 +344,8 @@ describe('headset session checks', () => {
       /^files\/access-token\.tmp left over: the run-as write stopped before its move, .*run the move step again \(HEADSET_SESSION\.md\)$/,
     );
     const both = checkWritesFinished([
-      ['files/access-token.tmp', readFileState('600 20 regular file')],
-      ['files/glance-access-token.tmp', readFileState('600 44 regular file')],
+      ['files/access-token.tmp', readFileState('600 20 regular file', FILE)],
+      ['files/glance-access-token.tmp', readFileState('600 44 regular file', FILE)],
     ]);
     assert.match(
       both.line,

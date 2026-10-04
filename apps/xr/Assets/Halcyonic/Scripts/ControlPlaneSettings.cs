@@ -156,6 +156,10 @@ namespace Halcyonic.XR
                     : AccessTokenFile.Discard(legacy, storage);
                 switch (move.Outcome)
                 {
+                    // Said as well, so a check of this run's log can tell nothing there from a log that lost its start.
+                    case AccessTokenMigration.NothingThere:
+                        Debug.Log("Halcyonic: nothing was at the access token's old place on shared storage.");
+                        break;
                     case AccessTokenMigration.Moved:
                         Debug.Log("Halcyonic: moved the access token from shared storage into app-private storage.");
                         if (!move.Restricted) Debug.LogWarning("Halcyonic: could not set the moved access token's mode to 600; app-private storage still keeps other apps out.");

@@ -45,7 +45,12 @@ export type FileState =
   | { readonly kind: 'not-installed' }
   | { readonly kind: 'unreadable' };
 
-export function readFileState(output: string): FileState {
+/**
+ * What `stat` through `run-as` (or not) said of `path`. A file is absent only where stat itself
+ * says so of that path: `run-as` says "No such file or directory" too when it can't reach the app's
+ * data folder, which says nothing of the file.
+ */
+export function readFileState(output: string, path: string): FileState {
   const text = output.trim();
   // toybox words a type as `regular file`, `symbolic link` or `FIFO (named pipe)`.
   const stat = /^([0-7]{3,4}) (\d+) ([A-Za-z][A-Za-z ()-]*)$/.exec(
@@ -54,7 +59,10 @@ export function readFileState(output: string): FileState {
   if (stat?.[1] !== undefined && stat[2] !== undefined && stat[3] !== undefined) {
     return { kind: 'file', mode: stat[1], bytes: Number(stat[2]), type: stat[3] };
   }
-  if (/No such file or directory/i.test(text)) return { kind: 'absent' };
+  const named = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`^stat: '?${named}'?: No such file or directory$`, 'm').test(text)) {
+    return { kind: 'absent' };
+  }
   if (/not debuggable/i.test(text)) return { kind: 'not-debuggable' };
   if (/unknown package/i.test(text)) return { kind: 'not-installed' };
   return { kind: 'unreadable' };
@@ -151,6 +159,8 @@ export function checkSharedCopy(state: FileState): Verdict {
 export interface LogReading {
   /** Whether the app's first-frame line is there, so the log reaches back to its start. */
   readonly started: boolean;
+  /** The app's line that nothing was at the old place, the only way nothing there is read. */
+  readonly nothingThere: number;
   readonly moved: number;
   readonly modeNotSet: number;
   readonly keptPrivate: number;
@@ -194,6 +204,7 @@ export const EXPECTED_CONNECTIONS: readonly ExpectedConnection[] = [
 
 /** The lines the app writes about the token's move (ControlPlaneSettings.MigrateAccessToken). */
 export const MOVE_LINES = {
+  nothingThere: "Halcyonic: nothing was at the access token's old place on shared storage.",
   moved: 'Halcyonic: moved the access token from shared storage into app-private storage.',
   modeNotSet: "Halcyonic: could not set the moved access token's mode to 600",
   keptPrivate:
@@ -217,6 +228,12 @@ export const COULD_NOT_DEAL =
  */
 export const STARTED = 'Halcyonic: device first frame ';
 
+/**
+ * How much earlier than the app's start, as its elapsed time puts it, the log must reach: toybox's
+ * elapsed time can run nearly 2 seconds short.
+ */
+export const REACH_MARGIN_SECONDS = 2;
+
 /** `ps -o ETIME -p <pid>`: how long the process has run, `[[dd-]hh:]mm:ss`, in whole seconds, or null. */
 export function readElapsed(text: string): number | null {
   const lines = text
@@ -233,8 +250,10 @@ export function readElapsed(text: string): number | null {
 
 /**
  * Whether the headset's main log still holds the app's start, from times alone: its oldest line,
- * as `logcat -v epoch` stamps it, against the headset's clock less how long the app has run, a
- * second earlier for the elapsed time's rounding. Null where any of them could not be read.
+ * as `logcat -v epoch` stamps it, against the headset's clock less how long the app has run, less
+ * `REACH_MARGIN_SECONDS`. Null where any of them could not be read. A step of the headset's clock
+ * can mislead it, so it only words why a move can't be judged, and lets a missing connection line
+ * read as not yet there; nothing there is judged from the app's own line alone.
  */
 export function readReach(
   mainLog: string,
@@ -249,7 +268,7 @@ export function readReach(
     if (oldest !== null) break;
   }
   if (oldest === null) return null;
-  return oldest <= (now - elapsed - 1) * 1000;
+  return oldest <= (now - elapsed - REACH_MARGIN_SECONDS) * 1000;
 }
 
 /** How each connection detail begins (ConnectionText, LoopbackProof). */
@@ -282,6 +301,7 @@ const REASON =
 
 export function readLog(text: string): LogReading {
   const counts = {
+    nothingThere: 0,
     moved: 0,
     modeNotSet: 0,
     keptPrivate: 0,
@@ -411,9 +431,9 @@ const MOVE_SAID: Record<MoveOutcome, string> = {
 
 /**
  * The move from shared storage: a failure fails; otherwise what happened, against what the step
- * expects, if it says. With nothing on shared storage the app writes no line, so nothing there is
- * read only from a log that holds the app's start (`reach`, or its first-frame line). Where it
- * can't be shown to, the move can't be judged from this log: said plainly, and a failure only where
+ * expects, if it says. Nothing there is read only from the app's own line saying so, never from
+ * the absence of the others, since a log can lose the app's start. Where no move line is there, the
+ * move can't be judged from this log, saying why (`reach`): said plainly, and a failure only where
  * the step expects an outcome.
  */
 export function checkMove(
@@ -447,11 +467,15 @@ export function checkMove(
           ? 'released'
           : reading.notAToken > 0
             ? 'not-a-token'
-            : reading.started || reach === true
+            : reading.nothingThere > 0
               ? 'nothing'
               : null;
   if (outcome === null) {
-    const why = REACH_UNKNOWN[reach === false ? 'false' : 'null'];
+    // A log that holds the app's start yet has no move line comes from a build older than the line.
+    const why =
+      reach === true || reading.started
+        ? 'the app wrote no line about it at its start, as builds before 2026-10-04 did when nothing was there'
+        : REACH_UNKNOWN[reach === false ? 'false' : 'null'];
     return expected === undefined
       ? pass(
           `move: can't be judged from this log, since ${why}; to judge it, restart the app and run the check at once`,

@@ -27,11 +27,14 @@ It reads modes and sizes only, never a token or a file's contents, and repeats n
 that expects something else says so: `--expect unproved` (or `refused`, `not-loopback`,
 `unreachable`, `none`) for the connection, `--move moved` (or `kept`, `released`, `not-a-token`,
 `nothing`) for the move, `--release` on the release build, and `--closed` at the end. It reads the
-log since the app started. The app writes no line when nothing is on shared storage, so the move is
-read as nothing there only from a log that still holds the app's start, which it tells from times
-alone: the main log's oldest stamp against the headset's clock less how long the app has run (`ps
--o ETIME`). Where the headset's log has already dropped the start, the move line says it can't be
-judged from this log, a FAIL only where the step names a move; restart the app and check at once.
+log since the app started. The app says at its start what the move did, "nothing was at the access
+token's old place" included (builds from 2026-10-04), and the check reads the move only from that
+line. Where it isn't there, the move line says it can't be judged from this log, a FAIL only where
+the step names a move, and why: the headset's log has dropped the app's start, which it tells from
+times alone (the main log's oldest stamp against the headset's clock less how long the app has run,
+`ps -o ETIME`, and 2 seconds more), or the build is older than the line. Restart the app and check
+at once. A `stat` reads a file as not there only where it names that file, so `run-as` failing to
+reach the app's folder never reads as a file removed.
 
 Rules for the whole session:
 - Never print, paste or `cat` a token. Nothing here needs it.
