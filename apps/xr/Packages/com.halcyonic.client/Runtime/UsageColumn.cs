@@ -105,7 +105,7 @@ namespace Halcyonic.Client
             }
         }
 
-        public void Drawn(MenuFrame drawn, bool sidePanel)
+        public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
         }
 

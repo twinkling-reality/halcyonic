@@ -157,7 +157,7 @@ namespace Halcyonic.Client
             Change();
         }
 
-        public void Drawn(MenuFrame drawn, bool sidePanel)
+        public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
             // Nothing in Projects counts as read only once it has shown.
         }

@@ -55,7 +55,14 @@ public class MenuNavigatorTests
             if (id == SidePanel.Close) Side = null;
         }
 
-        public void Drawn(MenuFrame drawn, bool sidePanel) => Got.Add("drawn " + drawn.Subject + (sidePanel ? " side" : ""));
+        /// <summary>The footer the side panel drawn last showed, as the navigator told it.</summary>
+        public Footer? SideFooter { get; private set; }
+
+        public void Drawn(MenuFrame drawn, Footer? sidePanel)
+        {
+            Got.Add("drawn " + drawn.Subject + (sidePanel != null ? " side" : ""));
+            if (sidePanel != null) SideFooter = sidePanel;
+        }
 
         public void HoldStarted(string id) => Got.Add("hold " + id);
 
@@ -180,6 +187,27 @@ public class MenuNavigatorTests
         Assert.That(file.Got, Has.Count.EqualTo(1), "a side panel it never gave is passed over");
         menu.Drawn(MenuColumn.Side, null, again.Side);
         Assert.That(file.Got.Last(), Is.EqualTo("drawn File 1 side"));
+    }
+
+    [Test]
+    public void AColumnLearnsTheFooterItsSidePanelShowedBesideItsFrameOrInItsPlace()
+    {
+        var (menu, _) = Menu();
+        var file = new Column("File") { Side = Details(), Offered = new Prompt("change", "Change", GlazeIcon.Change, safeInPlace: true) };
+        menu.OpenMenu(MenuPlace.Tasks);
+        menu.ShowBeside(file, "w1");
+
+        // Beside its frame, the panel shows its own Close alone.
+        Draw(menu);
+        Assert.That(file.SideFooter, Is.SameAs(SidePanel.Footer));
+
+        // In the frame's place, what the frame's footer carries there, its change with it: the footer presses on it count for.
+        file.Change();
+        var (_, beside, _) = Draw(menu, inPlace: true);
+        var carried = beside!.Footer.InPlace(beside.Side!);
+        Assert.That(file.SideFooter!.All.Select(each => each.Prompt.Id), Is.EqualTo(carried.All.Select(each => each.Prompt.Id)));
+        Assert.That(file.SideFooter.All.Select(each => each.Prompt.Id), Does.Contain("change"));
+        Assert.That(menu.Act(MenuColumn.Side, "change", null, null, beside.Side), Is.True, "what the column learnt it showed takes a press");
     }
 
     [Test]

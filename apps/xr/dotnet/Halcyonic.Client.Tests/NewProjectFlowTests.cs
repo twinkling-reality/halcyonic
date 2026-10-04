@@ -165,7 +165,7 @@ public class NewProjectFlowTests
     private static void Draw(NewProjectFlow flow, MenuFrame frame)
     {
         NeverFourPrompts(frame);
-        flow.Drawn(frame, false);
+        flow.Drawn(frame, null);
     }
 
     /// <summary>Never four prompts in a footer (ADR 0026): every frame a test reaches through a press or a turn is checked.</summary>
@@ -282,6 +282,28 @@ public class NewProjectFlowTests
         Assert.That(host.Sent, Has.Count.EqualTo(1), "a review confirms one send");
     }
 
+    /// <summary>The footer <paramref name="frame"/>'s side panel shows standing in the page's place, as the navigator tells the flow it drew.</summary>
+    private static Footer CarriedInPlace(MenuFrame frame) => frame.Side is SidePanel side ? frame.Footer.InPlace(side) : SidePanel.Footer;
+
+    [Test]
+    public void ASidePanelDrawnBesideItsPageTakesOnlyItsOwnClose()
+    {
+        // Beside the page the panel shows Close details alone: what it would carry in the page's place does not act from it.
+        var host = new Host();
+        var flow = Recapped(host);
+        Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
+        var frame = flow.Frame!;
+        var change = frame.Footer[PromptSlot.Rare];
+        Assert.That(change, Is.Not.Null, "the chosen fact's change in the frame's footer");
+        Assert.That(CarriedInPlace(frame).All.Select(each => each.Prompt.Id), Does.Contain(change!.Id), "in the page's place the panel would carry it");
+        flow.Drawn(frame, SidePanel.Footer);
+        flow.Act(change.Id, null);
+        Assert.That((flow.Frame!.Side?.Subject, flow.Frame!.Lines.Any(line => line.Key == NewProjectScreens.FactKey(RecapFact.HowItRuns))),
+            Is.EqualTo((EntryText.HowItRuns, true)), "the change, never shown on the panel beside the page, took nothing");
+        flow.Act(SidePanel.Close, null);
+        Assert.That(flow.Frame!.Side, Is.Null, "Close details took");
+    }
+
     /// <summary>What the plane draws of <paramref name="frame"/> with text a step larger, its side panel in the page's place (MenuPlane, MenuFrameView): the prompts that panel carries.</summary>
     private static IEnumerable<string> DrawnInPlace(MenuFrame frame)
     {
@@ -303,7 +325,7 @@ public class NewProjectFlowTests
             var change = frame.Footer[PromptSlot.Rare];
             Assert.That((frame.Side != null, change != null), Is.EqualTo((true, true)), fact + ": its side panel open and its change in the frame's footer");
             // Only the side panel drawn, in the page's place: its change and Start building stand there, and its change acts.
-            flow.Drawn(frame, sidePanel: true);
+            flow.Drawn(frame, CarriedInPlace(frame));
             Assert.That(DrawnInPlace(frame), Is.SupersetOf(new[] { SidePanel.Close, change!.Id, NewProjectScreens.StartBuilding }), fact + "'s change is drawn");
             flow.Act(change.Id, null);
             if (fact == RecapFact.StartOver) Assert.That(flow.Frame!.Footer.Confirming, Is.True, "Start over asks");
@@ -319,7 +341,7 @@ public class NewProjectFlowTests
         var flow = Recapped(host);
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.HowItRuns));
         var frame = flow.Frame!;
-        flow.Drawn(frame, sidePanel: true);
+        flow.Drawn(frame, CarriedInPlace(frame));
         Assert.That(frame.Lines.Any(line => line.Key == NewProjectScreens.FactKey(RecapFact.StartOver)), Is.True, "Start over's row on this page, undrawn");
 
         // The page it hides: its rows, its steps and the frame's own Close are not drawn, so none acts.
@@ -342,7 +364,7 @@ public class NewProjectFlowTests
         flow.Tick();
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
         var chosen = flow.Frame!;
-        flow.Drawn(chosen, sidePanel: true);
+        flow.Drawn(chosen, CarriedInPlace(chosen));
         flow.Act(NewProjectScreens.StartOver, null);
         var asking = flow.Frame!;
         Assert.That(asking.Footer.Confirming, Is.True);
@@ -352,7 +374,7 @@ public class NewProjectFlowTests
         Assert.That(flow.Idea!.HasRecap, Is.True, "a Yes no one saw takes nothing");
 
         // Drawn in the page's place, both Cancel and Yes stand there, and the panel says what Yes clears.
-        flow.Drawn(asking, sidePanel: true);
+        flow.Drawn(asking, CarriedInPlace(asking));
         Assert.That(DrawnInPlace(asking), Is.SupersetOf(new[] { NewProjectScreens.Cancel, NewProjectScreens.ConfirmStartOver }));
         Assert.That(asking.Side!.Lines.Single().Words, Is.EqualTo(EntryText.StartOverClears(false)));
         flow.Act(NewProjectScreens.ConfirmStartOver, null);
@@ -367,9 +389,9 @@ public class NewProjectFlowTests
         host.TextSize = TextSize.Larger;
         flow.Tick();
         Press(flow, NewProjectScreens.ChooseFact, NewProjectScreens.FactKey(RecapFact.StartOver));
-        flow.Drawn(flow.Frame!, sidePanel: true);
+        flow.Drawn(flow.Frame!, CarriedInPlace(flow.Frame!));
         flow.Act(NewProjectScreens.StartOver, null);
-        flow.Drawn(flow.Frame!, sidePanel: true);
+        flow.Drawn(flow.Frame!, CarriedInPlace(flow.Frame!));
         Assert.That(flow.Frame!.Footer.Confirming, Is.True);
         // Close details, then Yes before anything new is drawn: the question closed with the details.
         flow.Act(SidePanel.Close, null);
@@ -1243,7 +1265,7 @@ public class NewProjectFlowTests
             Press(flow, next.Id, next.Key);
             lines.AddRange(flow.Frame!.Lines);
         }
-        flow.Drawn(flow.Frame!, false);
+        flow.Drawn(flow.Frame!, null);
         Assert.That(lines.Select(line => line.Words), Does.Contain(EntryText.PreviousRequestLine), "the warning shown");
         Assert.That(flow.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.True, "once the last part has shown");
         Press(flow, NewProjectScreens.Clear, null);
@@ -1260,7 +1282,7 @@ public class NewProjectFlowTests
         Press(flow, NewProjectScreens.StartBuilding, null);
         for (var part = 0; part < 20; part++)
         {
-            flow.Drawn(flow.Frame!, sidePanel: true);
+            flow.Drawn(flow.Frame!, CarriedInPlace(flow.Frame!));
             host.Now += 1;
             flow.Act(NewProjectScreens.NextPart, null);
         }
@@ -1275,11 +1297,11 @@ public class NewProjectFlowTests
         unknown.Open(null, null);
         for (var part = 0; part < 10 && Turn(unknown.Frame!) is { } next; part++)
         {
-            unknown.Drawn(unknown.Frame!, sidePanel: true);
+            unknown.Drawn(unknown.Frame!, CarriedInPlace(unknown.Frame!));
             tight.Now += 1;
             unknown.Act(next.Id, next.Key);
         }
-        unknown.Drawn(unknown.Frame!, sidePanel: true);
+        unknown.Drawn(unknown.Frame!, CarriedInPlace(unknown.Frame!));
         Assert.That(unknown.Frame!.Footer[PromptSlot.FarRight]!.Available, Is.False, "Clear waits for its parts' pages");
     }
 
@@ -1309,7 +1331,7 @@ public class NewProjectFlowTests
                     void DrawAndNote()
                     {
                         foreach (var line in flow.Frame!.Lines) drawn.Add(line.Words);
-                        flow.Drawn(flow.Frame!, false);
+                        flow.Drawn(flow.Frame!, null);
                     }
                     DrawAndNote();
                     for (var part = 1; part < read && flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is { } row; part++)
@@ -1365,7 +1387,7 @@ public class NewProjectFlowTests
         for (var part = 0; part < 10; part++)
         {
             seen.AddRange(flow.Frame!.Lines.Select(line => line.Words));
-            flow.Drawn(flow.Frame!, false);
+            flow.Drawn(flow.Frame!, null);
             if (flow.Frame!.Lines.LastOrDefault(line => line.Action == NewProjectScreens.NextPart) is not { } row) break;
             host.Now += 1;
             flow.Act(NewProjectScreens.NextPart, row.Key);
@@ -1601,7 +1623,7 @@ public class NewProjectFlowTests
         var flow = Recapped(host);
         Assert.That(flow.Idea!.Rewrite(string.Join(" ", Enumerable.Repeat("Track recipes, plan the week's dinners and write the shopping list.", 20))), Is.True);
         Press(flow, NewProjectScreens.StartBuilding, null);
-        flow.Drawn(flow.Frame!, false);
+        flow.Drawn(flow.Frame!, null);
         host.Now += 1;
         Press(flow, NewProjectScreens.NextPart, null);
         var (parts, part) = (flow.Review!.PageCount, flow.Review.Page);
@@ -1618,7 +1640,7 @@ public class NewProjectFlowTests
             state.ApplySnapshot(Samples.Snapshot(10 + redraw), new StateChanges());
             host.State = state;
             flow.Tick();
-            flow.Drawn(flow.Frame!, false);
+            flow.Drawn(flow.Frame!, null);
             Assert.That((flow.Review!.PageCount, flow.Review.Page), Is.EqualTo((parts, part)), "laid out once for the review, its reading kept");
         }
     }
@@ -1743,7 +1765,7 @@ public class NewProjectFlowTests
         var host = new Host { TextSize = TextSize.Larger };
         var flow = Recapped(host);
         var first = flow.Frame!;
-        flow.Drawn(first, false);
+        flow.Drawn(first, null);
         Assert.That(first.Footer[PromptSlot.Secondary]!.Id, Is.EqualTo(Footer.NextPage), "the recap's facts page as the menu's lists, by the footer's Next page");
         flow.Act(Footer.NextPage, null);
         var second = flow.Frame!;

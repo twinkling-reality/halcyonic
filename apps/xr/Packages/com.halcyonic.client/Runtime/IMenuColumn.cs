@@ -116,12 +116,14 @@ namespace Halcyonic.Client
         /// <summary>
         /// The director drew <paramref name="drawn"/>, the very frame this column gave, whole as the plane
         /// has it, and it shows, never while focus is away or the plane is folded, and drawn again on
-        /// return: its page, or with <paramref name="sidePanel"/> its side panel
-        /// (<see cref="MenuFrame.Side"/>), in its own column or in the frame's place. What counts as read,
-        /// as a request's part or a review's, counts only then, and only for the frame the column still
-        /// stands by.
+        /// return: its page, or only its side panel (<see cref="MenuFrame.Side"/>), with
+        /// <paramref name="sidePanel"/> the footer that panel showed: in the frame's place, what
+        /// <see cref="Footer.InPlace"/> carries of the frame's; beside it, <see cref="SidePanel.Footer"/>,
+        /// its own Close alone. What counts as read, as a request's part or a review's, counts only then,
+        /// and only for the frame the column still stands by.
         /// </summary>
-        void Drawn(MenuFrame drawn, bool sidePanel);
+        /// <param name="sidePanel">The footer the side panel showed, as the navigator takes presses on it; null where the page was drawn.</param>
+        void Drawn(MenuFrame drawn, Footer? sidePanel);
 
         /// <summary>A held prompt of this column's, as Hold to talk, was held long enough to start; the director's voice records.</summary>
         void HoldStarted(string id);
