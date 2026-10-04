@@ -300,6 +300,19 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
+        /// The answers armed to send no longer stand as Send answer asked its Yes for them, changed by
+        /// whatever reached the draft since, a choice or a page turned that cleared one: the Yes is
+        /// cancelled at the change rather than refused when pressed, so it never stands over answers it
+        /// would not send. What to say, or null while they stand.
+        /// </summary>
+        public string? AnswersMoved()
+        {
+            if (Armed != WorkspaceAction.Answer || armedDraft == null || QuestionDraft.SameAnswers(armedDraft.AnswersNow, armedAnswers)) return null;
+            Cancel();
+            return WorkspaceText.AnswerChanged;
+        }
+
+        /// <summary>
         /// The text size changed, so the person's answers are read again at the new size: an answer armed to
         /// send is cancelled, its Yes having been for what was read at the other. What to say, or null.
         /// </summary>

@@ -427,6 +427,13 @@ namespace Halcyonic.Client
                 budgetAt = host.TextSize;
             }
             if (draft != null) ReadQuestion(draft, budget);
+            // Answers armed to send that changed since, by a choice, a page turned or a new layout, cancel
+            // its Yes at the change, as words heard or typed do.
+            if (Steering.AnswersMoved() is string moved)
+            {
+                Notify(moved);
+                Screen.Notice = notice;
+            }
             // The request an approval answers, or an instruction's words, read whole before its Yes.
             if (Steering.ToRead(presentation) is string request)
             {
