@@ -170,12 +170,13 @@ namespace Halcyonic.Client
         /// The frame is the question's page, so drawing it can count toward reading the question: it
         /// holds the prompt's question, quoted, or a row only the question's pages have (an answer, the
         /// person's own, a row on through its parts, or one of the person's answers). An approval shown
-        /// on Waiting meanwhile holds none of these.
+        /// on Waiting meanwhile holds none of these. On the page of the person's answers, past the last
+        /// prompt, there is no prompt to quote: its rows to each question say it is the question's page.
         /// </summary>
         public static bool ShowsQuestion(MenuFrame frame, QuestionDraft draft, int prompt)
         {
-            var text = "“" + WorkspaceText.OneLine(draft.Prompts[prompt].Text) + "”";
-            return frame.Lines.Any(line => (line.WordsAreData && line.Words == text)
+            var text = prompt >= 0 && prompt < draft.Prompts.Count ? "“" + WorkspaceText.OneLine(draft.Prompts[prompt].Text) + "”" : null;
+            return frame.Lines.Any(line => (text != null && line.WordsAreData && line.Words == text)
                 || line.Action == Choose || line.Action == TypeAnswer || line.Action == GoToQuestion
                 || (line.Action == NextPart && line.Key == QuestionKey));
         }
@@ -282,7 +283,8 @@ namespace Halcyonic.Client
             return new Footer(
                 CloseFile,
                 rare: StopWhereUnanswerable(workspace, draft.Question),
-                secondary: screen.Speak && !secret && actions.Contains(WorkspaceAction.Answer)
+                // On the page of the person's answers there is no one question to answer by voice.
+                secondary: screen.Speak && !secret && actions.Contains(WorkspaceAction.Answer) && !screen.Question.Reviewing
                     ? new Prompt(SpeakAnswer, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true)
                     : null,
                 farRight: send);

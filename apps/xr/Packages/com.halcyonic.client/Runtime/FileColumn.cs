@@ -294,7 +294,8 @@ namespace Halcyonic.Client
 
         public void HoldStarted(string id)
         {
-            answering = id == FileScreens.SpeakAnswer;
+            // Only on a question's own page: the page of the person's answers has no one question to answer.
+            answering = id == FileScreens.SpeakAnswer && !Screen.Question.Reviewing;
             if (answering) answerPrompt = Screen.Question.Prompt;
         }
 
@@ -307,7 +308,7 @@ namespace Halcyonic.Client
             if (answering)
             {
                 // What was heard becomes the typed answer, sent only by Send answer.
-                if (draft != null) Notify(draft.Type(answerPrompt, text) ?? VoiceText.HeardAnswer);
+                if (draft != null && answerPrompt < draft.Prompts.Count) Notify(draft.Type(answerPrompt, text) ?? VoiceText.HeardAnswer);
                 Rebuild();
                 return;
             }
