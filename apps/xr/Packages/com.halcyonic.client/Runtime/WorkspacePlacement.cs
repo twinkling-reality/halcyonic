@@ -271,11 +271,6 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Whether a character, its label included, lies within the workspace's width, with the
-        /// clearance, measured around the vertical at the body's elevation: away from eye level the
-        /// same width spans more yaw.
-        /// </summary>
-        /// <summary>
         /// Whether a panel of <paramref name="size"/> centred at <paramref name="at"/> clears every body
         /// it passes in front of, as <see cref="Place"/> keeps them: wholly under its label, by the label's
         /// clearance where the label stands, or wholly above its body. A panel moved by hand stays where
@@ -313,6 +308,11 @@ namespace Halcyonic.Client
         private static float Over(float highest, float halfWidth) =>
             Math.Max(highest + ClearanceDegrees, EdgeForCorners(highest + ClearanceDegrees, halfWidth));
 
+        /// <summary>
+        /// Whether a character, its label included, lies within the workspace's width, with the
+        /// clearance, measured around the vertical at the body's elevation: away from eye level the
+        /// same width spans more yaw.
+        /// </summary>
         private static bool Overlaps(float yaw, PanelSize size, BodyInView body)
         {
             var widening = 1f / MathF.Max(MathF.Cos(body.Elevation / DegreesPerRadian), 0.3f);
