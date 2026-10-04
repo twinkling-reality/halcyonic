@@ -86,7 +86,7 @@ public class FileColumnTests
     /// <summary>The director draws the column's frame, and a second later it is read.</summary>
     private static void Draw(FileMenuHost host, FileColumn column)
     {
-        column.Drawn(column.Frame!, sidePanel: false);
+        column.Drawn(column.Frame!, sidePanel: null);
         host.Wait(1);
     }
 
@@ -360,7 +360,7 @@ public class FileColumnTests
         column.Act(FileScreens.Approve, null);
         var stale = column.Frame!;
         column.Act(MenuFrame.ChooseSection, "activity");
-        column.Drawn(stale, sidePanel: false);
+        column.Drawn(stale, sidePanel: null);
         Assert.That(column.Steering.WholeRequestShown, Is.False, "a frame drawn after the column built another is not what shows");
         column.Act(FileScreens.Yes, null);
         Assert.That(host.Sent, Is.Empty);
@@ -462,7 +462,7 @@ public class FileColumnTests
         for (var part = 0; part < parts; part++)
         {
             Assert.That(column.Screen.Question.SidePart, Is.EqualTo(part), "a rebuild never sends it back to the first part");
-            column.Drawn(column.Frame!, sidePanel: true);
+            column.Drawn(column.Frame!, SidePanel.Footer);
             host.Wait(1);
             column.Tick();
             if (part < parts - 1) column.Act(Footer.NextPage, null);
@@ -514,7 +514,7 @@ public class FileColumnTests
         var parts = column.Screen.Question.SideParts;
         for (var part = 0; part < parts; part++)
         {
-            column.Drawn(column.Frame!, sidePanel: true);
+            column.Drawn(column.Frame!, SidePanel.Footer);
             host.Wait(1);
             column.Tick();
             if (part < parts - 1) column.Act(Footer.NextPage, null);
@@ -658,7 +658,7 @@ public class FileColumnTests
         request.Tick();
         var before = request.Frame!;
         host.TextSize = TextSize.Larger;
-        request.Drawn(before, sidePanel: false);
+        request.Drawn(before, sidePanel: null);
         Assert.That((request.Frame == before, request.Steering.CanConfirm), Is.EqualTo((false, false)), "laid again at the new size, and read again");
     }
 
@@ -704,7 +704,7 @@ public class FileColumnTests
     public void ALongTypedAnswerClosedBeforeItsEndOpensAgainFromItsRowAtThePartToReadNextAndSends()
     {
         var (host, column) = TypedLongAnswer();
-        column.Drawn(column.Frame!, sidePanel: true);
+        column.Drawn(column.Frame!, SidePanel.Footer);
         host.Wait(1);
         column.Act(Footer.NextPage, null);
         column.Act(SidePanel.Close, null);
@@ -717,7 +717,7 @@ public class FileColumnTests
         var parts = column.Screen.Question.SideParts;
         for (var part = 1; part < parts; part++)
         {
-            column.Drawn(column.Frame!, sidePanel: true);
+            column.Drawn(column.Frame!, SidePanel.Footer);
             host.Wait(1);
             if (part < parts - 1) column.Act(Footer.NextPage, null);
         }
@@ -767,7 +767,7 @@ public class FileColumnTests
         column.Act(FileScreens.TypeAnswer, null);
         host.Keyboard!.Value.Done(LongWords("Lock it for a minute after try"));
         Assert.That(column.Screen.Question.SideParts, Is.GreaterThan(2));
-        column.Drawn(column.Frame!, sidePanel: true);
+        column.Drawn(column.Frame!, SidePanel.Footer);
         host.Wait(1);
         Draw(host, column);
         column.Act(FileScreens.NextQuestion, null);
@@ -1172,7 +1172,7 @@ public class FileColumnTests
         var parts = column.Screen.Question.SideParts;
         for (var part = 0; part < parts; part++)
         {
-            column.Drawn(column.Frame!, sidePanel: true);
+            column.Drawn(column.Frame!, SidePanel.Footer);
             host.Wait(1);
             if (part < parts - 1) column.Act(Footer.NextPage, null);
         }
@@ -1181,7 +1181,7 @@ public class FileColumnTests
         var same = string.Join(" ", Enumerable.Range(1, 120).Select(step => "Lock it for a moment after the " + step + "th failed try"));
         host.Keyboard!.Value.Done(same);
         Assert.That((column.Screen.Question.SideParts, column.Screen.Question.SidePart), Is.EqualTo((parts, 0)), "as many parts, from the first");
-        column.Drawn(column.Frame!, sidePanel: true);
+        column.Drawn(column.Frame!, SidePanel.Footer);
         host.Wait(1);
         Assert.That(column.Screen.Question.AnswersRead(0), Is.False, "one part of new words is not the whole of them");
     }
@@ -1190,7 +1190,7 @@ public class FileColumnTests
     public void NextPageOnALongTypedAnswerAdvancesAndARebuildKeepsThePart()
     {
         var (host, column) = TypedLongAnswer();
-        column.Drawn(column.Frame!, sidePanel: true);
+        column.Drawn(column.Frame!, SidePanel.Footer);
         host.Wait(1);
         column.Act(Footer.NextPage, null);
         Assert.That(column.Screen.Question.SidePart, Is.EqualTo(1));

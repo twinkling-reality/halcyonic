@@ -378,7 +378,8 @@ the same definition names, as the JSON Schema document:
   contract, so each lane builds its own: Tasks, Usage, Settings and the closed bar (lane U), Projects
   (lane L), a task's file (lane W) and New project (lane C). A column gives its frame, with its side
   panel, and raises `Changed` and `Closed`; it takes every press (`Act`), each draw of the very
-  frame it gave, its page or its side panel, as the plane has it (`Drawn`), which of its held
+  frame it gave, its page or its side panel, as the plane has it, with the footer that side panel
+  showed, in the frame's place or beside it, which is what presses on it count for (`Drawn`), which of its held
   prompts started and ended while the director's one voice records, the words heard (`Heard`,
   `Said`), a tick, and the app losing focus, presses and holds only while the app has focus. Its own rules decide whether a press may act, and only they send, through
   its host's `IMenuHost.Submit`, bound to the session it was made in; the director never sends around them. `IMenuHost` gives every

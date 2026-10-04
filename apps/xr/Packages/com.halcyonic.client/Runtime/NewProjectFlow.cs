@@ -777,19 +777,18 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The director drew <paramref name="drawn"/>, the very frame this column gave and still stands by:
-        /// its page, or with <paramref name="sidePanel"/> only its side panel, which in the page's place
-        /// carries what <see cref="Footer.InPlace"/> carries. Each is recorded as drawn, and a page another
-        /// frame's no longer stands. A part of the review or of the unknown start counts as read only when
-        /// its page is drawn.
+        /// its page, or only its side panel, showing <paramref name="sidePanel"/>: in the page's place what
+        /// <see cref="Footer.InPlace"/> carries, beside it Close details alone. Each is recorded as drawn, as
+        /// the navigator takes presses on it, and a page another frame's no longer stands. A part of the
+        /// review or of the unknown start counts as read only when its page is drawn.
         /// </summary>
-        public void Drawn(MenuFrame drawn, bool sidePanel)
+        public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
             if (!IsOpen || !ReferenceEquals(drawn, shown)) return;
-            if (sidePanel)
+            if (sidePanel != null)
             {
-                // What the panel carries in the page's place; beside the page it draws Close details alone,
-                // and the navigator takes nothing else from it there.
-                drawnSide = (drawn, drawn.Side is SidePanel panel ? drawn.Footer.InPlace(panel) : SidePanel.Footer, linePage);
+                // What the panel showed: in the page's place what it carries, beside the page Close details alone.
+                drawnSide = (drawn, sidePanel, linePage);
                 if (drawnPage?.Frame != drawn) drawnPage = null;
                 return;
             }

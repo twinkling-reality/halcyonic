@@ -66,7 +66,7 @@ public class SessionBoundHostTests
             Second = host.Submit(Commands.SendInstruction("execution-1", "Begin"));
         }
 
-        public void Drawn(MenuFrame drawn, bool sidePanel)
+        public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
         }
 

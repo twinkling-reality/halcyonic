@@ -272,7 +272,7 @@ namespace Halcyonic.Client
             });
         }
 
-        public void Drawn(MenuFrame drawn, bool sidePanel)
+        public void Drawn(MenuFrame drawn, Footer? sidePanel)
         {
             // Drawn at the size before: laid again at this one, that draw counts for nothing.
             if (Resized())
@@ -283,7 +283,7 @@ namespace Halcyonic.Client
             // Only the frame this column stands by counts: what it shows is this state's.
             if (drawn != Frame || Now == null) return;
             var clock = host.Clock;
-            if (sidePanel)
+            if (sidePanel != null)
             {
                 if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.SideOption != null) Screen.Question.SideDrawn(clock);
                 return;

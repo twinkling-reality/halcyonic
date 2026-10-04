@@ -235,12 +235,12 @@ namespace Halcyonic.Client
                     // The place's column gave its frame without the menu's places; it learns of that very frame.
                     if (!IsOpen || placeFrame == null || frame == null || frame != menuFrame) return;
                     drawnMenu = frame;
-                    PlaceColumn.Drawn(placeFrame, false);
+                    PlaceColumn.Drawn(placeFrame, null);
                     return;
                 case MenuColumn.File:
                     if (Beside == null || BesideAside || besideFrame == null || frame != besideFrame) return;
                     drawnBeside = frame;
-                    Beside.Drawn(besideFrame, false);
+                    Beside.Drawn(besideFrame, null);
                     return;
                 default:
                     // As the plane has it: the file's side panel where a file stands, else the menu's, as
@@ -250,7 +250,8 @@ namespace Halcyonic.Client
                     drawnSide = side;
                     drawnSideFooter = frame != null ? front.Footer.InPlace(side) : SidePanel.Footer;
                     drawnSideOf = front == besideFrame ? Beside! : PlaceColumn;
-                    drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, true);
+                    // The column learns of the very footer presses on the panel count for.
+                    drawnSideOf.Drawn(front == besideFrame ? besideFrame : placeFrame!, drawnSideFooter);
                     return;
             }
         }

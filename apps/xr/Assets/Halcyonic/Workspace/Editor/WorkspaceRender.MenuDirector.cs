@@ -34,7 +34,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
             public MenuFrame? Last { get; private set; }
 
-            public List<(MenuFrame Frame, bool Side)> DrawnFrames { get; } = new List<(MenuFrame, bool)>();
+            public List<(MenuFrame Frame, Footer? Side)> DrawnFrames { get; } = new List<(MenuFrame, Footer?)>();
 
             public MenuFrame? Frame => Last = build();
 
@@ -50,7 +50,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
             }
 
-            public void Drawn(MenuFrame drawn, bool sidePanel) => DrawnFrames.Add((drawn, sidePanel));
+            public void Drawn(MenuFrame drawn, Footer? sidePanel) => DrawnFrames.Add((drawn, sidePanel));
 
             public void HoldStarted(string id)
             {
@@ -192,7 +192,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (sent.Count != 1 || sent[0].Session != demonstration) failures.Add(name + ": in the demonstration, a column's send did not reach the host's submissions for its session.");
                 else
                 {
-                    if (file.Last == null || !file.DrawnFrames.Any(drawn => drawn.Frame == file.Last && !drawn.Side))
+                    if (file.Last == null || !file.DrawnFrames.Any(drawn => drawn.Frame == file.Last && drawn.Side == null))
                     {
                         failures.Add(name + ": the file did not learn of the very frame it gave being drawn.");
                     }
