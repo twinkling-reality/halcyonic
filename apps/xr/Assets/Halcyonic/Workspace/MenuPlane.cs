@@ -698,6 +698,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Whether <paramref name="point"/>, seen from <paramref name="eyes"/>, falls on a label's outline (<see cref="LabelOutline"/>).</summary>
         public static bool OnLabel((Transform Plate, Rect Covered) label, Vector3 eyes, Vector3 point)
         {
+            // A label whose character has left the stage stands nowhere.
+            if (label.Plate == null) return false;
             var toward = point - eyes;
             var normal = label.Plate.forward;
             var across = Vector3.Dot(toward, normal);

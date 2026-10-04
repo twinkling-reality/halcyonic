@@ -103,6 +103,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 keptLessAtLarger = 0;
                 failures.AddRange(RenderMenuDirector("far-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));
                 failures.AddRange(RenderMenuDirector("desk-3s-director", folder, radius: 0.55f, surfaceDrop: 0.46f));
+                failures.AddRange(RenderMenuDirector("window-3s-director", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null, besideWindow: true));
                 if (keptLessAtLarger == 0) failures.Add("no director render laid a dragged plane anew where the whole drag broke a rule, so keeping only what holds goes unchecked.");
                 // A question of two prompts answered in a task's file and sent from Your answers.
                 failures.AddRange(RenderYourAnswers("far-3s", folder, radius: CharacterStage.DefaultDistance, surfaceDrop: null));

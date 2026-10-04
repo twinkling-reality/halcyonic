@@ -83,7 +83,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// Each state is drawn on one plane and held to the plane's checks; a file learns of the very
         /// frame it gave being drawn, and the menu's Tasks shows the open file's row chosen.
         /// </summary>
-        private static IEnumerable<string> RenderMenuDirector(string name, string folder, float radius, float? surfaceDrop)
+        /// <param name="besideWindow">The characters either side of a window straight ahead: the plane opens under its lane, and a file's subject drags nothing.</param>
+        private static IEnumerable<string> RenderMenuDirector(string name, string folder, float radius, float? surfaceDrop, bool besideWindow = false)
         {
             var failures = new List<string>();
             var root = new GameObject("Menu director render " + name);
@@ -94,7 +95,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Where the head points; turned below to check the plane stays put until Reset position.
                 var looking = Vector3.zero;
                 var camera = MakeCamera(root.transform, eyes, texture);
-                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation);
+                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation, besideWindow: besideWindow);
+                var window = besideWindow ? Window(root.transform, eyes) : null;
                 var targets = characters.ConvertAll(character => character.Target);
                 var state = Projection(characters);
                 var opened = characters[3];
@@ -102,8 +104,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 // and whether it asks its Yes, as a confirmation standing on the plane.
                 var fileTitle = opened.View.Presentation!.Title;
                 var fileConfirming = false;
-                looking = opened.Target.BodyPosition - eyes;
+                looking = besideWindow ? Vector3.forward : opened.Target.BodyPosition - eyes;
                 var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
+                // The stage as the director reads it: the drag's checks arrange it beside a window, or on another surface, for a while.
+                var windowNow = besideWindow;
+                var surfaceNow = surface;
                 var comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard };
                 var overview = WorkOverview.Of(state, new StageVisibility(), _ => true);
                 StubColumn? file = null;
@@ -153,7 +158,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     },
                     Demonstration = () => demonstrationPlays,
                     State = () => state,
-                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surface, false),
+                    StageNow = () => new MenuDirector.Stage(eyes, looking, targets, surfaceNow, windowNow),
                     CharacterOf = task => targets.FirstOrDefault(target => target.View.WorkstreamId == task),
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
@@ -166,7 +171,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var tasksFrame = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Tasks, state)).Menu;
                 if (tasksFrame == null || tasksFrame.Sections.Count != 4) failures.Add(name + ": Tasks shows without the menu's four places.");
                 else if (tasksFrame.Lines.FirstOrDefault()?.Key != opened.View.WorkstreamId) failures.Add(name + ": the waiting task is not Tasks' first row.");
-                failures.AddRange(PlaneState(name + " director tasks", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director tasks", folder, camera, texture, director.Plane, characters, eyes, window));
 
                 // Its row opens its file beside the menu, and the row stays chosen.
                 var drawnTasks = director.Plane.Showing(MenuColumn.Menu);
@@ -176,7 +181,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 director.DrawNow();
                 if (file == null || director.Navigator.Beside != file) failures.Add(name + ": pressing the waiting task's row opened no file beside the menu.");
-                var expected = MenuPage.Height(comfort.Text, 1, MenuPlane.TopLine(opened.Target, targets, eyes, opened.Target.BodyPosition - eyes, surface), ViewField.Current);
+                var expected = MenuPage.Height(comfort.Text, 1, MenuPlane.TopLine(opened.Target, targets, eyes, looking, surface, besideWindow), ViewField.Current);
                 if (made is not float height || Mathf.Abs(height - expected) > 1e-5f)
                 {
                     failures.Add(name + ": the file read its page height as " + made + " while it was made, not against its own character's top line (" + expected + ").");
@@ -193,9 +198,28 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     var chosen = director.Navigator.Frames(TasksColumn.Bar(MenuPlace.Tasks, state)).Menu?.Lines.FirstOrDefault(line => line.Chosen)?.Key;
                     if (chosen != opened.View.WorkstreamId) failures.Add(name + ": Tasks does not show the open file's row chosen.");
-                    if (director.Plane.LightLine == null) failures.Add(name + ": the file opened from Tasks shows no light line.");
+                    if (director.Plane.LightLine == null && !besideWindow) failures.Add(name + ": the file opened from Tasks shows no light line.");
                 }
-                failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, null));
+                failures.AddRange(PlaneState(name + " director file", folder, camera, texture, director.Plane, characters, eyes, window));
+
+                // Beside a window the plane stands under the window's lane, and a file's subject drags nothing: no drag can take it into the lane.
+                if (besideWindow)
+                {
+                    var under = director.Plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View;
+                    if (under == null) failures.Add(name + ": no file stands on the plane beside the window.");
+                    else
+                    {
+                        var underLane = director.Plane.Direction;
+                        director.HoldSubjectForRender(under.Subject.position);
+                        if (director.Dragging) failures.Add(name + ": beside a window, holding the file's subject took hold of the plane.");
+                        director.DragSubjectForRender(eyes + Quaternion.Euler(-20f, 0f, 0f) * (under.Subject.position - eyes));
+                        director.LetGoForRender();
+                        director.DrawNow();
+                        if (Mathf.Abs(director.Plane.Direction.Elevation - underLane.Elevation) > 0.01f || director.MovedByHand) failures.Add(name + ": beside a window, the plane moved by hand.");
+                        failures.AddRange(PlaneState(name + " director held beside the window", folder, camera, texture, director.Plane, characters, eyes, window));
+                    }
+                    return failures;
+                }
 
                 // Folded away, the person is elsewhere: a draw counts for nothing, and a press on it is not taken.
                 if (file != null)
@@ -221,7 +245,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
 
                 // Holding the file's subject drags the whole plane round the eyes; nothing pressed counts meanwhile.
-                failures.AddRange(DragMenu(name, folder, camera, texture, director, characters, eyes, title =>
+                // A character standing in for one that comes or goes during a drag, behind the person, where it changes no placement.
+                CharacterTarget Extra(string id)
+                {
+                    var view = CharacterView.Create(root.transform, id);
+                    view.Show(Presentation(id, 0));
+                    view.transform.SetPositionAndRotation(eyes + Vector3.back * radius, Quaternion.LookRotation(Vector3.forward, Vector3.up));
+                    return CharacterTarget.Attach(view, id);
+                }
+                failures.AddRange(DragMenu(name, folder, camera, texture, director, characters, targets, eyes, title =>
                 {
                     fileTitle = title;
                     file?.Change();
@@ -233,7 +265,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     GlazeText.SetScale(scale);
                     comfort.Text = scale > 1f ? TextSize.Larger : TextSize.Standard;
-                }));
+                }, (window, standOn) =>
+                {
+                    windowNow = window;
+                    surfaceNow = standOn;
+                }, () => surfaceNow, Extra));
 
                 // Choosing a place is the menu's own; the file stays beside it.
                 // A press from the frame drawn before the file opened is passed over: it no longer stands.
@@ -469,8 +505,13 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <param name="retitle">Gives the file another title, as one in two rows that makes it taller.</param>
         /// <param name="confirm">Has the file ask its Yes, or not, as a confirmation standing on the plane.</param>
         /// <param name="textAt">Draws reading text at a scale, the person's text size following it, as Settings' Larger text does.</param>
+        /// <param name="targets">The characters the director reads from the stage, which the checks change as characters come and go.</param>
+        /// <param name="arrange">Arranges the stage beside a window or not, on a surface this high or none.</param>
+        /// <param name="surfaceNow">The surface the stage stands on now.</param>
+        /// <param name="extra">Makes a character standing in for one that comes or goes.</param>
         private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
-            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Action<string> retitle, Action<bool> confirm, Action<float> textAt)
+            List<(CharacterView View, CharacterTarget Target)> characters, List<CharacterTarget> targets, Vector3 eyes, Action<string> retitle, Action<bool> confirm,
+            Action<float> textAt, Action<bool, float?> arrange, Func<float?> surfaceNow, Func<string, CharacterTarget> extra)
         {
             var failures = new List<string>();
             var plane = director.Plane;
@@ -684,6 +725,64 @@ namespace Halcyonic.XR.Workspace.Editor
             director.DrawNow();
             if (director.Dragging) failures.Add(name + ": the menu closed under a drag, and the drag went on.");
             director.Open(MenuPlace.Tasks);
+            director.DrawNow();
+
+            // Dragged, then the stage arranged beside a window, or on another surface: the drag made for the last
+            // arrangement holds no more, and does not come back with it.
+            var standOn = surfaceNow();
+            foreach (var (window, surface, what) in new[] { (true, standOn, "arranged beside a window"), (false, (float?)(EyeHeight - 1.1f), "on another surface") })
+            {
+                director.ResetPosition();
+                director.DrawNow();
+                director.HoldSubjectForRender(subject.Subject.position);
+                for (var step = 1; step <= 8; step++) director.DragSubjectForRender(Turned(subject.Subject.position, 1f, 0f));
+                director.LetGoForRender();
+                director.DrawNow();
+                if (!director.MovedByHand) failures.Add(name + ": dragged before the stage was " + what + ", the plane kept no drag.");
+                arrange(window, surface);
+                director.DrawNow();
+                if (director.MovedByHand || plane.Moved != default) failures.Add(name + ": the stage " + what + ", the plane kept the drag made for the last arrangement.");
+                if (window)
+                {
+                    director.HoldSubjectForRender(subject.Subject.position);
+                    if (director.Dragging) failures.Add(name + ": the stage " + what + ", holding the file's subject took hold of the plane.");
+                    director.LetGoForRender();
+                }
+                arrange(false, standOn);
+                director.DrawNow();
+                if (director.MovedByHand) failures.Add(name + ": the stage back as it was, the drag made before came back with it.");
+            }
+
+            // A character leaving the stage mid-drag, or one arriving: the drag ends, as its rules were judged against the stage as it began.
+            var gone = extra("render-leaves");
+            targets.Add(gone);
+            director.ResetPosition();
+            director.DrawNow();
+            director.HoldSubjectForRender(subject.Subject.position);
+            if (!director.Dragging) failures.Add(name + ": with one more character on the stage, the file's subject took no hold of the plane.");
+            UnityEngine.Object.DestroyImmediate(gone.View.gameObject);
+            try
+            {
+                // Its label gone, nothing that judges the plane reads it.
+                plane.Allows(plane.Direction);
+                director.DragSubjectForRender(Turned(subject.Subject.position, 1f, 0f));
+            }
+            catch (Exception error)
+            {
+                failures.Add(name + ": a character left the stage mid-drag, and the next step threw " + error.GetType().Name + ".");
+            }
+            if (director.Dragging) failures.Add(name + ": a character left the stage mid-drag, and the drag went on.");
+            director.LetGoForRender();
+            targets.Remove(gone);
+            director.DrawNow();
+            director.HoldSubjectForRender(subject.Subject.position);
+            var arrives = extra("render-arrives");
+            targets.Add(arrives);
+            director.StageRefreshedForRender();
+            if (director.Dragging) failures.Add(name + ": a character arrived on the stage mid-drag, and the drag went on.");
+            director.LetGoForRender();
+            targets.Remove(arrives);
+            UnityEngine.Object.DestroyImmediate(arrives.View.gameObject);
             director.DrawNow();
 
             // Reset position places it afresh.

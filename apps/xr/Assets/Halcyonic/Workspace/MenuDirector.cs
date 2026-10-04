@@ -156,6 +156,12 @@ namespace Halcyonic.XR.Workspace
         private (Vector3 Eyes, Vector3 Looking)? anchor;
         private (bool Open, IMenuColumn? Beside) anchoredFor;
 
+        /// <summary>The stage's arrangement as the plane was last laid against it: beside a window or not, and the surface under the characters.</summary>
+        private (bool BesideWindow, float? Surface) arranged;
+
+        /// <summary>The characters standing when the drag began, which its rules were judged against.</summary>
+        private readonly List<CharacterTarget> dragStage = new List<CharacterTarget>();
+
         /// <summary>How far a drag left the plane from where the stage places it, kept until the plane is placed afresh.</summary>
         private (float Yaw, float Elevation) moved;
 
@@ -229,8 +235,46 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Closes the menu to its bar.</summary>
         public void CloseMenu() => navigator.CloseMenu();
 
-        /// <summary>Draws again at once, as after the stage moved: the plane re-centres on the stage it stands over.</summary>
-        public void Redraw() => dirty = true;
+        /// <summary>Draws again at once, as after the stage moved: the plane re-centres on the stage it stands over, and a drag judged against where it stood ends.</summary>
+        public void Redraw()
+        {
+            EndDrag();
+            dirty = true;
+        }
+
+        /// <summary>
+        /// The stage brought its characters up to date: a drag ends if any character came or went, or the
+        /// arrangement or the surface changed, since its rules were judged against the stage as it began.
+        /// </summary>
+        public void StageRefreshed()
+        {
+            if (drag == null) return;
+            var now = setup.StageNow();
+            if (now.BesideWindow != arranged.BesideWindow || now.SurfaceHeight != arranged.Surface || !SameCharacters(now.Characters)) EndDrag();
+        }
+
+        /// <summary>Whether <paramref name="characters"/> are the very ones standing when the drag began, none of them gone.</summary>
+        private bool SameCharacters(IReadOnlyList<CharacterTarget> characters)
+        {
+            var count = 0;
+            for (var index = 0; index < characters.Count; index++)
+            {
+                if (characters[index] == null) continue;
+                if (!dragStage.Contains(characters[index])) return false;
+                count++;
+            }
+            return count == dragStage.Count && !AnyGone();
+        }
+
+        /// <summary>A character standing when the drag began has since been destroyed, as one that left the stage.</summary>
+        private bool AnyGone()
+        {
+            for (var index = 0; index < dragStage.Count; index++)
+            {
+                if (dragStage[index] == null) return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Settings' Reset position: the plane is placed afresh where the person looks now, as when the menu
@@ -268,6 +312,9 @@ namespace Halcyonic.XR.Workspace
 
         /// <summary>For the editor's renders: another window took focus.</summary>
         public void FocusLeftForRender() => OnFocusLeft();
+
+        /// <summary>For the editor's renders: the stage brought its characters up to date.</summary>
+        public void StageRefreshedForRender() => StageRefreshed();
 
         /// <summary>For the editor's renders: the held point moved to <paramref name="point"/>.</summary>
         public void DragSubjectForRender(Vector3 point) => OnSubjectDragged(point);
@@ -338,6 +385,13 @@ namespace Halcyonic.XR.Workspace
             {
                 anchor = (stage.Eyes, stage.Looking);
                 anchoredFor = standing;
+                moved = default;
+            }
+            // Another arrangement, as beside a window, or another surface: a drag made for the last holds no more.
+            var arrangement = (stage.BesideWindow, stage.SurfaceHeight);
+            if (arrangement != arranged)
+            {
+                arranged = arrangement;
                 moved = default;
             }
             var (eyes, looking) = anchor.Value;
@@ -417,6 +471,8 @@ namespace Halcyonic.XR.Workspace
         private bool MayDrag(MenuColumn from, MenuFrame? frame)
         {
             if (FocusGuard.InputSuspended || drag != null || from != MenuColumn.File || navigator.BesideTask == null) return false;
+            // Beside a window the plane stands under the window's lane, which no drag may take it into.
+            if (arranged.BesideWindow) return false;
             if (navigator.Standing(MenuColumn.File, frame, null) == null || plane.Composition == null) return false;
             if (plane.Front?.Footer.Confirming == true) return false;
             foreach (var (_, view) in plane.Shown)
@@ -441,9 +497,12 @@ namespace Halcyonic.XR.Workspace
             var stage = setup.StageNow();
             var eyes = plane.Eyes;
             var bodies = new List<BodyInView>(stage.Characters.Count);
+            dragStage.Clear();
             foreach (var character in stage.Characters)
             {
-                if (character != null) bodies.Add(WorkspaceLayout.InView(character, eyes));
+                if (character == null) continue;
+                bodies.Add(WorkspaceLayout.InView(character, eyes));
+                dragStage.Add(character);
             }
             var (grabYaw, grabElevation) = AnglesOf(point - eyes);
             // Last of all, the plane's own judgement, its light line included, from the geometry alone.
@@ -457,7 +516,8 @@ namespace Halcyonic.XR.Workspace
         private void OnSubjectDragged(Vector3 point)
         {
             if (drag == null) return;
-            if (FocusGuard.InputSuspended)
+            // A character gone from the stage mid-drag: its rules were judged against it, so the drag ends.
+            if (FocusGuard.InputSuspended || AnyGone())
             {
                 EndDrag();
                 return;
