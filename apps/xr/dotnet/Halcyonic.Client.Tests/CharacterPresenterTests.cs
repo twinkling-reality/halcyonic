@@ -139,6 +139,8 @@ public class CharacterPresenterTests
                 continue;
             }
             Assert.That(why, Is.Not.Null.And.EndsWith("."), code.ToString());
+            // Every refusal ends in a way on (WORDS.md rule 7): a second sentence saying what to do.
+            Assert.That(why!.Split(new[] { ". " }, StringSplitOptions.None).Length, Is.GreaterThan(1), code.ToString());
             Assert.That(why, Does.Not.Contain("runtime").IgnoreCase.And.Not.Contain("control plane").IgnoreCase.And.Not.Contain("execution").IgnoreCase, code.ToString());
         }
         Assert.That(WorkspaceText.Couldnt("Couldn't connect", null), Is.EqualTo("Couldn't connect."), "no why: the lead alone, ended");

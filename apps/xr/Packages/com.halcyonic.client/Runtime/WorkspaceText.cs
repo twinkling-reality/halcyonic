@@ -303,19 +303,20 @@ namespace Halcyonic.Client
         public static string? WhyRefused(RejectionCode? code) => code switch
         {
             RejectionCode.ProjectNotFound => "This project isn't on " + HostText.Your + " any more. Choose another in Projects.",
-            RejectionCode.WorkstreamNotFound => "This task isn't on " + HostText.Your + " any more.",
-            RejectionCode.ExecutionNotFound => "This work isn't on " + HostText.Your + " any more.",
+            RejectionCode.WorkstreamNotFound => "This task isn't on " + HostText.Your + " any more. Choose another in Tasks.",
+            RejectionCode.ExecutionNotFound => "This work isn't on " + HostText.Your + " any more. " + StateLanguage.AddItAgain,
             RejectionCode.RuntimeNotFound => "Its agent app isn't on " + HostText.Your + " now. Set it up there, then try again.",
             RejectionCode.ApprovalNotFound => "It no longer waits for that decision. See what it's doing now.",
             RejectionCode.QuestionNotFound => "It's no longer waiting for this answer. See what it's doing now.",
             RejectionCode.InvalidAnswer => "It couldn't take that answer. Read the question again, then answer it.",
             RejectionCode.ModelRequired => "Its agent app needs a model. Choose one, then try again.",
-            RejectionCode.CapabilityUnsupported => "Its agent app can't do that.",
+            RejectionCode.CapabilityUnsupported => "Its agent app can't do that. See what it's doing, then try something it offers.",
             RejectionCode.InvalidState => "It can't take that right now. See what it's doing, then try again.",
             RejectionCode.InvalidRuntimeOptions => "Its agent app didn't accept those settings. Choose them again.",
             RejectionCode.LocationRequired or RejectionCode.LocationMissing or RejectionCode.LocationNotAllowed or RejectionCode.LocationExists
                 => EntryText.FolderProblem(code, null),
-            RejectionCode.DeviceRevoked => "This headset is no longer paired with " + HostText.Your + ". Pair it again in Settings.",
+            // One sentence for a revoked pairing, wherever it is said.
+            RejectionCode.DeviceRevoked => ConnectionText.PairingRefused,
             _ => null,
         };
 
