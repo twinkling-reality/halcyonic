@@ -749,6 +749,35 @@ public class NewProjectFlowTests
     }
 
     [Test]
+    public void OpenedAgainWhileItStandsItShowsWhereItOpensAndSaysSo()
+    {
+        // A start kept unknown: the person goes to Your idea by the steps, then presses New project again,
+        // which the navigator, New project already standing beside the menu, doesn't redraw itself.
+        var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-0000000000c1" };
+        var host = new Host();
+        var flow = Flow(host, kept);
+        flow.Open(null, null);
+        Press(flow, MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.YourIdea));
+        var idea = flow.Frame!;
+        Draw(flow, idea);
+        var changes = 0;
+        flow.Changed += () => changes++;
+        flow.Open(null, null);
+        Assert.That(changes, Is.EqualTo(1), "said to have changed");
+        Assert.That((flow.Step, flow.Frame!.Lines.Any(line => line.Words == EntryText.Reference(kept.Id!))), Is.EqualTo((NewProjectStep.Build, true)), "the unknown start shows");
+        flow.Act(MenuFrame.ChooseSection, NewProjectScreens.Key(NewProjectStep.YourIdea));
+        Assert.That(flow.Step, Is.EqualTo(NewProjectStep.Build), "nothing on the page drawn before takes a press");
+
+        // The same with nothing kept, opened again on the page it stood on.
+        var plain = Recapped(new Host());
+        Draw(plain, plain.Frame!);
+        var told = 0;
+        plain.Changed += () => told++;
+        plain.Open(null, null);
+        Assert.That(told, Is.EqualTo(1), "said to have changed");
+    }
+
+    [Test]
     public void AfterARestartAKeptUnknownStartHoldsEveryNewStartAndIsNeverReplaced()
     {
         var kept = new Kept { Id = "01a0dcf1-5a80-7000-8000-0000000000c1" };

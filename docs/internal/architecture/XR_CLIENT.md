@@ -833,7 +833,9 @@ the same definition names, as the JSON Schema document:
   read once for what shows (`Follow`: the step, its page, the question, the idea) and again only
   when that, the subject's rows or the text size change, so nothing re-packs as the head moves; the
   review's part rows likewise, once a review; and anything new, opening New project included, starts
-  at its first page. A press acts only when what the director last drew offers it, available, so nothing
+  at its first page. Opened, on whichever step it opens to, it is built again and says so, since it
+  may already stand beside the menu, where nothing else redraws it, and nothing drawn before takes a
+  press. A press acts only when what the director last drew offers it, available, so nothing
   the person can't see or press now runs: the page drawn whole, or its side panel drawn alone, which
   takes only its Close details and what it carries in the page's place (`Footer.InPlace`), never a
   line or prompt of the page it hides, and counts no part read (`NewProjectFlow.DrawnWith`). The

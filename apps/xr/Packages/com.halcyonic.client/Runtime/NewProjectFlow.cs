@@ -285,11 +285,13 @@ namespace Halcyonic.Client
             if (UnknownId() != null && sequence == null)
             {
                 Show(NewProjectStep.Build, BuildPage.Unresolved);
+                Opened();
                 return;
             }
             if (sequence != null && !sequence.Started && (sequence.Current != null || sequence.Unresolved != null))
             {
                 Show(NewProjectStep.Build, BuildPage.Starting);
+                Opened();
                 return;
             }
             var key = projectId ?? "";
@@ -320,11 +322,20 @@ namespace Halcyonic.Client
             confirmingStartOver = false;
             fact = null;
             Show(idea.HasRecap ? NewProjectStep.Recap : idea.Companion != null || idea.Guided ? NewProjectStep.Questions : NewProjectStep.YourIdea);
-            shown = null;
+            Opened();
+        }
+
+        /// <summary>
+        /// Opened, on whichever step: built again and said so, as the column may already stand beside the
+        /// menu, where nothing else redraws it; nothing drawn before takes a press. Opened again, it reads
+        /// from the first page, its room afresh where it stands now.
+        /// </summary>
+        private void Opened()
+        {
             drawnPage = null;
             drawnSide = null;
-            // Opened again, it reads from the first page, its room afresh where it stands now.
             pagedFor = null;
+            Redraw();
         }
 
         /// <summary>Takes New project off the plane; its draft stays where it is.</summary>
@@ -739,7 +750,7 @@ namespace Halcyonic.Client
                     recoveryArmed = false;
                     Show(NewProjectStep.Build, BuildPage.Unresolved);
                     break;
-                case NewProjectScreens.Clear when Live && host.Connected && unresolvedWordsDrawn != null:
+                case NewProjectScreens.Clear when Live && host.Connected && UnknownId() is string && unresolvedWordsDrawn != null:
                     // Armed by what the person saw: where the words changed after that page was drawn, the Yes
                     // lapses as the page is built again, saying so.
                     recoveryArmed = true;
