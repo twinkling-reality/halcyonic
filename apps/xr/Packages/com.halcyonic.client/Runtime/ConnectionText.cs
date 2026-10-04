@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 
 namespace Halcyonic.Client
 {
@@ -41,6 +42,53 @@ namespace Halcyonic.Client
             ConnectionPhase.Refused => WhyNotLive(status),
             _ => "Not connected",
         };
+
+        /// <summary>
+        /// Why the connection ended, by the code your computer gave when it turned the connection away,
+        /// never its message, which is written for developers in the control plane's terms.
+        /// </summary>
+        public static string Ended(string? code) => code switch
+        {
+            "unsupported_protocol" => OtherVersion,
+            "device_revoked" => PairingRefused,
+            "too_many_connections" => "This headset already has too many connections open to " + HostText.Your + ". Close the app, then open it again.",
+            "invalid_message" or "hello_required" => HostText.YourStart + " couldn't read what this app sent. " + SameVersion,
+            _ => HostText.YourStart + " ended the connection.",
+        };
+
+        /// <summary>Your computer speaks another version of the connection than this app.</summary>
+        public const string OtherVersion = HostText.YourStart + " runs another version of this app. " + SameVersion;
+
+        private const string SameVersion = "Install the same version on both.";
+
+        /// <summary>Your computer sent what this app can't read; the message itself is never shown, since it may hold anything.</summary>
+        public const string Unreadable = HostText.YourStart + " sent something this app can't read. " + SameVersion;
+
+        /// <summary>Your computer closed the connection.</summary>
+        public const string Closed = HostText.YourStart + " closed the connection.";
+
+        /// <summary>
+        /// Why your computer closed the connection, from the close it sent ("1008 device revoked", as the
+        /// control plane closes a revoked device's connection): a revoked pairing in the pairing's own words,
+        /// any other close as <see cref="Closed"/>, never the close's text.
+        /// </summary>
+        public static string ClosedWith(string? close) =>
+            close != null && close.EndsWith(" device revoked", StringComparison.Ordinal) ? PairingRefused : Closed;
+
+        /// <summary>This headset fell behind what your computer sent, so it reads everything again.</summary>
+        public const string FellBehind = "This headset fell behind, so it's catching up.";
+
+        /// <summary>Your computer didn't answer the connection in time.</summary>
+        public static string NoAnswer(TimeSpan within) => HostText.YourStart + " didn't answer within " + Seconds(within) + ".";
+
+        /// <summary>Your computer sent nothing on a live connection for this long.</summary>
+        public static string Silent(TimeSpan quiet) => HostText.YourStart + " sent nothing for " + Seconds(quiet) + ".";
+
+        private static string Seconds(TimeSpan span)
+        {
+            var seconds = Math.Max(1, (int)Math.Round(span.TotalSeconds));
+            return seconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + (seconds == 1 ? " second" : " seconds");
+        }
 
         public const string Unreachable = "Can't reach " + HostText.Your + "; trying again. Check that Halcyonic is running there and this headset can reach it.";
 

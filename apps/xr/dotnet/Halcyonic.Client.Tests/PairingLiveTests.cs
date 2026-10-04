@@ -201,7 +201,7 @@ public class PairingLiveTests
         await Until(s => s.Status.IsLive, "the session is live");
 
         await LoopbackAsync(controlPlane, HttpMethod.Post, "/api/devices/" + paired.DeviceId + "/revoke");
-        await Until(s => !s.Status.IsLive && (s.Status.Detail ?? "").Contains("revoked"), "the session learns the device was revoked");
+        await Until(s => !s.Status.IsLive && s.Status.Detail == ConnectionText.PairingRefused, "the session learns the device was revoked, in the pairing's words");
         using var api = target.CreateApi();
         var refused = Assert.ThrowsAsync<ControlPlaneRequestException>(() => api.ReadAllAsync("01a0f0a0-0000-7000-8000-000000000001", session!.State.Journal!.JournalId));
         Assert.That(refused!.Message, Does.Contain("revoked"));
