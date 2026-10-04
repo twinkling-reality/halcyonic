@@ -131,7 +131,7 @@ public class ActivityLogTests
         // The agent app's own reason for losing the session is a diagnostic, never shown.
         Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Is.EqualTo("Your computer lost touch with the agent app."));
         var refactor = log.For(ExecutionOf(events, "Refactor the session store")).Select(entry => entry.Text).ToList();
-        Assert.That(refactor, Does.Contain("Couldn't send an instruction: its agent app can't do that."), "by the refusal's code, never its message");
+        Assert.That(refactor, Does.Contain("Couldn't send an instruction: its agent app can't do that. See what it's doing, then try something it offers."), "by the refusal's code, never its message");
         Assert.That(refactor, Has.None.Contains("instruct_while_running").And.None.Contains("Runtime mock"));
         Assert.That(refactor[^1], Is.EqualTo("Round stopped"));
         Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Denied"));
@@ -294,9 +294,9 @@ public class WorkspacePresenterTests
             ("no_running_turn", "Couldn't do that: it can't take that right now. See what it's doing, then try again."),
             ("runtime_unreachable", "Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
             ("runtime_closed", "Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
-            ("execution_unknown_to_runtime", "Couldn't do that: this work isn't on your computer any more."),
+            ("execution_unknown_to_runtime", "Couldn't do that: this work isn't on your computer any more. Add the task again in Projects to try again."),
             ("model_unavailable", "Couldn't do that: its agent app needs a model. Choose one, then try again."),
-            ("capability_unimplemented", "Couldn't do that: its agent app can't do that."),
+            ("capability_unimplemented", "Couldn't do that: its agent app can't do that. See what it's doing, then try something it offers."),
         })
         {
             noEffect.Failure.Code = code;
