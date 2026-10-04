@@ -111,9 +111,9 @@ public class ActivityLogTests
         });
         Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
         {
-            "Couldn't send an instruction",
+            "Couldn't send an instruction: your computer lost touch with the agent app. See what it's doing, then try again.",
             "Not sure it happened. Check its activity before you try again.",
-            "Couldn't start",
+            "Couldn't start: your computer lost touch with the agent app. See what it's doing, then try again.",
             "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
             "Couldn't finish this round",
         }), "an effect that can't be ruled out is never said as Couldn't");
@@ -283,9 +283,25 @@ public class WorkspacePresenterTests
             Is.EqualTo("Not sure it happened. Check its activity before you try again."));
         var noEffect = Command(CommandStatus.Failed);
         noEffect.Failure!.Effect = FailureEffect.None;
-        noEffect.Failure.Code = "runtime_unreachable";
+        noEffect.Failure.Code = "codex_other";
         Assert.That(WorkspacePresenter.Feedback(noEffect).Text, Is.EqualTo("Couldn't do that: nothing changed. See what it's doing, then try again."),
             "trying again at once can fail the same way, so the way on looks at the task first");
+        // A cause every agent app's adapter shares is said in words already used for it, with the way on.
+        foreach (var (code, words) in new[]
+        {
+            ("approval_not_pending", "Couldn't do that: it no longer waits for that decision. See what it's doing now."),
+            ("question_not_pending", "Couldn't do that: it's no longer waiting for this answer. See what it's doing now."),
+            ("no_running_turn", "Couldn't do that: it can't take that right now. See what it's doing, then try again."),
+            ("runtime_unreachable", "Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
+            ("runtime_closed", "Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
+            ("execution_unknown_to_runtime", "Couldn't do that: this work isn't on your computer any more."),
+            ("model_unavailable", "Couldn't do that: its agent app needs a model. Choose one, then try again."),
+            ("capability_unimplemented", "Couldn't do that: its agent app can't do that."),
+        })
+        {
+            noEffect.Failure.Code = code;
+            Assert.That(WorkspacePresenter.Feedback(noEffect).Text, Is.EqualTo(words), code);
+        }
 
         // The recorded demonstration's answer is its own words: the recording continues with the
         // answer it recorded, so "Refused" would contradict what plays next.
