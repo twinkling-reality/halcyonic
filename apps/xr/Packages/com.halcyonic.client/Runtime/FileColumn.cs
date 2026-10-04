@@ -14,8 +14,9 @@ namespace Halcyonic.Client
     /// <see cref="FileScreens"/>, and what Changes and Checks read. Every press is judged by the
     /// steering's rules and the page's own, and only they send, through <see cref="IMenuHost.Submit"/>.
     /// What counts as read counts only as the director reports drawing the very frame this column built
-    /// (<see cref="Drawn"/>). The page packs by height against what a page holds on its stage, read once
-    /// when the file opens, the lower of alone and beside the menu, so it never packs again while it shows.
+    /// (<see cref="Drawn"/>). The page packs by height against what a page holds on its stage, the lower of
+    /// alone and beside the menu, read when the file opens and again only when the text size changes, so it
+    /// never packs again as the head moves; at a new size the request and the question are read again.
     /// </summary>
     public sealed class FileColumn : IMenuColumn
     {
@@ -93,6 +94,9 @@ namespace Halcyonic.Client
         public void Act(string id, string? key)
         {
             if (Now == null) return;
+            // The text size changed and nothing has laid the page again: it is laid again first, so the
+            // press is judged against what is read at this size, never the reading at the other.
+            if (Resized()) Rebuild();
             // A press is judged against the work as it is now, not as the last rebuild read it up to
             // RefreshSeconds ago, so the steering's checks see a request or question that changed since.
             if (present() is WorkspacePresentation fresh) Now = fresh;
@@ -268,6 +272,12 @@ namespace Halcyonic.Client
 
         public void Drawn(MenuFrame drawn, bool sidePanel)
         {
+            // Drawn at the size before: laid again at this one, that draw counts for nothing.
+            if (Resized())
+            {
+                Rebuild();
+                return;
+            }
             // Only the frame this column stands by counts: what it shows is this state's.
             if (drawn != Frame || Now == null) return;
             var clock = host.Clock;
@@ -352,7 +362,7 @@ namespace Halcyonic.Client
             if (Screen.Section == FileSection.Checks) evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, clock);
             var read = understanding.Poll() | evaluation.Poll();
             // A text size changed in Settings packs the page again at once, so it never stands taller than fits.
-            if (read || host.Now >= nextRefresh || (budget != null && budgetAt != host.TextSize)) Rebuild();
+            if (read || host.Now >= nextRefresh || Resized()) Rebuild();
         }
 
         public void FocusLeft()
@@ -361,6 +371,9 @@ namespace Halcyonic.Client
             if (outcome.Step == SteeringStep.Explain) Notify(outcome.Message!);
             Rebuild();
         }
+
+        /// <summary>The text size changed since the page was last packed, and nothing has laid it again yet.</summary>
+        private bool Resized() => budget != null && budgetAt != host.TextSize;
 
         private void Notify(string words)
         {
@@ -388,6 +401,14 @@ namespace Halcyonic.Client
             if (asked == null || execution == null) draft = null;
             else if (draft == null || !draft.Answers(execution, asked)) draft = new QuestionDraft(execution, asked);
             if (Steering.Refresh(presentation) is string lapse) Notify(lapse);
+            // At another text size, what was read was read at the other: the request and the question are
+            // read again, and an answer armed to send is not sent on a Yes for what was read before.
+            var resized = budget != null && budgetAt != host.TextSize;
+            if (resized)
+            {
+                Screen.ReadAgainAtNewSize();
+                if (Steering.TextSizeChanged() is string cancelled) Notify(cancelled);
+            }
             if (notice != null && host.Now > noticeUntil) notice = null;
             if (Screen.Section == FileSection.Waiting && !WorkspaceText.SomethingWaits(presentation) && Steering.Armed == null) Screen.Section = FileSection.Activity;
             Screen.Notice = notice;
@@ -395,10 +416,8 @@ namespace Halcyonic.Client
             Screen.Presets = presets ? (recordedNow?.Count > 0 ? recordedNow : WorkspaceText.PresetInstructions) : null;
             Screen.ActivityNote = historyNote();
 
-            if (budget == null || budgetAt != host.TextSize)
+            if (budget == null || resized)
             {
-                // At another text size, what was read was read at the other: the request and the question are read again.
-                if (budget != null) Screen.ReadAgainAtNewSize();
                 budget = Budget(presentation);
                 budgetAt = host.TextSize;
             }
