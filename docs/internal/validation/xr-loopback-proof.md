@@ -12,7 +12,7 @@
 - **Method:** Code and tests against servers on loopback that answer as each test needs, and
   against a real control plane; mutations that each remove one check; an independent security
   review, whose High finding was reproduced and fixed. Nothing was run on a headset.
-- **Status:** Verified in code and tests. Not verified on a Quest.
+- **Status:** Verified in code and tests. On a Quest 3, in part, on 2026-10-04 (below).
 
 ## Verified
 
@@ -80,6 +80,24 @@
   fixed here.
 - The C# suite passes, including every live test against a real control plane, which reaches it
   through the proof; a development APK builds.
+
+## On a Quest, 2026-10-04
+
+A Quest 3 on build `UP1A.231005.007.A1`, a development APK from main `ee1acdb9`
+([quest-3-device.md](quest-3-device.md), sixth session):
+- **Over USB, the proof held:** over `adb reverse tcp:47800 tcp:47800`, the control plane proved it
+  holds the token for the headset's connection, and the realtime upgrade followed on that
+  connection. `pnpm quest:check` read "connection live".
+- **REST after the proof:** the headset's REST requests were answered: the folders, the history,
+  an execution's understanding, the companion's status, and one transcription.
+- **What that shows:**
+  - adb delivers the headset's connections to 127.0.0.1:47800.
+  - The app's own HTTP over `TcpClient`, `HMACSHA256` and `FixedTimeEquals` run under IL2CPP.
+
+Still not seen on a Quest:
+- the impostor listener;
+- the listener that never answers;
+- the paused control plane, and so how Mono ends a read that is never answered.
 
 ## Not verified
 

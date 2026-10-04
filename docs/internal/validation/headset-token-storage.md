@@ -9,7 +9,8 @@
   the adb in Unity's Android module.
 - **Method:** Code and tests, a development APK build, and an independent security review that read
   adb's `commandline.cpp`. Nothing was run on a headset.
-- **Status:** Verified in code, in tests and by the build. Not verified on a Quest.
+- **Status:** Verified in code, in tests and by the build. On a Quest 3, in part, on 2026-10-04
+  (below).
 
 ## Verified
 
@@ -63,6 +64,37 @@
   after removing one of two names for the file lost the token, now put back in any case, and that
   the checklist took a copy line alone for proof that the calls work.
 - The app's manifest sets `android:allowBackup="false"`, so an app backup does not carry the token.
+
+## On a Quest, 2026-10-04
+
+A Quest 3 on build `UP1A.231005.007.A1`, a development APK from main `ee1acdb9`, the computer's adb
+1.0.41 from Unity's SDK ([quest-3-device.md](quest-3-device.md), sixth session).
+
+- **The old copy moved:** a token an earlier session had pushed to shared storage (44 bytes,
+  readable by all) was moved into private storage at the next start, logged as "moved the access
+  token from shared storage into app-private storage", and removed. The app may remove that file.
+- **The private token:** the app read it at mode 600 and 44 bytes, and connected.
+- **The runbook's one-step `run-as` write did not take:**
+  - It left `files/access-token.tmp` (44 bytes, mode 600) and no `files/access-token`. The app found
+    no private token, which is why it moved the old copy.
+  - `adb shell run-as <package> sh -c '<a>; <b>'`, given as separate words, runs only `<a>` inside
+    `run-as`, since adb joins the words and the inner quotes are lost. One quoted string,
+    `adb shell "run-as <package> sh -c '...'"`, runs whole.
+  - With `adb exec-in`, a file written by the second part of the command appeared only after later
+    adb commands had run. The command goes on after `adb exec-in` returns, so the app can start
+    before the write ends.
+  - What worked: `adb exec-in` writing the content to `files/access-token.tmp`, then one quoted
+    `adb shell` that checks, restricts and renames it.
+  - The runbooks need that change before the next session.
+- **`pm clear`:** it removed the app's private files and the shared folder.
+- **The closing check:** removing the tokens left `pnpm quest:check -- --closed` passing.
+
+Still not seen on a Quest:
+- the write surviving `adb install -r`;
+- links and named pipes at the old place;
+- how a missing file reads through JNI;
+- the umask;
+- backups.
 
 ## Not verified
 
