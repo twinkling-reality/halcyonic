@@ -301,9 +301,9 @@ namespace Halcyonic.Client
                 }
                 return;
             }
-            // Only a page of the question counts toward it, never another Waiting shows meanwhile.
-            if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.Question.Draft is QuestionDraft asked
-                && FileScreens.ShowsQuestion(drawn, asked, Screen.Question.Prompt))
+            // Only the question's own page, as built, counts toward it, never another Waiting shows meanwhile,
+            // whatever its words: an approval's request may read as the prompt itself.
+            if (Steering.Armed == null && Screen.Section == FileSection.Waiting && Screen.QuestionPage && Screen.Question.Draft != null)
             {
                 var whole = Screen.Question.Draft.Prompts.Select((_, prompt) => Screen.Question.Draft.WasShownWhole(prompt)).ToList();
                 Screen.Question.Drawn(clock);

@@ -1303,6 +1303,30 @@ public class FileColumnTests
     }
 
     [Test]
+    public void AnApprovalWhoseRequestReadsAsThePromptNeverCountsAsThatPromptsPage()
+    {
+        var host = new FileMenuHost();
+        var work = new AskingWork();
+        var quoted = "“" + work.Question.Prompts[0].Text + "”";
+        // The agent's tool summary is data: it can read as the very prompt waiting behind it.
+        work.Change(execution => execution.PendingApprovals.Add(WaitingWork.Approval("approval-1", quoted, Samples.Time)));
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Approve, WorkspaceAction.Deny, WorkspaceAction.Answer));
+        Assert.That(column.Frame!.Footer[PromptSlot.FarRight]?.Id, Is.EqualTo(FileScreens.Approve), "the approval's page shows");
+        Assert.That(column.Frame!.Lines.Any(line => line.WordsAreData && line.Words == quoted), Is.True, "with the prompt's words, quoted, as its request");
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        var draft = column.Screen.Question.Draft!;
+        Assert.That(draft.WasShownWhole(0), Is.False, "an approval's page drawn is not the question read");
+
+        // Answered, the approval goes, and the question's own page counts once drawn.
+        work.Change(execution => execution.PendingApprovals.Clear());
+        column.Tick();
+        Assert.That((column.Frame!.Footer[PromptSlot.FarRight]?.Id, column.Screen.Question.Draft), Is.EqualTo((FileScreens.SendAnswer, draft)));
+        Assert.That(draft.WasShownWhole(0), Is.False);
+        Draw(host, column);
+        Assert.That(draft.WasShownWhole(0), Is.True, "the question's page drawn");
+    }
+
+    [Test]
     public void TellItOffersTheRecordedInstructionsToChooseAndSendsExactlyTheChosenWords()
     {
         var host = new FileMenuHost();

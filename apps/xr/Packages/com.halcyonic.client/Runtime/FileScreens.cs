@@ -99,6 +99,9 @@ namespace Halcyonic.Client
                 FileSection.Changes => Changes(screen, room),
                 _ => Checks(screen, room),
             };
+            // Only the question's own page counts toward reading it when drawn, never another page on
+            // Waiting meanwhile whose words happen to read the same, as an approval's request.
+            screen.QuestionPage = page.OfQuestion;
             var lines = page.Lines.ToList();
             if (screen.Notice != null) lines.Add(new PageLine(screen.Notice, tone: LineTone.Secondary, rows: 2));
             return new MenuFrame(
@@ -125,8 +128,9 @@ namespace Halcyonic.Client
         /// <summary>A section's page: its lines, its source line, the side panel a line opened and its footer.</summary>
         private sealed class Page
         {
-            public Page(IReadOnlyList<PageLine> lines, string? source, Footer footer, SidePanel? side = null, bool sourceIsData = false)
+            public Page(IReadOnlyList<PageLine> lines, string? source, Footer footer, SidePanel? side = null, bool sourceIsData = false, bool ofQuestion = false)
             {
+                OfQuestion = ofQuestion;
                 SourceIsData = sourceIsData;
                 Lines = lines;
                 Source = source;
@@ -144,6 +148,9 @@ namespace Halcyonic.Client
             public Footer Footer { get; }
 
             public SidePanel? Side { get; }
+
+            /// <summary>The page is the agent's question's own, built from the person's place in it (<see cref="FileQuestion"/>).</summary>
+            public bool OfQuestion { get; }
         }
 
         // The footer's prompts.
