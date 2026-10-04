@@ -13,6 +13,12 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class WorkspaceRender
     {
+        /// <summary>
+        /// How many director renders laid a dragged plane anew at the larger text where the whole drag no
+        /// longer held, so it kept less (<see cref="MenuDrag.Kept"/>): at least one must, or nothing checks it.
+        /// </summary>
+        private static int keptLessAtLarger;
+
         /// <summary>The id of a start whose outcome is unknown, kept only while the render runs.</summary>
         private sealed class KeptInMemory : IKeptCommand
         {
@@ -223,6 +229,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 {
                     fileConfirming = confirming;
                     file?.Change();
+                }, scale =>
+                {
+                    GlazeText.SetScale(scale);
+                    comfort.Text = scale > 1f ? TextSize.Larger : TextSize.Standard;
                 }));
 
                 // Choosing a place is the menu's own; the file stays beside it.
@@ -458,8 +468,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         /// <param name="retitle">Gives the file another title, as one in two rows that makes it taller.</param>
         /// <param name="confirm">Has the file ask its Yes, or not, as a confirmation standing on the plane.</param>
+        /// <param name="textAt">Draws reading text at a scale, the person's text size following it, as Settings' Larger text does.</param>
         private static IEnumerable<string> DragMenu(string name, string folder, Camera camera, RenderTexture texture, MenuDirector director,
-            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Action<string> retitle, Action<bool> confirm)
+            List<(CharacterView View, CharacterTarget Target)> characters, Vector3 eyes, Action<string> retitle, Action<bool> confirm, Action<float> textAt)
         {
             var failures = new List<string>();
             var plane = director.Plane;
@@ -560,6 +571,48 @@ namespace Halcyonic.XR.Workspace.Editor
             retitle(title);
             director.DrawNow();
 
+            // Swept aside as far as it goes at the standard text, then laid anew at the larger, a plane wider and
+            // placed lower by as much: where the whole drag would take it where no drag may, as its centre out
+            // of sight of the stage, it keeps only as much as every rule still allows. Each place's column is
+            // made afresh at each size, as when the menu opens again, so the drag alone is judged, not a page
+            // packed for the other size.
+            var pass = GlazeText.Scale;
+            try
+            {
+                textAt(1f);
+                director.Navigator.Renew();
+                director.ResetPosition();
+                director.DrawNow();
+                held = subject.Subject.position;
+                director.HoldSubjectForRender(held);
+                if (!director.Dragging) failures.Add(name + ": held at the standard text, the file's subject took no hold of the plane.");
+                for (var step = 1; step <= 100; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
+                director.LetGoForRender();
+                director.DrawNow();
+                var dragged = plane.Moved;
+                if (Mathf.Abs(dragged.Yaw) < 1f) failures.Add(name + ": swept aside at the standard text, the plane stayed where it was.");
+                textAt(Comfort.LargerTextScale);
+                director.Navigator.Renew();
+                director.DrawNow();
+                if (!plane.Allows(MenuDrag.Turned(plane.Placed, dragged)))
+                {
+                    keptLessAtLarger++;
+                    Debug.Log("Halcyonic: workspace render: " + name + " keeps " + GlazeChecks.Degrees(plane.Moved.Yaw) + " of a " + GlazeChecks.Degrees(dragged.Yaw)
+                        + " degree drag at the larger text.");
+                }
+                else Debug.Log("Halcyonic: workspace render: " + name + " has room at the larger text for its drag, so keeps it whole.");
+                if (!plane.Allows(plane.Direction)) failures.Add(name + ": laid anew at the larger text, the plane kept more of the drag than its rules allow.");
+                failures.AddRange(PlaneState(name + " director dragged then larger text", folder, camera, texture, plane, characters, eyes, null));
+                failures.AddRange(InSightOfStage(name + " director dragged then larger text", plane, eyes));
+            }
+            finally
+            {
+                textAt(pass);
+            }
+            director.Navigator.Renew();
+            director.ResetPosition();
+            director.DrawNow();
+
             // A confirmation standing on the plane keeps it where it is, held then or pressed then.
             confirm(true);
             director.DrawNow();
@@ -597,6 +650,35 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.Add(name + ": Reset position kept the drag.");
             }
             return failures;
+        }
+
+        /// <summary>
+        /// The plane's centre, as its parts are drawn, inside the measured field less its margin with the head
+        /// turned to the stage's centre: a drag, and a plane laid anew under one, never takes it, or an
+        /// approval that may come to it, out of sight of the characters.
+        /// </summary>
+        private static IEnumerable<string> InSightOfStage(string what, MenuPlane plane, Vector3 eyes)
+        {
+            if (!(ViewField.Current is ViewField field) || !(plane.StageYaw is float stage) || !(plane.Composition is PlaneComposition composition)) yield break;
+            // Each part where it is drawn, its size as laid, as the plane's checks take them.
+            var parts = new List<GlazeChecks.PlaneShape>();
+            for (var c = 0; c < plane.Shown.Count; c++)
+            {
+                var placed = composition.Parts.Where(part => part.Column == c).ToList();
+                var view = plane.Shown[c].View;
+                parts.AddRange(view.Parts.Select((part, index) => new GlazeChecks.PlaneShape(part.name, part,
+                    new Vector2(placed[index].Width, placed[index].Height) * PlaneComposition.Distance)));
+            }
+            var toward = GlazeChecks.CompositionCenter(parts) - eyes;
+            var yaw = Mathf.DeltaAngle(stage, Mathf.Atan2(toward.x, toward.z) * Mathf.Rad2Deg);
+            var elevation = Mathf.Atan2(toward.y, new Vector2(toward.x, toward.z).magnitude) * Mathf.Rad2Deg;
+            var margin = ViewField.EdgeMarginDegrees - 0.01f;
+            var shrunk = new ViewField(field.Left - margin, field.Right - margin, field.Up - margin, field.Down - margin);
+            if (!shrunk.Shows(yaw, elevation))
+            {
+                yield return what + ": the plane's centre stands " + GlazeChecks.Degrees(yaw) + " degrees across and " + GlazeChecks.Degrees(elevation)
+                    + " up from the stage's centre, out of the field turned to it.";
+            }
         }
 
         /// <summary>A file asking its Yes on its Send answer: Cancel where Send answer stood, Yes in the free middle.</summary>
