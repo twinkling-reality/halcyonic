@@ -1327,6 +1327,46 @@ public class FileColumnTests
     }
 
     [Test]
+    public void AQuestionOfferingTwoAnswersByOneLabelIsShownAsOneThatCantBeAnsweredHere()
+    {
+        var question = AskingWork.Scripted();
+        question.Prompts.RemoveAt(1);
+        question.Prompts[0].Text = "The old table is in the way. What should I do with its data?";
+        question.Prompts[0].Options = new List<QuestionOption>
+        {
+            new() { Label = "Yes", Description = "Keep the data" },
+            new() { Label = "Yes", Description = "Delete the data" },
+        };
+        var work = new AskingWork(question);
+        Assert.That(work.Present().Actions, Does.Not.Contain(WorkspaceAction.Answer), "no answer is offered");
+
+        // Even where an adapter offers one, nothing is answered, chosen or spoken here: Stop is the way on.
+        var host = new FileMenuHost();
+        var column = Column(host, () => FileScreensTests.Offering(work.Present(), WorkspaceAction.Answer, WorkspaceAction.Interrupt));
+        for (var draw = 0; draw < 3; draw++) Draw(host, column);
+        var frame = column.Frame!;
+        Assert.That(frame.Lines.Select(line => line.Words), Is.EqualTo(new[]
+        {
+            "“The old table is in the way. What should I do with its data?”",
+            "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.",
+            WorkspaceText.AgentWaits,
+        }), "what it asks, why, and that it waits, as for a secret");
+        Assert.That(frame.Lines.Any(line => line.Action == FileScreens.Choose || line.Action == FileScreens.TypeAnswer), Is.False);
+        Assert.That(frame.Footer[PromptSlot.Rare]?.Id, Is.EqualTo(FileScreens.Stop));
+        Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "no Hold to talk under a question that can't be answered");
+        Assert.That(frame.Footer[PromptSlot.FarRight]?.Available, Is.False);
+        column.Act(FileScreens.Choose, "1");
+        column.Act(FileScreens.SendAnswer, null);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "never [\"Yes\", \"Yes\"], which the control plane refuses");
+        Assert.That(column.Screen.Question.Draft!.Problem, Is.EqualTo(WorkspaceText.SameAnswersTwice));
+
+        // Two labels, two answers.
+        question.Prompts[0].Options[1].Label = "Yes, delete it";
+        Assert.That(WorkspaceText.Answerable(question), Is.True);
+    }
+
+    [Test]
     public void TellItOffersTheRecordedInstructionsToChooseAndSendsExactlyTheChosenWords()
     {
         var host = new FileMenuHost();

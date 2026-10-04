@@ -158,6 +158,7 @@ namespace Halcyonic.Client
         public static string CannotAnswer(QuestionView question)
         {
             if (question.Prompts.Any(prompt => prompt.Secret)) return "It asks for something secret, which can't be sent from here. Press Stop to go on.";
+            if (question.Prompts.Any(OffersALabelTwice)) return SameAnswersTwice;
             if (question.Prompts.Any(prompt => IsCut(prompt.Header) || IsCut(prompt.Text) || prompt.Options.Any(option => IsCut(option.Label) || IsCut(option.Description))))
             {
                 return "This question is too long to show in full, so it can't be answered here. Press Stop to go on.";
@@ -166,11 +167,25 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// Whether a question can be answered from the headset: the runtime says it can, and no prompt
-        /// asks for something secret, whatever an adapter says, since what is typed or said here is
-        /// journaled. Every place that offers or sends an answer asks this, never the flag alone.
+        /// Whether a question can be answered from the headset: the runtime says it can, no prompt asks for
+        /// something secret, whatever an adapter says, since what is typed or said here is journaled, and no
+        /// prompt offers two answers by one label. Every place that offers or sends an answer asks this,
+        /// never the flag alone.
         /// </summary>
-        public static bool Answerable(QuestionView question) => question.Answerable && !question.Prompts.Any(prompt => prompt.Secret);
+        public static bool Answerable(QuestionView question) =>
+            question.Answerable && !question.Prompts.Any(prompt => prompt.Secret) && !question.Prompts.Any(OffersALabelTwice);
+
+        /// <summary>
+        /// The prompt offers two answers with the same label, character for character. An answer names
+        /// what it chooses by its label alone, so choosing either sends that label twice, which the control
+        /// plane refuses ("An answer chooses the same option twice"), and the agent could not tell which was
+        /// meant: a "Yes" that keeps the data from a "Yes" that deletes it.
+        /// </summary>
+        public static bool OffersALabelTwice(QuestionPrompt prompt) =>
+            prompt.Options.Select(option => option.Label).Distinct(StringComparer.Ordinal).Count() != prompt.Options.Count;
+
+        /// <summary>Why a question offering two answers by one label can't be answered here (settled by the coordinator, 2026-10-04).</summary>
+        public const string SameAnswersTwice = "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.";
 
         /// <summary>The agent waits while nobody can answer here: said under a question Halcyonic cannot answer.</summary>
         public const string AgentWaits = "It's waiting for an answer.";
