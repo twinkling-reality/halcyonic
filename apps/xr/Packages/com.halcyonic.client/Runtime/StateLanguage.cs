@@ -270,8 +270,8 @@ namespace Halcyonic.Client
             if (execution == null) return ("It couldn't finish.", "");
             if (execution.StartedAt == null && execution.TurnCount == 0)
             {
-                var folder = EntryText.FolderProblem(null, execution.StatusReason?.Code);
-                if (folder != null) return (Lead("Couldn't start", folder), folder);
+                var known = WorkspaceText.WhyFailed(execution.StatusReason?.Code);
+                if (known != null) return (Lead("Couldn't start", known), known);
                 return ("Couldn't start. " + AddItAgain, AddItAgain);
             }
             var next = runtime != null && WorkspacePresenter.ActionsFor(execution, runtime).Contains(WorkspaceAction.Instruct) ? TellItAgain : AddItAgain;
