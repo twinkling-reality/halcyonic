@@ -56,6 +56,19 @@ namespace Halcyonic.Client
             _ => HostText.YourStart + " ended the connection.",
         };
 
+        /// <summary>
+        /// Why your computer refused to open the connection, other than a refused credential, by the code it
+        /// gave: never the refusal's message, which is the control plane's own and can name a header, a
+        /// server or a credential.
+        /// </summary>
+        public static string UpgradeRefused(string? code) => code switch
+        {
+            "host_not_allowed" => HostText.YourStart + " refused the name this headset uses for it. Name it 127.0.0.1 or [::1], then restart the app.",
+            "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. It tries again by itself.",
+            "device_revoked" => PairingRefused,
+            _ => HostText.YourStart + " refused the connection.",
+        };
+
         /// <summary>Your computer speaks another version of the connection than this app.</summary>
         public const string OtherVersion = HostText.YourStart + " runs another version of this app. " + SameVersion;
 
