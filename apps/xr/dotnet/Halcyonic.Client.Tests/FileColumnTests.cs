@@ -558,11 +558,90 @@ public class FileColumnTests
         Draw(host, column);
         column.Act(FileScreens.NextQuestion, null);
         Assert.That(column.Screen.Question.Reviewing, Is.True);
-        // A hold that reached the column anyway, as from a frame drawn before: what is heard types into no question.
+        // A hold that reached the column anyway, as from a frame drawn before: what is heard types into no
+        // question, nor becomes an instruction to the agent.
         column.HoldStarted(FileScreens.SpeakAnswer);
         Assert.DoesNotThrow(() => column.Heard("Ten minutes"));
         Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
         Assert.That(column.Screen.Question.Draft!.Typed(1), Is.Null);
+        Assert.That((column.Steering.Instruction, column.Steering.Armed), Is.EqualTo(((string?)null, (WorkspaceAction?)null)));
+        Assert.That(column.Screen.Notice, Is.EqualTo(VoiceText.QuestionChangedWhileSpeaking));
+
+        // Nor does the keyboard open there: its row is on a question's own page only.
+        Assert.DoesNotThrow(() => column.Act(FileScreens.TypeAnswer, null));
+        Assert.That(host.Keyboard, Is.Null);
+    }
+
+    /// <summary>Two questions an agent may ask one after the other, the second with as many prompts as given.</summary>
+    private static QuestionView Questioned(string id, int prompts) => new()
+    {
+        QuestionId = id,
+        Answerable = true,
+        AskedAt = Samples.Time,
+        Prompts = Enumerable.Range(0, prompts).Select(prompt => new QuestionPrompt
+        {
+            Key = "q" + prompt, Header = "Part " + (prompt + 1), Text = id + ", part " + (prompt + 1) + "?", Multiple = false, FreeText = true,
+            Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = "No" } },
+        }).ToList(),
+    };
+
+    [Test]
+    public void WordsHeardAfterTheQuestionWasReplacedTypeIntoNone()
+    {
+        // Held on the first question; while the words are worked out, the agent asks another instead.
+        var host = new FileMenuHost();
+        var showing = new AskingWork(Questioned("question-1", 1));
+        var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
+        Draw(host, column);
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        showing = new AskingWork(Questioned("question-2", 1));
+        column.Tick();
+        host.Wait(1);
+        column.Tick();
+        Assert.That(column.Screen.Question.Draft!.QuestionId, Is.EqualTo("question-2"));
+        column.Heard("Ten minutes");
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null, "the words were for the question before");
+        Assert.That(column.Screen.Notice, Is.EqualTo(VoiceText.QuestionChangedWhileSpeaking));
+    }
+
+    [Test]
+    public void WordsHeardAfterThePersonMovedToAnotherPromptTypeIntoNeither()
+    {
+        var host = new FileMenuHost();
+        var showing = new AskingWork(Questioned("question-1", 2));
+        var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
+        ReadQuestion(host, column);
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Act(FileScreens.NextQuestion, null);
+        Assert.That(column.Screen.Question.Prompt, Is.EqualTo(1));
+        column.Heard("Ten minutes");
+        var draft = column.Screen.Question.Draft!;
+        Assert.That((draft.Typed(0), draft.Typed(1)), Is.EqualTo(((string?)null, (string?)null)), "held for the first prompt, heard on the second");
+        Assert.That(column.Screen.Notice, Is.EqualTo(VoiceText.QuestionChangedWhileSpeaking));
+    }
+
+    [Test]
+    public void WordsHeardForALaterPromptOfAQuestionReplacedByOneWithFewerTypeIntoNone()
+    {
+        var host = new FileMenuHost();
+        var showing = new AskingWork(Questioned("question-1", 2));
+        var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
+        ReadQuestion(host, column);
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        ReadQuestion(host, column);
+        Assert.That(column.Screen.Question.Prompt, Is.EqualTo(1));
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        showing = new AskingWork(Questioned("question-2", 1));
+        column.Tick();
+        host.Wait(1);
+        column.Tick();
+        Assert.DoesNotThrow(() => column.Heard("Ten minutes"));
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null, "nothing typed into the new question's only prompt");
+        Assert.That(column.Screen.Notice, Is.EqualTo(VoiceText.QuestionChangedWhileSpeaking));
     }
 
     [Test]

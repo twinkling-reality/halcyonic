@@ -46,6 +46,9 @@ namespace Halcyonic.Client
         private bool answering;
         private int answerPrompt;
 
+        /// <summary>The question Hold to talk was held for, which what is heard may type into only while it still shows.</summary>
+        private QuestionDraft? answerDraft;
+
         /// <param name="present">The work as the director presents it now, its own commands in flight included.</param>
         /// <param name="commands">Makes the commands the steering sends.</param>
         /// <param name="reader">Where Changes and Checks read: the control plane, or the demonstration while it plays.</param>
@@ -147,10 +150,10 @@ namespace Halcyonic.Client
                 case FileScreens.TypeAnswer when draft != null && question.ReopenTyped():
                     // Words cut and not yet read to their end: their side panel again, at the part to read next.
                     break;
-                case FileScreens.TypeAnswer when draft != null && !host.KeyboardOffered:
+                case FileScreens.TypeAnswer when draft != null && !question.Reviewing && !host.KeyboardOffered:
                     // A row holding words heard stays their choice; no keyboard is asked to open.
                     break;
-                case FileScreens.TypeAnswer when draft != null:
+                case FileScreens.TypeAnswer when draft != null && !question.Reviewing:
                     var typing = question.Prompt;
                     var typingFor = draft;
                     host.OpenKeyboard(draft.Typed(typing) ?? "", "Your answer", text =>
@@ -294,9 +297,12 @@ namespace Halcyonic.Client
 
         public void HoldStarted(string id)
         {
-            // Only on a question's own page: the page of the person's answers has no one question to answer.
-            answering = id == FileScreens.SpeakAnswer && !Screen.Question.Reviewing;
-            if (answering) answerPrompt = Screen.Question.Prompt;
+            // An answer held for, kept with the question and prompt showing; on the page of the person's
+            // answers there is no one question to answer, so what is heard there types into none.
+            answering = id == FileScreens.SpeakAnswer;
+            if (!answering) return;
+            answerPrompt = Screen.Question.Prompt;
+            answerDraft = draft;
         }
 
         public void HoldEnded(string id, bool letGo)
@@ -307,8 +313,13 @@ namespace Halcyonic.Client
         {
             if (answering)
             {
-                // What was heard becomes the typed answer, sent only by Send answer.
-                if (draft != null && answerPrompt < draft.Prompts.Count) Notify(draft.Type(answerPrompt, text) ?? VoiceText.HeardAnswer);
+                // What was heard becomes the typed answer, sent only by Send answer, and only for the very
+                // question and prompt it was spoken for, still showing; else the words are dropped, as the keyboard's are.
+                if (draft == null || draft != answerDraft || Screen.Question.Reviewing || Screen.Question.Prompt != answerPrompt)
+                {
+                    Notify(VoiceText.QuestionChangedWhileSpeaking);
+                }
+                else Notify(draft.Type(answerPrompt, text) ?? VoiceText.HeardAnswer);
                 Rebuild();
                 return;
             }
