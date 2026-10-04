@@ -727,6 +727,41 @@ namespace Halcyonic.XR.Workspace.Editor
             director.Open(MenuPlace.Tasks);
             director.DrawNow();
 
+            // Two hands on the subject: the second's press is no press and its release ends nothing; only the
+            // first's release lets go, so a drag is never orphaned, refusing every press while it seems over.
+            if (subject.SubjectHoldForRender is PointerTarget hand)
+            {
+                var selects = 0;
+                var releases = 0;
+                void Counted() => selects++;
+                void Ended(bool _) => releases++;
+                hand.Selected += Counted;
+                hand.Released += Ended;
+                try
+                {
+                    var at = subject.Subject.position;
+                    director.ResetPosition();
+                    director.DrawNow();
+                    hand.PointerForRender(1, Oculus.Interaction.PointerEventType.Select, at);
+                    // As the first hand's hold matures.
+                    director.MatureHoldForRender(at);
+                    if (!director.Dragging) failures.Add(name + ": the first hand's hold took no hold of the plane.");
+                    hand.PointerForRender(2, Oculus.Interaction.PointerEventType.Select, at);
+                    hand.PointerForRender(2, Oculus.Interaction.PointerEventType.Unselect, at);
+                    if (selects != 1 || releases != 0) failures.Add(name + ": a second hand's press on the subject counted as " + selects + " presses and " + releases + " releases; it is no press.");
+                    if (!director.Dragging) failures.Add(name + ": a second hand's pinch and release on the subject ended the first hand's drag.");
+                    hand.PointerForRender(1, Oculus.Interaction.PointerEventType.Unselect, at);
+                    if (releases != 1 || director.Dragging) failures.Add(name + ": the first hand let go of the subject, and the drag went on.");
+                }
+                finally
+                {
+                    hand.Selected -= Counted;
+                    hand.Released -= Ended;
+                }
+                director.DrawNow();
+            }
+            else failures.Add(name + ": the file's subject has no hold to drag by.");
+
             // Dragged, then the stage arranged beside a window, or on another surface: the drag made for the last
             // arrangement holds no more, and does not come back with it.
             var standOn = surfaceNow();

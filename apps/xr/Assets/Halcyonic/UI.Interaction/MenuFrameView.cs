@@ -468,6 +468,8 @@ namespace Halcyonic.XR.UI
             subjectHold.EnableDrag();
             subjectHold.Selected += () =>
             {
+                // A hold that ends lets go, whatever ends it.
+                if (subjectHolding) SubjectLetGo?.Invoke();
                 subjectPressedAt = Time.unscaledTime;
                 subjectHolding = false;
                 SubjectPressed?.Invoke();
@@ -485,6 +487,9 @@ namespace Halcyonic.XR.UI
             };
             PlaceSubjectHold();
         }
+
+        /// <summary>For the editor's renders: the subject plate's hold, to send it a finger's pointer events.</summary>
+        public PointerTarget? SubjectHoldForRender => subjectHold;
 
         /// <summary>The hold and its cue over the subject plate as laid: the hold in front of the glass, the cue on it, both behind its words.</summary>
         private void PlaceSubjectHold()
