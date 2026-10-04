@@ -101,7 +101,7 @@ public class RealtimeSessionTests
         // A field of another shape, as from a control plane a version apart: the parser quotes the value.
         connection.SendRaw("{\"type\":\"error\",\"error\":\"PRIVATE: the agent said to rotate the key\",\"fatal\":false}");
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
-        Assert.That(session.Status.Detail, Does.StartWith("The control plane sent a message this app cannot read ("));
+        Assert.That(session.Status.Detail, Is.EqualTo("Your computer sent something this app can't read. Install the same version on both."));
         Assert.That(session.Status.ToString(), Does.Not.Contain("PRIVATE"));
         Assert.That(session.Status.ToString(), Does.Not.Contain("rotate"));
     }
@@ -120,7 +120,7 @@ public class RealtimeSessionTests
 
         first.Close("1001 going away");
         await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.WaitingToRetry, "the session waits to retry");
-        Assert.That(session.Status.Detail, Does.Contain("1001 going away"));
+        Assert.That(session.Status.Detail, Is.EqualTo(ConnectionText.Closed), "said in a person's words, never the close's own");
         Assert.That(session.State.Workstreams["w1"].Status, Is.EqualTo(WorkstreamStatus.Running), "the last known state stays");
 
         var second = await server.AcceptAsync();
@@ -245,6 +245,9 @@ public class RealtimeSessionTests
 
         var changes = await Pumping.Until(session, s => s.Status.Phase == ConnectionPhase.Refused, "the session is refused");
         Assert.That(changes.ServerErrors.Single().Code, Is.EqualTo("unsupported_protocol"));
+        Assert.That(ConnectionText.WhyNotLive(session.Status),
+            Is.EqualTo("Your computer refused this app. Your computer runs another version of this app. Install the same version on both."),
+            "by the refusal's code, never the control plane's message");
         await Task.Delay(100);
         Assert.That(server.Attempts, Is.EqualTo(1));
     }

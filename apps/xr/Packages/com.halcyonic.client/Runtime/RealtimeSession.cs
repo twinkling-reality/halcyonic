@@ -345,7 +345,7 @@ namespace Halcyonic.Client
                     }
                     catch (Exception) when (connectTimeout.IsCancellationRequested && !stop.IsCancellationRequested)
                     {
-                        return Ending.Failed("The control plane did not answer within " + Seconds(options.ConnectTimeout) + ".", false);
+                        return Ending.Failed(ConnectionText.NoAnswer(options.ConnectTimeout), false);
                     }
                 }
                 var hello = new HelloMessage { Client = options.Client, Resume = cursor };
@@ -357,14 +357,14 @@ namespace Halcyonic.Client
                     var text = await ReceiveAsync(transport, connection.Token).ConfigureAwait(false);
                     if (text == null)
                     {
-                        return Ending.Failed("The control plane closed the connection (" + transport.CloseDescription + ").", live);
+                        return Ending.Failed(ConnectionText.ClosedWith(transport.CloseDescription), live);
                     }
                     switch (HalcyonicJson.Deserialize<ServerMessage>(text))
                     {
                         case WelcomeMessage welcome:
                             if (welcome.Protocol != ContractVersions.RealtimeProtocol)
                             {
-                                return Ending.Refuse("The control plane speaks realtime protocol " + welcome.Protocol + ".");
+                                return Ending.Refuse(ConnectionText.OtherVersion);
                             }
                             lock (gate)
                             {
@@ -402,7 +402,8 @@ namespace Halcyonic.Client
                             Enqueue(error);
                             if (error.Fatal)
                             {
-                                var reason = "The control plane refused the connection: " + error.Error.Message;
+                                // Why, by its code: the message is the control plane's own, for developers.
+                                var reason = ConnectionText.Ended(error.Error.Code);
                                 return error.Error.Code == "unsupported_protocol" ? Ending.Refuse(reason) : Ending.Failed(reason, live);
                             }
                             break;
@@ -429,11 +430,11 @@ namespace Halcyonic.Client
                 // An endpoint by name, never sent the token: trying again would not change it.
                 return Ending.RefuseAccess(notSent.Message);
             }
-            catch (JsonException error)
+            catch (JsonException)
             {
                 // Never the parser's own words: they quote the value it could not read, which can be an
                 // instruction, agent text or a title, and the status is logged (XR_CLIENT.md).
-                return Ending.Failed("The control plane sent a message this app cannot read (" + error.GetType().Name + ").", live);
+                return Ending.Failed(ConnectionText.Unreadable, live);
             }
             catch (Exception error)
             {
@@ -467,7 +468,7 @@ namespace Halcyonic.Client
             }
             catch (Exception) when (idle.IsCancellationRequested && !connection.IsCancellationRequested)
             {
-                throw new TimeoutException("The control plane sent nothing for " + Seconds(options.IdleTimeout) + ".");
+                throw new TimeoutException(ConnectionText.Silent(options.IdleTimeout));
             }
         }
 
@@ -503,7 +504,7 @@ namespace Halcyonic.Client
         {
             inbox.Clear();
             cursor = null;
-            return Ending.Failed("The client fell behind; resynchronizing.", false);
+            return Ending.Failed(ConnectionText.FellBehind, false);
         }
 
         private TimeSpan RetryDelay(int failures)
@@ -514,8 +515,6 @@ namespace Halcyonic.Client
             // Jitter spreads out clients that lost the same control plane at the same moment.
             return TimeSpan.FromMilliseconds(ceiling * (0.8 + 0.2 * jitter.NextDouble()));
         }
-
-        private static string Seconds(TimeSpan span) => span.TotalSeconds + " s";
 
         private sealed class Ending
         {

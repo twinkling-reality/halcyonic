@@ -99,7 +99,11 @@ the same definition names, as the JSON Schema document:
   Mac no longer accepts it and to forget the Mac and pair again. Both transports perform the
   upgrade themselves, so they read the 401 from the upgrade's own answer. A Mac that does not answer reads "Can't reach your computer; trying again", with the technical
   reason after it. In the fifth headset session a stale token read as "Unable to connect to the
-  remote server" ([quest-3-device.md](../validation/quest-3-device.md)).
+  remote server" ([quest-3-device.md](../validation/quest-3-device.md)). Halcyonic's own reasons are
+  said in `ConnectionText`'s words, never naming the control plane, a protocol or a client: no answer
+  in time, a closed connection, something it can't read, falling behind, and a connection turned
+  away by its code (`ConnectionText.Ended`: another version of this app, a revoked pairing, too many
+  connections), never by the error's message, which is the control plane's own, for developers.
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
   calling thread and returns what changed, so the Unity main thread calls it once per frame and no
   state is shared across threads. A consumer that falls more than 10,000 messages behind is

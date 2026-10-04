@@ -925,12 +925,12 @@ public class DemonstrationFallbackTests
     public void TheLineNamesWhyTheControlPlaneIsNotShown()
     {
         var waiting = DemonstrationFallback.Describe(
-            DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.WaitingToRetry, "The control plane did not answer within 10 s."));
-        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + " (The control plane did not answer within 10 s.)"));
+            DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.WaitingToRetry, ConnectionText.NoAnswer(TimeSpan.FromSeconds(10))));
+        Assert.That(waiting, Does.EndWith(ConnectionText.Unreachable + " (Your computer didn't answer within 10 seconds.)"));
 
         var refused = DemonstrationFallback.Describe(
-            DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, "The control plane speaks realtime protocol 2."));
-        Assert.That(refused, Does.EndWith("Your computer refused this app. The control plane speaks realtime protocol 2."));
+            DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.OtherVersion));
+        Assert.That(refused, Does.EndWith("Your computer refused this app. Your computer runs another version of this app. Install the same version on both."));
 
         var token = DemonstrationFallback.Describe(
             DemonstrationReason.Unreachable, new ConnectionStatus(ConnectionPhase.Refused, ConnectionText.AccessTokenRefused, accessRefused: true));

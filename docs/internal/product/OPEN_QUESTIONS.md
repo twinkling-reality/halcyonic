@@ -79,6 +79,7 @@ the evidence (a validation record or an ADR) and removing it from this list in t
 | Remote relay provider and design | Remote mode | Later; not needed for the local slice |
 | Scope of camera and environmental context | Privacy and permissions | Product and security design |
 | How should a person inspect the full runtime approval request when an adapter's summary selects one field and omits others? When the displayed summary exceeds the contract's 2000 characters, should it be cut with "[truncated]" as the control plane does today, after redaction, kept whole under a higher limit, or refused? | The workspace shows the recorded summary before an approval ([SECURITY.md](../architecture/SECURITY.md), "Untrusted text in the client"), which may not contain the full request | Security design, then the adapters |
+| Should the headset stop showing a transport's own error text after "Can't reach your computer; trying again."? `ConnectionText.WhyNotLive` adds it in parentheses as the technical detail, and .NET's text can carry the address and port dialled, as "Connection refused (127.0.0.1:47800)", or a host name from the endpoint setting. Halcyonic's own reasons are worded since 2026-10-04 (`ConnectionText.Ended`). | An address on the headset's screen or in a recording shares where the computer listens, and the text is the operating system's, not words a person acts on | The coordinator: keep it, cut it to the error's kind, or keep it only in development builds |
 
 ## Legal
 
