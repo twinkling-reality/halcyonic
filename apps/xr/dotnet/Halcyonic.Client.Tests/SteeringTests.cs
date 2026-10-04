@@ -328,6 +328,7 @@ public class CommandSubmissionsTests
         var sending = work.Present(submissions: submissions).Commands.Single();
         Assert.That(sending.Text, Is.EqualTo("Sending…"));
         Assert.That(sending.Status, Is.Null, "only this client knows about it");
+        Assert.That(sending.Waits, Is.True, "sending is under way, so its line shimmers");
 
         work.State.ApplyEvent(Carrying(2, Record(command, CommandStatus.Accepted)), new StateChanges());
         Assert.That(work.Present(submissions: submissions).Commands.Single().Text, Is.EqualTo("Sent. Waiting for it to stop…"), "accepted is not done");
@@ -336,6 +337,7 @@ public class CommandSubmissionsTests
         var done = work.Present(submissions: submissions).Commands.Single();
         Assert.That(done.Text, Is.EqualTo("Confirmed: stopped."));
         Assert.That(done.Status, Is.EqualTo(CommandStatus.Completed));
+        Assert.That(done.Waits, Is.False, "done, it no longer waits");
 
         work.State.ApplySnapshot(Samples.Snapshot(4, new[] { work.Workstream }, new[] { work.Execution }), new StateChanges());
         Assert.That(work.Present(submissions: submissions).Commands, Is.Empty,

@@ -310,7 +310,7 @@ namespace Halcyonic.Client
                 switch (State)
                 {
                     case SubmissionState.Sending:
-                        return Local("Sending…");
+                        return new CommandFeedback(CommandId, CommandType, null, "Sending…", waits: true);
                     case SubmissionState.NotSent:
                         return Local("Couldn't send: " + Reason);
                     case SubmissionState.OutcomeUnknown:

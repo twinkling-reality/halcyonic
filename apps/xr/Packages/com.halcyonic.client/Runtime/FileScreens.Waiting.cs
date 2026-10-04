@@ -123,7 +123,7 @@ namespace Halcyonic.Client
             var approve = actions.Contains(WorkspaceAction.Approve)
                 ? Action(WorkspaceAction.Approve, Approve, main: true)
                 : workspace.ApprovalInFlight
-                    ? new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.Approve, main: true, available: false, reason: SentWaiting)
+                    ? new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.Approve, main: true, available: false, reason: SentWaiting, waits: true)
                     : null;
             return new Footer(
                 CloseFile,
@@ -279,7 +279,7 @@ namespace Halcyonic.Client
             }
             else if (workspace.AnswerInFlight)
             {
-                send = new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting);
+                send = new Prompt(WorkspaceScreens.Sent, WorkspaceText.Sent, GlazeIcon.SendAnswer, main: true, available: false, reason: SentWaiting, waits: true);
             }
             return new Footer(
                 CloseFile,
@@ -287,7 +287,7 @@ namespace Halcyonic.Client
                 // On the page of the person's answers there is no one question to answer by voice, nor under
                 // a question that can't be answered here, as one asking for a secret.
                 secondary: screen.Speak && WorkspaceText.Answerable(draft.Question) && actions.Contains(WorkspaceAction.Answer) && !screen.Question.Reviewing
-                    ? new Prompt(SpeakAnswer, TalkWords(screen), TalkIcon(screen), holds: true, alsoReads: VoiceText.TalkReads)
+                    ? new Prompt(SpeakAnswer, TalkWords(screen), TalkIcon(screen), holds: true, waits: TalkWaits(screen), alsoReads: VoiceText.TalkReads)
                     : null,
                 farRight: send);
         }

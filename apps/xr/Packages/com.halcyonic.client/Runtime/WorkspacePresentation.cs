@@ -19,12 +19,13 @@ namespace Halcyonic.Client
     /// <summary>How a command issued against the execution is going, in words.</summary>
     public sealed class CommandFeedback
     {
-        public CommandFeedback(string commandId, CommandType commandType, CommandStatus? status, string text)
+        public CommandFeedback(string commandId, CommandType commandType, CommandStatus? status, string text, bool waits = false)
         {
             CommandId = commandId;
             CommandType = commandType;
             Status = status;
             Text = text;
+            Waits = waits;
         }
 
         public string CommandId { get; }
@@ -38,6 +39,9 @@ namespace Halcyonic.Client
         public CommandStatus? Status { get; }
 
         public string Text { get; }
+
+        /// <summary>It is under way here, being sent: its line shimmers while it shows (ADR 0027).</summary>
+        public bool Waits { get; }
     }
 
     /// <summary>

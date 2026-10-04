@@ -150,9 +150,11 @@ namespace Halcyonic.Client
         /// "Type my answer" beside a question's paging row; else each takes a row. Two answers next to
         /// each other share a row without it.
         /// </param>
+        /// <param name="waits">It says what is under way, as "Sending…": its words shimmer while it shows (ADR 0027).</param>
         public PageLine(string words, bool wordsAreData = false, GlazeIcon? icon = null, string? fact = null, LineTone tone = LineTone.Primary,
             string? chip = null, bool claim = false, string? action = null, string? key = null, bool opens = false, bool choice = false,
-            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false)
+            bool chosen = false, bool available = true, int rows = 1, int? fromRow = null, bool factIsData = false, bool besideNext = false,
+            bool waits = false)
         {
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A line has words.", nameof(words));
             if (string.Equals(chip, "observed", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("An observed fact takes no chip.", nameof(chip));
@@ -171,6 +173,7 @@ namespace Halcyonic.Client
             Fact = fact;
             FactIsData = factIsData;
             BesideNext = besideNext;
+            Waits = waits;
             Tone = tone;
             Chip = chip;
             Claim = claim;
@@ -197,6 +200,9 @@ namespace Halcyonic.Client
 
         /// <summary>It shares its row with the next line, each in half, where both fit one row there.</summary>
         public bool BesideNext { get; }
+
+        /// <summary>It says what is under way: its words shimmer while it shows, unless motion is kept still (ADR 0027).</summary>
+        public bool Waits { get; }
 
         public LineTone Tone { get; }
 
@@ -353,10 +359,12 @@ namespace Halcyonic.Client
         /// side panel takes the frame's place, as a setting's change does; its column says so, and nothing
         /// else is carried there but Close details, paging and Cancel (<see cref="Footer.InPlace"/>).
         /// </param>
+        /// <param name="waits">What it says is under way, as Sent… or Hold to talk writing down: its words shimmer, and so does its reason drawn as the page's last line (ADR 0027).</param>
         /// <param name="alsoReads">The words it shows in place of <paramref name="words"/> as its state changes, as Hold to talk's while the voice listens or writes down.</param>
         public Prompt(string id, string words, GlazeIcon icon, PromptKind kind = PromptKind.Action, bool main = false, bool available = true,
-            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false, IReadOnlyList<string>? alsoReads = null)
+            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false, bool waits = false, IReadOnlyList<string>? alsoReads = null)
         {
+            Waits = waits;
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("A prompt raises an id.", nameof(id));
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A prompt has its words.", nameof(words));
             if (icon == GlazeIcon.HoldToTalk && !holds) throw new ArgumentException("Only a held prompt shows the microphone.", nameof(icon));
@@ -401,6 +409,9 @@ namespace Halcyonic.Client
 
         /// <summary>Its frame's side panel shows everything it acts on, so it may be carried there when the side panel takes the frame's place.</summary>
         public bool SafeInPlace { get; }
+
+        /// <summary>What it says is under way: its words shimmer, and so does its reason drawn as the page's last line, while it shows (ADR 0027).</summary>
+        public bool Waits { get; }
 
         /// <summary>
         /// The words it shows in place of <see cref="Words"/> as its state changes; the view lays it at the
@@ -463,6 +474,9 @@ namespace Halcyonic.Client
         /// past any whose page says it already (<see cref="Prompt.PageExplains"/>).
         /// </summary>
         public string? Reason => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt.Reason).FirstOrDefault(reason => reason != null);
+
+        /// <summary>The reason drawn says what is under way, its prompt marked as a wait (<see cref="Prompt.Waits"/>).</summary>
+        public bool ReasonWaits => All.Where(each => !each.Prompt.PageExplains).Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Reason != null)?.Waits == true;
 
         /// <summary>
         /// This footer as <paramref name="side"/>, standing in its frame's place, carries it: Close details
@@ -647,6 +661,9 @@ namespace Halcyonic.Client
 
         /// <summary>Why a prompt can't be taken now, the page's last content line, above its source line.</summary>
         public string? Reason => Footer.Reason;
+
+        /// <summary>Its reason says what is under way, so the page's last line shimmers (<see cref="Footer.ReasonWaits"/>).</summary>
+        public bool ReasonWaits => Footer.ReasonWaits;
 
         public string? Source { get; }
 

@@ -51,6 +51,7 @@ namespace Halcyonic.XR.UI
         private Surface content = null!;
         private Surface footerLine = null!;
         private TextMeshPro reason = null!;
+        private GlazeShimmer reasonShimmer = null!;
         private TextMeshPro source = null!;
         private FooterView footer = null!;
         private MenuFrame? frame;
@@ -63,6 +64,7 @@ namespace Halcyonic.XR.UI
         /// </summary>
         private Footer? carried;
         private string? carriedReason;
+        private bool carriedReasonWaits;
         private MenuFrame? inPlaceOf;
         private float width;
         private float reserve;
@@ -254,6 +256,7 @@ namespace Halcyonic.XR.UI
             inPlaceOf = null;
             carried = null;
             carriedReason = null;
+            carriedReasonWaits = false;
             Begin(columnDegrees, subject, pillRoom || shown.Pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = shown.SubjectWaits ? GlazeTokens.ColorOf(Glaze.Tone(GlazeTone.Attention).Foreground) : GlazeTokens.Text;
@@ -278,6 +281,7 @@ namespace Halcyonic.XR.UI
             this.inPlaceOf = inPlaceOf;
             carried = inPlaceOf?.Footer.InPlace(shown);
             carriedReason = carried?.Reason;
+            carriedReasonWaits = carried?.ReasonWaits == true;
             Begin(columnDegrees, subject, pillRoom || pill != null);
             subjectCut = shown.SubjectIsData;
             subjectTitle.color = GlazeTokens.Text;
@@ -358,6 +362,7 @@ namespace Halcyonic.XR.UI
             content = Surface.Create(contentPart, "Plate", Order);
             footerLine = Surface.Create(contentPart, "Footer line", Order + 1);
             reason = Words(contentPart, "Reason", Glaze.Menu.QuietText);
+            reasonShimmer = GlazeShimmer.On(reason);
             source = Words(contentPart, "Source", Glaze.TextSecondary);
             footer = FooterView.Create(contentPart, "Footer", Order + 4);
             footer.Pressed += prompt => Acted?.Invoke(prompt.Id, null);
@@ -697,6 +702,8 @@ namespace Halcyonic.XR.UI
                 for (; index < lines.Count; index++) lines[index].Hide();
                 var why = frame?.Reason ?? carriedReason;
                 reason.gameObject.SetActive(why != null);
+                // A reason that says what is under way, as "Sent. Waiting for the agent…", shimmers.
+                reasonShimmer.Waits = why != null && (frame?.Reason != null ? frame.ReasonWaits : carriedReasonWaits);
                 if (why != null) y = Note(reason, why, left, right, y - group);
                 var from = frame?.Source ?? side?.Source;
                 source.gameObject.SetActive(from != null);
@@ -788,6 +795,8 @@ namespace Halcyonic.XR.UI
             }
             line.Words.color = ColourOf(carried && model.Tone != LineTone.Secondary ? LineTone.Primary : model.Tone, model.Available);
             line.Lean = model.Claim;
+            // A line that says what is under way, as "Sending…", shimmers while it shows (ADR 0027).
+            line.Shimmer.Waits = model.Waits;
             line.MayCut = model.WordsAreData;
             line.Words.transform.localPosition = new Vector3(wordsLeft, middle + rows * lineHeight / 2f, -U(0.05f));
             return top - height;
@@ -932,6 +941,7 @@ namespace Halcyonic.XR.UI
                 {
                     if (lean) GlazeText.Lean(info);
                 };
+                Shimmer = GlazeShimmer.On(Words);
                 Name = Label(name + " name", GlazeTokens.TextSecondary);
                 Fact = Label(name + " fact", GlazeTokens.TextSecondary);
                 Fact.textWrappingMode = TextWrappingModes.NoWrap;
@@ -945,6 +955,9 @@ namespace Halcyonic.XR.UI
             public event Action<string, string?>? Pressed;
 
             public TextMeshPro Icon { get; }
+
+            /// <summary>Its words' shimmer, while the line says what is under way.</summary>
+            public GlazeShimmer Shimmer { get; }
 
             public TextMeshPro Words { get; }
 

@@ -159,13 +159,16 @@ namespace Halcyonic.Client
         private static Prompt Action(WorkspaceAction action, string id, bool main = false) =>
             new Prompt(id, WorkspaceText.Label(action), WorkspaceText.IconOf(action), main: main);
 
-        private static Prompt Talk(FileScreen screen) => new Prompt(HoldToTalk, TalkWords(screen), TalkIcon(screen), holds: true, alsoReads: VoiceText.TalkReads);
+        private static Prompt Talk(FileScreen screen) => new Prompt(HoldToTalk, TalkWords(screen), TalkIcon(screen), holds: true, waits: TalkWaits(screen), alsoReads: VoiceText.TalkReads);
 
         /// <summary>Hold to talk's words: where the voice stands while it listens or writes down, else its own.</summary>
         internal static string TalkWords(FileScreen screen) => screen.Voice ?? VoiceText.HoldToTalk;
 
         /// <summary>The microphone while it waits or listens; the pen on a note while what was said is written down.</summary>
         internal static GlazeIcon TalkIcon(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords ? GlazeIcon.KeepCreating : GlazeIcon.HoldToTalk;
+
+        /// <summary>Hold to talk shimmers while what was said is written down, a wait; listening is the person talking, no wait.</summary>
+        internal static bool TalkWaits(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords;
 
         private static Prompt CancelChoice => new Prompt(Cancel, EntryText.Cancel, GlazeIcon.Close);
 
@@ -212,7 +215,7 @@ namespace Halcyonic.Client
             {
                 lines.Add(new PageLine(why, tone: LineTone.Secondary, rows: 2));
             }
-            if (workspace.Commands.FirstOrDefault() is { } sent) lines.Add(new PageLine(sent.Text, wordsAreData: true, tone: LineTone.Secondary));
+            if (workspace.Commands.FirstOrDefault() is { } sent) lines.Add(new PageLine(sent.Text, wordsAreData: true, tone: LineTone.Secondary, waits: sent.Waits));
             var used = lines.Sum(line => line.Rows);
             var activity = workspace.Activity;
             var fits = Math.Max(0, WithSource(room).Rows - used);
