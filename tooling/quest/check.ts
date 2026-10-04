@@ -72,21 +72,21 @@ async function check(): Promise<Verdict[]> {
   );
   const move = choice<MoveOutcome>('move', MOVE_OUTCOMES, release ? 'released' : undefined);
   const verdicts: Verdict[] = [];
-  const appToken = readFileState(await stat('files/access-token', true));
-  const glanceToken = readFileState(await stat('files/glance-access-token', true));
+  const state = async (path: string, privately: boolean) =>
+    readFileState(await stat(path, privately), path);
+  const appToken = await state('files/access-token', true);
+  const glanceToken = await state('files/glance-access-token', true);
   const written: [string, FileState][] = [];
   for (const name of ['files/access-token.tmp', 'files/glance-access-token.tmp']) {
-    written.push([name, readFileState(await stat(name, true))]);
+    written.push([name, await state(name, true)]);
   }
-  const shared = readFileState(await stat(SHARED, false));
+  const shared = await state(SHARED, false);
   if (closed) {
     verdicts.push(checkTokenRemoved('files/access-token', appToken));
-    verdicts.push(
-      checkTokenRemoved(
-        'files/access-token.off',
-        readFileState(await stat('files/access-token.off', true)),
-      ),
-    );
+    // A token a session set aside, and where the app leaves one if it is stopped mid-move.
+    for (const name of ['files/access-token.off', 'files/access-token.new']) {
+      verdicts.push(checkTokenRemoved(name, await state(name, true)));
+    }
     verdicts.push(checkTokenRemoved('files/glance-access-token', glanceToken));
     for (const [name, state] of written) verdicts.push(checkTokenRemoved(name, state));
     verdicts.push(checkSharedCopy(shared));

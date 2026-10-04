@@ -104,8 +104,11 @@ Still not seen on a Quest:
   still running;
 - whether a `cat` that never sees its input's end stays, as the app's user, after `written`, holding
   the file open until `adb kill-server`;
-- `pnpm quest:check` reading the log's reach from times (the main log's oldest `-v epoch` stamp,
-  `date +%s` and `ps -o ETIME`), and its failure on a `.tmp` file left over;
+- the app's line "nothing was at the access token's old place on shared storage" (from 2026-10-04),
+  from which alone `pnpm quest:check` now reads nothing there; its reading of the log's reach from
+  times (the main log's oldest `-v epoch` stamp, `date +%s` and `ps -o ETIME`, with 2 seconds for
+  toybox's elapsed time); its failure on a `.tmp` file left over; and the wording of `run-as` and
+  toybox `stat` for a file not there, which it reads only where stat names that file;
 - the write surviving `adb install -r`;
 - links and named pipes at the old place;
 - how a missing file reads through JNI;
