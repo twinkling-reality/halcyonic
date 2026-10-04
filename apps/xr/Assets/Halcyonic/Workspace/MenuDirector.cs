@@ -162,6 +162,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The characters standing when the drag began, which its rules were judged against.</summary>
         private readonly List<CharacterTarget> dragStage = new List<CharacterTarget>();
 
+        /// <summary>When the drag under way began, so presses begun under the moving plane end with it.</summary>
+        private float dragStartedAt;
+
         /// <summary>How far a drag left the plane from where the stage places it, kept until the plane is placed afresh.</summary>
         private (float Yaw, float Elevation) moved;
 
@@ -471,8 +474,9 @@ namespace Halcyonic.XR.Workspace
         private bool MayDrag(MenuColumn from, MenuFrame? frame)
         {
             if (FocusGuard.InputSuspended || drag != null || from != MenuColumn.File || navigator.BesideTask == null) return false;
-            // Beside a window the plane stands under the window's lane, which no drag may take it into.
-            if (arranged.BesideWindow) return false;
+            // Beside a window the plane stands under the window's lane, which no drag may take it into: the
+            // stage as it stands now, not as the plane was last drawn.
+            if (setup.StageNow().BesideWindow) return false;
             if (navigator.Standing(MenuColumn.File, frame, null) == null || plane.Composition == null) return false;
             if (plane.Front?.Footer.Confirming == true) return false;
             foreach (var (_, view) in plane.Shown)
@@ -511,7 +515,8 @@ namespace Halcyonic.XR.Workspace
                 offset => plane.Allows(MenuDrag.Turned(plane.Placed, offset)), plane.StageYaw);
             navigator.Moved();
             // A press under way as the plane starts to move ends with it.
-            plane.UnsettleShown();
+            dragStartedAt = Time.unscaledTime;
+            plane.UnsettleShown(float.MinValue);
         }
 
         /// <summary>The held point moved: the plane follows where its rules allow, every part at once.</summary>
@@ -544,7 +549,7 @@ namespace Halcyonic.XR.Workspace
             drag = null;
             dirty = true;
             // What was pressed under the moving plane is no press, nor a hold, as it settles again.
-            plane.UnsettleShown();
+            plane.UnsettleShown(dragStartedAt);
         }
 
         /// <summary>A direction's yaw to the right and elevation up, in degrees.</summary>

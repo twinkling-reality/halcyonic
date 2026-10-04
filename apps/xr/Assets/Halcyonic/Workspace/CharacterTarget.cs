@@ -55,6 +55,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The center of the character's body, where the peek and the workspace attach.</summary>
         public Vector3 BodyPosition => transform.position;
 
+        /// <summary>
+        /// The body's center at rest, without the hop, rise or bob its motion adds: what placement and a
+        /// drag's rules read, so the plane never follows a character's animation (as its label does not).
+        /// </summary>
+        public Vector3 RestPosition => BodyPosition - (View.Body.position - View.transform.position);
+
         /// <summary>How much the stage scales the character; its targets scale with it.</summary>
         public float Scale => transform.lossyScale.x;
 
