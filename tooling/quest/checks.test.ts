@@ -13,10 +13,13 @@ import {
   checkTokenOnRelease,
   checkTokenRemoved,
   checkTokenWritten,
+  checkWritesFinished,
   GLANCE_CODES,
   MOVE_LINES,
+  readElapsed,
   readFileState,
   readLog,
+  readReach,
   STARTED,
 } from './checks.ts';
 
@@ -229,13 +232,88 @@ describe('headset session checks', () => {
     );
   });
 
-  test("a log that no longer reaches the app's start is never read as nothing there", () => {
+  test("a log that can't be shown to hold the app's start is never read as nothing there", () => {
     const late = readLog(unity('connection Live'));
     assert.equal(late.started, false);
-    assert.equal(checkMove(late).pass, false);
-    assert.match(checkMove(late).line, /no longer reaches the app's start; restart the app/);
+    for (const reach of [false, null]) {
+      const said = checkMove(late, undefined, reach);
+      assert.equal(said.pass, true, 'said plainly, not failed, where the step expects nothing');
+      assert.match(said.line, /^move: can't be judged from this log, since the headset's log/);
+      assert.doesNotMatch(said.line, /nothing was on shared storage/);
+      const expected = checkMove(late, 'nothing', reach);
+      assert.equal(expected.pass, false, 'a step that expects an outcome fails');
+      assert.match(expected.line, /can't be judged .*\(this step expects nothing\)$/);
+    }
+    assert.match(checkMove(late, undefined, false).line, /no longer holds the app's start/);
+    assert.match(checkMove(late, undefined, null).line, /could not be shown to hold/);
     assert.match(checkConnection(readLog('')).line, /no longer reaches the app's start/);
     assert.match(checkConnection(log()).line, /no connection line yet/);
+  });
+
+  test("a log that holds the app's start by its times reads nothing as nothing there", () => {
+    // As on a headset, where the app writes no first-frame line and its first is a connection's.
+    const quiet = readLog(unity('connection Synchronizing'));
+    assert.equal(
+      checkMove(quiet, 'nothing', true).line,
+      'move: nothing was on shared storage (read as nothing there)',
+    );
+    assert.equal(checkMove(quiet, 'nothing', true).pass, true);
+    assert.match(checkConnection(readLog(''), 'live', true).line, /no connection line yet/);
+  });
+
+  test("the log's reach is its oldest stamp against the app's start, a second early for rounding", () => {
+    assert.equal(readElapsed('     ELAPSED\n       05:12\n'), 312);
+    assert.equal(readElapsed('ELAPSED\n02:03:04'), 7384);
+    assert.equal(readElapsed('ELAPSED\n1-02:03:04\r\n'), 93784);
+    assert.equal(readElapsed('ELAPSED\n'), null);
+    assert.equal(readElapsed('bad pid'), null);
+    const main = [
+      '--------- beginning of main',
+      '1700000000.123  1234  1234 I Something: what it said',
+      '1700000090.000  4321  4321 I Unity   : Halcyonic: connection Synchronizing',
+    ].join('\n');
+    // Started at 1700000100 - 50 = ...050, a second earlier at the most: the log began before that.
+    assert.equal(readReach(main, '1700000100\n', 50), true);
+    // Started at ...001 at the earliest, 99 s before ...100: the log began at ...000.123, after it.
+    assert.equal(readReach(main, '1700000100', 99), false);
+    assert.equal(readReach(main, '1700000100', 98), true);
+    assert.equal(readReach(main, '1700000100', null), null, 'how long it has run, unread');
+    assert.equal(readReach(main, 'date: bad', 50), null, "the headset's time, unread");
+    assert.equal(readReach('--------- beginning of main\n', '1700000100', 50), null, 'no stamp');
+    assert.equal(
+      readReach('1700000000.123456  1234  1234 I Something: x', '1700000100', 50),
+      true,
+      'microseconds',
+    );
+  });
+
+  test('a run-as write left half done fails, naming the file and the step to run again', () => {
+    const none = checkWritesFinished([
+      ['files/access-token.tmp', { kind: 'absent' }],
+      ['files/glance-access-token.tmp', { kind: 'absent' }],
+    ]);
+    assert.deepEqual(none, { pass: true, line: 'run-as writes: no temporary file left over' });
+    const left = checkWritesFinished([
+      ['files/access-token.tmp', readFileState('600 44 regular file')],
+      ['files/glance-access-token.tmp', { kind: 'absent' }],
+    ]);
+    assert.equal(left.pass, false);
+    assert.match(
+      left.line,
+      /^files\/access-token\.tmp left over: the run-as write stopped before its move, .*run the move step again \(HEADSET_SESSION\.md\)$/,
+    );
+    const both = checkWritesFinished([
+      ['files/access-token.tmp', readFileState('600 20 regular file')],
+      ['files/glance-access-token.tmp', readFileState('600 44 regular file')],
+    ]);
+    assert.match(
+      both.line,
+      /^files\/access-token\.tmp and files\/glance-access-token\.tmp left over/,
+    );
+    assert.equal(
+      checkWritesFinished([['files/access-token.tmp', { kind: 'unreadable' }]]).pass,
+      false,
+    );
   });
 
   test('the connection is its last line, against what the step expects', () => {
