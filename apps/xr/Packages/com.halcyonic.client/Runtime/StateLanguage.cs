@@ -237,6 +237,28 @@ namespace Halcyonic.Client
             };
         }
 
+        /// <summary>
+        /// Why Halcyonic can't tell what a task is doing, in a plain sentence, by the code of the reason the
+        /// control plane gives (`runtime_connection_lost`, `control_plane_restarted`, `start_outcome_unknown`);
+        /// null for a code it doesn't know. Never the reason's message: that is an agent app's or the
+        /// control plane's own diagnostic, naming an app, a request or a path, which a person never reads.
+        /// </summary>
+        public static string? CantTellWhy(string? code) => code switch
+        {
+            "runtime_connection_lost" => LostTouch,
+            "control_plane_restarted" => HostText.YourStart + " restarted and lost touch with the agent app.",
+            "start_outcome_unknown" => "Not sure it started.",
+            _ => null,
+        };
+
+        /// <summary>Said where the agent app stopped answering about a task (settled by the coordinator, 2026-10-04).</summary>
+        public static readonly string LostTouch = HostText.YourStart + " lost touch with the agent app.";
+
+        /// <summary>The state in a sentence, with why where it is known: "Can't tell what it's doing: your computer lost touch with the agent app."</summary>
+        public static string CantTell(string? why) => why == null
+            ? "Can't tell what it's doing right now."
+            : "Can't tell what it's doing: " + char.ToLowerInvariant(why[0]) + why.Substring(1);
+
         /// <summary>The state's word, the same on the badge, in the peek, the workspace and every list.</summary>
         public static string WordOf(WorkState state) => state switch
         {

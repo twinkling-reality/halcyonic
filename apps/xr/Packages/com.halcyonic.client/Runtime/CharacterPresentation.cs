@@ -185,9 +185,9 @@ namespace Halcyonic.Client
                 case ExecutionFailedReason _:
                     return execution?.StatusReason is { } failure ? ("Couldn't finish: " + failure.Message, failure.Message) : ("It couldn't finish.", "");
                 case ExecutionStateUnknownReason _:
-                    return execution?.StatusReason is { } unknown
-                        ? ("Can't tell what it's doing: " + unknown.Message, unknown.Message)
-                        : ("Can't tell what it's doing right now.", "");
+                    // Why, by its code alone: the reason's message is a diagnostic, never a person's words.
+                    var why = StateLanguage.CantTellWhy(execution?.StatusReason?.Code);
+                    return (StateLanguage.CantTell(why), why ?? "");
                 case VerificationFailedReason tests:
                     var run = execution?.LastTestRun;
                     return run != null && run.TestRunId == tests.TestRunId && run.Summary != null

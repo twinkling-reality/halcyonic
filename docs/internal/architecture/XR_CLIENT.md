@@ -119,8 +119,14 @@ the same definition names, as the JSON Schema document:
   reasons without what the state already says (`AttentionDetails`, for the peek: "The model
   provider rejected the request." under Couldn't finish), and flags for simulated work, recorded
   fixture data, and a stale state while the session is not live. Reasons read "It wants to use
-  {tool}: {summary}", "Couldn't finish: {reason}", "Can't tell what it's doing: {reason}" and
-  "Checks: {summary}"; a question's is `AsksYou`.
+  {tool}: {summary}", "Couldn't finish: {reason}", "Can't tell what it's doing: {why}" and
+  "Checks: {summary}"; a question's is `AsksYou`. Why it can't tell is said from the reason's code
+  alone (`StateLanguage.CantTellWhy`: "your computer lost touch with the agent app.", "your computer
+  restarted and lost touch with the agent app.", "not sure it started."), else "Can't tell what it's
+  doing right now."; the reason's message is an agent app's or the control plane's diagnostic,
+  naming an app, a request or a path, and never reaches the headset. The codes are a closed set in
+  the contract (`execution.state_unknown`'s two, and the projection's `runtime_connection_lost`), so
+  no person-facing field is needed from the control plane.
 - **`StateLanguage`** ([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md))
   is the one mapping from a task's state to what every surface says and shows: Not started,
   Starting, Working, Checking its work, Waiting for you, Finished this round, Checks failed,
@@ -598,7 +604,8 @@ the same definition names, as the JSON Schema document:
   tracking space does move, the stage moves with it at once, so it stays where it was around the
   person, and only a move with no focus change around it counts as a recenter.
 - **`ActivityLog`** turns journaled events into readable activity per execution, marking agent text
-  as a claim. A snapshot carries state but no history, so after a resynchronization the history of
+  as a claim. A lost connection and an unknown state read as the character says them, by code, never
+  with the diagnostic their events carry. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
   (`GET /api/events`, paged, refused if the journal changed).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution

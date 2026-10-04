@@ -116,7 +116,8 @@ namespace Halcyonic.Client
                 case ExecutionStartFailedEvent failed:
                     return Entry(ActivityKind.Lifecycle, "Could not start: " + failed.Payload.Error.Message);
                 case ExecutionStateUnknownEvent unknown:
-                    return Entry(ActivityKind.Connection, "State unknown: " + unknown.Payload.Message);
+                    // Why, by its code alone, as the character says it: the message is a diagnostic.
+                    return Entry(ActivityKind.Connection, StateLanguage.CantTell(StateLanguage.CantTellWhy(StateUnknownCodeOf(unknown.Payload.Code))));
                 case RuntimeTurnStartedEvent _:
                     return Entry(ActivityKind.Turn, "Turn started");
                 case RuntimeTurnCompletedEvent _:
@@ -144,7 +145,8 @@ namespace Halcyonic.Client
                 case RuntimeApprovalResolvedEvent resolved:
                     return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : "Denied");
                 case RuntimeConnectionLostEvent lost:
-                    return Entry(ActivityKind.Connection, "Lost contact with the runtime: " + lost.Payload.Reason);
+                    // The reason is the agent app's diagnostic, naming it, a request or a path: never shown.
+                    return Entry(ActivityKind.Connection, StateLanguage.LostTouch);
                 case CommandAcceptedEvent accepted:
                     // A client's name is not a person's, so it is not shown as one; a command without plain words is left out.
                     return Verb(accepted.Payload.Command) is string asked ? Entry(ActivityKind.Command, "Asked to " + asked) : null;
@@ -163,6 +165,14 @@ namespace Halcyonic.Client
 
         /// <summary>Tool call ids are native and only unique within one execution.</summary>
         private static string ToolKey(EventEnvelope e, string toolCallId) => e.ExecutionId + "\n" + toolCallId;
+
+        /// <summary>A state-unknown event's code as the control plane writes it, so the log and the character word it alike.</summary>
+        private static string StateUnknownCodeOf(StateUnknownCode code) => code switch
+        {
+            StateUnknownCode.ControlPlaneRestarted => "control_plane_restarted",
+            StateUnknownCode.StartOutcomeUnknown => "start_outcome_unknown",
+            _ => "",
+        };
 
         /// <summary>What a command asks for, in plain words, or null for one that has none yet.</summary>
         private static string? Verb(CommandEnvelope command) => command switch

@@ -55,6 +55,29 @@ public class ActivityLogTests
     }
 
     [Test]
+    public void SaysWhyItCantTellByTheCodeAloneNeverTheMessage()
+    {
+        var execution = "01a0dcf1-5e68-7034-8b08-109e41ae25e9";
+        StoredEvent Unknown(int position, string code) => new()
+        {
+            Position = position,
+            Event = HalcyonicJson.Deserialize<EventEnvelope>("{\"schema_version\":1,\"event_id\":\"01a0dcf1-6e6c-74af-93ca-dea260db947" + position
+                + "\",\"event_type\":\"execution.state_unknown\",\"project_id\":\"01a0dcf1-5a80-7295-a48c-b7b6d5c02b34\",\"workstream_id\":\"01a0dcf1-5d6e-7650-ab32-1d63927a8338\","
+                + "\"execution_id\":\"" + execution + "\",\"source\":{\"kind\":\"control_plane\"},\"source_native_id\":null,\"sequence\":null,"
+                + "\"occurred_at\":\"2026-09-26T09:00:05.100Z\",\"correlation_id\":null,\"causation_id\":null,\"provenance\":{\"epistemic\":\"observed\",\"native_type\":null},"
+                + "\"payload\":{\"code\":\"" + code + "\",\"message\":\"The control plane restarted and is no longer connected to the runtime session of this execution.\"},"
+                + "\"ingested_at\":\"2026-09-26T09:00:05.100Z\"}"),
+        };
+        var log = new ActivityLog();
+        log.Record(new[] { Unknown(1, "control_plane_restarted"), Unknown(2, "start_outcome_unknown") });
+        Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
+        {
+            "Can't tell what it's doing: your computer restarted and lost touch with the agent app.",
+            "Can't tell what it's doing: not sure it started.",
+        }));
+    }
+
+    [Test]
     public void DescribesWhatWentWrong()
     {
         var events = Load("failure_modes.jsonl");
@@ -62,7 +85,8 @@ public class ActivityLogTests
         log.Record(events);
 
         Assert.That(log.For(ExecutionOf(events, "Speed up the dashboard render")).Last().Text, Does.StartWith("Turn failed: "));
-        Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Does.StartWith("Lost contact with the runtime: "));
+        // The agent app's own reason for losing the session is a diagnostic, never shown.
+        Assert.That(log.For(ExecutionOf(events, "Run the integration suite")).Last().Text, Is.EqualTo("Your computer lost touch with the agent app."));
         var refactor = log.For(ExecutionOf(events, "Refactor the session store")).Select(entry => entry.Text).ToList();
         Assert.That(refactor.Any(text => text.StartsWith("Refused to send an instruction: ", StringComparison.Ordinal)), Is.True);
         Assert.That(refactor[^1], Is.EqualTo("Turn stopped"));

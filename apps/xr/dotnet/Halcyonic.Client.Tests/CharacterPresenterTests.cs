@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Contracts;
 using NUnit.Framework;
 
@@ -79,7 +80,34 @@ public class CharacterPresenterTests
         var unknownStream = Samples.Workstream("w2", WorkstreamStatus.Unknown, "e2", AttentionLevel.Notice, new ExecutionStateUnknownReason { ExecutionId = "e2" });
         var character = CharacterPresenter.Present(unknownStream, StateWith(unknownStream, unknown), live: true);
         Assert.That(character.Activity, Is.EqualTo(CharacterActivity.Unknown));
-        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Can't tell what it's doing: The control plane restarted." }));
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { "Can't tell what it's doing: your computer restarted and lost touch with the agent app." }));
+    }
+
+    /// <summary>
+    /// Why it can't tell is said by the reason's code, never its message: an agent app's diagnostic names
+    /// the app, a request and a path, as an old task's did on the headset on 2026-10-04.
+    /// </summary>
+    [TestCase("runtime_connection_lost", "Can't tell what it's doing: your computer lost touch with the agent app.", "Your computer lost touch with the agent app.")]
+    [TestCase("control_plane_restarted", "Can't tell what it's doing: your computer restarted and lost touch with the agent app.",
+        "Your computer restarted and lost touch with the agent app.")]
+    [TestCase("start_outcome_unknown", "Can't tell what it's doing: not sure it started.", "Not sure it started.")]
+    [TestCase("a_code_from_later", "Can't tell what it's doing right now.", "")]
+    public void WhyItCantTellIsSaidByTheReasonsCodeNeverTheAgentAppsDiagnostic(string code, string note, string why)
+    {
+        var unknown = Samples.Execution("e2", "w2", ExecutionStatus.Unknown);
+        unknown.StatusReason = new ErrorInfo
+        {
+            Code = code,
+            Message = "After the OpenCode event stream reconnected, the session could not be read (GET /api/session/ses_2f1a9c: fetch failed).",
+        };
+        var stream = Samples.Workstream("w2", WorkstreamStatus.Unknown, "e2", AttentionLevel.Notice, new ExecutionStateUnknownReason { ExecutionId = "e2" });
+        var character = CharacterPresenter.Present(stream, StateWith(stream, unknown), live: true);
+        Assert.That(character.AttentionNotes, Is.EqualTo(new[] { note }));
+        Assert.That(StateLanguage.CantTellWhy(code) ?? "", Is.EqualTo(why));
+        foreach (var leaked in new[] { "OpenCode", "GET", "/api/", "ses_", "stream" })
+        {
+            Assert.That(character.AttentionNotes.Single(), Does.Not.Contain(leaked));
+        }
     }
 
     /// <summary>A character's words are shown by the one rule for text Halcyonic did not write.</summary>
