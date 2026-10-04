@@ -117,7 +117,7 @@ namespace Halcyonic.XR.Workspace
         /// <summary>While a subject is held: the held point moved, to here in the world.</summary>
         public event Action<Vector3>? SubjectDragged;
 
-        /// <summary>The subject's hold ended.</summary>
+        /// <summary>The subject's press ended, its hold matured or not.</summary>
         public event Action? SubjectLetGo;
 
         /// <summary>The closed bar, while it shows.</summary>

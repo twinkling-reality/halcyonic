@@ -204,7 +204,7 @@ namespace Halcyonic.XR.Workspace
             director.plane.SubjectPressed += director.OnSubjectPressed;
             director.plane.SubjectHeld += director.OnSubjectHeld;
             director.plane.SubjectDragged += director.OnSubjectDragged;
-            director.plane.SubjectLetGo += director.EndDrag;
+            director.plane.SubjectLetGo += director.OnSubjectLetGo;
             if (setup.Voice is HoldToTalk talk)
             {
                 var voice = new MenuVoice(() => talk.Busy, talk.Begin, () => talk.End(true), talk.Drop);
@@ -273,7 +273,7 @@ namespace Halcyonic.XR.Workspace
         public void DragSubjectForRender(Vector3 point) => OnSubjectDragged(point);
 
         /// <summary>For the editor's renders: the subject let go of.</summary>
-        public void LetGoForRender() => EndDrag();
+        public void LetGoForRender() => OnSubjectLetGo();
 
         /// <summary>Draws what shows now, its parts at their places at once, for the renders.</summary>
         public void DrawNow()
@@ -466,6 +466,13 @@ namespace Halcyonic.XR.Workspace
             if (!drag.Follow(yaw, elevation)) return;
             moved = drag.Moved;
             plane.Turn(moved);
+        }
+
+        /// <summary>The subject's press ended, its hold matured or not: the press counts no more, and any drag ends.</summary>
+        private void OnSubjectLetGo()
+        {
+            subjectPressTaken = false;
+            EndDrag();
         }
 
         /// <summary>The subject let go of, or the drag ended otherwise: the plane is drawn where it was left, and presses count again once it is.</summary>
