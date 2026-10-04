@@ -262,9 +262,9 @@ public class RealtimeSessionTests
     /// the Host header or a 429 after too many credentials, is said by its code, never the control plane's
     /// message.
     /// </summary>
-    [TestCase(403, "host_not_allowed", "Your computer refused the name this headset uses for it. Name it 127.0.0.1 or [::1], then restart the app.")]
+    [TestCase(403, "host_not_allowed", "Your computer refused the name this headset uses for it. Pair it again in Settings.")]
     [TestCase(429, "too_many_requests", "Your computer is turning this headset away for a minute after too many tries. It tries again by itself.")]
-    [TestCase(403, "forbidden", "Your computer refused the connection.")]
+    [TestCase(403, "forbidden", "Your computer refused the connection. Restart the app, and pair it again in Settings if it happens again.")]
     public async Task AnUpgradeRefusedForAnotherReasonIsSaidByItsCode(int status, string code, string words)
     {
         session = new RealtimeSession(Options(options => options.InitialRetryDelay = options.MaxRetryDelay = TimeSpan.FromSeconds(30)),
