@@ -131,6 +131,41 @@ public class FolderConnectTests
         Assert.That(again.CommandId, Is.Not.EqualTo(command.CommandId));
     }
 
+    /// <summary>
+    /// Connecting a folder, refused with any code or failed with either effect, never shows the refusal's or
+    /// the failure's message, the control plane's own words, which can hold an address or a path.
+    /// </summary>
+    [Test]
+    public void NoRefusalOrFailureMessageReachesConnectsOutcome()
+    {
+        const string Leak = "OpenCode could not be reached: connect ECONNREFUSED 127.0.0.1:4096 (/Users/someone/project)";
+        FolderConnection Begun(out CommandEnvelope command)
+        {
+            var connection = new FolderConnection(FolderConnect.Offers(Listing(Root("Projects", Folder("shop")))).Single(), Commands);
+            command = connection.Begin();
+            return connection;
+        }
+        foreach (RejectionCode code in Enum.GetValues(typeof(RejectionCode)))
+        {
+            var connection = Begun(out var command);
+            connection.Advance(With(new CommandView
+            {
+                CommandId = command.CommandId, Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = code, Message = Leak },
+            }));
+            Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode").And.Not.Contain("/Users/"), code.ToString());
+        }
+        foreach (FailureEffect effect in Enum.GetValues(typeof(FailureEffect)))
+        {
+            var connection = Begun(out var command);
+            connection.Advance(With(new CommandView
+            {
+                CommandId = command.CommandId, Status = CommandStatus.Failed,
+                Failure = new CommandFailure { Code = "internal_error", Message = Leak, Effect = effect },
+            }));
+            Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode").And.Not.Contain("/Users/"), effect.ToString());
+        }
+    }
+
     [Test]
     public void AnOutcomeThatMayHaveRunIsNeverSentAgain()
     {
