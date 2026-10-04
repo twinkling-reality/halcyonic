@@ -164,9 +164,11 @@ namespace Halcyonic.Client
                     host.OpenKeyboard(draft.Typed(typing) ?? "", "Your answer", text =>
                     {
                         if (typingFor != draft) return;
-                        // An answer armed to send meanwhile is cancelled: Yes was for the answer before these words.
-                        var cancelled = Steering.AnswerChanging();
-                        if (typingFor.Type(typing, text) is string problem) Notify(problem);
+                        // An answer armed to send meanwhile is cancelled, if these words changed it: Yes was for the answer before them.
+                        var before = typingFor.AnswersNow;
+                        var problem = typingFor.Type(typing, text);
+                        var cancelled = QuestionDraft.SameAnswers(before, typingFor.AnswersNow) ? null : Steering.AnswerChanging();
+                        if (problem != null) Notify(problem);
                         else if (cancelled != null) Notify(cancelled);
                         Rebuild();
                     });
@@ -336,8 +338,11 @@ namespace Halcyonic.Client
                 }
                 else
                 {
-                    var cancelled = Steering.AnswerChanging();
-                    Notify(draft.Type(answerPrompt, text) ?? cancelled ?? VoiceText.HeardAnswer);
+                    // An answer armed to send meanwhile is cancelled, if these words changed it.
+                    var before = draft.AnswersNow;
+                    var problem = draft.Type(answerPrompt, text);
+                    var cancelled = QuestionDraft.SameAnswers(before, draft.AnswersNow) ? null : Steering.AnswerChanging();
+                    Notify(problem ?? cancelled ?? VoiceText.HeardAnswer);
                 }
                 Rebuild();
                 return;

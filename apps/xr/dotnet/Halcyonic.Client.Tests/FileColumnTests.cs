@@ -928,6 +928,95 @@ public class FileColumnTests
     }
 
     [Test]
+    public void YesTellsAnswersApartWhateverCharactersTheirLabelsHold()
+    {
+        // Three answers, one whose label holds a control character between the other two's labels: chosen
+        // alone, it could pass for the other two chosen together were the answers compared as one string.
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, new QuestionView
+        {
+            QuestionId = "question-1",
+            Answerable = true,
+            AskedAt = Samples.Time,
+            Prompts = new List<QuestionPrompt>
+            {
+                new()
+                {
+                    Key = "q0", Header = "Which", Text = "Which should it do?", Multiple = true, FreeText = false,
+                    Options = new List<QuestionOption> { new() { Label = "A" }, new() { Label = "B" }, new() { Label = "A\u0003B" } },
+                },
+            },
+        });
+        var draft = column.Screen.Question.Draft!;
+        draft.Choose(0, "A");
+        draft.Choose(0, "A\u0003B");
+        Assert.That(draft.AnswersNow[0].Chosen, Is.EqualTo(new[] { "A\u0003B" }));
+        Draw(host, column);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        draft.Choose(0, "A\u0003B");
+        draft.Choose(0, "A");
+        draft.Choose(0, "B");
+        Assert.That(draft.AnswersNow[0].Chosen, Is.EqualTo(new[] { "A", "B" }));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "A and B are not the answer Yes was asked for");
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged));
+    }
+
+    [Test]
+    public void AKeyboardClosedWithTheAnswerUnchangedLeavesYesAsked()
+    {
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        column.Act(FileScreens.TypeAnswer, null);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer));
+        // Closed with nothing typed, as it opened: the answer is as it was.
+        host.Keyboard!.Value.Done("");
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "nothing changed, so Yes still stands");
+        Assert.That(column.Screen.Notice, Is.Not.EqualTo(WorkspaceText.AnswerChanged));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void WordsHeardForAQuestionThatTakesOnlyItsAnswersLeaveYesAskedAndSayWhy()
+    {
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, new QuestionView
+        {
+            QuestionId = "question-1",
+            Answerable = true,
+            AskedAt = Samples.Time,
+            Prompts = new List<QuestionPrompt>
+            {
+                new()
+                {
+                    Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = false,
+                    Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
+                },
+            },
+        });
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        column.Act(FileScreens.SendAnswer, null);
+        column.Heard("Ten minutes");
+        Assert.That(column.Steering.Armed, Is.EqualTo(WorkspaceAction.Answer), "the words were refused, so the answer and its Yes stand");
+        Assert.That(column.Screen.Notice, Is.EqualTo("This question takes only the answers shown. Choose one of them."));
+    }
+
+    [Test]
+    public void AChoiceClearedUnderYesSaysTheAnswerChanged()
+    {
+        var host = new FileMenuHost();
+        var column = AnsweringWithYes(host, Questioned("question-1", 1));
+        column.Act(FileScreens.SendAnswer, null);
+        column.Screen.Question.Draft!.ClearChosen(0);
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty);
+        Assert.That(column.Screen.Notice, Is.EqualTo(WorkspaceText.AnswerChanged), "the answer changed, not the question");
+    }
+
+    [Test]
     public void YesSendsOnlyTheAnswersItWasAskedFor()
     {
         // However the answers changed after Send answer asked its Yes, Yes refuses them.
