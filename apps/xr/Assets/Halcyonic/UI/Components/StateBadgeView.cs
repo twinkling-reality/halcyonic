@@ -56,8 +56,12 @@ namespace Halcyonic.XR.UI
         /// <summary>The pill's height, in its parent's units.</summary>
         public static float PillHeight => Height * PillScale;
 
-        /// <summary>Badges stand still, as the person's comfort settings ask (<see cref="Comfort.Still"/>): no icon turns and nothing breathes.</summary>
-        public static bool Still { get; set; }
+        /// <summary>Badges stand still, as the person's comfort settings ask (<see cref="Comfort.Still"/>): no icon turns and nothing breathes; the headset's one reduced-motion switch (<see cref="GlazeMotion.Still"/>).</summary>
+        public static bool Still
+        {
+            get => GlazeMotion.Still;
+            set => GlazeMotion.Still = value;
+        }
 
         /// <summary>The badge's width, in its parent's units, a pill's included.</summary>
         public float Width => size.x * transform.localScale.x;
