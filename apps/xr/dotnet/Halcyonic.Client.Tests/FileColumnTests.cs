@@ -494,6 +494,77 @@ public class FileColumnTests
             "back on the prompt, the unread typed answer's panel opens at the first part not yet drawn");
     }
 
+    /// <summary>The prompt showing read through its question's parts to its answers, each part drawn.</summary>
+    private static void ReadQuestion(FileMenuHost host, FileColumn column)
+    {
+        for (var step = 0; step < 5 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+    }
+
+    [Test]
+    public void AQuestionOfTwoPromptsIsSentFromYourAnswersOnceThatPageIsDrawn()
+    {
+        var (host, column) = Asking(
+            new QuestionPrompt
+            {
+                Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = true,
+                Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
+            },
+            new QuestionPrompt
+            {
+                Key = "q1", Header = "Notice", Text = "Should the person be told?", Multiple = false, FreeText = false,
+                Options = new List<QuestionOption> { new() { Label = "Yes" }, new() { Label = "No" } },
+            });
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        ReadQuestion(host, column);
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        Assert.That(column.Screen.Question.Reviewing, Is.True, "on the person's answers");
+        Assert.That(column.Frame!.Footer.All.Any(each => each.Prompt.Id == FileScreens.SpeakAnswer), Is.False, "no one question to answer by voice here");
+
+        // Drawn, the page of answers counts as read, and nothing throws for want of a prompt to quote.
+        Assert.DoesNotThrow(() => Draw(host, column));
+        Assert.That(FileScreens.WhySendWaits(column.Screen), Is.Null, "every answer read on Your answers");
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1), "and sent");
+    }
+
+    [Test]
+    public void AHoldToTalkOnYourAnswersTypesIntoNoQuestion()
+    {
+        var (host, column) = Asking(
+            new QuestionPrompt
+            {
+                Key = "q0", Header = "Lockout", Text = "How long should a lockout last?", Multiple = false, FreeText = true,
+                Options = new List<QuestionOption> { new() { Label = "15 minutes" } },
+            },
+            new QuestionPrompt
+            {
+                Key = "q1", Header = "Notice", Text = "Should the person be told?", Multiple = false, FreeText = true,
+                Options = new List<QuestionOption> { new() { Label = "Yes" } },
+            });
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        ReadQuestion(host, column);
+        column.Act(FileScreens.Choose, "0");
+        Draw(host, column);
+        column.Act(FileScreens.NextQuestion, null);
+        Assert.That(column.Screen.Question.Reviewing, Is.True);
+        // A hold that reached the column anyway, as from a frame drawn before: what is heard types into no question.
+        column.HoldStarted(FileScreens.SpeakAnswer);
+        Assert.DoesNotThrow(() => column.Heard("Ten minutes"));
+        Assert.That(column.Screen.Question.Draft!.Typed(0), Is.Null);
+        Assert.That(column.Screen.Question.Draft!.Typed(1), Is.Null);
+    }
+
     [Test]
     public void NewWordsOfTheSameLengthAreReadFromTheirOwnFirstPart()
     {
