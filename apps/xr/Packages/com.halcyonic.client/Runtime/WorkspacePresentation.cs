@@ -269,7 +269,7 @@ namespace Halcyonic.Client
                         ? "Not sure it happened. Check its activity before you try again."
                         // The failure's message is the agent app's or the control plane's own: a folder's
                         // problem is said by its code, anything else as what is true, since it had no effect.
-                        : WorkspaceText.Couldnt("Couldn't do that", EntryText.FolderProblem(null, failure?.Code) ?? WorkspaceText.NothingChanged);
+                        : WorkspaceText.Couldnt("Couldn't do that", EntryText.FolderProblem(null, failure?.Code) ?? WorkspaceText.NothingChangedSeeIt);
                     break;
             }
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);
