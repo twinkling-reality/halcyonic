@@ -231,8 +231,8 @@ public class FolderRefusalTests
             Assert.That(EntryText.StepStatus(step), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), effect.ToString());
             if (effect == FailureEffect.None)
             {
-                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: your computer lost touch with the agent app. See what it's doing, then try again."),
-                    "a cause every adapter shares is said by its code");
+                Assert.That(EntryText.StepStatus(step), Is.EqualTo("Couldn't do that: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again."),
+                    "a cause every adapter shares is said by its code, and with no task running, the way on is the computer");
             }
         }
     }
