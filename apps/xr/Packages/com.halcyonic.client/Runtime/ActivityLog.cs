@@ -160,11 +160,10 @@ namespace Halcyonic.Client
                         WorkspaceText.WhyRefused(rejected.Payload.Rejection.Code)));
                 case CommandFailedEvent commandFailed:
                     // The failure's message is the agent app's or the control plane's own: what failed, and
-                    // whether it may have happened anyway, are what a person can act on.
-                    var failedTo = VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed";
-                    return Entry(ActivityKind.Command, commandFailed.Payload.Failure.Effect == FailureEffect.Unknown
-                        ? failedTo + ". Not sure it happened. Check its activity before you try again."
-                        : failedTo);
+                    // whether it may have happened anyway, are what a person can act on. An effect that can't
+                    // be ruled out is never said as "Couldn't", which says nothing happened.
+                    if (commandFailed.Payload.Failure.Effect == FailureEffect.Unknown) return Entry(ActivityKind.Command, NotSureItHappened);
+                    return Entry(ActivityKind.Command, VerbOf(commandFailed.Payload.CommandType) is string verb ? "Couldn't " + verb : "A request failed");
                 default:
                     // Command completion adds nothing a person needs to read here,
                     // and the model a runtime reports using is on the execution itself.
@@ -174,6 +173,9 @@ namespace Halcyonic.Client
 
         /// <summary>Tool call ids are native and only unique within one execution.</summary>
         private static string ToolKey(EventEnvelope e, string toolCallId) => e.ExecutionId + "\n" + toolCallId;
+
+        /// <summary>A command whose effect can't be ruled out, in WORDS.md's unknown-effect pattern (settled by the coordinator, 2026-10-04).</summary>
+        public const string NotSureItHappened = "Not sure it happened. Check its activity before you try again.";
 
         /// <summary>A state-unknown event's code as the control plane writes it, so the log and the character word it alike.</summary>
         private static string StateUnknownCodeOf(StateUnknownCode code) => code switch

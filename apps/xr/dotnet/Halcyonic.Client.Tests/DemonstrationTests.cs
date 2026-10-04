@@ -456,7 +456,7 @@ public class DemonstrationTransportTests
         var deny = Demonstration.AtApproval(DemonstrationAnswerKind.Deny);
         var interrupt = Demonstration.AtApproval(DemonstrationAnswerKind.Interrupt);
         Assert.That(DemonstrationTransport.Answered(deny.Answer), Is.EqualTo("Not sent to any agent; the recording continues as recorded for denying."));
-        Assert.That(DemonstrationTransport.Answered(interrupt.Answer), Is.EqualTo("Not sent to any agent; the recording continues as recorded for stopping the turn."));
+        Assert.That(DemonstrationTransport.Answered(interrupt.Answer), Is.EqualTo("Not sent to any agent; the recording continues as recorded for stopping it."));
         Assert.That(DemonstrationTransport.Answered(Demonstration.AtApproval(DemonstrationAnswerKind.Approve).Answer),
             Is.EqualTo("Not sent to any agent; the recording continues as recorded for approving."));
         var instruction = Demonstration.InstructionsAfterApproving()[0].Answer;

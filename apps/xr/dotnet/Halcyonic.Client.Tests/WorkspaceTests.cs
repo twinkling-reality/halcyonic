@@ -77,6 +77,49 @@ public class ActivityLogTests
         }));
     }
 
+    /// <summary>An event of <paramref name="type"/> with <paramref name="payload"/>, from the control plane or a runtime, as the journal holds it.</summary>
+    private static StoredEvent Journaled(int position, string type, string payload, string execution, bool runtime = false) => new()
+    {
+        Position = position,
+        Event = HalcyonicJson.Deserialize<EventEnvelope>("{\"schema_version\":1,\"event_id\":\"01a0dcf1-6e6c-74af-93ca-dea260db94" + (50 + position)
+            + "\",\"event_type\":\"" + type + "\",\"project_id\":\"01a0dcf1-5a80-7295-a48c-b7b6d5c02b34\",\"workstream_id\":\"01a0dcf1-5d6e-7650-ab32-1d63927a8338\","
+            + "\"execution_id\":\"" + execution + "\",\"source\":" + (runtime ? "{\"kind\":\"runtime\",\"runtime_id\":\"mock\"}" : "{\"kind\":\"control_plane\"}")
+            + ",\"source_native_id\":null,\"sequence\":null,\"occurred_at\":\"2026-09-26T09:00:05.100Z\",\"correlation_id\":null,\"causation_id\":null,"
+            + "\"provenance\":{\"epistemic\":\"observed\",\"native_type\":null},\"payload\":" + payload + ",\"ingested_at\":\"2026-09-26T09:00:05.100Z\"}"),
+    };
+
+    /// <summary>
+    /// A failed command, start or round says what failed and, where it may have happened anyway, only
+    /// that it may have; never the failure's message, an agent app's or the control plane's own words,
+    /// which can name the app, an address or a path (the review's Q5 and Q5c, 2026-10-04).
+    /// </summary>
+    [Test]
+    public void AFailedCommandStartOrRoundNeverShowsItsMessage()
+    {
+        const string Leak = "OpenCode could not be reached: connect ECONNREFUSED 127.0.0.1:4096 (/Users/someone/project)";
+        var execution = "01a0dcf1-5e68-7034-8b08-109e41ae25e9";
+        string Failed(string effect) => "{\"command_id\":\"01a0dcf1-6e6c-74af-93ca-dea260db9472\",\"command_type\":\"execution.send_instruction\","
+            + "\"failure\":{\"code\":\"runtime_unreachable\",\"message\":\"" + Leak + "\",\"effect\":\"" + effect + "\"}}";
+        var log = new ActivityLog();
+        log.Record(new[]
+        {
+            Journaled(1, "command.failed", Failed("none"), execution),
+            Journaled(2, "command.failed", Failed("unknown"), execution),
+            Journaled(3, "execution.start_failed", "{\"error\":{\"code\":\"runtime_unreachable\",\"message\":\"" + Leak + "\"}}", execution),
+            Journaled(4, "execution.start_failed", "{\"error\":{\"code\":\"location_missing\",\"message\":\"" + Leak + "\"}}", execution),
+            Journaled(5, "runtime.turn.failed", "{\"turn_id\":null,\"error\":{\"code\":\"opencode_execution_failed\",\"message\":\"" + Leak + "\"}}", execution, runtime: true),
+        });
+        Assert.That(log.For(execution).Select(entry => entry.Text), Is.EqualTo(new[]
+        {
+            "Couldn't send an instruction",
+            "Not sure it happened. Check its activity before you try again.",
+            "Couldn't start",
+            "Couldn't start: your computer can't use that folder right now: it may have moved, or it can't be read. Choose it again, or fix it on your computer.",
+            "Couldn't finish this round",
+        }), "an effect that can't be ruled out is never said as Couldn't");
+        Assert.That(log.For(execution).Select(entry => entry.Text), Has.None.Contains("ECONNREFUSED").And.None.Contains("OpenCode").And.None.Contains("/Users/"));
+    }
+
     [Test]
     public void DescribesWhatWentWrong()
     {
@@ -245,7 +288,7 @@ public class WorkspacePresenterTests
         demonstration.Rejection = new CommandRejection
         {
             Code = RejectionCode.Demonstration,
-            Message = "Not sent to any agent; the recording continues as recorded for stopping the turn.",
+            Message = "Not sent to any agent; the recording continues as recorded for stopping it.",
         };
         Assert.That(WorkspacePresenter.Feedback(demonstration).Text, Is.EqualTo(demonstration.Rejection.Message));
         Assert.That(WorkspacePresenter.Feedback(demonstration).Status, Is.EqualTo(CommandStatus.Rejected));
