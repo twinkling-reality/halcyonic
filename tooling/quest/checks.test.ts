@@ -180,6 +180,8 @@ describe('headset session checks', () => {
     );
     assert.equal(checkMove(nothing, 'nothing').pass, true);
     assert.equal(checkMove(nothing, 'moved').pass, false, 'expected a move that did not happen');
+    assert.equal(log().started, true);
+    assert.equal(checkMove(log(), 'nothing').pass, false, 'a first-frame line is no move line');
     const moved = log(
       unity('moved the access token from shared storage into app-private storage.'),
     );
@@ -341,7 +343,7 @@ describe('headset session checks', () => {
     assert.equal(left.pass, false);
     assert.match(
       left.line,
-      /^files\/access-token\.tmp left over: the run-as write stopped before its move, .*run the move step again \(HEADSET_SESSION\.md\)$/,
+      /^files\/access-token\.tmp left over: a send that landed after its move gave up, .*write it again with all three commands \(HEADSET_SESSION\.md\)$/,
     );
     const both = checkWritesFinished([
       ['files/access-token.tmp', readFileState('600 20 regular file', FILE)],

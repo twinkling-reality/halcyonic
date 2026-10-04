@@ -102,14 +102,16 @@ export function checkTokenWritten(name: string, state: FileState, optional = fal
 }
 
 /**
- * The `run-as` write's temporary files, which its move step renames into place: one left over means
- * the move never ran, so the app reads no new token (HEADSET_SESSION.md).
+ * The `run-as` write's temporary files, which its last command renames into place: one left over
+ * is a send that landed after that command gave up, so the app reads no new token. Only the whole
+ * write, all three commands, is safe again: its first removes the leftover, which the last alone
+ * would move into place, old token and all (HEADSET_SESSION.md).
  */
 export function checkWritesFinished(files: readonly (readonly [string, FileState])[]): Verdict {
   const left = files.filter(([, state]) => state.kind === 'file').map(([name]) => name);
   if (left.length > 0) {
     return fail(
-      `${left.join(' and ')} left over: the run-as write stopped before its move, so the app has not got it; run the move step again (HEADSET_SESSION.md)`,
+      `${left.join(' and ')} left over: a send that landed after its move gave up, so the app has not got it; write it again with all three commands (HEADSET_SESSION.md)`,
     );
   }
   const unseen = files.filter(([, state]) => state.kind === 'unreadable').map(([name]) => name);
@@ -471,10 +473,10 @@ export function checkMove(
               ? 'nothing'
               : null;
   if (outcome === null) {
-    // A log that holds the app's start yet has no move line comes from a build older than the line.
+    // A log that holds the app's start yet has no move line: the app hasn't looked yet, or it's a build older than the line.
     const why =
       reach === true || reading.started
-        ? 'the app wrote no line about it at its start, as builds before 2026-10-04 did when nothing was there'
+        ? 'the app wrote no line about it at its start: it may not have looked yet, or it is a build from before 2026-10-04, which said nothing when nothing was there'
         : REACH_UNKNOWN[reach === false ? 'false' : 'null'];
     return expected === undefined
       ? pass(
