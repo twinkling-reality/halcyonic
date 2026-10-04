@@ -48,9 +48,8 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public static TextMeshPro Create(Transform parent, string name, float degrees, Color color, int order)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var icon = go.AddComponent<TextMeshPro>();
+            // Awake, so it measures under a parent not yet shown (GlazeText.AddAwake).
+            var icon = GlazeText.AddAwake(parent, name);
             icon.font = Font;
             icon.richText = false;
             icon.parseCtrlCharacters = false;

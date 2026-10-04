@@ -1,4 +1,5 @@
 #nullable enable
+using Halcyonic.XR.UI;
 using TMPro;
 using UnityEngine;
 
@@ -56,9 +57,8 @@ namespace Halcyonic.XR.Workspace
         public static TextMeshPro Text(Transform parent, string name, float size, Color color, Vector2 box, TextAlignmentOptions alignment,
             bool wrap = false, int order = TextOrder)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var text = go.AddComponent<TextMeshPro>();
+            // Awake, so it measures under a parent not yet shown (GlazeText.AddAwake).
+            var text = GlazeText.AddAwake(parent, name);
             text.rectTransform.pivot = new Vector2(0f, 1f);
             text.rectTransform.sizeDelta = box;
             text.richText = false;
