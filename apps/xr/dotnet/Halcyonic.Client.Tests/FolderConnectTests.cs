@@ -164,6 +164,23 @@ public class FolderConnectTests
             }));
             Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode").And.Not.Contain("/Users/"), effect.ToString());
         }
+
+        // With no effect, the outcome is what Halcyonic knows of the code, else that nothing changed.
+        foreach (var (code, words) in new[]
+        {
+            ("internal_error", "Couldn't connect: nothing changed. Try again."),
+            ("runtime_unreachable", "Couldn't connect: your computer lost touch with the agent app. Check that the agent app is running on your computer, then try again."),
+            ("location_not_created", "Couldn't connect: your computer couldn't make that folder, so nothing was created. Choose another name or place."),
+        })
+        {
+            var connection = Begun(out var command);
+            connection.Advance(With(new CommandView
+            {
+                CommandId = command.CommandId, Status = CommandStatus.Failed,
+                Failure = new CommandFailure { Code = code, Message = Leak, Effect = FailureEffect.None },
+            }));
+            Assert.That(ConnectText.Outcome(connection), Is.EqualTo(words), code);
+        }
     }
 
     [Test]
