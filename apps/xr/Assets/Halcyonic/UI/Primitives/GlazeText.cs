@@ -156,13 +156,6 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Lays a label out in a box <paramref name="width"/> wide with room for at most
-        /// <paramref name="maxLines"/> lines, the last ending in an ellipsis when the text runs over,
-        /// and says how many lines it takes and how wide its widest is. A label whose words, look and
-        /// box are as they were keeps the mesh it has: panels lay every label out again every half
-        /// second, and building text meshes again is what that would cost on the headset.
-        /// </summary>
-        /// <summary>
         /// A TextMeshPro label made awake, then put under <paramref name="parent"/>: made on an object of its
         /// own first, active, so TextMeshPro's Awake runs at once. Made straight under an inactive parent,
         /// as the stage's characters are before the stage is placed, it would not wake until shown, and
@@ -177,6 +170,13 @@ namespace Halcyonic.XR.UI
             return text;
         }
 
+        /// <summary>
+        /// Lays a label out in a box <paramref name="width"/> wide with room for at most
+        /// <paramref name="maxLines"/> lines, the last ending in an ellipsis when the text runs over,
+        /// and says how many lines it takes and how wide its widest is. A label whose words, look and
+        /// box are as they were keeps the mesh it has: panels lay every label out again every half
+        /// second, and building text meshes again is what that would cost on the headset.
+        /// </summary>
         public static (int Lines, float Width) Lay(TMP_Text label, float width, int maxLines)
         {
             var box = new Vector2(width, maxLines * LineHeight(label));
