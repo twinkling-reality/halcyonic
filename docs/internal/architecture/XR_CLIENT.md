@@ -1277,7 +1277,9 @@ Interaction SDKs and the MR Utility Kit 207.0.0, XR Hands 1.9.0 and Newtonsoft.J
 scripts use only long-stable core Unity APIs:
 
 - `HalcyonicBootstrap` adds the stage to any scene that lacks one. The stage scene carries its own,
-  so that its `FocusGuard` can reference the rig's hands.
+  so that its `FocusGuard` can reference the rig's hands, and the bootstrap adds `DeviceMeasures`
+  beside it there, which no scene file carries: without it the headset's field of view is never
+  measured (`ViewField.Current`) and no device lines are logged (`HalcyonicBootstrap.EnsureStage`).
 - `ControlPlaneConnection` owns what is shown through a `DemonstrationFallback`: the session with
   the control plane `ControlPlaneSettings.Target()` names, the one this device paired with or else
   the one its access token is for, and the demonstration, loaded from the text asset

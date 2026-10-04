@@ -67,6 +67,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var failures = new List<string>();
             try
             {
+                // What runs beside the stage, once, in the stage scene and in a scene with nothing.
+                if (string.IsNullOrEmpty(variant)) failures.AddRange(Bootstrapped());
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 failures.AddRange(Render("states-a", folder, StatesA(), desk: false, BannerKind.Live, "Connected to " + HostText.Your, null, peekSlot: 4));
                 failures.AddRange(Render("states-b", folder, StatesB(), desk: false, BannerKind.NotLive,
@@ -88,6 +90,38 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             foreach (var failure in failures) Debug.LogError("Halcyonic: stage render: " + failure);
             if (failures.Count == 0) Debug.Log("Halcyonic: stage render: every check passed; the renders are in " + folder);
+            return failures;
+        }
+
+        /// <summary>
+        /// The bootstrap in the stage scene, as the app starts in it, and in an empty scene: exactly one stage,
+        /// connection, focus guard and device measures in each, so the headset's field is measured and
+        /// the layout keeps to it. The stage scene is opened, never saved.
+        /// </summary>
+        private static IEnumerable<string> Bootstrapped()
+        {
+            var failures = new List<string>();
+            foreach (var (what, open) in new (string, Action)[]
+            {
+                ("the stage scene", () => EditorSceneManager.OpenScene("Assets/Halcyonic/Scenes/Stage.unity", OpenSceneMode.Single)),
+                ("an empty scene", () => EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single)),
+            })
+            {
+                open();
+                var made = HalcyonicBootstrap.EnsureStage();
+                // Started again, as a second scene load would: nothing is added twice.
+                HalcyonicBootstrap.EnsureStage();
+                void One<T>(string name) where T : UnityEngine.Object
+                {
+                    var count = UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                    if (count != 1) failures.Add("in " + what + ", the bootstrap leaves " + count + " " + name + ", not one.");
+                }
+                One<CharacterStage>("character stages");
+                One<ControlPlaneConnection>("control plane connections");
+                One<FocusGuard>("focus guards");
+                One<DeviceMeasures>("device measures");
+                if (made != null) UnityEngine.Object.DestroyImmediate(made);
+            }
             return failures;
         }
 
