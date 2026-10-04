@@ -189,7 +189,10 @@ glance's (`files/glance-access-token`) alike:
 - **The access token lives on the headset.** It is the owner's token, which never expires and is
   not a revocable device credential; anyone with adb on the unlocked headset can read it with
   `run-as`, since development builds are debuggable. It is for the owner's own headset only, and is
-  removed with `adb shell run-as com.halcyonic.xr rm -f files/access-token files/glance-access-token`.
+  removed with `adb shell run-as com.halcyonic.xr rm -f files/access-token files/access-token.off
+  files/access-token.tmp files/access-token.new files/glance-access-token
+  files/glance-access-token.tmp`: `.tmp` is what a write left before its move, `.off` a token a
+  session set aside, and `.new` where the app leaves one if it is stopped mid-move.
 - **The Mac's adb server answers every local account.** While the headset is attached, the adb
   server on the Mac's 127.0.0.1:5037 takes commands from any process on the Mac without
   authenticating it, so another local account, the threat the proof exists for, can read the token

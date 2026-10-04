@@ -99,12 +99,13 @@ Rules for the whole session:
    If the install says `INSTALL_FAILED_VERSION_DOWNGRADE`, an upload's build with a higher code is
    on the headset: `adb uninstall com.halcyonic.xr`, which removes its data, then install again.
 4. Write the token into the app's private storage with `run-as`, whole and private before it takes
-   the old one's place, then start the app. The write is two commands, each quoted whole
-   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect", says why); the second prints
+   the old one's place, then start the app. The write is three commands
+   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect", says why); the last prints
    `written`, and only then start the app:
    ```bash
-   adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token.tmp'" < ~/.halcyonic/access-token
-   adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; test \"\$(stat -c %s files/access-token.tmp)\" = 44 && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token && echo written || echo not written, write it again'"
+   adb shell run-as com.halcyonic.xr rm -f files/access-token.tmp
+   adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && rm -f files/access-token.tmp && cat > files/access-token.tmp'" < ~/.halcyonic/access-token
+   adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; if test \"\$(stat -c %s files/access-token.tmp 2>/dev/null)\" = 44 && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token; then echo written; else rm -f files/access-token.tmp; echo not written: the token file is not the 44 bytes the control plane makes, or it never arrived, so write it again; fi'"
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
@@ -115,8 +116,11 @@ Rules for the whole session:
    `adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token` and record it. The
    control plane logs `realtime client connected` for `halcyonic-xr`.
    - Record in [headset-token-storage.md](../validation/headset-token-storage.md): the `run-as`
-     write (mode 600, 44 bytes, the app reads it), how many seconds the second command waited for
-     the first, if it printed late; and what was on shared storage, and what the start did with it.
+     write (mode 600, 44 bytes, the app reads it), how many seconds the last command waited for
+     the second, if it printed late; whether `adb shell ps -A -o USER,NAME` still lists a `cat` as
+     the app's user after `written`, since a `cat` that never sees the end of its input holds the
+     token's file open until `adb kill-server`; and what was on shared storage, and what the start
+     did with it.
    - Record in [xr-loopback-proof.md](../validation/xr-loopback-proof.md): the connection is live
      over `adb reverse`, so adb delivers the headset's connections to 127.0.0.1:47800, and the
      upgrade, the HMAC and the app's own HTTP run under IL2CPP.
@@ -212,11 +216,12 @@ purpose; the token in use from then on never touched shared storage.
 ### 3. The glance ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md))
 
 The steps are [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The glance on a Quest (spike)", 1 to 14, in
-this order. First write its token the same careful way, and wait for `written`:
+this order. First write its token the same careful way, three commands, and wait for `written`:
 
 ```bash
-adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/glance-access-token.tmp'" < ~/.halcyonic/access-token
-adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; test \"\$(stat -c %s files/glance-access-token.tmp)\" = 44 && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token && echo written || echo not written, write it again'"
+adb shell run-as com.halcyonic.xr rm -f files/glance-access-token.tmp
+adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && rm -f files/glance-access-token.tmp && cat > files/glance-access-token.tmp'" < ~/.halcyonic/access-token
+adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; if test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token; then echo written; else rm -f files/glance-access-token.tmp; echo not written: the token file is not the 44 bytes the control plane makes, or it never arrived, so write it again; fi'"
 ```
 
 Open the glance (step 1), then `pnpm quest:check`. Pass: the glance token passes, the glance
@@ -382,7 +387,7 @@ development build and the token in place:
    and lets `run-as` reach it: `adb install -r apps/xr/Builds/Halcyonic.apk`.
 2. Remove the tokens, anything half written, and anything left on shared storage:
    ```bash
-   adb shell run-as com.halcyonic.xr rm -f files/access-token files/access-token.off files/access-token.tmp files/glance-access-token files/glance-access-token.tmp
+   adb shell run-as com.halcyonic.xr rm -f files/access-token files/access-token.off files/access-token.tmp files/access-token.new files/glance-access-token files/glance-access-token.tmp
    adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token
    ```
 3. `pnpm quest:check -- --closed`. Pass: every line passes.
