@@ -436,6 +436,11 @@ namespace Halcyonic.Client
                 // instruction, agent text or a title, and the status is logged (XR_CLIENT.md).
                 return Ending.Failed(ConnectionText.Unreadable, live);
             }
+            catch (UpgradeRefusedException refused)
+            {
+                // Refused for another reason than the credential: said by its code, never the control plane's message.
+                return Ending.Failed(ConnectionText.UpgradeRefused(refused.Code), live);
+            }
             catch (Exception error)
             {
                 // Any failure ends this connection and never the session: the next attempt resynchronizes.

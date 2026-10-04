@@ -103,7 +103,9 @@ the same definition names, as the JSON Schema document:
   said in `ConnectionText`'s words, never naming the control plane, a protocol or a client: no answer
   in time, a closed connection, something it can't read, falling behind, and a connection turned
   away by its code (`ConnectionText.Ended`: another version of this app, a revoked pairing, too many
-  connections), never by the error's message, which is the control plane's own, for developers.
+  connections), never by the error's message, which is the control plane's own, for developers. An
+  upgrade refused for another reason than the credential is said by its code too
+  (`ConnectionText.UpgradeRefused`: a Host name it refuses, too many tries, a revoked pairing).
 - **Threading.** Received messages wait in a queue. `Pump()` applies them to `State` on the
   calling thread and returns what changed, so the Unity main thread calls it once per frame and no
   state is shared across threads. A consumer that falls more than 10,000 messages behind is
