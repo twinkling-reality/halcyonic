@@ -322,6 +322,114 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>
+        /// A task's file, the real column, asking a question of two prompts, as the practice scenario does:
+        /// each prompt read and answered, then Your answers drawn, held to the plane's checks, and the answer
+        /// sent from it once. Drawing Your answers once threw for want of a prompt to quote, so it never
+        /// counted as read and the answer could not be sent.
+        /// </summary>
+        private static IEnumerable<string> RenderYourAnswers(string name, string folder, float radius, float? surfaceDrop)
+        {
+            var failures = new List<string>();
+            var root = new GameObject("Your answers render " + name);
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            try
+            {
+                var eyes = new Vector3(0f, EyeHeight, 0f);
+                var camera = MakeCamera(root.transform, eyes, texture);
+                var characters = Lineup(root.transform, eyes, radius, surfaceDrop, Presentation);
+                var targets = characters.ConvertAll(character => character.Target);
+                var state = Projection(characters);
+                var opened = characters[3];
+                var surface = surfaceDrop.HasValue ? EyeHeight - surfaceDrop.Value : (float?)null;
+                var work = Work.Asking(new QuestionView
+                {
+                    QuestionId = "render-two-prompts",
+                    Answerable = true,
+                    AskedAt = Time,
+                    Prompts = new List<QuestionPrompt>
+                    {
+                        new QuestionPrompt
+                        {
+                            Key = "q0", Header = "Lockout", Text = "How long should a sign-in lockout last?", Multiple = false, FreeText = true,
+                            Options = new List<QuestionOption> { new QuestionOption { Label = "15 minutes" }, new QuestionOption { Label = "1 hour" } },
+                        },
+                        new QuestionPrompt
+                        {
+                            Key = "q1", Header = "Notice", Text = "Should the person be told when their account locks?", Multiple = false, FreeText = false,
+                            Options = new List<QuestionOption> { new QuestionOption { Label = "Yes, by email" }, new QuestionOption { Label = "No" } },
+                        },
+                    },
+                });
+                var client = new ClientInfo { Name = "halcyonic-xr", Version = "render", DeviceLabel = "render" };
+                var commands = new CommandFactory(client);
+                var session = new RealtimeSession(new RealtimeSessionOptions(new Uri("ws://127.0.0.1:9/realtime"), "render", client));
+                var sent = new List<CommandEnvelope>();
+                FileColumn? file = null;
+                var director = MenuDirector.Create(root.transform, new MenuDirector.Setup
+                {
+                    Commands = commands,
+                    Comfort = new Comfort { Text = GlazeText.Scale > 1f ? TextSize.Larger : TextSize.Standard },
+                    File = (host, task) => file = new FileColumn(host, () => work.Present(), commands, () => null, _ => null, () => ""),
+                    Connected = () => true,
+                    Session = () => session,
+                    Submit = (_, command) =>
+                    {
+                        sent.Add(command);
+                        return null;
+                    },
+                    State = () => state,
+                    StageNow = () => new MenuDirector.Stage(eyes, opened.Target.BodyPosition - eyes, targets, surface, false),
+                    CharacterOf = _ => opened.Target,
+                    Bar = place => TasksColumn.Bar(place, state),
+                    SomethingWaits = () => true,
+                });
+                var plane = director.Plane;
+                bool Press(string action, string? key = null)
+                {
+                    director.DrawNow();
+                    // What the file's page offers takes a press only once it has stood a moment.
+                    System.Threading.Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                    var taken = director.Navigator.Act(MenuColumn.File, action, key, plane.Showing(MenuColumn.File), null);
+                    director.DrawNow();
+                    return taken;
+                }
+                void ReadQuestion()
+                {
+                    for (var step = 0; step < 8 && file?.Screen.Question.QuestionPart != null; step++) Press(FileScreens.NextPart, FileScreens.QuestionKey);
+                }
+                director.Open(MenuPlace.Tasks);
+                director.DrawNow();
+                director.OpenFile(work.Workstream.WorkstreamId);
+                director.DrawNow();
+                if (file == null)
+                {
+                    failures.Add(name + ": no file opened for the question of two prompts.");
+                    return failures;
+                }
+                ReadQuestion();
+                Press(FileScreens.Choose, "0");
+                Press(FileScreens.NextQuestion);
+                ReadQuestion();
+                Press(FileScreens.Choose, "0");
+                Press(FileScreens.NextQuestion);
+                if (!file.Screen.Question.Reviewing) failures.Add(name + ": the second prompt answered, Next question did not bring Your answers.");
+                failures.AddRange(PlaneState(name + " your answers", folder, camera, texture, plane, characters, eyes, null));
+                // Drawn, Your answers counts as read: Send answer takes the press, once.
+                director.DrawNow();
+                if (FileScreens.WhySendWaits(file.Screen) is string waits) failures.Add(name + ": Your answers drawn, Send answer still waits: \"" + waits + "\"");
+                if (!Press(FileScreens.SendAnswer)) failures.Add(name + ": Send answer on Your answers took no press.");
+                if (sent.OfType<ExecutionAnswerQuestionCommand>().Count() != 1) failures.Add(name + ": Your answers sent " + sent.OfType<ExecutionAnswerQuestionCommand>().Count() + " answers, not one.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
         /// <summary>The session as the stage shows it: each character a task of one project, the opened one waiting for the person.</summary>
         private static ClientProjection Projection(List<(CharacterView View, CharacterTarget Target)> characters)
         {
