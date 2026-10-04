@@ -405,7 +405,7 @@ the same definition names, as the JSON Schema document:
   only that hold ends it, and the column leaving the plane, or focus leaving, drops what it records
   or awaits. Lane U's places are
   `TasksColumn` (every task, what waits first, its project where there are several, as many rows as
-  fit beside a file on this stage), `UsageColumn` (each limit's share left in words, its side panel
+  fit beside a file on this stage, read again when the text size changes), `UsageColumn` (each limit's share left in words, its side panel
   when it was seen, when it resets and whose account) and `SettingsColumn` (each setting under its
   group's heading, its one change the main action; the comfort settings from `ComfortSettings`, and
   Your space and, in a development build, Your computer from `SpaceSettings`, each row's change only
@@ -516,10 +516,14 @@ the same definition names, as the JSON Schema document:
   press that turns to it; the whole request has shown once every part has. The part's row turns
   nothing until the part showing has been drawn and stood for 0.4 seconds, so a double press can't
   skip a part almost unseen. Armed again, even for the same request, it starts at the
-  first part (`WorkspaceSteering.Armings`). Measured differently under one confirmation, as at
-  another text size, a request drawn whole stays read and shows its last part, and one drawn only in
-  part is read again from its first (`WorkspaceSteering.ReadAgain`), as lane C's review of Start
-  building does. Should the runtime report the request differently under the same approval, the
+  first part (`WorkspaceSteering.Armings`). Measured differently under one confirmation, as when the
+  question below it changes, a request drawn whole stays read and shows its last part, and one drawn
+  only in part is read again from its first (`WorkspaceSteering.ReadAgain`), as lane C's review of
+  Start building does. After the text size changes, nothing read stays read, since every part was
+  drawn at the other size (`FileScreen.ReadAgainAtNewSize`): the request, drawn whole or not, and
+  every question's parts, its answers read in a side panel and the page of answers are read again
+  from the first part, and Yes, Approve's confirmation and Send answer wait until every part has
+  been drawn at the new size, armed or not (`QuestionDraft.ReadAgain`). Should the runtime report the request differently under the same approval, the
   confirmation lapses (`WorkspaceSteering.ArmedRequest`). Every confirmation that no longer holds is dropped before the
   file is drawn, with why as its notice. Yes sends once, and for an answer only the answers it was
   asked for: words heard or typed that change an answer armed to send cancel its Yes ("Nothing was
@@ -1484,8 +1488,9 @@ answer's place) and a second decision waits for the first. The column measures w
 panel's widths, each typed answer and each line of Your answers as they read now, the request an
 approval answers, and the brief answers' lines. It packs the question and the request's parts by
 height against what the file's page holds alone on its stage (`IMenuHost.PageHeight`), the menu
-stepping aside where the two would not fit (`MenuColumns`), read once when the file opens, so a page
-never packs again while it shows. It counts the gaps the view draws: 12 mm between two targets and
+stepping aside where the two would not fit (`MenuColumns`), read when the file opens and again only
+when the text size changes, so a page never packs again as the head moves and never stands taller
+than the field at the new size; Tasks reads its rows again then too. It counts the gaps the view draws: 12 mm between two targets and
 8 dp between any other two lines, so a question and its answers are one group. What
 counts as read counts only when the director hands back the very frame the column last built
 (`IMenuColumn.Drawn`), the page or its side panel. Hold to talk's one voice tells the column whether

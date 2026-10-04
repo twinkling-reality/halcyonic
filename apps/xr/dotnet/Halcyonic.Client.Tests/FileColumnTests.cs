@@ -30,7 +30,7 @@ internal sealed class FileMenuHost : IMenuHost
 
     public TimeZoneInfo Zone => TimeZoneInfo.Utc;
 
-    public TextSize TextSize => TextSize.Standard;
+    public TextSize TextSize { get; set; } = TextSize.Standard;
 
     public bool VoiceOffered => true;
 
@@ -53,9 +53,9 @@ internal sealed class FileMenuHost : IMenuHost
 
     public int TitleRows(string subject, float columnDegrees) => 1;
 
-    public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize.Standard, sourceLine);
+    public int PageRows(bool sourceLine) => MenuFrame.RowsAPage(TextSize, sourceLine);
 
-    public float PageHeight(int subjectRows, bool besideMenu) => MenuPage.Height(TextSize.Standard, subjectRows);
+    public float PageHeight(int subjectRows, bool besideMenu) => MenuPage.Height(TextSize, subjectRows);
 
     public void OpenFile(string workstreamId)
     {
@@ -245,6 +245,101 @@ public class FileColumnTests
         Assert.That((column.Steering.CanConfirm, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo((true, (string?)FileScreens.Yes)));
         column.Act(FileScreens.Yes, null);
         Assert.That(host.Sent.Count, Is.EqualTo(1));
+    }
+
+    /// <summary>A long request to approve, armed: its parts to read before Yes.</summary>
+    private FileColumn ApprovingALongRequest(FileMenuHost host)
+    {
+        var work = new WaitingWork();
+        var command = string.Join(" && ", Enumerable.Range(1, 30).Select(step => "psql -c 'ALTER TABLE t" + step + " DROP COLUMN legacy'"));
+        work.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.PendingApprovals.Add(WaitingWork.Approval("approval-long", command, Samples.Time));
+        });
+        var column = Column(host, () => Approving(work));
+        column.Act(FileScreens.Approve, null);
+        return column;
+    }
+
+    [Test]
+    public void ItsPageIsReadAgainWhenTheTextSizeChangesAndAPartlyReadRequestIsReadAgainFromItsStart()
+    {
+        var host = new FileMenuHost();
+        var column = ApprovingALongRequest(host);
+        var rows = column.Screen.RequestPartRows;
+        Draw(host, column);
+        column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+        Assert.That(column.Screen.RequestPart, Is.EqualTo(1));
+
+        // Text a step larger, in Settings: at the next tick the page packs again, smaller in its rows.
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That(column.Screen.RequestPartRows, Is.LessThan(rows), "the page read again at the larger text, its parts fewer rows");
+        Assert.That((column.Screen.RequestPart, column.Steering.CanConfirm), Is.EqualTo((0, false)), "a request not yet read whole is read again from its first part");
+    }
+
+    [Test]
+    public void ARequestReadWholeIsReadAgainWhenTheTextSizeChangesAndYesWaitsUntilItIs()
+    {
+        var host = new FileMenuHost();
+        var column = ApprovingALongRequest(host);
+        void ReadEveryPart()
+        {
+            var parts = column.Screen.RequestParts;
+            for (var part = 0; part < parts; part++)
+            {
+                Draw(host, column);
+                if (part < parts - 1) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+            }
+        }
+        ReadEveryPart();
+        Assert.That((column.Steering.CanConfirm, column.Frame!.Footer[PromptSlot.Free]?.Id), Is.EqualTo((true, (string?)FileScreens.Yes)));
+
+        // Its parts were drawn at the other size: at the new one it is read again from its first, no Yes meanwhile.
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That((column.Steering.CanConfirm, column.Screen.RequestPart, column.Frame!.Footer[PromptSlot.Free]), Is.EqualTo((false, 0, (Prompt?)null)));
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "a Yes pressed before the request is read at the new size sends nothing");
+
+        ReadEveryPart();
+        Assert.That(column.Steering.CanConfirm, Is.True, "read whole at the new size");
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void AQuestionReadWholeIsReadAgainWhenTheTextSizeChangesAndSendAnswerWaitsUntilItIs()
+    {
+        var (host, column) = Asking(new QuestionPrompt
+        {
+            Key = "q0", Header = "Lockout", Text = string.Join(" ", Enumerable.Range(1, 14).Select(step => "How long should a lockout last after failed sign-in number " + step + "?")), Multiple = false, FreeText = false,
+            Options = new List<QuestionOption> { new() { Label = "15 minutes" }, new() { Label = "1 hour" } },
+        });
+        var draft = column.Screen.Question.Draft!;
+        Assert.That(draft.WasShownWhole(0), Is.True, "read to its last part");
+        column.Act(FileScreens.Choose, "0");
+        Assert.That(draft.Problem, Is.Null, "chosen and read, it can be sent");
+
+        // Text a step larger: the question was read at the other size, so it is read again from its first part, and Send answer waits.
+        host.TextSize = TextSize.Larger;
+        column.Tick();
+        Assert.That((draft.WasShownWhole(0), column.Screen.Question.QuestionPart), Is.EqualTo((false, (int?)0)));
+        Assert.That(draft.Problem, Is.Not.Null);
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent, Is.Empty, "Send answer pressed before the question is read at the new size sends nothing");
+
+        for (var step = 0; step < 8 && column.Screen.Question.QuestionPart != null; step++)
+        {
+            Draw(host, column);
+            column.Act(FileScreens.NextPart, FileScreens.QuestionKey);
+        }
+        Draw(host, column);
+        if (!draft.IsAnswered(0)) column.Act(FileScreens.Choose, "0");
+        Assert.That(draft.Problem, Is.Null, "read whole at the new size");
+        column.Act(FileScreens.SendAnswer, null);
+        Assert.That(host.Sent.OfType<ExecutionAnswerQuestionCommand>().Count(), Is.EqualTo(1));
     }
 
     [Test]

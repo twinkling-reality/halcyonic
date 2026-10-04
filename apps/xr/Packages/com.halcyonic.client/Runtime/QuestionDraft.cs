@@ -105,6 +105,15 @@ namespace Halcyonic.Client
 
         public bool WasShownWhole(int prompt) => shownWhole[prompt];
 
+        /// <summary>
+        /// The text size changed, so every question is laid out anew: none counts as shown whole until it is
+        /// drawn whole at the new size, and the answers can't be sent until then.
+        /// </summary>
+        public void ReadAgain()
+        {
+            for (var prompt = 0; prompt < shownWhole.Count; prompt++) shownWhole[prompt] = false;
+        }
+
         public bool IsAnswered(int prompt) => chosen[prompt].Count > 0 || typed[prompt] != null;
 
         /// <summary>Why it cannot be sent yet, in words, or null when it can.</summary>
