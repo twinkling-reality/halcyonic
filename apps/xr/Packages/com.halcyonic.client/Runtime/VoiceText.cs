@@ -15,6 +15,9 @@ namespace Halcyonic.Client
         public const string HeardNote = "This is what " + HostText.Your + " heard. Check it before you go on.";
         public const string HeardAnswer = "This is what " + HostText.Your + " heard. Check it, then press Send answer.";
 
+        /// <summary>A voice answer heard after the question it was spoken for gave way to another, or to another prompt: dropped (settled by the coordinator, 2026-10-04).</summary>
+        public const string QuestionChangedWhileSpeaking = "Nothing was typed: the question changed while you spoke. Read it again.";
+
         public const string NothingHeard = "I didn't catch anything. Hold the button while you talk, or type instead.";
         public const string TooShort = "That was too quick. Keep holding while you talk.";
         public const string Stopped = "Stopped listening, so nothing was sent.";
