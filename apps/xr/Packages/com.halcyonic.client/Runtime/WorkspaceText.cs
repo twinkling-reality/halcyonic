@@ -319,8 +319,15 @@ namespace Halcyonic.Client
             _ => null,
         };
 
-        /// <summary>Said of a command that failed with no effect and no cause a person can act on.</summary>
+        /// <summary>Said of a step of Start building or Connect that failed with no effect and no cause a person can act on.</summary>
         public const string NothingChanged = "Nothing changed. Try again.";
+
+        /// <summary>
+        /// Said of a command on a task that failed with no effect and no cause a person can act on. Trying
+        /// again at once can fail the same way, as when the agent app isn't answering, so the way on looks
+        /// at the task first (the coordinator, 2026-10-04).
+        /// </summary>
+        public const string NothingChangedSeeIt = "Nothing changed. See what it's doing, then try again.";
 
         /// <summary>
         /// "{lead}: {why}", or <paramref name="lead"/> alone, ended, where there is no why: a refusal or a

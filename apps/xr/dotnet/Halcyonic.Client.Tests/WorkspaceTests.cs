@@ -281,6 +281,11 @@ public class WorkspacePresenterTests
             "by the refusal's code, never the control plane's message");
         Assert.That(WorkspacePresenter.Feedback(Command(CommandStatus.Failed)).Text,
             Is.EqualTo("Not sure it happened. Check its activity before you try again."));
+        var noEffect = Command(CommandStatus.Failed);
+        noEffect.Failure!.Effect = FailureEffect.None;
+        noEffect.Failure.Code = "runtime_unreachable";
+        Assert.That(WorkspacePresenter.Feedback(noEffect).Text, Is.EqualTo("Couldn't do that: nothing changed. See what it's doing, then try again."),
+            "trying again at once can fail the same way, so the way on looks at the task first");
 
         // The recorded demonstration's answer is its own words: the recording continues with the
         // answer it recorded, so "Refused" would contradict what plays next.
