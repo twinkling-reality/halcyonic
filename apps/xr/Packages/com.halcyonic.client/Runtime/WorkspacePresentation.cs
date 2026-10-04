@@ -252,11 +252,12 @@ namespace Halcyonic.Client
                 case CommandStatus.Rejected:
                     // The recorded demonstration says in its own words that nothing reached an agent
                     // and how the recording continues; "Refused" would contradict what plays next.
+                    // Any other refusal is said by its code, never the control plane's message.
                     text = command.Rejection?.Code == RejectionCode.Demonstration
                         ? command.Rejection.Message
                         : command.Rejection?.Code == RejectionCode.QuestionNotFound
                         ? "Couldn't send: it's no longer waiting for this answer. See what it's doing now."
-                        : "Couldn't do that: " + (command.Rejection?.Message ?? "no reason given");
+                        : WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyRefused(command.Rejection?.Code));
                     break;
                 default:
                     var failure = command.Failure;
@@ -266,7 +267,9 @@ namespace Halcyonic.Client
                         ? WorkspaceText.AnswerNotConfirmed
                         : failure?.Effect == FailureEffect.Unknown
                         ? "Not sure it happened. Check its activity before you try again."
-                        : "Couldn't do that: " + (failure?.Message ?? "no reason given");
+                        // The failure's message is the agent app's or the control plane's own: a folder's
+                        // problem is said by its code, anything else as what is true, since it had no effect.
+                        : WorkspaceText.Couldnt("Couldn't do that", EntryText.FolderProblem(null, failure?.Code) ?? WorkspaceText.NothingChanged);
                     break;
             }
             return new CommandFeedback(command.CommandId, command.CommandType, command.Status, text);

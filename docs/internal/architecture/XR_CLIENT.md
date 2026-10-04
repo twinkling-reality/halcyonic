@@ -613,7 +613,10 @@ the same definition names, as the JSON Schema document:
   as a claim. A lost connection and an unknown state read as the character says them, by code, never
   with the diagnostic their events carry; a failed round, a failed start and a failed command say what
   failed, and for a command whether it may have happened anyway, never the error's message. A turn
-  is a round in a person's words. A snapshot carries state but no history, so after a resynchronization the history of
+  is a round in a person's words. A refusal reads "Couldn't {verb}: {why}", why by its code
+  (`WorkspaceText.WhyRefused`), as the file's line of what this headset sent last does
+  (`WorkspacePresenter.Feedback`); the refusal's message, the control plane's own words for
+  developers, is never shown, except the demonstration's, which is Halcyonic's. A snapshot carries state but no history, so after a resynchronization the history of
   the workstream being looked at is read again through **`EventHistory`** and **`ControlPlaneApi`**
   (`GET /api/events`, paged, refused if the journal changed).
 - **`ControlPlaneApi`** also reads what Salidium and Seorak say about an execution
@@ -723,7 +726,8 @@ the same definition names, as the JSON Schema document:
   the project already is (`EntryScreens.Moves`); and, once a project is made
   and a later step stops, keeps that project and the name it was made with (`ProjectIdea.ProjectMade`).
   So Try again opens the review rather than sending. A refusal, a failure known to have had no effect or a command never sent stops it, keeping the
-  refusal's or failure's code, and can be sent again as a new command built from the draft as it is
+  refusal's or failure's code, and says it by that code (`WorkspaceText.WhyRefused`,
+  `EntryText.FolderProblem`), never by the control plane's message, and can be sent again as a new command built from the draft as it is
   now, reusing the project and workstream already made (`Retry`); given a newly chosen folder, a
   project that exists is bound to it first, as after `location_required` or `location_missing`; a
   move that stopped, sent again with no folder because the person chose where the project already

@@ -124,6 +124,29 @@ public class CharacterPresenterTests
     }
 
     /// <summary>
+    /// Every refusal your computer can give is said by its code, with the way on, and none by the control
+    /// plane's message, which is written for developers; the demonstration speaks in its own words.
+    /// </summary>
+    [Test]
+    public void EveryRefusalIsSaidByItsCodeNeverTheControlPlanesMessage()
+    {
+        foreach (RejectionCode code in Enum.GetValues(typeof(RejectionCode)))
+        {
+            var why = WorkspaceText.WhyRefused(code);
+            if (code == RejectionCode.Demonstration)
+            {
+                Assert.That(why, Is.Null);
+                continue;
+            }
+            Assert.That(why, Is.Not.Null.And.EndsWith("."), code.ToString());
+            Assert.That(why, Does.Not.Contain("runtime").IgnoreCase.And.Not.Contain("control plane").IgnoreCase.And.Not.Contain("execution").IgnoreCase, code.ToString());
+        }
+        Assert.That(WorkspaceText.Couldnt("Couldn't connect", null), Is.EqualTo("Couldn't connect."), "no why: the lead alone, ended");
+        Assert.That(WorkspaceText.Couldnt("Couldn't connect", WorkspaceText.WhyRefused(RejectionCode.ProjectNotFound)),
+            Is.EqualTo("Couldn't connect: this project isn't on your computer any more. Choose another in Projects."));
+    }
+
+    /// <summary>
     /// Why a task couldn't start or finish is said from what Halcyonic knows, with the way on: a folder's
     /// problem by its code, anything else by what can be done next, never the agent app's own error.
     /// </summary>

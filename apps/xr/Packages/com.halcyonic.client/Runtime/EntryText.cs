@@ -245,18 +245,18 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// How a step of Start building went: sent is not done, and only a completed record confirms.
-        /// A refusal or failure about a folder says what to do, from its code; any other shows the
-        /// control plane's reason, as <see cref="LabelText.Plain"/> shows it.
+        /// A refusal says why and what to do from its code, and so does a failure about a folder; never the
+        /// control plane's or an agent app's message (<see cref="WorkspaceText.WhyRefused"/>).
         /// </summary>
         public static string StepStatus(BuildStep step) => step.Status switch
         {
             BuildStepStatus.NotYet => "Not sent yet",
             BuildStepStatus.Waiting => step.Kind == BuildStepKind.StartWork ? "Sent. Waiting for the agent…" : "Sent. Waiting for " + HostText.Your + "…",
             BuildStepStatus.Confirmed => "Confirmed",
-            BuildStepStatus.Refused => "Couldn't do that: " + (FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
+            BuildStepStatus.Refused => WorkspaceText.Couldnt("Couldn't do that", WorkspaceText.WhyRefused(step.Refusal)),
             // A failure that may have had an effect is never put in words that say nothing happened.
             BuildStepStatus.Failed when step.EffectUnknown => NotSureItHappened,
-            BuildStepStatus.Failed => "Couldn't do that: " + (FolderProblem(step.Refusal, step.Failure) ?? LabelText.Plain(step.Reason ?? "no reason given")),
+            BuildStepStatus.Failed => WorkspaceText.Couldnt("Couldn't do that", FolderProblem(step.Refusal, step.Failure) ?? WorkspaceText.NothingChanged),
             BuildStepStatus.Unknown => NotSureItHappened,
             BuildStepStatus.NotSent => "Couldn't send: " + HostText.Your + " isn't connected. Try again when it is.",
             _ => NotSureItHappened,
