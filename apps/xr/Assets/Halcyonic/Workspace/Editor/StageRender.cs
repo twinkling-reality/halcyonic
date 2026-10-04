@@ -74,6 +74,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 failures.AddRange(Render("demo", folder, Demo(), desk: false, BannerKind.Practice,
                     DemonstrationFallback.Describe(DemonstrationReason.NotConfigured, null), AmbientText.NeedsYouLine(1), peekSlot: 2));
                 failures.AddRange(Render("desk", folder, StatesA(), desk: true, BannerKind.Live, "Connected to " + HostText.Your, null, peekSlot: 4));
+                // Built and shown before the stage is placed, under its hidden arc, as on the headset when
+                // the work arrives first: every badge, mark, banner and peek measured all the same.
+                failures.AddRange(RenderBuiltHidden("built-hidden", folder, Demo(), StatesA(), peekSlot: 4));
             }
             catch (Exception error)
             {
@@ -154,6 +157,92 @@ namespace Halcyonic.XR.Workspace.Editor
             return failures;
         }
 
+        /// <summary>
+        /// The stage's characters, its banner and a peek built and shown under a parent not yet shown, as
+        /// the stage's arc is until it is placed, then shown: each laid as if built in view, every pill
+        /// round its words. The practice stage's marks, and then another state on each, as work goes on.
+        /// </summary>
+        private static IEnumerable<string> RenderBuiltHidden(string name, string folder, IReadOnlyList<CharacterPresentation> shown,
+            IReadOnlyList<CharacterPresentation> later, int peekSlot)
+        {
+            var failures = new List<string>();
+            var root = new GameObject("Stage render " + name);
+            var texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+            try
+            {
+                var eyes = new Vector3(0f, EyeHeight, 0f);
+                var camera = WorkspaceRender.MakeCamera(root.transform, eyes, texture);
+                var arc = new GameObject("Arc, hidden until placed");
+                arc.transform.SetParent(root.transform, false);
+                arc.SetActive(false);
+                var radius = CharacterStage.DefaultDistance;
+                var characters = WorkspaceRender.Lineup(arc.transform, eyes, radius, null, (_, slot) => shown[slot]);
+                var bannerRoot = new GameObject("Banner root").transform;
+                bannerRoot.SetParent(arc.transform, false);
+                bannerRoot.position = eyes + new Vector3(0f, CharacterStage.BannerTop(radius, CharacterStage.DefaultHeightFromEyes), radius);
+                bannerRoot.localScale = Vector3.one * radius;
+                var banner = StageBanner.Create(bannerRoot);
+                banner.Show("Practice: nothing here runs on " + HostText.Your, BannerKind.Practice, null);
+                var peek = PeekLabel.Create(arc.transform);
+                var workspace = new WorkspacePresentation(shown[peekSlot], null, null, null, Array.Empty<WorkspaceAction>(), Array.Empty<WorkspaceAction>(),
+                    Array.Empty<CommandFeedback>(), Array.Empty<ActivityEntry>());
+                peek.Show(characters[peekSlot].Target, characters.ConvertAll(character => character.Target), PeekCard.Of(workspace), 1f, aboveCharacter: false);
+                arc.SetActive(true);
+                // The banner steps aside for the peek, as on the stage.
+                banner.gameObject.SetActive(!AmbientCover.Any);
+                WorkspaceRender.ForceMeshes(root);
+                failures.AddRange(PillsHoldTheirWords(name, root));
+                failures.AddRange(Checks(name, root, eyes, characters, banner, peek.Card));
+                var whole = WorkspaceRender.Render(camera, texture);
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), whole.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(whole);
+
+                // Shown again with other states once in view: still round their words.
+                for (var slot = 0; slot < characters.Count && slot < later.Count; slot++) characters[slot].View.Show(later[slot]);
+                WorkspaceRender.ForceMeshes(root);
+                failures.AddRange(PillsHoldTheirWords(name + " later", root));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                texture.Release();
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+            return failures;
+        }
+
+        /// <summary>
+        /// Every badge's and mark's words lie inside its pill, clear of its icon, as drawn: the words' own
+        /// bounds against the pill's width and the icon's em, in the badge's units.
+        /// </summary>
+        private static IEnumerable<string> PillsHoldTheirWords(string name, GameObject root)
+        {
+            var failures = new List<string>();
+            var em = GlazeTokens.Units(GlazeIcons.BadgeDegrees);
+            void Judge(string what, TMPro.TextMeshPro word, TMPro.TextMeshPro icon, float halfWidth)
+            {
+                if (string.IsNullOrEmpty(word.text)) return;
+                var bounds = word.textBounds;
+                var left = word.transform.localPosition.x + bounds.min.x;
+                var right = word.transform.localPosition.x + bounds.max.x;
+                if (bounds.size.x <= 0f || left < -halfWidth - 1e-4f || right > halfWidth + 1e-4f)
+                {
+                    failures.Add(name + ": " + what + "'s words \"" + word.text + "\" run outside its pill (" + GlazeChecks.Degrees(GlazeTokens.DegreesOf(right - left))
+                        + " degrees of words in " + GlazeChecks.Degrees(GlazeTokens.DegreesOf(2f * halfWidth)) + " of pill).");
+                }
+                else if (icon.gameObject.activeSelf && left < icon.transform.localPosition.x + em / 2f - 1e-4f)
+                {
+                    failures.Add(name + ": " + what + "'s icon lies over its words \"" + word.text + "\".");
+                }
+            }
+            foreach (var badge in root.GetComponentsInChildren<StateBadgeView>(false))
+            {
+                Judge(badge.transform.parent.name + "'s badge", badge.Word, badge.Icon, badge.Width / badge.transform.localScale.x / 2f);
+            }
+            foreach (var mark in root.GetComponentsInChildren<MarkTag>(false)) Judge(mark.transform.parent.name + "'s mark", mark.Word, mark.Icon, mark.Width / 2f);
+            return failures;
+        }
+
         /// <summary>The interface's rules on the stage as built: apart, large enough, opaque, every state in words.</summary>
         private static IEnumerable<string> Checks(string name, GameObject root, Vector3 eyes, List<(CharacterView View, CharacterTarget Target)> characters,
             StageBanner banner, PeekCardView? peek)
@@ -191,6 +280,7 @@ namespace Halcyonic.XR.Workspace.Editor
             if (peek != null) badges.Add(peek.Badge);
             failures.AddRange(GlazeChecks.BadgesSayTheirState(badges, name));
             failures.AddRange(BadgesKeepTheirRoom(name, characters));
+            failures.AddRange(PillsHoldTheirWords(name, root));
             failures.AddRange(WorkspaceRender.AllShowLiterally(root, "stage render " + name, eyes));
             var lowest = labels.Min(label => label.Bottom);
             Debug.Log("Halcyonic: stage render " + name + ": labels end " + GlazeChecks.Degrees(-lowest) + " degrees below eye level; widest "

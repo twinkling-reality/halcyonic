@@ -111,9 +111,7 @@ namespace Halcyonic.XR.UI
         public static TextMeshPro Create(Transform parent, string name, GlazeType type, Color color, TextAlignmentOptions alignment, int order,
             bool? strong = null, bool scaled = false)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var text = go.AddComponent<TextMeshPro>();
+            var text = AddAwake(parent, name);
             if (text.font == null) text.font = TMP_Settings.defaultFontAsset;
             text.rectTransform.pivot = new Vector2(0.5f, 1f);
             text.richText = false;
@@ -164,6 +162,21 @@ namespace Halcyonic.XR.UI
         /// box are as they were keeps the mesh it has: panels lay every label out again every half
         /// second, and building text meshes again is what that would cost on the headset.
         /// </summary>
+        /// <summary>
+        /// A TextMeshPro label made awake, then put under <paramref name="parent"/>: made on an object of its
+        /// own first, active, so TextMeshPro's Awake runs at once. Made straight under an inactive parent,
+        /// as the stage's characters are before the stage is placed, it would not wake until shown, and
+        /// <see cref="Lay"/> would measure it as empty; a badge or a mark sized then keeps a pill too
+        /// narrow for its words, as no change of state lays it again.
+        /// </summary>
+        public static TextMeshPro AddAwake(Transform parent, string name)
+        {
+            var go = new GameObject(name);
+            var text = go.AddComponent<TextMeshPro>();
+            go.transform.SetParent(parent, false);
+            return text;
+        }
+
         public static (int Lines, float Width) Lay(TMP_Text label, float width, int maxLines)
         {
             var box = new Vector2(width, maxLines * LineHeight(label));

@@ -1361,7 +1361,10 @@ scripts use only long-stable core Unity APIs:
   Sans, rich text off, escape parsing on, every text through `LabelText.ForTextMeshPro`, strong text
   thickened by its material, never TextMeshPro's bold, which finds no ellipsis in this font; a
   label's mesh is built again only when its words, look or box change, since panels lay every label
-  out again every half second), icons (`GlazeIcons`: Material Symbols Rounded, filled, weight 500,
+  out again every half second; every label and icon is made awake, on an object of its own, before it
+  is put under its parent (`GlazeText.AddAwake`), so one made under a parent not yet shown, as the
+  stage's characters are before the stage is placed, measures as one in view would, and a badge or
+  mark sized then is not left with a pill too narrow for its words), icons (`GlazeIcons`: Material Symbols Rounded, filled, weight 500,
   drawn from the static atlas `UI/Resources/HalcyonicUI/GlazeIcons`, 13 glyphs in 256 by 256
   pixels with no font file and no fallback, each on a label of its own beside the words it goes
   with and never in their text, its em 1.2 degrees in a badge or tag and never under 1; only the
