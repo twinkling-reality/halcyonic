@@ -63,10 +63,11 @@ namespace Halcyonic.Client
         /// </summary>
         public static string UpgradeRefused(string? code) => code switch
         {
-            "host_not_allowed" => HostText.YourStart + " refused the name this headset uses for it. Name it 127.0.0.1 or [::1], then restart the app.",
+            // Only the network listener refuses a Host name: over USB the headset dials 127.0.0.1 (settled by the coordinator, 2026-10-04).
+            "host_not_allowed" => HostText.YourStart + " refused the name this headset uses for it. Pair it again in Settings.",
             "too_many_requests" => HostText.YourStart + " is turning this headset away for a minute after too many tries. It tries again by itself.",
             "device_revoked" => PairingRefused,
-            _ => HostText.YourStart + " refused the connection.",
+            _ => HostText.YourStart + " refused the connection. Restart the app, and pair it again in Settings if it happens again.",
         };
 
         /// <summary>Your computer speaks another version of the connection than this app.</summary>
