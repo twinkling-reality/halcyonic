@@ -1,8 +1,9 @@
 /**
  * Runs adb for the device tools. adb comes with Unity's Android module; `HALCYONIC_ADB` names
- * another. Only `dumpsys`, `am`, `logcat`, `date`, `pidof`, `reverse --list` and `stat` (directly or
- * through `run-as`) are run: these tools read the headset and start or stop Halcyonic, and change
- * nothing else on it. `stat` reads a file's mode, size and type, never its contents.
+ * another. Only `dumpsys`, `am`, `logcat`, `date`, `pidof`, `ps`, `reverse --list` and `stat`
+ * (directly or through `run-as`) are run: these tools read the headset and start or stop
+ * Halcyonic, and change nothing else on it. `stat` reads a file's mode, size and type, never its
+ * contents.
  */
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';

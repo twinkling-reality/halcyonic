@@ -6,6 +6,8 @@
  * modes, sizes, glance codes and errno names.
  */
 
+import { epochMillis } from './readings.ts';
+
 export interface Verdict {
   readonly pass: boolean;
   readonly line: string;
@@ -89,6 +91,23 @@ export function checkTokenWritten(name: string, state: FileState, optional = fal
     default:
       return fail(`${name}: could not be looked at`);
   }
+}
+
+/**
+ * The `run-as` write's temporary files, which its move step renames into place: one left over means
+ * the move never ran, so the app reads no new token (HEADSET_SESSION.md).
+ */
+export function checkWritesFinished(files: readonly (readonly [string, FileState])[]): Verdict {
+  const left = files.filter(([, state]) => state.kind === 'file').map(([name]) => name);
+  if (left.length > 0) {
+    return fail(
+      `${left.join(' and ')} left over: the run-as write stopped before its move, so the app has not got it; run the move step again (HEADSET_SESSION.md)`,
+    );
+  }
+  const unseen = files.filter(([, state]) => state.kind === 'unreadable').map(([name]) => name);
+  return unseen.length > 0
+    ? fail(`${unseen.join(' and ')}: could not be looked at`)
+    : pass('run-as writes: no temporary file left over');
 }
 
 /** On the release build, `run-as` must be refused: it is not debuggable. */
@@ -191,8 +210,47 @@ export const MOVE_LINES = {
 export const COULD_NOT_DEAL =
   "Halcyonic: could not deal with the access token's old place on shared storage, so a copy may still be there (";
 
-/** The app's first-frame line (DeviceMeasures), written once at every start. */
+/**
+ * The app's first-frame line (DeviceMeasures), written once at every start where DeviceMeasures
+ * runs; on a headset it has not run so far (quest-3-device.md, sixth session), so the log's reach
+ * is read from times as well (`readReach`).
+ */
 export const STARTED = 'Halcyonic: device first frame ';
+
+/** `ps -o ETIME -p <pid>`: how long the process has run, `[[dd-]hh:]mm:ss`, in whole seconds, or null. */
+export function readElapsed(text: string): number | null {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  const match = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d{2})$/.exec(lines[lines.length - 1] ?? '');
+  if (match === null) return null;
+  const [, days, hours, minutes, seconds] = match;
+  return (
+    ((Number(days ?? 0) * 24 + Number(hours ?? 0)) * 60 + Number(minutes)) * 60 + Number(seconds)
+  );
+}
+
+/**
+ * Whether the headset's main log still holds the app's start, from times alone: its oldest line,
+ * as `logcat -v epoch` stamps it, against the headset's clock less how long the app has run, a
+ * second earlier for the elapsed time's rounding. Null where any of them could not be read.
+ */
+export function readReach(
+  mainLog: string,
+  deviceSeconds: string,
+  elapsed: number | null,
+): boolean | null {
+  const now = Number(deviceSeconds.trim());
+  if (elapsed === null || !Number.isFinite(now) || now <= 0) return null;
+  let oldest: number | null = null;
+  for (const line of mainLog.split(/\r?\n/)) {
+    oldest = epochMillis(line);
+    if (oldest !== null) break;
+  }
+  if (oldest === null) return null;
+  return oldest <= (now - elapsed - 1) * 1000;
+}
 
 /** How each connection detail begins (ConnectionText, LoopbackProof). */
 export const CONNECTION_DETAILS = {
@@ -301,16 +359,23 @@ const SAID: Record<ConnectionOutcome, string> = {
 
 const NOT_FROM_START = "the log no longer reaches the app's start; restart the app and check again";
 
+/** Where the log can't be shown to hold the app's start, why. */
+const REACH_UNKNOWN: Record<'false' | 'null', string> = {
+  false: "the headset's log no longer holds the app's start",
+  null: "the headset's log could not be shown to hold the app's start",
+};
+
 /** The connection, against what this step of the session expects (live, unless the step says otherwise). */
 export function checkConnection(
   reading: LogReading,
   expected: ExpectedConnection = 'live',
+  reach: boolean | null = null,
 ): Verdict {
   const last = reading.connections[reading.connections.length - 1];
   if (last === undefined) {
     if (expected === 'none') return pass('connection: none, as this step expects');
     return fail(
-      reading.started
+      reading.started || reach === true
         ? 'connection: no connection line yet; is a token written, and is Halcyonic in front?'
         : `connection: ${NOT_FROM_START}`,
     );
@@ -344,8 +409,18 @@ const MOVE_SAID: Record<MoveOutcome, string> = {
   nothing: 'nothing was on shared storage (read as nothing there)',
 };
 
-/** The move from shared storage: a failure fails; otherwise what happened, against what the step expects, if it says. */
-export function checkMove(reading: LogReading, expected?: MoveOutcome): Verdict {
+/**
+ * The move from shared storage: a failure fails; otherwise what happened, against what the step
+ * expects, if it says. With nothing on shared storage the app writes no line, so nothing there is
+ * read only from a log that holds the app's start (`reach`, or its first-frame line). Where it
+ * can't be shown to, the move can't be judged from this log: said plainly, and a failure only where
+ * the step expects an outcome.
+ */
+export function checkMove(
+  reading: LogReading,
+  expected?: MoveOutcome,
+  reach: boolean | null = null,
+): Verdict {
   if (reading.couldNotDeal.length > 0) {
     const reasons = reading.couldNotDeal.join(', ');
     const advice = reading.couldNotDeal.includes('open failed with EACCES')
@@ -372,10 +447,19 @@ export function checkMove(reading: LogReading, expected?: MoveOutcome): Verdict 
           ? 'released'
           : reading.notAToken > 0
             ? 'not-a-token'
-            : reading.started
+            : reading.started || reach === true
               ? 'nothing'
               : null;
-  if (outcome === null) return fail(`move: ${NOT_FROM_START}`);
+  if (outcome === null) {
+    const why = REACH_UNKNOWN[reach === false ? 'false' : 'null'];
+    return expected === undefined
+      ? pass(
+          `move: can't be judged from this log, since ${why}; to judge it, restart the app and run the check at once`,
+        )
+      : fail(
+          `move: can't be judged from this log, since ${why}; restart the app and run the check at once (this step expects ${expected})`,
+        );
+  }
   const said = `move: ${MOVE_SAID[outcome]}`;
   return expected === undefined || outcome === expected
     ? pass(said)
