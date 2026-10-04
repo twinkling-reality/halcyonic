@@ -166,7 +166,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 // on Tasks beside the file: the file's page and Tasks' rows are read again at the new size, so the
                 // plane stays inside the field. The render keeps drawing at its own size, so it is put back after,
                 // and the menu opened again, its places made afresh, as the walk goes on.
-                void ChangeTextSize(string step, Action atNewSize)
+                // atNewSize and backAtPass judge the file once its frame's tick has laid it again, before anything is drawn at that size.
+                void ChangeTextSize(string step, Action atNewSize, Action backAtPass)
                 {
                     var pass = GlazeText.Scale;
                     try
@@ -179,8 +180,11 @@ namespace Halcyonic.XR.Workspace.Editor
                             ? navigator.Act(MenuColumn.Side, change.Id, null, null, inPlace)
                             : navigator.Act(MenuColumn.Menu, change.Id, null, Shown(MenuColumn.Menu), null));
                         if (!changed) failures.Add(name + ": the text size's change took no press.");
-                        // What the app's comfort controls do with the change: reading text at its new size.
+                        // What the app's comfort controls do with the change: reading text at its new size; then a
+                        // frame's tick, as the director's Update gives every column before it draws.
                         GlazeText.SetScale(comfort.TextScale);
+                        navigator.Tick();
+                        atNewSize();
                         director.DrawNow();
                         CloseSide();
                         Press(MenuColumn.Menu, MenuFrame.ChooseSection, nameof(MenuPlace.Tasks));
@@ -191,7 +195,6 @@ namespace Halcyonic.XR.Workspace.Editor
                             failures.Add(name + ": after the text size changed, the menu stands on " + navigator.Place + (Shown(MenuColumn.File) == null ? " with no file shown" : "") + ", not Tasks beside the file.");
                         }
                         Shot(step + " text " + (comfort.Text == TextSize.Larger ? "larger" : "standard"));
-                        atNewSize();
                     }
                     finally
                     {
@@ -199,6 +202,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         GlazeText.SetScale(pass);
                     }
                     navigator.Tick();
+                    backAtPass();
                     director.CloseMenu();
                     director.Open(MenuPlace.Tasks);
                     director.DrawNow();
@@ -250,12 +254,15 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(MenuColumn.File, FileScreens.NextPart, FileScreens.RequestKey);
                 ChangeTextSize("6", () =>
                 {
-                    if (file!.Screen.RequestPart != 0 || Shown(MenuColumn.File)?.Footer[PromptSlot.Free] != null)
+                    if (file!.Screen.RequestPart != 0 || file.Steering.CanConfirm)
                     {
-                        failures.Add(name + ": at the new text size, the request half read shows its part " + (file.Screen.RequestPart + 1) + " or a Yes, not its first part to read again.");
+                        failures.Add(name + ": at the new text size, before anything was drawn at it, the request half read shows its part " + (file.Screen.RequestPart + 1)
+                            + (file.Steering.CanConfirm ? " and Yes may be pressed" : "") + ", not its first part to read again.");
                     }
+                }, () =>
+                {
+                    if (file!.Screen.RequestPart != 0 || file.Steering.CanConfirm) failures.Add(name + ": back at the walk's text size, the request is not read again from its first part.");
                 });
-                if (Shown(MenuColumn.File)?.Footer[PromptSlot.Free] != null || file!.Screen.RequestPart != 0) failures.Add(name + ": back at the walk's text size, the request is not read again from its first part.");
                 for (var part = 1; part < 12 && Shown(MenuColumn.File)?.Footer[PromptSlot.Free] == null; part++)
                 {
                     Settle();
