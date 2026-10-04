@@ -17,7 +17,7 @@ pnpm quest:check
 It prints one line per check, each a plain pass or FAIL, and exits 1 when any fails:
 - one `adb reverse` mapping, 47800 to 47800;
 - the access token files in the app's private storage at mode 600 and 44 bytes, read with `stat`
-  through `run-as`;
+  through `run-as`, and no `.tmp` file a write left before its move;
 - nothing at the token's old place on shared storage;
 - from the running app's own log lines since it started: what the token's move did, whether the
   connection is live (the control plane proved it holds the token), the glance's last poll, and no
@@ -27,7 +27,11 @@ It reads modes and sizes only, never a token or a file's contents, and repeats n
 that expects something else says so: `--expect unproved` (or `refused`, `not-loopback`,
 `unreachable`, `none`) for the connection, `--move moved` (or `kept`, `released`, `not-a-token`,
 `nothing`) for the move, `--release` on the release build, and `--closed` at the end. It reads the
-log since the app started, so after a long run, restart the app before checking.
+log since the app started. The app writes no line when nothing is on shared storage, so the move is
+read as nothing there only from a log that still holds the app's start, which it tells from times
+alone: the main log's oldest stamp against the headset's clock less how long the app has run (`ps
+-o ETIME`). Where the headset's log has already dropped the start, the move line says it can't be
+judged from this log, a FAIL only where the step names a move; restart the app and check at once.
 
 Rules for the whole session:
 - Never print, paste or `cat` a token. Nothing here needs it.
@@ -40,6 +44,9 @@ Rules for the whole session:
   export PATH="/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools:$PATH"
   ```
   (`HALCYONIC_ADB` points the tools at another adb, if the owner uses another.)
+- Sit, or set a roomscale boundary. Leaning out of a stationary boundary made everything vanish in
+  the sixth session, with no focus change logged; the boundary showing passthrough in the app's
+  place is likely, not verified ([quest-3-device.md](../validation/quest-3-device.md)).
 - Run the control plane without `--watch` (`pnpm start`), so a merge doesn't restart it mid-session.
 - Keep captures out of the repository.
 - Record as you go, in the record each step names. At the end, move what was shown from "Not
@@ -92,9 +99,12 @@ Rules for the whole session:
    If the install says `INSTALL_FAILED_VERSION_DOWNGRADE`, an upload's build with a higher code is
    on the headset: `adb uninstall com.halcyonic.xr`, which removes its data, then install again.
 4. Write the token into the app's private storage with `run-as`, whole and private before it takes
-   the old one's place, then start the app:
+   the old one's place, then start the app. The write is two commands, each quoted whole
+   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect", says why); the second prints
+   `written`, and only then start the app:
    ```bash
-   adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token.tmp && test -s files/access-token.tmp && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token' < ~/.halcyonic/access-token
+   adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/access-token.tmp'" < ~/.halcyonic/access-token
+   adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; test \"\$(stat -c %s files/access-token.tmp)\" = 44 && chmod 600 files/access-token.tmp && mv -f files/access-token.tmp files/access-token && echo written || echo not written, write it again'"
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
@@ -105,8 +115,8 @@ Rules for the whole session:
    `adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token` and record it. The
    control plane logs `realtime client connected` for `halcyonic-xr`.
    - Record in [headset-token-storage.md](../validation/headset-token-storage.md): the `run-as`
-     write (mode 600, 44 bytes, the app reads it), and that `cat` ended when adb closed its input
-     (the command returned); and what was on shared storage, and what the start did with it.
+     write (mode 600, 44 bytes, the app reads it), how many seconds the second command waited for
+     the first, if it printed late; and what was on shared storage, and what the start did with it.
    - Record in [xr-loopback-proof.md](../validation/xr-loopback-proof.md): the connection is live
      over `adb reverse`, so adb delivers the headset's connections to 127.0.0.1:47800, and the
      upgrade, the HMAC and the app's own HTTP run under IL2CPP.
@@ -202,10 +212,11 @@ purpose; the token in use from then on never touched shared storage.
 ### 3. The glance ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md))
 
 The steps are [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The glance on a Quest (spike)", 1 to 14, in
-this order. First write its token the same careful way:
+this order. First write its token the same careful way, and wait for `written`:
 
 ```bash
-adb exec-in run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/glance-access-token.tmp && test -s files/glance-access-token.tmp && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token' < ~/.halcyonic/access-token
+adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && cat > files/glance-access-token.tmp'" < ~/.halcyonic/access-token
+adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; test \"\$(stat -c %s files/glance-access-token.tmp)\" = 44 && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token && echo written || echo not written, write it again'"
 ```
 
 Open the glance (step 1), then `pnpm quest:check`. Pass: the glance token passes, the glance
