@@ -45,6 +45,11 @@ namespace Halcyonic.XR
         /// <summary>The highest a character's body reaches above its place, risen and moving, in its own units.</summary>
         public const float HighestReach = RiseHeight + BodyRadius;
 
+        // The lifts the settled, slumped and frozen motions hold, in the character's units.
+        private const float SettledLift = -0.0032f;
+        private const float SlumpedLift = -0.0095f;
+        private const float FrozenLift = 0.0056f;
+
         private const float EyeSwitchSeconds = 0.18f;
 
         private static readonly int BodyColorId = Shader.PropertyToID("_BodyColor");
@@ -283,11 +288,11 @@ namespace Halcyonic.XR
                     targetSquash = -Mathf.Max(0f, Mathf.Sin(t * 4.2f)) * 0.025f;
                     break;
                 case CharacterMotion.Settle:
-                    targetLift = -0.0032f + Mathf.Sin(t * 1.1f) * 0.001f;
+                    targetLift = SettledLift + Mathf.Sin(t * 1.1f) * 0.001f;
                     targetSquash = 0.02f + Mathf.Sin(t * 1.1f) * 0.01f;
                     break;
                 case CharacterMotion.Slump:
-                    targetLift = -0.0095f;
+                    targetLift = SlumpedLift;
                     targetSquash = 0.07f;
                     roll = 0.14f;
                     break;
@@ -297,7 +302,7 @@ namespace Halcyonic.XR
                     break;
                 case CharacterMotion.Frozen:
                     // Stopped mid-hop, a little turned.
-                    targetLift = 0.0056f;
+                    targetLift = FrozenLift;
                     targetSquash = -0.03f;
                     yaw = 0.12f;
                     roll = -0.05f;
@@ -429,6 +434,20 @@ namespace Halcyonic.XR
             Turn(yaw, roll, snap ? 1f : 1f - Mathf.Exp(-deltaTime * 5f));
             Apply(t);
         }
+
+        /// <summary>
+        /// The lift the body's motion holds, in the character's units: risen while it waits, settled or
+        /// slumped when done or stopped, without the bob, hop or breath its motion adds round it. Where
+        /// placement takes the body to stand (<see cref="CharacterTarget.RestPosition"/>).
+        /// </summary>
+        public float HeldLift => cues == null ? 0f : cues.Motion switch
+        {
+            CharacterMotion.Rise => RiseRoom(),
+            CharacterMotion.Settle => SettledLift,
+            CharacterMotion.Slump => SlumpedLift,
+            CharacterMotion.Frozen => FrozenLift,
+            _ => 0f,
+        };
 
         /// <summary>
         /// How far a character that needs its person can rise without passing their eye level, in

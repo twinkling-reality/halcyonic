@@ -56,10 +56,11 @@ namespace Halcyonic.XR.Workspace
         public Vector3 BodyPosition => transform.position;
 
         /// <summary>
-        /// The body's center at rest, without the hop, rise or bob its motion adds: what placement and a
-        /// drag's rules read, so the plane never follows a character's animation (as its label does not).
+        /// The body's center at the lift its motion holds, risen while it waits, without the hop, bob or
+        /// breath round it: what placement and a drag's rules read, so the plane never follows the
+        /// character's animation, as its label does not (<see cref="CharacterView.HeldLift"/>).
         /// </summary>
-        public Vector3 RestPosition => BodyPosition - (View.Body.position - View.transform.position);
+        public Vector3 RestPosition => BodyPosition - View.Body.position + View.transform.TransformPoint(new Vector3(0f, View.HeldLift, 0f));
 
         /// <summary>How much the stage scales the character; its targets scale with it.</summary>
         public float Scale => transform.lossyScale.x;
