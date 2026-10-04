@@ -281,6 +281,15 @@ namespace Halcyonic.Client
         /// <summary>What a press on an approval's confirmation says before the whole request has been shown.</summary>
         public const string RequestNotRead = "Nothing was sent: read the whole request before approving it.";
 
+        /// <summary>What a press on an instruction's confirmation says before all its words have been shown (settled by the coordinator, 2026-10-04).</summary>
+        public const string InstructionNotRead = "Nothing was sent: read to the last part first.";
+
+        /// <summary>
+        /// What an instruction's confirmation asks once all its words, shown above in parts where they are
+        /// long, have been read: as heard on the computer, or as typed (settled by the coordinator, 2026-10-04).
+        /// </summary>
+        public static string SendWordsAbove(bool heard) => heard ? HostText.YourStart + " heard the words above. Send them?" : "Tell it the words above?";
+
         /// <summary>What the Doing tab says before anything was sent to the work from here.</summary>
         public const string NothingSentYet = "Nothing sent from here yet.";
 

@@ -797,6 +797,9 @@ public class WorkspaceSteeringTests
         steering.Press(WorkspaceAction.Instruct, work.Present());
         Assert.That(steering.Typed("Add a test.", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Tell it this? “Add a test.”"));
+        Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "not before its words have shown");
+        Assert.That(steering.ToRead(work.Present()), Is.EqualTo("“Add a test.”"), "its words show whole above the question");
+        steering.RequestShown(1, 1);
         var command = (ExecutionSendInstructionCommand)steering.Confirm(work.Present()).Command!;
         Assert.That(command.Payload.Text, Is.EqualTo("Add a test."));
     }
@@ -817,6 +820,11 @@ public class WorkspaceSteeringTests
         Assert.That(steering.Spoken("  Add a test for the expiry.  ", work.Present()).Step, Is.EqualTo(SteeringStep.Confirm));
         Assert.That(steering.Heard, Is.True);
         Assert.That(steering.Prompt(work.Present()), Is.EqualTo("Your computer heard: “Add a test for the expiry.” Send it?"));
+        Assert.That(steering.Confirm(work.Present()).Message, Is.EqualTo(WorkspaceText.InstructionNotRead), "a mishearing is never sent unread");
+        Assert.That(steering.Armed, Is.EqualTo(WorkspaceAction.Instruct), "it stays armed, so the rest can still be read");
+        steering.RequestShown(1, 2);
+        Assert.That(steering.CanConfirm, Is.False, "only part of it shown");
+        steering.RequestShown(2, 2);
         var command = (ExecutionSendInstructionCommand)steering.Confirm(work.Present()).Command!;
         Assert.That(command.Payload.Text, Is.EqualTo("Add a test for the expiry."));
         Assert.That(steering.Heard, Is.False);

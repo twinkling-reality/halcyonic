@@ -55,7 +55,8 @@ namespace Halcyonic.Client
     /// and those the control plane's policy marks for review wait for a second, deliberate press that
     /// names exactly what will be sent. An approval is confirmed only once the whole request it
     /// answers has been shown, part by part when it is long (<see cref="RequestShown"/>), so nobody
-    /// approves what they could not read. A confirmation lapses when it is not given in time, or when
+    /// approves what they could not read; an instruction only once all its words have, so none is sent
+    /// unread, a mishearing least of all. A confirmation lapses when it is not given in time, or when
     /// the state it was asked about changes, so an old question is never answered by accident. One
     /// instance serves one open workspace; not thread safe.
     /// </summary>
@@ -96,9 +97,10 @@ namespace Halcyonic.Client
         public string? ArmedApprovalId { get; private set; }
 
         /// <summary>
-        /// The whole request an armed approve or deny answers, as it read when armed: should the
-        /// runtime report it differently under the same approval, the confirmation lapses, so what is
-        /// approved is what was read.
+        /// What the armed confirmation shows whole before its Yes, as it read when armed: the whole request
+        /// an approve or deny answers, or an instruction's words, quoted (<see cref="Quoted"/>). Should the
+        /// runtime report a request differently under the same approval, the confirmation lapses, so what
+        /// is approved is what was read.
         /// </summary>
         public string? ArmedRequest { get; private set; }
 
@@ -112,16 +114,16 @@ namespace Halcyonic.Client
         public bool Heard { get; private set; }
 
         /// <summary>
-        /// Every part of the request the armed approval or denial answers has been shown
-        /// (<see cref="RequestShown"/>).
+        /// Every part of the request the armed approval or denial answers, or of the armed instruction's
+        /// words, has been shown (<see cref="RequestShown"/>).
         /// </summary>
         public bool WholeRequestShown { get; private set; }
 
         /// <summary>
-        /// The armed action can be confirmed now: an approval only once its whole request has been
-        /// shown; anything else at once.
+        /// The armed action can be confirmed now: an approval or an instruction only once all of what it
+        /// answers or sends has been shown; anything else at once, as denying or stopping runs nothing.
         /// </summary>
-        public bool CanConfirm => Armed != null && (Armed != WorkspaceAction.Approve || WholeRequestShown);
+        public bool CanConfirm => Armed != null && (!(Armed == WorkspaceAction.Approve || Armed == WorkspaceAction.Instruct) || WholeRequestShown);
 
         /// <summary>The person pressed an action.</summary>
         public SteeringOutcome Press(WorkspaceAction action, WorkspacePresentation workspace)
@@ -207,7 +209,10 @@ namespace Halcyonic.Client
         {
             if (Armed == null) return SteeringOutcome.Nothing;
             var lapse = Lapse(workspace);
-            if (lapse == null && !CanConfirm) return SteeringOutcome.Explain(WorkspaceText.RequestNotRead);
+            if (lapse == null && !CanConfirm)
+            {
+                return SteeringOutcome.Explain(Armed == WorkspaceAction.Instruct ? WorkspaceText.InstructionNotRead : WorkspaceText.RequestNotRead);
+            }
             var action = Armed.Value;
             var approvalId = ArmedApprovalId;
             var instruction = Instruction;
@@ -250,8 +255,8 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The Mac heard this instruction in a held clip (ADR 0021). Unlike a typed one, it is always
-        /// held for a deliberate confirmation that shows it as heard, so a mishearing is never sent
-        /// unread; an empty transcript sends nothing.
+        /// held for a deliberate confirmation that shows it as heard, whose Yes waits until all of it has
+        /// been shown, so a mishearing is never sent unread; an empty transcript sends nothing.
         /// </summary>
         public SteeringOutcome Spoken(string? text, WorkspacePresentation workspace)
         {
@@ -321,26 +326,26 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The workspace shows <paramref name="part"/> of the <paramref name="parts"/> the request of
-        /// the armed approval or denial takes, which it steps through in order: once the last has
-        /// shown, the whole has. Turning to another part is deliberate, so the confirmation's time
-        /// starts again with it; showing the same part again changes nothing.
+        /// the armed approval or denial takes, or the armed instruction's words, which it steps through
+        /// in order: once the last has shown, the whole has. Turning to another part is deliberate, so
+        /// the confirmation's time starts again with it; showing the same part again changes nothing.
         /// </summary>
         public void RequestShown(int part, int parts)
         {
-            if (Armed == null || !IsAnswer(Armed.Value) || part < 1) return;
+            if (Armed == null || !Reads(Armed.Value) || part < 1) return;
             if (part != shownPart) armedAt = now();
             shownPart = part;
             if (part >= parts) WholeRequestShown = true;
         }
 
         /// <summary>
-        /// The request the armed approval or denial answers was measured again and lays out
-        /// differently, as at another text size: it is read again from its first part, and Yes waits
-        /// for its last once more. The confirmation's time starts again with it.
+        /// The request the armed approval or denial answers, or the armed instruction's words, was
+        /// measured again and lays out differently, as at another text size: it is read again from its
+        /// first part, and Yes waits for its last once more. The confirmation's time starts again with it.
         /// </summary>
         public void ReadAgain()
         {
-            if (Armed == null || !IsAnswer(Armed.Value)) return;
+            if (Armed == null || !Reads(Armed.Value)) return;
             WholeRequestShown = false;
             shownPart = 0;
             armedAt = now();
@@ -355,6 +360,16 @@ namespace Halcyonic.Client
             if (Armed == null || !IsAnswer(Armed.Value)) return null;
             return WorkspaceText.Request(workspace.Execution?.PendingApprovals.FirstOrDefault(pending => pending.ApprovalId == ArmedApprovalId));
         }
+
+        /// <summary>
+        /// What the armed confirmation shows whole, in parts where it is long, before its Yes: the request
+        /// an approval or denial answers (<see cref="Request"/>), or the armed instruction's words, quoted;
+        /// null while neither is armed.
+        /// </summary>
+        public string? ToRead(WorkspacePresentation workspace) => Armed == WorkspaceAction.Instruct ? ArmedRequest : Request(workspace);
+
+        /// <summary>An instruction's words as its confirmation shows them whole: one line by the one rule, quoted.</summary>
+        public static string Quoted(string instruction) => "“" + WorkspaceText.OneLine(instruction) + "”";
 
         /// <summary>
         /// Drops a confirmation that lapsed: too late, no longer offered, or asked about an approval
@@ -375,7 +390,8 @@ namespace Halcyonic.Client
         public string? Prompt(WorkspacePresentation workspace)
         {
             if (Armed == null) return null;
-            if (!CanConfirm) return WorkspaceText.ReadRequestFirst;
+            // An instruction's words stand in its own question; a file shows them above it instead (FileScreens.Asks).
+            if (!CanConfirm && Armed == WorkspaceAction.Approve) return WorkspaceText.ReadRequestFirst;
             return Asked();
         }
 
@@ -395,6 +411,7 @@ namespace Halcyonic.Client
             Armed = action;
             ArmedApprovalId = approvalId;
             Instruction = instruction;
+            ArmedRequest = action == WorkspaceAction.Instruct && instruction != null ? Quoted(instruction) : null;
             Heard = false;
             WholeRequestShown = false;
             shownPart = 0;
@@ -434,5 +451,8 @@ namespace Halcyonic.Client
         };
 
         private static bool IsAnswer(WorkspaceAction action) => action == WorkspaceAction.Approve || action == WorkspaceAction.Deny;
+
+        /// <summary>The action's confirmation shows something whole, in parts where it is long: a request, or an instruction's words.</summary>
+        private static bool Reads(WorkspaceAction action) => IsAnswer(action) || action == WorkspaceAction.Instruct;
     }
 }

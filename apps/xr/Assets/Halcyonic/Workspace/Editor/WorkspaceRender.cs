@@ -1012,6 +1012,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var heardScreen = new WorkspaceScreen { Speak = true };
             view.Show(running, heardScreen, spoken);
             spoken.Spoken("Add a test for the limiter and run the checks again.", running);
+            // This panel shows the words whole in its question, so they count as shown as it does.
+            spoken.RequestShown(1, 1);
             view.Show(running, heardScreen, spoken);
             failures.AddRange(view.Fits("heard"));
             failures.AddRange(YesClear(view.Frame, view.Name + " heard"));
