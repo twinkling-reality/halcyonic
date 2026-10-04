@@ -29,6 +29,12 @@ namespace Halcyonic.XR.UI
         private RayInteractable? ray;
         private bool drags;
         private Vector3? held;
+
+        /// <summary>
+        /// The pointer whose press a dragging target follows: another's press meanwhile is no press, only its
+        /// moves drag, and only its release ends the press, so a second hand never orphans or ends a hold.
+        /// </summary>
+        private int? holder;
         private float heldAlongRay;
         private string logKind = "control";
         private string? logId;
@@ -162,6 +168,7 @@ namespace Halcyonic.XR.UI
             // A disabled interactable cancels its pointers; forget them so no hover outlives it.
             rays.Clear();
             held = null;
+            holder = null;
             if (pressing.Count > 0)
             {
                 pressing.Clear();
@@ -186,11 +193,17 @@ namespace Halcyonic.XR.UI
             }
             if (pointer.Type == PointerEventType.Select && !FocusGuard.InputSuspended)
             {
+                // A target that drags follows one press at a time.
+                if (drags && holder != null) return;
                 pressing.Add(pointer.Identifier);
-                if (drags) held = TakeHold(pointer.Pose, fromRay);
+                if (drags)
+                {
+                    holder = pointer.Identifier;
+                    held = TakeHold(pointer.Pose, fromRay);
+                }
                 Selected?.Invoke();
             }
-            else if (pointer.Type == PointerEventType.Move && drags && held != null && pressing.Contains(pointer.Identifier))
+            else if (pointer.Type == PointerEventType.Move && drags && held != null && holder == pointer.Identifier)
             {
                 var point = fromRay ? pointer.Pose.position + pointer.Pose.forward * heldAlongRay : pointer.Pose.position;
                 held = point;
@@ -198,14 +211,27 @@ namespace Halcyonic.XR.UI
             }
             else if (pointer.Type == PointerEventType.Unselect && pressing.Remove(pointer.Identifier))
             {
-                held = null;
+                LetGo(pointer.Identifier);
                 Released?.Invoke(false);
             }
             else if (pointer.Type == PointerEventType.Cancel && pressing.Remove(pointer.Identifier))
             {
-                held = null;
+                LetGo(pointer.Identifier);
                 Released?.Invoke(true);
             }
+        }
+
+        /// <summary>A press ended: the point held is let go of, and for a target that drags, its one press.</summary>
+        private void LetGo(int pointer)
+        {
+            held = null;
+            if (holder == pointer) holder = null;
+        }
+
+        /// <summary>For the editor's renders, which have no hands: a finger's pointer event at <paramref name="at"/>, as the SDK raises it.</summary>
+        public void PointerForRender(int identifier, PointerEventType type, Vector3 at)
+        {
+            OnPointer(new PointerEvent(identifier, type, new Pose(at, Quaternion.identity)), fromRay: false);
         }
 
         /// <summary>
