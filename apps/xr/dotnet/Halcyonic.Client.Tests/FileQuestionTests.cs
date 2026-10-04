@@ -677,6 +677,7 @@ public class FileQuestionTests
         var sent = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((sent.Words, sent.Available, sent.DrawnAsMain), Is.EqualTo((WorkspaceText.Sent, false, false)));
         Assert.That(frame.Reason, Is.EqualTo(FileScreens.SentWaiting));
+        Assert.That(frame.ReasonWaits, Is.True, "waiting for the agent, the page's last line shimmers");
     }
 
     private static QuestionDraft Answered(AskingWork work)

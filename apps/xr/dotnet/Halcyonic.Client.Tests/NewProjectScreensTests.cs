@@ -203,6 +203,7 @@ public class NewProjectScreensTests
         Assert.That(frame.Footer[PromptSlot.Secondary]!.Available, Is.False);
         Assert.That(frame.Footer[PromptSlot.FarRight]!.Available, Is.False);
         Assert.That(frame.Reason, Is.EqualTo(CompanionText.Waiting));
+        Assert.That(frame.ReasonWaits, Is.True, "waiting for the companion, the page's last line shimmers");
         Assert.That(Questions(idea, waited: CompanionText.WaitingLongSeconds).Reason, Is.EqualTo(CompanionText.Waiting + " " + CompanionText.WaitingLong));
 
         exchange.Failed(exchange.Generation, "companion_too_slow");
@@ -689,6 +690,8 @@ public class NewProjectStartTests
         Assert.That(waiting.Sections.Single(step => step.Chosen).Words, Is.EqualTo("Build"));
         Assert.That(waiting.Footer.All.Select(each => each.Prompt.Kind), Is.EqualTo(new[] { PromptKind.Close }), "nothing to press while the computer answers");
         Assert.That(waiting.Lines.Any(line => line.Tone == LineTone.Good), Is.False, "sent is not done");
+        Assert.That(waiting.Lines.Where(line => line.Waits).Select(line => line.Words), Is.EqualTo(new[] { "Sent. Waiting for your computer…" }),
+            "only the step under way shimmers");
 
         sequence.Advance(With(new CommandView
         {

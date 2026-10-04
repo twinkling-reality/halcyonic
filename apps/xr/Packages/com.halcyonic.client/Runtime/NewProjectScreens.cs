@@ -388,7 +388,7 @@ namespace Halcyonic.Client
             {
                 // Make the recap's reason, the page's last line, says it is waiting, and once the wait is long, why it may be.
                 var waiting = waitedSeconds >= CompanionText.WaitingLongSeconds ? CompanionText.Waiting + " " + CompanionText.WaitingLong : CompanionText.Waiting;
-                main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: false, reason: waiting);
+                main = new Prompt(MakeRecap, CompanionText.MakeTheRecap, GlazeIcon.Next, main: true, available: false, reason: waiting, waits: true);
                 quiet = waiting;
             }
             else if (exchange.Failure != null)
@@ -469,7 +469,8 @@ namespace Halcyonic.Client
             if (exchange.WrittenHeard && exchange.Chosen == CompanionAnswerRow.Written) lines.Add(new PageLine(VoiceText.HeardAnswer, tone: LineTone.Secondary, rows: 2));
             if (said != null) lines.Add(new PageLine(said, tone: LineTone.Secondary, rows: 2));
             var talk = voice && !recorded && answering
-                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: quiet == null, reason: quiet, holds: true)
+                ? new Prompt(HoldToTalk, VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, available: quiet == null, reason: quiet, holds: true,
+                    waits: exchange.Waiting)
                 : null;
             // Beside Close and Hold to talk the whole words don't fit a file's footer (the workspace render: 0.657 of 0.618), so the shorter.
             if (withoutIt && exchange.Proposal == null)
@@ -969,7 +970,7 @@ namespace Halcyonic.Client
             foreach (var step in sequence.Steps)
             {
                 lines.Add(new PageLine(EntryText.StepName(step.Kind, newProject)));
-                lines.Add(new PageLine(EntryText.StepStatus(step), tone: ToneOf(step), rows: 3));
+                lines.Add(new PageLine(EntryText.StepStatus(step), tone: ToneOf(step), rows: 3, waits: step.Status == BuildStepStatus.Waiting));
             }
             Prompt? beside = null;
             Prompt? main = null;

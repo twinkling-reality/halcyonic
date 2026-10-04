@@ -1080,7 +1080,9 @@ public class FileColumnTests
         var showing = new AskingWork(Questioned("question-1", 1));
         var column = Column(host, () => FileScreensTests.Offering(showing.Present(), WorkspaceAction.Answer));
         Draw(host, column);
-        string? Talk() => column.Frame!.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == FileScreens.SpeakAnswer)?.Words;
+        Prompt? Held() => column.Frame!.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == FileScreens.SpeakAnswer);
+        string? Talk() => Held()?.Words;
+        bool? TalkWaits() => Held()?.Waits;
         var lines = column.Frame!.Lines.Select(line => line.Words).ToList();
         Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk));
         var reads = column.Frame!.Footer.All.Select(each => each.Prompt).First(prompt => prompt.Id == FileScreens.SpeakAnswer).AlsoReads;
@@ -1089,15 +1091,18 @@ public class FileColumnTests
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Said(VoiceText.Listening);
         Assert.That(Talk(), Is.EqualTo(VoiceText.ListeningWords));
+        Assert.That(TalkWaits(), Is.False, "listening is no wait: the person is talking");
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines), "no line for it: the page stays as it was");
 
         column.HoldEnded(FileScreens.SpeakAnswer, letGo: true);
         column.Said(VoiceText.Hearing);
         Assert.That(Talk(), Is.EqualTo(VoiceText.WritingDownWords));
+        Assert.That(TalkWaits(), Is.True, "writing down is under way, so Hold to talk shimmers");
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines));
 
         column.Heard("Ten minutes");
         Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk), "the words came, so it waits to be held again");
+        Assert.That(TalkWaits(), Is.False, "and stops shimmering");
 
         // Held, then dropped: back to Hold to talk; what the voice says otherwise is a notice.
         column.HoldStarted(FileScreens.SpeakAnswer);

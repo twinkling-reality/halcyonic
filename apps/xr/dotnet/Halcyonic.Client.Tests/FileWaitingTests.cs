@@ -295,6 +295,7 @@ public class FileWaitingTests
         var frame = Screen(workspace, steering, screen);
         var held = frame.Footer[PromptSlot.FarRight]!;
         Assert.That((held.Words, held.Available, held.Reason), Is.EqualTo((WorkspaceText.Sent, false, (string?)FileScreens.SentWaiting)));
+        Assert.That(frame.ReasonWaits, Is.True, "waiting for the agent, the page's last line shimmers");
         Assert.That(frame.Footer[PromptSlot.Secondary], Is.Null, "no Deny to race the approval on its way");
         Assert.That(steering.Press(WorkspaceAction.Deny, workspace).Step, Is.EqualTo(SteeringStep.Explain), "and the steering refuses one too");
     }
