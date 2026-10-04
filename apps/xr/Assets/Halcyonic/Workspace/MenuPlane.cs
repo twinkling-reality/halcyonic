@@ -102,6 +102,12 @@ namespace Halcyonic.XR.Workspace
         /// <summary>How much of a drag's offset the plane stands at, as laid last: what still holds of it for this composition (<see cref="MenuDrag.Kept"/>).</summary>
         public (float Yaw, float Elevation) Moved { get; private set; }
 
+        /// <summary>
+        /// The field a drag keeps to: the headset's measured field, else a Quest 3S's until it is measured,
+        /// so no drag goes unbounded in the seconds before the field is read, nor where it never is.
+        /// </summary>
+        public static ViewField DragField => ViewField.Current ?? MenuPage.Quest3S;
+
         /// <summary>The eyes the plane was placed from, which a drag turns it round.</summary>
         public Vector3 Eyes => eyes;
 
@@ -443,11 +449,9 @@ namespace Halcyonic.XR.Workspace
 
         private bool Allows(PlaneComposition composition, PanelDirection at)
         {
-            if (ViewField.Current is ViewField field)
-            {
-                if (!MenuPage.Inside(composition, at, field)) return false;
-                if (StageYaw is float stage && !MenuDrag.WithinReach(at, stage, field)) return false;
-            }
+            var field = DragField;
+            if (!MenuPage.Inside(composition, at, field)) return false;
+            if (StageYaw is float stage && !MenuDrag.WithinReach(at, stage, field)) return false;
             if (!WorkspacePlacement.Clears(at, bodies, composition.Size)) return false;
             return !(LineAt(composition, at) is (Vector3 from, Vector3 to)) || !Crosses(from, to);
         }
