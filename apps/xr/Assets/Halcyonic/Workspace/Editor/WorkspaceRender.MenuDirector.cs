@@ -472,6 +472,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     CharacterOf = _ => opened.Target,
                     Bar = place => TasksColumn.Bar(place, state),
                     SomethingWaits = () => true,
+                    // Voice is offered in the editor, so the question's pages carry Hold to talk.
+                    Voice = root.AddComponent<HoldToTalk>(),
                 });
                 var plane = director.Plane;
                 bool Press(string action, string? key = null)
@@ -497,6 +499,35 @@ namespace Halcyonic.XR.Workspace.Editor
                     return failures;
                 }
                 ReadQuestion();
+
+                // The voice says it listens, then writes down: on Hold to talk itself, so the page never grows and
+                // nothing under the hand moves; a press under way goes on, and let go, Hold to talk says so again.
+                director.DrawNow();
+                if (plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView page
+                    && page.Targets.FirstOrDefault(button => button.Label.text == VoiceText.HoldToTalk) is GlazeButton held)
+                {
+                    var content = page.Parts[page.Parts.Count - 1].position;
+                    held.HoldPressForRender();
+                    file.HoldStarted(FileScreens.SpeakAnswer);
+                    foreach (var (said, shows) in new[] { (VoiceText.Listening, VoiceText.ListeningWords), (VoiceText.Hearing, VoiceText.WritingDownWords) })
+                    {
+                        file.Said(said);
+                        director.DrawNow();
+                        if (held.Label.text != shows) failures.Add(name + ": the voice saying \"" + said + "\", Hold to talk read \"" + held.Label.text + "\", not \"" + shows + "\".");
+                        var drift = Vector3.Distance(content, page.Parts[page.Parts.Count - 1].position);
+                        if (drift > 0.001f)
+                        {
+                            failures.Add(name + ": the voice saying \"" + said + "\" moved the file's page " + (drift * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                                + " mm, its lines \"" + string.Join(" / ", page.Frame?.Lines.Select(line => line.Words) ?? Enumerable.Empty<string>()) + "\".");
+                        }
+                    }
+                    if (!held.PressUnderWay) failures.Add(name + ": a press under way ended as the voice said where it stands.");
+                    held.EndPressSince(float.MinValue);
+                    file.HoldEnded(FileScreens.SpeakAnswer, letGo: false);
+                    director.DrawNow();
+                    if (held.Label.text != VoiceText.HoldToTalk) failures.Add(name + ": the hold dropped, Hold to talk read \"" + held.Label.text + "\".");
+                }
+                else failures.Add(name + ": no Hold to talk on the question's page to watch as the voice speaks.");
                 Press(FileScreens.Choose, "0");
                 Press(FileScreens.NextQuestion);
                 ReadQuestion();
@@ -504,26 +535,6 @@ namespace Halcyonic.XR.Workspace.Editor
                 Press(FileScreens.NextQuestion);
                 if (!file.Screen.Question.Reviewing) failures.Add(name + ": the second prompt answered, Next question did not bring Your answers.");
 
-                // The voice says it listens, then writes down: on Hold to talk itself, so the page never grows and
-                // nothing under the hand moves; a press under way goes on.
-                if (plane.Shown.FirstOrDefault(shown => shown.Kind == MenuColumn.File).View is MenuFrameView page && page.Targets.FirstOrDefault() is GlazeButton held)
-                {
-                    var content = page.Parts[page.Parts.Count - 1].position;
-                    held.HoldPressForRender();
-                    file.HoldStarted(FileScreens.SpeakAnswer);
-                    foreach (var said in new[] { VoiceText.Listening, VoiceText.Hearing })
-                    {
-                        file.Said(said);
-                        director.DrawNow();
-                        var drift = Vector3.Distance(content, page.Parts[page.Parts.Count - 1].position);
-                        if (drift > 0.001f) failures.Add(name + ": the voice saying \"" + said + "\" moved the file's page " + (drift * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
-                    }
-                    if (!held.PressUnderWay) failures.Add(name + ": a press under way ended as the voice said where it stands.");
-                    held.EndPressSince(float.MinValue);
-                    file.HoldEnded(FileScreens.SpeakAnswer, letGo: false);
-                    director.DrawNow();
-                }
-                else failures.Add(name + ": no file's page to watch as the voice speaks.");
                 failures.AddRange(PlaneState(name + " your answers", folder, camera, texture, plane, characters, eyes, null));
                 // Drawn, Your answers counts as read: Send answer takes the press, once.
                 director.DrawNow();
