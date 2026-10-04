@@ -448,7 +448,7 @@ namespace Halcyonic.XR.Workspace
             var (grabYaw, grabElevation) = AnglesOf(point - eyes);
             // Last of all, the plane's own judgement, its light line included, from the geometry alone.
             drag = new MenuDrag(plane.Placed, moved, grabYaw, grabElevation, composition, bodies,
-                stage.SurfaceHeight is float surface ? eyes.y - surface : (float?)null, ViewField.Current,
+                stage.SurfaceHeight is float surface ? eyes.y - surface : (float?)null, MenuPlane.DragField,
                 offset => plane.Allows(MenuDrag.Turned(plane.Placed, offset)), plane.StageYaw);
             navigator.Moved();
         }

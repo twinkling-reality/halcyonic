@@ -549,6 +549,32 @@ namespace Halcyonic.XR.Workspace.Editor
                 director.DrawNow();
             }
 
+            // Before the headset's field is measured, a sweep aside still stops in reach of the stage, as in a Quest 3S's field.
+            if (plane.StageYaw is float centre)
+            {
+                var measured = ViewField.Current;
+                try
+                {
+                    ViewField.Current = null;
+                    held = subject.Subject.position;
+                    director.HoldSubjectForRender(held);
+                    if (!director.Dragging) failures.Add(name + ": held with no field measured, the file's subject took no hold of the plane.");
+                    for (var step = 1; step <= 170; step++) director.DragSubjectForRender(Turned(held, step * 1f, 0f));
+                    var off = Mathf.Abs(Mathf.DeltaAngle(centre, plane.Direction.Yaw));
+                    if (off > MenuPage.Quest3S.Right - ViewField.EdgeMarginDegrees + 0.01f)
+                    {
+                        failures.Add(name + ": swept aside with no field measured, the plane's centre stands " + GlazeChecks.Degrees(off) + " degrees from the stage's, past a Quest 3S's field.");
+                    }
+                    director.LetGoForRender();
+                }
+                finally
+                {
+                    ViewField.Current = measured;
+                }
+                director.ResetPosition();
+                director.DrawNow();
+            }
+
             // Dragged as far from the characters as it goes, then laid anew taller, a title in two rows: it
             // keeps only as much of the drag as still holds, so it stays inside the field and clear of every character.
             var title = subject.Frame!.Subject;
