@@ -628,6 +628,24 @@ namespace Halcyonic.XR.Workspace.Editor
             director.LetGoForRender();
             director.DrawNow();
 
+            // Pressed where a drag may start, then a confirmation standing by the time the hold matures: it drags nothing.
+            director.PressSubjectForRender();
+            confirm(true);
+            director.DrawNow();
+            director.MatureHoldForRender(subject.Subject.position);
+            if (director.Dragging) failures.Add(name + ": pressed before a confirmation stood, its hold dragged the plane once it matured with the confirmation standing.");
+            director.LetGoForRender();
+            confirm(false);
+            director.DrawNow();
+
+            // A press let go before its hold matured counts no more: a hold maturing later, with no press of its own, drags nothing.
+            director.PressSubjectForRender();
+            director.LetGoForRender();
+            director.MatureHoldForRender(subject.Subject.position);
+            if (director.Dragging) failures.Add(name + ": a press let go before its hold matured still dragged the plane when a hold matured later.");
+            director.LetGoForRender();
+            director.DrawNow();
+
             // Focus leaving ends a drag, and so does what stands on the plane changing under it.
             director.HoldSubjectForRender(subject.Subject.position);
             if (!director.Dragging) failures.Add(name + ": the file's subject, held, took no hold of the plane.");

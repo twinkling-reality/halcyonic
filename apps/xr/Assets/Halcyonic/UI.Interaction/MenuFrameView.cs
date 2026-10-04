@@ -105,7 +105,7 @@ namespace Halcyonic.XR.UI
         /// <summary>While the subject is held: the point the hand holds moved, to here in the world.</summary>
         public event Action<Vector3>? SubjectDragged;
 
-        /// <summary>The subject's hold ended, let go or cancelled.</summary>
+        /// <summary>The subject's press ended, let go or cancelled, whether or not its hold had matured: nothing pressed there counts any more.</summary>
         public event Action? SubjectLetGo;
 
         /// <summary>A held prompt, as Hold to talk, started.</summary>
@@ -478,10 +478,10 @@ namespace Halcyonic.XR.UI
             };
             subjectHold.Released += _ =>
             {
-                var held = subjectHolding;
                 subjectPressedAt = -1f;
                 subjectHolding = false;
-                if (held) SubjectLetGo?.Invoke();
+                // Every press's end, a short one's too, so what took the press lets go of it.
+                SubjectLetGo?.Invoke();
             };
             PlaceSubjectHold();
         }
