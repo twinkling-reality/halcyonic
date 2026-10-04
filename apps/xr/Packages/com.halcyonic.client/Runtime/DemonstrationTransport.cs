@@ -87,7 +87,7 @@ namespace Halcyonic.Client
         {
             DemonstrationAnswerKind.Approve => "Not sent to any agent; the recording continues as recorded for approving.",
             DemonstrationAnswerKind.Deny => "Not sent to any agent; the recording continues as recorded for denying.",
-            DemonstrationAnswerKind.Interrupt => "Not sent to any agent; the recording continues as recorded for stopping the turn.",
+            DemonstrationAnswerKind.Interrupt => "Not sent to any agent; the recording continues as recorded for stopping it.",
             DemonstrationAnswerKind.Answer => "Nothing is sent to an agent. The recording goes on as if you answered \u201C" + answer.Label + "\u201D.",
             _ => "Not sent to any agent; the recording continues as recorded for “" + answer.Label + "”.",
         };

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Halcyonic.Contracts;
@@ -199,6 +200,36 @@ public class FolderRefusalTests
         var use = (ProjectCreateCommand)sequence.Retry(Samples.Reviewed(sequence, folder: existing), folder: existing);
         Assert.That(use.Payload.Location, Is.InstanceOf<ExistingFolderChoice>());
         Assert.That(use.CommandId, Is.Not.EqualTo(create.CommandId));
+    }
+
+    /// <summary>
+    /// The review's probe Q5 (2026-10-04): a step of Start building, refused with any code or failed with
+    /// either effect, never shows the refusal's or the failure's message.
+    /// </summary>
+    [Test]
+    public void NoRefusalOrFailureMessageReachesAStepOfStartBuilding()
+    {
+        const string Leak = "OpenCode could not be reached: connect ECONNREFUSED 127.0.0.1:4096 (/Users/someone/project)";
+        foreach (RejectionCode code in Enum.GetValues(typeof(RejectionCode)))
+        {
+            var sequence = new BuildSequence(Draft("p1"), Commands, null);
+            var workstream = sequence.Begin(Samples.Reviewed(sequence));
+            sequence.Advance(With(Refused(workstream, code, Leak)));
+            Assert.That(EntryText.StepStatus(sequence.StoppedAt!), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), code.ToString());
+        }
+        foreach (FailureEffect effect in Enum.GetValues(typeof(FailureEffect)))
+        {
+            var sequence = new BuildSequence(Draft("p1"), Commands, null);
+            var workstream = sequence.Begin(Samples.Reviewed(sequence));
+            var start = sequence.Advance(With(Done(workstream, new WorkstreamCreatedResult { WorkstreamId = "w1" })))!;
+            sequence.Advance(With(new CommandView
+            {
+                CommandId = start.CommandId, Status = CommandStatus.Failed,
+                Failure = new CommandFailure { Code = "runtime_unreachable", Message = Leak, Effect = effect },
+            }));
+            var step = sequence.Steps.Single(each => each.Kind == BuildStepKind.StartWork);
+            Assert.That(EntryText.StepStatus(step), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode"), effect.ToString());
+        }
     }
 
     [Test]

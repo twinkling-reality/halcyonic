@@ -1324,6 +1324,90 @@ public class FileColumnTests
         ReadsTheWordsThenSends(host, column, LongInstruction);
     }
 
+    /// <summary>
+    /// The review's probe Q1a (2026-10-04): a heard instruction read whole at one text size is read again at
+    /// the next, from its first part, and a Yes pressed on the frame laid at the old size sends nothing.
+    /// </summary>
+    [Test]
+    public void AHeardInstructionReadWholeLocksAgainAtANewTextSize()
+    {
+        var host = new FileMenuHost();
+        var running = new WaitingWork();
+        running.Change(execution =>
+        {
+            execution.PendingApprovals.Clear();
+            execution.Status = ExecutionStatus.Running;
+        }, WorkstreamStatus.Running);
+        var column = Column(host, () => FileScreensTests.Offering(running.Present(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt));
+        column.HoldStarted(FileScreens.HoldToTalk);
+        column.Heard(LongInstruction);
+        void ReadAll()
+        {
+            for (var guard = 0; guard < 60 && !column.Steering.CanConfirm; guard++)
+            {
+                Draw(host, column);
+                if (!column.Steering.CanConfirm) column.Act(FileScreens.NextPart, FileScreens.RequestKey);
+            }
+        }
+        ReadAll();
+        Assert.That(column.Frame!.Footer[PromptSlot.Free]?.Id, Is.EqualTo(FileScreens.Yes), "read whole at the standard size");
+
+        host.TextSize = TextSize.Larger;
+        column.Act(FileScreens.Yes, null);
+        Assert.That(host.Sent, Is.Empty, "a Yes on the frame laid at the old size sends nothing");
+        Assert.That((column.Steering.Armed, column.Steering.CanConfirm, column.Screen.RequestPart), Is.EqualTo(((WorkspaceAction?)WorkspaceAction.Instruct, false, 0)),
+            "still armed, locked again, from its first part");
+        Assert.That(column.Frame!.Footer[PromptSlot.Free], Is.Null);
+        Draw(host, column);
+        Assert.That(column.Steering.CanConfirm, Is.False, "the first part at the new size alone does not unlock it");
+        ReadAll();
+        column.Act(FileScreens.Yes, null);
+        Assert.That(((ExecutionSendInstructionCommand)host.Sent.Single()).Payload.Text, Is.EqualTo(LongInstruction));
+    }
+
+    /// <summary>
+    /// The review's probe Q5 (2026-10-04): the file's line of what this headset sent last never shows a
+    /// refusal's or a failure's message, whichever code or effect, on Activity or anywhere it is presented.
+    /// </summary>
+    [Test]
+    public void NoRefusalOrFailureMessageReachesTheFilesLineOfWhatWasSent()
+    {
+        const string Leak = "OpenCode could not be reached: connect ECONNREFUSED 127.0.0.1:4096 (/Users/someone/project)";
+        var recorded = new List<CommandView>();
+        foreach (RejectionCode code in Enum.GetValues(typeof(RejectionCode)))
+        {
+            if (code == RejectionCode.Demonstration) continue;
+            recorded.Add(new CommandView
+            {
+                CommandId = "c-" + code, CommandType = CommandType.ExecutionSendInstruction, Status = CommandStatus.Rejected, ExecutionId = "e1",
+                IssuedAt = Samples.Time, UpdatedAt = Samples.Time, Rejection = new CommandRejection { Code = code, Message = Leak },
+            });
+        }
+        foreach (FailureEffect effect in Enum.GetValues(typeof(FailureEffect)))
+        {
+            foreach (var type in new[] { CommandType.ExecutionSendInstruction, CommandType.ExecutionAnswerQuestion, CommandType.ExecutionInterrupt })
+            {
+                recorded.Add(new CommandView
+                {
+                    CommandId = "c-" + effect + type, CommandType = type, Status = CommandStatus.Failed, ExecutionId = "e1",
+                    IssuedAt = Samples.Time, UpdatedAt = Samples.Time, Failure = new CommandFailure { Code = "runtime_unreachable", Message = Leak, Effect = effect },
+                });
+            }
+        }
+        foreach (var command in recorded)
+        {
+            Assert.That(WorkspacePresenter.Feedback(command).Text, Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode").And.Not.Contain("/Users/"),
+                command.CommandId);
+            var work = new AskingWork();
+            work.Record(command);
+            var host = new FileMenuHost();
+            var column = Column(host, () => work.Present());
+            column.Act(MenuFrame.ChooseSection, "activity");
+            Assert.That(column.Frame!.Lines.Select(line => line.Words), Has.None.Contains("ECONNREFUSED").And.None.Contains("OpenCode"), command.CommandId);
+            Assert.That(column.Frame!.Lines.Select(line => line.Words), Has.Some.EqualTo(WorkspacePresenter.Feedback(command).Text), "the line shows, in its own words");
+        }
+    }
+
     [Test]
     public void AShortHeardInstructionShowsWholeAndItsYesWaitsOnlyForItsDrawing()
     {
@@ -1407,6 +1491,9 @@ public class FileColumnTests
         // Two labels, two answers.
         question.Prompts[0].Options[1].Label = "Yes, delete it";
         Assert.That(WorkspaceText.Answerable(question), Is.True);
+        // Labels differing only in case are two answers to admission, which compares them as written.
+        question.Prompts[0].Options[1].Label = "yes";
+        Assert.That((WorkspaceText.OffersALabelTwice(question.Prompts[0]), WorkspaceText.Answerable(question)), Is.EqualTo((false, true)));
     }
 
     [Test]

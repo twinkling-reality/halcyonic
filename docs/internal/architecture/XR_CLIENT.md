@@ -120,8 +120,8 @@ the same definition names, as the JSON Schema document:
   same id, then reports its real state. A command's outcome arrives later as events in `State`.
 - **`CharacterPresenter`** maps a workstream to what its character conveys: an activity, the
   state's word (never color alone), the attention level with one explanation per reason, the same
-  reasons without what the state already says (`AttentionDetails`, for the peek: "The model
-  provider rejected the request." under Couldn't finish), and flags for simulated work, recorded
+  reasons without what the state already says (`AttentionDetails`, for the peek: "Tell it to
+  try again, or what to do instead." under Couldn't finish), and flags for simulated work, recorded
   fixture data, and a stale state while the session is not live. Reasons read "It wants to use
   {tool}: {summary}", "Couldn't finish this round. {next step}", "Can't tell what it's doing: {why}" and
   "Checks: {summary}"; a question's is `AsksYou`. Why it can't tell is said from the reason's code
@@ -255,7 +255,8 @@ the same definition names, as the JSON Schema document:
   reading, since refusing what one has not read in full can do no harm. Instruct asks for text
   first, and an empty text sends nothing. A typed instruction is sent as the keyboard closes, unless
   the policy asks for review; a spoken one (`Spoken`) is always held for the confirmation, which
-  reads "Your computer heard: ... Send it?" with the text, so a mishearing is never sent unread. An
+  reads "Your computer heard the words above. Send them?" under the words, read in parts, so a
+  mishearing is never sent unread. An
   armed instruction is read as a request is: its words, quoted (`ToRead`), must all have shown before
   Yes sends them (`CanConfirm`), and a confirmation before then sends nothing and stays armed. This
   holds for typed words too, the person's own, since Yes sends only words shown and a policy's review
@@ -2235,7 +2236,7 @@ instruction; typing always stays:
   the first task, the name or a new folder's); heard words land where words are given, an idea
   saying "This is what your computer heard. Check it before you go on.", and nothing is sent until
   Start building and the review. In an open workspace, at the end of the action row when the work takes
-  instructions and the row has room; a heard instruction always asks "Your computer heard: ... Send it?".
+  instructions and the row has room; a heard instruction always asks "Your computer heard the words above. Send them?" under the words, once all its parts are read.
   Never in the recorded demonstration, and never for approve, deny, stop or any
   confirmation.
 - **Release builds carry none of it.** The microphone code compiles only with `DEVELOPMENT_BUILD`
