@@ -159,7 +159,7 @@ namespace Halcyonic.Client
         private static Prompt Action(WorkspaceAction action, string id, bool main = false) =>
             new Prompt(id, WorkspaceText.Label(action), WorkspaceText.IconOf(action), main: main);
 
-        private static Prompt Talk(FileScreen screen) => new Prompt(HoldToTalk, TalkWords(screen), TalkIcon(screen), holds: true);
+        private static Prompt Talk(FileScreen screen) => new Prompt(HoldToTalk, TalkWords(screen), TalkIcon(screen), holds: true, alsoReads: VoiceText.TalkReads);
 
         /// <summary>Hold to talk's words: where the voice stands while it listens or writes down, else its own.</summary>
         internal static string TalkWords(FileScreen screen) => screen.Voice ?? VoiceText.HoldToTalk;

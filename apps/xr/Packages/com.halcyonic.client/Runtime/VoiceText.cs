@@ -1,5 +1,7 @@
 #nullable enable
 
+using System.Collections.Generic;
+
 namespace Halcyonic.Client
 {
     /// <summary>
@@ -18,6 +20,9 @@ namespace Halcyonic.Client
 
         /// <summary>Hold to talk's own words while the computer writes down what was said.</summary>
         public const string WritingDownWords = "Writing down";
+
+        /// <summary>The words Hold to talk shows in place of its own, laid at the widest so it never changes width under the hand.</summary>
+        public static readonly IReadOnlyList<string> TalkReads = new[] { ListeningWords, WritingDownWords };
         public const string HeardNote = "This is what " + HostText.Your + " heard. Check it before you go on.";
         public const string HeardAnswer = "This is what " + HostText.Your + " heard. Check it, then press Send answer.";
 

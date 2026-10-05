@@ -527,6 +527,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     && page.Targets.FirstOrDefault(button => button.Label.text == VoiceText.HoldToTalk) is GlazeButton held)
                 {
                     var content = page.Parts[page.Parts.Count - 1].position;
+                    // Laid at the widest of its words, Hold to talk keeps its width and its cap where the hand holds it.
+                    var (wide, at) = (held.Width, held.transform.position);
                     held.HoldPressForRender();
                     file.HoldStarted(FileScreens.SpeakAnswer);
                     foreach (var (said, shows) in new[] { (VoiceText.Listening, VoiceText.ListeningWords), (VoiceText.Hearing, VoiceText.WritingDownWords) })
@@ -534,6 +536,11 @@ namespace Halcyonic.XR.Workspace.Editor
                         file.Said(said);
                         director.DrawNow();
                         if (held.Label.text != shows) failures.Add(name + ": the voice saying \"" + said + "\", Hold to talk read \"" + held.Label.text + "\", not \"" + shows + "\".");
+                        if (Mathf.Abs(held.Width - wide) > 1e-4f || Vector3.Distance(held.transform.position, at) > 0.0005f)
+                        {
+                            failures.Add(name + ": the voice saying \"" + said + "\", Hold to talk changed width by " + ((held.Width - wide) * Glaze.Menu.PlaneMeters * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+                                + " mm or moved " + (Vector3.Distance(held.transform.position, at) * 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " mm under the hand.");
+                        }
                         var drift = Vector3.Distance(content, page.Parts[page.Parts.Count - 1].position);
                         if (drift > 0.001f)
                         {

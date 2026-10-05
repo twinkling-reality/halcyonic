@@ -427,9 +427,15 @@ the same definition names, as the JSON Schema document:
   a time, else none (`MenuDrag.Kept`, `MenuPlane.Allows`, which judges the light line from the
   geometry alone), and the menu stands beside the file, or a side panel beside its frame, only where
   the two fit where the plane will stand, the layout decided again at the part of the drag kept; with
-  none of it kept, Settings says "Where it stands". A re-lay that moves a column, a drag's start and
-  its end each make that column's prompts wait to settle again, ending any press under way, so a
-  prompt pressed under a moving plane, Hold to talk among them, takes nothing.
+  none of it kept, Settings says "Where it stands". Only a move the drag causes makes a column's
+  prompts wait to settle again: the plane following the hand, less of the drag kept as the plane is
+  laid anew, or another layout standing where it was; a re-lay that follows the stage or new content,
+  as a file grown taller, never does. A press ends only at a drag's start, every press under way, and
+  at its end, those begun under it (`MenuPlane.UnsettleShown`), so a prompt pressed under a moving
+  plane, Hold to talk among them, takes nothing. Placement and a drag's rules read each character's
+  body at the lift its motion holds, risen while it waits, never its hop, bob or breath
+  (`CharacterTarget.RestPosition`, `CharacterView.HeldLift`), so the plane never follows the
+  animation and a waiting character's rise stays clear of it.
   A step is taken only where the plane stays inside the measured field, its centre in that field as
   seen with the head turned to the stage's centre (`MenuDrag.WithinReach`), clear of every character's
   body and label (`WorkspacePlacement.Clears`) and with its light line crossing none, as seen against
@@ -451,7 +457,9 @@ the same definition names, as the JSON Schema document:
   where before its cap sank only once the hold had started. Painting changes nothing of when a hold
   starts or what it raises. It runs
   Hold to talk's one voice for any held
-  prompt, and passes presses and holds only while the app has focus. A draw while focus is away or
+  prompt (in a file, Hold to talk itself reads "Listening" while it records and "Writing down" while the
+  computer writes down what was said, laid at the widest of its three
+  words so it never changes width under the hand, `Prompt.AlsoReads`; no line grows the page for it), and passes presses and holds only while the app has focus. A draw while focus is away or
   the plane is folded counts for nothing, and the plane draws again on return, so a column learns
   what was read only while the person is there. While the menu is open or a file stands on the plane
   it covers the stage's banner's place (`AmbientCover`, a panel), so the banner steps aside and a

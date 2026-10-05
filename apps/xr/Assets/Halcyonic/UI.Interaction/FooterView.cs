@@ -63,13 +63,13 @@ namespace Halcyonic.XR.UI
             return view;
         }
 
+        /// <summary>The footer drawn last, for the renders' check that every prompt a frame offers is drawn.</summary>
+        public Footer? Showing { get; private set; }
+
         /// <summary>
         /// Shows <paramref name="footer"/> on the row at <paramref name="middle"/>, between the content
         /// lines at <paramref name="left"/> and <paramref name="right"/>, in its parent's units.
         /// </summary>
-        /// <summary>The footer drawn last, for the renders' check that every prompt a frame offers is drawn.</summary>
-        public Footer? Showing { get; private set; }
-
         public void Show(Footer footer, float left, float right, float middle)
         {
             Showing = footer;
@@ -88,7 +88,9 @@ namespace Halcyonic.XR.UI
                 var button = Button(index);
                 button.Holds = prompt.Holds;
                 button.Available = prompt.Available;
+                // As wide as the widest words it may show, so a hold that changes them never moves its cap.
                 widths[index] = button.MeasurePrompt(prompt.Words, prompt.DrawnAsMain);
+                foreach (var words in prompt.AlsoReads) widths[index] = Mathf.Max(widths[index], button.MeasurePrompt(words, prompt.DrawnAsMain));
             }
 
             // From the left: Close, then the rare action. From the right: the far right, then the secondary.
