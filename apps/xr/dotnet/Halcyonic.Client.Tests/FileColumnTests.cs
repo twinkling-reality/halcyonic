@@ -1098,11 +1098,13 @@ public class FileColumnTests
         column.Said(VoiceText.Hearing);
         Assert.That(Talk(), Is.EqualTo(VoiceText.WritingDownWords));
         Assert.That(TalkWaits(), Is.True, "writing down is under way, so Hold to talk shimmers");
+        Assert.That(Held()!.Icon, Is.EqualTo(GlazeIcon.WritingDown));
         Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(lines));
 
         column.Heard("Ten minutes");
         Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk), "the words came, so it waits to be held again");
         Assert.That(TalkWaits(), Is.False, "and stops shimmering");
+        Assert.That(Held()!.Icon, Is.EqualTo(GlazeIcon.HoldToTalk));
 
         // Held, then dropped: back to Hold to talk; what the voice says otherwise is a notice.
         column.HoldStarted(FileScreens.SpeakAnswer);
