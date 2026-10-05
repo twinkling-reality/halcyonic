@@ -94,6 +94,8 @@ ICONS = {
     "PackageFile": "deployed_code",
     "Folder": "folder",
     "OpensMore": "chevron_right",
+    # Hold to talk let go, while what was said is written down (ADR 0027): speech becoming text.
+    "WritingDown": "transcribe",
 }
 
 

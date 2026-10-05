@@ -57,7 +57,7 @@ current pages before this is accepted.
    The plane draws the held prompt from that, so every column's Hold to talk looks the same:
    - pressed: the lit treatment every held prompt has from its press;
    - listening: the active tone, its microphone pulsing, "Listening";
-   - writing down: the pen icon, its words shimmering, "Writing down".
+   - writing down: the transcribe icon (speech becoming text), its words shimmering, "Writing down".
 5. **Reduced motion.** "Keep badges still" becomes the one reduced-motion setting. It stops every loop
    (the breath, the turning, the pulse and the shimmer), and the state each shows stays by colour,
    icon and words alone. Presses and slides keep their feedback, which the person caused.
