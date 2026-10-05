@@ -264,6 +264,22 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (!pressing.PressUnderWay) failures.Add(name + ": a press under way ended as the characters hopped.");
                     pressing.EndPressSince(float.MinValue);
                     director.DrawNow();
+
+                    // The file grows taller with no drag: laid again where the stage puts it, its prompts take
+                    // presses as before. Only a drag's move makes them wait to settle.
+                    var oneRow = fileTitle;
+                    var oneRowAt = bobbing.Parts.Select(part => part.position).ToList();
+                    fileTitle = oneRow + ", and keep a record of every lockout for the security review at the end of the month";
+                    file?.Change();
+                    director.DrawNow();
+                    if (!bobbing.Parts.Where((part, index) => index < oneRowAt.Count && Vector3.Distance(part.position, oneRowAt[index]) > 0.001f).Any())
+                    {
+                        failures.Add(name + ": a title in two rows moved none of the file's parts.");
+                    }
+                    if (bobbing.Unsettles != waited) failures.Add(name + ": the file grown taller with no drag made its prompts wait to settle, refusing presses.");
+                    fileTitle = oneRow;
+                    file?.Change();
+                    director.DrawNow();
                 }
                 else failures.Add(name + ": no file with a prompt to press stands on the plane while the characters hop.");
 
