@@ -165,7 +165,7 @@ namespace Halcyonic.Client
         internal static string TalkWords(FileScreen screen) => screen.Voice ?? VoiceText.HoldToTalk;
 
         /// <summary>The microphone while it waits or listens; the pen on a note while what was said is written down.</summary>
-        internal static GlazeIcon TalkIcon(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords ? GlazeIcon.KeepCreating : GlazeIcon.HoldToTalk;
+        internal static GlazeIcon TalkIcon(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords ? GlazeIcon.WritingDown : GlazeIcon.HoldToTalk;
 
         /// <summary>Hold to talk shimmers while what was said is written down, a wait; listening is the person talking, no wait.</summary>
         internal static bool TalkWaits(FileScreen screen) => screen.Voice == VoiceText.WritingDownWords;
