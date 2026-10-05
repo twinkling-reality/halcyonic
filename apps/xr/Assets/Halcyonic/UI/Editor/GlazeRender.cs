@@ -984,6 +984,7 @@ namespace Halcyonic.XR.UI.Editor
                 (GlazeIcon.TellIt, WorkspaceText.Label(WorkspaceAction.Instruct), ButtonRole.Secondary, false, true),
                 (GlazeIcon.SendAnswer, WorkspaceText.Label(WorkspaceAction.Answer), ButtonRole.Primary, false, true),
                 (GlazeIcon.HoldToTalk, VoiceText.HoldToTalk, ButtonRole.Secondary, false, true),
+                (GlazeIcon.WritingDown, VoiceText.WritingDownWords, ButtonRole.Secondary, false, true),
                 (GlazeIcon.Type, ProjectIdea.Questions[0].TypeLabel, ButtonRole.Secondary, false, true),
                 (GlazeIcon.StartBuilding, EntryText.StartBuilding, ButtonRole.Primary, false, true),
                 (GlazeIcon.StartOver, EntryText.StartOver, ButtonRole.Destructive, false, true),
