@@ -19,6 +19,7 @@ namespace Halcyonic.XR.UI
 
         private readonly GlazeButton?[] buttons = new GlazeButton?[Slots];
         private readonly Prompt?[] shown = new Prompt?[Slots];
+        private readonly GlazeShimmer?[] shimmers = new GlazeShimmer?[Slots];
         private int order;
 
         /// <summary>A prompt was pressed: its id says what to do.</summary>
@@ -41,6 +42,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>The button showing the prompt in <paramref name="slot"/>, or null.</summary>
         public GlazeButton? this[PromptSlot slot] => shown[(int)slot] != null ? buttons[(int)slot] : null;
+
+        /// <summary>The shimmer on the words of the prompt in <paramref name="slot"/>, or null: lit while that prompt waits (ADR 0027).</summary>
+        public GlazeShimmer? ShimmerOf(PromptSlot slot) => shown[(int)slot] != null ? shimmers[(int)slot] : null;
 
         /// <summary>Every prompt showing, left to right.</summary>
         public IEnumerable<(PromptSlot Slot, GlazeButton Button)> Shown
@@ -83,9 +87,12 @@ namespace Halcyonic.XR.UI
                 if (prompt == null)
                 {
                     buttons[index]?.Hide();
+                    if (shimmers[index] is GlazeShimmer still) still.Waits = false;
                     continue;
                 }
                 var button = Button(index);
+                // A prompt whose words say what is under way, as Sent… or Hold to talk writing down, shimmers.
+                shimmers[index]!.Waits = prompt.Waits;
                 button.Holds = prompt.Holds;
                 button.Available = prompt.Available;
                 // As wide as the widest words it may show, so a hold that changes them never moves its cap.
@@ -134,6 +141,7 @@ namespace Halcyonic.XR.UI
             {
                 shown[index] = null;
                 buttons[index]?.Hide();
+                if (shimmers[index] is GlazeShimmer still) still.Waits = false;
             }
         }
 
@@ -160,6 +168,7 @@ namespace Halcyonic.XR.UI
                 if (shown[index] is Prompt prompt) HoldEnded?.Invoke(prompt, letGo);
             };
             buttons[index] = button;
+            shimmers[index] = GlazeShimmer.On(button.Label);
             return button;
         }
     }

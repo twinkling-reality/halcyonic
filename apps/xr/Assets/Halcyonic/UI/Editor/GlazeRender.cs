@@ -161,6 +161,7 @@ namespace Halcyonic.XR.UI.Editor
                 failures.AddRange(TypeStepsDownCatchesARise());
                 failures.AddRange(TypeStepsDownReadsThePillWithItsSubject());
                 failures.AddRange(OneSelectionTreatmentCatchesEachBreak());
+                failures.AddRange(Motion(folder, camera, texture));
                 MeasureFooters();
             }
             catch (Exception error)
