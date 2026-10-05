@@ -30,6 +30,15 @@ public class MenuFrameTests
     }
 
     [Test]
+    public void APromptKeepsTheOtherWordsItMayShowAndRefusesBlankOnes()
+    {
+        Assert.That(Action("plain").AlsoReads, Is.Empty);
+        var talk = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true, alsoReads: VoiceText.TalkReads);
+        Assert.That(talk.AlsoReads, Is.EqualTo(new[] { VoiceText.ListeningWords, VoiceText.WritingDownWords }));
+        Assert.Throws<ArgumentException>(() => _ = new Prompt("talk", VoiceText.HoldToTalk, GlazeIcon.HoldToTalk, holds: true, alsoReads: new[] { " " }));
+    }
+
+    [Test]
     public void AFooterStandsEachPromptInItsPlaceLeftToRight()
     {
         var footer = new Footer(Close, rare: Action("stop"), secondary: Action("deny"), farRight: Action("approve", main: true));

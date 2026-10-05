@@ -353,8 +353,9 @@ namespace Halcyonic.Client
         /// side panel takes the frame's place, as a setting's change does; its column says so, and nothing
         /// else is carried there but Close details, paging and Cancel (<see cref="Footer.InPlace"/>).
         /// </param>
+        /// <param name="alsoReads">The words it shows in place of <paramref name="words"/> as its state changes, as Hold to talk's while the voice listens or writes down.</param>
         public Prompt(string id, string words, GlazeIcon icon, PromptKind kind = PromptKind.Action, bool main = false, bool available = true,
-            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false)
+            string? reason = null, bool holds = false, bool pageExplains = false, bool safeInPlace = false, IReadOnlyList<string>? alsoReads = null)
         {
             if (string.IsNullOrEmpty(id)) throw new ArgumentException("A prompt raises an id.", nameof(id));
             if (string.IsNullOrWhiteSpace(words)) throw new ArgumentException("A prompt has its words.", nameof(words));
@@ -375,6 +376,8 @@ namespace Halcyonic.Client
             Holds = holds;
             PageExplains = pageExplains;
             SafeInPlace = safeInPlace;
+            AlsoReads = alsoReads ?? Array.Empty<string>();
+            if (AlsoReads.Any(string.IsNullOrWhiteSpace)) throw new ArgumentException("Every word a prompt may read is words.", nameof(alsoReads));
         }
 
         public string Id { get; }
@@ -398,6 +401,12 @@ namespace Halcyonic.Client
 
         /// <summary>Its frame's side panel shows everything it acts on, so it may be carried there when the side panel takes the frame's place.</summary>
         public bool SafeInPlace { get; }
+
+        /// <summary>
+        /// The words it shows in place of <see cref="Words"/> as its state changes; the view lays it at the
+        /// widest of them all, so it never changes width under the hand.
+        /// </summary>
+        public IReadOnlyList<string> AlsoReads { get; }
 
         /// <summary>Drawn as the main action: the accent on its cap and words. An unavailable main action keeps its place but is drawn quiet.</summary>
         public bool DrawnAsMain => Main && Available;

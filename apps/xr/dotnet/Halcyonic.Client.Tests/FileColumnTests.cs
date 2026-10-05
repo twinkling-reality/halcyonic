@@ -1083,6 +1083,8 @@ public class FileColumnTests
         string? Talk() => column.Frame!.Footer.All.Select(each => each.Prompt).FirstOrDefault(prompt => prompt.Id == FileScreens.SpeakAnswer)?.Words;
         var lines = column.Frame!.Lines.Select(line => line.Words).ToList();
         Assert.That(Talk(), Is.EqualTo(VoiceText.HoldToTalk));
+        var reads = column.Frame!.Footer.All.Select(each => each.Prompt).First(prompt => prompt.Id == FileScreens.SpeakAnswer).AlsoReads;
+        Assert.That(reads, Is.EquivalentTo(new[] { VoiceText.ListeningWords, VoiceText.WritingDownWords }), "laid at the widest of every word it shows, so its width never changes under the hand");
 
         column.HoldStarted(FileScreens.SpeakAnswer);
         column.Said(VoiceText.Listening);

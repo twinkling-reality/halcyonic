@@ -346,7 +346,8 @@ namespace Halcyonic.XR.Workspace
                 var laid = Composition;
                 Moved = MenuDrag.Kept(offset, kept => Allows(laid, MenuDrag.Turned(Placed, kept)));
                 // At most three passes: should the third still keep less, the plane stands at the part kept,
-                // which every rule allows for what is laid, with the layout chosen at the pass before.
+                // with the layout chosen at the pass before. That part is one every rule allows for what is laid,
+                // unless it is none: Kept never judges the placement itself, which the stage chose, not the drag.
                 if (Moved == offset || pass == 2) break;
                 offset = Moved;
             }
