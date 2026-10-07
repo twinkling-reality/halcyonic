@@ -4,7 +4,7 @@
   person must see what an agent needs, answer it, understand what it did and start new work, and
   which of those patterns fit a seated, hands-first Quest app whose workspace today puts a title,
   tabs, a second row of controls, an answer, a pager and an action bar on one 44 by 26 degree panel?
-- **Date:** 2026-10-02.
+- **Date:** 2026-10-02; the owner's references for the feel of the whole app added 2026-10-07.
 - **Method:** Apple's visionOS Human Interface Guidelines (read through their JSON data files),
   Apple's WWDC23 spatial design sessions and SwiftUI and RealityKit reference pages; Meta's Horizon
   OS design pages and a Meta blog post; Android XR's design guides and Jetpack XR reference; the
@@ -264,6 +264,55 @@ from the eyes looking at it, square to that line, as the headset draws what a pe
   and tips it only by `WorkspacePlacement.ReadingPitch`, at most 8 degrees; the earlier renders had
   allowed 18. So checked, the menu and a file reach 41.8 degrees below the view's middle, of the 43.5
   the field holds less its margin, and 39.0 to the side, of 46.5; a file alone 37.7 and 23.8.
+
+### The owner's references for the feel of the whole app
+
+Added on 2026-10-07. The owner shared these for the feel of the whole app, then said they are for the
+aesthetic only, never for features: a contextual, diegetic interface, as if wearing an advanced one in
+the spirit of Iron Man's helmet, clean and organized, calm until needed. Read in a browser the same
+day. No image was copied, and the two images the owner shared stay outside the repository.
+
+- **Star Citizen** (Jono Yuen, *Star Citizen - UI Revisited (part 1)*, HUDS+GUIS, 2023-03-19,
+  [hudsandguis.com](https://www.hudsandguis.com/home/star-citizen-revisited-part-1)). The text
+  describes a holographic card interface that wraps round the player like a desk, builds up as the
+  player moves into position, stacks new information as rows above what is there, keeps a limited
+  palette that marks the current selection, and brings a selected item up toward the player rather
+  than pressing it down. Of 45 ship cockpits it notes shared components combined differently per
+  ship, each with its own design and slight colour changes; of the in-world screens, a shared shape,
+  outline, iconography, detail and colour. The embedded video was not played.
+- **Death Stranding** ([Interface In Game](https://interfaceingame.com/games/death-stranding/),
+  screenshots only). The first screen is the title over the world with a short list. The world map
+  marks each place with a ring and states its condition above it on a thin line (connect, connection
+  refused). An object you can use carries a marker on a thin line with its name. The cargo screen
+  keeps the person in the middle, a list at the left and details at the right.
+- **Detroit: Become Human** ([Interface In Game](https://interfaceingame.com/games/detroit-become-human/),
+  objectives and hit marks). While the player analyses, the world turns a cool, desaturated grey, a
+  translucent card stands beside the evidence it describes, and objectives float as a short stack in
+  the room; one accent colour, small numbers in thin type.
+- **Titanfall 2** (the owner's image of the Titan HUD; the pilot HUD on
+  [Interface In Game](https://interfaceingame.com/games/titanfall-2/)). The HUD sits on the cockpit's
+  frame and leaves the middle clear; abilities run along the bottom with their button glyphs; a
+  card with a speaker's face appears only while someone speaks.
+- **An AR running HUD** (the owner's image, already in [heads-up-guidance.md](heads-up-guidance.md)):
+  the road stays clear in the middle, with a few facts at the edges.
+- **A reel of an agentic mixed reality setup** (rndyrbrts,
+  [Instagram](https://www.instagram.com/p/DeIVu3cOylp/), posted 2026-10-06). Watched without signing
+  in, after closing the sign-up prompt, muted and frame by frame, so its voices were not heard. Small
+  characters, each with its own silhouette, colours and features, float at different depths, fly
+  with soft trails, gather round the object they work on, and one comes close to the viewer to hand
+  over a ball. Labels hang on thin lines from a glowing point; a character's speech is captioned
+  under its name.
+- **Iron Man 3's helmet display** (Cantina Creative, in
+  [CGW](https://www.cgw.com/Press-Center/Web-Exclusives/2013/Cantina-Creative-Gives-Iron-Man-3-a-Heads-Up-.aspx),
+  2013-05-22, the text only). The team moved from 2D graphic elements in 3D space toward a
+  holographic look of volumetric light with true depth, with a miniature model of the suit inside
+  the display.
+- **Meta's passthrough colour adjustment.** `OVRPassthroughLayer` lists
+  `SetBrightnessContrastSaturation` among its colour controls in Meta's Unity reference, and Meta's
+  [colour mapping guide](https://developers.meta.com/horizon/documentation/unity/unity-customize-passthrough-color-mapping/)
+  (no date shown) says colour adjustment changes brightness, contrast and saturation, saturation only
+  on devices with colour passthrough, and that the colour controls are mutually exclusive. Neither
+  gives a cost or comfort guidance.
 
 ## Patterns these share
 
