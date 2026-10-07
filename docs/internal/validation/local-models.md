@@ -402,17 +402,24 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
     time the rollout was written just after the start returned. The probe now also watches every
     process running the binary, wherever it was started from.
 
+  - **2026-10-07, at `dced6316`** (after the review's last findings), on `qwen3:4b-instruct`,
+    1-minute load about 40 and swap 8.9 of 10.2 GB in use from other work: passed in 92 s. 133
+    samples, 104 through startup and idle (fewer than before, the Mac being busy, still more
+    than one a second), nothing beyond loopback, two connections to Ollama, the turn completed,
+    no MCP server, no trust; the model was unloaded afterwards.
+
 ### Before Codex is registered on a Mac (2026-10-07)
 
-End to end tests on the pinned 0.157.0, in the suite, at `160477a7` and `77110f68`, with the
-fake provider on loopback unless said; all passed:
+End to end tests on the pinned 0.157.0, in the suite, at `160477a7` and `77110f68`, and all of
+them again at `dced6316` (26 tests, all passing), with the fake provider on loopback unless said:
 
 - **E1, the settings applied:** in a fresh home with no configuration, launched with the adapter's
   arguments, `config/read` reported every local-only setting and `configRequirements/read`
   answered `{"requirements": null}`.
 - **E3, a control for the probe:** a bare app-server in a fresh home without the settings held an
   established connection from `codex` to 104.18.32.47:443, a Cloudflare address, within half a
-  second, and the probe saw it. So a probe that sees nothing beyond loopback could have seen
+  second, and the probe saw it; at `dced6316` it saw `git-remote-https`, a child of Codex, holding
+  a connection to 140.82.113.4:443 (GitHub) within two seconds, the plugin sync the switches stop. So a probe that sees nothing beyond loopback could have seen
   something. Skipped when `github.com` does not resolve.
 - **E2, a project's own settings:** in a git repository whose `.codex/config.toml` starts an MCP
   server that appends to a file, with the project trusted in the home, a bare app-server started
