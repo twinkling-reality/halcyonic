@@ -29,7 +29,7 @@ import {
 } from './codex-runtime.ts';
 import { isRecord } from './events.ts';
 import { RpcConnection } from './rpc.ts';
-import { buildEnvironment } from './server.ts';
+import { APP_SERVER_ARGUMENTS, buildEnvironment } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_QUESTION, type FakeProviderOptions, PATCH_CONTENT } from './testing/fake-provider.ts';
@@ -167,6 +167,7 @@ async function harness(
   const sandbox = await createSandbox(BINARY, setup.provider);
   const runtime = new CodexRuntimeAdapter({
     binaryPath: BINARY,
+    codexHome: sandbox.codexHome,
     serverRecordFile: sandbox.recordFile,
     directoryPolicy: allowOnly(sandbox.project),
     env: sandbox.env,
@@ -203,7 +204,7 @@ async function readThread(
 ): Promise<Record<string, unknown>> {
   const child = spawn(BINARY, ['app-server'], {
     cwd: sandbox.root,
-    env: buildEnvironment(process.env, sandbox.env),
+    env: buildEnvironment(process.env, sandbox.env, sandbox.codexHome),
     stdio: ['pipe', 'pipe', 'ignore'],
   });
   const exited = new Promise((resolve) => child.once('exit', resolve));
@@ -248,7 +249,7 @@ async function rawQuestionTurn(
 ): Promise<RawQuestionRun> {
   const child = spawn(BINARY, ['app-server'], {
     cwd: sandbox.root,
-    env: buildEnvironment(process.env, sandbox.env),
+    env: buildEnvironment(process.env, sandbox.env, sandbox.codexHome),
     stdio: ['pipe', 'pipe', 'ignore'],
   });
   const exited = new Promise((resolve) => child.once('exit', resolve));
@@ -310,6 +311,7 @@ async function crashHost(t: TestContext, sandbox: CodexSandbox, marker: string) 
       CRASH_HOST,
       JSON.stringify({
         binaryPath: BINARY,
+        codexHome: sandbox.codexHome,
         recordFile: sandbox.recordFile,
         env: sandbox.env,
         directory: sandbox.project,
@@ -397,7 +399,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       const pid = runtime.serverPid;
       assert.ok(pid !== null);
       const identity = await readProcessIdentity(pid);
-      assert.equal(identity?.command, `${BINARY} app-server`);
+      assert.equal(identity?.command, [BINARY, ...APP_SERVER_ARGUMENTS].join(' '));
       assert.equal(identity?.groupId, pid, 'the server leads its own process group');
       const record = JSON.parse(readFileSync(sandbox.recordFile, 'utf8')) as Record<
         string,
@@ -977,6 +979,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       assert.equal(markerLines(marker), after);
       const runtime = new CodexRuntimeAdapter({
         binaryPath: BINARY,
+        codexHome: sandbox.codexHome,
         serverRecordFile: sandbox.recordFile,
         directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,
@@ -1032,6 +1035,7 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
 
       const runtime = new CodexRuntimeAdapter({
         binaryPath: BINARY,
+        codexHome: sandbox.codexHome,
         serverRecordFile: sandbox.recordFile,
         directoryPolicy: allowOnly(sandbox.project),
         env: sandbox.env,

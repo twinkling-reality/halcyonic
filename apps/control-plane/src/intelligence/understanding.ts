@@ -22,16 +22,34 @@ export interface SalidiumUnderstandingOptions {
 }
 
 /**
+ * The runtimes whose sessions Halcyonic keeps in a home of its own, which neither Salidium nor
+ * Seorak reads: Codex, in `<data dir>/codex-home` since 2026-10-07. Salidium reads one Codex home,
+ * the person's, and Seorak one sessions folder (understanding-and-evaluation.md), so a question
+ * about such a session is answered without asking either, and no credential is read for it.
+ */
+export const KEPT_IN_HALCYONICS_HOME: ReadonlySet<string> = new Set(['codex']);
+
+/**
  * Salidium as the understanding source. The credential file is read again on every read, so
  * creating, replacing or deleting it takes effect without a restart, and a file other users can
  * read is refused rather than used. For Claude Code and Codex it is read before Salidium is found,
  * so a missing credential is said first; for OpenCode, only once Salidium says it observes it.
- * Sessions Salidium does not observe need no credential to say so, and the credential is sent only
+ * Sessions Salidium does not observe, Halcyonic's Codex sessions among them, need no credential to
+ * say so, and the credential is sent only
  * to the instance that wrote the discovery file.
  */
 export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): UnderstandingSource {
   return {
-    understand(runtimeKind, nativeId) {
+    async understand(runtimeKind, nativeId) {
+      if (KEPT_IN_HALCYONICS_HOME.has(runtimeKind)) {
+        return {
+          availability: 'unavailable',
+          reason: {
+            code: 'runtime_not_observed',
+            message: `Salidium does not read Halcyonic's own ${runtimeKind} home, where this session is kept.`,
+          },
+        };
+      }
       return new SalidiumClient({
         home: options.home,
         credential: () => readCredential(options.credentialPath),

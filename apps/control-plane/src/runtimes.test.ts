@@ -26,6 +26,7 @@ import {
   CLAUDE_AGENT_PROCESS_RECORD,
   CODEX_SERVER_RECORD,
   claudeAgentEnvironment,
+  codexEnvironment,
   createRuntimeAdapters,
   heldSecrets,
   openCodeEnvironment,
@@ -170,6 +171,35 @@ describe('runtime composition', () => {
           dataDir,
         ),
       /SALIDIUM_INTERNAL/,
+    );
+  });
+
+  test('a key passed through for another runtime never reaches Codex, which is never signed in', () => {
+    const dataDir = mkdtempSync(join(base, 'codex-sign-in-'));
+    const binary = join(dataDir, 'codex');
+    writeFileSync(binary, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const hosted = adapters(
+      {
+        HALCYONIC_CODEX_BIN: binary,
+        HALCYONIC_AGENT_ENV: 'OPENAI_API_KEY,CODEX_API_KEY,GIT_AUTHOR_NAME',
+      },
+      {
+        ...HOST,
+        OPENAI_API_KEY: 'sk-example',
+        CODEX_API_KEY: 'ck-example',
+        GIT_AUTHOR_NAME: 'Someone',
+      },
+      dataDir,
+    );
+    assert.ok(hosted.some((adapter) => adapter instanceof CodexRuntimeAdapter));
+    assert.deepEqual(
+      codexEnvironment({
+        OPENAI_API_KEY: 'sk-example',
+        CODEX_ACCESS_TOKEN: 'token',
+        CODEX_GITHUB_PERSONAL_ACCESS_TOKEN: 'ghp-example',
+        GIT_AUTHOR_NAME: 'Someone',
+      }),
+      { GIT_AUTHOR_NAME: 'Someone' },
     );
   });
 

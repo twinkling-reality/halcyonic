@@ -6,6 +6,7 @@ import type {
   UsageLimitsResponse,
 } from '@halcyonic/contracts';
 import { SEORAK_DEFAULT_PORT, SeorakClient, seorakAgentFor } from '@halcyonic/integration-seorak';
+import { KEPT_IN_HALCYONICS_HOME } from './understanding.ts';
 
 /** The file in the control plane's data directory that holds the Seorak integration credential. */
 export const SEORAK_CREDENTIAL_FILE = 'seorak-credential';
@@ -43,6 +44,15 @@ export function seorakEvaluation(options: SeorakEvaluationOptions): EvaluationSo
       return client.usageLimits({ credential });
     },
     async evaluate(runtimeKind, nativeId) {
+      if (KEPT_IN_HALCYONICS_HOME.has(runtimeKind)) {
+        return {
+          availability: 'unavailable',
+          reason: {
+            code: 'runtime_not_observed',
+            message: `Seorak does not read Halcyonic's own ${runtimeKind} home, where this session is kept.`,
+          },
+        };
+      }
       // Sessions Seorak never observes need no credential to say so.
       if (seorakAgentFor(runtimeKind) === null)
         return client.evaluate(runtimeKind, nativeId, { credential: null });

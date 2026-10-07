@@ -25,7 +25,10 @@
  *   exits with 3 or 1.
  *
  * `config/read` answers the configuration in FAKE_CODEX_CONFIG (JSON, empty by default), and
- * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page.
+ * `model/list` the catalog in FAKE_CODEX_CATALOG (a JSON array), one model a page. A thread that
+ * asks for no model or provider runs on the configuration's, as Codex's do, or `gpt-5.5` from
+ * `openai`. Each launch of `app-server` appends its arguments and CODEX_HOME to
+ * FAKE_CODEX_LAUNCHES when it is set.
  *
  * A turn runs until it is interrupted, unless its text contains COMPLETE. Every message received
  * is appended to FAKE_CODEX_LOG when it is set.
@@ -48,6 +51,13 @@ if (process.argv[2] === '--version') {
   process.exit(0);
 }
 if (process.argv[2] !== 'app-server') process.exit(2);
+if (process.env.FAKE_CODEX_LAUNCHES) {
+  appendFileSync(
+    process.env.FAKE_CODEX_LAUNCHES,
+    `${JSON.stringify({ argv: process.argv.slice(2), codexHome: process.env.CODEX_HOME ?? null })}\n`,
+  );
+}
+const configured = JSON.parse(process.env.FAKE_CODEX_CONFIG ?? '{}');
 if (flags.has('startup-fails')) {
   process.stderr.write(
     `ERROR config: experimental_bearer_token = "${process.env.FAKE_CODEX_SECRET ?? ''}"\n`,
@@ -108,8 +118,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       counter += 1;
       respond({
         thread: { id: params.threadId ?? `thread-${process.pid}-${counter}` },
-        model: flags.has('other-model') ? 'gpt-5.5' : (params.model ?? 'gpt-5.5'),
-        modelProvider: flags.has('other-model') ? 'openai' : (params.modelProvider ?? 'openai'),
+        model: flags.has('other-model')
+          ? 'gpt-5.5'
+          : (params.model ?? configured.model ?? 'gpt-5.5'),
+        modelProvider: flags.has('other-model')
+          ? 'openai'
+          : (params.modelProvider ?? configured.model_provider ?? 'openai'),
         cwd: flags.has('other-cwd') ? '/somewhere/else' : params.cwd,
         approvalPolicy: flags.has('never') ? 'never' : params.approvalPolicy,
         approvalsReviewer: params.approvalsReviewer,
@@ -118,7 +132,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       return;
     case 'config/read':
       respond({
-        config: JSON.parse(process.env.FAKE_CODEX_CONFIG ?? '{}'),
+        config: configured,
         origins: {},
         layers: null,
       });

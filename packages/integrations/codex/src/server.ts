@@ -26,10 +26,10 @@ export const CLIENT_INFO: ClientInfo = { name: 'halcyonic', title: 'Halcyonic', 
 const WATCHDOG = fileURLToPath(new URL('./watchdog.ts', import.meta.url));
 
 /**
- * Variables a launched server inherits when they are set. HOME and CODEX_HOME stay the developer's
- * own: Codex keeps its configuration, credentials and session rollouts there, and Salidium and
- * Seorak observe Codex by reading those rollouts. Nothing else is inherited; provider credentials
- * are passed on purpose, as configured additions.
+ * Variables a launched server inherits when they are set. HOME stays the developer's own, for the
+ * commands Codex runs. CODEX_HOME is never inherited: the adapter gives Codex a home of its own
+ * (`prepareHome`), so the developer's Codex configuration, sign-in and plugins never apply.
+ * Nothing else is inherited.
  */
 export const INHERITED_VARIABLES: readonly string[] = [
   'PATH',
@@ -42,7 +42,6 @@ export const INHERITED_VARIABLES: readonly string[] = [
   'LC_CTYPE',
   'TMPDIR',
   'TZ',
-  'CODEX_HOME',
   'XDG_CONFIG_HOME',
   'XDG_DATA_HOME',
   'XDG_STATE_HOME',
@@ -58,20 +57,64 @@ export const INHERITED_VARIABLES: readonly string[] = [
 const REMOTE_CONTROL_DISABLED = 'CODEX_INTERNAL_APP_SERVER_REMOTE_CONTROL_DISABLED';
 
 /**
- * Variables configuration may not set: the remote control switch the adapter owns, the originator
- * override that would replace Halcyonic's identity on its threads, and Salidium's internal marker,
- * which makes Salidium drop a session's hooks and must never reach a launched agent.
+ * The variables Codex 0.157.0 signs in with, named in the pinned binary's own text: an OpenAI or
+ * Codex key, a ChatGPT access token, an identity token file, and the tokens of its connectors and
+ * its GitHub plugins. Through Halcyonic, Codex runs only on models served on this Mac and is
+ * never signed in, so none reaches it.
+ */
+export const SIGN_IN_VARIABLES: readonly string[] = [
+  'OPENAI_API_KEY',
+  'CODEX_API_KEY',
+  'CODEX_ACCESS_TOKEN',
+  'OPENAI_IDENTITY_TOKEN_FILE',
+  'CODEX_CONNECTORS_TOKEN',
+  'CODEX_GITHUB_PERSONAL_ACCESS_TOKEN',
+];
+
+/**
+ * Variables configuration may not set: the home and the remote control switch the adapter owns,
+ * the originator override that would replace Halcyonic's identity on its threads, Salidium's
+ * internal marker, which makes Salidium drop a session's hooks and must never reach a launched
+ * agent, and every sign-in.
  */
 const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
+  'CODEX_HOME',
   REMOTE_CONTROL_DISABLED,
   'CODEX_INTERNAL_ORIGINATOR_OVERRIDE',
   'SALIDIUM_INTERNAL',
+  ...SIGN_IN_VARIABLES,
 ]);
 
-/** Builds the server's environment explicitly: the allowlist, then the configured additions. */
+/**
+ * The settings every launch passes as `-c` overrides, which outrank the home's `config.toml`, so
+ * no edit there can turn them back on. On 0.157.0 `features.plugins = false` is the one that stops
+ * the plugin sync connecting to GitHub at startup; it is undocumented, named only in the binary's
+ * own text, so every Codex upgrade repeats the network probe of the end to end tests
+ * (local-models.md). The others stop the update check, analytics and the metrics exporter, web
+ * search, and any read of a sign-in from the keychain.
+ */
+export const LOCAL_ONLY_SETTINGS: readonly string[] = [
+  'features.plugins=false',
+  'check_for_update_on_startup=false',
+  'analytics.enabled=false',
+  'web_search="disabled"',
+  'cli_auth_credentials_store="file"',
+];
+
+/** The server's command line after the binary: app-server, then every local-only setting. */
+export const APP_SERVER_ARGUMENTS: readonly string[] = [
+  'app-server',
+  ...LOCAL_ONLY_SETTINGS.flatMap((setting) => ['-c', setting]),
+];
+
+/**
+ * Builds the server's environment explicitly: the allowlist, then the configured additions, then
+ * the home the adapter gives Codex.
+ */
 export function buildEnvironment(
   inherited: Readonly<Record<string, string | undefined>>,
   additions: Readonly<Record<string, string>>,
+  home: string,
 ): Record<string, string> {
   const reserved = Object.keys(additions).filter((name) => RESERVED_VARIABLES.has(name));
   if (reserved.length > 0) {
@@ -83,6 +126,7 @@ export function buildEnvironment(
     if (value !== undefined) environment[name] = value;
   }
   Object.assign(environment, additions);
+  environment.CODEX_HOME = home;
   environment[REMOTE_CONTROL_DISABLED] = '1';
   return environment;
 }
@@ -189,7 +233,7 @@ export class CodexServer {
 export async function launchServer(options: LaunchOptions): Promise<CodexServer> {
   const version = await readVersion(options, Math.min(options.startupTimeoutMs, 10_000));
   if (version !== CODEX_VERSION) throw unsupported(options.binaryPath, version);
-  const child = spawn(options.binaryPath, ['app-server'], {
+  const child = spawn(options.binaryPath, APP_SERVER_ARGUMENTS, {
     cwd: options.cwd,
     env: options.environment,
     stdio: ['pipe', 'pipe', 'pipe'],

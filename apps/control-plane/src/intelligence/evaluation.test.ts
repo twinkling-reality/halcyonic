@@ -45,6 +45,32 @@ describe('Seorak as the evaluation source', () => {
     ]);
   });
 
+  test("a Codex session, kept in Halcyonic's own Codex home, is not observed: no request, no credential", async (t) => {
+    let requests = 0;
+    const plane = createServer((_request, response) => {
+      requests++;
+      response.writeHead(500).end();
+    });
+    await new Promise<void>((resolve) => plane.listen(0, '127.0.0.1', resolve));
+    t.after(async () => {
+      const closed = new Promise<void>((resolve) => plane.close(() => resolve()));
+      plane.closeAllConnections();
+      await closed;
+    });
+    const { port } = plane.address() as AddressInfo;
+    const { source, credentialPath } = await setup('codex-home', port);
+    // A credential other users can read would be refused for any session Seorak is asked about.
+    writeFileSync(credentialPath, CREDENTIAL);
+    chmodSync(credentialPath, 0o644);
+    const result = await source.evaluate('codex', '019a0000-0000-7000-8000-000000000001');
+    assert.deepEqual(reason(result), ['unavailable', 'runtime_not_observed']);
+    assert.match(
+      result.availability === 'available' ? '' : result.reason.message,
+      /Halcyonic's own codex home/,
+    );
+    assert.equal(requests, 0);
+  });
+
   test('without a credential file the answer says how to issue one', async () => {
     const { source, credentialPath } = await setup('missing');
     const result = await source.evaluate('claude-agent', SESSION);
@@ -62,7 +88,7 @@ describe('Seorak as the evaluation source', () => {
     const { source, credentialPath } = await setup('exposed');
     writeFileSync(credentialPath, CREDENTIAL);
     chmodSync(credentialPath, 0o644);
-    assert.deepEqual(reason(await source.evaluate('codex', 'thread-1')), [
+    assert.deepEqual(reason(await source.evaluate('claude-agent', SESSION)), [
       'unauthorized',
       'credential_file_exposed',
     ]);
@@ -106,8 +132,8 @@ describe('Seorak as the evaluation source', () => {
     const { port } = plane.address() as AddressInfo;
     const { source, credentialPath } = await setup('shared', port);
     writeFileSync(credentialPath, CREDENTIAL, { mode: 0o600 });
-    for (const kind of ['claude-agent', 'codex'])
-      assert.deepEqual(reason(await source.evaluate(kind, SESSION)), [
+    for (const session of [SESSION, SESSION.replace(/1$/, '2')])
+      assert.deepEqual(reason(await source.evaluate('claude-agent', session)), [
         'unavailable',
         'rate_limited',
       ]);

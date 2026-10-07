@@ -507,6 +507,48 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /Ollama isn't answering/);
   });
 
+  test("local-model gives Codex Halcyonic's own settings in a folder of its own, never with a sign-in", async (t) => {
+    const machine = mac(t);
+    machine.install('codex');
+    await machine.run('agent-apps');
+    assert.equal(await machine.run('local-model', 'gpt-oss:120b-cloud'), 1);
+    const home = join(machine.dataDir, 'codex-home');
+    assert.equal(existsSync(join(home, 'config.toml')), false);
+
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 0);
+    assert.equal(statSync(home).mode & 0o777, 0o700);
+    const path = join(home, 'config.toml');
+    assert.equal(statSync(path).mode & 0o777, 0o600);
+    const settings = readFileSync(path, 'utf8');
+    assert.deepEqual(
+      settings.split('\n').filter((line) => line !== '' && !line.startsWith('#')),
+      [
+        'model_provider = "ollama"',
+        'model = "qwen3.6:35b-a3b-nvfp4"',
+        'model_context_window = 65536',
+        'model_auto_compact_token_limit = 52000',
+      ],
+    );
+    assert.match(
+      text(machine),
+      /Codex now has settings of its own for Halcyonic, in a folder of its own: qwen3\.6:35b-a3b-nvfp4 on this Mac\. Your own Codex settings are left as they are\./,
+    );
+    assert.equal(
+      existsSync(join(machine.home, '.codex')),
+      false,
+      "the person's own home is never made",
+    );
+
+    // A sign-in in Halcyonic's Codex home is refused, and nothing is written.
+    writeFileSync(join(home, 'auth.json'), '{}', { mode: 0o600 });
+    assert.equal(await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4'), 1);
+    assert.match(
+      text(machine),
+      /auth\.json is a Codex sign-in\. Halcyonic runs Codex only on models this Mac serves, without one/,
+    );
+    assert.equal(readFileSync(path, 'utf8'), settings);
+  });
+
   test('voice records its files once their checksums match', async (t) => {
     const machine = mac(t);
     assert.equal(await machine.run('voice'), 1);
@@ -691,11 +733,6 @@ describe('pnpm mac-setup', () => {
     await machine.run('agent-apps');
     await machine.run('local-model', 'qwen3.6:35b-a3b-nvfp4');
     await machine.run('pairing', 'on');
-    mkdirSync(join(machine.home, '.codex'));
-    writeFileSync(
-      join(machine.home, '.codex', 'config.toml'),
-      'model_provider = "ollama"\nmodel = "qwen3.6:35b-a3b-nvfp4"\n',
-    );
     running(machine, {
       roots: [join(machine.home, 'HalcyonicProjects')],
       apps: ['opencode', 'codex'],
@@ -716,8 +753,9 @@ describe('pnpm mac-setup', () => {
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Ready');
     assert.match(
       text(machine),
-      /Codex: your own Codex settings name Ollama, so the headset lists Codex's model as running on this Mac\./,
+      /Codex uses Halcyonic's own Codex settings, in a folder of its own: qwen3\.6:35b-a3b-nvfp4 on this Mac\./,
     );
+    assert.match(text(machine), /Codex runs only on models this Mac serves, never on OpenAI's/);
     assert.match(
       text(machine),
       /OpenCode also offers free models that run on a remote service of its own, opencode\.ai/,
@@ -725,17 +763,24 @@ describe('pnpm mac-setup', () => {
     assert.match(text(machine), /Everything Halcyonic needs on this Mac is ready\./);
   });
 
-  test('it says when work can go to a remote service: Codex on OpenAI, or Claude Agent', async (t) => {
+  test('it says when work can go to a remote service: Claude Agent, never Codex', async (t) => {
     const machine = mac(t);
     machine.install('codex');
     await machine.run('agent-apps');
+    // The person's own Codex settings, on OpenAI, are not Halcyonic's and change nothing.
+    mkdirSync(join(machine.home, '.codex'));
+    writeFileSync(join(machine.home, '.codex', 'config.toml'), 'model_provider = "openai"\n');
+    await machine.run();
+    assert.equal(status(machine, 'Where work goes, and what it costs'), 'Ready');
+    assert.match(text(machine), /Codex runs only on models this Mac serves, never on OpenAI's/);
+    assert.match(
+      text(machine),
+      /Halcyonic's own Codex settings don't name one yet, so Codex has no model to offer/,
+    );
+    assert.match(text(machine), /pnpm mac-setup local-model /);
     machine.env = { ...machine.env, HALCYONIC_CLAUDE_AGENT: '1' };
     await machine.run();
     assert.equal(status(machine, 'Where work goes, and what it costs'), 'Look at this');
-    assert.match(
-      text(machine),
-      /Codex: your own Codex settings name OpenAI, their default, so the headset lists Codex's models as running on a remote service\. Nothing starts on one without its second press/,
-    );
     assert.match(
       text(machine),
       /Claude Agent is on\. Its models run on a remote service, Anthropic's: nothing starts on one without its second press/,

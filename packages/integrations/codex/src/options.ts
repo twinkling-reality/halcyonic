@@ -7,8 +7,9 @@ export interface StartOptions {
   /** A model Codex is configured to reach; undefined keeps Codex's configured model. */
   readonly model: string | undefined;
   /**
-   * A model provider Codex knows, built in (`openai`, `ollama`, `lmstudio`) or configured in its
-   * `config.toml`; undefined keeps Codex's configured provider.
+   * A model provider Codex knows, built in (`ollama`, `lmstudio`) or configured in its
+   * `config.toml`; undefined keeps Codex's configured provider. Either way the provider must serve
+   * its models on this Mac, which the adapter checks at the start.
    */
   readonly modelProvider: string | undefined;
   /**
@@ -76,8 +77,9 @@ export function parseStartOptions(
     approval_policy = 'on-request',
   } = options;
   if (model !== undefined && (typeof model !== 'string' || !MODEL_PATTERN.test(model))) {
-    return fail('Option "model" must be a model name, such as "gpt-5.5".');
+    return fail('Option "model" must be a model name, such as "qwen3.6:35b-a3b-nvfp4".');
   }
+  if (typeof model === 'string' && runsOnOllamasService(model)) return remoteRefused(model);
   if (
     model_provider !== undefined &&
     (typeof model_provider !== 'string' || !PROVIDER_PATTERN.test(model_provider))
@@ -93,6 +95,7 @@ export function parseStartOptions(
     }
     chosen = fromModelRef(modelRef);
     if (chosen === null) return fail(`${modelRef} is not a model Codex lists.`);
+    if (runsOnOllamasService(chosen.model)) return remoteRefused(chosen.model);
   }
   const contextWindow = tokenCount(context_window);
   if (contextWindow === null) return tokenCountRefused('context_window');
@@ -137,6 +140,15 @@ export function parseStartOptions(
   };
 }
 
+/**
+ * Whether a model name is one Ollama runs on its own remote service rather than on this Mac:
+ * Ollama names those `<model>:cloud` or `<tag>-cloud`. Codex sends its requests to the Ollama on
+ * this Mac either way, so only the name tells.
+ */
+export function runsOnOllamasService(model: string): boolean {
+  return /[:-]cloud$/.test(model);
+}
+
 /** The adapter's `model_ref` for a model of a provider: `provider/model`. */
 export function toModelRef(provider: string, model: string): string {
   return `${provider}/${model}`;
@@ -166,6 +178,12 @@ function tokenCount(value: unknown): number | undefined | null {
 
 function tokenCountRefused(name: string): ParsedStartOptions {
   return fail(`Option "${name}" must be a whole number of tokens from 1 to ${MAX_TOKENS}.`);
+}
+
+function remoteRefused(model: string): ParsedStartOptions {
+  return fail(
+    `${model} runs on Ollama's remote service, not on this Mac: Codex runs only on models served on this Mac.`,
+  );
 }
 
 function fail(message: string): ParsedStartOptions {

@@ -7,7 +7,7 @@
  *   pnpm mac-setup allow [folder]       let agents use a folder; with none, ~/HalcyonicProjects
  *   pnpm mac-setup disallow <folder>    stop letting agents use a folder; nothing is deleted
  *   pnpm mac-setup agent-apps           record the pinned OpenCode and Codex, once checked
- *   pnpm mac-setup local-model <name>   give OpenCode Halcyonic's own settings on an Ollama model
+ *   pnpm mac-setup local-model <name>   give OpenCode and Codex Halcyonic's own settings on an Ollama model
  *   pnpm mac-setup voice                record the voice files, once checked
  *   pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac
  *   pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it
@@ -23,11 +23,13 @@ import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   realpathSync,
   renameSync,
   rmSync,
+  type Stats,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -59,7 +61,7 @@ import {
 import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
-import { ANTHROPIC_KEY_FILE } from '../runtimes.ts';
+import { ANTHROPIC_KEY_FILE, CODEX_HOME_FOLDER } from '../runtimes.ts';
 import {
   type HostSettings,
   readHostSettings,
@@ -94,8 +96,14 @@ const CHECKED_MODELS = [
  */
 const COMPANION_MODEL = { name: 'qwen3.5:9b', download: '6.6 GB', memory: 'about 5.7 GB' } as const;
 
-/** The context Ollama is told to give a model, and OpenCode to expect (local-models.md). */
+/** The context Ollama is told to give a model, and OpenCode and Codex to expect (local-models.md). */
 const OLLAMA_CONTEXT = 65_536;
+
+/** Where Codex compacts a thread's context, safely below OLLAMA_CONTEXT (local-models.md). */
+const CODEX_AUTO_COMPACT = 52_000;
+
+/** Model names Codex's settings may hold, as the Codex adapter takes them. */
+const CODEX_MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
 
 export interface MacSetupIo {
   readonly env: NodeJS.ProcessEnv;
@@ -184,7 +192,7 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup allow [folder]       let agents use a folder; with none, ~/HalcyonicProjects',
     '  pnpm mac-setup disallow <folder>    stop letting agents use a folder; nothing is deleted',
     '  pnpm mac-setup agent-apps           record the checked copies of OpenCode and Codex',
-    '  pnpm mac-setup local-model <name>   give OpenCode settings of its own on an Ollama model',
+    '  pnpm mac-setup local-model <name>   give OpenCode and Codex settings of their own on an Ollama model',
     '  pnpm mac-setup voice                record the checked voice files',
     "  pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac",
     '  pnpm mac-setup pairing on|off       let headsets pair over Wi-Fi, or stop it',
@@ -355,6 +363,20 @@ class MacSetup {
       if (report.next !== undefined) next.push(report.next);
       if (report.state === 'ready') ready += 1;
       if (report.state === 'look') look = true;
+    }
+    if (present(env.HALCYONIC_CODEX_BIN)) {
+      const codex = this.#codexSettings();
+      if (codex?.provider === 'ollama' && codex.model !== null) {
+        lines.push(
+          `Codex uses Halcyonic's own Codex settings, in a folder of its own: ${codex.model} on this Mac. It runs only on models this Mac serves, never signed in, with its plugins and update check off; your own Codex settings are left as they are.`,
+        );
+      } else {
+        look = true;
+        lines.push(
+          "Codex runs only on models this Mac serves, and Halcyonic's own Codex settings don't name one yet, so Codex has no model to offer.",
+        );
+        next.push(`pnpm mac-setup local-model ${this.#suggestedModel(ollama) ?? '<model name>'}`);
+      }
     }
     if (env.HALCYONIC_OPENCODE_BIN !== undefined && env.HALCYONIC_OPENCODE_BIN !== '') {
       const home = env.HALCYONIC_OPENCODE_CONFIG_HOME;
@@ -536,17 +558,9 @@ class MacSetup {
       );
     }
     if (present(env.HALCYONIC_CODEX_BIN)) {
-      const provider = this.#codexProvider();
-      if (provider === 'ollama') {
-        lines.push(
-          "Codex: your own Codex settings name Ollama, so the headset lists Codex's model as running on this Mac.",
-        );
-      } else {
-        hosted = true;
-        lines.push(
-          `Codex: your own Codex settings name ${provider === null ? 'OpenAI, their default' : provider}, so the headset lists Codex's models as running on a remote service. Nothing starts on one without its second press; a task on one sends your code and instructions there, and may cost money. To run Codex on this Mac, see “Codex” in docs/internal/runbooks/LOCAL_DEVELOPMENT.md.`,
-        );
-      }
+      lines.push(
+        "Codex runs only on models this Mac serves, never on OpenAI's: the headset lists no remote model for it.",
+      );
     }
     if (this.#io.env.HALCYONIC_CLAUDE_AGENT === '1') {
       hosted = true;
@@ -1077,6 +1091,16 @@ class MacSetup {
       );
       return 1;
     }
+    if (!CODEX_MODEL_NAME.test(model.name)) {
+      io.print(`${model.name} isn't a model name Codex can take. Choose another model.`);
+      return 1;
+    }
+    const codexHome = join(this.#dataDir, CODEX_HOME_FOLDER);
+    const codexProblem = codexHomeProblem(codexHome);
+    if (codexProblem !== null) {
+      io.print(codexProblem);
+      return 1;
+    }
     const home = join(this.#dataDir, 'opencode-config');
     const folder = join(home, 'opencode');
     for (const other of ['opencode.jsonc', 'config.json']) {
@@ -1106,13 +1130,20 @@ class MacSetup {
     chmodSync(home, 0o700);
     chmodSync(folder, 0o700);
     writePrivate(join(home, OPENCODE_SETTINGS_PATH), `${JSON.stringify(document, null, 2)}\n`);
+    const codexReplaced = existsSync(join(codexHome, 'config.toml'));
+    mkdirSync(codexHome, { recursive: true, mode: 0o700 });
+    chmodSync(codexHome, 0o700);
+    writePrivate(join(codexHome, 'config.toml'), codexConfig(model.name));
     const next = { ...settings, HALCYONIC_OPENCODE_CONFIG_HOME: home };
     this.#save(next);
     io.print(
       `${replaced ? "Replaced Halcyonic's own OpenCode settings" : 'OpenCode now has settings of its own for Halcyonic'}: ${model.name} on this Mac when no model is chosen, a question to you before any shell command, and no fetching from the web. Your own OpenCode settings are left as they are.`,
     );
     io.print(
-      `Start Ollama with OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT}, the context these settings tell OpenCode to expect.`,
+      `${codexReplaced ? "Replaced Halcyonic's own Codex settings" : 'Codex now has settings of its own for Halcyonic, in a folder of its own'}: ${model.name} on this Mac. Your own Codex settings are left as they are.`,
+    );
+    io.print(
+      `Start Ollama with OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT}, the context these settings tell OpenCode and Codex to expect.`,
     );
     if (model.bytes > io.memoryBytes * 0.6) {
       io.print(
@@ -1487,22 +1518,31 @@ class MacSetup {
     }
   }
 
-  /** The model provider in the top level of the person's Codex settings; only that line is read. */
-  #codexProvider(): string | null {
-    const codexHome = this.#io.env.CODEX_HOME ?? join(this.#io.home, '.codex');
+  /**
+   * The model provider and model in the top level of Halcyonic's own Codex settings, in
+   * `<data dir>/codex-home/config.toml`; only those two lines are read. Never the person's own.
+   */
+  #codexSettings(): { provider: string | null; model: string | null } | null {
+    const path = join(this.#dataDir, CODEX_HOME_FOLDER, 'config.toml');
     let text: string;
     try {
-      if (statSync(join(codexHome, 'config.toml')).size > 1024 * 1024) return null;
-      text = readFileSync(join(codexHome, 'config.toml'), 'utf8');
+      if (statSync(path).size > 1024 * 1024) return null;
+      text = readFileSync(path, 'utf8');
     } catch {
       return null;
     }
+    const found: { provider: string | null; model: string | null } = {
+      provider: null,
+      model: null,
+    };
     for (const line of text.split('\n')) {
       if (/^\s*\[/.test(line)) break;
-      const match = /^\s*model_provider\s*=\s*"([A-Za-z0-9._-]{1,64})"/.exec(line);
-      if (match?.[1] !== undefined) return match[1];
+      const provider = /^\s*model_provider\s*=\s*"([A-Za-z0-9._-]{1,64})"/.exec(line);
+      if (provider?.[1] !== undefined) found.provider = provider[1];
+      const model = /^\s*model\s*=\s*"([^"\\]{1,128})"/.exec(line);
+      if (model?.[1] !== undefined && CODEX_MODEL_NAME.test(model[1])) found.model = model[1];
     }
-    return null;
+    return found;
   }
 
   /** Whether a credential file in the data directory exists and is kept from other users; never opened. */
@@ -1622,6 +1662,48 @@ function usageLeftProblem(code: string | null): string {
 }
 
 /** Writes a file mode 600 through a new file renamed into place. */
+/**
+ * Halcyonic's own Codex settings on an Ollama model of this Mac. The settings that keep Codex off
+ * the network are not here: the Codex adapter passes them on every launch, above this file.
+ */
+function codexConfig(model: string): string {
+  return [
+    "# Halcyonic's own Codex settings, written by pnpm mac-setup local-model. Halcyonic runs Codex",
+    '# only on models this Mac serves, and turns off its plugins, update check, analytics and web',
+    '# search whenever it starts it, whatever this file says.',
+    'model_provider = "ollama"',
+    `model = ${JSON.stringify(model)}`,
+    `model_context_window = ${OLLAMA_CONTEXT}`,
+    `model_auto_compact_token_limit = ${CODEX_AUTO_COMPACT}`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Why Halcyonic's Codex home can't take its settings, as the Codex adapter would refuse it, or
+ * null when it can: a link or not a folder, another user's, or holding a sign-in.
+ */
+function codexHomeProblem(home: string): string | null {
+  const stats = lstatOrNull(home);
+  if (stats === null) return null;
+  if (!stats.isDirectory())
+    return `${home} is not a folder, or is a link. Move it away, then try again.`;
+  if (stats.uid !== process.getuid?.())
+    return `${home} belongs to another user. Move it away, then try again.`;
+  if (lstatOrNull(join(home, 'auth.json')) !== null) {
+    return `${join(home, 'auth.json')} is a Codex sign-in. Halcyonic runs Codex only on models this Mac serves, without one: move it away, then try again.`;
+  }
+  return null;
+}
+
+function lstatOrNull(path: string): Stats | null {
+  try {
+    return lstatSync(path);
+  } catch {
+    return null;
+  }
+}
+
 function writePrivate(path: string, text: string): void {
   const temporary = `${path}.${process.pid}.tmp`;
   rmSync(temporary, { force: true });

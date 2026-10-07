@@ -36,8 +36,14 @@ import {
   settleResumed,
   type ThreadState,
 } from './events.ts';
-import { modelsFromCodex } from './models.ts';
-import { parseStartOptions, type StartOptions, toModelRef } from './options.ts';
+import { prepareHome } from './home.ts';
+import { modelsFromCodex, servedBy } from './models.ts';
+import {
+  parseStartOptions,
+  runsOnOllamasService,
+  type StartOptions,
+  toModelRef,
+} from './options.ts';
 import type {
   ApprovalDecision as CodexDecision,
   ConfigReadParams,
@@ -94,6 +100,13 @@ export interface CodexRuntimeOptions {
   /** Absolute path of the pinned Codex 0.157.0 native binary. It is never looked up on PATH. */
   readonly binaryPath: string;
   /**
+   * Absolute path of Codex's home, its `CODEX_HOME`: a folder of Halcyonic's own, never the
+   * developer's `~/.codex`, made with mode 700 when missing and checked before every launch
+   * (`prepareHome`). Its `config.toml` names the model provider and model; Codex keeps its
+   * databases, logs and each thread's rollout there.
+   */
+  readonly codexHome: string;
+  /**
    * File recording the pid and binary of the server while it runs, so a later start can stop a
    * server that outlived a crash. Use one file per runtime instance.
    */
@@ -105,8 +118,8 @@ export interface CodexRuntimeOptions {
   readonly directoryPolicy: DirectoryPolicy;
   readonly runtimeId?: RuntimeId;
   /**
-   * Variables set on top of the inherited allowlist, for example provider credentials, or
-   * temporary HOME, CODEX_HOME, XDG and TMPDIR directories in tests.
+   * Variables set on top of the inherited allowlist, for example temporary HOME, XDG and TMPDIR
+   * directories in tests. CODEX_HOME and sign-in variables are refused.
    */
   readonly env?: Readonly<Record<string, string>>;
   readonly startupTimeoutMs?: number;
@@ -172,9 +185,10 @@ const UNSUPPORTED_REQUEST = -32601;
 /**
  * Runs Codex 0.157.0 threads through `codex app-server` over stdio, using only its stable API
  * surface (ADR 0011). The adapter owns one server process, launched lazily from a configured
- * binary in its own process group, with the developer's HOME and CODEX_HOME so Salidium and
- * Seorak can observe the threads. One execution is one thread, tagged with Halcyonic's client
- * name and thread source; its native id is the thread id.
+ * binary in its own process group, with the developer's HOME and a Codex home of Halcyonic's own,
+ * with plugins, the update check, analytics and web search off, and only on a model provider
+ * served on this Mac. One execution is one thread, tagged with Halcyonic's client name and thread
+ * source; its native id is the thread id.
  *
  * Known 0.157.0 behavior, handled rather than hidden:
  * - `turn/start` on a busy thread silently steers, so it is sent only at rest and a returned turn
@@ -196,6 +210,7 @@ const UNSUPPORTED_REQUEST = -32601;
 export class CodexRuntimeAdapter implements RuntimeAdapter {
   readonly descriptor: RuntimeDescriptor;
   readonly #binaryPath: string;
+  readonly #home: string;
   readonly #recordFile: string;
   readonly #directoryPolicy: DirectoryPolicy;
   readonly #environment: Readonly<Record<string, string>>;
@@ -217,10 +232,14 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         `The Codex binary path must be absolute, got "${options.binaryPath}": it is never looked up on PATH.`,
       );
     }
+    if (!isAbsolute(options.codexHome)) {
+      throw new Error(`Codex's home must be an absolute path, got "${options.codexHome}".`);
+    }
     this.#binaryPath = options.binaryPath;
+    this.#home = options.codexHome;
     this.#recordFile = options.serverRecordFile;
     this.#directoryPolicy = options.directoryPolicy;
-    this.#environment = buildEnvironment(process.env, options.env ?? {});
+    this.#environment = buildEnvironment(process.env, options.env ?? {}, options.codexHome);
     this.#startupTimeoutMs = options.startupTimeoutMs ?? 20_000;
     this.#requestTimeoutMs = options.requestTimeoutMs ?? 20_000;
     this.#interruptTimeoutMs = options.interruptTimeoutMs ?? 10_000;
@@ -255,15 +274,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   async listModels(): Promise<readonly RuntimeModel[]> {
     if (this.#closing !== null) throw closedError();
     const connection = await this.#connection();
-    const params: ConfigReadParams = { includeLayers: false };
-    const read = await send(connection, 'config/read', params, this.#requestTimeoutMs);
-    const config = isRecord(read) && isRecord(read.config) ? read.config : null;
-    if (config === null) {
-      throw new RuntimeActionError(
-        'runtime_protocol_error',
-        'Codex answered config/read without a configuration.',
-      );
-    }
+    const config = await this.#readConfig(connection);
     const catalog: unknown[] = [];
     let cursor: string | null = null;
     for (let page = 0; page < MAX_MODEL_PAGES; page += 1) {
@@ -280,7 +291,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       cursor = isRecord(result) && typeof result.nextCursor === 'string' ? result.nextCursor : null;
       if (cursor === null) break;
     }
-    return modelsFromCodex(config, catalog, this.#environment);
+    // Only models served on this Mac are offered: through Halcyonic, Codex runs on no other.
+    return modelsFromCodex(config, catalog, this.#environment).filter(
+      (model) => model.served === 'this_mac' && !runsOnOllamasService(model.model_ref),
+    );
   }
 
   /**
@@ -317,22 +331,23 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       }
     }
     const connection = await this.#connection();
+    const local = await this.#onThisMac(connection, options);
     // Asked again right before the folder is handed over: listing and launching wait.
     confirmProjectLocation(this.#directoryPolicy, cwd);
     const params: ThreadStartParams = {
-      ...threadSettings(options, this.#answerQuestions),
+      ...threadSettings(local, this.#answerQuestions),
       threadSource: THREAD_SOURCE,
     };
     const reported = checkSettings(
       await send(connection, 'thread/start', params, this.#requestTimeoutMs),
-      options,
+      local,
     );
     const threadId = reported.threadId;
     const thread: HostedThread = {
       threadId,
       execution: request.execution,
       emit: request.emit,
-      options,
+      options: local,
       state: createThreadState(this.#answerQuestions),
       connection,
       confirmations: new Map(),
@@ -566,6 +581,40 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
   }
 
+  /** Codex's configuration, as `config/read` reports it with every layer applied. */
+  async #readConfig(connection: Connection): Promise<Readonly<Record<string, unknown>>> {
+    const params: ConfigReadParams = { includeLayers: false };
+    const read = await send(connection, 'config/read', params, this.#requestTimeoutMs);
+    const config = isRecord(read) && isRecord(read.config) ? read.config : null;
+    if (config === null) {
+      throw new RuntimeActionError(
+        'runtime_protocol_error',
+        'Codex answered config/read without a configuration.',
+      );
+    }
+    return config;
+  }
+
+  /**
+   * The start options with the thread's model provider named, once its configuration shows it
+   * serves models on this Mac. Through Halcyonic Codex runs only on such a provider, so a thread
+   * never reaches a hosted model; the provider is asked for explicitly, and `checkSettings`
+   * refuses a thread that Codex puts on another.
+   */
+  async #onThisMac(connection: Connection, options: StartOptions): Promise<StartOptions> {
+    const config = await this.#readConfig(connection);
+    const configured = typeof config.model_provider === 'string' ? config.model_provider : '';
+    const provider = options.modelProvider ?? (configured === '' ? 'openai' : configured);
+    const served = servedBy(config, provider, this.#environment);
+    if (served !== 'this_mac') {
+      throw new RuntimeActionError(
+        'model_unavailable',
+        `Codex runs only on models served on this Mac through Halcyonic, and the provider ${provider} ${served === 'remote' ? 'is a remote service' : 'is not known to be on this Mac'}.`,
+      );
+    }
+    return { ...options, modelProvider: provider };
+  }
+
   // Server lifecycle ---------------------------------------------------------------------------
 
   async #connection(relaunch = false): Promise<Connection> {
@@ -587,6 +636,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         `Could not check for a Codex server left running by an earlier run: ${message(error)}`,
       );
     }
+    // Checked before every launch: the home may have changed since the last one.
+    await prepareHome(this.#home);
     let connection: Connection | null = null;
     const server = await launchServer({
       binaryPath: this.#binaryPath,
@@ -932,9 +983,10 @@ const SANDBOX_TYPES: Readonly<Record<StartOptions['sandbox'], string>> = {
 
 /**
  * Checks that Codex gave a started or resumed thread the settings it was asked for, so that
- * nothing in the developer's configuration or managed requirements quietly stops approvals from
+ * nothing in Codex's configuration or managed requirements quietly stops approvals from
  * reaching the person, sends the thread to another model or provider than the one asked for
- * (a thread asked to stay on a local provider must not reach a hosted one), or has it work in
+ * (a thread asked to stay on a local provider must not reach a hosted one, nor a model Ollama runs
+ * on its own remote service), or has it work in
  * another folder than the project's. Returns the thread id with the model and provider Codex
  * reports for it.
  */
@@ -975,7 +1027,8 @@ function checkSettings(
       : null;
   if (
     (options.model !== undefined && model !== options.model) ||
-    (options.modelProvider !== undefined && provider !== options.modelProvider)
+    (options.modelProvider !== undefined && provider !== options.modelProvider) ||
+    (model !== null && runsOnOllamasService(model))
   ) {
     throw new RuntimeActionError(
       'runtime_refused',
