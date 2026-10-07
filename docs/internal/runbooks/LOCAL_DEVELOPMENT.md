@@ -77,8 +77,9 @@ which only you can read or change, and Halcyonic reads it when it starts
 
    OpenCode then starts on that model when none is chosen, asks you before every shell command, which
    is how its approvals reach the headset, and cannot fetch from the web; your own OpenCode settings
-   are left as they are. Codex follows your own Codex settings: to keep it on the Mac, see
-   [Codex](#codex). Claude Agent runs only on Anthropic's remote service and is paid with your API
+   are left as they are. Codex gets the same model in a home of its own, `~/.halcyonic/codex-home`:
+   it runs only on models this Mac serves, never signed in, and your own `~/.codex` is left as it
+   is ([Codex](#codex)). Claude Agent runs only on Anthropic's remote service and is paid with your API
    key, so the setup never turns it on; see [Run real agents](#run-real-agents).
 4. **Optional: voice, the companion, Usage left, and what changed and why.** Voice turns Hold to talk
    into a draft on the Mac: build it as in [Turn on voice](#turn-on-voice), then `pnpm mac-setup
@@ -353,22 +354,34 @@ shasum -a 256 "$HALCYONIC_CODEX_BIN"   # ad0be20d04e2ba6146ecdb51d7f8b7b0fe15420
 ```
 
 Start executions with the runtime id `codex` in a project with a folder, and options such as
-`{"sandbox": "workspace-write", "approval_policy": "on-request"}`, their defaults; `model` is
-optional. A new, empty folder that is not a git repository works
+`{"sandbox": "workspace-write", "approval_policy": "on-request"}`, their defaults.
+A new, empty folder that is not a git repository works
 ([project-location.md](../validation/project-location.md)).
-`approval_policy` `never` is refused, and `danger-full-access` needs `untrusted`. Codex uses your own
-`CODEX_HOME` (`~/.codex` by default): your configuration, your sign-in or API key, and your model
-providers. It writes each thread's rollout there like any other Codex session, where Salidium and
-Seorak read Codex sessions; a local Ollama thread started by Halcyonic was read through both on
-2026-09-30 ([validation record](../validation/understanding-and-evaluation.md)). A provider that
-reads its key from an environment variable (`env_key` in `config.toml`) needs that variable named
-in `HALCYONIC_AGENT_ENV`. Hosted models spend model credit; the local Ollama models below do not.
+`approval_policy` `never` is refused, and `danger-full-access` needs `untrusted`.
+
+Codex runs only on models served on this Mac, in a home of its own, `CODEX_HOME` set to
+`~/.halcyonic/codex-home` (the data directory's `codex-home`), never your own `~/.codex`: your Codex
+settings, sign-in, plugins and MCP servers don't apply, and nothing signs Codex in. Hosted Codex
+models are not offered while it is open whether a ChatGPT sign-in may drive Codex
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). `pnpm mac-setup local-model <name>` writes the
+home's `config.toml`, mode 600: the `ollama` provider, the model, a context of 65,536 tokens and
+compaction at 52,000. Halcyonic makes the folder with mode 700 and won't start Codex in one that is
+a link, another user's, open to others, or holding a sign-in (`auth.json`). Every launch turns off
+plugins, the update check, analytics and web search with `-c` settings that outrank the file
+([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07). Variables
+Codex signs in with (`OPENAI_API_KEY`, `CODEX_API_KEY` and the like) are left out of what
+`HALCYONIC_AGENT_ENV` passes to Codex.
+
+Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
+Codex sessions, so Understand and Checks say they don't follow Codex tasks
+([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md)).
 
 #### Local models through Ollama
 
 Codex reaches Ollama through its built-in `ollama` provider, on port 11434 of this Mac, over the
-Responses API. Name the provider and the model as start options, and tell Codex the context Ollama
-gives the model, since Codex has no metadata for it and assumes 272,000 tokens:
+Responses API. `GET /api/runtimes/codex/models` lists the model the home's `config.toml` names, and
+a start carries it as `"model_ref": "ollama/qwen3.6:35b-a3b-nvfp4"`. A start may instead name the
+model with options, and tell Codex another context than the file's:
 
 ```json
 {
@@ -379,16 +392,11 @@ gives the model, since Codex has no metadata for it and assumes 272,000 tokens:
 }
 ```
 
-The thread is refused if Codex reports another provider or model for it. Codex takes any model
-name without checking it: a name Ollama does not have fails the first turn. Codex cannot list what
-Ollama serves, so `GET /api/runtimes/codex/models` holds the model your `config.toml` names, under
-its provider, and OpenAI's catalog only when that provider is OpenAI's: with
-`model_provider = "ollama"` and `model = "qwen3.6:35b-a3b-nvfp4"` there, a start may carry
-`"model_ref": "ollama/qwen3.6:35b-a3b-nvfp4"` in place of the two options, with the context
-options as before. The runs, the rollouts
-and what reaches the network are in [local-models.md](../validation/local-models.md). Your own
-`config.toml` still applies: turn off `features.plugins` and `analytics` there for work that stays
-on the Mac.
+The provider must serve its models on this Mac, and a model Ollama runs on its own remote service
+(`:cloud`, `-cloud`) is refused. The thread is refused if Codex reports another provider or model for
+it. Codex takes any model name without checking it: a name Ollama does not have fails the first
+turn. The runs, the rollouts and what reaches the network are in
+[local-models.md](../validation/local-models.md).
 
 Its end to end tests run the binary against a fake provider when `CODEX_BIN` is set. They use
 temporary homes, never your `~/.codex`, and fail if Codex tries to reach anything beyond loopback:
@@ -396,6 +404,20 @@ temporary homes, never your `~/.codex`, and fail if Codex tries to reach anythin
 ```bash
 CODEX_BIN="$HALCYONIC_CODEX_BIN" node --test packages/integrations/codex/src/codex-runtime.e2e.test.ts
 ```
+
+**On every Codex upgrade, run the network probe** too. It runs Codex as the control plane does, in
+a fresh home with only what `local-model` writes, on an Ollama model this Mac already has (nothing
+is pulled; the model is unloaded afterwards), and fails if any process of the Codex server's tree
+holds a socket beyond loopback through startup, a minute idle and a full run, if lsof can't see the
+server, or if it never sees the connection to Ollama:
+
+```bash
+CODEX_BIN="$HALCYONIC_CODEX_BIN" CODEX_E2E_OLLAMA_MODEL=qwen3.6:35b-a3b-nvfp4 node --test --test-name-pattern="nothing leaves loopback" packages/integrations/codex/src/codex-runtime.e2e.test.ts
+```
+
+It samples every 200 ms, so a connection shorter than that can be missed, and DNS lookups, which
+macOS makes for the process, are not seen. On 0.157.0 the setting that keeps Codex off GitHub at
+startup is undocumented (`features.plugins`), so a new version may need another.
 
 ## Connect Salidium
 

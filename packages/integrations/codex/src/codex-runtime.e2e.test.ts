@@ -8,6 +8,9 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +36,7 @@ import { APP_SERVER_ARGUMENTS, buildEnvironment } from './server.ts';
 import { readProcessIdentity } from './server-record.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { FAKE_QUESTION, type FakeProviderOptions, PATCH_CONTENT } from './testing/fake-provider.ts';
+import { probeNetwork } from './testing/network-probe.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
 import { type CodexSandbox, createSandbox, literalPattern } from './testing/sandbox.ts';
 
@@ -1059,4 +1063,144 @@ describe('Codex 0.157.0 end to end', { skip: SKIP }, () => {
       assertStayedLocal(sandbox);
     },
   );
+});
+
+const OLLAMA_MODEL = process.env.CODEX_E2E_OLLAMA_MODEL ?? '';
+const OLLAMA = 'http://127.0.0.1:11434';
+const PROBE_IDLE_MS = Number(process.env.CODEX_E2E_PROBE_IDLE_MS ?? 60_000);
+
+/**
+ * The check to re-run on every Codex upgrade (local-models.md): on 0.157.0 the undocumented
+ * `features.plugins = false` was the only setting that stopped a connection to GitHub at startup,
+ * so a new version may need another. It runs Codex as the control plane does, in a home of its own
+ * holding what `pnpm mac-setup local-model` writes and no sign-in, on a model the Ollama of this
+ * Mac serves, and watches the sockets of the server's own process tree through startup, idle and a
+ * full run. It needs CODEX_BIN and CODEX_E2E_OLLAMA_MODEL, an Ollama model with tool calling that
+ * is already downloaded; nothing is pulled, and the model is unloaded afterwards.
+ */
+describe('Codex network probe, re-run on every Codex upgrade', {
+  skip:
+    SKIP ||
+    (OLLAMA_MODEL === ''
+      ? 'CODEX_E2E_OLLAMA_MODEL is not set; name an Ollama model on this Mac to run the network probe'
+      : false),
+}, () => {
+  test('nothing leaves loopback through startup, idle and a full run on a local model', {
+    timeout: PROBE_IDLE_MS + 600_000,
+  }, async (t) => {
+    const tags = (await (await fetch(`${OLLAMA}/api/tags`)).json()) as {
+      models: { name: string }[];
+    };
+    assert.ok(
+      tags.models.some((model) => model.name === OLLAMA_MODEL),
+      `Ollama on this Mac does not have ${OLLAMA_MODEL}`,
+    );
+    assert.doesNotMatch(OLLAMA_MODEL, /[:-]cloud$/, 'a model Ollama runs remotely is no probe');
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'halcyonic-codex-probe-')));
+    const path = (name: string) => join(root, name);
+    for (const name of ['home', 'config', 'data', 'state', 'cache', 'tmp', 'project']) {
+      await mkdir(path(name), { recursive: true, mode: 0o700 });
+    }
+    // What `pnpm mac-setup local-model` writes, and nothing else: the switches come from the
+    // adapter, as for the control plane.
+    await mkdir(path('codex-home'), { mode: 0o700 });
+    await writeFile(
+      path('codex-home/config.toml'),
+      [
+        'model_provider = "ollama"',
+        `model = ${JSON.stringify(OLLAMA_MODEL)}`,
+        'model_context_window = 65536',
+        'model_auto_compact_token_limit = 52000',
+        '',
+      ].join('\n'),
+      { mode: 0o600 },
+    );
+    const runtime = new CodexRuntimeAdapter({
+      binaryPath: BINARY,
+      codexHome: path('codex-home'),
+      serverRecordFile: path('codex-server.json'),
+      directoryPolicy: allowOnly(path('project')),
+      env: {
+        HOME: path('home'),
+        XDG_CONFIG_HOME: path('config'),
+        XDG_DATA_HOME: path('data'),
+        XDG_STATE_HOME: path('state'),
+        XDG_CACHE_HOME: path('cache'),
+        TMPDIR: `${path('tmp')}/`,
+        SHELL: '/bin/zsh',
+      },
+      requestTimeoutMs: 120_000,
+    });
+    // Watching from before the launch: everything this test's process starts is below it.
+    const probe = probeNetwork(process.pid, BINARY);
+    t.after(async () => {
+      await runtime.close();
+      await probe.stop();
+      await fetch(`${OLLAMA}/api/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ model: OLLAMA_MODEL, keep_alive: 0 }),
+      }).catch(() => undefined);
+      await rm(root, { recursive: true, force: true });
+    });
+
+    // Startup: listing the models launches the server.
+    assert.deepEqual(
+      (await runtime.listModels()).map((model) => [model.model_ref, model.served]),
+      [[`ollama/${OLLAMA_MODEL}`, 'this_mac']],
+    );
+    const serverPid = runtime.serverPid;
+    assert.ok(serverPid !== null);
+
+    // Idle.
+    await delay(PROBE_IDLE_MS);
+    const afterIdle = probe.samples;
+    const idleLoopback = [...probe.loopback];
+
+    // A full run on the local model, approving whatever it asks.
+    const execution = new Execution();
+    const approved = new Set<string>();
+    const emit = (observation: RuntimeObservation) => {
+      execution.emit(observation);
+      if (observation.type === 'runtime.approval.requested') {
+        const approval = observation.payload.approval_id;
+        if (approved.has(approval)) return;
+        approved.add(approval);
+        void runtime
+          .respondToApproval({
+            execution: execution.context,
+            approval_id: approval,
+            decision: 'approve',
+            message: null,
+          })
+          .catch(() => undefined);
+      }
+    };
+    await runtime.startExecution({
+      execution: execution.context,
+      instruction: 'Run the shell command `ls` once, then reply with the single word done.',
+      options: { approval_policy: 'untrusted' },
+      directory: path('project'),
+      model_ref: `ollama/${OLLAMA_MODEL}`,
+      emit,
+    });
+    await execution.next('runtime.turn.completed', 1, 480_000);
+    assert.equal(runtime.serverPid, serverPid, 'the server was relaunched during the probe');
+    assert.deepEqual([...probe.servers], [serverPid]);
+    await delay(5000);
+    await probe.stop();
+
+    assert.ok(afterIdle > PROBE_IDLE_MS / 1000, `only ${afterIdle} samples before the run`);
+    assert.deepEqual(probe.blind, [], 'the probe could not see the server in some samples');
+    assert.ok(
+      [...probe.loopback].some((name) => /->127\.0\.0\.1:11434$/.test(name)),
+      `the probe never saw the connection to Ollama: ${[...probe.loopback].join(', ')}`,
+    );
+    assert.deepEqual(probe.beyondLoopback, [], 'a Codex process held a socket beyond loopback');
+    // The rollout went to Halcyonic's home, and the person's home never gained a Codex folder.
+    assert.ok(existsSync(path('codex-home/sessions')));
+    assert.equal(existsSync(path('home/.codex')), false);
+    t.diagnostic(
+      `probe: ${probe.samples} samples, ${afterIdle} through startup and idle; loopback while idle ${idleLoopback.join(', ') || 'none'}, in all ${[...probe.loopback].join(', ')}`,
+    );
+  });
 });

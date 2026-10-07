@@ -67,3 +67,39 @@ server killed by anything else still leaves its running commands behind
 and resumes its threads, settling a turn that was running from Codex's own record, where it reads
 `interrupted`. The provider metadata and the plugin traffic are documented in
 [SECURITY.md](../architecture/SECURITY.md). The decision is otherwise unchanged.
+
+## Note, 2026-10-07
+
+A decision the owner delegated to the coordinator on 2026-10-07 replaces "with the developer's
+default `CODEX_HOME`" and the context's "Halcyonic's Codex threads must use it too": **Codex is
+offered for local models only, from a home of its own.**
+
+- The adapter launches the pinned 0.157.0 with `CODEX_HOME` set to `<data dir>/codex-home`
+  (`~/.halcyonic/codex-home`), chosen by the control plane, never the person's `~/.codex`. It makes
+  the folder with mode 700 and, before every launch, refuses a link, another user's folder, one
+  others can open, or one holding a sign-in (`auth.json`). `CODEX_HOME` is no longer inherited,
+  and configuring it, or a variable Codex signs in with, is refused.
+- Every launch passes `-c features.plugins=false`, `-c check_for_update_on_startup=false`,
+  `-c analytics.enabled=false`, `-c web_search="disabled"` and
+  `-c cli_auth_credentials_store="file"`, which outrank the home's `config.toml`. On 0.157.0 the
+  undocumented `features.plugins = false` was the only setting that stopped the startup connection
+  to GitHub ([local-models.md](../validation/local-models.md)).
+- A thread runs only on a model provider served on this Mac (a loopback address in Codex's
+  configuration; Ollama in practice), named on the thread; models Ollama runs on its own remote
+  service are refused, and the model list holds only models served on this Mac. Hosted Codex
+  models are not offered while the question of the ChatGPT sign-in stays open
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+- `pnpm mac-setup local-model` writes the home's `config.toml`: the `ollama` provider, the model,
+  a context of 65,536 tokens and compaction at 52,000.
+- The network probe in the Codex end to end suite (nothing beyond loopback from the server's
+  process tree through startup, idle and a full run on a local model) is the check to re-run on
+  every Codex upgrade, beside the smoke test.
+
+Consequences: rollouts are written under Halcyonic's home, and neither Salidium nor Seorak reads
+it as installed (each reads one Codex location, the person's,
+[understanding-and-evaluation.md](../validation/understanding-and-evaluation.md)), so the control
+plane answers Understand and Checks for a Codex execution as `runtime_not_observed` without asking
+either. Whether they should also read Halcyonic's home is their owners' question
+([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The person's own Codex settings, sign-in,
+plugins, MCP servers and saved rules no longer apply to Halcyonic's threads. The decision is
+otherwise unchanged.

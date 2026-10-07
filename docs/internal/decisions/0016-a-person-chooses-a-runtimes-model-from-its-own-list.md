@@ -107,3 +107,11 @@ Mac's models first and preselects the best local one; as a backstop, admission r
 without a model on a runtime whose `model_choice` is `'listed'`, in words, with the rejection code
 `model_required` ("Choose a model: this runtime lists the models it can use."). A start may still
 carry no model on a runtime that does not list them. The decision is otherwise unchanged.
+
+## Note, 2026-10-07
+
+Codex now runs only on models served on this Mac, from a home of Halcyonic's own
+([ADR 0011](0011-codex-app-server-stable-surface.md), note of 2026-10-07), so its list holds only
+the models whose `served` is `'this_mac'`, never a model Ollama runs on its own remote service. In
+practice that is the one model `pnpm mac-setup local-model` names in that home's `config.toml`.
+The decision is otherwise unchanged.

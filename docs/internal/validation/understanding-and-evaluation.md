@@ -210,3 +210,41 @@ So neither run gives Checks a measured outcome. The evidence for Checks stays th
 above: Seorak's measurements with their provenance, the cost honestly unknown for a local model,
 and a measured outcome (`error_count` 0, the rest pending). A numeric cost needs a hosted model and
 the owner's approved spend.
+
+## Which Codex folders Salidium and Seorak read (2026-10-07)
+
+Since 2026-10-07 Halcyonic runs Codex in a home of its own, `~/.halcyonic/codex-home`, never the
+person's `~/.codex` ([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of
+2026-10-07), so its rollouts land in `~/.halcyonic/codex-home/sessions`. Whether either source can
+see them was read in their source code, read only; nothing was run, installed or reconfigured. The
+two launchd plists were checked for key names only, since Seorak's holds its worker keys.
+
+- **Salidium** at `abb7a93` (branch `main`) reads `sessions` and `archived_sessions` of one Codex
+  home: `$CODEX_HOME` of its own process, or `~/.codex`
+  (`packages/adapters/codex/src/codexAdapter.ts:24-27`; the CLI's status check applies the same
+  rule, `packages/cli/src/integrations.ts:170-174`). Its daemon configuration has no setting for an
+  extra folder (`packages/daemon/src/config/daemonConfig.ts:52-69`), and it refuses a hook's
+  transcript path outside those folders (`packages/daemon/src/ingest/hookIngress.ts:164-172`). Its
+  launchd service passes only `HOME`, `SALIDIUM_HOME`, `PATH` and the `SALIDIUM_*` variables
+  (`packages/cli/src/macosService.ts:469-485`), and the installed
+  `~/Library/LaunchAgents/com.salidium.daemon.plist` names no `CODEX_HOME`, so the running daemon
+  reads `~/.codex`. It filters rollouts on no `thread_source` or `originator`.
+- **Seorak** at `e4f33e92` (branch `main`) reads one sessions folder, `~/.codex/sessions`, and
+  ignores `CODEX_HOME` (`packages/collector/src/codex-tailer.ts:90-92`). `SEORAK_CODEX_DIR`
+  replaces that folder (`:91`); the installed `~/Library/LaunchAgents/app.seorak.collector.plist`
+  sets neither it nor `CODEX_HOME`. It skips subagent, forked and child threads
+  (`packages/collector/src/adapters/codex.ts:817-828`), not Halcyonic's.
+
+So, as installed, neither reads Halcyonic's Codex home. Each can be pointed at another folder only
+in place of the person's own, which would stop it reading their Codex sessions, so nothing was
+changed: their settings are the owner's call, and a second watched folder is a change to each
+product ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
+
+What the control plane does about it: for an execution of the `codex` runtime, Understand and
+Checks answer `unavailable` with `runtime_not_observed` at once, without asking Salidium or Seorak
+and without reading either credential (`intelligence/understanding.ts`, `KEPT_IN_HALCYONICS_HOME`,
+with a test for each source). Lane W's headset line for that code is "it doesn't follow tasks this
+agent app runs". The line "it hasn't seen this task yet", with Refresh, would be a false way on,
+since a refresh can never find the session. Codex executions started before this change were
+written to `~/.codex` and may be known to both sources, but they get the same answer now
+(inference: there is no record in the journal of which home an execution used).
