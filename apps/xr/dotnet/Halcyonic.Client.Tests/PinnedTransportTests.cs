@@ -229,6 +229,23 @@ public class PinnedTransportTests
         Assert.That(PinnedHttpHandler.Reported(new ArgumentException("bug"), CancellationToken.None), Is.Null, "anything else as it was thrown");
     }
 
+    /// <summary>
+    /// A request whose token is cancelled ends cancelled even where the runtime throws something else on the
+    /// way: here the name lookup, which takes no token, fails for a name that never resolves (RFC 6761), as
+    /// Mono may fail a closed connection rather than cancel it (the review's R6).
+    /// </summary>
+    [Test]
+    public void ARequestCancelledWhileItsNameFailedToResolveEndsCancelled()
+    {
+        using var invoker = new HttpMessageInvoker(new PinnedHttpHandler(new string('a', 64)));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        Assert.That(async () => await invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, "https://halcyonic-test.invalid/api/locations"), cancelled.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(async () => await invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, "https://halcyonic-test.invalid/api/locations"), CancellationToken.None),
+            Throws.InstanceOf<HttpRequestException>(), "while its token stands, a connection that failed");
+    }
+
     [Test]
     public void TargetsUseThePinnedTransportsOnlyForAPairing()
     {

@@ -116,7 +116,9 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
   (`ConnectionStatus.ForLog`). That line is the phase, then the diagnostic where there is one, else
   the detail: the diagnostic is a transport exception's message, which names an address, a port or
   a TLS, DNS or socket error, or a refused upgrade's status and a code kept by its shape; the detail
-  is fixed words, and since 2026-10-07 never an exception's message. A message the app
+  is fixed words, and since 2026-10-07 never an exception's message but one: a USB endpoint the
+  token is never sent to is refused with `TokenNotSentException`'s own message, Halcyonic's words
+  with the configured address, which is the person's own setting (RealtimeSession). A message the app
   can't read leaves no diagnostic, so never a parser's quote (fixed). The scan flags `ForLog` and
   `Diagnostic` by name, so a new call that logs either is reviewed. The pairing store's inner
   exception, which could quote the pairing file, is never logged. Voice and companion failures are
