@@ -6,7 +6,6 @@ using Halcyonic.Client;
 using Halcyonic.Contracts;
 using Halcyonic.XR.UI;
 using Halcyonic.XR.UI.Editor;
-using Unity.Profiling;
 using UnityEngine;
 
 namespace Halcyonic.XR.Workspace.Editor
@@ -1031,30 +1030,21 @@ namespace Halcyonic.XR.Workspace.Editor
             waiting.SubjectIsData, waiting.Pill, waiting.Sections, waiting.Lines, waiting.Source, waiting.Side, waiting.SourceIsData, waiting.SubjectWaits);
 
         /// <summary>
-        /// A drag's step allocates nothing in Unity's own runtime, as GC Allocated In Frame counts it, where
-        /// an enumerator through an interface would be boxed: twenty steps, the least of three tries.
+        /// A drag's step allocates nothing in Unity's own runtime, where an enumerator through an interface
+        /// would be boxed: twenty steps, a step failing only where it allocated in every try
+        /// (<see cref="GlazeChecks.Allocations"/>).
         /// </summary>
         private static IEnumerable<string> DragAllocatesNothing(string name, MenuDirector director, Func<int, Vector3> pointAt)
         {
             var failures = new List<string>();
-            using var recorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame");
-            for (var step = 0; step < 4; step++) director.DragSubjectForRender(pointAt(step));
-            var probe = recorder.CurrentValue;
-            var kept = new byte[256];
-            if (recorder.CurrentValue - probe < kept.Length)
+            if (!(GlazeChecks.Allocations(step => director.DragSubjectForRender(pointAt(step)), 20) is (int every, int some, long bytes)))
             {
                 failures.Add(name + ": this editor cannot count allocations, so a drag's steps cannot be checked.");
                 return failures;
             }
-            var bytes = long.MaxValue;
-            for (var repeat = 0; repeat < 3; repeat++)
-            {
-                var before = recorder.CurrentValue;
-                for (var step = 0; step < 20; step++) director.DragSubjectForRender(pointAt(step));
-                bytes = Math.Min(bytes, recorder.CurrentValue - before);
-            }
-            if (bytes > 0) failures.Add(name + ": twenty steps of a drag allocate " + bytes + " bytes; a drag step allocates nothing.");
-            Debug.Log("Halcyonic: workspace render: " + name + " drags twenty steps allocating " + bytes + " bytes.");
+            if (every > 0) failures.Add(name + ": " + every + " of twenty steps of a drag allocate in each of 3 tries; a drag step allocates nothing.");
+            Debug.Log("Halcyonic: workspace render: " + name + " drags twenty steps: " + every + " allocate in every try, " + some + " in some; the quietest try counts "
+                + bytes + " bytes on every thread.");
             return failures;
         }
 
