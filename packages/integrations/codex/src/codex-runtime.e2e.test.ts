@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1175,7 +1175,8 @@ describe('Codex network probe, re-run on every Codex upgrade', {
           .catch(() => undefined);
       }
     };
-    await runtime.startExecution({
+    const started = new Date();
+    const { native_id: threadId } = await runtime.startExecution({
       execution: execution.context,
       instruction: 'Run the shell command `ls` once, then reply with the single word done.',
       options: { approval_policy: 'untrusted' },
@@ -1183,7 +1184,19 @@ describe('Codex network probe, re-run on every Codex upgrade', {
       model_ref: `ollama/${OLLAMA_MODEL}`,
       emit,
     });
+    // The control plane finds a thread's rollout by this name, in the folder of the local date
+    // (apps/control-plane/src/intelligence/codex-home.ts); whether it is there at once is noted.
+    const day = path(
+      `codex-home/sessions/${started.getFullYear()}/${String(started.getMonth() + 1).padStart(2, '0')}/${String(started.getDate()).padStart(2, '0')}`,
+    );
+    const named = () =>
+      existsSync(day) &&
+      readdirSync(day).some(
+        (name) => name.startsWith('rollout-') && name.endsWith(`-${threadId}.jsonl`),
+      );
+    const rolloutAtStart = named();
     await execution.next('runtime.turn.completed', 1, 480_000);
+    assert.ok(named(), `no rollout-*-${threadId}.jsonl in ${day}`);
     assert.equal(runtime.serverPid, serverPid, 'the server was relaunched during the probe');
     assert.deepEqual([...probe.servers], [serverPid]);
     await delay(5000);
@@ -1200,7 +1213,7 @@ describe('Codex network probe, re-run on every Codex upgrade', {
     assert.ok(existsSync(path('codex-home/sessions')));
     assert.equal(existsSync(path('home/.codex')), false);
     t.diagnostic(
-      `probe: ${probe.samples} samples, ${afterIdle} through startup and idle; loopback while idle ${idleLoopback.join(', ') || 'none'}, in all ${[...probe.loopback].join(', ')}`,
+      `rollout ${rolloutAtStart ? 'there when the start returned' : 'written after the start returned'}; probe: ${probe.samples} samples, ${afterIdle} through startup and idle; loopback while idle ${idleLoopback.join(', ') || 'none'}, in all ${[...probe.loopback].join(', ')}`,
     );
   });
 });
