@@ -153,6 +153,8 @@ public class FolderConnectTests
                 CommandId = command.CommandId, Status = CommandStatus.Rejected, Rejection = new CommandRejection { Code = code, Message = Leak },
             }));
             Assert.That(ConnectText.Outcome(connection), Does.Not.Contain("ECONNREFUSED").And.Not.Contain("OpenCode").And.Not.Contain("/Users/"), code.ToString());
+            // A revoked pairing in its one sentence, alone, as everywhere (the review's X22).
+            if (code == RejectionCode.DeviceRevoked) Assert.That(ConnectText.Outcome(connection), Is.EqualTo(ConnectionText.PairingRefused));
         }
         foreach (FailureEffect effect in Enum.GetValues(typeof(FailureEffect)))
         {
